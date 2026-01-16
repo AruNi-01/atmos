@@ -1,0 +1,249 @@
+# 修复后的 adr-list 命令
+# 替换 docs/justfile 中的 adr-list
+
+adr-list:
+    #!/usr/bin/env bash
+    echo "📋 架构决策记录 (ADR) 列表:"
+    echo ""
+    
+    # 检查 adr 目录是否存在
+    if [ ! -d "adr" ]; then
+        echo "❌ adr 目录不存在"
+        echo "请先运行: just adr-init"
+        exit 1
+    fi
+    
+    # 查找所有 ADR 文件
+    shopt -s nullglob  # 如果没有匹配文件,glob 返回空
+    files=(adr/[0-9][0-9][0-9]-*.md)
+    
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "  暂无 ADR 文件"
+        echo ""
+        echo "创建第一个 ADR:"
+        echo "  just adr-new \"采用 Monorepo 架构\""
+        exit 0
+    fi
+    
+    # 列出所有 ADR
+    for file in "${files[@]}"; do
+        # 提取编号 (001, 002, ...)
+        number=$(basename "$file" | grep -o '^[0-9]*')
+        
+        # 提取标题
+        title=$(head -n1 "$file" | sed 's/^# ADR-[0-9]*: //' | sed 's/^# //')
+        
+        # 提取状态
+        status=$(grep "^\*\*状态\*\*:" "$file" 2>/dev/null | head -1 | sed 's/.*: //' | sed 's/ .*//')
+        
+        # 如果没有找到状态,使用默认值
+        if [ -z "$status" ]; then
+            status="📝"
+        fi
+        
+        # 提取日期
+        date=$(grep "^\*\*日期\*\*:" "$file" 2>/dev/null | head -1 | sed 's/.*: //')
+        
+        # 格式化输出,用点号填充
+        if [ -n "$date" ]; then
+            # 计算需要的点号数量
+            combined="[$number] $status - $title"
+            dots_count=$((70 - ${#combined} - ${#date}))
+            if [ $dots_count -lt 3 ]; then
+                dots_count=3
+            fi
+            dots=$(printf '%*s' "$dots_count" | tr ' ' '·')
+            echo "  [$number] $status - $title $dots $date"
+        else
+            echo "  [$number] $status - $title"
+        fi
+    done
+    
+    echo ""
+    echo "查看详情: just adr-show <编号>"
+    echo "创建新的: just adr-new \"标题\""
+
+# 创建新的 ADR
+adr-new title:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    
+    ADR_DIR="adr"
+    mkdir -p "$ADR_DIR"
+    
+    # 获取下一个编号
+    LAST_NUM=$(ls -1 "$ADR_DIR"/[0-9]*.md 2>/dev/null | \
+               sed 's/.*\/\([0-9]*\)-.*/\1/' | \
+               sort -n | tail -1)
+    
+    if [ -z "$LAST_NUM" ]; then
+        NEXT_NUM=1
+    else
+        NEXT_NUM=$((10#$LAST_NUM + 1))
+    fi
+    
+    # 格式化编号为 001, 002 等
+    NUM_FORMATTED=$(printf "%03d" $NEXT_NUM)
+    
+    # 生成文件名 (将空格替换为连字符,转小写)
+    FILENAME="$NUM_FORMATTED-$(echo '{{title}}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-').md"
+    FILEPATH="$ADR_DIR/$FILENAME"
+    
+    # 检查模板是否存在
+    if [ ! -f "$ADR_DIR/template.md" ]; then
+        echo "❌ 模板文件不存在: $ADR_DIR/template.md"
+        echo "请先创建模板文件"
+        exit 1
+    fi
+    
+    # 复制模板
+    cp "$ADR_DIR/template.md" "$FILEPATH"
+    
+    # 替换占位符
+    TODAY=$(date +%Y-%m-%d)
+    sed -i.bak "s/ADR-NNN/ADR-$NUM_FORMATTED/g" "$FILEPATH"
+    sed -i.bak "s/YYYY-MM-DD/$TODAY/g" "$FILEPATH"
+    sed -i.bak "s/\[简短的决策标题\]/{{title}}/g" "$FILEPATH"
+    rm "$FILEPATH.bak" 2>/dev/null || true
+    
+    echo "✅ 已创建 ADR: $FILEPATH"
+    echo ""
+    echo "下一步:"
+    echo "  1. 编辑文件: ${EDITOR:-code} $FILEPATH"
+    echo "  2. 更新索引（README）: just adr-update-index"
+    echo "  3. 提交 PR 供团队讨论"
+    
+    # 自动打开编辑器
+    ${EDITOR:-code} "$FILEPATH" || true
+
+# 更新 ADR 索引（README）
+adr-update-index:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    
+    ADR_DIR="adr"
+    INDEX_FILE="$ADR_DIR/README.md"
+    
+    echo "🔄 更新 ADR 索引..."
+    
+    # 备份现有索引
+    if [ -f "$INDEX_FILE" ]; then
+        cp "$INDEX_FILE" "$INDEX_FILE.bak"
+    fi
+    
+    # 生成新索引 (保留头部说明,重新生成表格)
+    {
+        echo "# 架构决策记录 (ADR)"
+        echo ""
+        echo "本目录记录项目的重要架构决策。"
+        echo ""
+        echo "## 📋 ADR 索引"
+        echo ""
+        echo "| ADR | 标题 | 状态 | 日期 | 决策者 |"
+        echo "|-----|------|------|------|--------|"
+        
+        # 遍历所有 ADR 文件
+        ls -1 "$ADR_DIR"/[0-9]*.md 2>/dev/null | while read file; do
+            number=$(basename "$file" | cut -d'-' -f1)
+            filename=$(basename "$file")
+            title=$(head -n1 "$file" | sed 's/# ADR-[0-9]*: //')
+            status=$(grep "^\\*\\*状态\\*\\*:" "$file" | sed 's/.*: //' | sed 's/ .*//')
+            date=$(grep "^\\*\\*日期\\*\\*:" "$file" | sed 's/.*: //')
+            deciders=$(grep "^\\*\\*决策者\\*\\*:" "$file" | sed 's/.*: //')
+            
+            echo "| [$number](./$filename) | $title | $status | $date | $deciders |"
+        done
+        
+        echo ""
+        echo "## 📊 状态说明"
+        echo ""
+        echo "- ✅ **已采纳** (Accepted): 已决定并正在实施"
+        echo "- 🤔 **提议中** (Proposed): 正在讨论,尚未决定"
+        echo "- ❌ **已拒绝** (Rejected): 已决定不采用"
+        echo "- ⏸️ **已废弃** (Deprecated): 不再使用,但保留记录"
+        echo "- 🔄 **已替代** (Superseded): 被其他 ADR 替代"
+        echo "- 📝 **草稿** (Draft): 正在编写中"
+        
+    } > "$INDEX_FILE.tmp"
+    
+    mv "$INDEX_FILE.tmp" "$INDEX_FILE"
+    
+    echo "✅ 索引已更新: $INDEX_FILE"
+    rm -f "$INDEX_FILE.bak"
+
+# 查看 ADR 详情
+adr-show number:
+    #!/usr/bin/env bash
+    FILE=$(ls adr/{{number}}-*.md 2>/dev/null | head -1)
+    if [ -z "$FILE" ]; then
+        echo "❌ ADR-{{number}} 不存在"
+        exit 1
+    fi
+    
+    # 如果安装了 glow (Markdown 渲染工具),使用它显示
+    if command -v glow &> /dev/null; then
+        glow "$FILE"
+    # 如果安装了 bat (语法高亮),使用它
+    elif command -v bat &> /dev/null; then
+        bat "$FILE"
+    # 否则使用 cat
+    else
+        cat "$FILE"
+    fi
+
+# 搜索 ADR
+adr-search keyword:
+    @echo "🔍 搜索包含 '{{keyword}}' 的 ADR:"
+    @echo ""
+    @grep -l "{{keyword}}" adr/[0-9]*.md 2>/dev/null | while read file; do \
+        number=$(basename "$file" | cut -d'-' -f1); \
+        title=$(head -n1 "$file" | sed 's/# ADR-[0-9]*: //'); \
+        echo "  [$number] $title"; \
+        grep -n "{{keyword}}" "$file" | head -3 | sed 's/^/    /'; \
+        echo ""; \
+    done || echo "  未找到相关 ADR"
+
+# 初始化 ADR 目录结构
+adr-init:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    
+    ADR_DIR="adr"
+    
+    echo "🚀 初始化 ADR 目录..."
+    mkdir -p "$ADR_DIR"
+    
+    # 创建 README
+    if [ ! -f "$ADR_DIR/README.md" ]; then
+        echo "📋 创建索引文件..."
+        echo "# 架构决策记录 (ADR)" > "$ADR_DIR/README.md"
+        echo "" >> "$ADR_DIR/README.md"
+        echo "本目录记录项目的重要架构决策。" >> "$ADR_DIR/README.md"
+        echo "" >> "$ADR_DIR/README.md"
+        echo "使用 \`just adr-new \"标题\"\` 创建新的 ADR。" >> "$ADR_DIR/README.md"
+        echo "  ✅ 已创建: $ADR_DIR/README.md"
+    fi
+    
+    echo ""
+    echo "✅ ADR 目录初始化完成!"
+    echo "模板文件已在 artifact 中提供,请手动创建 $ADR_DIR/template.md"
+
+# 显示 ADR 帮助信息
+adr-help:
+    @echo "📚 ADR (架构决策记录) 管理命令"
+    @echo ""
+    @echo "初始化:"
+    @echo "  just adr-init                 初始化 ADR 目录结构"
+    @echo ""
+    @echo "创建和编辑:"
+    @echo "  just adr-new \"标题\"           创建新的 ADR"
+    @echo "  just adr-update-index         更新 ADR 索引"
+    @echo ""
+    @echo "查看和搜索:"
+    @echo "  just adr-list                 列出所有 ADR"
+    @echo "  just adr-show 001             查看 ADR-001 详情"
+    @echo "  just adr-search \"关键词\"      搜索 ADR"
+    @echo ""
+    @echo "示例:"
+    @echo "  just adr-new \"采用 Monorepo\""
+    @echo "  just adr-search \"Rust\""

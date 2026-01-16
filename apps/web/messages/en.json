@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "title": "Vibe Habitat",
+    "description": "Your personal productivity habitat"
+  },
+  "common": {
+    "home": "Home",
+    "about": "About",
+    "settings": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "home": {
+    "title": "Welcome to Vibe Habitat",
+    "description": "Your personal productivity habitat - build, create, and thrive."
+  }
+}
