@@ -1,0 +1,88 @@
+{
+  "metadata": {
+    "title": "Vibe Habitat - Your Personal Productivity Habitat",
+    "description": "Build, create, and thrive in your personal productivity habitat"
+  },
+  "common": {
+    "home": "Home",
+    "about": "About",
+    "settings": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "techStack": "Tech Stack",
+      "docs": "Docs",
+      "github": "GitHub"
+    },
+    "hero": {
+      "badge": "Open Source Project",
+      "title": "Your Personal",
+      "titleHighlight": "Productivity Habitat",
+      "description": "An open-source platform designed for developers to organize their digital life. Build, create, and thrive in a unified workspace.",
+      "cta": {
+        "getStarted": "Get Started",
+        "viewGithub": "View on GitHub"
+      }
+    },
+    "features": {
+      "title": "Features",
+      "subtitle": "Everything you need to boost your productivity",
+      "items": {
+        "monorepo": {
+          "title": "Monorepo Architecture",
+          "description": "Built with a modern monorepo structure for seamless scalability and code sharing across applications."
+        },
+        "i18n": {
+          "title": "Internationalization",
+          "description": "Full i18n support with next-intl, making your applications accessible to users worldwide."
+        },
+        "theming": {
+          "title": "Dark/Light Mode",
+          "description": "Beautiful dark and light themes with seamless transitions, powered by next-themes."
+        },
+        "components": {
+          "title": "Shared UI Components",
+          "description": "A comprehensive component library with shadcn/ui, ensuring consistent design across all apps."
+        },
+        "typescript": {
+          "title": "Type-Safe",
+          "description": "End-to-end TypeScript support with strict type checking for a better developer experience."
+        },
+        "performance": {
+          "title": "Blazing Fast",
+          "description": "Optimized with Turbopack for lightning-fast development and builds."
+        }
+      }
+    },
+    "techStack": {
+      "title": "Tech Stack",
+      "subtitle": "Built with modern, battle-tested technologies",
+      "items": {
+        "nextjs": "Next.js 16",
+        "react": "React 19",
+        "typescript": "TypeScript",
+        "tailwind": "Tailwind CSS v4",
+        "bun": "Bun"
+      }
+    },
+    "cta": {
+      "title": "Ready to Get Started?",
+      "description": "Join the community and start building your personal productivity habitat today.",
+      "button": "Start Building"
+    },
+    "footer": {
+      "copyright": "© 2026 Vibe Habitat. All rights reserved.",
+      "links": {
+        "github": "GitHub",
+        "docs": "Documentation",
+        "discord": "Discord"
+      }
+    }
+  }
+}

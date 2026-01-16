@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "apps/api",
+    "apps/cli",
+    "apps/desktop/src-tauri",
+    "crates/*",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# 统一管理共享依赖版本
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+clap = { version = "4.0", features = ["derive"] }

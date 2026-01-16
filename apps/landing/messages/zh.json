@@ -1,0 +1,88 @@
+{
+  "metadata": {
+    "title": "Vibe Habitat - 你的个人效率栖息地",
+    "description": "在你的个人效率栖息地中构建、创造、蓬勃发展"
+  },
+  "common": {
+    "home": "首页",
+    "about": "关于",
+    "settings": "设置",
+    "language": "语言",
+    "theme": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统"
+  },
+  "landing": {
+    "nav": {
+      "features": "功能特性",
+      "techStack": "技术栈",
+      "docs": "文档",
+      "github": "GitHub"
+    },
+    "hero": {
+      "badge": "开源项目",
+      "title": "你的个人",
+      "titleHighlight": "效率栖息地",
+      "description": "一个为开发者设计的开源平台，用于组织你的数字生活。在统一的工作空间中构建、创造、蓬勃发展。",
+      "cta": {
+        "getStarted": "开始使用",
+        "viewGithub": "查看 GitHub"
+      }
+    },
+    "features": {
+      "title": "功能特性",
+      "subtitle": "提升生产力所需的一切",
+      "items": {
+        "monorepo": {
+          "title": "Monorepo 架构",
+          "description": "采用现代 Monorepo 结构构建，实现无缝扩展和跨应用代码共享。"
+        },
+        "i18n": {
+          "title": "国际化支持",
+          "description": "通过 next-intl 提供完整的 i18n 支持，让你的应用触达全球用户。"
+        },
+        "theming": {
+          "title": "深色/浅色主题",
+          "description": "优美的深色和浅色主题，配合无缝过渡效果，由 next-themes 驱动。"
+        },
+        "components": {
+          "title": "共享 UI 组件",
+          "description": "基于 shadcn/ui 的综合组件库，确保所有应用的设计一致性。"
+        },
+        "typescript": {
+          "title": "类型安全",
+          "description": "端到端的 TypeScript 支持，配合严格的类型检查，带来更好的开发体验。"
+        },
+        "performance": {
+          "title": "极速性能",
+          "description": "通过 Turbopack 优化，实现闪电般快速的开发和构建。"
+        }
+      }
+    },
+    "techStack": {
+      "title": "技术栈",
+      "subtitle": "采用现代化、久经考验的技术构建",
+      "items": {
+        "nextjs": "Next.js 16",
+        "react": "React 19",
+        "typescript": "TypeScript",
+        "tailwind": "Tailwind CSS v4",
+        "bun": "Bun"
+      }
+    },
+    "cta": {
+      "title": "准备好开始了吗？",
+      "description": "加入社区，今天就开始构建你的个人效率栖息地。",
+      "button": "开始构建"
+    },
+    "footer": {
+      "copyright": "© 2026 Vibe Habitat. 保留所有权利。",
+      "links": {
+        "github": "GitHub",
+        "docs": "文档",
+        "discord": "Discord"
+      }
+    }
+  }
+}
