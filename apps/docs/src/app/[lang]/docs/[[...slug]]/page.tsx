@@ -5,6 +5,7 @@ import { getMDXComponents } from '@/mdx-components';
 import type { Metadata } from 'next';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
 import { LLMCopyButton, ViewOptions } from '@/components/ai/page-actions';
+import { Overlay } from '@/components/overlay';
 
 export default async function Page(props: {
   params: Promise<{ lang: string; slug?: string[] }>;
@@ -47,7 +48,8 @@ export default async function Page(props: {
           })}
         />
       </DocsBody>
-    </DocsPage >
+      <Overlay />
+    </DocsPage>
   );
 }
 
