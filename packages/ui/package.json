@@ -13,7 +13,10 @@
   },
   "scripts": {
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ui:add": "bunx --bun shadcn@latest add",
+    "ui:add:coss": "bunx --bun shadcn@latest add -c components.coss.json",
+    "ui:add:animate": "bunx --bun shadcn@latest add -c components.animate.json"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -38,7 +41,7 @@
     "typescript": "^5"
   },
   "peerDependencies": {
-    "react": "^18 || ^19",
-    "react-dom": "^18 || ^19"
+    "react": "^19",
+    "react-dom": "^19"
   }
 }
