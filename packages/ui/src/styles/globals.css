@@ -1,11 +1,4 @@
-/*
- * Shared base styles for all Next.js + Tailwind CSS 4 projects
- * Import this in your app's globals.css:
- * @import "@vibe-habitat/config/styles/base.css";
- */
-
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -52,10 +45,6 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
-/* 
- * Zinc color scheme (shadcn/ui default)
- * Light mode 
- */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -91,7 +80,6 @@
   --sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
-/* Dark mode */
 .dark {
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);

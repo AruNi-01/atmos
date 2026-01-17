@@ -1,3 +1,11 @@
-@import 'tailwindcss';
+/* Import UI package global styles */
+@import "@workspace/ui/globals.css";
+
+/* Tell Tailwind to scan our UI package components */
+@source "../../../../packages/ui/src";
+
+/* Docs app specific styles */
+/* Add your custom styles here */
+
 @import 'fumadocs-ui/css/solar.css';
 @import 'fumadocs-ui/css/preset.css';

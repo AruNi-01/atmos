@@ -2,7 +2,7 @@
 
 import { useLocale } from "next-intl";
 import { usePathname, useRouter } from "@vibe-habitat/i18n/navigation";
-import { LanguageSelector } from "@vibe-habitat/ui";
+import { LanguageSelector } from "@workspace/ui/components/language-selector";
 
 export function LocaleSwitcher() {
   const locale = useLocale();

@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import { Globe } from "lucide-react";
-import { Button } from "./button";
+import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./dropdown-menu";
+} from "./ui/dropdown-menu";
 
 interface LanguageSelectorProps {
   locale: string;
