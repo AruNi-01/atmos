@@ -1,3 +1,3 @@
-import { cn } from "@vibe-habitat/ui";
+import { cn } from "@workspace/ui/lib/utils";
 
 export { cn };

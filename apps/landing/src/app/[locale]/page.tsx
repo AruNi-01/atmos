@@ -1,7 +1,8 @@
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import Link from "next/link";
-import { ThemeToggle, Button } from "@vibe-habitat/ui";
+import { ThemeToggle } from "@workspace/ui/components/theme-toggle";
+import { Button } from "@workspace/ui/components/ui/button";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { HeroSection } from "@/components/sections/hero-section";
 import { FeaturesSection } from "@/components/sections/features-section";

@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@vibe-habitat/shared": "workspace:*",
-    "@vibe-habitat/ui": "workspace:*",
+    "@workspace/ui": "workspace:*",
     "@vibe-habitat/i18n": "workspace:*",
     "lucide-react": "^0.562.0",
     "next": "16.1.2",

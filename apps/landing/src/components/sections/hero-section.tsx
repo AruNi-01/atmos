@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Button } from "@vibe-habitat/ui";
+import { Button } from "@workspace/ui/components/ui/button";
 import { ArrowRight, Github } from "lucide-react";
 
 export function HeroSection() {
