@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web App - Code Structure
 
-## Getting Started
+> **📂 This document explains the file/folder structure** within the web app.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 📁 Directory Structure
+
+```
+apps/web/
+├── public/                     # Static assets
+├── src/
+│   ├── app/                    # Next.js App Router
+│   │   ├── [locale]/           # Internationalized routes
+│   │   └── globals.css         # Global styles
+│   ├── components/             # Local React components
+│   ├── hooks/                  # Local React hooks
+│   ├── types/                  # 🌟 TypeScript types
+│   │   └── api.ts              # API Response/Request types
+│   ├── api/                    # 🌟 API Communication Layer
+│   │   └── client.ts           # Centralized API client
+│   ├── i18n/                   # I18n configuration
+│   └── lib/                    # Shared utilities
+├── middleware.ts               # next-intl middleware
+├── next.config.ts              # Next.js configuration
+├── components.json             # shadcn configuration
+├── package.json                # Dependencies
+└── README.md                   # This file
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🎯 Key Design Choices
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### API Layer (`src/api/`)
+Instead of a shared package, the API client is co-located within the app to allow for faster iteration and app-specific error handling. All calls to the Rust backend go through this layer.
 
-## Learn More
+### Type Definition (`src/types/`)
+`api.ts` serves as the frontend "Source of Truth" for the backend contract. When changing an Axum handler in `apps/api`, you must update the corresponding type here.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🔗 Related Documentation
+- **Working Instructions**: [AGENTS.md](./AGENTS.md)
+- **UI Components**: [../../packages/ui/AGENTS.md](../../packages/ui/AGENTS.md)
+- **I18n Setup**: [../../packages/i18n/AGENTS.md](../../packages/i18n/AGENTS.md)

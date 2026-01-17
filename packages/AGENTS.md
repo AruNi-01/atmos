@@ -1,54 +1,36 @@
-# Packages Directory
+# Packages Directory - AGENTS.md
 
-This directory contains shared packages that are used across different applications in the `apps/` directory.
+> **📦 Shared Capabilities**: Common UI, logic, and configurations.
 
-## Structure
+---
 
-- **ui**: Reusable UI components (based on Shadcn UI), styles, and icons.
-- **i18n**: Internationalization logic, routing configuration, and navigation utilities.
-- **config**: Shared configurations (ESLint, Tailwind, TypeScript, etc.).
-- **shared**: Shared utilities, hooks, and types.
+## 📁 Shared Packages
 
-## Usage
+| Package | Purpose | Standard Namespace |
+|---------|---------|-------------------|
+| **ui** | Component Library | `@workspace/ui` |
+| **shared** | Utils & Hooks | `@vibe-habitat/shared` |
+| **config** | TS/Lint configs | `@workspace/config` |
+| **i18n** | Translations | `@workspace/i18n` |
 
-Packages are managed using Bun workspaces. To use a package in an app:
+---
 
-1.  Add the dependency to the app's `package.json`:
-    ```json
-    {
-      "dependencies": {
-        "@vibe-habitat/ui": "workspace:*",
-        "@vibe-habitat/i18n": "workspace:*"
-      }
-    }
-    ```
+## 🛠 Usage Standards
 
-2.  Import components or utilities in your code:
-    ```tsx
-    import { Button } from "@vibe-habitat/ui";
-    import { routing } from "@vibe-habitat/i18n/routing";
-    ```
+### 1. The `@workspace/ui` Package
+- **Atomic components** only in `src/components/ui`.
+- **NO API CALLS**: This package must remain pure UI.
 
-## Important Notes
+### 2. The `@vibe-habitat/shared` Package
+- Contains common logic and framework-agnostic utilities.
 
-### Tailwind CSS v4 Integration
+---
 
-When using UI components from `@vibe-habitat/ui` (or any other package with Tailwind classes) in a Next.js app (or any Tailwind v4 app), you **MUST** explicitly tell Tailwind to scan the package source files.
+## 🚦 Architecture Note: API Clients
+- **Decentralized API Clients**: Following the current architecture, API clients and Type definitions are co-located within individual applications (e.g., `apps/web/src/api/` and `apps/web/src/types/api.ts`).
+- **Reasoning**: This allows apps to evolve their data requirements independently while maintaining a clear link to the backend DTOs.
 
-In your app's main CSS file (e.g., `apps/web/src/app/globals.css`), add a `@source` directive:
+---
 
-```css
-@import "tailwindcss";
-
-/* 
-  Crucial: Tell Tailwind to scan the UI package for class names.
-  Adjust the path if your directory structure differs.
-*/
-@source "../../../../packages/ui"; 
-
-@import "tw-animate-css";
-/* ... other imports ... */
-```
-
-**Why?**
-Startups using Tailwind v4 rely on automatic content detection. If you don't add `@source`, Tailwind won't "see" that you are using classes like `bg-primary` or `p-4` inside `node_modules` (even in workspaces), and those styles will be missing (components will look transparent or unstyled).
+## 🚦 Integration Rule
+- Apps **MUST** depend on these packages via workspace protocol (`workspace:*`).

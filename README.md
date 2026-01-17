@@ -1,59 +1,54 @@
 # Vibe Habitat
 
-Deepmind-style AI-first Workspace.
+**Deepmind-style AI-first Workspace Ecosystem** | Next.js 16 + React 19 + Rust + Tauri
 
-## Overview
+---
 
-Vibe Habitat is a modern, AI-integrated workspace ecosystem designed for maximum productivity and developer experience. It adopts a monorepo structure combining high-performance Rust backend services with a cutting-edge Next.js frontend and Tauri-based desktop application.
+## 🏗 System Architecture (Monorepo)
 
-## 🚀 Quick Start
+Following the **L1 -> L2 -> L3 -> App** layered design:
+
+### 🦀 Backend (Rust)
+*   **[L1: Infrastructure](crates/infra/)**: Database (SeaORM), WebSocket Engine, Cache, Jobs.
+*   **[L2: Core Engine](crates/core-engine/)**: Technical capabilities (PTY, Git, FS Watcher, Tmux).
+*   **[L3: Core Service](crates/core-service/)**: Business logic and domain rules.
+*   **[App: API](apps/api/)**: Axum HTTP/WS entry point.
+
+### 🚀 Frontend & Shared
+*   **[web](apps/web/)**: Next.js 16 web application.
+*   **[desktop](apps/desktop/)**: Tauri 2.0 cross-platform app.
+*   **[ui](packages/ui/)**: Shared shadcn/ui components (@workspace/ui).
+*   **[shared](packages/shared/)**: Shared utils & hooks (@vibe-habitat/shared).
+
+---
+
+## ⚡ Quick Start
 
 ### Prerequisites
-
-- [Bun](https://bun.sh) (Frontend Package Manager)
-- [Rust](https://www.rust-lang.org/) (Backend / CLI)
-- [Just](https://github.com/casey/just) (Command Runner)
+- [Bun](https://bun.sh) (Frontend manager)
+- [Rust](https://www.rust-lang.org/) (Backend runtime)
+- [Just](https://github.com/casey/just) (Task runner)
 
 ### Installation
-
 ```bash
-# Install dependencies
 bun install
 ```
 
 ### Development
-
 ```bash
-# Start Web App
-just dev-web
-
-# Start API Server
-just dev-api
-
-# Run CLI
-just dev-cli
-
-# Build All
-just build-all
+just dev-web    # Start Web UI
+just dev-api    # Start Backend API
+just dev-cli    # Run CLI tool
 ```
 
-For more available commands, run `just`.
+---
 
-## 📚 Documentation
+## 📚 Navigation for AI Agents
+Please refer to **[AGENTS.md](./AGENTS.md)** for a 60-second architecture overview and deep-dive routing.
 
-- [Development Guide](docs/development.md)
-- [Architecture](docs/architecture.md)
-- [Contributing](CONTRIBUTING.md)
-- [Changelog](CHANGELOG.md)
+---
 
-## 🏗 Structure
-
-This project follows a Monorepo structure:
-
-- `apps/`: Applications (Web, Desktop, CLI, API)
-- `packages/`: Shared frontend packages (UI, Logic, Config)
-- `crates/`: Shared Rust crates
-- `docs/`: Developer documentation
-- `specs/`: Product and Technical specifications
-
-See [docs/architecture.md](docs/architecture.md) for details.
+## 📝 Document Hierarchy
+- **[specs/](./specs/)**: PRDs and Technical Specifications.
+- **[docs/](./docs/)**: High-level design and Architecture Decision Records (ADR).
+- **[crates/*/README.md](./crates/)**: Specific documentation for each backend layer.
