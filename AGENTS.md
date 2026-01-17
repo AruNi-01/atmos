@@ -72,105 +72,14 @@ just lint         # 代码检查
 just test         # 运行测试
 ```
 
-## 🚀 创建新的前端 App
+## 🚀 开发指南
 
-### 步骤 1: 创建 Next.js 项目
+### 创建新的前端 App
+为了保持架构一致性，创建新 App 必须遵循标准化步骤（包括配置 Tailwind v4 扫描路径、shadcn 别名映射等）。
 
-```bash
-cd apps
-npx -y create-next-app@latest my-app --typescript --tailwind --src-dir --app --turbopack
-cd my-app
-```
+详见：[**`apps/AGENTS.md` - 快速开始指南**](apps/AGENTS.md)
 
-### 步骤 2: 更新 package.json
-
-```json
-{
-  "name": "my-app",
-  "dependencies": {
-    "@workspace/ui": "workspace:*",
-    "@vibe-habitat/i18n": "workspace:*",
-    "@vibe-habitat/shared": "workspace:*"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4"
-  }
-}
-```
-
-### 步骤 3: 配置 TypeScript
-
-在 `tsconfig.json` 中添加：
-
-```json
-{
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"]
-    }
-  }
-}
-```
-
-### 步骤 4: 配置 shadcn
-
-创建 `components.json`：
-
-```json
-{
-  "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "new-york",
-  "rsc": true,
-  "tsx": true,
-  "tailwind": {
-    "config": "",
-    "css": "../../packages/ui/src/styles/globals.css",
-    "baseColor": "zinc",
-    "cssVariables": true
-  },
-  "aliases": {
-    "components": "@/components",
-    "hooks": "@/hooks",
-    "lib": "@/lib",
-    "utils": "@workspace/ui/lib/utils",
-    "ui": "@workspace/ui/components"
-  },
-  "iconLibrary": "lucide"
-}
-```
-
-### 步骤 5: 配置全局样式
-
-更新 `src/app/globals.css`：
-
-```css
-/* 导入 UI 包的全局样式 */
-@import "@workspace/ui/globals.css";
-
-/* 可选：导入额外的动画库 */
-@import "tw-animate-css";
-
-/* 应用自己的自定义样式 */
-```
-
-### 步骤 6: 配置 PostCSS
-
-更新 `postcss.config.mjs`：
-
-```js
-import uiPostcssConfig from "@workspace/ui/postcss.config";
-export default uiPostcssConfig;
-```
-
-### 步骤 7: 安装依赖并运行
-
-```bash
-cd ../..  # 回到根目录
-bun install
-bun --filter my-app dev
-```
+---
 
 ## UI Component Conventions
 
@@ -218,15 +127,41 @@ apps/my-app/                     # 应用
 └── tsconfig.json ───────────────→ paths 映射 @workspace/ui/*
 ```
 
-### 添加 shadcn 组件
+### 组件安装规范
+
+在 Monorepo 中，组件的安装遵循 **“原子级共享，业务级隔离”** 的原则。
+
+#### 1. 基础 UI 组件 (原子级)
+所有通用的基础 UI 组件、第三方 UI 扩展库（如 Coss UI, Animate UI）必须统一安装在 `packages/ui` 中。
+
+**安装命令 (在 `packages/ui` 目录下运行):**
 
 ```bash
-# 在 packages/ui 中添加
-cd packages/ui
-bunx shadcn@latest add button dialog select
+# 安装标准 Shadcn 组件 -> 自动存入 src/components/ui/
+bun ui:add <component-name>
 
-# 组件会自动添加到 src/components/ui/
+# 安装 Coss UI 组件 -> 自动存入 src/components/coss/
+bun ui:add:coss <component-name>
+
+# 安装 Animate UI 组件 -> 自动存入 src/components/animate/
+bun ui:add:animate <component-name>
 ```
+
+#### 2. 业务组件 / 区块 (业务级)
+特定于某个 App 的业务逻辑组件（如特定的登录表单、仪表盘模块）应安装在各 App 自己的目录中。
+
+**安装方式 (在 `apps/my-app` 目录下运行):**
+
+```bash
+bunx shadcn@latest add <block-name>
+```
+
+**魔法效果:**
+- CLI 会识别到该区块。
+- 该区块所依赖的**原子 UI 组件**（如 Button, Input）会自动安装/下沉到 `packages/ui/src/components/ui`。
+- 该**业务区块代码**会生成在 `apps/my-app/src/components/` 下。
+
+---
 
 ## Code Style
 

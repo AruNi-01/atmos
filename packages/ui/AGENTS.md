@@ -16,7 +16,7 @@
 packages/ui/
 ├── src/
 │   ├── components/
-│   │   ├── ui/              # shadcn 组件
+│   │   ├── ui/              # shadcn 官方组件 (Atomic)
 │   │   │   ├── button.tsx
 │   │   │   ├── card.tsx
 │   │   │   ├── input.tsx
@@ -24,6 +24,9 @@ packages/ui/
 │   │   │   ├── dialog.tsx
 │   │   │   ├── select.tsx
 │   │   │   └── dropdown-menu.tsx
+│   │   ├── coss/            # Coss UI 风格组件
+│   │   │   └── frame.tsx
+│   │   ├── animate/         # 动画类组件
 │   │   ├── theme-toggle.tsx
 │   │   └── language-selector.tsx
 │   ├── lib/
