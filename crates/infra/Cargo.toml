@@ -1,0 +1,19 @@
+[package]
+name = "infra"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros"] }
+sea-orm-migration = { version = "1.1" }
+tokio = { version = "1.0", features = ["full"] }
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+thiserror = "2.0"
+uuid = { version = "1.0", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6.0"
+async-trait = "0.1"

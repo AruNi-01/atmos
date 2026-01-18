@@ -42,9 +42,17 @@ dev-all:
 build-desktop:
     cd apps/desktop && bun tauri build
 
+# 构建 API 服务器 (release 模式)
+build-api:
+    cargo build --release --bin api
+
 # 构建 CLI 工具 (release 模式)
 build-cli:
     cargo build --release --bin vh
+
+# 构建所有 Rust 项目
+build-rust:
+    cargo build --release --workspace
 
 # 构建所有项目
 build-all:
@@ -99,6 +107,10 @@ test-web:
 # 仅运行 Rust 测试
 test-rust:
     cargo test --workspace
+
+# 运行 API 测试
+test-api:
+    cargo test --package api
 
 # 运行测试并显示覆盖率
 test-coverage:
@@ -177,8 +189,12 @@ fresh: clean install-deps
 # ============================================
 
 alias d := dev-web
+alias da := dev-api
 alias b := build-all
+alias ba := build-api
+alias br := build-rust
 alias t := test
+alias ta := test-api
 alias l := lint
 alias f := fmt
 alias c := clean
