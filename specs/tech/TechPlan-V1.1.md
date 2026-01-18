@@ -445,28 +445,31 @@ vibe-habitat/
 | 层级 | 组件 | 技术 | 用途 | 关键特性 |
 |------|------|------|------|---------|
 | **应用层** | Web | Next.js 16 + React 19 + Tailwind CSS 4 | 主 Web 应用 | SSR/SSG、路由、API routes |
-| | Desktop | Tauri | 桌面应用 | 复用 Web 前端 + 原生 OS 集成 |
-| | CLI | Rust (clap) | 命令行工具 | Agent/LLM 友好 (JSON/Table 输出) |
+| Desktop | Tauri | 桌面应用 | 复用 Web 前端 + 原生 OS 集成 |
+| CLI | Rust (clap) | 命令行工具 | Agent/LLM 友好 (JSON/Table 输出) |
 | **共享 UI 包** | 原子组件 | shadcn/ui (zinc color) | 基础 UI 组件 | 统一存放于 `@workspace/ui/components/ui` |
-| | 风格组件 | Coss UI | Coss 风格组件 | 存放于 `@workspace/ui/components/coss` |
-| | 动画组件 | Animate UI | 交互动画 | 存放于 `@workspace/ui/components/animate` |
-| | 工具函数 | `packages/ui/lib/utils.ts` | cn 拼接等 | 供所有前端应用共享 |
-| | 主题 | next-themes | 深色/浅色主题 | 供所有前端应用共享 |
+| 风格组件 | Coss UI | Coss 风格组件 | 存放于 `@workspace/ui/components/coss` |
+| 动画组件 | Animate UI | 交互动画 | 存放于 `@workspace/ui/components/animate` |
+| 工具函数 | `packages/ui/lib/utils.ts` | cn 拼接等 | 供所有前端应用共享 |
+| 主题 | next-themes | 深色/浅色主题 | 供所有前端应用共享 |
 | **共享逻辑包** | 状态管理 | Zustand | 全局状态 | 存放于 `packages/shared` |
-| | 数据获取 | TanStack Query | 异步数据管理 | 缓存、重试、实时更新 |
-| | 国际化 | next-intl | 多语言支持 | 存放于 `packages/i18n` |
-| | 工具函数 | `packages/shared/src/utils/` | 共享工具 | 供所有前端应用共享 |
+| 数据获取 | TanStack Query | 异步数据管理 | 缓存、重试、实时更新 |
+| 国际化 | next-intl | 多语言支持 | 存放于 `packages/i18n` |
+| 工具函数 | `packages/shared/src/utils/` | 共享工具 | 供所有前端应用共享 |
 | **基础组件** | 终端 | Ghostty-Web / xterm.js | 终端渲染 | GPU 加速、完整 ANSI 支持 |
-| | 编辑器 | monaco-editor | 代码编辑 | 语法高亮、快速响应 |
-| | 窗口管理 | react-mosaic + react-resizable-panels | 动态面板布局 | 拖拽/Resize 调整、持久化 |
-| | Sidebar | @dnd-kit/sortable | 拖拽排序 | 项目/工作区列表排序 |
-| | Tabs | Coss UI - Tabs | 已开窗口管理 | 拖拽调整位置 |
-| | Diff | diffs.com | 代码变更审查 | Accept/Reject/Comment |
-| | 快捷键 | react-hotkeys-hook | 键盘快捷操作 | 全局热键管理 |
-| | 图标 | lucide-react | 矢量图标 | 一致的视觉风格 |
+| 编辑器 | monaco-editor | 代码编辑 | 语法高亮、快速响应 |
+| 窗口管理 | react-mosaic + react-resizable-panels | 动态面板布局 | 拖拽/Resize 调整、持久化 |
+| Project Workspace Sidebar | @dnd-kit/sortable | 拖拽排序 | 项目/工作区列表排序 |
+| File Tree | headless-tree | 文件树 | 拖拽、重命名、搜索 |
+| Tabs | Coss UI - Tabs | 已开窗口管理 | 拖拽调整位置 |
+| Diff | diffs.com | 代码变更审查 | Accept/Reject/Comment |
+| 快捷键 | react-hotkeys-hook | 键盘快捷操作 | 全局热键管理 |
+| 图标 | lucide-react | 矢量图标 | 一致的视觉风格 |
 | **工程化** | 包管理 | Bun | 依赖管理 | 高性能 workspace 支持 |
-| | 构建 | Next.js/Turbo | 应用构建 | 按需编译、增量构建 |
-| | 类型 | TypeScript 5 | 类型安全 | 严格模式 |
+| 构建 | Next.js/Turbo | 应用构建 | 按需编译、增量构建 |
+| 类型 | TypeScript 5 | 类型安全 | 严格模式 |
+
+
 ### 后端
 
 | 组件 | 技术 | 用途 | 关键特性 |
