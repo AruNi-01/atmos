@@ -4,6 +4,7 @@ export interface Workspace {
   branch: string;
   isActive: boolean;
   status: 'clean' | 'modified';
+  projectId: string;
 }
 
 export interface Project {
@@ -11,7 +12,27 @@ export interface Project {
   name: string;
   isOpen: boolean;
   workspaces: Workspace[];
+  // New fields for storage
+  mainFilePath: string;
+  sidebarOrder: number;
+  borderColor?: string;
 }
+
+// Color presets for project border
+export const PROJECT_COLOR_PRESETS = [
+  { name: 'Red', color: '#ef4444' },
+  { name: 'Orange', color: '#f97316' },
+  { name: 'Amber', color: '#f59e0b' },
+  { name: 'Green', color: '#22c55e' },
+  { name: 'Teal', color: '#14b8a6' },
+  { name: 'Blue', color: '#3b82f6' },
+  { name: 'Indigo', color: '#6366f1' },
+  { name: 'Purple', color: '#a855f7' },
+  { name: 'Pink', color: '#ec4899' },
+  { name: 'None', color: undefined },
+] as const;
+
+export type ProjectColorPreset = typeof PROJECT_COLOR_PRESETS[number];
 
 export interface Repo {
   id: string;
