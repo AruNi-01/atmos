@@ -13,6 +13,11 @@ docs/
 ├── deployment.md           # Deployment guide
 ├── api-design.md          # API design principles
 ├── justfile               # Task runner documentation
+├── README.md              # Overview of documentation
+├── architecture           # Detailed architecture documentation
+├── development            # Detailed development documentation
+├── api                    # API documentation
+├── agent_changelog        # Agent changelog documentation
 └── adr/                   # Architecture Decision Records
     ├── README.md
     ├── 001-monorepo-structure.md
