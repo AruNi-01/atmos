@@ -1,3 +1,5 @@
+"use client";
+
 // UI Components
 export * from "./components/ui/button";
 export * from "./components/ui/card";
@@ -11,3 +13,7 @@ export * from "./components/ui/dropdown-menu";
 
 // Utilities
 export { cn } from "./lib/utils";
+
+// Third Party Components
+export * from "react-resizable-panels";
+export * from "lucide-react";

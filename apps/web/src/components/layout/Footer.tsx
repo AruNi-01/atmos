@@ -1,5 +1,6 @@
+"use client";
 import React from 'react';
-import { GitBranch, Activity, Wifi } from 'lucide-react';
+import { GitBranch, Activity, Wifi } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 
 const Footer: React.FC = () => {

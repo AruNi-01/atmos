@@ -8,6 +8,7 @@ import { PROJECTS } from "@/constants";
 import { TERMINAL_LOGS } from "@/constants";
 import { FILE_CHANGES } from "@/constants";
 import Footer from "@/components/layout/Footer";
+import { PanelLayout } from "@/components/layout/PanelLayout";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -27,11 +28,11 @@ function HomeContent() {
     <div className="flex flex-col h-dvh">
       <Header />
 
-      <div className="flex-1 flex">
-        <LeftSidebar projects={PROJECTS} />
-        <CenterStage logs={TERMINAL_LOGS} />
-        <RightSidebar changes={FILE_CHANGES} />
-      </div>
+      <PanelLayout
+        leftSidebar={<LeftSidebar projects={PROJECTS} />}
+        centerStage={<CenterStage logs={TERMINAL_LOGS} />}
+        rightSidebar={<RightSidebar changes={FILE_CHANGES} />}
+      />
 
       <Footer />
     </div>
