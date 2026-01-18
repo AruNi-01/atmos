@@ -29,6 +29,7 @@ export function PanelLayout({
 
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   return (
     <PanelGroup
@@ -48,7 +49,8 @@ export function PanelLayout({
         onCollapse={() => setIsLeftCollapsed(true)}
         onExpand={() => setIsLeftCollapsed(false)}
         className={cn(
-          "h-full transition-all duration-300 ease-in-out",
+          "h-full flex flex-col",
+          !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
           isLeftCollapsed && "min-w-0!"
         )}
       >
@@ -65,6 +67,7 @@ export function PanelLayout({
         }}
         isCollapsed={isLeftCollapsed}
         side="left"
+        onDragging={setIsDragging}
       />
 
       {/* Center Stage */}
@@ -82,6 +85,7 @@ export function PanelLayout({
         }}
         isCollapsed={isRightCollapsed}
         side="right"
+        onDragging={setIsDragging}
       />
 
       {/* Right Sidebar */}
@@ -95,7 +99,8 @@ export function PanelLayout({
         onCollapse={() => setIsRightCollapsed(true)}
         onExpand={() => setIsRightCollapsed(false)}
         className={cn(
-          "h-full transition-all duration-300 ease-in-out",
+          "h-full flex flex-col",
+          !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
           isRightCollapsed && "min-w-0!"
         )}
       >
@@ -109,6 +114,7 @@ interface ResizeHandleProps {
   onCollapse: () => void;
   isCollapsed: boolean;
   side: "left" | "right";
+  onDragging: (isDragging: boolean) => void;
   className?: string;
 }
 
@@ -116,22 +122,19 @@ function ResizeHandle({
   onCollapse,
   isCollapsed,
   side,
+  onDragging,
   className,
 }: ResizeHandleProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
   return (
     <PanelResizeHandle
+      onDragging={onDragging}
       className={cn(
-        "relative flex w-1 items-center justify-center bg-white/5 transition-colors duration-200 hover:bg-white/10 group",
+        "relative flex w-px items-center justify-center bg-white/5 transition-colors duration-200 hover:bg-white/20 group touch-none",
+        "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10", // Expand hit area
         className
       )}
-      onDragging={(isDragging: boolean) => {
-        // Optional: handle dragging state
-      }}
     >
-      {/* Visual Line */}
-      <div className="h-full w-px bg-white/5 group-hover:bg-blue-500/50 transition-colors duration-200" />
+      {/* Visual Line (1px inherited from w-px parent) */}
 
       {/* Collapse Hint Button */}
       <button
@@ -139,8 +142,6 @@ function ResizeHandle({
           e.stopPropagation();
           onCollapse();
         }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         title={isCollapsed ? "Expand" : "Collapse"}
         className={cn(
           "absolute z-50 flex size-5 items-center justify-center rounded-full bg-zinc-800 border border-white/10 shadow-lg transition-all duration-200 hover:bg-zinc-700 hover:scale-110 opacity-0 group-hover:opacity-100",
