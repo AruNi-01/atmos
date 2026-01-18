@@ -43,8 +43,8 @@ export function PanelLayout({
         ref={leftPanelRef}
         collapsible
         defaultSize={20}
-        minSize={15}
-        maxSize={40}
+        minSize={10}
+        maxSize={30}
         collapsedSize={0}
         onCollapse={() => setIsLeftCollapsed(true)}
         onExpand={() => setIsLeftCollapsed(false)}
@@ -71,7 +71,7 @@ export function PanelLayout({
       />
 
       {/* Center Stage */}
-      <Panel defaultSize={60} minSize={30} className="h-full">
+      <Panel defaultSize={60} minSize={50} className="h-full">
         {centerStage}
       </Panel>
 
@@ -93,8 +93,8 @@ export function PanelLayout({
         ref={rightPanelRef}
         collapsible
         defaultSize={20}
-        minSize={15}
-        maxSize={40}
+        minSize={10}
+        maxSize={30}
         collapsedSize={0}
         onCollapse={() => setIsRightCollapsed(true)}
         onExpand={() => setIsRightCollapsed(false)}
