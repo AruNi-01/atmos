@@ -24,7 +24,7 @@ function HomeContent() {
   const t = useTranslations("home");
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-dvh">
       <Header />
 
       <div className="flex-1 flex">
