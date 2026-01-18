@@ -5,6 +5,7 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@vibe-habitat/i18n/routing";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { ToastProvider, AnchoredToastProvider } from "@workspace/ui";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -57,7 +58,11 @@ export default async function LocaleLayout({ children, params }: Props) {
           disableTransitionOnChange
         >
           <NextIntlClientProvider messages={messages}>
-            {children}
+            <ToastProvider position="bottom-right">
+              <AnchoredToastProvider>
+                {children}
+              </AnchoredToastProvider>
+            </ToastProvider>
           </NextIntlClientProvider>
         </ThemeProvider>
       </body>

@@ -43,6 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create services
     let test_service = Arc::new(TestService::new(Arc::clone(&test_engine), db.clone()));
+    let project_service = Arc::new(ProjectService::new(db.clone()));
     let ws_message_service = Arc::new(WsMessageService::new(
         Arc::clone(&test_engine),
         db.clone(),
@@ -58,6 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create AppState with dependency injection
     let app_state = AppState::new(
         test_service,
+        project_service,
         ws_message_service,
         message_push_service,
         ws_config,

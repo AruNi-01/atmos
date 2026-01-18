@@ -5,18 +5,24 @@ export const PROJECTS: Project[] = [
     id: 'p1',
     name: 'Core Infrastructure',
     isOpen: true,
+    mainFilePath: '/Users/username/Projects/core-infrastructure',
+    sidebarOrder: 0,
+    borderColor: '#3b82f6',
     workspaces: [
-      { id: 'w1', name: 'feat/auth-flow', branch: 'feat/auth-flow', isActive: true, status: 'modified' },
-      { id: 'w2', name: 'hotfix/api-latency', branch: 'hotfix/api-latency', isActive: false, status: 'clean' },
+      { id: 'w1', name: 'feat/auth-flow', branch: 'feat/auth-flow', isActive: true, status: 'modified', projectId: 'p1' },
+      { id: 'w2', name: 'hotfix/api-latency', branch: 'hotfix/api-latency', isActive: false, status: 'clean', projectId: 'p1' },
     ],
   },
   {
     id: 'p2',
     name: 'Frontend Clients',
     isOpen: false,
+    mainFilePath: '/Users/username/Projects/frontend-clients',
+    sidebarOrder: 1,
+    borderColor: '#22c55e',
     workspaces: [
-      { id: 'w3', name: 'chore/deps-upgrade', branch: 'chore/deps-upgrade', isActive: false, status: 'clean' },
-      { id: 'w4', name: 'feat/new-dashboard', branch: 'feat/new-dashboard', isActive: false, status: 'clean' },
+      { id: 'w3', name: 'chore/deps-upgrade', branch: 'chore/deps-upgrade', isActive: false, status: 'clean', projectId: 'p2' },
+      { id: 'w4', name: 'feat/new-dashboard', branch: 'feat/new-dashboard', isActive: false, status: 'clean', projectId: 'p2' },
     ],
   },
 ];
