@@ -77,7 +77,7 @@
 | ------------ | ------------------------------------ | --------------- |
 | **表现层**      | React, Next.js, TypeScript           | UI 组件、状态管理、用户交互 |
 | **终端渲染**     | Ghostty-Web                          | 高性能终端模拟与渲染      |
-| **窗口管理**     | react-mosaic                         | 灵活的面板布局与拖拽      |
+| **窗口管理**     | react-resizable-panels + @dnd-kit    | 灵活的面板布局与拖拽      |
 | **编辑与 Diff** | monaco-editor, diffs.com             | 文本编辑与代码审查       |
 | **通信层**      | WebSocket (Axum + tokio-tungstenite) | 实时双向通信          |
 | **业务逻辑**     | Rust (Axum)                          | 项目/工作区管理、Git 操作 |
@@ -458,7 +458,7 @@ vibe-habitat/
 | 工具函数 | `packages/shared/src/utils/` | 共享工具 | 供所有前端应用共享 |
 | **基础组件** | 终端 | Ghostty-Web / xterm.js | 终端渲染 | GPU 加速、完整 ANSI 支持 |
 | 编辑器 | monaco-editor | 代码编辑 | 语法高亮、快速响应 |
-| 窗口管理 | react-mosaic + react-resizable-panels | 动态面板布局 | 拖拽/Resize 调整、持久化 |
+| 窗口管理 | react-resizable-panels + @dnd-kit | 动态面板布局 | 拖拽/Resize 调整、持久化 |
 | Project Workspace Sidebar | @dnd-kit/sortable | 拖拽排序 | 项目/工作区列表排序 |
 | File Tree | headless-tree | 文件树 | 拖拽、重命名、搜索 |
 | Tabs | Coss UI - Tabs | 已开窗口管理 | 拖拽调整位置 |
@@ -679,8 +679,11 @@ Web 页面 / Desktop 窗口 / CLI 输出
 
 #### 4.1 布局状态
 
-- 以 react-mosaic 的布局树表示 pane 分布。
-- 每个 pane 包含类型（终端、编辑器、diff、preview、files、mini-terminal）及绑定的资源（workspaceId、terminalId、filePath 等）。
+- 基于 `react-resizable-panels` + `@dnd-kit` 构建自定义布局系统，布局模型支持以下节点类型：
+  - `SplitNode`：水平/垂直分割节点，包含子节点数组。
+  - `TabGroupNode`：Tab 组节点，包含 tabs 列表和 activeTabId。
+  - `LeafNode`：叶子节点，包含类型（终端、编辑器、diff、preview、files、mini-terminal）及绑定的资源（workspaceId、terminalId、filePath 等）。
+- 每个 pane 包含类型及绑定的资源。
 - 布局状态存于：
   - 前端全局状态（Zustand）。
   - 后端持久化（SQLite + SeaORM），按 workspace 维度保存。
@@ -693,6 +696,9 @@ Web 页面 / Desktop 窗口 / CLI 输出
 - 用户可：
   - 拆分/合并 pane（水平/垂直）。
   - 改变 pane 类型（终端 ↔ 编辑器等）。
+  - 拖拽 pane 到边缘 → Dock 吸附。
+  - 拖拽 pane 到 tab bar → 合并到 Tab 组。
+  - 拖拽 pane 到新区域 → 创建浮动窗口。
   - 保存当前布局为 workspace 默认布局。
 
 - 支持一键恢复默认布局。
@@ -822,7 +828,7 @@ Axum 路由与 WebSocket Handler
 
 - Changes + Diff 面板、Accept/Reject、Comment to Agent。
 - Setup/Run/Purge 脚本配置与执行。
-- react-mosaic 完整集成与布局持久化。
+- react-resizable-panels + @dnd-kit 完整集成与布局持久化。
 - 文件树浏览 + 编辑 + 简单 Preview。
 - `packages/shared` 完善（共享类型、工具函数）。
 
@@ -905,7 +911,7 @@ VibeHabitat 基于 Monorepo 架构，通过前后端分离、WebSocket 实时通
 - **持久化终端**：基于 tmux，支持断线重连
 - **交互式 Diff 审查**：前端接受/拒绝，后端落盘
 - **脚本自动化**：Setup / Run / Purge 贯穿 workspace 生命周期
-- **灵活布局**：react-mosaic 支持自由拆分/合并面板
+- **灵活布局**：react-resizable-panels + @dnd-kit 支持自由拆分/合并面板、Dock 吸附、Tab 合并、浮动窗口
 - **原生 Agent 体验**：直接在终端内运行各类 Code Agent，而不单独建 UI
 - **多端支持**：Web、Desktop (Tauri)、CLI 三端统一代码基础
 
