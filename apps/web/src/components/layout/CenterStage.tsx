@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { TerminalLine } from '@/types/types';
 import { MOCK_CODE, MOCK_DIFF } from '@/constants';
 import { Terminal, X, Monitor, Code, GitCompare } from 'lucide-react';
+import { cn } from "@/lib/utils";
 
 interface CenterStageProps {
     logs: TerminalLine[];
@@ -39,22 +40,31 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 {/* Tab 1: Terminal */}
                 <button
                     onClick={() => setActiveTab('terminal')}
-                    className={`flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors group relative ${activeTab === 'terminal' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'}`}
+                    className={cn(
+                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative",
+                        activeTab === 'terminal' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'
+                    )}
                 >
-                    <Terminal className="w-3.5 h-3.5" />
-                    <span className="text-[13px] font-medium">Terminal</span>
+                    <Terminal className="size-3.5" />
+                    <span className="text-[13px] font-medium text-pretty">Terminal</span>
                     {activeTab === 'terminal' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
                 </button>
 
                 {/* Tab 2: Editor */}
                 <button
                     onClick={() => setActiveTab('editor')}
-                    className={`flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors group relative ${activeTab === 'editor' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'}`}
+                    className={cn(
+                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative",
+                        activeTab === 'editor' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'
+                    )}
                 >
-                    <Code className="w-3.5 h-3.5" />
-                    <span className="text-[13px] font-medium">Button.tsx</span>
-                    <button className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-700 rounded">
-                        <X className="w-3 h-3" />
+                    <Code className="size-3.5" />
+                    <span className="text-[13px] font-medium text-pretty">Button.tsx</span>
+                    <button
+                        aria-label="Close tab"
+                        className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-700 rounded transition-opacity ease-out duration-200"
+                    >
+                        <X className="size-3" />
                     </button>
                     {activeTab === 'editor' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
                 </button>
@@ -62,12 +72,18 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 {/* Tab 3: Diff */}
                 <button
                     onClick={() => setActiveTab('diff')}
-                    className={`flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors group relative ${activeTab === 'diff' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'}`}
+                    className={cn(
+                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative",
+                        activeTab === 'diff' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'
+                    )}
                 >
-                    <GitCompare className="w-3.5 h-3.5" />
-                    <span className="text-[13px] font-medium">Header.tsx (Diff)</span>
-                    <button className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-700 rounded">
-                        <X className="w-3 h-3" />
+                    <GitCompare className="size-3.5" />
+                    <span className="text-[13px] font-medium text-pretty">Header.tsx (Diff)</span>
+                    <button
+                        aria-label="Close tab"
+                        className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-700 rounded transition-opacity ease-out duration-200"
+                    >
+                        <X className="size-3" />
                     </button>
                     {activeTab === 'diff' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
                 </button>
@@ -82,20 +98,20 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                         {/* Pane 1 */}
                         <div className="flex-1 flex flex-col border-b border-zinc-800">
                             <div className="h-8 flex items-center justify-between px-3 bg-zinc-800/20">
-                                <span className="text-[11px] text-zinc-400 font-medium">Local: 3000 (Server)</span>
+                                <span className="text-[11px] text-zinc-400 font-medium tabular-nums text-pretty">Local: 3000 (Server)</span>
                                 <div className="flex space-x-2">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                    <div className="size-2 rounded-full bg-emerald-500"></div>
                                 </div>
                             </div>
                             <div className="flex-1 p-4 font-mono text-[13px] overflow-y-auto no-scrollbar">
                                 {logs.map((log) => (
                                     <div key={log.id} className="mb-1 leading-relaxed break-all">
-                                        <span className={`
+                                        <span className={cn(`
                                     ${log.type === 'command' ? 'text-zinc-500' : ''}
                                     ${log.type === 'success' ? 'text-emerald-400' : ''}
                                     ${log.type === 'error' ? 'text-rose-400' : ''}
                                     ${log.type === 'info' ? 'text-blue-300' : ''}
-                                `}>
+                                `)}>
                                             {log.content}
                                         </span>
                                     </div>
@@ -105,11 +121,11 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                         {/* Pane 2 */}
                         <div className="flex-1 flex flex-col">
                             <div className="h-8 flex items-center justify-between px-3 bg-zinc-800/20">
-                                <span className="text-[11px] text-zinc-400 font-medium">Build: Watch Mode</span>
+                                <span className="text-[11px] text-zinc-400 font-medium text-pretty">Build: Watch Mode</span>
                             </div>
                             <div className="flex-1 p-4 font-mono text-[13px] text-zinc-400 overflow-y-auto no-scrollbar">
-                                <div> build started...</div>
-                                <div className="text-emerald-500"> build completed in 420ms</div>
+                                <div className="text-pretty"> build started...</div>
+                                <div className="text-emerald-500 tabular-nums text-pretty"> build completed in 420ms</div>
                                 <div className="flex items-center mt-2 animate-pulse">
                                     <span className="text-zinc-500 mr-2">➜</span>
                                     <span className="text-zinc-500">_</span>
@@ -127,7 +143,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                                 {/* Line Numbers */}
                                 <div className="w-10 flex-shrink-0 flex flex-col items-end pr-3 pt-4 bg-zinc-900/50 text-right select-none border-r border-zinc-800/30">
                                     {MOCK_CODE.split('\n').map((_, i) => (
-                                        <span key={i} className="text-[11px] font-mono leading-[1.6rem] text-zinc-700 font-medium">
+                                        <span key={i} className="text-[11px] font-mono leading-[1.6rem] text-zinc-700 font-medium tabular-nums">
                                             {i + 1}
                                         </span>
                                     ))}
@@ -151,7 +167,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                                 {/* Line Numbers */}
                                 <div className="w-10 flex-shrink-0 flex flex-col items-end pr-3 pt-4 bg-zinc-900/50 text-right select-none border-r border-zinc-800/30">
                                     {MOCK_DIFF.split('\n').map((_, i) => (
-                                        <span key={i} className="text-[11px] font-mono leading-[1.6rem] text-zinc-700 font-medium">
+                                        <span key={i} className="text-[11px] font-mono leading-[1.6rem] text-zinc-700 font-medium tabular-nums">
                                             {i + 1}
                                         </span>
                                     ))}

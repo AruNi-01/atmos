@@ -1,5 +1,6 @@
 import React from 'react';
 import { GitBranch, Activity, Wifi } from 'lucide-react';
+import { cn } from "@/lib/utils";
 
 const Footer: React.FC = () => {
   return (
@@ -7,16 +8,16 @@ const Footer: React.FC = () => {
 
       {/* Left Status */}
       <div className="flex items-center space-x-4">
-        <div className="flex items-center hover:text-zinc-300 cursor-pointer transition-colors">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></div>
+        <div className="flex items-center hover:text-zinc-300 cursor-pointer transition-colors ease-out duration-200">
+          <div className="size-2 rounded-full bg-emerald-500 mr-2"></div>
           <span className="font-medium text-zinc-400">NORMAL</span>
         </div>
-        <div className="flex items-center space-x-1.5 hover:text-blue-400 cursor-pointer transition-colors">
-          <GitBranch className="w-3 h-3" />
-          <span>feat/auth-flow</span>
+        <div className="flex items-center space-x-1.5 hover:text-blue-400 cursor-pointer transition-colors ease-out duration-200">
+          <GitBranch className="size-3" />
+          <span className="text-pretty">feat/auth-flow</span>
         </div>
         <div className="h-3 w-[1px] bg-zinc-800"></div>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 tabular-nums">
           <span>0 errors</span>
           <span className="text-zinc-700">|</span>
           <span>1 warning</span>
@@ -26,16 +27,16 @@ const Footer: React.FC = () => {
       {/* Right Status */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
-          <Activity className="w-3 h-3 text-emerald-500" />
-          <span>agent: idle</span>
+          <Activity className="size-3 text-emerald-500" />
+          <span className="text-pretty">agent: idle</span>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 tabular-nums">
           <span>Ln 42, Col 18</span>
           <span>UTF-8</span>
-          <span>TypeScript</span>
+          <span className="text-pretty">TypeScript</span>
         </div>
         <div className="flex items-center text-zinc-600">
-          <Wifi className="w-3 h-3" />
+          <Wifi className="size-3" />
         </div>
       </div>
     </footer>
