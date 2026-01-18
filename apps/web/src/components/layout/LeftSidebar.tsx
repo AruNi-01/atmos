@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { ChevronRight, ChevronDown, Plus, GitBranch, Folder, File, Briefcase, Layers } from 'lucide-react';
 import { FileNode, Project, Workspace } from '@/types/types';
 import { MOCK_FILE_TREE } from '@/constants';
+import { cn } from "@/lib/utils";
 
 interface LeftSidebarProps {
     projects: Project[];
@@ -35,22 +36,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
             return (
                 <div key={node.id}>
                     <div
-                        className="flex items-center px-2 py-1 hover:bg-zinc-800/50 cursor-pointer text-zinc-400 hover:text-zinc-200 transition-colors"
+                        className="flex items-center px-2 py-1 hover:bg-zinc-800/50 cursor-pointer text-zinc-400 hover:text-zinc-200 transition-colors ease-out duration-200"
                         style={{ paddingLeft: `${level * 12 + 8}px` }}
                         onClick={() => isFolder && toggleFolder(node.id)}
                     >
                         {isFolder && (
                             isExpanded ?
-                                <ChevronDown className="w-3.5 h-3.5 mr-1.5 opacity-60" /> :
-                                <ChevronRight className="w-3.5 h-3.5 mr-1.5 opacity-60" />
+                                <ChevronDown className="size-3.5 mr-1.5 opacity-60" /> :
+                                <ChevronRight className="size-3.5 mr-1.5 opacity-60" />
                         )}
                         {!isFolder && <div className="w-3.5 mr-1.5" />} {/* Indent spacer for files */}
 
                         {isFolder ?
-                            <Folder className="w-3.5 h-3.5 mr-2 text-zinc-500" /> :
-                            <File className="w-3.5 h-3.5 mr-2 text-zinc-600" />
+                            <Folder className="size-3.5 mr-2 text-zinc-500" /> :
+                            <File className="size-3.5 mr-2 text-zinc-600" />
                         }
-                        <span className="text-[13px] truncate">{node.name}</span>
+                        <span className="text-[13px] truncate text-pretty">{node.name}</span>
                     </div>
                     {isFolder && isExpanded && node.children && (
                         <div>{renderFileTree(node.children, level + 1)}</div>
@@ -67,18 +68,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
             <div className="h-10 flex items-center px-2 border-b border-white/5 space-x-1">
                 <button
                     onClick={() => setActiveTab('projects')}
-                    className={`flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-sm text-[12px] font-medium transition-colors ${activeTab === 'projects' ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
-                        }`}
+                    className={cn(
+                        "flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-sm text-[12px] font-medium transition-colors ease-out duration-200",
+                        activeTab === 'projects' ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
+                    )}
                 >
-                    <Layers className="w-3.5 h-3.5" />
+                    <Layers className="size-3.5" />
                     <span>Projects</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('files')}
-                    className={`flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-sm text-[12px] font-medium transition-colors ${activeTab === 'files' ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
-                        }`}
+                    className={cn(
+                        "flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-sm text-[12px] font-medium transition-colors ease-out duration-200",
+                        activeTab === 'files' ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
+                    )}
                 >
-                    <Folder className="w-3.5 h-3.5" />
+                    <Folder className="size-3.5" />
                     <span>Files</span>
                 </button>
             </div>
@@ -95,17 +100,21 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
                                     <div className="flex items-center justify-between px-2 py-1.5 group-hover/project:bg-zinc-800/20 rounded-sm mx-2 mb-1">
                                         <button
                                             onClick={() => toggleProject(project.id)}
-                                            className="flex items-center text-zinc-300 hover:text-white transition-colors flex-1 min-w-0"
+                                            className="flex items-center text-zinc-300 hover:text-white transition-colors ease-out duration-200 flex-1 min-w-0"
                                         >
                                             {isExpanded ?
-                                                <ChevronDown className="w-3.5 h-3.5 mr-2 opacity-60 flex-shrink-0" /> :
-                                                <ChevronRight className="w-3.5 h-3.5 mr-2 opacity-60 flex-shrink-0" />
+                                                <ChevronDown className="size-3.5 mr-2 opacity-60 flex-shrink-0" /> :
+                                                <ChevronRight className="size-3.5 mr-2 opacity-60 flex-shrink-0" />
                                             }
-                                            <Briefcase className="w-3.5 h-3.5 mr-2 text-zinc-500 flex-shrink-0" />
-                                            <span className="text-[13px] font-medium truncate">{project.name}</span>
+                                            <Briefcase className="size-3.5 mr-2 text-zinc-500 flex-shrink-0" />
+                                            <span className="text-[13px] font-medium truncate text-pretty">{project.name}</span>
                                         </button>
-                                        <button className="p-1 opacity-0 group-hover/project:opacity-100 hover:bg-zinc-700 rounded-sm transition-all" title="New Workspace">
-                                            <Plus className="w-3 h-3 text-zinc-400" />
+                                        <button
+                                            aria-label="New Workspace"
+                                            className="p-1 opacity-0 group-hover/project:opacity-100 hover:bg-zinc-700 rounded-sm transition-all ease-out duration-200"
+                                            title="New Workspace"
+                                        >
+                                            <Plus className="size-3 text-zinc-400" />
                                         </button>
                                     </div>
 
@@ -114,21 +123,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
                                             {project.workspaces.map(ws => (
                                                 <div
                                                     key={ws.id}
-                                                    className={`
-                                                ml-4 flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-all border border-transparent
-                                                ${ws.isActive
+                                                    className={cn(
+                                                        "ml-4 flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-all ease-out duration-200 border border-transparent",
+                                                        ws.isActive
                                                             ? 'bg-zinc-800/80 text-blue-400 border-zinc-700/50'
                                                             : 'text-zinc-200 hover:bg-zinc-800/40 hover:text-zinc-300'
-                                                        }
-                                            `}
+                                                    )}
                                                 >
-                                                    <GitBranch className={`w-3.5 h-3.5 mr-2 flex-shrink-0 ${ws.isActive ? 'text-blue-400' : 'text-zinc-600'}`} />
-                                                    <span className="text-[13px] truncate">{ws.name}</span>
-                                                    {ws.isActive && <div className="ml-auto w-1.5 h-1.5 rounded-sm-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
+                                                    <GitBranch className={cn("size-3.5 mr-2 flex-shrink-0", ws.isActive ? 'text-blue-400' : 'text-zinc-600')} />
+                                                    <span className="text-[13px] truncate text-pretty">{ws.name}</span>
+                                                    {ws.isActive && <div className="ml-auto size-1.5 rounded-sm-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
                                                 </div>
                                             ))}
                                             {project.workspaces.length === 0 && (
-                                                <div className="ml-4 px-3 py-1.5 text-[12px] text-zinc-600 italic">No workspaces</div>
+                                                <div className="ml-4 px-3 py-1.5 text-[12px] text-zinc-600 italic text-pretty">No workspaces</div>
                                             )}
                                         </div>
                                     )}
@@ -149,8 +157,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
             {/* Add Button */}
             {activeTab === 'projects' && (
                 <div className="p-3 border-t border-white/5">
-                    <button className="w-full flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[13px] py-1.5 rounded-sm border border-white/5 transition-colors shadow-sm">
-                        <Plus className="w-3.5 h-3.5" />
+                    <button className="w-full flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[13px] py-1.5 rounded-sm border border-white/5 transition-colors ease-out duration-200 shadow-sm">
+                        <Plus className="size-3.5" />
                         <span>Add Project</span>
                     </button>
                 </div>
