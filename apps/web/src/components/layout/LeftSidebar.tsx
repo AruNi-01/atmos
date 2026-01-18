@@ -67,7 +67,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
             <div className="h-10 flex items-center px-2 border-b border-white/5 space-x-1">
                 <button
                     onClick={() => setActiveTab('projects')}
-                    className={`flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-md text-[12px] font-medium transition-colors ${activeTab === 'projects' ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
+                    className={`flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-sm text-[12px] font-medium transition-colors ${activeTab === 'projects' ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
                         }`}
                 >
                     <Layers className="w-3.5 h-3.5" />
@@ -75,7 +75,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
                 </button>
                 <button
                     onClick={() => setActiveTab('files')}
-                    className={`flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-md text-[12px] font-medium transition-colors ${activeTab === 'files' ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
+                    className={`flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-sm text-[12px] font-medium transition-colors ${activeTab === 'files' ? 'bg-zinc-800 text-zinc-200 shadow-sm' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
                         }`}
                 >
                     <Folder className="w-3.5 h-3.5" />
@@ -92,7 +92,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
                             const isExpanded = expandedProjects.includes(project.id);
                             return (
                                 <div key={project.id} className="group/project">
-                                    <div className="flex items-center justify-between px-2 py-1.5 group-hover/project:bg-zinc-800/20 rounded-md mx-2 mb-1">
+                                    <div className="flex items-center justify-between px-2 py-1.5 group-hover/project:bg-zinc-800/20 rounded-sm mx-2 mb-1">
                                         <button
                                             onClick={() => toggleProject(project.id)}
                                             className="flex items-center text-zinc-300 hover:text-white transition-colors flex-1 min-w-0"
@@ -104,7 +104,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
                                             <Briefcase className="w-3.5 h-3.5 mr-2 text-zinc-500 flex-shrink-0" />
                                             <span className="text-[13px] font-medium truncate">{project.name}</span>
                                         </button>
-                                        <button className="p-1 opacity-0 group-hover/project:opacity-100 hover:bg-zinc-700 rounded transition-all" title="New Workspace">
+                                        <button className="p-1 opacity-0 group-hover/project:opacity-100 hover:bg-zinc-700 rounded-sm transition-all" title="New Workspace">
                                             <Plus className="w-3 h-3 text-zinc-400" />
                                         </button>
                                     </div>
@@ -124,7 +124,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
                                                 >
                                                     <GitBranch className={`w-3.5 h-3.5 mr-2 flex-shrink-0 ${ws.isActive ? 'text-blue-400' : 'text-zinc-600'}`} />
                                                     <span className="text-[13px] truncate">{ws.name}</span>
-                                                    {ws.isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
+                                                    {ws.isActive && <div className="ml-auto w-1.5 h-1.5 rounded-sm-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
                                                 </div>
                                             ))}
                                             {project.workspaces.length === 0 && (
@@ -149,7 +149,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
             {/* Add Button */}
             {activeTab === 'projects' && (
                 <div className="p-3 border-t border-white/5">
-                    <button className="w-full flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[13px] py-1.5 rounded border border-white/5 transition-colors shadow-sm">
+                    <button className="w-full flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[13px] py-1.5 rounded-sm border border-white/5 transition-colors shadow-sm">
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Project</span>
                     </button>

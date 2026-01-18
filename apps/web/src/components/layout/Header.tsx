@@ -15,15 +15,15 @@ const Header: React.FC = () => {
       </div>
 
       {/* Center: Git Context Flow */}
-      <div className="flex items-center space-x-3 bg-zinc-800/30 px-4 py-1.5 rounded-full border border-white/5 hover:border-zinc-700 transition-colors cursor-pointer group">
+      <div className="flex items-center space-x-3 bg-zinc-800/30 px-4 py-1.5 rounded-sm border border-white/5 hover:border-zinc-700 transition-colors cursor-pointer group">
         <div className="flex items-center space-x-2">
-          <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+          <span className="w-2 h-2 rounded-full bg-green-500"></span>
           <span className="text-[13px] font-medium text-zinc-200 group-hover:text-white transition-colors">feat/auth-flow</span>
         </div>
         <ArrowRight className="w-3.5 h-3.5 text-zinc-600" />
         <div className="flex items-center space-x-2">
-          <span className="w-2 h-2 rounded-full bg-zinc-600"></span>
-          <span className="text-[13px] font-medium text-zinc-500 group-hover:text-zinc-300 transition-colors">main</span>
+          <span className="w-2 h-2 rounded-full bg-zinc-400"></span>
+          <span className="text-[13px] font-medium text-zinc-400 group-hover:text-zinc-300 transition-colors">origin/main</span>
         </div>
       </div>
 
@@ -32,7 +32,7 @@ const Header: React.FC = () => {
         <button className="p-2 hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-300 transition-colors">
           <Search className="w-4 h-4" />
         </button>
-        <button className="flex items-center space-x-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[12px] font-medium rounded border border-white/5 transition-colors">
+        <button className="flex items-center space-x-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[12px] font-medium rounded-sm border border-white/5 transition-colors">
           <GitPullRequest className="w-3.5 h-3.5" />
           <span>Open PR</span>
         </button>
