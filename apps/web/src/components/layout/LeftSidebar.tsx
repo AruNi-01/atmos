@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, Plus, GitBranch, Folder, File, Briefcase, Layers } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, GitBranch, Folder, File, Briefcase, Layers } from '@workspace/ui';
 import { FileNode, Project, Workspace } from '@/types/types';
 import { MOCK_FILE_TREE } from '@/constants';
 import { cn } from "@/lib/utils";
@@ -62,7 +62,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects }) => {
     };
 
     return (
-        <aside className="w-[240px] flex-shrink-0 flex flex-col border-r border-white/5 h-full select-none">
+        <aside className="w-full flex flex-col border-r border-white/5 h-full select-none">
 
             {/* Tabs Header */}
             <div className="h-10 flex items-center px-2 border-b border-white/5 space-x-1">

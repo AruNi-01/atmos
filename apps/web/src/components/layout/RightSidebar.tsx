@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { FileChange } from '@/types/types';
-import { Play, TerminalSquare, FileCode, Check, RefreshCw } from 'lucide-react';
+import { Play, TerminalSquare, FileCode, Check, RefreshCw } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 
 interface RightSidebarProps {
@@ -11,7 +11,7 @@ interface RightSidebarProps {
 
 const RightSidebar: React.FC<RightSidebarProps> = ({ changes }) => {
   return (
-    <aside className="flex-shrink-0 flex flex-col border-l border-white/5 h-full">
+    <aside className="w-full flex flex-col border-l border-white/5 h-full">
 
       {/* Changes Header */}
       <div className="h-10 flex items-center justify-between px-4 border-b border-white/5">

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { TerminalLine } from '@/types/types';
 import { MOCK_CODE, MOCK_DIFF } from '@/constants';
-import { Terminal, X, Monitor, Code, GitCompare } from 'lucide-react';
+import { Terminal, X, Monitor, Code, GitCompare } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 
 interface CenterStageProps {

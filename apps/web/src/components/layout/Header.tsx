@@ -1,5 +1,6 @@
+"use client";
 import React from 'react';
-import { ArrowRight, GitPullRequest, Archive, Bell, Search, Hexagon } from 'lucide-react';
+import { ArrowRight, GitPullRequest, Archive, Bell, Search, Hexagon } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 
 const Header: React.FC = () => {

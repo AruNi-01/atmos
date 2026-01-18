@@ -26,6 +26,9 @@
       "fumadocs-mdx:collections/*": [
         ".source/*"
       ],
+      "@workspace/ui": [
+        "../../packages/ui/src/index.ts"
+      ],
       "@workspace/ui/*": [
         "../../packages/ui/src/*"
       ]
