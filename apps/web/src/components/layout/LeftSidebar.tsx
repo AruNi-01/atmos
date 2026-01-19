@@ -37,7 +37,11 @@ import {
     MouseSensor,
     DragOverlay,
     defaultDropAnimationSideEffects,
-    GitBranch
+    GitBranch,
+    Tabs,
+    TabsList,
+    TabsTab,
+    TabsPanel
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { projectApi, workspaceApi } from '@/api/project';
@@ -382,32 +386,33 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     return (
         <>
             <aside className="w-full flex flex-col border-r border-white/5 h-full select-none bg-[#0a0a0a]">
-                {/* Tabs Header */}
-                <div className="h-10 flex items-center px-2 border-b border-white/5 space-x-1">
-                    <button
-                        onClick={() => setActiveTab('projects')}
-                        className={cn(
-                            "flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-sm text-[12px] font-medium transition-all duration-300",
-                            activeTab === 'projects' ? 'bg-zinc-800 text-zinc-100 shadow-lg' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
-                        )}
-                    >
-                        <Layers className="size-3.5" />
-                        <span>Projects</span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('files')}
-                        className={cn(
-                            "flex-1 flex items-center justify-center space-x-2 py-1.5 rounded-sm text-[12px] font-medium transition-all duration-300",
-                            activeTab === 'files' ? 'bg-zinc-800 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
-                        )}
-                    >
-                        <Folder className="size-3.5" />
-                        <span>Files</span>
-                    </button>
-                </div>
+                <Tabs 
+                    defaultValue="projects" 
+                    className="flex flex-col h-full"
+                    onValueChange={(value) => setActiveTab(value as 'projects' | 'files')}
+                >
+                    {/* Tabs Header */}
+                    <div className="h-10 flex items-center px-2 border-b border-white/5">
+                        <TabsList className="w-full bg-transparent gap-1 p-0">
+                            <TabsTab 
+                                value="projects" 
+                                className="flex-1 h-7 text-[12px] gap-1.5 rounded-sm data-active:bg-zinc-800 data-active:text-zinc-100 data-active:shadow-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30"
+                            >
+                                <Layers className="size-3.5" />
+                                <span>Projects</span>
+                            </TabsTab>
+                            <TabsTab 
+                                value="files" 
+                                className="flex-1 h-7 text-[12px] gap-1.5 rounded-sm data-active:bg-zinc-800 data-active:text-zinc-100 data-active:shadow-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30"
+                            >
+                                <Folder className="size-3.5" />
+                                <span>Files</span>
+                            </TabsTab>
+                        </TabsList>
+                    </div>
 
-                <div className="flex-1 overflow-y-auto no-scrollbar py-3">
-                    {activeTab === 'projects' && (
+                    {/* Tab Panels */}
+                    <TabsPanel value="projects" className="flex-1 overflow-y-auto no-scrollbar py-3">
                         <DndContext
                             sensors={sensors}
                             collisionDetection={closestCenter}
@@ -459,28 +464,28 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 ) : null}
                             </DragOverlay>
                         </DndContext>
-                    )}
+                    </TabsPanel>
 
-                    {activeTab === 'files' && (
+                    <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar py-3">
                         <div className="px-4 py-8 text-center">
                             <Folder className="size-8 mx-auto text-zinc-700 mb-2 opacity-50" />
                             <p className="text-zinc-500 text-xs text-pretty italic">Select a project to view files</p>
                         </div>
-                    )}
-                </div>
+                    </TabsPanel>
 
-                {/* Add Button */}
-                {activeTab === 'projects' && (
-                    <div className="p-3 border-t border-white/5">
-                        <button
-                            onClick={handleAddProject}
-                            className="w-full flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[13px] py-2 rounded-md border border-white/5 transition-all duration-200 shadow-lg"
-                        >
-                            <Plus className="size-4" />
-                            <span className="font-medium">Add Project</span>
-                        </button>
-                    </div>
-                )}
+                    {/* Add Button */}
+                    {activeTab === 'projects' && (
+                        <div className="p-3 border-t border-white/5">
+                            <button
+                                onClick={handleAddProject}
+                                className="w-full flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[13px] py-2 rounded-md border border-white/5 transition-all duration-200 shadow-lg"
+                            >
+                                <Plus className="size-4" />
+                                <span className="font-medium">Add Project</span>
+                            </button>
+                        </div>
+                    )}
+                </Tabs>
             </aside>
 
             {/* Dialogs */}

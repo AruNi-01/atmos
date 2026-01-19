@@ -19,12 +19,6 @@ packages/ui/
 │   │   │   ├── select.tsx
 │   │   │   └── ...
 │   │   │
-│   │   ├── coss/                  # Coss UI style components
-│   │   │   └── frame.tsx
-│   │   │
-│   │   ├── animate/               # Animation components
-│   │   │   └── ...
-│   │   │
 │   │   ├── theme-toggle.tsx       # Custom theme toggle
 │   │   └── language-selector.tsx  # Custom language selector
 │   │
@@ -66,30 +60,6 @@ packages/ui/
 ```bash
 cd packages/ui
 bun ui:add <component-name>
-```
-
----
-
-### 2. Coss UI Components (`src/components/coss/`)
-
-Coss UI style components for specific design patterns.
-
-**Adding New**:
-```bash
-cd packages/ui
-bun ui:add:coss <component-name>
-```
-
----
-
-### 3. Animation Components (`src/components/animate/`)
-
-Components with built-in animations.
-
-**Adding New**:
-```bash
-cd packages/ui
-bun ui:add:animate <component-name>
 ```
 
 ---
