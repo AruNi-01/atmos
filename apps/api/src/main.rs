@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use app_state::AppState;
 use core_engine::TestEngine;
-use core_service::{MessagePushService, TestService, WsMessageService};
+use core_service::{MessagePushService, ProjectService, TestService, WorkspaceService, WsMessageService};
 use infra::{DbConnection, Migrator, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
 use tower_http::trace::TraceLayer;
@@ -36,18 +36,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Migrator::up(&db_connection.conn, None).await?;
     info!("Database migrations completed");
 
-    let db = db_connection.conn.clone();
+    let db = Arc::new(db_connection.conn.clone());
 
     let test_engine = Arc::new(TestEngine::new());
     let message_push_service = Arc::new(MessagePushService::new());
 
     // Create services
-    let test_service = Arc::new(TestService::new(Arc::clone(&test_engine), db.clone()));
-    let project_service = Arc::new(ProjectService::new(db.clone()));
-    let ws_message_service = Arc::new(WsMessageService::new(
+    let test_service = Arc::new(TestService::new(
         Arc::clone(&test_engine),
-        db.clone(),
-        Arc::clone(&message_push_service),
+        (*db).clone()
+    ));
+    let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
+    let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
+    
+    // WsMessageService handles all WebSocket-based operations
+    let ws_message_service = Arc::new(WsMessageService::new(
+        Arc::clone(&project_service),
+        Arc::clone(&workspace_service),
     ));
 
     // Configure WebSocket service
@@ -60,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_state = AppState::new(
         test_service,
         project_service,
+        workspace_service,
         ws_message_service,
         message_push_service,
         ws_config,

@@ -4,7 +4,6 @@ import Header from "@/components/layout/Header";
 import LeftSidebar from "@/components/layout/LeftSidebar";
 import CenterStage from "@/components/layout/CenterStage";
 import RightSidebar from "@/components/layout/RightSidebar";
-import { PROJECTS } from "@/constants";
 import { TERMINAL_LOGS } from "@/constants";
 import { FILE_CHANGES } from "@/constants";
 import Footer from "@/components/layout/Footer";
@@ -29,7 +28,7 @@ function HomeContent() {
       <Header />
 
       <PanelLayout
-        leftSidebar={<LeftSidebar projects={PROJECTS} />}
+        leftSidebar={<LeftSidebar />}
         centerStage={<CenterStage logs={TERMINAL_LOGS} />}
         rightSidebar={<RightSidebar changes={FILE_CHANGES} />}
       />

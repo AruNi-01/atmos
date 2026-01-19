@@ -14,5 +14,11 @@ pub use handler::{
 };
 pub use heartbeat::{HeartbeatMonitor, DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_TIMEOUT_SECS};
 pub use manager::WsManager;
-pub use message::{MessagePayload, WsMessage};
+pub use message::{
+    FsEntry, FsListDirRequest, FsListDirResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
+    MessagePayload, ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest,
+    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspaceUpdateBranchRequest,
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload,
+    WsMessage, WsRequest, WsResponse,
+};
 pub use service::{WsService, WsServiceConfig};

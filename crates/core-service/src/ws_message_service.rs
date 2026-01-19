@@ -1,86 +1,267 @@
+//! WebSocket message service - handles all WebSocket business logic.
+//!
+//! This service processes incoming WebSocket requests and delegates to appropriate services.
+//! All communication uses the Request/Response pattern with JSON messages.
+
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use core_engine::TestEngine;
-use infra::{TestMessageRepo, WsMessageHandler};
-use sea_orm::DatabaseConnection;
+use core_engine::FsEngine;
+use infra::{
+    FsListDirRequest, FsValidateGitPathRequest, ProjectCreateRequest, ProjectDeleteRequest,
+    ProjectUpdateRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
+    WsAction, WsMessage, WsMessageHandler, WsRequest,
+};
+use serde_json::{json, Value};
 
 use crate::error::{Result, ServiceError};
-use crate::MessagePushService;
+use crate::{ProjectService, WorkspaceService};
 
+/// WebSocket message service for handling all business logic via WebSocket.
 pub struct WsMessageService {
-    engine: Arc<TestEngine>,
-    db: DatabaseConnection,
-    push_service: Arc<MessagePushService>,
+    fs_engine: FsEngine,
+    project_service: Arc<ProjectService>,
+    workspace_service: Arc<WorkspaceService>,
 }
 
 impl WsMessageService {
     pub fn new(
-        engine: Arc<TestEngine>,
-        db: DatabaseConnection,
-        push_service: Arc<MessagePushService>,
+        project_service: Arc<ProjectService>,
+        workspace_service: Arc<WorkspaceService>,
     ) -> Self {
         Self {
-            engine,
-            db,
-            push_service,
+            fs_engine: FsEngine::new(),
+            project_service,
+            workspace_service,
         }
     }
 
-    pub async fn process_ws_message(&self, message: &str) -> Result<String> {
-        tracing::info!("[WsMessageService] Processing WebSocket message: {message}");
+    /// Process a WebSocket request and return a response.
+    async fn process_request(&self, request: WsRequest) -> WsMessage {
+        let request_id = request.request_id.clone();
 
-        let result = self.engine.process(message)?;
+        match self.handle_action(request).await {
+            Ok(data) => WsMessage::success(&request_id, data),
+            Err(e) => {
+                tracing::error!("[WsMessageService] Request failed: {}", e);
+                WsMessage::error(&request_id, "error", e.to_string())
+            }
+        }
+    }
 
-        let repo = TestMessageRepo::new(&self.db);
-        repo.save_message(message)
-            .await
-            .map_err(|e| ServiceError::Repository(e.to_string()))?;
+    /// Route action to the appropriate handler.
+    async fn handle_action(&self, request: WsRequest) -> Result<Value> {
+        match request.action {
+            // File System
+            WsAction::FsGetHomeDir => self.handle_fs_get_home_dir(),
+            WsAction::FsListDir => self.handle_fs_list_dir(parse_request(request.data)?),
+            WsAction::FsValidateGitPath => {
+                self.handle_fs_validate_git_path(parse_request(request.data)?)
+            }
 
-        self.push_service.update_latest_message(&result).await;
+            // Project
+            WsAction::ProjectList => self.handle_project_list().await,
+            WsAction::ProjectCreate => self.handle_project_create(parse_request(request.data)?).await,
+            WsAction::ProjectUpdate => self.handle_project_update(parse_request(request.data)?).await,
+            WsAction::ProjectDelete => self.handle_project_delete(parse_request(request.data)?).await,
+            WsAction::ProjectValidatePath => {
+                self.handle_fs_validate_git_path(parse_request(request.data)?)
+            }
 
-        Ok(result)
+            // Workspace
+            WsAction::WorkspaceList => self.handle_workspace_list(parse_request(request.data)?).await,
+            WsAction::WorkspaceCreate => {
+                self.handle_workspace_create(parse_request(request.data)?).await
+            }
+            WsAction::WorkspaceUpdateName => {
+                self.handle_workspace_update_name(parse_request(request.data)?).await
+            }
+            WsAction::WorkspaceUpdateBranch => {
+                self.handle_workspace_update_branch(parse_request(request.data)?).await
+            }
+            WsAction::WorkspaceUpdateOrder => {
+                self.handle_workspace_update_order(parse_request(request.data)?).await
+            }
+            WsAction::WorkspaceDelete => {
+                self.handle_workspace_delete(parse_request(request.data)?).await
+            }
+        }
+    }
+
+    // ===== File System Handlers =====
+
+    fn handle_fs_get_home_dir(&self) -> Result<Value> {
+        let home = self.fs_engine.get_home_dir()?;
+        Ok(json!({ "path": home.to_string_lossy() }))
+    }
+
+    fn handle_fs_list_dir(&self, req: FsListDirRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let entries = self
+            .fs_engine
+            .list_dir(&path, req.dirs_only, req.show_hidden)?;
+        let parent_path = self.fs_engine.get_parent(&path);
+
+        let entries_json: Vec<Value> = entries
+            .into_iter()
+            .map(|e| {
+                json!({
+                    "name": e.name,
+                    "path": e.path.to_string_lossy(),
+                    "is_dir": e.is_dir,
+                    "is_git_repo": e.is_git_repo,
+                })
+            })
+            .collect();
+
+        Ok(json!({
+            "path": path.to_string_lossy(),
+            "parent_path": parent_path.map(|p| p.to_string_lossy().to_string()),
+            "entries": entries_json,
+        }))
+    }
+
+    fn handle_fs_validate_git_path(&self, req: FsValidateGitPathRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let result = self.fs_engine.validate_git_path(&path);
+
+        Ok(json!({
+            "is_valid": result.is_valid,
+            "is_git_repo": result.is_git_repo,
+            "suggested_name": result.suggested_name,
+            "default_branch": result.default_branch,
+            "error": result.error,
+        }))
+    }
+
+    // ===== Project Handlers =====
+
+    async fn handle_project_list(&self) -> Result<Value> {
+        let projects = self.project_service.list_projects().await?;
+        Ok(json!(projects))
+    }
+
+    async fn handle_project_create(&self, req: ProjectCreateRequest) -> Result<Value> {
+        let project = self
+            .project_service
+            .create_project(req.name, req.main_file_path, req.sidebar_order, req.border_color)
+            .await?;
+        Ok(json!(project))
+    }
+
+    async fn handle_project_update(&self, req: ProjectUpdateRequest) -> Result<Value> {
+        if let Some(color) = req.border_color {
+            self.project_service
+                .update_color(req.guid.clone(), Some(color))
+                .await?;
+        }
+        // TODO: Add name and sidebar_order update support in ProjectService
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_project_delete(&self, req: ProjectDeleteRequest) -> Result<Value> {
+        self.project_service.delete_project(req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    // ===== Workspace Handlers =====
+
+    async fn handle_workspace_list(&self, req: WorkspaceListRequest) -> Result<Value> {
+        let workspaces = self
+            .workspace_service
+            .list_by_project(req.project_guid)
+            .await?;
+        Ok(json!(workspaces))
+    }
+
+    async fn handle_workspace_create(&self, req: WorkspaceCreateRequest) -> Result<Value> {
+        let workspace = self
+            .workspace_service
+            .create_workspace(req.project_guid, req.name, req.branch, req.sidebar_order)
+            .await?;
+        Ok(json!(workspace))
+    }
+
+    async fn handle_workspace_update_name(&self, req: WorkspaceUpdateNameRequest) -> Result<Value> {
+        self.workspace_service
+            .update_name(req.guid, req.name)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_update_branch(
+        &self,
+        req: WorkspaceUpdateBranchRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_branch(req.guid, req.branch)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_update_order(&self, req: WorkspaceUpdateOrderRequest) -> Result<Value> {
+        self.workspace_service
+            .update_order(req.guid, req.sidebar_order)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_delete(&self, req: WorkspaceDeleteRequest) -> Result<Value> {
+        self.workspace_service.delete_workspace(req.guid).await?;
+        Ok(json!({ "success": true }))
     }
 }
 
-/// Implement WsMessageHandler trait for dependency inversion
+/// Parse request data from JSON Value.
+fn parse_request<T: serde::de::DeserializeOwned>(data: Value) -> Result<T> {
+    serde_json::from_value(data).map_err(|e| ServiceError::Validation(format!("Invalid request: {}", e)))
+}
+
+/// Implement WsMessageHandler trait for dependency inversion.
 #[async_trait]
 impl WsMessageHandler for WsMessageService {
     async fn handle_message(&self, conn_id: &str, message: &str) -> Option<String> {
-        tracing::debug!(
-            "[WsMessageHandler] Processing message from connection {}: {}",
-            conn_id,
-            message
-        );
-
-        match self.process_ws_message(message).await {
-            Ok(result) => {
-                tracing::debug!("[WsMessageHandler] Message processed successfully");
-                Some(result)
-            }
+        // Parse the incoming message
+        let ws_msg = match WsMessage::from_json(message) {
+            Ok(msg) => msg,
             Err(e) => {
-                tracing::error!("[WsMessageHandler] Failed to process message: {}", e);
+                tracing::warn!(
+                    "[WsMessageService] Invalid message from {}: {}",
+                    conn_id,
+                    e
+                );
+                return None;
+            }
+        };
+
+        match ws_msg {
+            WsMessage::Request(request) => {
+                tracing::debug!(
+                    "[WsMessageService] Processing request from {}: {:?}",
+                    conn_id,
+                    request.action
+                );
+                let response = self.process_request(request).await;
+                response.to_json().ok()
+            }
+            WsMessage::Ping => WsMessage::pong().to_json().ok(),
+            WsMessage::Pong => None,
+            _ => {
+                tracing::warn!(
+                    "[WsMessageService] Unexpected message type from {}",
+                    conn_id
+                );
                 None
             }
         }
     }
 
     async fn on_connect(&self, conn_id: &str) {
-        tracing::info!("[WsMessageHandler] WebSocket client connected: {}", conn_id);
-        // Can add connection initialization logic here:
-        // - Send welcome message
-        // - Load user preferences
-        // - Join default channels
+        tracing::info!("[WsMessageService] Client connected: {}", conn_id);
     }
 
     async fn on_disconnect(&self, conn_id: &str) {
-        tracing::info!(
-            "[WsMessageHandler] WebSocket client disconnected: {}",
-            conn_id
-        );
-        // Can add cleanup logic here:
-        // - Save user state
-        // - Leave channels
-        // - Clear cache
+        tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
     }
 }
