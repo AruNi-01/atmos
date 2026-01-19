@@ -51,10 +51,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 </button>
 
                 {/* Tab 2: Editor */}
-                <button
+                <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setActiveTab('editor')}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveTab('editor'); }}
                     className={cn(
-                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative",
+                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative cursor-pointer",
                         activeTab === 'editor' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'
                     )}
                 >
@@ -62,18 +65,22 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     <span className="text-[13px] font-medium text-pretty">Button.tsx</span>
                     <button
                         aria-label="Close tab"
+                        onClick={(e) => e.stopPropagation()}
                         className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-700 rounded transition-opacity ease-out duration-200"
                     >
                         <X className="size-3" />
                     </button>
                     {activeTab === 'editor' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
-                </button>
+                </div>
 
                 {/* Tab 3: Diff */}
-                <button
+                <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setActiveTab('diff')}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveTab('diff'); }}
                     className={cn(
-                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative",
+                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative cursor-pointer",
                         activeTab === 'diff' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'
                     )}
                 >
@@ -81,12 +88,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     <span className="text-[13px] font-medium text-pretty">Header.tsx (Diff)</span>
                     <button
                         aria-label="Close tab"
+                        onClick={(e) => e.stopPropagation()}
                         className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-700 rounded transition-opacity ease-out duration-200"
                     >
                         <X className="size-3" />
                     </button>
                     {activeTab === 'diff' && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
-                </button>
+                </div>
             </div>
 
             {/* Main Content Area */}
