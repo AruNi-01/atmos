@@ -51,43 +51,5 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     };
   }, [connect]);
 
-  // 在开发环境中显示连接状态
-  if (process.env.NODE_ENV === 'development') {
-    return (
-      <>
-        {children}
-        <WebSocketStatusIndicator />
-      </>
-    );
-  }
-
   return <>{children}</>;
-}
-
-/**
- * 开发环境下的 WebSocket 状态指示器
- */
-function WebSocketStatusIndicator() {
-  const { connectionState } = useWebSocketStore();
-
-  const statusColors: Record<typeof connectionState, string> = {
-    connected: 'bg-green-500',
-    connecting: 'bg-yellow-500',
-    reconnecting: 'bg-orange-500',
-    disconnected: 'bg-red-500',
-  };
-
-  const statusText: Record<typeof connectionState, string> = {
-    connected: 'WS Connected',
-    connecting: 'WS Connecting...',
-    reconnecting: 'WS Reconnecting...',
-    disconnected: 'WS Disconnected',
-  };
-
-  return (
-    <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur border rounded-full shadow-lg text-xs">
-      <div className={`w-2 h-2 rounded-full ${statusColors[connectionState]} ${connectionState !== 'connected' ? 'animate-pulse' : ''}`} />
-      <span className="text-muted-foreground">{statusText[connectionState]}</span>
-    </div>
-  );
 }
