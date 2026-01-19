@@ -15,8 +15,8 @@
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "ui:add": "bunx --bun shadcn@latest add",
-    "ui:add:coss": "bunx --bun shadcn@latest add -c components.coss.json",
-    "ui:add:animate": "bunx --bun shadcn@latest add -c components.animate.json"
+    "ui:add:coss": "bunx --bun shadcn@latest add --file ./components.coss.json",
+    "ui:add:animate": "bunx --bun shadcn@latest add --file ./components.animate.json"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
