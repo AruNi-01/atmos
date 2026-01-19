@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeHabitat - Your Visual Terminal Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: 'var(--primary)',
+              'primary-foreground': 'var(--primary-foreground)',
+              secondary: 'var(--secondary)',
+              'secondary-foreground': 'var(--secondary-foreground)',
+              background: 'var(--background)',
+              foreground: 'var(--foreground)',
+              card: 'var(--card)',
+              'card-foreground': 'var(--card-foreground)',
+              muted: 'var(--muted)',
+              'muted-foreground': 'var(--muted-foreground)',
+              accent: 'var(--accent)',
+              'accent-foreground': 'var(--accent-foreground)',
+              destructive: 'var(--destructive)',
+              'destructive-foreground': 'var(--destructive-foreground)',
+              border: 'var(--border)',
+              input: 'var(--input)',
+              ring: 'var(--ring)',
+            },
+            fontFamily: {
+              sans: ['var(--font-sans)', 'sans-serif'],
+              mono: ['var(--font-mono)', 'monospace'],
+              serif: ['var(--font-serif)', 'serif'],
+            },
+            borderRadius: {
+              lg: 'var(--radius)',
+              md: 'calc(var(--radius) - 2px)',
+              sm: 'calc(var(--radius) - 4px)',
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="vibehabitat_theme_1.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;700&family=Geist:wght@400;700&family=Lora&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: var(--background);
+            color: var(--foreground);
+            font-family: var(--font-sans);
+        }
+
+        h1, h2, h3 {
+            font-family: var(--font-mono);
+            font-weight: 700;
+        }
+
+        .section {
+            opacity: 0;
+            transform: translateY(50px);
+            transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+        }
+
+        .section.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hero-text {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: heroTextAppear 0.8s ease-out forwards;
+        }
+
+        @keyframes heroTextAppear {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .product-view {
+            opacity: 0;
+            transform: scale(0.95);
+            animation: productViewLoad 1s ease-in-out 0.4s forwards;
+        }
+
+        @keyframes productViewLoad {
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .feature-card {
+            transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .cta-button {
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+        }
+        .cta-button:hover {
+            transform: scale(1.03);
+            box-shadow: var(--shadow-md);
+        }
+        .cta-button:active {
+            transform: scale(0.98);
+        }
+        
+        .github-star-button:hover i {
+            color: #FFD700;
+            transform: scale(1.1);
+        }
+        .github-star-button i {
+            transition: color 0.25s ease-out, transform 0.25s ease-out;
+        }
+
+        .terminal-cursor {
+            animation: terminalCursorBlink 1s step-end infinite;
+        }
+
+        @keyframes terminalCursorBlink {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 7L12 12L22 7" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 12V22" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="text-xl font-bold font-mono text-foreground">VibeHabitat</span>
+                </div>
+                <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-muted-foreground">
+                    <a href="#" class="hover:text-foreground transition-colors">Features</a>
+                    <a href="#" class="hover:text-foreground transition-colors">Philosophy</a>
+                    <a href="#" class="hover:text-foreground transition-colors">Docs</a>
+                    <a href="#" class="hover:text-foreground transition-colors">GitHub</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="pt-32 pb-20 text-center">
+            <div class="container mx-auto px-6">
+                <h1 class="text-4xl md:text-6xl font-bold hero-text" style="animation-delay: 0s;">Your Visual Terminal Workspace</h1>
+                <p class="mt-6 max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground hero-text" style="animation-delay: 0.15s;">
+                    逃离上下文切换的混乱，将终端、代码审查与 AI Agent 融合成一个持久、流畅的数字栖息地。
+                </p>
+                <div class="mt-10 flex justify-center items-center space-x-4 hero-text" style="animation-delay: 0.3s;">
+                    <a href="#" class="cta-button bg-primary text-primary-foreground font-bold py-3 px-6 rounded-lg shadow-sm">
+                        Download for Mac
+                    </a>
+                    <a href="#" class="cta-button bg-secondary text-secondary-foreground font-bold py-3 px-6 rounded-lg shadow-sm">
+                        View on GitHub &rarr;
+                    </a>
+                </div>
+                <div class="mt-16 product-view">
+                    <div class="bg-card border border-border rounded-xl shadow-2xl p-4 max-w-4xl mx-auto">
+                        <div class="bg-background rounded-lg p-4 h-96 flex items-center justify-center">
+                            <p class="text-muted-foreground text-2xl font-mono">[ Dynamic Product Interface Demo ]<span class="terminal-cursor">_</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pain Point Section -->
+        <section class="py-20 section">
+            <div class="container mx-auto px-6 text-center">
+                <h2 class="text-3xl md:text-4xl">停止在混乱中切换，开始在宁静中创造</h2>
+                <div class="mt-8 flex justify-center items-center space-x-4 md:space-x-8 text-muted-foreground">
+                    <span class="text-2xl">IDE</span>
+                    <span class="text-xl text-primary">&lt;=&gt;</span>
+                    <span class="text-2xl">Browser</span>
+                    <span class="text-xl text-primary">&lt;=&gt;</span>
+                    <span class="text-2xl">Terminal</span>
+                    <span class="text-xl text-primary">&lt;=&gt;</span>
+                    <span class="text-2xl">PR Page</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="py-20 section">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl md:text-4xl">一个栖息地，容纳你的整个工作流</h2>
+                </div>
+                <div class="grid gap-16">
+                    <!-- Feature 1 -->
+                    <div class="grid md:grid-cols-2 gap-12 items-center">
+                        <div class="feature-card bg-card border border-border rounded-xl p-8">
+                             <div class="bg-background rounded-lg p-4 h-64 flex items-center justify-center">
+                                <p class="text-muted-foreground text-xl font-mono">[Project -> Worktree 1, 2, 3]</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl mb-4">统一的项目工作空间</h3>
+                            <p class="text-muted-foreground text-lg">基于 Git Worktree，为每个任务创建隔离、干净的环境。告别混乱的 `node_modules` 和依赖冲突。</p>
+                        </div>
+                    </div>
+                    <!-- Feature 2 -->
+                    <div class="grid md:grid-cols-2 gap-12 items-center">
+                        <div class="md:order-2">
+                            <div class="feature-card bg-card border border-border rounded-xl p-8">
+                                <div class="bg-background rounded-lg p-4 h-64 flex items-center justify-center">
+                                    <p class="text-muted-foreground text-xl font-mono">[Terminal Session (persistent)]</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="md:order-1">
+                            <h3 class="text-2xl mb-4">持久化智能终端</h3>
+                            <p class="text-muted-foreground text-lg">基于 Tmux，所有会话永不丢失，即使关闭应用。完全继承你心爱的 Shell 配置（zsh, fish, etc.）。</p>
+                        </div>
+                    </div>
+                    <!-- Feature 3 -->
+                    <div class="grid md:grid-cols-2 gap-12 items-center">
+                        <div class="feature-card bg-card border border-border rounded-xl p-8">
+                            <div class="bg-background rounded-lg p-4 h-64 flex items-center justify-center">
+                                <p class="text-muted-foreground text-xl font-mono">$ claude-agent run build<span class="terminal-cursor">_</span></p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl mb-4">原生 Agent 交互</h3>
+                            <p class="text-muted-foreground text-lg">无需笨拙的图形界面，直接在你最熟悉的终端环境中与任何 Code Agent 无缝协作。</p>
+                        </div>
+                    </div>
+                     <!-- Feature 4 -->
+                    <div class="grid md:grid-cols-2 gap-12 items-center">
+                        <div class="md:order-2">
+                            <div class="feature-card bg-card border border-border rounded-xl p-8">
+                                <div class="bg-background rounded-lg p-4 h-64 flex items-center justify-center">
+                                    <p class="text-muted-foreground text-xl font-mono">[Diff View | Accept | Reject]</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="md:order-1">
+                            <h3 class="text-2xl mb-4">交互式代码审查</h3>
+                            <p class="text-muted-foreground text-lg">在工作空间内直接进行 `git diff` 的可视化审查。一键接受、拒绝或评论变更，加速你的 Review 流程。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Philosophy Section -->
+        <section class="py-20 text-center section">
+            <div class="container mx-auto px-6 max-w-3xl">
+                <h2 class="text-3xl md:text-4xl">不仅仅是工具，更是你的“编程栖息地”</h2>
+                <p class="mt-6 text-lg md:text-xl text-muted-foreground">
+                    VibeHabitat 实践“环境沉浸感”与“完全掌控力”的哲学。我们相信，最好的工具应该像空气一样，自然、无感，让你专注于创造本身。
+                </p>
+            </div>
+        </section>
+
+        <!-- Final CTA Section -->
+        <section class="py-20 text-center section">
+            <div class="container mx-auto px-6">
+                <h2 class="text-3xl md:text-4xl">准备好构建你的栖息地了吗？</h2>
+                <div class="mt-10 flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <a href="#" class="cta-button bg-primary text-primary-foreground font-bold py-3 px-8 rounded-lg shadow-sm w-full sm:w-auto">
+                        Download for macOS
+                    </a>
+                    <a href="#" class="cta-button bg-secondary text-secondary-foreground font-bold py-3 px-8 rounded-lg shadow-sm w-full sm:w-auto">
+                        Download for Linux
+                    </a>
+                </div>
+                <div class="mt-8">
+                    <a href="#" class="github-star-button inline-flex items-center space-x-2 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors">
+                        <i data-lucide="star" class="w-6 h-6"></i>
+                        <span>Star us on GitHub</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-8 border-t border-border section">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+                <div class="flex items-center space-x-2 text-muted-foreground">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 7L12 12L22 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 12V22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span>© 2024 VibeHabitat</span>
+                </div>
+                <div class="flex items-center space-x-6 text-muted-foreground">
+                    <a href="#" class="hover:text-foreground"><i data-lucide="twitter" class="w-5 h-5"></i></a>
+                    <a href="#" class="hover:text-foreground"><i data-lucide="message-square" class="w-5 h-5"></i></a>
+                    <a href="#" class="hover:text-foreground"><i data-lucide="github" class="w-5 h-5"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+        lucide.createIcons();
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.section').forEach(section => {
+            observer.observe(section);
+        });
+    </script>
+</body>
+</html>

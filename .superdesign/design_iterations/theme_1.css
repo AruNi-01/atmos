@@ -1,0 +1,49 @@
+:root {
+  --background: oklch(0.12 0.015 260);
+  --foreground: oklch(0.98 0.01 260);
+  --card: oklch(0.15 0.02 260);
+  --card-foreground: oklch(0.98 0.01 260);
+  --popover: oklch(0.15 0.02 260);
+  --popover-foreground: oklch(0.98 0.01 260);
+  --primary: oklch(0.78 0.16 185); /* Electric Cyan */
+  --primary-foreground: oklch(0.12 0.015 260);
+  --secondary: oklch(0.25 0.03 260);
+  --secondary-foreground: oklch(0.98 0.01 260);
+  --muted: oklch(0.2 0.02 260);
+  --muted-foreground: oklch(0.65 0.02 260);
+  --accent: oklch(0.68 0.18 300); /* Cyber Violet */
+  --accent-foreground: oklch(0.98 0.01 260);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 260);
+  --border: oklch(0.25 0.02 260);
+  --input: oklch(0.25 0.02 260);
+  --ring: oklch(0.78 0.16 185);
+  --font-sans: 'Geist', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 0.5rem;
+  
+  /* Custom Shadows (Glows) */
+  --shadow-sm: 0 0 10px 0 oklch(0.78 0.16 185 / 0.1);
+  --shadow-md: 0 0 20px 0 oklch(0.78 0.16 185 / 0.15);
+  --shadow-lg: 0 0 30px 0 oklch(0.78 0.16 185 / 0.2);
+}
+
+body {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+  font-family: var(--font-sans) !important;
+}
+
+.terminal-text {
+  font-family: var(--font-mono) !important;
+}
+
+.glow-primary {
+  box-shadow: var(--shadow-md) !important;
+}
+
+.border-gradient {
+  border: 1px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box,
+              linear-gradient(to bottom right, var(--primary), var(--accent)) border-box;
+}
