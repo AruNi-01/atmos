@@ -13,6 +13,7 @@ export * from "./components/ui/toast";
 export * from "./components/theme-toggle";
 export * from "./components/language-selector";
 export * from "./components/ui/dropdown-menu";
+export * from "./components/ui/tabs";
 
 // Utilities
 export { cn } from "./lib/utils";

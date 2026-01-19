@@ -4,8 +4,6 @@
 
 ## Structure
 - **UI (src/components/ui/)**: Atomic shadcn components.
-- **Coss (src/components/coss/)**: Custom style-focused components.
-- **Animate (src/components/animate/)**: Motion and animation primitives.
 
 ## Working Patterns
 - **Tailwind v4**: Uses pure CSS theme tokens in `src/styles/globals.css`.
