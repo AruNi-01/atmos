@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeHabitat | The Visual Terminal Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: oklch(0.12 0.015 260);
+            --foreground: oklch(0.98 0.01 260);
+            --card: oklch(0.15 0.02 260);
+            --card-foreground: oklch(0.98 0.01 260);
+            --primary: oklch(0.78 0.16 185);
+            --primary-foreground: oklch(0.12 0.015 260);
+            --accent: oklch(0.68 0.18 300);
+            --muted: oklch(0.2 0.02 260);
+            --muted-foreground: oklch(0.65 0.02 260);
+            --border: oklch(0.25 0.02 260);
+            --radius: 0.75rem;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--foreground);
+            font-family: 'Geist', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 20px 0 oklch(0.78 0.16 185 / 0.1); } 50% { box-shadow: 0 0 40px 0 oklch(0.78 0.16 185 / 0.3); } }
+        @keyframes gridFlow { from { background-position: 0 0; } to { background-position: 50px 50px; } }
+        @keyframes scanline { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
+
+        .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
+        .glow-effect { animation: glowPulse 3s infinite ease-in-out; }
+        
+        .grid-bg {
+            background-image: radial-gradient(var(--border) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: gridFlow 20s linear infinite;
+        }
+
+        .glass {
+            background: oklch(0.15 0.02 260 / 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+        }
+
+        .terminal-window {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .terminal-header {
+            background: var(--muted);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        .typewriter {
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 2px solid var(--primary);
+            animation: typing 3s steps(40, end), blink 0.75s step-end infinite;
+        }
+
+        @keyframes typing { from { width: 0 } to { width: 100% } }
+        @keyframes blink { from, to { border-color: transparent } 50% { border-color: var(--primary) } }
+
+        .feature-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px);
+            transition: all 0.3s ease;
+        }
+
+        .connection-line {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawLine 2s ease-out forwards;
+        }
+
+        @keyframes drawLine { to { stroke-dashoffset: 0; } }
+
+        .orb {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.2;
+        }
+    </style>
+</head>
+<body class="grid-bg">
+    <div class="orb bg-[var(--primary)] top-[-100px] left-[-100px]"></div>
+    <div class="orb bg-[var(--accent)] bottom-[-100px] right-[-100px]"></div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-[var(--primary)] rounded-lg flex items-center justify-center">
+                    <i data-lucide="terminal" class="text-[var(--background)] w-5 h-5"></i>
+                </div>
+                <span class="text-xl font-bold tracking-tight">VibeHabitat</span>
+            </div>
+            <div class="hidden md:flex items-center gap-8 text-sm font-medium text-[var(--muted-foreground)]">
+                <a href="#features" class="hover:text-[var(--primary)] transition-colors">Features</a>
+                <a href="#philosophy" class="hover:text-[var(--primary)] transition-colors">Philosophy</a>
+                <a href="#" class="hover:text-[var(--primary)] transition-colors">CLI</a>
+                <a href="#" class="hover:text-[var(--primary)] transition-colors">Docs</a>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="#" class="px-4 py-2 rounded-md bg-[var(--muted)] hover:bg-[var(--border)] transition-all flex items-center gap-2 text-sm border border-[var(--border)]">
+                    <i data-lucide="github" class="w-4 h-4"></i>
+                    Star
+                </a>
+                <button class="px-4 py-2 rounded-md bg-[var(--primary)] text-[var(--background)] font-bold hover:scale-105 transition-all text-sm glow-effect">
+                    Enter Habitat
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-6">
+        <div class="max-w-5xl mx-auto text-center animate-fade-in">
+            <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.1]">
+                Your Code is Your <span class="text-[var(--primary)]">Habitat</span>
+            </h1>
+            <p class="text-xl text-[var(--muted-foreground)] mb-10 max-w-2xl mx-auto">
+                The visual terminal workspace that ends context fragmentation. 
+                Persistence by design, AI-native by nature.
+            </p>
+            
+            <div class="flex flex-wrap justify-center gap-4 mb-20">
+                <button class="px-8 py-4 rounded-xl bg-[var(--primary)] text-[var(--background)] font-bold text-lg hover:scale-105 transition-all glow-effect">
+                    Get Started Free
+                </button>
+                <button class="px-8 py-4 rounded-xl bg-[var(--muted)] border border-[var(--border)] font-bold text-lg hover:bg-[var(--border)] transition-all flex items-center gap-2">
+                    <i data-lucide="play" class="w-5 h-5"></i>
+                    Watch Demo
+                </button>
+            </div>
+
+            <!-- Hero Terminal -->
+            <div class="terminal-window max-w-4xl mx-auto text-left animate-fade-in" style="animation-delay: 0.2s">
+                <div class="terminal-header">
+                    <div class="dot bg-[#ff5f56]"></div>
+                    <div class="dot bg-[#ffbd2e]"></div>
+                    <div class="dot bg-[#27c93f]"></div>
+                    <span class="ml-4 text-xs mono text-[var(--muted-foreground)]">workspace: vibe-habitat-alpha</span>
+                </div>
+                <div class="flex h-[400px]">
+                    <!-- Sidebar Tabs -->
+                    <div class="w-16 border-r border-[var(--border)] bg-[var(--background)] flex flex-col items-center py-4 gap-6">
+                        <i data-lucide="terminal" class="w-5 h-5 text-[var(--primary)]"></i>
+                        <i data-lucide="file-code" class="w-5 h-5 text-[var(--muted-foreground)]"></i>
+                        <i data-lucide="git-branch" class="w-5 h-5 text-[var(--muted-foreground)]"></i>
+                        <i data-lucide="globe" class="w-5 h-5 text-[var(--muted-foreground)]"></i>
+                    </div>
+                    <!-- Main Content Split -->
+                    <div class="flex-1 flex flex-col">
+                        <div class="flex-1 flex">
+                            <!-- Left: Terminal -->
+                            <div class="w-1/2 p-4 mono text-sm overflow-hidden">
+                                <div class="text-[var(--primary)] mb-2">>_ claude-code "Improve auth flow"</div>
+                                <div class="text-[var(--muted-foreground)]">Analyzing codebase...</div>
+                                <div class="text-[var(--muted-foreground)]">Found 2 potential improvements in src/auth.rs</div>
+                                <div class="text-emerald-400">Apply changes? [Y/n]</div>
+                                <div class="mt-4 opacity-50">
+                                    <div class="h-2 w-3/4 bg-[var(--muted)] rounded mb-2"></div>
+                                    <div class="h-2 w-1/2 bg-[var(--muted)] rounded"></div>
+                                </div>
+                            </div>
+                            <!-- Right: Diff View -->
+                            <div class="w-1/2 border-l border-[var(--border)] bg-[#0a0a0c] p-4 text-xs mono">
+                                <div class="mb-4 flex justify-between items-center">
+                                    <span class="text-[var(--muted-foreground)]">src/auth.rs</span>
+                                    <div class="flex gap-2">
+                                        <span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-500 rounded">Accept</span>
+                                        <span class="px-2 py-0.5 bg-rose-500/10 text-rose-500 rounded">Reject</span>
+                                    </div>
+                                </div>
+                                <div class="opacity-80">
+                                    <div class="text-rose-400 bg-rose-400/10">- return Err("Unauthorized");</div>
+                                    <div class="text-emerald-400 bg-emerald-400/10">+ return Err(AuthError::MissingToken.into());</div>
+                                </div>
+                                <div class="mt-8 pt-4 border-t border-[var(--border)]">
+                                    <div class="text-[var(--muted-foreground)] mb-2 italic">// Comment to Agent</div>
+                                    <div class="w-full bg-[var(--muted)] rounded p-2 text-[var(--muted-foreground)]">
+                                        Can we add logging for this error?
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Bottom Bar -->
+                        <div class="h-8 border-t border-[var(--border)] bg-[var(--muted)] flex items-center px-4 justify-between text-[10px] mono">
+                            <div class="flex gap-4">
+                                <span class="text-[var(--primary)]">● tmux(habitat)</span>
+                                <span>branch: main</span>
+                            </div>
+                            <div class="flex gap-4">
+                                <span>vibe-habitat-cli v0.1.0</span>
+                                <span class="text-[var(--accent)]">● live-tunnel: on</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features: Architecture of Flow -->
+    <section id="features" class="py-32 px-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="mb-20">
+                <h2 class="text-3xl font-bold mb-4">Architecture of Flow</h2>
+                <p class="text-[var(--muted-foreground)]">Context switching should be physical, not cognitive.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-20 items-center">
+                <div class="relative h-[400px]">
+                    <svg class="w-full h-full" viewBox="0 0 400 300">
+                        <!-- Worktrees -->
+                        <rect x="20" y="20" width="120" height="60" rx="8" class="fill-[var(--muted)] stroke-[var(--border)]"/>
+                        <text x="40" y="55" class="fill-[var(--foreground)] mono text-xs">feature-auth</text>
+                        
+                        <rect x="20" y="100" width="120" height="60" rx="8" class="fill-[var(--muted)] stroke-[var(--border)]"/>
+                        <text x="40" y="135" class="fill-[var(--foreground)] mono text-xs">hotfix-ui</text>
+                        
+                        <rect x="20" y="180" width="120" height="60" rx="8" class="fill-[var(--muted)] stroke-[var(--border)]"/>
+                        <text x="40" y="215" class="fill-[var(--foreground)] mono text-xs">refactor-core</text>
+
+                        <!-- Sessions -->
+                        <rect x="260" y="20" width="120" height="150" rx="8" class="fill-[var(--muted)] stroke-[var(--primary)] border-dashed"/>
+                        <text x="280" y="50" class="fill-[var(--primary)] mono text-xs font-bold">tmux: active</text>
+                        <text x="280" y="80" class="fill-[var(--muted-foreground)] mono text-[10px]">>_ npm run dev</text>
+                        <text x="280" y="100" class="fill-[var(--muted-foreground)] mono text-[10px]">>_ tail -f logs</text>
+
+                        <!-- Lines -->
+                        <path d="M 140 50 L 260 50" class="connection-line stroke-[var(--primary)] fill-none" stroke-width="2"/>
+                        <path d="M 140 130 C 200 130 200 70 260 70" class="connection-line stroke-[var(--muted)] fill-none" stroke-width="1" style="animation-delay: 0.5s"/>
+                        <path d="M 140 210 C 200 210 200 90 260 90" class="connection-line stroke-[var(--muted)] fill-none" stroke-width="1" style="animation-delay: 1s"/>
+                    </svg>
+                </div>
+                <div class="space-y-12">
+                    <div class="feature-card border border-[var(--border)] p-6 rounded-2xl glass transition-all">
+                        <div class="w-12 h-12 bg-[var(--primary)]/10 text-[var(--primary)] rounded-xl flex items-center justify-center mb-4">
+                            <i data-lucide="git-fork" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Git Worktree Isolation</h3>
+                        <p class="text-[var(--muted-foreground)]">Stop stashing. Every branch gets its own directory, its own node_modules, and its own state. Switch instantly without rebuilding.</p>
+                    </div>
+                    <div class="feature-card border border-[var(--border)] p-6 rounded-2xl glass transition-all">
+                        <div class="w-12 h-12 bg-[var(--accent)]/10 text-[var(--accent)] rounded-xl flex items-center justify-center mb-4">
+                            <i data-lucide="refresh-cw" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Eternal Terminal Sessions</h3>
+                        <p class="text-[var(--muted-foreground)]">Built on tmux. Your long-running processes, servers, and scripts stay alive even if you close the habitat or disconnect from your machine.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bento Grid Section -->
+    <section class="py-32 px-6 bg-[var(--muted)]/30 border-y border-[var(--border)]">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Large Card -->
+                <div class="md:col-span-2 glass p-8 rounded-3xl border border-[var(--border)] overflow-hidden relative group">
+                    <div class="relative z-10">
+                        <div class="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-500 text-xs font-bold rounded-full mb-4">AI NATIVE</div>
+                        <h3 class="text-3xl font-bold mb-4">Direct Agent Control</h3>
+                        <p class="text-[var(--muted-foreground)] max-w-md">Run Claude Code, Codex, or OpenCode directly in your native shell. No abstractions, just your environment inherited by the AI.</p>
+                        <div class="mt-8 flex gap-4">
+                            <div class="px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg mono text-xs text-[var(--primary)]">
+                                $ habitat run claude-code
+                            </div>
+                        </div>
+                    </div>
+                    <div class="absolute right-[-50px] bottom-[-50px] opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i data-lucide="cpu" class="w-64 h-64 text-[var(--primary)]"></i>
+                    </div>
+                </div>
+
+                <!-- Small Card 1 -->
+                <div class="glass p-8 rounded-3xl border border-[var(--border)] flex flex-col justify-between hover:border-[var(--accent)] transition-all">
+                    <div>
+                        <i data-lucide="zap" class="w-8 h-8 text-[var(--accent)] mb-4"></i>
+                        <h3 class="text-xl font-bold mb-2">Setup Scripts</h3>
+                        <p class="text-sm text-[var(--muted-foreground)]">Automate env copying, dependency installs, and service startups per workspace.</p>
+                    </div>
+                    <div class="mt-6 text-xs mono text-[var(--muted-foreground)]">
+                        habitat.yaml → setup: copy .env
+                    </div>
+                </div>
+
+                <!-- Small Card 2 -->
+                <div class="glass p-8 rounded-3xl border border-[var(--border)] flex flex-col justify-between hover:border-[var(--primary)] transition-all">
+                    <div>
+                        <i data-lucide="link" class="w-8 h-8 text-[var(--primary)] mb-4"></i>
+                        <h3 class="text-xl font-bold mb-2">Live Tunneling</h3>
+                        <p class="text-sm text-[var(--muted-foreground)]">Access your terminal agents and preview servers from any device, anywhere in the world.</p>
+                    </div>
+                    <div class="mt-6 flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span class="text-[10px] mono">habitat.sh/lurunrun/preview</span>
+                    </div>
+                </div>
+
+                <!-- Medium Card -->
+                <div class="md:col-span-2 glass p-8 rounded-3xl border border-[var(--border)] flex items-center justify-between group">
+                    <div class="max-w-md">
+                        <h3 class="text-2xl font-bold mb-4">The IDE Bridge</h3>
+                        <p class="text-[var(--muted-foreground)]">Found a bug the AI can't fix? One keypress to open your current file in VS Code, Cursor, or Zed at the exact line.</p>
+                    </div>
+                    <div class="flex gap-4 relative">
+                        <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center grayscale group-hover:grayscale-0 transition-all">
+                            <i data-lucide="box" class="w-6 h-6 text-blue-500"></i>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center grayscale group-hover:grayscale-0 transition-all delay-75">
+                            <i data-lucide="layout" class="w-6 h-6 text-purple-500"></i>
+                        </div>
+                        <div class="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center grayscale group-hover:grayscale-0 transition-all delay-150">
+                            <i data-lucide="code-2" class="w-6 h-6 text-orange-500"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-32 px-6 text-center">
+        <div class="max-w-3xl mx-auto">
+            <h2 class="text-4xl font-bold mb-8">Ready to evolve your habitat?</h2>
+            <div class="p-6 bg-[var(--background)] border border-[var(--border)] rounded-2xl mono text-left relative group inline-block w-full max-w-lg mb-12">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs text-[var(--muted-foreground)]">Terminal</span>
+                    <i data-lucide="copy" class="w-4 h-4 text-[var(--muted-foreground)] hover:text-[var(--primary)] cursor-pointer"></i>
+                </div>
+                <div class="text-[var(--primary)]">
+                    <span class="opacity-50">$</span> curl -sSL https://vibehabitat.sh/install | sh
+                </div>
+                <div class="text-[var(--foreground)] mt-2">
+                    <span class="opacity-50">$</span> habitat init
+                </div>
+            </div>
+            <div class="flex flex-wrap justify-center gap-4">
+                <button class="px-8 py-4 rounded-xl bg-[var(--primary)] text-[var(--background)] font-bold">Install CLI</button>
+                <button class="px-8 py-4 rounded-xl border border-[var(--border)] font-bold">Read the Philosophy</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-[var(--border)] px-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-[var(--muted-foreground)] rounded flex items-center justify-center">
+                    <i data-lucide="terminal" class="text-[var(--background)] w-4 h-4"></i>
+                </div>
+                <span class="font-bold">VibeHabitat</span>
+            </div>
+            <div class="flex gap-8 text-sm text-[var(--muted-foreground)]">
+                <a href="#" class="hover:text-[var(--foreground)]">Twitter</a>
+                <a href="#" class="hover:text-[var(--foreground)]">Discord</a>
+                <a href="#" class="hover:text-[var(--foreground)]">GitHub</a>
+                <a href="#" class="hover:text-[var(--foreground)]">Privacy</a>
+            </div>
+            <div class="text-sm text-[var(--muted-foreground)]">
+                © 2026 VibeHabitat Project.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Simple scroll reveal
+        const observerOptions = { threshold: 0.1 };
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-fade-in');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('section').forEach(section => {
+            section.classList.add('opacity-0');
+            observer.observe(section);
+        });
+    </script>
+</body>
+</html>
