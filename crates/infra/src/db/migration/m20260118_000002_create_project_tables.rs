@@ -67,12 +67,6 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Workspace::Name).string().not_null())
                     .col(ColumnDef::new(Workspace::Branch).string().not_null())
-                    .col(
-                        ColumnDef::new(Workspace::IsActive)
-                            .boolean()
-                            .not_null()
-                            .default(false),
-                    )
                     .col(ColumnDef::new(Workspace::SidebarOrder).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
@@ -123,6 +117,5 @@ enum Workspace {
     IsDeleted,
     Name,
     Branch,
-    IsActive,
     SidebarOrder,
 }

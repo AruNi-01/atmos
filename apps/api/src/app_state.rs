@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
-use core_service::{MessagePushService, ProjectService, TestService, WsMessageService};
+use core_service::{MessagePushService, ProjectService, TestService, WorkspaceService, WsMessageService};
 use infra::{WsService, WsServiceConfig};
 
 #[derive(Clone)]
 pub struct AppState {
     pub test_service: Arc<TestService>,
     pub project_service: Arc<ProjectService>,
+    pub workspace_service: Arc<WorkspaceService>,
     pub message_push_service: Arc<MessagePushService>,
     pub ws_service: Arc<WsService>,
 }
@@ -15,6 +16,7 @@ impl AppState {
     pub fn new(
         test_service: Arc<TestService>,
         project_service: Arc<ProjectService>,
+        workspace_service: Arc<WorkspaceService>,
         ws_message_service: Arc<WsMessageService>,
         message_push_service: Arc<MessagePushService>,
         ws_service_config: WsServiceConfig,
@@ -26,6 +28,7 @@ impl AppState {
         Self {
             test_service,
             project_service,
+            workspace_service,
             message_push_service,
             ws_service: Arc::new(ws_service),
         }

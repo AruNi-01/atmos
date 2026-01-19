@@ -14,7 +14,6 @@ pub struct Model {
     pub is_deleted: bool,
     pub name: String,
     pub branch: String,
-    pub is_active: bool,
     pub sidebar_order: i32,
 }
 

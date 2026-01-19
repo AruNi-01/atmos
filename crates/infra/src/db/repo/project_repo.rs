@@ -1,3 +1,6 @@
+use sea_orm::*;
+use sea_orm::sea_query::Expr;
+
 use crate::db::entities::base::BaseFields;
 use crate::db::entities::project;
 use crate::db::repo::base::BaseRepo;
@@ -18,6 +21,7 @@ impl<'a> ProjectRepo<'a> {
         Self { db }
     }
 
+    /// 查询所有项目（按 sidebar_order 升序排序）
     pub async fn list(&self) -> Result<Vec<project::Model>> {
         let projects = project::Entity::find()
             .order_by_asc(project::Column::SidebarOrder)
@@ -26,6 +30,13 @@ impl<'a> ProjectRepo<'a> {
         Ok(projects)
     }
 
+    /// 根据 GUID 查询单个项目
+    #[allow(dead_code)]
+    pub async fn find_by_guid(&self, guid: &str) -> Result<Option<project::Model>> {
+        Ok(project::Entity::find_by_id(guid.to_string()).one(self.db).await?)
+    }
+
+    /// 创建新项目
     pub async fn create(&self, name: String, main_file_path: String, sidebar_order: i32, border_color: Option<String>) -> Result<project::Model> {
         let base = BaseFields::new();
 
@@ -45,6 +56,7 @@ impl<'a> ProjectRepo<'a> {
         Ok(result)
     }
 
+    /// 更新项目排序
     pub async fn update_order(&self, guid: String, order: i32) -> Result<()> {
         project::Entity::update_many()
             .col_expr(project::Column::SidebarOrder, Expr::value(order))
@@ -54,6 +66,7 @@ impl<'a> ProjectRepo<'a> {
         Ok(())
     }
 
+    /// 更新项目边框颜色
     pub async fn update_color(&self, guid: String, color: Option<String>) -> Result<()> {
         project::Entity::update_many()
             .col_expr(project::Column::BorderColor, Expr::value(color))
@@ -63,8 +76,16 @@ impl<'a> ProjectRepo<'a> {
         Ok(())
     }
 
+    /// 删除项目（硬删除）
     pub async fn delete(&self, guid: String) -> Result<()> {
         project::Entity::delete_by_id(guid).exec(self.db).await?;
         Ok(())
     }
+
+    /// 检查项目是否存在
+    #[allow(dead_code)]
+    pub async fn exists(&self, guid: &str) -> Result<bool> {
+        Ok(self.find_by_guid(guid).await?.is_some())
+    }
 }
+

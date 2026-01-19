@@ -1,11 +1,47 @@
 use async_trait::async_trait;
 use sea_orm::{
-    ActiveModelBehavior, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, 
-    IntoActiveModel, ModelTrait, PaginatorTrait, PrimaryKeyTrait, QueryFilter, Set
+    ActiveModelBehavior, ActiveModelTrait, DatabaseConnection, EntityTrait,
+    IntoActiveModel, ModelTrait,
 };
-use crate::error::Result;
-use crate::db::entities::base::BaseFields;
 
+/// BaseRepo trait 提供通用的数据库访问能力
+/// 
+/// 所有 Repository 都应该实现这个 trait 来获得统一的数据库连接访问
+/// 各个 repo 可以在此基础上实现自己的业务方法
+/// 
+/// 注意：由于 SeaORM 的泛型约束复杂，通用的 CRUD 方法需要在各个 Repo 中具体实现
+/// BaseRepo 主要提供：
+/// 1. 统一的 db() 访问方法
+/// 2. 统一的 trait 约束，确保所有 Repo 遵循相同的模式
+/// 
+/// 推荐的实现模式：
+/// ```rust
+/// impl<'a> BaseRepo<Entity, Model, ActiveModel> for MyRepo<'a> {
+///     fn db(&self) -> &DatabaseConnection {
+///         self.db
+///     }
+/// }
+/// 
+/// impl<'a> MyRepo<'a> {
+///     pub fn new(db: &'a DatabaseConnection) -> Self {
+///         Self { db }
+///     }
+///     
+///     // 实现具体的业务方法
+///     pub async fn find_by_guid(&self, guid: String) -> Result<Option<Model>> {
+///         Ok(Entity::find_by_id(guid).one(self.db).await?)
+///     }
+///     
+///     pub async fn list(&self) -> Result<Vec<Model>> {
+///         Ok(Entity::find().all(self.db).await?)
+///     }
+///     
+///     pub async fn delete(&self, guid: String) -> Result<()> {
+///         Entity::delete_by_id(guid).exec(self.db).await?;
+///         Ok(())
+///     }
+/// }
+/// ```
 #[async_trait]
 pub trait BaseRepo<E, M, A>
 where
@@ -13,62 +49,8 @@ where
     M: ModelTrait<Entity = E> + IntoActiveModel<A> + Send + Sync,
     A: ActiveModelTrait<Entity = E> + ActiveModelBehavior + Send + Sync,
 {
+    /// 返回数据库连接引用（必须由各 Repo 实现）
     fn db(&self) -> &DatabaseConnection;
-
-    async fn find_by_guid(&self, guid: &str) -> Result<Option<M>> {
-        // Assuming all entities have a 'guid' column. 
-        // This is a common pattern in your project.
-        // We use string-based check or assume a specific column naming convention.
-        // For more type safety, we usually require a Const column name in the trait.
-        Ok(E::find()
-            .filter(E::PrimaryKey::get_column().eq(guid))
-            .one(self.db())
-            .await?)
-    }
-
-    async fn list_all(&self) -> Result<Vec<M>> {
-        Ok(E::find().all(self.db()).await?)
-    }
-
-    async fn soft_delete(&self, guid: &str) -> Result<()> {
-        // Since Sea-ORM doesn't know about 'is_deleted' generically at the trait level,
-        // we'd typically need the ActiveModel to expose it.
-        // For now, let's provide a basic hard delete as an example or use update_many.
-        E::delete_by_id(guid.to_string()).exec(self.db()).await?;
-        Ok(())
-    }
-
-    async fn hard_delete(&self, guid: &str) -> Result<()> {
-        E::delete_by_id(guid.to_string()).exec(self.db()).await?;
-        Ok(())
-    }
 }
 
-// Example of a helper struct to avoid boilerplate in every repo
-pub struct CrudOperations<'a, E, M, A> {
-    pub db: &'a DatabaseConnection,
-    _phantom: std::marker::PhantomData<(E, M, A)>,
-}
 
-impl<'a, E, M, A> CrudOperations<'a, E, M, A>
-where
-    E: EntityTrait<Model = M>,
-    M: ModelTrait<Entity = E> + IntoActiveModel<A> + Send + Sync,
-    A: ActiveModelTrait<Entity = E> + ActiveModelBehavior + Send + Sync,
-{
-    pub fn new(db: &'a DatabaseConnection) -> Self {
-        Self {
-            db,
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    pub async fn find_one(&self, guid: &str) -> Result<Option<M>> {
-        // This assumes PrimaryKey is the GUID string
-        Ok(E::find_by_id(guid.to_string()).one(self.db).await?)
-    }
-
-    pub async fn list(&self) -> Result<Vec<M>> {
-        Ok(E::find().all(self.db).await?)
-    }
-}
