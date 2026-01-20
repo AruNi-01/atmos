@@ -96,4 +96,5 @@ src-tauri/target/
 .aws-sam/
 
 # ===== Agent =====
+*/.local.json
 .local.json
