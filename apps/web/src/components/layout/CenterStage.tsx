@@ -22,12 +22,12 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 __html: code
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
-                    .replace(/import|from|export|const|return|interface|type/g, '<span class="text-purple-400">$&</span>')
-                    .replace(/'[^']*'/g, '<span class="text-emerald-400">$&</span>')
-                    .replace(/\/\/.*/g, '<span class="text-zinc-500">$&</span>')
+                    .replace(/import|from|export|const|return|interface|type/g, '<span class="text-purple-600 dark:text-purple-400">$&</span>')
+                    .replace(/'[^']*'/g, '<span class="text-emerald-600 dark:text-emerald-400">$&</span>')
+                    .replace(/\/\/.*/g, '<span class="text-slate-500">$&</span>')
                     // Simple highlighter for diff symbols
-                    .replace(/^\+.*/gm, '<span class="text-emerald-400 bg-emerald-900/20 block">$&</span>')
-                    .replace(/^\-.*/gm, '<span class="text-red-400 bg-red-900/20 block">$&</span>')
+                    .replace(/^\+.*/gm, '<span class="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-900/20 block">$&</span>')
+                    .replace(/^\-.*/gm, '<span class="text-red-600 dark:text-red-400 bg-red-500/10 dark:bg-red-900/20 block">$&</span>')
             }} />
         );
     };
@@ -36,13 +36,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         <main className="flex-1 flex flex-col">
 
             {/* Top Tab Bar */}
-            <div className="flex items-center h-10 border-b border-zinc-800">
+            <div className="flex items-center h-10 border-b border-sidebar-border">
                 {/* Tab 1: Terminal */}
                 <button
                     onClick={() => setActiveTab('terminal')}
                     className={cn(
-                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative",
-                        activeTab === 'terminal' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'
+                        "flex items-center space-x-2 px-4 h-full border-r border-sidebar-border hover:bg-muted/50 transition-colors ease-out duration-200 group relative",
+                        activeTab === 'terminal' ? 'bg-background text-foreground' : 'text-muted-foreground'
                     )}
                 >
                     <Terminal className="size-3.5" />
@@ -57,8 +57,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     onClick={() => setActiveTab('editor')}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveTab('editor'); }}
                     className={cn(
-                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative cursor-pointer",
-                        activeTab === 'editor' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'
+                        "flex items-center space-x-2 px-4 h-full border-r border-sidebar-border hover:bg-muted/50 transition-colors ease-out duration-200 group relative cursor-pointer",
+                        activeTab === 'editor' ? 'bg-background text-foreground' : 'text-muted-foreground'
                     )}
                 >
                     <Code className="size-3.5" />
@@ -66,7 +66,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     <button
                         aria-label="Close tab"
                         onClick={(e) => e.stopPropagation()}
-                        className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-700 rounded transition-opacity ease-out duration-200"
+                        className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded transition-opacity ease-out duration-200"
                     >
                         <X className="size-3" />
                     </button>
@@ -80,8 +80,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     onClick={() => setActiveTab('diff')}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActiveTab('diff'); }}
                     className={cn(
-                        "flex items-center space-x-2 px-4 h-full border-r border-zinc-800 hover:bg-zinc-800/50 transition-colors ease-out duration-200 group relative cursor-pointer",
-                        activeTab === 'diff' ? 'bg-zinc-900 text-zinc-200' : 'text-zinc-500'
+                        "flex items-center space-x-2 px-4 h-full border-r border-sidebar-border hover:bg-muted/50 transition-colors ease-out duration-200 group relative cursor-pointer",
+                        activeTab === 'diff' ? 'bg-background text-foreground' : 'text-muted-foreground'
                     )}
                 >
                     <GitCompare className="size-3.5" />
@@ -89,7 +89,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     <button
                         aria-label="Close tab"
                         onClick={(e) => e.stopPropagation()}
-                        className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-700 rounded transition-opacity ease-out duration-200"
+                        className="ml-2 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded transition-opacity ease-out duration-200"
                     >
                         <X className="size-3" />
                     </button>
@@ -102,11 +102,11 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
                 {/* VIEW 1: Terminal Panes */}
                 {activeTab === 'terminal' && (
-                    <div className="flex-1 flex flex-col h-full bg-[#0c0c0e]">
+                    <div className="flex-1 flex flex-col h-full bg-background">
                         {/* Pane 1 */}
-                        <div className="flex-1 flex flex-col border-b border-zinc-800">
-                            <div className="h-8 flex items-center justify-between px-3 bg-zinc-800/20">
-                                <span className="text-[11px] text-zinc-400 font-medium tabular-nums text-pretty">Local: 3000 (Server)</span>
+                        <div className="flex-1 flex flex-col border-b border-sidebar-border">
+                            <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
+                                <span className="text-[11px] text-muted-foreground font-medium tabular-nums text-pretty">Local: 3000 (Server)</span>
                                 <div className="flex space-x-2">
                                     <div className="size-2 rounded-full bg-emerald-500"></div>
                                 </div>
@@ -115,10 +115,10 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                                 {logs.map((log) => (
                                     <div key={log.id} className="mb-1 leading-relaxed break-all">
                                         <span className={cn(`
-                                    ${log.type === 'command' ? 'text-zinc-500' : ''}
-                                    ${log.type === 'success' ? 'text-emerald-400' : ''}
-                                    ${log.type === 'error' ? 'text-rose-400' : ''}
-                                    ${log.type === 'info' ? 'text-blue-300' : ''}
+                                    ${log.type === 'command' ? 'text-muted-foreground' : ''}
+                                    ${log.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : ''}
+                                    ${log.type === 'error' ? 'text-rose-600 dark:text-rose-400' : ''}
+                                    ${log.type === 'info' ? 'text-blue-600 dark:text-blue-300' : ''}
                                 `)}>
                                             {log.content}
                                         </span>
@@ -128,15 +128,15 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                         </div>
                         {/* Pane 2 */}
                         <div className="flex-1 flex flex-col">
-                            <div className="h-8 flex items-center justify-between px-3 bg-zinc-800/20">
-                                <span className="text-[11px] text-zinc-400 font-medium text-pretty">Build: Watch Mode</span>
+                            <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
+                                <span className="text-[11px] text-muted-foreground font-medium text-pretty">Build: Watch Mode</span>
                             </div>
-                            <div className="flex-1 p-4 font-mono text-[13px] text-zinc-400 overflow-y-auto no-scrollbar">
+                            <div className="flex-1 p-4 font-mono text-[13px] text-muted-foreground overflow-y-auto no-scrollbar">
                                 <div className="text-pretty"> build started...</div>
-                                <div className="text-emerald-500 tabular-nums text-pretty"> build completed in 420ms</div>
+                                <div className="text-emerald-600 dark:text-emerald-500 tabular-nums text-pretty"> build completed in 420ms</div>
                                 <div className="flex items-center mt-2 animate-pulse">
-                                    <span className="text-zinc-500 mr-2">➜</span>
-                                    <span className="text-zinc-500">_</span>
+                                    <span className="text-muted-foreground mr-2">➜</span>
+                                    <span className="text-muted-foreground">_</span>
                                 </div>
                             </div>
                         </div>
@@ -145,19 +145,19 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
                 {/* VIEW 2: File Editor */}
                 {activeTab === 'editor' && (
-                    <div className="flex-1 flex flex-col h-full bg-zinc-900">
+                    <div className="flex-1 flex flex-col h-full bg-background">
                         <div className="flex-1 overflow-y-auto no-scrollbar relative">
                             <div className="flex min-h-full">
                                 {/* Line Numbers */}
-                                <div className="w-10 flex-shrink-0 flex flex-col items-end pr-3 pt-4 bg-zinc-900/50 text-right select-none border-r border-zinc-800/30">
+                                <div className="w-10 flex-shrink-0 flex flex-col items-end pr-3 pt-4 bg-muted/20 text-right select-none border-r border-border">
                                     {MOCK_CODE.split('\n').map((_, i) => (
-                                        <span key={i} className="text-[11px] font-mono leading-[1.6rem] text-zinc-700 font-medium tabular-nums">
+                                        <span key={i} className="text-[11px] font-mono leading-[1.6rem] text-muted-foreground/40 font-medium tabular-nums">
                                             {i + 1}
                                         </span>
                                     ))}
                                 </div>
                                 {/* Code Content */}
-                                <div className="flex-1 pl-3 pt-4 font-mono text-[13px] leading-[1.6rem] text-zinc-300">
+                                <div className="flex-1 pl-3 pt-4 font-mono text-[13px] leading-[1.6rem] text-foreground">
                                     <pre className="whitespace-pre-wrap">
                                         {renderCode(MOCK_CODE)}
                                     </pre>
@@ -169,18 +169,18 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
                 {/* VIEW 3: Diff View */}
                 {activeTab === 'diff' && (
-                    <div className="flex-1 flex flex-col h-full bg-zinc-900">
+                    <div className="flex-1 flex flex-col h-full bg-background">
                         <div className="flex-1 overflow-y-auto no-scrollbar relative">
                             <div className="flex min-h-full">
                                 {/* Line Numbers */}
-                                <div className="w-10 flex-shrink-0 flex flex-col items-end pr-3 pt-4 bg-zinc-900/50 text-right select-none border-r border-zinc-800/30">
+                                <div className="w-10 flex-shrink-0 flex flex-col items-end pr-3 pt-4 bg-muted/20 text-right select-none border-r border-border">
                                     {MOCK_DIFF.split('\n').map((_, i) => (
-                                        <span key={i} className="text-[11px] font-mono leading-[1.6rem] text-zinc-700 font-medium tabular-nums">
+                                        <span key={i} className="text-[11px] font-mono leading-[1.6rem] text-muted-foreground/40 font-medium tabular-nums">
                                             {i + 1}
                                         </span>
                                     ))}
                                 </div>
-                                <div className="flex-1 pl-3 pt-4 font-mono text-[13px] leading-[1.6rem] text-zinc-300">
+                                <div className="flex-1 pl-3 pt-4 font-mono text-[13px] leading-[1.6rem] text-foreground">
                                     <pre className="whitespace-pre-wrap">
                                         {renderCode(MOCK_DIFF)}
                                     </pre>
