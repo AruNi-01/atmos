@@ -10,10 +10,10 @@ const Header: React.FC = () => {
       <div className="flex items-center space-x-4">
         <div className={cn("flex items-center text-foreground font-semibold text-balance")}>
           <Hexagon className="size-4 mr-2 text-emerald-500 fill-emerald-500/10" />
-          <span className="text-[14px]">Vibe Habitat</span>
+          <span className="text-[14px]">ATMOS</span>
         </div>
         <span className="text-muted-foreground/30 text-lg font-light">/</span>
-        <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">Visual Terminal Workspace</span>
+        <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">Visual Vibe Space</span>
       </div>
 
       {/* Center: Git Context Flow */}
