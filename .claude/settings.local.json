@@ -13,7 +13,8 @@
       "Bash(git branch:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Skill(superdesign)"
+      "Skill(superdesign)",
+      "Bash(git push:*)"
     ]
   }
 }
