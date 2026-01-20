@@ -14,16 +14,16 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ changes }) => {
     <aside className="w-full flex flex-col border-l border-white/5 h-full">
 
       {/* Changes Header */}
-      <div className="h-10 flex items-center justify-between px-4 border-b border-white/5">
-        <span className="text-xs font-semibold text-zinc-400 uppercase text-balance">Changes</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-zinc-800 text-zinc-400 font-mono tabular-nums">
+      <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border">
+        <span className="text-xs font-semibold text-muted-foreground uppercase text-balance">Changes</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-sidebar-accent text-sidebar-foreground font-mono tabular-nums">
           {changes.length}
         </span>
       </div>
 
       {/* Commit Actions (Moved to Top) */}
-      <div className="flex flex-col p-4 border-b border-white/5 gap-3">
-        <input type="text" placeholder="Commit message" className="w-full p-2 border border-white/5 rounded-sm bg-zinc-900 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 transition-all ease-out duration-200" />
+      <div className="flex flex-col p-4 border-b border-sidebar-border gap-3">
+        <input type="text" placeholder="Commit message" className="w-full p-2 border border-sidebar-border rounded-sm bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all ease-out duration-200" />
         <button className="w-full flex items-center justify-center space-x-2 py-2 bg-emerald-900/20 hover:bg-emerald-900/30 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/40 rounded-sm transition-all ease-out duration-200">
           <Check className="size-4" />
           <span className="text-[13px] font-medium text-pretty">Commit</span>
@@ -35,7 +35,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ changes }) => {
         {changes.map(change => (
           <div
             key={change.id}
-            className="group flex items-center justify-between px-3 py-2 rounded-sm hover:bg-zinc-800/40 cursor-pointer transition-colors ease-out duration-200 mb-0.5"
+            className="group flex items-center justify-between px-3 py-2 rounded-sm hover:bg-sidebar-accent/50 cursor-pointer transition-colors ease-out duration-200 mb-0.5"
           >
             <div className="flex items-center min-w-0">
               <FileCode className={cn(
@@ -43,10 +43,10 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ changes }) => {
                 change.status === 'M' ? 'text-yellow-500/70' :
                   change.status === 'A' ? 'text-emerald-500/70' : 'text-red-500/70'
               )} />
-              <span className="text-[13px] text-zinc-400 group-hover:text-zinc-200 truncate font-medium text-pretty">
+              <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground truncate font-medium text-pretty">
                 {change.path.split('/').pop()}
               </span>
-              <span className="text-[11px] text-zinc-600 ml-1.5 truncate flex-shrink-0 text-pretty">
+              <span className="text-[11px] text-muted-foreground/70 ml-1.5 truncate flex-shrink-0 text-pretty">
                 {change.path.split('/').slice(0, -1).join('/')}/
               </span>
             </div>
@@ -62,16 +62,16 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ changes }) => {
       </div>
 
       {/* Action Pad */}
-      <div className="p-4 border-t border-white/5">
-        <div className="text-xs font-medium text-zinc-500 mb-3 uppercase text-balance">Quick Actions</div>
+      <div className="p-4 border-t border-sidebar-border">
+        <div className="text-xs font-medium text-muted-foreground mb-3 uppercase text-balance">Quick Actions</div>
         <div className="grid grid-cols-2 gap-3">
-          <button className="flex flex-col items-center justify-center p-3 rounded-sm border border-zinc-700/50 hover:bg-zinc-800 hover:border-zinc-600 transition-all ease-out duration-200 group">
+          <button className="flex flex-col items-center justify-center p-3 rounded-sm border border-sidebar-border hover:bg-sidebar-accent hover:border-sidebar-border/80 transition-all ease-out duration-200 group">
             <Play className="size-5 text-emerald-500/80 mb-2 group-hover:scale-110 transition-transform ease-out duration-200" />
-            <span className="text-xs font-medium text-zinc-300 text-pretty">Run Dev</span>
+            <span className="text-xs font-medium text-sidebar-foreground text-pretty">Run Dev</span>
           </button>
-          <button className="flex flex-col items-center justify-center p-3 rounded-sm border border-zinc-700/50 hover:bg-zinc-800 hover:border-zinc-600 transition-all ease-out duration-200 group">
-            <TerminalSquare className="size-5 text-zinc-400 mb-2 group-hover:text-zinc-200 transition-colors ease-out duration-200" />
-            <span className="text-xs font-medium text-zinc-300 text-pretty">New Term</span>
+          <button className="flex flex-col items-center justify-center p-3 rounded-sm border border-sidebar-border hover:bg-sidebar-accent hover:border-sidebar-border/80 transition-all ease-out duration-200 group">
+            <TerminalSquare className="size-5 text-muted-foreground mb-2 group-hover:text-foreground transition-colors ease-out duration-200" />
+            <span className="text-xs font-medium text-sidebar-foreground text-pretty">New Term</span>
           </button>
         </div>
       </div>

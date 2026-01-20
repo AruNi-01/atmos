@@ -3,8 +3,8 @@
 # 安装: brew install just (macOS) / cargo install just
 
 # 设置默认 shell
-# set shell := ["zsh", "-cu"]
-set shell := ["powershell.exe", "-c"]
+set shell := ["zsh", "-cu"]
+# set shell := ["powershell.exe", "-c"]
 
 # 显示所有可用命令
 default:

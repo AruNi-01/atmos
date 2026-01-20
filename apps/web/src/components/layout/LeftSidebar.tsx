@@ -88,8 +88,8 @@ const ProjectItem: React.FC<{
                 )}
             >
                 <div className={cn(
-                    "flex items-center justify-between px-2 py-1.5 hover:bg-zinc-800/40 rounded-sm mx-2 transition-all duration-200",
-                    isDragging && "bg-zinc-800 shadow-2xl scale-[1.02]"
+                    "flex items-center justify-between px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-200",
+                    isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]"
                 )}>
                     <div
                         {...attributes}
@@ -99,12 +99,12 @@ const ProjectItem: React.FC<{
                     >
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                             <div
-                                className="size-6 flex items-center justify-center bg-zinc-800 rounded-md border border-white/5 text-[10px] font-bold text-zinc-400 shrink-0 transition-colors group-hover/project:bg-zinc-700"
+                                className="size-6 flex items-center justify-center bg-sidebar-accent rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 transition-colors group-hover/project:bg-sidebar-accent/80"
                                 style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
                             >
                                 {initialLetter}
                             </div>
-                            <span className="text-[13px] font-medium truncate text-zinc-300 group-hover/project:text-white transition-colors">
+                            <span className="text-[13px] font-medium truncate text-sidebar-foreground group-hover/project:text-sidebar-foreground transition-colors">
                                 {project.name}
                             </span>
                         </div>
@@ -114,8 +114,8 @@ const ProjectItem: React.FC<{
                         <div className="flex items-center opacity-0 group-hover/project:opacity-100 transition-opacity">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button className="p-1 hover:bg-zinc-700 rounded-sm transition-all duration-200">
-                                        <Plus className="size-3.5 text-zinc-400" />
+                                    <button className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200">
+                                        <Plus className="size-3.5 text-muted-foreground" />
                                     </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56">
@@ -135,11 +135,11 @@ const ProjectItem: React.FC<{
                                                     <button
                                                         key={preset.name}
                                                         onClick={() => onSetColor(project.id, preset.color)}
-                                                        className="size-6 rounded-md hover:scale-110 transition-transform flex items-center justify-center border border-white/10"
+                                                        className="size-6 rounded-md hover:scale-110 transition-transform flex items-center justify-center border border-sidebar-border"
                                                         style={{ backgroundColor: preset.color || 'transparent' }}
                                                         title={preset.name}
                                                     >
-                                                        {!preset.color && <X className="size-3 text-zinc-500" />}
+                                                        {!preset.color && <X className="size-3 text-muted-foreground" />}
                                                     </button>
                                                 ))}
                                             </div>
@@ -172,7 +172,7 @@ const ProjectItem: React.FC<{
                             ))}
                         </SortableContext>
                         {project.workspaces.length === 0 && (
-                            <div className="py-2 text-[12px] text-zinc-600 italic">No workspaces</div>
+                            <div className="py-2 text-[12px] text-muted-foreground italic">No workspaces</div>
                         )}
                     </div>
                 )}
@@ -238,13 +238,13 @@ const WorkspaceContent: React.FC<{
             className={cn(
                 "flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-all border border-transparent group/ws",
                 isActive
-                    ? 'bg-zinc-800 text-blue-400 border-white/5 shadow-inner'
-                    : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200',
+                    ? 'bg-sidebar-accent text-sidebar-foreground border-sidebar-border shadow-sm'
+                    : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
                 isPlaceholder && "opacity-20",
-                isDragging && "bg-zinc-800 shadow-xl scale-[1.02] border-white/5 text-blue-400"
+                isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
             )}
         >
-            <GitBranch className={cn("size-3.5 mr-2", isActive || isDragging ? 'text-blue-400' : 'text-zinc-600 group-hover/ws:text-zinc-400')} />
+            <GitBranch className={cn("size-3.5 mr-2", isActive || isDragging ? 'text-blue-500' : 'text-muted-foreground group-hover/ws:text-foreground')} />
             <span className="text-[13px] truncate">{workspace.name}</span>
             {isActive && !isDragging && (
                 <div className="ml-auto size-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
@@ -287,11 +287,11 @@ interface LeftSidebarProps {
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
     const router = useRouter();
     const { projects, fetchProjects, deleteProject, updateProject, deleteWorkspace } = useProjectStore();
-    
+
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
-    
+
     // Dialog states
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
     const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -359,7 +359,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             }
 
             // Check if sorting workspaces within a project
-            // This logic needs to be robust to handle cross-project drags if allowed, 
+            // This logic needs to be robust to handle cross-project drags if allowed,
             // but for now we assume same-list sorting within SortableContext
         }
     };
@@ -385,25 +385,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     return (
         <>
-            <aside className="w-full flex flex-col border-r border-white/5 h-full select-none bg-[#0a0a0a]">
-                <Tabs 
-                    defaultValue="projects" 
+            <aside className="w-full flex flex-col border-r border-sidebar-border h-full select-none">
+                <Tabs
+                    defaultValue="projects"
                     className="flex flex-col h-full"
                     onValueChange={(value) => setActiveTab(value as 'projects' | 'files')}
                 >
                     {/* Tabs Header */}
-                    <div className="h-10 flex items-center px-2 border-b border-white/5">
-                        <TabsList className="w-full bg-transparent gap-1 p-0">
-                            <TabsTab 
-                                value="projects" 
-                                className="flex-1 h-7 text-[12px] gap-1.5 rounded-sm data-active:bg-zinc-800 data-active:text-zinc-100 data-active:shadow-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30"
+                    <div className="h-10 flex items-center px-2 border-b border-sidebar-border">
+                        <TabsList className="w-full gap-1">
+                            <TabsTab
+                                value="projects"
+                                className="flex-1 h-7 text-[12px] gap-1.5"
                             >
                                 <Layers className="size-3.5" />
                                 <span>Projects</span>
                             </TabsTab>
-                            <TabsTab 
-                                value="files" 
-                                className="flex-1 h-7 text-[12px] gap-1.5 rounded-sm data-active:bg-zinc-800 data-active:text-zinc-100 data-active:shadow-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30"
+                            <TabsTab
+                                value="files"
+                                className="flex-1 h-7 text-[12px] gap-1.5"
                             >
                                 <Folder className="size-3.5" />
                                 <span>Files</span>
@@ -468,17 +468,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
                     <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar py-3">
                         <div className="px-4 py-8 text-center">
-                            <Folder className="size-8 mx-auto text-zinc-700 mb-2 opacity-50" />
-                            <p className="text-zinc-500 text-xs text-pretty italic">Select a project to view files</p>
+                            <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
+                            <p className="text-muted-foreground text-xs text-pretty italic">Select a project to view files</p>
                         </div>
                     </TabsPanel>
 
                     {/* Add Button */}
                     {activeTab === 'projects' && (
-                        <div className="p-3 border-t border-white/5">
+                        <div className="p-3 border-t border-sidebar-border">
                             <button
                                 onClick={handleAddProject}
-                                className="w-full flex items-center justify-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[13px] py-2 rounded-md border border-white/5 transition-all duration-200 shadow-lg"
+                                className="w-full flex items-center justify-center space-x-2 bg-transparent hover:bg-sidebar-accent text-sidebar-foreground text-[13px] py-2 rounded-md border border-sidebar-border transition-all duration-200"
                             >
                                 <Plus className="size-4" />
                                 <span className="font-medium">Add Project</span>
@@ -489,14 +489,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             </aside>
 
             {/* Dialogs */}
-            <CreateWorkspaceDialog 
-                isOpen={isCreateWorkspaceOpen} 
+            <CreateWorkspaceDialog
+                isOpen={isCreateWorkspaceOpen}
                 onClose={() => setIsCreateWorkspaceOpen(false)}
                 defaultProjectId={selectedProjectId}
             />
-            <CreateProjectDialog 
-                isOpen={isCreateProjectOpen} 
-                onClose={() => setIsCreateProjectOpen(false)} 
+            <CreateProjectDialog
+                isOpen={isCreateProjectOpen}
+                onClose={() => setIsCreateProjectOpen(false)}
             />
         </>
     );
