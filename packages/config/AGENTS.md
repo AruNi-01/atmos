@@ -4,7 +4,7 @@
 
 ## 包信息
 
-- **包名**: `@vibe-habitat/config`
+- **包名**: `@atmos/config`
 - **路径**: `packages/config`
 
 ## 目录结构
@@ -37,7 +37,7 @@ ESLint 配置由各 App 自行管理，通常使用 `eslint-config-next`。
 
 ```json
 {
-  "extends": "@vibe-habitat/config/typescript/nextjs",
+  "extends": "@atmos/config/typescript/nextjs",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {

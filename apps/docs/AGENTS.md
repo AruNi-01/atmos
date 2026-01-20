@@ -30,4 +30,4 @@ This is the official documentation site for the project, built with Next.js and 
 ## Integration Notes
 
 - This app should eventually share UI components and configurations from the `packages/` workspace.
-- **Internationalization**: If adding i18n, integrate with `@vibe-habitat/i18n` (see `packages/i18n/AGENTS.md`).
+- **Internationalization**: If adding i18n, integrate with `@atmos/i18n` (see `packages/i18n/AGENTS.md`).

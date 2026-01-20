@@ -1,6 +1,6 @@
 # Core Service Layer (L3) - AGENTS.md
 
-> **🧠 L3: Business Rules**: This crate implements the core business logic of Vibe Habitat.
+> **🧠 L3: Business Rules**: This crate implements the core business logic of ATMOS.
 
 ## Directory Structure
 

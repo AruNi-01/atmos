@@ -1,5 +1,5 @@
 {
-  "name": "@vibe-habitat/config",
+  "name": "@atmos/config",
   "version": "0.0.1",
   "private": true,
   "exports": {
@@ -10,4 +10,3 @@
     "typescript": "^5"
   }
 }
-

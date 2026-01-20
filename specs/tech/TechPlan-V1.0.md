@@ -1,4 +1,4 @@
-# VibeHabitat 技术方案文档
+# ATMOS 技术方案文档
 
 **最后更新**: 2026-01-14  
 **版本**: 1.0（去除代码示例版）  
@@ -25,7 +25,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         VibeHabitat System                              │
+│                         ATMOS System                              │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                           │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
@@ -95,10 +95,10 @@
 所有项目组件统一组织在单一仓库中，便于版本管理、依赖协调和 AI Agent 访问：
 
 ```
-vibe-habitat/
+atmos/
 ├── docs/                        # 项目文档（设计文档、API 文档、用户手册等）
 ├── README.md                    # 项目概述与快速开始
-├── vibe-habitat-server/         # Rust 后端服务（精简分层架构）
+├── atmos-server/         # Rust 后端服务（精简分层架构）
 │   ├── Cargo.toml               # 依赖管理 (Axum, Tokio, SeaORM, Tracing, Portable-pty)
 │   ├── .env                     # 环境变量 (DATABASE_URL, LOG_LEVEL)
 │   ├── .env.example             # 环境变量模板
@@ -167,7 +167,7 @@ vibe-habitat/
 │       └── utils/               # [工具]
 │           ├── mod.rs
 │           └── id_gen.rs        # NanoID/UUID 生成
-├── vibe-habitat-web/            # Next.js 前端应用
+├── atmos-web/            # Next.js 前端应用
 │   ├── app/                     # Next.js App Router
 │   ├── components/              # React 组件
 │   │   ├── layout/              # 布局组件（Topbar/Sidebar/Mosaic）
@@ -412,7 +412,7 @@ vibe-habitat/
 
 #### 5.2 Diffs.com 集成
 
-- VibeHabitat 只负责：
+- ATMOS 只负责：
   - 提供 diff 数据给前端。
   - 接收用户在 diffs.com 交互后的「接受/拒绝/评论」结果。
 
@@ -528,7 +528,7 @@ Axum 路由与 WebSocket Handler
 
 - 内网穿透（localtunnel），远程访问 UI 和 Agent。
 - 一键唤起外部 IDE（VS Code、Zed、Cursor、IDEA）。
-- VibeHabitat CLI（让大模型远程控制 workspace）。
+- ATMOS CLI（让大模型远程控制 workspace）。
 - 为 Tauri 桌面端预留接口并做初步封装。
 
 ---
@@ -593,7 +593,7 @@ Axum 路由与 WebSocket Handler
 
 ## 总结
 
-VibeHabitat 通过前后端分离、WebSocket 实时通信，提供了一个「可视化终端工作空间」。核心特性包括：
+ATMOS 通过前后端分离、WebSocket 实时通信，提供了一个「可视化终端工作空间」。核心特性包括：
 
 - **多项目、多工作区、多终端隔离**：每个 workspace 对应独立 Git worktree。
 - **持久化终端**：基于 tmux，支持断线重连。

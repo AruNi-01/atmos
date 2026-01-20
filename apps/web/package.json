@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
-    "@vibe-habitat/i18n": "workspace:*",
-    "@vibe-habitat/shared": "workspace:*",
+    "@atmos/i18n": "workspace:*",
+    "@atmos/shared": "workspace:*",
     "@workspace/ui": "workspace:*",
     "next": "16.1.2",
     "next-intl": "^4.7.0",

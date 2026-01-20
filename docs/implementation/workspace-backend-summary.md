@@ -2,7 +2,7 @@
 
 ## ✅ 实现完成
 
-Vibe Habitat 项目的 Workspace CRUD 后端接口已全部实现并测试通过。
+ATMOS 项目的 Workspace CRUD 后端接口已全部实现并测试通过。
 
 ---
 

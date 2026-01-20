@@ -1,6 +1,6 @@
-# CLI Tool (vh) - AGENTS.md
+# CLI Tool (atmos) - AGENTS.md
 
-> **🛠️ vh CLI**: The command-line interface for developer productivity.
+> **🛠️ atmos CLI**: The command-line interface for developer productivity.
 
 ## Structure
 - **Commands**: Subcommands implemented in `src/commands/`.

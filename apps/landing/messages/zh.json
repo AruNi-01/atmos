@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "title": "Vibe Habitat - 你的个人效率栖息地",
+    "title": "ATMOS - 你的个人效率栖息地",
     "description": "在你的个人效率栖息地中构建、创造、蓬勃发展"
   },
   "common": {
@@ -77,7 +77,7 @@
       "button": "开始构建"
     },
     "footer": {
-      "copyright": "© 2026 Vibe Habitat. 保留所有权利。",
+      "copyright": "© 2026 ATMOS. 保留所有权利。",
       "links": {
         "github": "GitHub",
         "docs": "文档",

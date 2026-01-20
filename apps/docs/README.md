@@ -6,7 +6,7 @@
 
 ## 🎯 Purpose
 
-Documentation site built with [Fumadocs](https://fumadocs.dev) for Vibe Habitat.
+Documentation site built with [Fumadocs](https://fumadocs.dev) for ATMOS.
 
 ---
 

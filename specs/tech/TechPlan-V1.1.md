@@ -1,4 +1,4 @@
-# VibeHabitat 技术方案文档
+# ATMOS 技术方案文档
 
 **最后更新**: 2026-01-17
 **版本**: 1.1（更新前端架构为 Monorepo）
@@ -25,14 +25,14 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         VibeHabitat System                              │
+│                         ATMOS System                              │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                           │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
 │  │                     Apps Layer (Monorepo)                          │  │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │  │
 │  │  │   Web    │  │  Desktop │  │    CLI   │  │   API Service    │  │  │
-│  │  │ (Next.js)│  │ (Tauri)  │  │   (vh)   │  │   (Rust/Axum)    │  │  │
+│  │  │ (Next.js)│  │ (Tauri)  │  │   (atmos)   │  │   (Rust/Axum)    │  │  │
 │  │  └──────────┘  └──────────┘  └──────────┘  └──────────────────┘  │  │
 │  │       │            │               │                │               │  │
 │  │       └────────────┴───────────────┴────────────────┘               │  │
@@ -89,7 +89,7 @@
 所有项目组件统一组织在 Monorepo 中，便于版本管理、依赖协调和 AI Agent 访问：
 
 ```
-vibe-habitat/
+atmos/
 │
 ├── crates/                          # 🔧 Rust 共享包
 │   ├── infra/                       # 🔧 基础设施层（DB、WebSocket、缓存、定时任务、消息队列等）
@@ -308,14 +308,14 @@ vibe-habitat/
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   ├── cli/                         # 🛠️ CLI 工具 (vh 命令)
+│   ├── cli/                         # 🛠️ CLI 工具 (atmos 命令)
 │   │   ├── src/
 │   │   │   ├── main.rs              # CLI 入口
 │   │   │   ├── commands/            # 子命令实现
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── project.rs       # vh project create/list/delete
-│   │   │   │   ├── workspace.rs     # vh workspace new/list
-│   │   │   │   └── terminal.rs      # vh terminal start
+│   │   │   │   ├── project.rs       # atmos project create/list/delete
+│   │   │   │   ├── workspace.rs     # atmos workspace new/list
+│   │   │   │   └── terminal.rs      # atmos terminal start
 │   │   │   ├── config.rs            # CLI 配置管理
 │   │   │   ├── ui.rs                # 终端输出格式（TUI 可选）
 │   │   │   └── error.rs
@@ -719,7 +719,7 @@ Web 页面 / Desktop 窗口 / CLI 输出
 
 #### 5.2 Diffs.com 集成
 
-- VibeHabitat 只负责：
+- ATMOS 只负责：
   - 提供 diff 数据给前端。
   - 接收用户在 diffs.com 交互后的「接受/拒绝/评论」结果。
 
@@ -836,7 +836,7 @@ Axum 路由与 WebSocket Handler
 
 **目标**：产品化、多端支持与远程能力。
 
-- VibeHabitat CLI (`vh`) 开发，让大模型远程控制 workspace。
+- ATMOS CLI (`atmos`) 开发，让大模型远程控制 workspace。
 - Tauri 桌面端集成，共享 Web 前端代码。
 - 内网穿透（localtunnel），远程访问 UI 和 Agent。
 - 一键唤起外部 IDE（VS Code、Zed、Cursor、IDEA）。
@@ -904,7 +904,7 @@ Axum 路由与 WebSocket Handler
 
 ## 总结
 
-VibeHabitat 基于 Monorepo 架构，通过前后端分离、WebSocket 实时通信，提供了一个「可视化终端工作空间」。核心特性包括：
+ATMOS 基于 Monorepo 架构，通过前后端分离、WebSocket 实时通信，提供了一个「可视化终端工作空间」。核心特性包括：
 
 - **Monorepo 架构**：Bun workspace 管理 Web/Desktop/Landing，Cargo workspace 管理 API/CLI/Desktop-tauri，共享 `packages/*` 和 `crates/*`
 - **多项目、多工作区、多终端隔离**：每个 workspace 对应独立 Git worktree

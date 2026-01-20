@@ -10,7 +10,7 @@ import {
   ChevronRight,
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
-import { useAppStorage } from "@vibe-habitat/shared";
+import { useAppStorage } from "@atmos/shared";
 
 interface PanelLayoutProps {
   leftSidebar: React.ReactNode;

@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { routing } from "@vibe-habitat/i18n/routing";
+import { routing } from "@atmos/i18n/routing";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import "../globals.css";
 
@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vibe Habitat - Your Personal Productivity Habitat",
+  title: "ATMOS - Your Personal Productivity Habitat",
   description: "Build, create, and thrive in your personal productivity habitat. An open-source platform for developers to organize their digital life.",
 };
 

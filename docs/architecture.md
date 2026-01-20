@@ -2,12 +2,12 @@
 
 ## Overview
 
-Vibe Habitat uses a Monorepo architecture to manage full-stack capabilities efficiently.
+ATMOS uses a Monorepo architecture to manage full-stack capabilities efficiently.
 
 ## Directory Structure
 
 ```text
-vibe-habitat/
+atmos/
 ├── apps/                       # Applications
 │   ├── web/                    # Next.js Web App
 │   ├── desktop/                # Tauri Desktop App

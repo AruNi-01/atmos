@@ -60,8 +60,8 @@ export function isValidUrl(url: string): boolean { ... }
 
 **Usage**:
 ```tsx
-import { formatDate, formatCurrency } from "@vibe-habitat/shared/utils/format";
-import { isValidEmail } from "@vibe-habitat/shared/utils/validation";
+import { formatDate, formatCurrency } from "@atmos/shared/utils/format";
+import { isValidEmail } from "@atmos/shared/utils/validation";
 ```
 
 ---
@@ -81,8 +81,8 @@ export function useDebounce<T>(value: T, delay: number) { ... }
 
 **Usage**:
 ```tsx
-import { useLocalStorage } from "@vibe-habitat/shared/hooks/use-local-storage";
-import { useDebounce } from "@vibe-habitat/shared/hooks/use-debounce";
+import { useLocalStorage } from "@atmos/shared/hooks/use-local-storage";
+import { useDebounce } from "@atmos/shared/hooks/use-debounce";
 
 function MyComponent() {
   const [value, setValue] = useLocalStorage("key", "default");
@@ -113,7 +113,7 @@ export interface User {
 
 **Usage**:
 ```tsx
-import type { Result, User } from "@vibe-habitat/shared/types";
+import type { Result, User } from "@atmos/shared/types";
 ```
 
 ---
@@ -134,13 +134,13 @@ export const ROUTES = {
 // src/constants/config.ts
 export const CONFIG = {
   API_BASE_URL: process.env.NEXT_PUBLIC_API_URL,
-  APP_NAME: "Vibe Habitat",
+  APP_NAME: "ATMOS",
 } as const;
 ```
 
 **Usage**:
 ```tsx
-import { ROUTES, CONFIG } from "@vibe-habitat/shared/constants";
+import { ROUTES, CONFIG } from "@atmos/shared/constants";
 ```
 
 ---
@@ -166,8 +166,8 @@ export const logger = {
 
 **Usage**:
 ```tsx
-import { ApiClient } from "@vibe-habitat/shared/lib/api-client";
-import { logger } from "@vibe-habitat/shared/lib/logger";
+import { ApiClient } from "@atmos/shared/lib/api-client";
+import { logger } from "@atmos/shared/lib/logger";
 ```
 
 ---
@@ -178,7 +178,7 @@ Configure in `package.json`:
 
 ```json
 {
-  "name": "@vibe-habitat/shared",
+  "name": "@atmos/shared",
   "exports": {
     "./utils/*": "./src/utils/*.ts",
     "./hooks/*": "./src/hooks/*.ts",
@@ -294,7 +294,7 @@ describe("formatDate", () => {
 ### Development Dependencies
 - `typescript`: Type checking
 - `@types/*`: Type definitions
-- `@vibe-habitat/config`: Shared configs
+- `@atmos/config`: Shared configs
 
 ---
 

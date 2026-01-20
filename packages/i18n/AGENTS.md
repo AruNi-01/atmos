@@ -24,7 +24,7 @@ Import `i18nMiddleware` to create the middleware used in the `proxy` function (o
 
 ```ts
 import type { NextRequest } from "next/server";
-import { i18nMiddleware } from "@vibe-habitat/i18n/middleware";
+import { i18nMiddleware } from "@atmos/i18n/middleware";
 
 export function proxy(request: NextRequest) {
   return i18nMiddleware(request);
@@ -44,7 +44,7 @@ export const config = {
 Use the hooks and `Link` component from this package instead of `next-intl/navigation` directly. This enables type safety based on your shared routing configuration.
 
 ```tsx
-import { Link, useRouter } from "@vibe-habitat/i18n/navigation";
+import { Link, useRouter } from "@atmos/i18n/navigation";
 
 // ...
 <Link href="/about">About</Link>
@@ -57,6 +57,6 @@ Note that the `request.ts` file (which loads the actual translation JSON files) 
 However, that `request.ts` should import types and config from here:
 
 ```ts
-import { routing } from "@vibe-habitat/i18n/routing";
-import { Locale } from "@vibe-habitat/i18n/config";
+import { routing } from "@atmos/i18n/routing";
+import { Locale } from "@atmos/i18n/config";
 ```

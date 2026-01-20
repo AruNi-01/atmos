@@ -1,6 +1,6 @@
 # Desktop Application - AGENTS.md
 
-> **🖥️ Tauri Frontend**: A cross-platform desktop wrapper for the Vibe Habitat ecosystem.
+> **🖥️ Tauri Frontend**: A cross-platform desktop wrapper for the ATMOS ecosystem.
 
 ## Structure
 - **Frontend (src/)**: React-based UI, mirroring the Web experience but with local capabilities.

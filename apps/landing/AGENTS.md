@@ -1,6 +1,6 @@
 # Apps Landing
 
-Landing 页面应用，用于介绍 Vibe Habitat 项目。
+Landing 页面应用，用于介绍 ATMOS 项目。
 
 ## 特性
 
@@ -22,9 +22,9 @@ Landing 页面应用，用于介绍 Vibe Habitat 项目。
 
 ## 共享依赖
 
-- `@vibe-habitat/ui` - 共享 UI 组件库
-- `@vibe-habitat/i18n` - 共享国际化配置
-- `@vibe-habitat/shared` - 其他共享工具
+- `@atmos/ui` - 共享 UI 组件库
+- `@atmos/i18n` - 共享国际化配置
+- `@atmos/shared` - 其他共享工具
 
 ## 开发
 

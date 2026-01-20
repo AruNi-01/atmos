@@ -1,4 +1,4 @@
-# Vibe Habitat - Justfile
+# ATMOS - Justfile
 # 使用 Just (https://github.com/casey/just) 管理跨语言任务
 # 安装: brew install just (macOS) / cargo install just
 
@@ -28,7 +28,7 @@ dev-api:
 
 # 运行 CLI 帮助
 dev-cli:
-    cargo run --bin vh -- --help
+    cargo run --bin atmos -- --help
 
 # 同时启动所有开发服务器 (并行运行)
 dev-all:
@@ -49,7 +49,7 @@ build-api:
 
 # 构建 CLI 工具 (release 模式)
 build-cli:
-    cargo build --release --bin vh
+    cargo build --release --bin atmos
 
 # 构建所有 Rust 项目
 build-rust:

@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale } from "next-intl";
-import { usePathname, useRouter } from "@vibe-habitat/i18n/navigation";
+import { usePathname, useRouter } from "@atmos/i18n/navigation";
 import { LanguageSelector } from "@workspace/ui/components/language-selector";
 
 export function LocaleSwitcher() {
