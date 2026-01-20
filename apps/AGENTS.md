@@ -11,7 +11,7 @@
 | **api** | Rust (Axum) | Backend logic & WS entry | [api/AGENTS.md](api/AGENTS.md) |
 | **web** | Next.js 16 | Main web workspace | [web/AGENTS.md](web/AGENTS.md) |
 | **desktop** | Tauri 2.0 | Cross-platform desktop app | [desktop/AGENTS.md](desktop/AGENTS.md) |
-| **cli** | Rust (clap) | `vh` command line tool | [cli/AGENTS.md](cli/AGENTS.md) |
+| **cli** | Rust (clap) | `atmos` command line tool | [cli/AGENTS.md](cli/AGENTS.md) |
 | **landing** | Next.js 16 | Marketing site | [landing/README.md](landing/README.md) |
 
 ---

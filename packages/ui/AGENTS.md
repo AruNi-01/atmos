@@ -1,6 +1,6 @@
 # UI Component Library - AGENTS.md
 
-> **🎁 @workspace/ui**: The unified design system for Vibe Habitat.
+> **🎁 @workspace/ui**: The unified design system for ATMOS.
 
 ## Structure
 - **UI (src/components/ui/)**: Atomic shadcn components.

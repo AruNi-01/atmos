@@ -77,7 +77,7 @@ Shared TypeScript compiler options.
 ```json
 // apps/web/tsconfig.json
 {
-  "extends": "@vibe-habitat/config/typescript/nextjs.json",
+  "extends": "@atmos/config/typescript/nextjs.json",
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"],
@@ -128,7 +128,7 @@ module.exports = {
 ```javascript
 // apps/web/.eslintrc.js
 module.exports = {
-  extends: ["@vibe-habitat/config/eslint/next"],
+  extends: ["@atmos/config/eslint/next"],
 };
 ```
 
@@ -154,7 +154,7 @@ module.exports = {
 **Usage in Apps**:
 ```javascript
 // apps/web/prettier.config.js
-module.exports = require("@vibe-habitat/config/prettier");
+module.exports = require("@atmos/config/prettier");
 ```
 
 ---
@@ -163,7 +163,7 @@ module.exports = require("@vibe-habitat/config/prettier");
 
 ```json
 {
-  "name": "@vibe-habitat/config",
+  "name": "@atmos/config",
   "exports": {
     "./typescript/base.json": "./typescript/base.json",
     "./typescript/nextjs.json": "./typescript/nextjs.json",
@@ -205,7 +205,7 @@ Apps can extend and override:
 ```json
 // apps/web/tsconfig.json
 {
-  "extends": "@vibe-habitat/config/typescript/nextjs.json",
+  "extends": "@atmos/config/typescript/nextjs.json",
   "compilerOptions": {
     // Override or add app-specific options
     "baseUrl": ".",
@@ -225,14 +225,14 @@ Apps can extend and override:
 ```json
 // tsconfig.json
 {
-  "extends": "@vibe-habitat/config/typescript/nextjs.json"
+  "extends": "@atmos/config/typescript/nextjs.json"
 }
 ```
 
 ```javascript
 // .eslintrc.js
 module.exports = {
-  extends: ["@vibe-habitat/config/eslint/next"],
+  extends: ["@atmos/config/eslint/next"],
 };
 ```
 
@@ -241,14 +241,14 @@ module.exports = {
 ```json
 // tsconfig.json
 {
-  "extends": "@vibe-habitat/config/typescript/react.json"
+  "extends": "@atmos/config/typescript/react.json"
 }
 ```
 
 ```javascript
 // .eslintrc.js
 module.exports = {
-  extends: ["@vibe-habitat/config/eslint/react"],
+  extends: ["@atmos/config/eslint/react"],
 };
 ```
 
@@ -257,14 +257,14 @@ module.exports = {
 ```json
 // tsconfig.json
 {
-  "extends": "@vibe-habitat/config/typescript/node.json"
+  "extends": "@atmos/config/typescript/node.json"
 }
 ```
 
 ```javascript
 // .eslintrc.js
 module.exports = {
-  extends: ["@vibe-habitat/config/eslint/node"],
+  extends: ["@atmos/config/eslint/node"],
 };
 ```
 

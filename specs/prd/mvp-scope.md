@@ -1,7 +1,7 @@
 # MVP Scope
 
 ## Objectives
-Launch a functional version of Vibe Habitat that allows users to...
+Launch a functional version of ATMOS that allows users to...
 
 ## In Scope
 - [ ] Core Feature A

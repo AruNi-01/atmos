@@ -1,6 +1,6 @@
 import { getRequestConfig } from "next-intl/server";
-import { routing } from "@vibe-habitat/i18n/routing";
-import { Locale } from "@vibe-habitat/i18n/config";
+import { routing } from "@atmos/i18n/routing";
+import { Locale } from "@atmos/i18n/config";
 
 export default getRequestConfig(async ({ requestLocale }) => {
   // This typically corresponds to the `[locale]` segment

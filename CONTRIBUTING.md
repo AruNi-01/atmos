@@ -1,4 +1,4 @@
-# Contributing to Vibe Habitat
+# Contributing to ATMOS
 
 First off, thanks for taking the time to contribute!
 

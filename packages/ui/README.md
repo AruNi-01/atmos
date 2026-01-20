@@ -137,7 +137,7 @@ import { cn } from "@workspace/ui/lib/utils";
 Add shared utilities here:
 - String formatting
 - Number formatting
-- Date utilities (if not in @vibe-habitat/shared)
+- Date utilities (if not in @atmos/shared)
 
 ---
 
@@ -227,7 +227,7 @@ Package exports:
 ### Development Dependencies
 - `typescript`: Type checking
 - `@types/*`: Type definitions
-- `@vibe-habitat/config`: Shared configs
+- `@atmos/config`: Shared configs
 - `tailwindcss`: CSS framework
 - `@tailwindcss/postcss`: PostCSS plugin
 

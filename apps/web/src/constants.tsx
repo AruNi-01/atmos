@@ -51,7 +51,7 @@ interface ButtonProps {
 
 export const Button = ({ variant, size = 'md' }: ButtonProps) => {
   return (
-    <button 
+    <button
       className={cn(
         "rounded-md transition-all duration-200",
         variant === 'primary' && "bg-blue-500 text-white",
@@ -66,7 +66,7 @@ export const Button = ({ variant, size = 'md' }: ButtonProps) => {
 export const MOCK_FILE_TREE: FileNode[] = [
   {
     id: 'root',
-    name: 'vibe-habitat',
+    name: 'atmos',
     type: 'folder',
     isOpen: true,
     children: [
@@ -98,16 +98,16 @@ export const MOCK_FILE_TREE: FileNode[] = [
 
 export const MOCK_DIFF = ` import React from 'react';
  import { cn } from '@/lib/utils';
- 
+
  interface ButtonProps {
 -  variant: 'primary' | 'secondary';
 +  variant: 'primary' | 'ghost';
    size?: 'sm' | 'md';
  }
- 
+
  export const Button = ({ variant, size = 'md' }: ButtonProps) => {
    return (
-     <button 
+     <button
        className={cn(
          "rounded-md transition-all duration-200",
 -        variant === 'primary' ? "bg-blue-600" : "bg-gray-200",

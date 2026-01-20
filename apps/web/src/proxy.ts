@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { i18nMiddleware } from "@vibe-habitat/i18n/middleware";
+import { i18nMiddleware } from "@atmos/i18n/middleware";
 
 export function proxy(request: NextRequest) {
   return i18nMiddleware(request);
@@ -15,4 +15,3 @@ export const config = {
   // - _next (Next.js internals)
   matcher: ["/((?!api|_next|.*\\..*).*)"],
 };
-

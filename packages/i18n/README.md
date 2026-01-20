@@ -44,7 +44,7 @@ export const localeNames: Record<Locale, string> = {
 
 **Usage**:
 ```tsx
-import { locales, defaultLocale, localeNames } from "@vibe-habitat/i18n/config";
+import { locales, defaultLocale, localeNames } from "@atmos/i18n/config";
 
 console.log(locales); // ["en", "zh"]
 console.log(defaultLocale); // "en"
@@ -72,7 +72,7 @@ export const routing = defineRouting({
 **Usage in Middleware**:
 ```typescript
 // middleware.ts
-import { routing } from "@vibe-habitat/i18n/routing";
+import { routing } from "@atmos/i18n/routing";
 import createMiddleware from "next-intl/middleware";
 
 export default createMiddleware(routing);
@@ -99,7 +99,7 @@ export const { Link, redirect, usePathname, useRouter } =
 
 **Usage in Components**:
 ```tsx
-import { Link, useRouter, usePathname } from "@vibe-habitat/i18n/navigation";
+import { Link, useRouter, usePathname } from "@atmos/i18n/navigation";
 
 export function MyComponent() {
   const router = useRouter();
@@ -158,7 +158,7 @@ export default nextConfig;
 **Reference in App**:
 ```typescript
 // i18n/request.ts (in app)
-import request from "@vibe-habitat/i18n/request";
+import request from "@atmos/i18n/request";
 export default request;
 ```
 
@@ -199,7 +199,7 @@ apps/web/
 // messages/en.json
 {
   "HomePage": {
-    "title": "Welcome to Vibe Habitat",
+    "title": "Welcome to ATMOS",
     "description": "AI-first workspace"
   },
   "Navigation": {
@@ -214,7 +214,7 @@ apps/web/
 // messages/zh.json
 {
   "HomePage": {
-    "title": "欢迎来到 Vibe Habitat",
+    "title": "欢迎来到 ATMOS",
     "description": "AI 优先的工作空间"
   },
   "Navigation": {
@@ -274,7 +274,7 @@ t("greeting", { name: "Alice" }); // "Hello, Alice!"
 
 ```json
 {
-  "name": "@vibe-habitat/i18n",
+  "name": "@atmos/i18n",
   "exports": {
     "./config": "./src/config.ts",
     "./routing": "./src/routing.ts",
@@ -295,7 +295,7 @@ t("greeting", { name: "Alice" }); // "Hello, Alice!"
 // apps/web/package.json
 {
   "dependencies": {
-    "@vibe-habitat/i18n": "workspace:*",
+    "@atmos/i18n": "workspace:*",
     "next-intl": "^4.0.0"
   }
 }
@@ -305,7 +305,7 @@ t("greeting", { name: "Alice" }); // "Hello, Alice!"
 
 ```typescript
 // apps/web/src/i18n/request.ts
-import request from "@vibe-habitat/i18n/request";
+import request from "@atmos/i18n/request";
 export default request;
 ```
 
@@ -327,7 +327,7 @@ export default withNextIntl(nextConfig);
 
 ```typescript
 // apps/web/middleware.ts
-import { routing } from "@vibe-habitat/i18n/routing";
+import { routing } from "@atmos/i18n/routing";
 import createMiddleware from "next-intl/middleware";
 
 export default createMiddleware(routing);
@@ -341,7 +341,7 @@ export const config = {
 
 ```tsx
 // apps/web/src/app/[locale]/layout.tsx
-import { routing } from "@vibe-habitat/i18n/routing";
+import { routing } from "@atmos/i18n/routing";
 import { setRequestLocale } from "next-intl/server";
 
 export function generateStaticParams() {
@@ -396,7 +396,7 @@ touch messages/ja.json
 // messages/ja.json
 {
   "HomePage": {
-    "title": "Vibe Habitat へようこそ"
+    "title": "ATMOS へようこそ"
   }
 }
 ```

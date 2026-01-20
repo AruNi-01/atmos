@@ -1,6 +1,6 @@
 # Web Application - AGENTS.md
 
-> **💻 Main Workspace**: The primary Next.js web application for Vibe Habitat.
+> **💻 Main Workspace**: The primary Next.js web application for ATMOS.
 
 ---
 

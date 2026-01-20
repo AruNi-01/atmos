@@ -9,7 +9,7 @@
 | Package | Purpose | Standard Namespace |
 |---------|---------|-------------------|
 | **ui** | Component Library | `@workspace/ui` |
-| **shared** | Utils & Hooks | `@vibe-habitat/shared` |
+| **shared** | Utils & Hooks | `@atmos/shared` |
 | **config** | TS/Lint configs | `@workspace/config` |
 | **i18n** | Translations | `@workspace/i18n` |
 
@@ -21,7 +21,7 @@
 - **Atomic components** only in `src/components/ui`.
 - **NO API CALLS**: This package must remain pure UI.
 
-### 2. The `@vibe-habitat/shared` Package
+### 2. The `@atmos/shared` Package
 - Contains common logic and framework-agnostic utilities.
 
 ---

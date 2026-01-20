@@ -331,8 +331,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   "parent_path": "/Users/username",
   "entries": [
     {
-      "name": "vibe-habitat",
-      "path": "/Users/username/projects/vibe-habitat",
+      "name": "atmos",
+      "path": "/Users/username/projects/atmos",
       "is_dir": true,
       "is_git_repo": true
     },
@@ -351,14 +351,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 // 请求
 {
   "action": "fs_validate_git_path",
-  "data": { "path": "/Users/username/projects/vibe-habitat" }
+  "data": { "path": "/Users/username/projects/atmos" }
 }
 
 // 响应
 {
   "is_valid": true,
   "is_git_repo": true,
-  "suggested_name": "vibe-habitat",
+  "suggested_name": "atmos",
   "default_branch": "main",
   "error": null
 }

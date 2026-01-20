@@ -1,5 +1,5 @@
 {
-  "name": "vibe-habitat",
+  "name": "atmos",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -11,7 +11,7 @@
     "dev:landing": "bun --filter landing dev",
     "dev:docs": "bun --filter docs dev",
     "build": "bun run build:packages && bun run build:apps",
-    "build:packages": "bun --filter '@vibe-habitat/*' run build",
+    "build:packages": "bun --filter '@atmos/*' run build",
     "build:apps": "bun --filter web --filter landing --filter docs run build",
     "build:web": "bun --filter web build",
     "lint": "bun --filter '*' lint",

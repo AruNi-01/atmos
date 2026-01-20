@@ -64,7 +64,7 @@ When code changes, update the corresponding document only.
 ## 📁 File Hierarchy
 
 ```
-vibe-habitat/
+atmos/
 │
 ├── README.md                    # 📄 L1: 5-min project overview
 ├── AGENTS.md                    # 🤖 L1: AI 60-sec navigation

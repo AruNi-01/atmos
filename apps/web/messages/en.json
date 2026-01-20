@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "title": "Vibe Habitat",
+    "title": "ATMOS",
     "description": "Your personal productivity habitat"
   },
   "common": {
@@ -14,7 +14,7 @@
     "system": "System"
   },
   "home": {
-    "title": "Welcome to Vibe Habitat",
+    "title": "Welcome to ATMOS",
     "description": "Your personal productivity habitat - build, create, and thrive."
   }
 }

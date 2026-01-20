@@ -16,14 +16,14 @@
 | **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
-| **CLI Tool**: (vh command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
+| **CLI Tool**: (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
 
 ---
 
 ## 🏗 Monorepo Structure (Standardized)
 
 ```
-vibe-habitat/
+atmos/
 ├── crates/                          # 🦀 Shared Rust Packages (Backbone)
 │   ├── infra/                       # L1: Infrastructure (DB, WebSocket, Jobs)
 │   ├── core-engine/                 # L2: Tech Capabilities (PTY, Git, FS)
@@ -32,7 +32,7 @@ vibe-habitat/
 ├── apps/                            # 🚀 Applications
 │   ├── api/                         # Rust/Axum API Entry
 │   ├── web/                         # Next.js Web Application
-│   ├── cli/                         # Rust CLI (vh)
+│   ├── cli/                         # Rust CLI (atmos)
 │   ├── docs/                        # Documentation Site
 │   └── landing/                     # Marketing Landing Page
 │

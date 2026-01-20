@@ -33,7 +33,7 @@ function LandingContent() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <span className="text-sm font-bold text-primary-foreground">V</span>
             </div>
-            <span className="text-lg font-semibold tracking-tight">Vibe Habitat</span>
+            <span className="text-lg font-semibold tracking-tight">ATMOS</span>
           </div>
           <div className="hidden items-center gap-8 md:flex">
             <Link href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">

@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide covers how to set up your environment and start developing for Vibe Habitat.
+This guide covers how to set up your environment and start developing for ATMOS.
 
 ## Prerequisites
 

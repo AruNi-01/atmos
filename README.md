@@ -18,7 +18,7 @@ Following the **L1 -> L2 -> L3 -> App** layered design:
 *   **[web](apps/web/)**: Next.js 16 web application.
 *   **[desktop](apps/desktop/)**: Tauri 2.0 cross-platform app.
 *   **[ui](packages/ui/)**: Shared shadcn/ui components (@workspace/ui).
-*   **[shared](packages/shared/)**: Shared utils & hooks (@vibe-habitat/shared).
+*   **[shared](packages/shared/)**: Shared utils & hooks (@atmos/shared).
 
 ---
 

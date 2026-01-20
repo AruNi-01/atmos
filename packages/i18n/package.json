@@ -1,5 +1,5 @@
 {
-  "name": "@vibe-habitat/i18n",
+  "name": "@atmos/i18n",
   "version": "0.0.1",
   "private": true,
   "main": "./src/index.ts",

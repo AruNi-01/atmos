@@ -9,9 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@vibe-habitat/shared": "workspace:*",
+    "@atmos/shared": "workspace:*",
     "@workspace/ui": "workspace:*",
-    "@vibe-habitat/i18n": "workspace:*",
+    "@atmos/i18n": "workspace:*",
     "lucide-react": "^0.562.0",
     "next": "16.1.2",
     "next-intl": "^4.7.0",

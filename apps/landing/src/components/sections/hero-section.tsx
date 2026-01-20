@@ -62,13 +62,13 @@ export function HeroSection() {
                 <div className="h-3 w-3 rounded-full bg-red-500" />
                 <div className="h-3 w-3 rounded-full bg-yellow-500" />
                 <div className="h-3 w-3 rounded-full bg-green-500" />
-                <span className="ml-2 text-sm text-muted-foreground">vibe-habitat</span>
+                <span className="ml-2 text-sm text-muted-foreground">atmos</span>
               </div>
               {/* Terminal Content */}
               <div className="p-6 font-mono text-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-green-500">➜</span>
-                  <span className="text-chart-1">vibe-habitat</span>
+                  <span className="text-chart-1">atmos</span>
                   <span className="text-muted-foreground">git:(</span>
                   <span className="text-red-400">main</span>
                   <span className="text-muted-foreground">)</span>

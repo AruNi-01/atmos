@@ -6,7 +6,7 @@
 
 ## 🎯 Purpose
 
-Marketing-focused landing page for Vibe Habitat with:
+Marketing-focused landing page for ATMOS with:
 - Hero section with CTA
 - Feature showcase
 - Tech stack highlights
@@ -138,8 +138,8 @@ bun start
 This app uses shared packages from the monorepo:
 
 - `@workspace/ui` - Shared UI components (Button, ThemeToggle, etc.)
-- `@vibe-habitat/i18n` - Shared i18n configuration
-- `@vibe-habitat/shared` - Shared utilities
+- `@atmos/i18n` - Shared i18n configuration
+- `@atmos/shared` - Shared utilities
 
 ---
 

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "vibe-habitat",
+      "name": "atmos",
     },
     "apps/docs": {
       "name": "docs",
@@ -36,8 +36,8 @@
       "name": "landing",
       "version": "0.1.0",
       "dependencies": {
-        "@vibe-habitat/i18n": "workspace:*",
-        "@vibe-habitat/shared": "workspace:*",
+        "@atmos/i18n": "workspace:*",
+        "@atmos/shared": "workspace:*",
         "@workspace/ui": "workspace:*",
         "lucide-react": "^0.562.0",
         "next": "16.1.2",
@@ -62,9 +62,9 @@
       "name": "web",
       "version": "0.1.0",
       "dependencies": {
+        "@atmos/i18n": "workspace:*",
+        "@atmos/shared": "workspace:*",
         "@radix-ui/react-dialog": "^1.1.15",
-        "@vibe-habitat/i18n": "workspace:*",
-        "@vibe-habitat/shared": "workspace:*",
         "@workspace/ui": "workspace:*",
         "next": "16.1.2",
         "next-intl": "^4.7.0",
@@ -88,7 +88,7 @@
       },
     },
     "packages/config": {
-      "name": "@vibe-habitat/config",
+      "name": "@atmos/config",
       "version": "0.0.1",
       "devDependencies": {
         "@types/node": "^20",
@@ -96,7 +96,7 @@
       },
     },
     "packages/i18n": {
-      "name": "@vibe-habitat/i18n",
+      "name": "@atmos/i18n",
       "version": "0.0.1",
       "dependencies": {
         "next-intl": "^4.7.0",
@@ -112,7 +112,7 @@
       },
     },
     "packages/shared": {
-      "name": "@vibe-habitat/shared",
+      "name": "@atmos/shared",
       "version": "0.0.1",
       "devDependencies": {
         "@types/node": "^20",
@@ -181,6 +181,12 @@
   },
   "packages": {
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
+
+    "@atmos/config": ["@atmos/config@workspace:packages/config"],
+
+    "@atmos/i18n": ["@atmos/i18n@workspace:packages/i18n"],
+
+    "@atmos/shared": ["@atmos/shared@workspace:packages/shared"],
 
     "@babel/code-frame": ["@babel/code-frame@7.28.6", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.28.5", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-JYgintcMjRiCvS8mMECzaEn+m3PfoQiyqukOMCCVQtoJGYJw8j/8LBJEiqkHLkfwCcs74E3pbAUFNg7d9VNJ+Q=="],
 
@@ -705,12 +711,6 @@
     "@unrs/resolver-binding-win32-ia32-msvc": ["@unrs/resolver-binding-win32-ia32-msvc@1.11.1", "", { "os": "win32", "cpu": "ia32" }, "sha512-DCEI6t5i1NmAZp6pFonpD5m7i6aFrpofcp4LA2i8IIq60Jyo28hamKBxNrZcyOwVOZkgsRp9O2sXWBWP8MnvIQ=="],
 
     "@unrs/resolver-binding-win32-x64-msvc": ["@unrs/resolver-binding-win32-x64-msvc@1.11.1", "", { "os": "win32", "cpu": "x64" }, "sha512-lrW200hZdbfRtztbygyaq/6jP6AKE8qQN2KvPcJ+x7wiD038YtnYtZ82IMNJ69GJibV7bwL3y9FgK+5w/pYt6g=="],
-
-    "@vibe-habitat/config": ["@vibe-habitat/config@workspace:packages/config"],
-
-    "@vibe-habitat/i18n": ["@vibe-habitat/i18n@workspace:packages/i18n"],
-
-    "@vibe-habitat/shared": ["@vibe-habitat/shared@workspace:packages/shared"],
 
     "@workspace/ui": ["@workspace/ui@workspace:packages/ui"],
 

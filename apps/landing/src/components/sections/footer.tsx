@@ -17,7 +17,7 @@ export function Footer() {
               <span className="text-sm font-bold text-primary-foreground">V</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold tracking-tight">Vibe Habitat</span>
+              <span className="text-sm font-semibold tracking-tight">ATMOS</span>
               <span className="text-xs text-muted-foreground">{t("copyright")}</span>
             </div>
           </div>

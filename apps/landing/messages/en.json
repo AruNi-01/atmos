@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "title": "Vibe Habitat - Your Personal Productivity Habitat",
+    "title": "ATMOS - Your Personal Productivity Habitat",
     "description": "Build, create, and thrive in your personal productivity habitat"
   },
   "common": {
@@ -77,7 +77,7 @@
       "button": "Start Building"
     },
     "footer": {
-      "copyright": "© 2026 Vibe Habitat. All rights reserved.",
+      "copyright": "© 2026 ATMOS. All rights reserved.",
       "links": {
         "github": "GitHub",
         "docs": "Documentation",
