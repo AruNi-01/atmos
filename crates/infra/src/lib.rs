@@ -10,8 +10,9 @@ pub use error::{InfraError, Result};
 pub use websocket::{
     is_control_message, ClientType, FsEntry, FsListDirRequest, FsListDirResponse,
     FsValidateGitPathRequest, FsValidateGitPathResponse, HeartbeatMonitor, ProjectCreateRequest,
-    ProjectDeleteRequest, ProjectUpdateRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest,
-    WorkspaceListRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsConnection, WsError, WsErrorPayload, WsManager,
-    WsMessage, WsMessageHandler, WsRequest, WsResponse, WsResult, WsService, WsServiceConfig,
+    ProjectDeleteRequest, ProjectUpdateRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
+    WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
+    WsAction, WsConnection, WsError, WsErrorPayload, WsManager, WsMessage, WsMessageHandler,
+    WsRequest, WsResponse, WsResult, WsService, WsServiceConfig,
 };

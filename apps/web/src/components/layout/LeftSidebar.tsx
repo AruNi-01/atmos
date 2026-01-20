@@ -9,6 +9,9 @@ import {
     X,
     Trash2,
     Palette,
+    Zap,
+    Pin,
+    Archive,
     DndContext,
     closestCenter,
     KeyboardSensor,
@@ -30,6 +33,13 @@ import {
     DropdownMenuSub,
     DropdownMenuSubTrigger,
     DropdownMenuSubContent,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    Button,
     toastManager,
     cn,
     restrictToVerticalAxis,
@@ -48,6 +58,8 @@ import { projectApi, workspaceApi } from '@/api/project';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
+import { formatRelativeTime } from '@atmos/shared';
+import { getWorkspaceShortName } from '@/utils/format-time';
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -62,8 +74,13 @@ const ProjectItem: React.FC<{
     listeners?: any;
     onToggle: (id: string) => void;
     onAddWorkspace: (projectId: string) => void;
+    onQuickAddWorkspace: (projectId: string) => void;
     onSetColor: (projectId: string, color?: string) => void;
     onDelete: (projectId: string) => void;
+    onPinWorkspace: (projectId: string, workspaceId: string) => void;
+    onUnpinWorkspace: (projectId: string, workspaceId: string) => void;
+    onArchiveWorkspace: (projectId: string, workspaceId: string) => void;
+    onDeleteWorkspace: (projectId: string, workspaceId: string) => void;
 }> = ({
     project,
     isExpanded,
@@ -74,8 +91,13 @@ const ProjectItem: React.FC<{
     listeners,
     onToggle,
     onAddWorkspace,
+    onQuickAddWorkspace,
     onSetColor,
-    onDelete
+    onDelete,
+    onPinWorkspace,
+    onUnpinWorkspace,
+    onArchiveWorkspace,
+    onDeleteWorkspace,
 }) => {
         const initialLetter = project.name.charAt(0).toUpperCase();
 
@@ -119,6 +141,10 @@ const ProjectItem: React.FC<{
                                     </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuItem onClick={() => onQuickAddWorkspace(project.id)}>
+                                        <Zap className="size-4 mr-2" />
+                                        <span>Quick New Workspace</span>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => onAddWorkspace(project.id)}>
                                         <Plus className="size-4 mr-2" />
                                         <span>New Workspace</span>
@@ -162,13 +188,21 @@ const ProjectItem: React.FC<{
                 {isExpanded && !isDragging && (
                     <div
                         className={cn(
-                            "ml-8 space-y-0.5 pr-2 transition-all duration-200 overflow-hidden",
+                            "ml-8 mt-1 space-y-0.5 pr-2 transition-all duration-200 overflow-hidden",
                             isAnyProjectDragging ? "pointer-events-none opacity-0 max-h-0" : "opacity-100 max-h-[1000px]"
                         )}
                     >
                         <SortableContext items={project.workspaces.map(w => w.id)} strategy={verticalListSortingStrategy}>
                             {project.workspaces.map((ws) => (
-                                <WorkspaceItem key={ws.id} workspace={ws} />
+                                <WorkspaceItem
+                                    key={ws.id}
+                                    workspace={ws}
+                                    projectId={project.id}
+                                    onPin={(wsId) => onPinWorkspace(project.id, wsId)}
+                                    onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
+                                    onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
+                                    onDelete={(wsId) => onDeleteWorkspace(project.id, wsId)}
+                                />
                             ))}
                         </SortableContext>
                         {project.workspaces.length === 0 && (
@@ -186,8 +220,13 @@ const SortableProject: React.FC<{
     isAnyProjectDragging: boolean;
     onToggle: (id: string) => void;
     onAddWorkspace: (projectId: string) => void;
+    onQuickAddWorkspace: (projectId: string) => void;
     onSetColor: (projectId: string, color?: string) => void;
     onDelete: (projectId: string) => void;
+    onPinWorkspace: (projectId: string, workspaceId: string) => void;
+    onUnpinWorkspace: (projectId: string, workspaceId: string) => void;
+    onArchiveWorkspace: (projectId: string, workspaceId: string) => void;
+    onDeleteWorkspace: (projectId: string, workspaceId: string) => void;
 }> = (props) => {
     const {
         attributes,
@@ -217,43 +256,129 @@ const SortableProject: React.FC<{
 
 const WorkspaceContent: React.FC<{
     workspace: Workspace;
+    projectId: string;
     isDragging?: boolean;
     isPlaceholder?: boolean;
     attributes?: any;
     listeners?: any;
-}> = ({ workspace, isDragging, isPlaceholder, attributes, listeners }) => {
+    onPin?: (workspaceId: string) => void;
+    onUnpin?: (workspaceId: string) => void;
+    onArchive?: (workspaceId: string) => void;
+    onDelete?: (workspaceId: string) => void;
+}> = ({ workspace, projectId, isDragging, isPlaceholder, attributes, listeners, onPin, onUnpin, onArchive, onDelete }) => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isActive = searchParams.get('workspaceId') === workspace.id;
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
     const handleClick = () => {
         router.push(`?workspaceId=${workspace.id}`);
     };
 
+    const handlePinClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (workspace.isPinned) {
+            onUnpin?.(workspace.id);
+        } else {
+            onPin?.(workspace.id);
+        }
+    };
+
+    const handleArchiveClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onArchive?.(workspace.id);
+    };
+
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowDeleteDialog(true);
+    };
+
+    const confirmDelete = () => {
+        onDelete?.(workspace.id);
+        setShowDeleteDialog(false);
+    };
+
+    const shortName = getWorkspaceShortName(workspace.name);
+    const timeAgo = formatRelativeTime(workspace.createdAt);
+
     return (
-        <div
-            {...attributes}
-            {...listeners}
-            onClick={handleClick}
-            className={cn(
-                "flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-all border border-transparent group/ws",
-                isActive
-                    ? 'bg-sidebar-accent text-sidebar-foreground border-sidebar-border shadow-sm'
-                    : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
-                isPlaceholder && "opacity-20",
-                isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
-            )}
-        >
-            <GitBranch className={cn("size-3.5 mr-2", isActive || isDragging ? 'text-blue-500' : 'text-muted-foreground group-hover/ws:text-foreground')} />
-            <span className="text-[13px] truncate">{workspace.name}</span>
-            {isActive && !isDragging && (
-                <div className="ml-auto size-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
-            )}
-        </div>
+        <>
+            <div
+                {...attributes}
+                {...listeners}
+                onClick={handleClick}
+                className={cn(
+                    "flex flex-col px-3 py-2 rounded-md cursor-pointer transition-all border border-transparent hover:bg-sidebar-accent/50 group/ws",
+                    isActive
+                        ? 'bg-sidebar-accent/50 text-sidebar-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-sidebar-foreground',
+                    isPlaceholder && "opacity-20",
+                    isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
+                )}
+            >
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center min-w-0 flex-1">
+                        <GitBranch className={cn("size-3.5 mr-2 shrink-0", isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground group-hover/ws:text-foreground')} />
+                        <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover/ws:opacity-100 transition-opacity ml-2">
+                        <button
+                            onClick={handlePinClick}
+                            className={cn(
+                                "size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer",
+                                workspace.isPinned && "text-amber-500"
+                            )}
+                            title={workspace.isPinned ? "Unpin" : "Pin"}
+                        >
+                            <Pin className="size-3" />
+                        </button>
+                        <button
+                            onClick={handleArchiveClick}
+                            className="size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer"
+                            title="Archive"
+                        >
+                            <Archive className="size-3" />
+                        </button>
+                    </div>
+                </div>
+                <div className="flex items-center mt-0.5 ml-5">
+                    <span className="text-[11px] text-muted-foreground truncate">{shortName}</span>
+                    <span className="text-[11px] text-muted-foreground mx-1">·</span>
+                    <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo}</span>
+                </div>
+            </div>
+
+            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <DialogContent showCloseButton={false}>
+                    <DialogHeader>
+                        <DialogTitle>Delete Workspace</DialogTitle>
+                        <DialogDescription>
+                            This will permanently delete the workspace `{workspace.name}` and its local directory. This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDelete}>
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 };
 
-const WorkspaceItem: React.FC<{ workspace: Workspace }> = ({ workspace }) => {
+const WorkspaceItem: React.FC<{
+    workspace: Workspace;
+    projectId: string;
+    onPin: (workspaceId: string) => void;
+    onUnpin: (workspaceId: string) => void;
+    onArchive: (workspaceId: string) => void;
+    onDelete: (workspaceId: string) => void;
+}> = ({ workspace, projectId, onPin, onUnpin, onArchive, onDelete }) => {
     const {
         attributes,
         listeners,
@@ -272,9 +397,14 @@ const WorkspaceItem: React.FC<{ workspace: Workspace }> = ({ workspace }) => {
         <div ref={setNodeRef} style={style}>
             <WorkspaceContent
                 workspace={workspace}
+                projectId={projectId}
                 isPlaceholder={isDragging}
                 attributes={attributes}
                 listeners={listeners}
+                onPin={onPin}
+                onUnpin={onUnpin}
+                onArchive={onArchive}
+                onDelete={onDelete}
             />
         </div>
     );
@@ -286,7 +416,17 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
     const router = useRouter();
-    const { projects, fetchProjects, deleteProject, updateProject, deleteWorkspace } = useProjectStore();
+    const {
+        projects,
+        fetchProjects,
+        deleteProject,
+        updateProject,
+        deleteWorkspace,
+        quickAddWorkspace,
+        pinWorkspace,
+        unpinWorkspace,
+        archiveWorkspace,
+    } = useProjectStore();
 
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
@@ -373,6 +513,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         setIsCreateWorkspaceOpen(true);
     };
 
+    const handleQuickAddWorkspace = async (projectId: string) => {
+        const workspaceId = await quickAddWorkspace(projectId);
+        if (workspaceId) {
+            router.push(`?workspaceId=${workspaceId}`);
+        }
+    };
+
     const handleSetColor = async (projectId: string, color?: string) => {
         await updateProject(projectId, { borderColor: color });
     };
@@ -429,8 +576,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                         isAnyProjectDragging={isAnyProjectDragging}
                                         onToggle={toggleProject}
                                         onAddWorkspace={handleAddWorkspace}
+                                        onQuickAddWorkspace={handleQuickAddWorkspace}
                                         onSetColor={handleSetColor}
                                         onDelete={handleDeleteProject}
+                                        onPinWorkspace={pinWorkspace}
+                                        onUnpinWorkspace={unpinWorkspace}
+                                        onArchiveWorkspace={archiveWorkspace}
+                                        onDeleteWorkspace={deleteWorkspace}
                                     />
                                 ))}
                             </SortableContext>
@@ -453,14 +605,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                         isDragging={true}
                                         onToggle={() => { }}
                                         onAddWorkspace={() => { }}
+                                        onQuickAddWorkspace={() => { }}
                                         onSetColor={() => { }}
                                         onDelete={() => { }}
+                                        onPinWorkspace={() => { }}
+                                        onUnpinWorkspace={() => { }}
+                                        onArchiveWorkspace={() => { }}
+                                        onDeleteWorkspace={() => { }}
                                     />
                                 ) : activeId && projects.some(p => p.workspaces.some(w => w.id === activeId)) ? (
-                                    <WorkspaceContent
-                                        workspace={projects.flatMap(p => p.workspaces).find(w => w.id === activeId)!}
-                                        isDragging={true}
-                                    />
+                                    (() => {
+                                        const ws = projects.flatMap(p => p.workspaces).find(w => w.id === activeId)!;
+                                        return (
+                                            <WorkspaceContent
+                                                workspace={ws}
+                                                projectId={ws.projectId}
+                                                isDragging={true}
+                                            />
+                                        );
+                                    })()
                                 ) : null}
                             </DragOverlay>
                         </DndContext>

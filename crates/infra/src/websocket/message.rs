@@ -105,6 +105,12 @@ pub enum WsAction {
     WorkspaceUpdateOrder,
     /// 删除 Workspace
     WorkspaceDelete,
+    /// 置顶 Workspace
+    WorkspacePin,
+    /// 取消置顶 Workspace
+    WorkspaceUnpin,
+    /// 归档 Workspace
+    WorkspaceArchive,
 }
 
 // ===== 文件系统操作数据结构 =====
@@ -214,6 +220,21 @@ pub struct WorkspaceUpdateOrderRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceDeleteRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspacePinRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUnpinRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceArchiveRequest {
     pub guid: String,
 }
 
