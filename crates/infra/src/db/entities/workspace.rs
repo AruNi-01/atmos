@@ -15,6 +15,10 @@ pub struct Model {
     pub name: String,
     pub branch: String,
     pub sidebar_order: i32,
+    pub is_pinned: bool,
+    pub pinned_at: Option<DateTime>,
+    pub is_archived: bool,
+    pub archived_at: Option<DateTime>,
 }
 
 impl_base_entity!(Model);

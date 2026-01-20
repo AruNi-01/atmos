@@ -22,7 +22,10 @@ export type WsAction =
   | 'workspace_update_name'
   | 'workspace_update_branch'
   | 'workspace_update_order'
-  | 'workspace_delete';
+  | 'workspace_delete'
+  | 'workspace_pin'
+  | 'workspace_unpin'
+  | 'workspace_archive';
 
 export interface WsRequest {
   type: 'request';
@@ -94,12 +97,12 @@ interface WebSocketStore {
 // 获取 WebSocket URL
 const getWsUrl = (): string => {
   if (typeof window === 'undefined') {
-    return 'ws://localhost:8080/api/ws';
+    return 'ws://localhost:8080/ws';
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   // 在开发环境中使用后端端口
   const host = process.env.NODE_ENV === 'development' ? 'localhost:8080' : window.location.host;
-  return `${protocol}//${host}/api/ws`;
+  return `${protocol}//${host}/ws`;
 };
 
 export const useWebSocketStore = create<WebSocketStore>((set, get) => ({

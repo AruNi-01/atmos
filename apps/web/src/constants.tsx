@@ -9,8 +9,8 @@ export const PROJECTS: Project[] = [
     sidebarOrder: 0,
     borderColor: '#3b82f6',
     workspaces: [
-      { id: 'w1', name: 'feat/auth-flow', branch: 'feat/auth-flow', isActive: true, status: 'modified', projectId: 'p1' },
-      { id: 'w2', name: 'hotfix/api-latency', branch: 'hotfix/api-latency', isActive: false, status: 'clean', projectId: 'p1' },
+      { id: 'w1', name: 'feat/auth-flow', branch: 'feat/auth-flow', isActive: true, status: 'modified', projectId: 'p1', isPinned: false, isArchived: false, createdAt: new Date().toISOString() },
+      { id: 'w2', name: 'hotfix/api-latency', branch: 'hotfix/api-latency', isActive: false, status: 'clean', projectId: 'p1', isPinned: false, isArchived: false, createdAt: new Date().toISOString() },
     ],
   },
   {
@@ -21,8 +21,8 @@ export const PROJECTS: Project[] = [
     sidebarOrder: 1,
     borderColor: '#22c55e',
     workspaces: [
-      { id: 'w3', name: 'chore/deps-upgrade', branch: 'chore/deps-upgrade', isActive: false, status: 'clean', projectId: 'p2' },
-      { id: 'w4', name: 'feat/new-dashboard', branch: 'feat/new-dashboard', isActive: false, status: 'clean', projectId: 'p2' },
+      { id: 'w3', name: 'chore/deps-upgrade', branch: 'chore/deps-upgrade', isActive: false, status: 'clean', projectId: 'p2', isPinned: false, isArchived: false, createdAt: new Date().toISOString() },
+      { id: 'w4', name: 'feat/new-dashboard', branch: 'feat/new-dashboard', isActive: false, status: 'clean', projectId: 'p2', isPinned: false, isArchived: false, createdAt: new Date().toISOString() },
     ],
   },
 ];

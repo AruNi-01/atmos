@@ -21,12 +21,15 @@ impl<'a> WorkspaceRepo<'a> {
         Self { db }
     }
 
-    /// 根据项目 GUID 查询所有工作区（按 sidebar_order 升序排序）
+    /// 根据项目 GUID 查询所有工作区（过滤已归档，按置顶优先、pinned_at DESC、created_at DESC 排序）
     pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<workspace::Model>> {
         let workspaces = workspace::Entity::find()
             .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))
-            .order_by_asc(workspace::Column::SidebarOrder)
+            .filter(workspace::Column::IsArchived.eq(false))
+            .order_by_desc(workspace::Column::IsPinned)
+            .order_by_desc(workspace::Column::PinnedAt)
+            .order_by_desc(workspace::Column::CreatedAt)
             .all(self.db)
             .await?;
         Ok(workspaces)
@@ -60,6 +63,10 @@ impl<'a> WorkspaceRepo<'a> {
             name: Set(name),
             branch: Set(branch),
             sidebar_order: Set(sidebar_order),
+            is_pinned: Set(false),
+            pinned_at: Set(None),
+            is_archived: Set(false),
+            archived_at: Set(None),
         };
 
         let result = model.insert(self.db).await?;
@@ -118,9 +125,6 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 软删除工作区（将 is_deleted 设置为 true）
-    /// 
-    /// 如果需要软删除功能，可以实现这个方法
-    #[allow(dead_code)]
     pub async fn soft_delete(&self, guid: String) -> Result<()> {
         workspace::Entity::update_many()
             .col_expr(workspace::Column::IsDeleted, Expr::value(true))
@@ -129,6 +133,72 @@ impl<'a> WorkspaceRepo<'a> {
                 Expr::value(chrono::Utc::now().naive_utc()),
             )
             .filter(workspace::Column::Guid.eq(guid))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
+    /// 置顶工作区
+    pub async fn pin_workspace(&self, guid: String) -> Result<()> {
+        let now = chrono::Utc::now().naive_utc();
+        workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsPinned, Expr::value(true))
+            .col_expr(workspace::Column::PinnedAt, Expr::value(Some(now)))
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
+    /// 取消置顶工作区
+    pub async fn unpin_workspace(&self, guid: String) -> Result<()> {
+        workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsPinned, Expr::value(false))
+            .col_expr(
+                workspace::Column::PinnedAt,
+                Expr::value(None::<chrono::NaiveDateTime>),
+            )
+            .col_expr(
+                workspace::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
+    /// 归档工作区
+    pub async fn archive_workspace(&self, guid: String) -> Result<()> {
+        let now = chrono::Utc::now().naive_utc();
+        workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsArchived, Expr::value(true))
+            .col_expr(workspace::Column::ArchivedAt, Expr::value(Some(now)))
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
+    /// 取消归档工作区
+    pub async fn unarchive_workspace(&self, guid: String) -> Result<()> {
+        workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsArchived, Expr::value(false))
+            .col_expr(
+                workspace::Column::ArchivedAt,
+                Expr::value(None::<chrono::NaiveDateTime>),
+            )
+            .col_expr(
+                workspace::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
         Ok(())

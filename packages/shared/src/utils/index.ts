@@ -1,5 +1,8 @@
 // Shared utility functions
 
+// Time utilities
+export * from "./time";
+
 /**
  * Format a date to locale string
  */

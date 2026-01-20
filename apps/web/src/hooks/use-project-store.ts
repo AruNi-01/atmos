@@ -5,6 +5,28 @@ import { Project, Workspace } from '@/types/types';
 import { wsProjectApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
+import { generateWorkspaceName, extractRepoPrefix } from '@/utils/workspace-name-generator';
+
+// Sort workspaces: pinned first (by pinnedAt DESC), then by createdAt DESC
+function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
+  return [...workspaces].sort((a, b) => {
+    // Pinned items first
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    
+    // Among pinned items, sort by pinnedAt DESC (most recently pinned first)
+    if (a.isPinned && b.isPinned) {
+      const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+      const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+      return bTime - aTime;
+    }
+    
+    // Among non-pinned items, sort by createdAt DESC (newest first)
+    const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bCreated - aCreated;
+  });
+}
 
 interface ProjectStore {
   projects: Project[];
@@ -18,7 +40,11 @@ interface ProjectStore {
   deleteProject: (id: string) => Promise<void>;
   
   addWorkspace: (data: { projectId: string; name: string; branch: string }) => Promise<void>;
+  quickAddWorkspace: (projectId: string) => Promise<string | null>;
   deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   
   setActiveWorkspaceId: (id: string | null) => void;
 }
@@ -45,6 +71,11 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     isActive: false, // 由前端管理
     status: 'clean', // 默认状态，后续可以从 git 获取
     projectId: model.project_guid,
+    isPinned: model.is_pinned,
+    pinnedAt: model.pinned_at ?? undefined,
+    isArchived: model.is_archived,
+    archivedAt: model.archived_at ?? undefined,
+    createdAt: model.created_at,
   };
 }
 
@@ -239,6 +270,53 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
+  quickAddWorkspace: async (projectId: string) => {
+    try {
+      await waitForConnection();
+      
+      const project = get().projects.find(p => p.id === projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+      
+      const prefix = extractRepoPrefix(project.name);
+      const existingNames = project.workspaces.map(w => w.name);
+      const workspaceName = generateWorkspaceName(existingNames, prefix);
+      
+      const newWorkspaceModel = await wsWorkspaceApi.create({
+        projectGuid: projectId,
+        name: workspaceName,
+        branch: workspaceName,
+      });
+      
+      const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
+
+      set(state => ({
+        projects: state.projects.map(p => 
+          p.id === projectId 
+            ? { ...p, workspaces: [...p.workspaces, newWorkspace] } 
+            : p
+        )
+      }));
+      
+      toastManager.add({ 
+        title: 'Quick Workspace Created', 
+        description: `"${workspaceName}" created`, 
+        type: 'success' 
+      });
+      
+      return newWorkspace.id;
+    } catch (error) {
+      console.error('Error quick adding workspace:', error);
+      toastManager.add({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : 'Failed to create workspace', 
+        type: 'error' 
+      });
+      return null;
+    }
+  },
+
   deleteWorkspace: async (projectId, workspaceId) => {
     try {
       await waitForConnection();
@@ -263,6 +341,108 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       toastManager.add({ 
         title: 'Error', 
         description: 'Failed to delete workspace', 
+        type: 'error' 
+      });
+    }
+  },
+
+  pinWorkspace: async (projectId, workspaceId) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.pin(workspaceId);
+      
+      set(state => ({
+        projects: state.projects.map(p => 
+          p.id === projectId 
+            ? { 
+                ...p, 
+                workspaces: sortWorkspaces(
+                  p.workspaces.map(w => 
+                    w.id === workspaceId 
+                      ? { ...w, isPinned: true, pinnedAt: new Date().toISOString() } 
+                      : w
+                  )
+                )
+              } 
+            : p
+        )
+      }));
+      
+      toastManager.add({ 
+        title: 'Pinned', 
+        description: 'Workspace pinned', 
+        type: 'success' 
+      });
+    } catch (error) {
+      console.error('Error pinning workspace:', error);
+      toastManager.add({ 
+        title: 'Error', 
+        description: 'Failed to pin workspace', 
+        type: 'error' 
+      });
+    }
+  },
+
+  unpinWorkspace: async (projectId, workspaceId) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.unpin(workspaceId);
+      
+      set(state => ({
+        projects: state.projects.map(p => 
+          p.id === projectId 
+            ? { 
+                ...p, 
+                workspaces: sortWorkspaces(
+                  p.workspaces.map(w => 
+                    w.id === workspaceId 
+                      ? { ...w, isPinned: false, pinnedAt: undefined } 
+                      : w
+                  )
+                )
+              } 
+            : p
+        )
+      }));
+      
+      toastManager.add({ 
+        title: 'Unpinned', 
+        description: 'Workspace unpinned', 
+        type: 'info' 
+      });
+    } catch (error) {
+      console.error('Error unpinning workspace:', error);
+      toastManager.add({ 
+        title: 'Error', 
+        description: 'Failed to unpin workspace', 
+        type: 'error' 
+      });
+    }
+  },
+
+  archiveWorkspace: async (projectId, workspaceId) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.archive(workspaceId);
+      
+      set(state => ({
+        projects: state.projects.map(p => 
+          p.id === projectId 
+            ? { ...p, workspaces: p.workspaces.filter(w => w.id !== workspaceId) } 
+            : p
+        )
+      }));
+      
+      toastManager.add({ 
+        title: 'Archived', 
+        description: 'Workspace archived', 
+        type: 'info' 
+      });
+    } catch (error) {
+      console.error('Error archiving workspace:', error);
+      toastManager.add({ 
+        title: 'Error', 
+        description: 'Failed to archive workspace', 
         type: 'error' 
       });
     }

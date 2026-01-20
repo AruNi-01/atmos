@@ -22,9 +22,9 @@ dev-web:
 dev-desktop:
     cd apps/desktop && bun tauri dev
 
-# 启动 API 服务器
+# 启动 API 服务器 (热重载)
 dev-api:
-    cargo run --bin api
+    cargo watch -x 'run --bin api' -w apps/api -w crates
 
 # 运行 CLI 帮助
 dev-cli:

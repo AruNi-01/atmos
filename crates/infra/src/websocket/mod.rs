@@ -17,7 +17,8 @@ pub use manager::WsManager;
 pub use message::{
     FsEntry, FsListDirRequest, FsListDirResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
     MessagePayload, ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspaceUpdateBranchRequest,
+    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
+    WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
     WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload,
     WsMessage, WsRequest, WsResponse,
 };

@@ -2,6 +2,7 @@ pub use sea_orm_migration::prelude::*;
 
 mod m20260117_000001_create_test_message_table;
 mod m20260118_000002_create_project_tables;
+mod m20260120_000003_add_workspace_pin_archive;
 
 pub struct Migrator;
 
@@ -11,6 +12,7 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20260117_000001_create_test_message_table::Migration),
             Box::new(m20260118_000002_create_project_tables::Migration),
+            Box::new(m20260120_000003_add_workspace_pin_archive::Migration),
         ]
     }
 }

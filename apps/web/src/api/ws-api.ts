@@ -48,6 +48,10 @@ export interface WorkspaceModel {
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
+  is_pinned: boolean;
+  pinned_at: string | null;
+  is_archived: boolean;
+  archived_at: string | null;
 }
 
 // ===== WebSocket API 客户端 =====
@@ -227,5 +231,26 @@ export const wsWorkspaceApi = {
    */
   delete: async (guid: string): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>('workspace_delete', { guid });
+  },
+
+  /**
+   * 置顶 Workspace
+   */
+  pin: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('workspace_pin', { guid });
+  },
+
+  /**
+   * 取消置顶 Workspace
+   */
+  unpin: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('workspace_unpin', { guid });
+  },
+
+  /**
+   * 归档 Workspace
+   */
+  archive: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('workspace_archive', { guid });
   },
 };

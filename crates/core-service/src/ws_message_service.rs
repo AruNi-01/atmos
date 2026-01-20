@@ -9,9 +9,10 @@ use async_trait::async_trait;
 use core_engine::FsEngine;
 use infra::{
     FsListDirRequest, FsValidateGitPathRequest, ProjectCreateRequest, ProjectDeleteRequest,
-    ProjectUpdateRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
-    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
-    WsAction, WsMessage, WsMessageHandler, WsRequest,
+    ProjectUpdateRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest,
+    WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsMessage, WsMessageHandler,
+    WsRequest,
 };
 use serde_json::{json, Value};
 
@@ -85,6 +86,15 @@ impl WsMessageService {
             }
             WsAction::WorkspaceDelete => {
                 self.handle_workspace_delete(parse_request(request.data)?).await
+            }
+            WsAction::WorkspacePin => {
+                self.handle_workspace_pin(parse_request(request.data)?).await
+            }
+            WsAction::WorkspaceUnpin => {
+                self.handle_workspace_unpin(parse_request(request.data)?).await
+            }
+            WsAction::WorkspaceArchive => {
+                self.handle_workspace_archive(parse_request(request.data)?).await
             }
         }
     }
@@ -209,6 +219,21 @@ impl WsMessageService {
 
     async fn handle_workspace_delete(&self, req: WorkspaceDeleteRequest) -> Result<Value> {
         self.workspace_service.delete_workspace(req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_pin(&self, req: WorkspacePinRequest) -> Result<Value> {
+        self.workspace_service.pin_workspace(req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_unpin(&self, req: WorkspaceUnpinRequest) -> Result<Value> {
+        self.workspace_service.unpin_workspace(req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_archive(&self, req: WorkspaceArchiveRequest) -> Result<Value> {
+        self.workspace_service.archive_workspace(req.guid).await?;
         Ok(json!({ "success": true }))
     }
 }

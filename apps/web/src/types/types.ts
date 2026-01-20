@@ -5,6 +5,11 @@ export interface Workspace {
   isActive: boolean;
   status: 'clean' | 'modified';
   projectId: string;
+  isPinned: boolean;
+  pinnedAt?: string;
+  isArchived: boolean;
+  archivedAt?: string;
+  createdAt: string;
 }
 
 export interface Project {

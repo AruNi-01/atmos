@@ -16,6 +16,9 @@ pub enum ServiceError {
 
     #[error("Validation error: {0}")]
     Validation(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
 }
 
 pub type Result<T> = std::result::Result<T, ServiceError>;

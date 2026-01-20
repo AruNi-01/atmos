@@ -15,43 +15,14 @@ import {
 import { fsApi, FsEntry } from '@/api/ws-api';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { cn } from '@/lib/utils';
-
-// Icons
-const FolderIcon = () => (
-  <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-  </svg>
-);
-
-const GitRepoIcon = () => (
-  <svg className="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-  </svg>
-);
-
-const FileIcon = () => (
-  <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-    <path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" />
-  </svg>
-);
-
-const ChevronUpIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-  </svg>
-);
-
-const HomeIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-  </svg>
-);
-
-const RefreshIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-  </svg>
-);
+import {
+  ChevronUp,
+  File,
+  Folder,
+  FolderGit2,
+  Home,
+  RefreshCw,
+} from '@workspace/ui';
 
 interface FileBrowserProps {
   open: boolean;
@@ -73,7 +44,7 @@ export function FileBrowser({
   showHidden: initialShowHidden = false,
 }: FileBrowserProps) {
   const { isConnected, connectionState } = useWebSocket();
-  
+
   const [currentPath, setCurrentPath] = useState<string>('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<FsEntry[]>([]);
@@ -88,7 +59,7 @@ export function FileBrowser({
     setIsLoading(true);
     setError(null);
     setSelectedEntry(null);
-    
+
     try {
       const result = await fsApi.listDir(path, { dirsOnly, showHidden });
       setCurrentPath(result.path);
@@ -158,7 +129,7 @@ export function FileBrowser({
   // 选择当前目录
   const handleSelectCurrentDir = () => {
     // 检查当前目录是否为 git repo
-    const isGitRepo = entries.some(e => e.name === '.git' && !e.is_dir) || 
+    const isGitRepo = entries.some(e => e.name === '.git' && !e.is_dir) ||
                       entries.length === 0; // 需要重新验证
     onSelect(currentPath, false, currentPath.split('/').pop() || null);
     onOpenChange(false);
@@ -166,11 +137,11 @@ export function FileBrowser({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-2xl h-[80vh] flex flex-col gap-3">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        
+
         {/* 连接状态提示 */}
         {connectionState !== 'connected' && (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 text-sm">
@@ -181,7 +152,7 @@ export function FileBrowser({
             </span>
           </div>
         )}
-        
+
         {/* 路径输入和导航 */}
         <div className="flex gap-2 items-center">
           <form onSubmit={handlePathSubmit} className="flex-1 flex gap-2">
@@ -192,7 +163,7 @@ export function FileBrowser({
               className="flex-1 font-mono text-sm"
             />
           </form>
-          
+
           <Button
             variant="outline"
             size="icon"
@@ -200,9 +171,9 @@ export function FileBrowser({
             disabled={!parentPath || isLoading}
             title="Go to parent directory"
           >
-            <ChevronUpIcon />
+            <ChevronUp className="w-4 h-4" />
           </Button>
-          
+
           <Button
             variant="outline"
             size="icon"
@@ -213,9 +184,9 @@ export function FileBrowser({
             disabled={isLoading}
             title="Go to home directory"
           >
-            <HomeIcon />
+            <Home className="w-4 h-4" />
           </Button>
-          
+
           <Button
             variant="outline"
             size="icon"
@@ -223,10 +194,10 @@ export function FileBrowser({
             disabled={isLoading}
             title="Refresh"
           >
-            <RefreshIcon />
+            <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
-        
+
         {/* 选项 */}
         <div className="flex items-center gap-2">
           <Checkbox
@@ -238,16 +209,16 @@ export function FileBrowser({
             Show hidden files
           </label>
         </div>
-        
+
         {/* 错误提示 */}
         {error && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-sm text-destructive">
             {error}
           </div>
         )}
-        
+
         {/* 文件列表 */}
-        <ScrollArea className="flex-1 min-h-[300px] border rounded-md">
+        <ScrollArea className="flex-1 min-h-0 border rounded-md" scrollFade>
           {isLoading ? (
             <div className="flex items-center justify-center h-full p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -269,10 +240,10 @@ export function FileBrowser({
                   onClick={() => handleEntryClick(entry)}
                   onDoubleClick={() => handleEntryDoubleClick(entry)}
                 >
-                  {entry.is_git_repo ? <GitRepoIcon /> : entry.is_dir ? <FolderIcon /> : <FileIcon />}
+                  {entry.is_git_repo ? <FolderGit2 className="w-4 h-4 text-orange-500" /> : entry.is_dir ? <Folder className="w-4 h-4" /> : <File className="w-4 h-4 text-gray-400" />}
                   <span className="flex-1 truncate">{entry.name}</span>
                   {entry.is_git_repo && (
-                    <span className="text-xs text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded">
+                    <span className="text-xs text-orange-500 bg-orange-400/10 px-2 py-0.5 rounded">
                       Git Repo
                     </span>
                   )}
@@ -281,15 +252,15 @@ export function FileBrowser({
             </div>
           )}
         </ScrollArea>
-        
+
         {/* 当前选中信息 */}
         {selectedEntry && (
-          <div className="text-sm text-muted-foreground truncate">
+          <div className="text-sm text-muted-foreground truncate shrink-0">
             Selected: <span className="font-mono">{selectedEntry.path}</span>
           </div>
         )}
-        
-        <DialogFooter className="flex gap-2">
+
+        <DialogFooter className="flex gap-2 shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
