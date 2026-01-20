@@ -39,11 +39,22 @@ apps/web/
 - Prefer server components and `fetch` for data fetching where possible.
 - Use `hooks/` for client-side state logic.
 
+### 4. Theme Adaptation (Light/Dark)
+- **Semantic Colors**: ALWAYS use semantic CSS variables (e.g., `bg-background`, `text-muted-foreground`, `border-border`) instead of hardcoded colors (e.g., `bg-zinc-900`, `text-white`).
+- **Standard Variables**:
+  - Backgrounds: `bg-background`, `bg-sidebar`, `bg-muted`, `bg-accent`
+  - Text: `text-foreground`, `text-muted-foreground`, `text-sidebar-foreground`
+  - Borders: `border-border`, `border-sidebar-border`
+- **Testing**: Verify all UI changes in **both** Light and Dark modes to ensure visibility and contrast.
+- **Components**: For active/inactive states, use patterns that work in both modes (e.g., `data-[state=active]:bg-sidebar-accent` works better than hardcoding white/black).
+
 ---
 
 ## 🚦 Interaction Rules
 - **DO**: Keep API types updated when backend DTOs change.
+- **DO**: Check your UI changes in Light Mode before committing.
 - **DON'T**: Manually use `fetch()` or `axios()` inside feature components. Use the `src/api/` layer.
+- **DON'T**: Use hardcoded tailwind colors like `bg-zinc-900` or `text-gray-500` for layout components.
 
 ---
 
