@@ -32,4 +32,14 @@ impl ProjectService {
         let repo = ProjectRepo::new(&self.db);
         Ok(repo.update_color(guid, color).await?)
     }
+
+    pub async fn update_target_branch(&self, guid: String, target_branch: Option<String>) -> Result<()> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.update_target_branch(guid, target_branch).await?)
+    }
+
+    pub async fn get_project(&self, guid: String) -> Result<Option<project::Model>> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.find_by_guid(&guid).await?)
+    }
 }

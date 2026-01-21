@@ -16,6 +16,9 @@ pub struct Model {
     pub sidebar_order: i32,
     pub border_color: Option<String>,
     pub is_open: bool,
+    /// Target branch for merge/PR/git diff operations
+    /// If None, uses the repository's default branch
+    pub target_branch: Option<String>,
 }
 
 impl_base_entity!(Model);

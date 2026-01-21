@@ -6,14 +6,14 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use core_engine::FsEngine;
+use core_engine::{FsEngine, GitEngine};
 use infra::{
-    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsValidateGitPathRequest,
-    FsWriteFileRequest, ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest,
-    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
-    WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
-    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsMessage, WsMessageHandler,
-    WsRequest,
+    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsValidateGitPathRequest, FsWriteFileRequest,
+    GitGetStatusRequest, GitListBranchesRequest, GitRenameBranchRequest, ProjectCreateRequest,
+    ProjectDeleteRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest,
+    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
+    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateOrderRequest, WsAction, WsMessage, WsMessageHandler, WsRequest,
 };
 use serde_json::{json, Value};
 
@@ -23,6 +23,7 @@ use crate::{ProjectService, WorkspaceService};
 /// WebSocket message service for handling all business logic via WebSocket.
 pub struct WsMessageService {
     fs_engine: FsEngine,
+    git_engine: GitEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
 }
@@ -34,6 +35,7 @@ impl WsMessageService {
     ) -> Self {
         Self {
             fs_engine: FsEngine::new(),
+            git_engine: GitEngine::new(),
             project_service,
             workspace_service,
         }
@@ -67,10 +69,18 @@ impl WsMessageService {
                 self.handle_fs_list_project_files(parse_request(request.data)?)
             }
 
+            // Git
+            WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
+            WsAction::GitListBranches => self.handle_git_list_branches(parse_request(request.data)?),
+            WsAction::GitRenameBranch => self.handle_git_rename_branch(parse_request(request.data)?),
+
             // Project
             WsAction::ProjectList => self.handle_project_list().await,
             WsAction::ProjectCreate => self.handle_project_create(parse_request(request.data)?).await,
             WsAction::ProjectUpdate => self.handle_project_update(parse_request(request.data)?).await,
+            WsAction::ProjectUpdateTargetBranch => {
+                self.handle_project_update_target_branch(parse_request(request.data)?).await
+            }
             WsAction::ProjectDelete => self.handle_project_delete(parse_request(request.data)?).await,
             WsAction::ProjectValidatePath => {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
@@ -196,6 +206,42 @@ impl WsMessageService {
         }))
     }
 
+    // ===== Git Handlers =====
+
+    fn handle_git_get_status(&self, req: GitGetStatusRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let status = self.git_engine.get_git_status(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to get git status: {}", e))
+        })?;
+
+        let current_branch = self.git_engine.get_current_branch(&path).ok();
+        Ok(json!({
+            "has_uncommitted_changes": status.has_uncommitted_changes,
+            "has_unpushed_commits": status.has_unpushed_commits,
+            "uncommitted_count": status.uncommitted_count,
+            "unpushed_count": status.unpushed_count,
+            "current_branch": current_branch,
+        }))
+    }
+
+    fn handle_git_list_branches(&self, req: GitListBranchesRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let branches = self.git_engine.list_branches(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to list branches: {}", e))
+        })?;
+
+        Ok(json!({ "branches": branches }))
+    }
+
+    fn handle_git_rename_branch(&self, req: GitRenameBranchRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine
+            .rename_branch(&path, &req.old_name, &req.new_name)
+            .map_err(|e| ServiceError::Validation(format!("Failed to rename branch: {}", e)))?;
+
+        Ok(json!({ "success": true }))
+    }
+
     // ===== Project Handlers =====
 
     async fn handle_project_list(&self) -> Result<Value> {
@@ -223,6 +269,16 @@ impl WsMessageService {
 
     async fn handle_project_delete(&self, req: ProjectDeleteRequest) -> Result<Value> {
         self.project_service.delete_project(req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_project_update_target_branch(
+        &self,
+        req: ProjectUpdateTargetBranchRequest,
+    ) -> Result<Value> {
+        self.project_service
+            .update_target_branch(req.guid, req.target_branch)
+            .await?;
         Ok(json!({ "success": true }))
     }
 

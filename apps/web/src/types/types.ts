@@ -21,6 +21,7 @@ export interface Project {
   mainFilePath: string;
   sidebarOrder: number;
   borderColor?: string;
+  targetBranch?: string;
 }
 
 // Color presets for project border

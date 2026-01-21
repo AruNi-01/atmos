@@ -52,7 +52,8 @@ import {
     TabsList,
     TabsTab,
     TabsPanel,
-    RefreshCw
+    RefreshCw,
+    AlertTriangle
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -61,8 +62,9 @@ import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { formatRelativeTime } from '@atmos/shared';
 import { getWorkspaceShortName } from '@/utils/format-time';
 import { FileTree } from '@/components/files/FileTree';
-import { fsApi, FileTreeNode } from '@/api/ws-api';
+import { fsApi, FileTreeNode, gitApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
+import { useGitStatusCheck } from '@/hooks/use-git-info-store';
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -201,6 +203,7 @@ const ProjectItem: React.FC<{
                                     key={ws.id}
                                     workspace={ws}
                                     projectId={project.id}
+                                    projectPath={project.mainFilePath}
                                     onPin={(wsId) => onPinWorkspace(project.id, wsId)}
                                     onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
                                     onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
@@ -260,6 +263,7 @@ const SortableProject: React.FC<{
 const WorkspaceContent: React.FC<{
     workspace: Workspace;
     projectId: string;
+    projectPath?: string;
     isDragging?: boolean;
     isPlaceholder?: boolean;
     attributes?: any;
@@ -268,11 +272,15 @@ const WorkspaceContent: React.FC<{
     onUnpin?: (workspaceId: string) => void;
     onArchive?: (workspaceId: string) => void;
     onDelete?: (workspaceId: string) => void;
-}> = ({ workspace, projectId, isDragging, isPlaceholder, attributes, listeners, onPin, onUnpin, onArchive, onDelete }) => {
+}> = ({ workspace, projectId, projectPath, isDragging, isPlaceholder, attributes, listeners, onPin, onUnpin, onArchive, onDelete }) => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isActive = searchParams.get('workspaceId') === workspace.id;
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showGitWarningDialog, setShowGitWarningDialog] = useState(false);
+    const [gitWarningMessage, setGitWarningMessage] = useState('');
+    const [pendingOperation, setPendingOperation] = useState<'archive' | 'delete' | null>(null);
+    const [isCheckingGit, setIsCheckingGit] = useState(false);
 
     const handleClick = () => {
         router.push(`?workspaceId=${workspace.id}`);
@@ -287,14 +295,71 @@ const WorkspaceContent: React.FC<{
         }
     };
 
-    const handleArchiveClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        onArchive?.(workspace.id);
+    const checkGitStatusAndProceed = async (operation: 'archive' | 'delete') => {
+        if (!projectPath) {
+            // No project path, proceed without check
+            if (operation === 'archive') {
+                onArchive?.(workspace.id);
+            } else {
+                setShowDeleteDialog(true);
+            }
+            return;
+        }
+
+        setIsCheckingGit(true);
+        try {
+            const status = await gitApi.getStatus(projectPath);
+
+            if (status.has_uncommitted_changes || status.has_unpushed_commits) {
+                const issues: string[] = [];
+                if (status.has_uncommitted_changes) {
+                    issues.push(`${status.uncommitted_count} uncommitted change(s)`);
+                }
+                if (status.has_unpushed_commits) {
+                    issues.push(`${status.unpushed_count} unpushed commit(s)`);
+                }
+                setGitWarningMessage(issues.join(' and '));
+                setPendingOperation(operation);
+                setShowGitWarningDialog(true);
+            } else {
+                // Clean, proceed
+                if (operation === 'archive') {
+                    onArchive?.(workspace.id);
+                } else {
+                    setShowDeleteDialog(true);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to check git status:', error);
+            // Proceed with warning
+            if (operation === 'archive') {
+                onArchive?.(workspace.id);
+            } else {
+                setShowDeleteDialog(true);
+            }
+        } finally {
+            setIsCheckingGit(false);
+        }
     };
 
-    const handleDeleteClick = (e: React.MouseEvent) => {
+    const handleArchiveClick = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        setShowDeleteDialog(true);
+        await checkGitStatusAndProceed('archive');
+    };
+
+    const handleDeleteClick = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        await checkGitStatusAndProceed('delete');
+    };
+
+    const handleForceOperation = () => {
+        setShowGitWarningDialog(false);
+        if (pendingOperation === 'archive') {
+            onArchive?.(workspace.id);
+        } else if (pendingOperation === 'delete') {
+            setShowDeleteDialog(true);
+        }
+        setPendingOperation(null);
     };
 
     const confirmDelete = () => {
@@ -340,6 +405,7 @@ const WorkspaceContent: React.FC<{
                             onClick={handleArchiveClick}
                             className="size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer"
                             title="Archive"
+                            disabled={isCheckingGit}
                         >
                             <Archive className="size-3" />
                         </button>
@@ -352,6 +418,30 @@ const WorkspaceContent: React.FC<{
                 </div>
             </div>
 
+            {/* Git Warning Dialog */}
+            <Dialog open={showGitWarningDialog} onOpenChange={setShowGitWarningDialog}>
+                <DialogContent showCloseButton={false}>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="size-5 text-amber-500" />
+                            Uncommitted Changes Detected
+                        </DialogTitle>
+                        <DialogDescription>
+                            This workspace has {gitWarningMessage}. These changes will be lost if you {pendingOperation} this workspace.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowGitWarningDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleForceOperation}>
+                            {pendingOperation === 'archive' ? 'Archive Anyway' : 'Continue to Delete'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <DialogContent showCloseButton={false}>
                     <DialogHeader>
@@ -377,11 +467,12 @@ const WorkspaceContent: React.FC<{
 const WorkspaceItem: React.FC<{
     workspace: Workspace;
     projectId: string;
+    projectPath?: string;
     onPin: (workspaceId: string) => void;
     onUnpin: (workspaceId: string) => void;
     onArchive: (workspaceId: string) => void;
     onDelete: (workspaceId: string) => void;
-}> = ({ workspace, projectId, onPin, onUnpin, onArchive, onDelete }) => {
+}> = ({ workspace, projectId, projectPath, onPin, onUnpin, onArchive, onDelete }) => {
     const {
         attributes,
         listeners,
@@ -401,6 +492,7 @@ const WorkspaceItem: React.FC<{
             <WorkspaceContent
                 workspace={workspace}
                 projectId={projectId}
+                projectPath={projectPath}
                 isPlaceholder={isDragging}
                 attributes={attributes}
                 listeners={listeners}
