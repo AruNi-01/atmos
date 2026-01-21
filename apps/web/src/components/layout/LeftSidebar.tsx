@@ -729,7 +729,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 >
                     {/* Tabs Header */}
                     <div className="h-10 flex items-center px-2 border-b border-sidebar-border">
-                        <TabsList className="w-full gap-1">
+                        <TabsList variant="underline" className="w-full gap-1">
                             <TabsTab
                                 value="projects"
                                 className="flex-1 h-7 text-[12px] gap-1.5"

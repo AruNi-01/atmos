@@ -222,7 +222,7 @@ const Header: React.FC = () => {
 
       {/* Center: Git Context Flow */}
       {currentWorkspace && (
-        <div className="flex items-center space-x-3 bg-muted/50 px-4 py-1.5 rounded-sm border border-sidebar-border transition-colors ease-out duration-200 group">
+        <div className="flex items-center space-x-3 bg-muted/50 px-4 py-1.5 rounded-sm border border-sidebar-border transition-colors ease-out duration-200">
           {/* Current Branch (from workspace) */}
           <div className="flex items-center space-x-2">
             <span
@@ -284,9 +284,9 @@ const Header: React.FC = () => {
             <span className="size-2 rounded-full bg-muted-foreground" />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer">
+                <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target">
                   <span>origin/{displayTargetBranch}</span>
-                  <Edit2 className="size-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <Edit2 className="size-2.5 opacity-0 group-hover/target:opacity-100 transition-opacity" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="w-56 p-0">
