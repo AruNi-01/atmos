@@ -18,6 +18,14 @@ default:
 dev-web:
     bun --filter web dev
 
+# 启动 landing 开发服务器
+dev-landing:
+    bun --filter landing dev
+
+# 启动 docs 开发服务器
+dev-docs:
+    bun --filter docs dev
+
 # 启动 Desktop (Tauri) 开发环境
 dev-desktop:
     cd apps/desktop && bun tauri dev
@@ -189,11 +197,11 @@ fresh: clean install-deps
 # 快捷别名 (Aliases)
 # ============================================
 
-alias d := dev-web
+alias dw := dev-web
+alias dd := dev-desktop
+alias dl := dev-landing
+alias d-d := dev-docs
 alias da := dev-api
-alias b := build-all
-alias ba := build-api
-alias br := build-rust
 alias t := test
 alias ta := test-api
 alias l := lint
