@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { TerminalLine } from '@/types/types';
-import { Terminal, X, Code, GitCompare, Circle, Loader2 } from '@workspace/ui';
+import { Terminal, X, Code, GitCompare, Circle, Loader2, Tabs, TabsList, TabsTab, TabsPanel } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 import { useEditorStore } from '@/hooks/use-editor-store';
 
@@ -35,53 +35,47 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
     const activeFile = getActiveFile();
 
-    // Check if we should show terminal (when no files are open)
-    const showTerminal = openFiles.length === 0;
+    const activeValue = activeFilePath || 'terminal';
 
     return (
         <main className="flex-1 flex flex-col">
-            {/* Top Tab Bar */}
-            <div className="flex items-center h-10 border-b border-sidebar-border overflow-x-auto no-scrollbar">
-                {/* Terminal Tab (always visible) */}
-                <button
-                    onClick={() => {
-                        // When clicking terminal, we keep the tab but don't change file selection
-                    }}
-                    className={cn(
-                        "flex items-center space-x-2 px-4 h-full border-r border-sidebar-border hover:bg-muted/50 transition-colors ease-out duration-200 group relative shrink-0",
-                        showTerminal ? 'bg-background text-foreground' : 'text-muted-foreground'
-                    )}
+            <Tabs
+                value={activeValue}
+                onValueChange={(val) => {
+                    if (val !== 'terminal') {
+                        setActiveFile(val);
+                    }
+                }}
+                className="flex-1 flex flex-col gap-0"
+            >
+                {/* Top Tab Bar */}
+                <TabsList
+                    variant="underline"
+                    className="h-10 w-full justify-start rounded-none border-b border-sidebar-border px-0 bg-transparent"
                 >
-                    <Terminal className="size-3.5" />
-                    <span className="text-[13px] font-medium text-pretty">Terminal</span>
-                    {showTerminal && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
-                </button>
+                    {/* Terminal Tab */}
+                    <TabsTab
+                        value="terminal"
+                        className="h-full px-4 rounded-sm data-active:bg-background data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 justify-start"
+                    >
+                        <Terminal className="size-3.5" />
+                        <span className="text-[13px] font-medium text-pretty">Terminal</span>
+                    </TabsTab>
 
-                {/* Open File Tabs */}
-                {openFiles.map((file) => {
-                    const isActive = file.path === activeFilePath;
-
-                    return (
-                        <div
+                    {/* Open File Tabs */}
+                    {openFiles.map((file) => (
+                        <TabsTab
                             key={file.path}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setActiveFile(file.path)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') setActiveFile(file.path);
-                            }}
-                            className={cn(
-                                "flex items-center space-x-2 px-4 h-full border-r border-sidebar-border hover:bg-muted/50 transition-colors ease-out duration-200 group relative cursor-pointer shrink-0",
-                                isActive ? 'bg-background text-foreground' : 'text-muted-foreground'
-                            )}
+                            value={file.path}
+                            className="h-full px-2.5 rounded-sm data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 group grow-0 justify-start"
                         >
-                            <Code className="size-3.5" />
-                            <span className="text-[13px] font-medium text-pretty max-w-[150px] truncate">
+                            <Code className="size-3.5 shrink-0" />
+                            <span className="text-[13px] font-medium whitespace-nowrap">
                                 {file.name}
                             </span>
                             {/* Dirty indicator */}
                             {file.isDirty && (
-                                <Circle className="size-2 fill-current text-muted-foreground" />
+                                <Circle className="size-1.5 fill-current text-muted-foreground shrink-0" />
                             )}
                             {/* Close button */}
                             <button
@@ -90,75 +84,75 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                                     e.stopPropagation();
                                     closeFile(file.path);
                                 }}
-                                className="ml-1 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded transition-opacity ease-out duration-200"
+                                className="ml-1 opacity-0 group-hover:opacity-100 size-5 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
                             >
                                 <X className="size-3" />
                             </button>
-                            {isActive && <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500"></div>}
-                        </div>
-                    );
-                })}
-            </div>
+                        </TabsTab>
+                    ))}
+                </TabsList>
 
-            {/* Main Content Area */}
-            <div className="flex-1 overflow-hidden flex flex-col relative">
-                {/* Terminal View (when no files are open) */}
-                {showTerminal && (
-                    <div className="flex-1 flex flex-col h-full bg-background">
-                        {/* Pane 1 */}
-                        <div className="flex-1 flex flex-col border-b border-sidebar-border">
-                            <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
-                                <span className="text-[11px] text-muted-foreground font-medium tabular-nums text-pretty">
-                                    Local: 3000 (Server)
-                                </span>
-                                <div className="flex space-x-2">
-                                    <div className="size-2 rounded-full bg-emerald-500"></div>
+                {/* Main Content Area */}
+                <div className="flex-1 overflow-hidden flex flex-col relative">
+                    <TabsPanel value="terminal" className="h-full">
+                        {/* Terminal View */}
+                        <div className="flex-1 flex flex-col h-full bg-background">
+                            {/* Pane 1 */}
+                            <div className="flex-1 flex flex-col border-b border-sidebar-border">
+                                <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
+                                    <span className="text-[11px] text-muted-foreground font-medium tabular-nums text-pretty">
+                                        Local: 3000 (Server)
+                                    </span>
+                                    <div className="flex space-x-2">
+                                        <div className="size-2 rounded-full bg-emerald-500"></div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex-1 p-4 font-mono text-[13px] overflow-y-auto no-scrollbar">
-                                {logs.map((log) => (
-                                    <div key={log.id} className="mb-1 leading-relaxed break-all">
-                                        <span className={cn(`
+                                <div className="flex-1 p-4 font-mono text-[13px] overflow-y-auto no-scrollbar">
+                                    {logs.map((log) => (
+                                        <div key={log.id} className="mb-1 leading-relaxed break-all">
+                                            <span className={cn(`
                                             ${log.type === 'command' ? 'text-muted-foreground' : ''}
                                             ${log.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : ''}
                                             ${log.type === 'error' ? 'text-rose-600 dark:text-rose-400' : ''}
                                             ${log.type === 'info' ? 'text-blue-600 dark:text-blue-300' : ''}
                                         `)}>
-                                            {log.content}
-                                        </span>
+                                                {log.content}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            {/* Pane 2 */}
+                            <div className="flex-1 flex flex-col">
+                                <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
+                                    <span className="text-[11px] text-muted-foreground font-medium text-pretty">
+                                        Build: Watch Mode
+                                    </span>
+                                </div>
+                                <div className="flex-1 p-4 font-mono text-[13px] text-muted-foreground overflow-y-auto no-scrollbar">
+                                    <div className="text-pretty"> build started...</div>
+                                    <div className="text-emerald-600 dark:text-emerald-500 tabular-nums text-pretty">
+                                        build completed in 420ms
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                        {/* Pane 2 */}
-                        <div className="flex-1 flex flex-col">
-                            <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
-                                <span className="text-[11px] text-muted-foreground font-medium text-pretty">
-                                    Build: Watch Mode
-                                </span>
-                            </div>
-                            <div className="flex-1 p-4 font-mono text-[13px] text-muted-foreground overflow-y-auto no-scrollbar">
-                                <div className="text-pretty"> build started...</div>
-                                <div className="text-emerald-600 dark:text-emerald-500 tabular-nums text-pretty">
-                                    build completed in 420ms
-                                </div>
-                                <div className="flex items-center mt-2 animate-pulse">
-                                    <span className="text-muted-foreground mr-2">➜</span>
-                                    <span className="text-muted-foreground">_</span>
+                                    <div className="flex items-center mt-2 animate-pulse">
+                                        <span className="text-muted-foreground mr-2">➜</span>
+                                        <span className="text-muted-foreground">_</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    </TabsPanel>
 
-                {/* Monaco Editor (when a file is open) */}
-                {activeFile && (
-                    <MonacoEditor
-                        file={activeFile}
-                        className="flex-1"
-                    />
-                )}
-            </div>
+                    {openFiles.map(file => (
+                        <TabsPanel key={file.path} value={file.path} className="h-full">
+                            <MonacoEditor
+                                file={file}
+                                className="flex-1"
+                            />
+                        </TabsPanel>
+                    ))}
+                </div>
+            </Tabs>
         </main>
     );
 };
