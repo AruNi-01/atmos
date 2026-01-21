@@ -4,8 +4,7 @@ import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTree } from '@headless-tree/react';
 import { syncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
-import { cn, getFileIconProps, Loader2 } from '@workspace/ui';
-import { ChevronRight, Folder } from 'lucide-react';
+import { cn, getFileIconProps, Loader2, ChevronRight, Folder } from '@workspace/ui';
 import { FileTreeNode } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 
