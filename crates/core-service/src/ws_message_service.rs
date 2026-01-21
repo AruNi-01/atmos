@@ -8,9 +8,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use core_engine::FsEngine;
 use infra::{
-    FsListDirRequest, FsValidateGitPathRequest, ProjectCreateRequest, ProjectDeleteRequest,
-    ProjectUpdateRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest,
-    WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
+    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsValidateGitPathRequest,
+    FsWriteFileRequest, ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest,
+    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
+    WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
     WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsMessage, WsMessageHandler,
     WsRequest,
 };
@@ -59,6 +60,11 @@ impl WsMessageService {
             WsAction::FsListDir => self.handle_fs_list_dir(parse_request(request.data)?),
             WsAction::FsValidateGitPath => {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
+            }
+            WsAction::FsReadFile => self.handle_fs_read_file(parse_request(request.data)?),
+            WsAction::FsWriteFile => self.handle_fs_write_file(parse_request(request.data)?),
+            WsAction::FsListProjectFiles => {
+                self.handle_fs_list_project_files(parse_request(request.data)?)
             }
 
             // Project
@@ -142,6 +148,51 @@ impl WsMessageService {
             "suggested_name": result.suggested_name,
             "default_branch": result.default_branch,
             "error": result.error,
+        }))
+    }
+
+    fn handle_fs_read_file(&self, req: FsReadFileRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let (content, size) = self.fs_engine.read_file(&path)?;
+
+        Ok(json!({
+            "path": path.to_string_lossy(),
+            "content": content,
+            "size": size,
+        }))
+    }
+
+    fn handle_fs_write_file(&self, req: FsWriteFileRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.fs_engine.write_file(&path, &req.content)?;
+
+        Ok(json!({
+            "path": path.to_string_lossy(),
+            "success": true,
+        }))
+    }
+
+    fn handle_fs_list_project_files(&self, req: FsListProjectFilesRequest) -> Result<Value> {
+        let root_path = self.fs_engine.expand_path(&req.root_path)?;
+        let tree = self.fs_engine.list_project_files(&root_path, req.show_hidden)?;
+
+        fn convert_tree(items: Vec<core_engine::FileTreeItem>) -> Vec<Value> {
+            items
+                .into_iter()
+                .map(|item| {
+                    json!({
+                        "name": item.name,
+                        "path": item.path.to_string_lossy(),
+                        "is_dir": item.is_dir,
+                        "children": item.children.map(convert_tree),
+                    })
+                })
+                .collect()
+        }
+
+        Ok(json!({
+            "root_path": root_path.to_string_lossy(),
+            "tree": convert_tree(tree),
         }))
     }
 

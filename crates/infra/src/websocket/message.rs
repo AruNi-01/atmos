@@ -79,6 +79,12 @@ pub enum WsAction {
     FsListDir,
     /// 验证 Git 仓库路径
     FsValidateGitPath,
+    /// 读取文件内容
+    FsReadFile,
+    /// 写入文件内容
+    FsWriteFile,
+    /// 列出项目文件树
+    FsListProjectFiles,
 
     // ===== Project 操作 =====
     /// 获取所有项目
@@ -158,6 +164,61 @@ pub struct FsValidateGitPathResponse {
     pub suggested_name: Option<String>,
     pub default_branch: Option<String>,
     pub error: Option<String>,
+}
+
+/// 读取文件请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsReadFileRequest {
+    pub path: String,
+}
+
+/// 读取文件响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsReadFileResponse {
+    pub path: String,
+    pub content: String,
+    pub size: u64,
+}
+
+/// 写入文件请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsWriteFileRequest {
+    pub path: String,
+    pub content: String,
+}
+
+/// 写入文件响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsWriteFileResponse {
+    pub path: String,
+    pub success: bool,
+}
+
+/// 列出项目文件树请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsListProjectFilesRequest {
+    /// 项目根目录路径
+    pub root_path: String,
+    /// 是否显示隐藏文件
+    #[serde(default)]
+    pub show_hidden: bool,
+}
+
+/// 文件树节点
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileTreeNode {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub children: Option<Vec<FileTreeNode>>,
+}
+
+/// 列出项目文件树响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsListProjectFilesResponse {
+    pub root_path: String,
+    pub tree: Vec<FileTreeNode>,
 }
 
 // ===== Project 操作数据结构 =====
