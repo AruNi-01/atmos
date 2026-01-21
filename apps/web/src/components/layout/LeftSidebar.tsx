@@ -55,7 +55,6 @@ import {
     RefreshCw
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
-import { projectApi, workspaceApi } from '@/api/project';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
