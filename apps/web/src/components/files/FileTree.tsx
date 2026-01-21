@@ -209,7 +209,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
             {!isFolder && <span className="w-[18px]" />}
 
             {/* File/Folder Icon */}
-            <span className="mr-2 flex-shrink-0">
+            <span className="mr-2 shrink-0">
               {getFileIcon(itemData.name, isFolder, isExpanded)}
             </span>
 
