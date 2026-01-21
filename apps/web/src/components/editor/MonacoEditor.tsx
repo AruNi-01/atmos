@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import Editor, { Monaco, OnMount, OnChange } from '@monaco-editor/react';
+import Editor, { Monaco, OnMount, OnChange, BeforeMount } from '@monaco-editor/react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useTheme } from 'next-themes';
 import { cn, Loader2, toastManager } from '@workspace/ui';
@@ -18,28 +18,42 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
   const { resolvedTheme } = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
-  
+
+  // Define custom theme before mount
+  const handleEditorWillMount: BeforeMount = useCallback((monaco) => {
+    monaco.editor.defineTheme('atmos-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#09090b', // Match project backgroud (zinc-950)
+        'editor.lineHighlightBackground': '#ffffff08',
+        'editorLineNumber.foreground': '#4b5563',
+      },
+    });
+  }, []);
+
   // Handle editor mount
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
-    
+
     // Focus the editor
     editor.focus();
-    
+
     // Add custom keyboard shortcut for save
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       handleSave();
     });
   }, []);
-  
+
   // Handle content change
   const handleEditorChange: OnChange = useCallback((value) => {
     if (value !== undefined) {
       updateFileContent(file.path, value);
     }
   }, [file.path, updateFileContent]);
-  
+
   // Handle save
   const handleSave = useCallback(async () => {
     try {
@@ -57,7 +71,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
       });
     }
   }, [file.path, file.name, saveFile]);
-  
+
   // Global save hotkey (Cmd/Ctrl + S)
   useHotkeys('mod+s', (e) => {
     e.preventDefault();
@@ -66,7 +80,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
     enableOnFormTags: true,
     enableOnContentEditable: true,
   }, [handleSave]);
-  
+
   // Loading state
   if (file.isLoading) {
     return (
@@ -75,16 +89,17 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
       </div>
     );
   }
-  
+
   return (
     <div className={cn('h-full w-full', className)}>
       <Editor
         height="100%"
         language={file.language}
         value={file.content}
-        theme={resolvedTheme === 'dark' ? 'vs-dark' : 'light'}
+        theme={resolvedTheme === 'dark' ? 'atmos-dark' : 'light'}
         onChange={handleEditorChange}
         onMount={handleEditorMount}
+        beforeMount={handleEditorWillMount}
         loading={
           <div className="flex items-center justify-center h-full">
             <Loader2 className="size-6 animate-spin text-muted-foreground" />
