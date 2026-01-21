@@ -6,6 +6,7 @@
 
 /* Import additional animations */
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 /* Web app specific styles */
 /* Add your custom styles here */
