@@ -37,12 +37,12 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
     return () => clearTimeout(timer);
   }, [file.content, isPreview, isMarkdown]);
 
-  // Sync debounced content immediately when entering preview for the first time
+  // Sync debounced content immediately when entering preview mode or switching files
   useEffect(() => {
     if (isPreview) {
       setDebouncedContent(file.content);
     }
-  }, [isPreview, file.content]);
+  }, [isPreview, file.path]); // Added file.path to sync on file switch
 
   // Toggle preview
   const togglePreview = useCallback(() => {
@@ -78,6 +78,9 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
         'editor.background': '#09090b', // Match project backgroud (zinc-950)
         'editor.lineHighlightBackground': '#ffffff08',
         'editorLineNumber.foreground': '#4b5563',
+        'scrollbarSlider.background': '#71717a33', // muted-foreground/20
+        'scrollbarSlider.hoverBackground': '#71717a66', // muted-foreground/40
+        'scrollbarSlider.activeBackground': '#71717a99',
       },
     });
   }, []);
@@ -194,8 +197,11 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
               smoothScrolling: true,
               padding: { top: 16, bottom: 16 },
               scrollbar: {
-                verticalScrollbarSize: 10,
-                horizontalScrollbarSize: 10,
+                verticalScrollbarSize: 6,
+                horizontalScrollbarSize: 6,
+                useShadows: false,
+                vertical: 'visible',
+                horizontal: 'visible',
               },
               overviewRulerBorder: false,
               hideCursorInOverviewRuler: true,
@@ -232,6 +238,11 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
           </div>
         )}
       </div>
+      <style jsx global>{`
+        .monaco-editor .scrollbar .slider {
+          border-radius: 10px !important;
+        }
+      `}</style>
     </div>
   );
 };
