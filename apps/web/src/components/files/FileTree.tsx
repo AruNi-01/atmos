@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTree } from '@headless-tree/react';
 import { syncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
-import { cn, ChevronRight, File, Folder, FolderOpen, Loader2 } from '@workspace/ui';
+import { cn, getFileIconProps, Loader2 } from '@workspace/ui';
+import { ChevronRight, Folder } from 'lucide-react';
 import { FileTreeNode } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 
@@ -50,42 +51,10 @@ function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
   return map;
 }
 
-// Get file icon based on extension
-function getFileIcon(name: string, isDir: boolean, isExpanded: boolean) {
-  if (isDir) {
-    return isExpanded ? (
-      <FolderOpen className="size-4 text-amber-500" />
-    ) : (
-      <Folder className="size-4 text-amber-500" />
-    );
-  }
-
-  const ext = name.split('.').pop()?.toLowerCase();
-
-  // Color based on file type
-  let iconColor = 'text-muted-foreground';
-
-  if (['ts', 'tsx'].includes(ext || '')) {
-    iconColor = 'text-blue-500';
-  } else if (['js', 'jsx', 'mjs'].includes(ext || '')) {
-    iconColor = 'text-yellow-500';
-  } else if (['rs'].includes(ext || '')) {
-    iconColor = 'text-orange-500';
-  } else if (['json'].includes(ext || '')) {
-    iconColor = 'text-yellow-600';
-  } else if (['md', 'mdx'].includes(ext || '')) {
-    iconColor = 'text-blue-400';
-  } else if (['css', 'scss', 'less'].includes(ext || '')) {
-    iconColor = 'text-pink-500';
-  } else if (['html'].includes(ext || '')) {
-    iconColor = 'text-orange-400';
-  } else if (['py'].includes(ext || '')) {
-    iconColor = 'text-green-500';
-  } else if (['go'].includes(ext || '')) {
-    iconColor = 'text-cyan-500';
-  }
-
-  return <File className={cn('size-4', iconColor)} />;
+// Icon component that renders VSCode-style icons
+function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boolean; isOpen?: boolean; className?: string }) {
+  const iconProps = getFileIconProps({ name, isDir, isOpen, className });
+  return <img {...iconProps} />;
 }
 
 // ===== FileTree Component =====
@@ -210,7 +179,12 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
 
             {/* File/Folder Icon */}
             <span className="mr-2 shrink-0">
-              {getFileIcon(itemData.name, isFolder, isExpanded)}
+              <FileIcon
+                name={itemData.name}
+                isDir={isFolder}
+                isOpen={isExpanded}
+                className="size-4"
+              />
             </span>
 
             {/* Name */}
