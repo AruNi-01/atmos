@@ -317,6 +317,227 @@ impl GitEngine {
 
         Ok(())
     }
+
+    /// Get list of changed files with additions and deletions count
+    pub fn get_changed_files(&self, repo_path: &Path) -> Result<ChangedFilesInfo> {
+        // Get list of changed files with status
+        let status_output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["status", "--porcelain"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to get git status: {}", e)))?;
+
+        if !status_output.status.success() {
+            let stderr = String::from_utf8_lossy(&status_output.stderr);
+            return Err(EngineError::Git(format!("Failed to get git status: {}", stderr)));
+        }
+
+        let status_stdout = String::from_utf8_lossy(&status_output.stdout);
+        let mut files: Vec<ChangedFileInfo> = Vec::new();
+        let mut total_additions = 0u32;
+        let mut total_deletions = 0u32;
+
+        for line in status_stdout.lines() {
+            if line.len() < 3 {
+                continue;
+            }
+            let status_code = &line[0..2];
+            let file_path = line[3..].to_string();
+
+            // Parse status (XY format: X=index status, Y=worktree status)
+            let status = match status_code.trim() {
+                "M" | " M" | "MM" => "M",
+                "A" | " A" | "AM" => "A",
+                "D" | " D" => "D",
+                "R" | " R" => "R",
+                "C" | " C" => "C",
+                "??" => "A", // Untracked files count as Added
+                "UU" | "AA" | "DD" => "U", // Unmerged
+                _ => "M", // Default to Modified
+            }.to_string();
+
+            // Get numstat for this specific file
+            let (additions, deletions) = self.get_file_numstat(repo_path, &file_path);
+            total_additions += additions;
+            total_deletions += deletions;
+
+            files.push(ChangedFileInfo {
+                path: file_path,
+                status,
+                additions,
+                deletions,
+            });
+        }
+
+        Ok(ChangedFilesInfo {
+            files,
+            total_additions,
+            total_deletions,
+        })
+    }
+
+    /// Get numstat for a specific file
+    fn get_file_numstat(&self, repo_path: &Path, file_path: &str) -> (u32, u32) {
+        // Try to get diff numstat for tracked files
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["diff", "--numstat", "--", file_path])
+            .output();
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if let Some(line) = stdout.lines().next() {
+                    let parts: Vec<&str> = line.split('\t').collect();
+                    if parts.len() >= 2 {
+                        let additions = parts[0].parse::<u32>().unwrap_or(0);
+                        let deletions = parts[1].parse::<u32>().unwrap_or(0);
+                        return (additions, deletions);
+                    }
+                }
+            }
+        }
+
+        // For untracked files, count the lines
+        let full_path = repo_path.join(file_path);
+        if full_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&full_path) {
+                let line_count = content.lines().count() as u32;
+                return (line_count, 0);
+            }
+        }
+
+        (0, 0)
+    }
+
+    /// Get file diff content (old vs new)
+    pub fn get_file_diff(&self, repo_path: &Path, file_path: &str) -> Result<FileDiffInfo> {
+        // Determine file status first
+        let status_output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["status", "--porcelain", "--", file_path])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to get file status: {}", e)))?;
+
+        let status_stdout = String::from_utf8_lossy(&status_output.stdout);
+        let status = if let Some(line) = status_stdout.lines().next() {
+            let code = &line[0..2];
+            match code.trim() {
+                "M" | " M" | "MM" => "M",
+                "A" | " A" | "AM" => "A",
+                "D" | " D" => "D",
+                "??" => "A",
+                _ => "M",
+            }.to_string()
+        } else {
+            "M".to_string()
+        };
+
+        // Get old content (HEAD version)
+        let old_content = if status == "A" {
+            // New file, no old content
+            String::new()
+        } else {
+            let output = Command::new("git")
+                .current_dir(repo_path)
+                .args(["show", &format!("HEAD:{}", file_path)])
+                .output()
+                .map_err(|e| EngineError::Git(format!("Failed to get old content: {}", e)))?;
+
+            if output.status.success() {
+                String::from_utf8_lossy(&output.stdout).to_string()
+            } else {
+                String::new()
+            }
+        };
+
+        // Get new content (working directory version)
+        let new_content = if status == "D" {
+            // Deleted file, no new content
+            String::new()
+        } else {
+            let full_path = repo_path.join(file_path);
+            std::fs::read_to_string(&full_path).unwrap_or_default()
+        };
+
+        Ok(FileDiffInfo {
+            file_path: file_path.to_string(),
+            old_content,
+            new_content,
+            status,
+        })
+    }
+
+    /// Commit all staged and unstaged changes
+    pub fn commit_all(&self, repo_path: &Path, message: &str) -> Result<String> {
+        // Stage all changes
+        let add_output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["add", "-A"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to stage changes: {}", e)))?;
+
+        if !add_output.status.success() {
+            let stderr = String::from_utf8_lossy(&add_output.stderr);
+            return Err(EngineError::Git(format!("Failed to stage changes: {}", stderr)));
+        }
+
+        // Commit
+        let commit_output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["commit", "-m", message])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to commit: {}", e)))?;
+
+        if !commit_output.status.success() {
+            let stderr = String::from_utf8_lossy(&commit_output.stderr);
+            return Err(EngineError::Git(format!("Failed to commit: {}", stderr)));
+        }
+
+        // Get commit hash
+        let hash_output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to get commit hash: {}", e)))?;
+
+        let hash = String::from_utf8_lossy(&hash_output.stdout).trim().to_string();
+        tracing::info!("Committed changes with hash: {}", hash);
+        Ok(hash)
+    }
+
+    /// Push to remote
+    pub fn push(&self, repo_path: &Path) -> Result<()> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["push"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to push: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            
+            // Try push with set-upstream for new branches
+            if stderr.contains("no upstream") || stderr.contains("set-upstream") {
+                let branch = self.get_current_branch(repo_path)?;
+                let upstream_output = Command::new("git")
+                    .current_dir(repo_path)
+                    .args(["push", "--set-upstream", "origin", &branch])
+                    .output()
+                    .map_err(|e| EngineError::Git(format!("Failed to push with upstream: {}", e)))?;
+
+                if !upstream_output.status.success() {
+                    let stderr = String::from_utf8_lossy(&upstream_output.stderr);
+                    return Err(EngineError::Git(format!("Failed to push: {}", stderr)));
+                }
+            } else {
+                return Err(EngineError::Git(format!("Failed to push: {}", stderr)));
+            }
+        }
+
+        tracing::info!("Pushed changes to remote");
+        Ok(())
+    }
 }
 
 impl Default for GitEngine {
@@ -340,6 +561,32 @@ pub struct GitStatus {
     pub has_unpushed_commits: bool,
     pub uncommitted_count: u32,
     pub unpushed_count: u32,
+}
+
+/// Information about a changed file
+#[derive(Debug, Clone)]
+pub struct ChangedFileInfo {
+    pub path: String,
+    pub status: String,
+    pub additions: u32,
+    pub deletions: u32,
+}
+
+/// Aggregate information about all changed files
+#[derive(Debug, Clone)]
+pub struct ChangedFilesInfo {
+    pub files: Vec<ChangedFileInfo>,
+    pub total_additions: u32,
+    pub total_deletions: u32,
+}
+
+/// File diff information with old and new content
+#[derive(Debug, Clone)]
+pub struct FileDiffInfo {
+    pub file_path: String,
+    pub old_content: String,
+    pub new_content: String,
+    pub status: String,
 }
 
 /// Parse the output of `git worktree list --porcelain`

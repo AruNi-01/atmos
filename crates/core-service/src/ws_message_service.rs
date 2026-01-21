@@ -9,7 +9,8 @@ use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
     FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsValidateGitPathRequest, FsWriteFileRequest,
-    GitGetStatusRequest, GitListBranchesRequest, GitRenameBranchRequest, ProjectCreateRequest,
+    GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest, GitGetStatusRequest,
+    GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest,
     WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
     WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
@@ -73,6 +74,10 @@ impl WsMessageService {
             WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
             WsAction::GitListBranches => self.handle_git_list_branches(parse_request(request.data)?),
             WsAction::GitRenameBranch => self.handle_git_rename_branch(parse_request(request.data)?),
+            WsAction::GitChangedFiles => self.handle_git_changed_files(parse_request(request.data)?),
+            WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
+            WsAction::GitCommit => self.handle_git_commit(parse_request(request.data)?),
+            WsAction::GitPush => self.handle_git_push(parse_request(request.data)?),
 
             // Project
             WsAction::ProjectList => self.handle_project_list().await,
@@ -238,6 +243,63 @@ impl WsMessageService {
         self.git_engine
             .rename_branch(&path, &req.old_name, &req.new_name)
             .map_err(|e| ServiceError::Validation(format!("Failed to rename branch: {}", e)))?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_changed_files(&self, req: GitChangedFilesRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let info = self.git_engine.get_changed_files(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to get changed files: {}", e))
+        })?;
+
+        let files: Vec<Value> = info.files.into_iter().map(|f| {
+            json!({
+                "path": f.path,
+                "status": f.status,
+                "additions": f.additions,
+                "deletions": f.deletions,
+            })
+        }).collect();
+
+        Ok(json!({
+            "files": files,
+            "total_additions": info.total_additions,
+            "total_deletions": info.total_deletions,
+        }))
+    }
+
+    fn handle_git_file_diff(&self, req: GitFileDiffRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let diff = self.git_engine.get_file_diff(&path, &req.file_path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to get file diff: {}", e))
+        })?;
+
+        Ok(json!({
+            "file_path": diff.file_path,
+            "old_content": diff.old_content,
+            "new_content": diff.new_content,
+            "status": diff.status,
+        }))
+    }
+
+    fn handle_git_commit(&self, req: GitCommitRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let hash = self.git_engine.commit_all(&path, &req.message).map_err(|e| {
+            ServiceError::Validation(format!("Failed to commit: {}", e))
+        })?;
+
+        Ok(json!({
+            "success": true,
+            "commit_hash": hash,
+        }))
+    }
+
+    fn handle_git_push(&self, req: GitPushRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.push(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to push: {}", e))
+        })?;
 
         Ok(json!({ "success": true }))
     }

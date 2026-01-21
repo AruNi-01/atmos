@@ -149,6 +149,22 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       activeFilePath: path,
     });
     
+    // 如果是 Diff 文件，不需要读取内容
+    if (path.startsWith('diff://')) {
+      set((state) => ({
+        openFiles: state.openFiles.map(f =>
+          f.path === path
+            ? {
+                ...f,
+                isLoading: false,
+                name: f.name + ' (Diff)', // Append Diff to name for clarity
+              }
+            : f
+        ),
+      }));
+      return;
+    }
+    
     try {
       // 从后端读取文件内容
       const response = await fsApi.readFile(path);

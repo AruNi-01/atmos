@@ -93,6 +93,14 @@ pub enum WsAction {
     GitListBranches,
     /// 重命名 Git 分支
     GitRenameBranch,
+    /// 获取变更文件列表
+    GitChangedFiles,
+    /// 获取单个文件的 diff
+    GitFileDiff,
+    /// 提交更改
+    GitCommit,
+    /// 推送更改
+    GitPush,
 
     // ===== Project 操作 =====
     /// 获取所有项目
@@ -308,6 +316,91 @@ pub struct GitRenameBranchRequest {
     pub old_name: String,
     /// 新分支名
     pub new_name: String,
+}
+
+/// 获取变更文件列表请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitChangedFilesRequest {
+    /// 仓库路径
+    pub path: String,
+}
+
+/// 变更文件信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitChangedFile {
+    /// 文件路径
+    pub path: String,
+    /// 文件状态: M(修改), A(新增), D(删除), R(重命名), C(复制), U(未合并)
+    pub status: String,
+    /// 新增行数
+    pub additions: u32,
+    /// 删除行数
+    pub deletions: u32,
+}
+
+/// 获取变更文件列表响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitChangedFilesResponse {
+    /// 变更文件列表
+    pub files: Vec<GitChangedFile>,
+    /// 总新增行数
+    pub total_additions: u32,
+    /// 总删除行数
+    pub total_deletions: u32,
+}
+
+/// 获取单个文件 diff 请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitFileDiffRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 文件相对路径
+    pub file_path: String,
+}
+
+/// 获取单个文件 diff 响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitFileDiffResponse {
+    /// 文件相对路径
+    pub file_path: String,
+    /// 旧文件内容 (HEAD 版本)
+    pub old_content: String,
+    /// 新文件内容 (工作区版本)
+    pub new_content: String,
+    /// 文件状态
+    pub status: String,
+}
+
+/// Git 提交请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitCommitRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 提交信息
+    pub message: String,
+}
+
+/// Git 提交响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitCommitResponse {
+    /// 是否成功
+    pub success: bool,
+    /// 提交 hash
+    pub commit_hash: Option<String>,
+}
+
+/// Git 推送请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitPushRequest {
+    /// 仓库路径
+    pub path: String,
+}
+
+/// Git 推送响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitPushResponse {
+    /// 是否成功
+    pub success: bool,
 }
 
 // ===== Workspace 操作数据结构 =====

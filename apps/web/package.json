@@ -14,6 +14,7 @@
     "@headless-tree/core": "^1.6.2",
     "@headless-tree/react": "^1.6.2",
     "@monaco-editor/react": "^4.7.0",
+    "@pierre/diffs": "^1.0.7",
     "@radix-ui/react-dialog": "^1.1.15",
     "@tailwindcss/typography": "^0.5.19",
     "@workspace/ui": "workspace:*",

@@ -17,6 +17,10 @@ export type WsAction =
   | 'git_get_status'
   | 'git_list_branches'
   | 'git_rename_branch'
+  | 'git_changed_files'
+  | 'git_file_diff'
+  | 'git_commit'
+  | 'git_push'
   // Project 操作
   | 'project_list'
   | 'project_create'
