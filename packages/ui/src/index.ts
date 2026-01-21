@@ -17,6 +17,7 @@ export * from "./components/ui/tabs";
 
 // Utilities
 export { cn } from "./lib/utils";
+export * from "./utils/file-icons";
 
 // Third Party Components
 export * from "react-resizable-panels";
