@@ -6,6 +6,6 @@ pub mod test_engine;
 pub mod tmux;
 
 pub use error::EngineError;
-pub use fs::{FsEngine, FsEntry, GitValidationResult};
+pub use fs::{FileTreeItem, FsEngine, FsEntry, GitValidationResult};
 pub use git::{GitEngine, GitStatus, WorktreeInfo};
 pub use test_engine::TestEngine;

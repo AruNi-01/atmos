@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Plus,
@@ -51,7 +51,8 @@ import {
     Tabs,
     TabsList,
     TabsTab,
-    TabsPanel
+    TabsPanel,
+    RefreshCw
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { projectApi, workspaceApi } from '@/api/project';
@@ -60,6 +61,9 @@ import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialo
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { formatRelativeTime } from '@atmos/shared';
 import { getWorkspaceShortName } from '@/utils/format-time';
+import { FileTree } from '@/components/files/FileTree';
+import { fsApi, FileTreeNode } from '@/api/ws-api';
+import { useEditorStore } from '@/hooks/use-editor-store';
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -416,6 +420,7 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const {
         projects,
         fetchProjects,
@@ -428,9 +433,21 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         archiveWorkspace,
     } = useProjectStore();
 
+    const { setCurrentProjectPath } = useEditorStore();
+
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
+
+    // File tree state
+    const [fileTreeData, setFileTreeData] = useState<FileTreeNode[]>([]);
+    const [fileTreeProjectId, setFileTreeProjectId] = useState<string | null>(null);
+    const [fileTreeWorkspaceId, setFileTreeWorkspaceId] = useState<string | null>(null);
+
+    const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+
+    // Track the latest fetch request to prevent race conditions
+    const fetchRequestId = useRef(0);
 
     // Dialog states
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
@@ -448,6 +465,87 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             setExpandedProjects(projects.map(p => p.id));
         }
     }, [projects]);
+
+    // Get current workspace and its project
+    const currentWorkspaceId = searchParams.get('workspaceId');
+    // Don't use useMemo - we need fresh values each render
+    const currentProject = projects.find(p => p.workspaces.some(w => w.id === currentWorkspaceId));
+    const currentProjectId = currentProject?.id ?? null;
+    const currentMainFilePath = currentProject?.mainFilePath ?? null;
+
+    // Fetch file tree from backend
+    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string, mainFilePath: string) => {
+        if (!mainFilePath) return;
+
+        // Increment request ID to invalidate any previous pending requests
+        const currentRequestId = ++fetchRequestId.current;
+
+        setIsLoadingFiles(true);
+        // Clear data start of new fetch to avoid mixing context
+        setFileTreeData([]);
+
+        console.log(`[Req #${currentRequestId}] Fetching files for Project: ${projectId}, Workspace: ${workspaceId}, Path: ${mainFilePath}`);
+
+        try {
+            const response = await fsApi.listProjectFiles(mainFilePath);
+
+            // CRITICAL: Only update state if this is still the latest request
+            if (fetchRequestId.current === currentRequestId) {
+                console.log(`[Req #${currentRequestId}] Fetch success. Updating state.`);
+                setFileTreeData(response.tree);
+                setFileTreeProjectId(projectId);
+                setFileTreeWorkspaceId(workspaceId);
+                setCurrentProjectPath(mainFilePath);
+            } else {
+                console.log(`[Req #${currentRequestId}] Stale response ignored.`);
+            }
+        } catch (error) {
+            if (fetchRequestId.current === currentRequestId) {
+                console.error(`[Req #${currentRequestId}] Failed to fetch file tree:`, error);
+                toastManager.add({
+                    title: 'Error',
+                    description: 'Failed to load project files',
+                    type: 'error',
+                });
+                setFileTreeData([]);
+                setFileTreeProjectId(projectId);
+                setFileTreeWorkspaceId(workspaceId);
+            }
+        } finally {
+            if (fetchRequestId.current === currentRequestId) {
+                setIsLoadingFiles(false);
+            }
+        }
+    }, [setCurrentProjectPath]);
+
+    // Keep file tree in sync
+    useEffect(() => {
+        if (activeTab === 'files' && currentProjectId && currentWorkspaceId && currentMainFilePath) {
+            const isMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
+            if (isMismatch && !isLoadingFiles) {
+                doFetchFileTree(currentProjectId, currentWorkspaceId, currentMainFilePath);
+            }
+        }
+    }, [activeTab, currentProjectId, currentWorkspaceId, currentMainFilePath, fileTreeProjectId, fileTreeWorkspaceId, isLoadingFiles, doFetchFileTree]);
+
+    // Handle tab change
+    const handleTabChange = (value: string) => {
+        setActiveTab(value as 'projects' | 'files');
+    };
+
+    // Refresh file tree
+    const handleRefreshFiles = () => {
+        if (currentProjectId && currentWorkspaceId && currentMainFilePath) {
+            doFetchFileTree(currentProjectId, currentWorkspaceId, currentMainFilePath);
+        }
+    };
+
+    // Simplified Display Logic
+    const isIdsMatching = fileTreeProjectId === currentProjectId && fileTreeWorkspaceId === currentWorkspaceId;
+
+    // Show loader if we are fetching OR if the data we have doesn't match current context
+    // This covers the gap between "Project Switch" and "Fetch Start"
+    const shouldShowLoader = isLoadingFiles || (activeTab === 'files' && !isIdsMatching && !!currentProject);
 
     const isAnyProjectDragging = activeId !== null && projects.some(p => p.id === activeId);
 
@@ -536,7 +634,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 <Tabs
                     defaultValue="projects"
                     className="flex flex-col h-full"
-                    onValueChange={(value) => setActiveTab(value as 'projects' | 'files')}
+                    onValueChange={handleTabChange}
                 >
                     {/* Tabs Header */}
                     <div className="h-10 flex items-center px-2 border-b border-sidebar-border">
@@ -629,10 +727,50 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                         </DndContext>
                     </TabsPanel>
 
-                    <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar py-3">
-                        <div className="px-4 py-8 text-center">
-                            <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
-                            <p className="text-muted-foreground text-xs text-pretty italic">Select a project to view files</p>
+                    <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
+                        {/* Files Header */}
+                        {currentProject && (
+                            <div className="flex items-center justify-between px-3 py-2 border-b border-sidebar-border">
+                                <span className="text-[12px] font-medium text-muted-foreground truncate">
+                                    {currentProject.name}
+                                </span>
+                                <button
+                                    onClick={handleRefreshFiles}
+                                    className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
+                                    title="Refresh files"
+                                    disabled={isLoadingFiles}
+                                >
+                                    <RefreshCw className={cn(
+                                        "size-3.5 text-muted-foreground",
+                                        isLoadingFiles && "animate-spin"
+                                    )} />
+                                </button>
+                            </div>
+                        )}
+
+                        {/* File Tree Content */}
+                        <div className="flex-1 overflow-y-auto py-2">
+                            {!currentProject ? (
+                                <div className="px-4 py-8 text-center">
+                                    <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
+                                    <p className="text-muted-foreground text-xs text-pretty italic">
+                                        Select a workspace to view files
+                                    </p>
+                                </div>
+                            ) : !currentMainFilePath ? (
+                                <div className="px-4 py-8 text-center text-muted-foreground">
+                                    <p className="text-sm">No project path configured</p>
+                                </div>
+                            ) : shouldShowLoader ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <RefreshCw className="size-5 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : (
+                                <FileTree
+                                    key={`${currentProjectId}-${currentWorkspaceId}`}
+                                    data={fileTreeData}
+                                />
+                            )}
                         </div>
                     </TabsPanel>
 

@@ -26,6 +26,31 @@ export interface FsValidateGitPathResponse {
   error: string | null;
 }
 
+// 文件读写类型
+export interface FsReadFileResponse {
+  path: string;
+  content: string;
+  size: number;
+}
+
+export interface FsWriteFileResponse {
+  path: string;
+  success: boolean;
+}
+
+// 文件树类型
+export interface FileTreeNode {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  children?: FileTreeNode[];
+}
+
+export interface FsListProjectFilesResponse {
+  root_path: string;
+  tree: FileTreeNode[];
+}
+
 // Project 类型（后端返回格式）
 export interface ProjectModel {
   guid: string;
@@ -116,6 +141,33 @@ export const fsApi = {
    */
   validateGitPath: async (path: string): Promise<FsValidateGitPathResponse> => {
     return wsRequest<FsValidateGitPathResponse>('fs_validate_git_path', { path });
+  },
+
+  /**
+   * 读取文件内容
+   */
+  readFile: async (path: string): Promise<FsReadFileResponse> => {
+    return wsRequest<FsReadFileResponse>('fs_read_file', { path });
+  },
+
+  /**
+   * 写入文件内容
+   */
+  writeFile: async (path: string, content: string): Promise<FsWriteFileResponse> => {
+    return wsRequest<FsWriteFileResponse>('fs_write_file', { path, content });
+  },
+
+  /**
+   * 列出项目文件树
+   */
+  listProjectFiles: async (
+    rootPath: string,
+    options?: { showHidden?: boolean }
+  ): Promise<FsListProjectFilesResponse> => {
+    return wsRequest<FsListProjectFilesResponse>('fs_list_project_files', {
+      root_path: rootPath,
+      show_hidden: options?.showHidden ?? false,
+    });
   },
 };
 

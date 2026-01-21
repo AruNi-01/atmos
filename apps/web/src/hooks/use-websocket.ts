@@ -10,6 +10,9 @@ export type WsAction =
   | 'fs_get_home_dir'
   | 'fs_list_dir'
   | 'fs_validate_git_path'
+  | 'fs_read_file'
+  | 'fs_write_file'
+  | 'fs_list_project_files'
   // Project 操作
   | 'project_list'
   | 'project_create'
