@@ -249,6 +249,74 @@ impl GitEngine {
             unpushed_count,
         })
     }
+
+    /// Get the current branch name of a repository
+    pub fn get_current_branch(&self, repo_path: &Path) -> Result<String> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to get current branch: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!(
+                "Failed to get current branch: {}",
+                stderr
+            )));
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    /// List only remote branches for a repository
+    pub fn list_branches(&self, repo_path: &Path) -> Result<Vec<String>> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["branch", "-r", "--format=%(refname:short)"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to list branches: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!(
+                "Failed to list branches: {}",
+                stderr
+            )));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let branches = stdout
+            .lines()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty() && !l.contains("HEAD") && l.contains('/'))
+            .map(|l| {
+                // Handle cases like "origin/main" -> "main"
+                // split_once('/') will take the part after the first slash
+                l.split_once('/').map(|(_, branch)| branch).unwrap_or(l).to_string()
+            })
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        Ok(branches)
+    }
+
+    /// Rename a branch in a repository
+    pub fn rename_branch(&self, repo_path: &Path, old_name: &str, new_name: &str) -> Result<()> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["branch", "-m", old_name, new_name])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to rename branch: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!("Failed to rename branch: {}", stderr)));
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for GitEngine {

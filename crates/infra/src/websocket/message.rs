@@ -86,6 +86,14 @@ pub enum WsAction {
     /// 列出项目文件树
     FsListProjectFiles,
 
+    // ===== Git 操作 =====
+    /// 获取 Git 状态（未提交/未推送的更改）
+    GitGetStatus,
+    /// 列出仓库的所有分支
+    GitListBranches,
+    /// 重命名 Git 分支
+    GitRenameBranch,
+
     // ===== Project 操作 =====
     /// 获取所有项目
     ProjectList,
@@ -93,6 +101,8 @@ pub enum WsAction {
     ProjectCreate,
     /// 更新项目
     ProjectUpdate,
+    /// 更新项目目标分支（用于 merge/PR/git diff）
+    ProjectUpdateTargetBranch,
     /// 删除项目
     ProjectDelete,
     /// 验证项目路径
@@ -243,6 +253,61 @@ pub struct ProjectUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectDeleteRequest {
     pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectUpdateTargetBranchRequest {
+    pub guid: String,
+    pub target_branch: Option<String>,
+}
+
+// ===== Git 操作数据结构 =====
+
+/// 获取 Git 状态请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGetStatusRequest {
+    /// 仓库/工作区路径
+    pub path: String,
+}
+
+/// Git 状态响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitStatusResponse {
+    /// 是否有未提交的更改
+    pub has_uncommitted_changes: bool,
+    /// 是否有未推送的提交
+    pub has_unpushed_commits: bool,
+    /// 未提交更改的数量
+    pub uncommitted_count: u32,
+    /// 未推送提交的数量
+    pub unpushed_count: u32,
+    /// 当前分支名
+    pub current_branch: Option<String>,
+}
+
+/// 列出 Git 分支请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitListBranchesRequest {
+    /// 仓库路径
+    pub path: String,
+}
+
+/// Git 分支列表响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitBranchesResponse {
+    /// 分支列表
+    pub branches: Vec<String>,
+}
+
+/// 重命名 Git 分支请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitRenameBranchRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 旧分支名
+    pub old_name: String,
+    /// 新分支名
+    pub new_name: String,
 }
 
 // ===== Workspace 操作数据结构 =====

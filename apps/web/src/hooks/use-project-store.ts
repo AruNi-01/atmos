@@ -45,6 +45,7 @@ interface ProjectStore {
   pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  updateWorkspaceBranch: (projectId: string, workspaceId: string, branch: string) => Promise<void>;
   
   setActiveWorkspaceId: (id: string | null) => void;
 }
@@ -59,6 +60,7 @@ function mapProjectModel(model: ProjectModel, workspaces: Workspace[] = []): Pro
     mainFilePath: model.main_file_path,
     sidebarOrder: model.sidebar_order,
     borderColor: model.border_color ?? undefined,
+    targetBranch: model.target_branch ?? undefined,
   };
 }
 
@@ -445,6 +447,29 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         description: 'Failed to archive workspace', 
         type: 'error' 
       });
+    }
+  },
+
+  updateWorkspaceBranch: async (projectId: string, workspaceId: string, branch: string) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updateBranch(workspaceId, branch);
+      
+      set(state => ({
+        projects: state.projects.map(p => 
+          p.id === projectId 
+            ? { 
+                ...p, 
+                workspaces: p.workspaces.map(w => 
+                  w.id === workspaceId ? { ...w, branch } : w
+                )
+              } 
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace branch:', error);
+      throw error;
     }
   },
 

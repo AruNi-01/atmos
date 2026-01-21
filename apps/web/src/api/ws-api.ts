@@ -58,9 +58,19 @@ export interface ProjectModel {
   main_file_path: string;
   sidebar_order: number;
   border_color: string | null;
+  target_branch: string | null;
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
+}
+
+// Git 状态响应
+export interface GitStatusResponse {
+  has_uncommitted_changes: boolean;
+  has_unpushed_commits: boolean;
+  uncommitted_count: number;
+  unpushed_count: number;
+  current_branch: string | null;
 }
 
 // Workspace 类型（后端返回格式）
@@ -171,6 +181,36 @@ export const fsApi = {
   },
 };
 
+// ===== Git API =====
+
+export const gitApi = {
+  /**
+   * 获取 Git 状态（未提交/未推送的更改）
+   */
+  getStatus: async (path: string): Promise<GitStatusResponse> => {
+    return wsRequest<GitStatusResponse>('git_get_status', { path });
+  },
+
+  /**
+   * 列出仓库所有分支
+   */
+  listBranches: async (path: string): Promise<string[]> => {
+    const result = await wsRequest<{ branches: string[] }>('git_list_branches', { path });
+    return result.branches;
+  },
+
+  /**
+   * 重命名 Git 分支
+   */
+  renameBranch: async (path: string, oldName: string, newName: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_rename_branch', {
+      path,
+      old_name: oldName,
+      new_name: newName,
+    });
+  },
+};
+
 // ===== Project API =====
 
 export const wsProjectApi = {
@@ -227,6 +267,16 @@ export const wsProjectApi = {
    */
   validatePath: async (path: string): Promise<FsValidateGitPathResponse> => {
     return wsRequest<FsValidateGitPathResponse>('project_validate_path', { path });
+  },
+
+  /**
+   * 更新项目目标分支
+   */
+  updateTargetBranch: async (guid: string, targetBranch: string | null): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('project_update_target_branch', {
+      guid,
+      target_branch: targetBranch,
+    });
   },
 };
 

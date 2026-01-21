@@ -17,11 +17,12 @@ pub use manager::WsManager;
 pub use message::{
     FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse, FsListProjectFilesRequest,
     FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse, FsValidateGitPathRequest,
-    FsValidateGitPathResponse, FsWriteFileRequest, FsWriteFileResponse, MessagePayload,
-    ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest, WorkspaceArchiveRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload, WsMessage, WsRequest,
-    WsResponse,
+    FsValidateGitPathResponse, FsWriteFileRequest, FsWriteFileResponse, GitBranchesResponse,
+    GitGetStatusRequest, GitListBranchesRequest, GitRenameBranchRequest, GitStatusResponse,
+    MessagePayload, ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest,
+    ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
+    WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction,
+    WsError as WsErrorPayload, WsMessage, WsRequest, WsResponse,
 };
 pub use service::{WsService, WsServiceConfig};

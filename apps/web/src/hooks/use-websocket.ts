@@ -13,10 +13,15 @@ export type WsAction =
   | 'fs_read_file'
   | 'fs_write_file'
   | 'fs_list_project_files'
+  // Git 操作
+  | 'git_get_status'
+  | 'git_list_branches'
+  | 'git_rename_branch'
   // Project 操作
   | 'project_list'
   | 'project_create'
   | 'project_update'
+  | 'project_update_target_branch'
   | 'project_delete'
   | 'project_validate_path'
   // Workspace 操作

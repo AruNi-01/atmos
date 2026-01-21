@@ -50,6 +50,7 @@ impl<'a> ProjectRepo<'a> {
             sidebar_order: Set(sidebar_order),
             border_color: Set(border_color),
             is_open: Set(true),
+            target_branch: Set(None), // Default to None, will use repository's default branch
         };
 
         let result = model.insert(self.db).await?;
@@ -86,6 +87,16 @@ impl<'a> ProjectRepo<'a> {
     #[allow(dead_code)]
     pub async fn exists(&self, guid: &str) -> Result<bool> {
         Ok(self.find_by_guid(guid).await?.is_some())
+    }
+
+    /// 更新项目目标分支
+    pub async fn update_target_branch(&self, guid: String, target_branch: Option<String>) -> Result<()> {
+        project::Entity::update_many()
+            .col_expr(project::Column::TargetBranch, Expr::value(target_branch))
+            .filter(project::Column::Guid.eq(guid))
+            .exec(self.db)
+            .await?;
+        Ok(())
     }
 }
 
