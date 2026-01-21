@@ -73,6 +73,35 @@ export interface GitStatusResponse {
   current_branch: string | null;
 }
 
+// 变更文件信息
+export interface GitChangedFile {
+  path: string;
+  status: string; // M, A, D, R, C, U
+  additions: number;
+  deletions: number;
+}
+
+// 变更文件列表响应
+export interface GitChangedFilesResponse {
+  files: GitChangedFile[];
+  total_additions: number;
+  total_deletions: number;
+}
+
+// 文件 diff 响应
+export interface GitFileDiffResponse {
+  file_path: string;
+  old_content: string;
+  new_content: string;
+  status: string;
+}
+
+// Git 提交响应
+export interface GitCommitResponse {
+  success: boolean;
+  commit_hash: string | null;
+}
+
 // Workspace 类型（后端返回格式）
 export interface WorkspaceModel {
   guid: string;
@@ -208,6 +237,40 @@ export const gitApi = {
       old_name: oldName,
       new_name: newName,
     });
+  },
+
+  /**
+   * 获取变更文件列表
+   */
+  getChangedFiles: async (path: string): Promise<GitChangedFilesResponse> => {
+    return wsRequest<GitChangedFilesResponse>('git_changed_files', { path });
+  },
+
+  /**
+   * 获取单个文件的 diff
+   */
+  getFileDiff: async (path: string, filePath: string): Promise<GitFileDiffResponse> => {
+    return wsRequest<GitFileDiffResponse>('git_file_diff', {
+      path,
+      file_path: filePath,
+    });
+  },
+
+  /**
+   * 提交更改
+   */
+  commit: async (path: string, message: string): Promise<GitCommitResponse> => {
+    return wsRequest<GitCommitResponse>('git_commit', {
+      path,
+      message,
+    });
+  },
+
+  /**
+   * 推送到远程
+   */
+  push: async (path: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_push', { path });
   },
 };
 

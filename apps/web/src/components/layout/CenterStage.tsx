@@ -6,6 +6,8 @@ import { TerminalLine } from '@/types/types';
 import { Terminal, X, Code, GitCompare, Circle, Loader2, Tabs, TabsList, TabsTab, TabsPanel, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 import { useEditorStore, OpenFile } from '@/hooks/use-editor-store';
+import { useGitStore } from '@/hooks/use-git-store';
+import { DiffViewer } from '@/components/diff/DiffViewer';
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const MonacoEditor = dynamic(
@@ -33,6 +35,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         getActiveFile,
     } = useEditorStore();
 
+
+
     const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
 
     const handleCloseFile = (file: OpenFile) => {
@@ -51,6 +55,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     };
 
     const activeFile = getActiveFile();
+
+    const { currentRepoPath } = useGitStore();
 
     const activeValue = activeFilePath || 'terminal';
 
@@ -82,37 +88,47 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     </TabsTab>
 
                     {/* Open File Tabs */}
-                    {openFiles.map((file) => (
-                        <TabsTab
-                            key={file.path}
-                            value={file.path}
-                            className="h-full px-2.5 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 group grow-0 justify-start"
-                        >
-                            <Code className="size-3.5 shrink-0" />
-                            <span className="text-[13px] font-medium whitespace-nowrap">
-                                {file.name}
-                            </span>
-                            {/* Status Icons Slot (Dirty dot / Close button) */}
-                            <div className="relative size-5 flex items-center justify-center shrink-0 ml-1">
-                                {/* Dirty indicator: Shown when dirty, hidden on hover so X check can take over */}
-                                {file.isDirty && (
-                                    <Circle className="size-1.5 fill-current text-muted-foreground group-hover:hidden" />
+                    {openFiles.map((file) => {
+                        const isDiff = file.path.startsWith('diff://');
+                        return (
+                            <TabsTab
+                                key={file.path}
+                                value={file.path}
+                                className="h-full px-2.5 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 group grow-0 justify-start"
+                            >
+                                {isDiff ? (
+                                    <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+                                ) : (
+                                    <Code className="size-3.5 shrink-0" />
                                 )}
-                                {/* Close button: Absolutely positioned to not affect width, shown on hover */}
-                                <span
-                                    role="button"
-                                    aria-label="Close tab"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleCloseFile(file);
-                                    }}
-                                    className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
-                                >
-                                    <X className="size-3" />
+                                <span className={cn(
+                                    "text-[13px] font-medium whitespace-nowrap",
+                                    isDiff && "italic text-pretty"
+                                )}>
+                                    {file.name}
                                 </span>
-                            </div>
-                        </TabsTab>
-                    ))}
+                                {/* Status Icons Slot (Dirty dot / Close button) */}
+                                <div className="relative size-5 flex items-center justify-center shrink-0 ml-1">
+                                    {/* Dirty indicator: Shown when dirty, hidden on hover so X check can take over */}
+                                    {file.isDirty && (
+                                        <Circle className="size-1.5 fill-current text-muted-foreground group-hover:hidden" />
+                                    )}
+                                    {/* Close button: Absolutely positioned to not affect width, shown on hover */}
+                                    <span
+                                        role="button"
+                                        aria-label="Close tab"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleCloseFile(file);
+                                        }}
+                                        className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
+                                    >
+                                        <X className="size-3" />
+                                    </span>
+                                </div>
+                            </TabsTab>
+                        );
+                    })}
                 </TabsList>
 
                 {/* Main Content Area - Panels are direct children of Tabs flex-col container */}
@@ -167,10 +183,14 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
                 {openFiles.map(file => (
                     <TabsPanel key={file.path} value={file.path} className="flex-1 min-h-0 min-w-0">
-                        <MonacoEditor
-                            file={file}
-                            className="flex-1"
-                        />
+                        {file.path.startsWith('diff://') && currentRepoPath ? (
+                            <DiffViewer repoPath={currentRepoPath} filePath={file.path.replace('diff://', '')} />
+                        ) : (
+                            <MonacoEditor
+                                file={file}
+                                className="flex-1"
+                            />
+                        )}
                     </TabsPanel>
                 ))}
             </Tabs>
