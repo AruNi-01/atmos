@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use core_service::{MessagePushService, ProjectService, TestService, WorkspaceService, WsMessageService};
+use core_service::{MessagePushService, ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService};
 use infra::{WsService, WsServiceConfig};
 
 #[derive(Clone)]
@@ -9,6 +9,7 @@ pub struct AppState {
     pub project_service: Arc<ProjectService>,
     pub workspace_service: Arc<WorkspaceService>,
     pub message_push_service: Arc<MessagePushService>,
+    pub terminal_service: Arc<TerminalService>,
     pub ws_service: Arc<WsService>,
 }
 
@@ -19,6 +20,7 @@ impl AppState {
         workspace_service: Arc<WorkspaceService>,
         ws_message_service: Arc<WsMessageService>,
         message_push_service: Arc<MessagePushService>,
+        terminal_service: Arc<TerminalService>,
         ws_service_config: WsServiceConfig,
     ) -> Self {
         // Create WsService with injected message handler (dependency inversion)
@@ -30,7 +32,9 @@ impl AppState {
             project_service,
             workspace_service,
             message_push_service,
+            terminal_service,
             ws_service: Arc::new(ws_service),
         }
     }
 }
+

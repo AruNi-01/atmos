@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use app_state::AppState;
 use core_engine::TestEngine;
-use core_service::{MessagePushService, ProjectService, TestService, WorkspaceService, WsMessageService};
+use core_service::{MessagePushService, ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService};
 use infra::{DbConnection, Migrator, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
 use tower_http::trace::TraceLayer;
@@ -55,6 +55,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&workspace_service),
     ));
 
+    // Terminal service for PTY management
+    let terminal_service = Arc::new(TerminalService::new());
+    info!("Terminal service initialized");
+
     // Configure WebSocket service
     let ws_config = WsServiceConfig {
         heartbeat_interval_secs: 10,
@@ -68,6 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         workspace_service,
         ws_message_service,
         message_push_service,
+        terminal_service,
         ws_config,
     );
 
