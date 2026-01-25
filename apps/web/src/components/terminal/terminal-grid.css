@@ -1,0 +1,116 @@
+/* ATMOS Terminal Grid - Seamless Integrated Layout */
+
+.terminal-grid-container {
+  width: 100%;
+  height: 100%;
+  background: var(--background);
+  overflow: auto;
+  position: relative;
+}
+
+.terminal-grid-layout {
+  min-height: 100%;
+}
+
+/* Grid Item - NO borders, NO rounded corners */
+.terminal-grid-item {
+  background: var(--background);
+  overflow: hidden;
+  display: flex !important;
+  flex-direction: column;
+  border-right: 1px solid var(--border); /* Subtle separator as it's seamless */
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal-grid-item.react-draggable-dragging {
+  z-index: 1000;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--primary);
+}
+
+.terminal-grid-item.react-resizable-placeholder {
+  background: var(--primary) !important;
+  opacity: 0.05 !important;
+}
+
+/* Integrated Header */
+.terminal-grid-toolbar {
+  display: flex;
+  align-items: center;
+  height: 28px; /* Compact height */
+  width: 100%;
+  padding: 0 8px;
+  background: var(--sidebar);
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+}
+
+/* Title area is the drag handle now */
+.terminal-grid-toolbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  height: 100%;
+  cursor: grab;
+}
+
+.terminal-grid-toolbar-title:active {
+  cursor: grabbing;
+}
+
+/* Toolbar Buttons */
+.terminal-grid-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--muted-foreground);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.terminal-grid-toolbar-btn:hover {
+  color: var(--foreground);
+  background: var(--accent);
+}
+
+.terminal-grid-toolbar-btn-close:hover {
+  color: #ff7b72;
+  background: rgba(255, 123, 114, 0.1);
+}
+
+/* Resize Handles - Hidden but functional at corners */
+.react-resizable-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+  z-index: 50;
+}
+
+/* Terminal Content Wrapper - Deep Integration */
+.terminal-grid-content {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: transparent;
+}
+
+/* Terminal inner padding */
+.atmos-terminal {
+  padding: 0 !important; /* No gaps */
+}
+
+/* Remove FAB as requested to focus on split buttons */
+.terminal-grid-add-btn {
+  display: none;
+}

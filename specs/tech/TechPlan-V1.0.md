@@ -82,7 +82,7 @@
 | 层级           | 技术栈                                  | 职责              |
 | ------------ | ------------------------------------ | --------------- |
 | **表现层**      | React, Next.js, TypeScript           | UI 组件、状态管理、用户交互 |
-| **终端渲染**     | Ghostty-Web                          | 高性能终端模拟与渲染      |
+| **终端渲染**     | Xterm.js                          | 高性能终端模拟与渲染      |
 | **窗口管理**     | react-mosaic                         | 灵活的面板布局与拖拽      |
 | **编辑与 Diff** | monaco-editor, diffs.com             | 文本编辑与代码审查       |
 | **通信层**      | WebSocket (Axum + tokio-tungstenite) | 实时双向通信          |
@@ -171,7 +171,7 @@ atmos/
 │   ├── app/                     # Next.js App Router
 │   ├── components/              # React 组件
 │   │   ├── layout/              # 布局组件（Topbar/Sidebar/Mosaic）
-│   │   ├── terminal/            # 终端组件（Ghostty-Web/xterm.js）
+│   │   ├── terminal/            # 终端组件（Xterm.js/xterm.js）
 │   │   ├── editor/              # Monaco 编辑器
 │   │   ├── diff/                # Diffs.com 集成
 │   │   └── workspace/           # 工作区相关组件
@@ -202,7 +202,7 @@ atmos/
 | ----------- | ------------------------------- | ------------ | --------------------- |
 | **基础 UI/Theme**  | shadcn(zinc color) + next-themes | 基础 UI 库、主题 | 基础 UI 库 |
 | **框架**      | React 19 + Next.js 16 + Tailwind CSS 4 | 构建响应式 Web 应用 | SSR/SSG、路由、API routes |
-| **终端**      | Ghostty-Web                     | 高性能终端渲染      | GPU 加速、完整 ANSI 支持     |
+| **终端**      | Xterm.js                     | 高性能终端渲染      | GPU 加速、完整 ANSI 支持     |
 | **编辑器**     | monaco-editor                   | 轻量级代码编辑      | 语法高亮、快速响应             |
 | **Sidebar**     | @dnd-kit/sortable              | 拖拽排序           | 拖拽排序、自定义排序算法     |
 | **窗口管理**    | react-mosaic + react-resizable-panels | 动态面板布局 | 拖拽调整、resize 调整、持久化布局            |
@@ -545,7 +545,7 @@ Axum 路由与 WebSocket Handler
 - 每个终端对应独立 session/window。
 - 提供创建、发送命令、结束会话的统一封装。
 
-### Ghostty-Web 替代方案
+### Xterm.js 替代方案
 
 - 若短期不可用，以 xterm.js 作为 Web 终端渲染替代方案。
 

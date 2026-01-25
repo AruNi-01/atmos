@@ -76,7 +76,7 @@
 | 层级           | 技术栈                                  | 职责              |
 | ------------ | ------------------------------------ | --------------- |
 | **表现层**      | React, Next.js, TypeScript           | UI 组件、状态管理、用户交互 |
-| **终端渲染**     | Ghostty-Web                          | 高性能终端模拟与渲染      |
+| **终端渲染**     | Xterm.js                          | 高性能终端模拟与渲染      |
 | **窗口管理**     | react-resizable-panels + @dnd-kit    | 灵活的面板布局与拖拽      |
 | **编辑与 Diff** | monaco-editor, diffs.com             | 文本编辑与代码审查       |
 | **通信层**      | WebSocket (Axum + tokio-tungstenite) | 实时双向通信          |
@@ -456,9 +456,10 @@ atmos/
 | 数据获取 | TanStack Query | 异步数据管理 | 缓存、重试、实时更新 |
 | 国际化 | next-intl | 多语言支持 | 存放于 `packages/i18n` |
 | 工具函数 | `packages/shared/src/utils/` | 共享工具 | 供所有前端应用共享 |
-| **基础组件** | 终端 | Ghostty-Web / xterm.js | 终端渲染 | GPU 加速、完整 ANSI 支持 |
+| **基础组件** | 终端 | Xterm.js / xterm.js | 终端渲染 | 完整 ANSI 支持 |
 | 编辑器 | monaco-editor | 代码编辑 | 语法高亮、快速响应 |
 | 窗口管理 | react-resizable-panels + @dnd-kit | 动态面板布局 | 拖拽/Resize 调整、持久化 |
+| 窗口多 Pane 管理 | react-grid-layout | 窗口多 Pane 管理 | 多 Pane/Window 管理，支持拖拽调整位置，快速水平/垂直 split |
 | Project Workspace Sidebar | @dnd-kit/sortable | 拖拽排序 | 项目/工作区列表排序 |
 | File Tree | headless-tree | 文件树 | 拖拽、重命名、搜索 |
 | Tabs | Coss UI - Tabs | 已开窗口管理 | 拖拽调整位置 |
@@ -856,7 +857,7 @@ Axum 路由与 WebSocket Handler
 - 每个终端对应独立 session/window。
 - 提供创建、发送命令、结束会话的统一封装。
 
-### Ghostty-Web 替代方案
+### Xterm.js 替代方案
 
 - 若短期不可用，以 xterm.js 作为 Web 终端渲染替代方案。
 

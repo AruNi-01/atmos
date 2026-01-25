@@ -20,7 +20,7 @@ ATMOS 项目旨在构建一个“可视化终端工作空间”（Visual Termina
 
 **Web 前端**：
 - 基础技术：React、Nextjs、
-- 终端：Ghostty-Web（渲染终端）；
+- 终端：Xterm.js（渲染终端）；
 - 文本编辑：monaco-editor（做简单代码/文件编辑）；
 - 主区域：react-mosaic（https://github.com/nomcopter/react-mosaic，做窗口管理/布局）；
 - git diff：diffs.com（https://diffs.com/docs，代码 diff、diff 接受/拒绝、diff 代码添加评论到 Agent）、Zustand（状态管理）、@tanstack/react-query（Data fetch）；
