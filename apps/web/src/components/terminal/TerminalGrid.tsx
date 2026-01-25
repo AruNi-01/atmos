@@ -19,34 +19,62 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import "./terminal-grid.css";
 
-// Custom WidthProvider to avoid ESM export issues in RGL v2
-function withWidth<P extends { width: number }>(
-  WrappedComponent: React.ComponentType<P>
-) {
-  return function WithWidth(props: Omit<P, "width"> & { className?: string }) {
-    const [width, setWidth] = React.useState(1200);
+const GRID_Total_ROWS = 48; // A highly divisible number for good granularity
+
+// Custom SizeProvider to dynamically calculate width AND rowHeight
+function withDynamicGrid(WrappedComponent: React.ComponentType<any>) {
+  return function WithDynamicGrid(props: any) {
+    const [size, setSize] = React.useState({ width: 1200, height: 800 });
     const ref = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
       if (!ref.current) return;
+      
+      const updateSize = () => {
+        if (ref.current) {
+          const { width, height } = ref.current.getBoundingClientRect();
+          setSize({ width, height });
+        }
+      };
+
+      // Initial size
+      updateSize();
+
+      // Observer
       const observer = new ResizeObserver((entries) => {
         if (entries[0]) {
-          setWidth(entries[0].contentRect.width);
+           // We use contentRect or boundingClientRect logic
+           const { width, height } = entries[0].contentRect;
+           setSize({ width, height });
         }
       });
       observer.observe(ref.current);
       return () => observer.disconnect();
     }, []);
 
+    // Calculate dynamic row height based on container height
+    // We subtract a small buffer (32px) to account for the status bar and avoid overlap.
+    const containerHeight = Math.max(1, size.height - 14); 
+    const dynamicRowHeight = Math.max(1, containerHeight / GRID_Total_ROWS);
+
     return (
-      <div ref={ref} className={props.className} style={{ width: "100%", height: "100%" }}>
-        <WrappedComponent {...(props as P)} width={width} />
+      <div
+        ref={ref}
+        className={props.className}
+        style={{ width: "100%", height: "100%", overflow: "hidden" }}
+      >
+        <WrappedComponent
+          {...props}
+          width={size.width}
+          rowHeight={dynamicRowHeight}
+        />
       </div>
     );
+
   };
 }
 
-const ResponsiveGridLayout = withWidth(Responsive);
+const ResponsiveGridLayout = withDynamicGrid(Responsive);
 
 interface TerminalGridProps {
   workspaceId: string;
@@ -62,7 +90,13 @@ interface GridTerminalPane extends TerminalPaneProps {
   };
 }
 
-export function TerminalGrid({ workspaceId, className }: TerminalGridProps) {
+
+
+export interface TerminalGridHandle {
+  addTerminal: (title?: string) => void;
+}
+
+export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className }, ref) => {
   const [panes, setPanes] = useState<Record<string, GridTerminalPane>>(() => {
     const initialId = uuidv4();
     return {
@@ -71,12 +105,60 @@ export function TerminalGrid({ workspaceId, className }: TerminalGridProps) {
         title: "Terminal 1",
         sessionId: uuidv4(),
         workspaceId,
-        grid: { x: 0, y: 0, w: 12, h: 8 }, // Default to full width
+        grid: { x: 0, y: 0, w: 12, h: GRID_Total_ROWS }, // Full height
       },
     };
   });
 
   const [counter, setCounter] = useState(2);
+
+  // Expose addTerminal method via ref
+  React.useImperativeHandle(ref, () => ({
+    addTerminal: (title?: string) => {
+      setPanes((prev) => {
+        const panesList = Object.values(prev);
+        const lastPane = panesList[panesList.length - 1];
+        const newId = uuidv4();
+        
+        // Simple logic: if last pane exists, try to split it or add below/right
+        // For now, let's just create a new one at the bottom or free space if possible
+        // But since we are full width/height often, splitting the last pane is safer
+        
+        let newGrid = { x: 0, y: 0, w: 6, h: GRID_Total_ROWS };
+        const next = { ...prev };
+        
+        if (lastPane) {
+           // Split the last pane vertically to be safe and simple
+           const halfHeight = Math.max(1, Math.floor(lastPane.grid.h / 2));
+           
+           // Update last pane to take top half
+           next[lastPane.id] = {
+             ...lastPane,
+             grid: { ...lastPane.grid, h: halfHeight }
+           };
+           
+           // New pane takes bottom half
+           newGrid = {
+             x: lastPane.grid.x,
+             y: lastPane.grid.y + halfHeight,
+             w: lastPane.grid.w,
+             h: halfHeight
+           };
+        }
+
+        next[newId] = {
+          id: newId,
+          title: title || `Terminal ${counter}`,
+          sessionId: uuidv4(),
+          workspaceId,
+          grid: newGrid,
+        };
+        
+        return next;
+      });
+      setCounter((c) => c + 1);
+    }
+  }));
 
   const layouts = useMemo(() => {
     const lg: Layout = Object.values(panes).map((pane) => ({
@@ -113,9 +195,10 @@ export function TerminalGrid({ workspaceId, className }: TerminalGridProps) {
           title: "Terminal 1",
           sessionId: uuidv4(),
           workspaceId,
-          grid: { x: 0, y: 0, w: 12, h: 8 },
+          grid: { x: 0, y: 0, w: 12, h: GRID_Total_ROWS },
         };
       }
+
       return next;
     });
   }, [workspaceId]);
@@ -170,7 +253,7 @@ export function TerminalGrid({ workspaceId, className }: TerminalGridProps) {
         layouts={layouts}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={80}
+        rowHeight={20}
         dragConfig={{ handle: ".terminal-grid-toolbar-title" }}
         onLayoutChange={onLayoutChange}
         margin={[0, 0]} // Seamless implementation
@@ -222,4 +305,7 @@ export function TerminalGrid({ workspaceId, className }: TerminalGridProps) {
       </ResponsiveGridLayout>
     </div>
   );
-}
+});
+
+TerminalGrid.displayName = "TerminalGrid";
+
