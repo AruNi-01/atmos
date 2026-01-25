@@ -87,15 +87,34 @@
 }
 
 /* Resize Handles - Hidden but functional at corners */
+/* Resize Handles - Seamless right-angle indicator on hover */
 .react-resizable-handle {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   bottom: 0;
   right: 0;
   cursor: se-resize;
   z-index: 50;
+  transition: opacity 0.2s ease;
+  opacity: 0; /* Hidden by default */
 }
+
+.terminal-grid-item:hover .react-resizable-handle {
+  opacity: 1; /* Show on hover */
+}
+
+.react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--muted-foreground);
+  border-bottom: 2px solid var(--muted-foreground);
+}
+
 
 /* Terminal Content Wrapper - Deep Integration */
 .terminal-grid-content {
