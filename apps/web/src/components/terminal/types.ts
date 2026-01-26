@@ -6,8 +6,8 @@ export interface TerminalSession {
   name: string;
   status: "connecting" | "connected" | "disconnected" | "reconnecting" | "error";
   createdAt: Date;
-  /** tmux window index for reconnection */
-  tmuxWindowIndex?: number;
+  /** tmux window name for reconnection (e.g., "1", "2", "3") */
+  tmuxWindowName?: string;
 }
 
 export interface TerminalMessage {
@@ -28,13 +28,13 @@ export interface TerminalProps {
   sessionId: string;
   workspaceId: string;
   className?: string;
-  /** tmux window index for reconnection (if set, will attach instead of create) */
-  tmuxWindowIndex?: number;
+  /** tmux window name for reconnection (if set, will try to attach to existing window) */
+  tmuxWindowName?: string;
   onSessionReady?: (sessionId: string) => void;
   onSessionClose?: (sessionId: string) => void;
   onSessionError?: (sessionId: string, error: string) => void;
-  /** Called when tmux window index is assigned (for new sessions) */
-  onTmuxWindowAssigned?: (sessionId: string, tmuxWindowIndex: number) => void;
+  /** Called when tmux window is assigned (for new sessions) */
+  onTmuxWindowAssigned?: (sessionId: string, tmuxWindowName: string) => void;
 }
 
 export interface TerminalPaneProps {
@@ -73,7 +73,7 @@ export interface WsTerminalCreate {
 export interface WsTerminalAttach {
   type: "terminal_attach";
   workspace_id: string;
-  tmux_window: number;
+  tmux_window_name: string;
 }
 
 export interface WsTerminalInput {

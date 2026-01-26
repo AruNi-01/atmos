@@ -32,7 +32,7 @@ const Terminal = ({
   sessionId,
   workspaceId,
   className,
-  tmuxWindowIndex,
+  tmuxWindowName,
   onSessionReady,
   onSessionClose,
   onSessionError,
@@ -54,9 +54,8 @@ const Terminal = ({
   const wsParams = new URLSearchParams({
     workspace_id: workspaceId,
   });
-  if (tmuxWindowIndex !== undefined) {
-    wsParams.set("tmux_window", String(tmuxWindowIndex));
-    wsParams.set("attach", "true");
+  if (tmuxWindowName) {
+    wsParams.set("tmux_window_name", tmuxWindowName);
   }
   const wsUrl = `${baseWsUrl}?${wsParams.toString()}`;
 

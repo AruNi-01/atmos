@@ -241,6 +241,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
               <Terminal
                 sessionId={pane.sessionId}
                 workspaceId={pane.workspaceId}
+                tmuxWindowName={pane.tmuxWindowName}
               />
             </div>
           </div>

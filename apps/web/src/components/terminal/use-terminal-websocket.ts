@@ -26,7 +26,7 @@ interface UseTerminalWebSocketReturn {
   sendInput: (data: string) => void;
   sendResize: (size: TerminalSize) => void;
   sendCreate: (workspaceId: string) => void;
-  sendAttach: (workspaceId: string, tmuxWindow: number) => void;
+  sendAttach: (workspaceId: string, tmuxWindowName: string) => void;
   sendDestroy: () => void;
   connect: () => void;
   disconnect: () => void;
@@ -97,11 +97,11 @@ export function useTerminalWebSocket({
   );
 
   const sendAttach = useCallback(
-    (workspaceId: string, tmuxWindow: number) => {
+    (workspaceId: string, tmuxWindowName: string) => {
       sendMessage({
         type: "terminal_attach",
         workspace_id: workspaceId,
-        tmux_window: tmuxWindow,
+        tmux_window_name: tmuxWindowName,
       });
     },
     [sendMessage]
