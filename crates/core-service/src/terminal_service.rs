@@ -26,7 +26,7 @@ enum SessionCommand {
 /// Terminal session handle - thread-safe wrapper for PTY session
 struct SessionHandle {
     command_tx: mpsc::UnboundedSender<SessionCommand>,
-    workspace_id: String,
+    _workspace_id: String,
 }
 
 /// Message types for terminal communication
@@ -142,7 +142,7 @@ impl TerminalService {
                 // Store session handle
                 let handle = SessionHandle {
                     command_tx,
-                    workspace_id: workspace_id.clone(),
+                    _workspace_id: workspace_id.clone(),
                 };
                 
                 self.sessions.lock().await.insert(session_id.clone(), handle);

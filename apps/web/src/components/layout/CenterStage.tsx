@@ -25,6 +25,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  toastManager,
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { useEditorStore, OpenFile } from "@/hooks/use-editor-store";
@@ -32,6 +33,9 @@ import { useGitStore } from "@/hooks/use-git-store";
 import { DiffViewer } from "@/components/diff/DiffViewer";
 import { Plus, Bot, Sparkles, Cpu, Zap, Brain } from "lucide-react";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
+import WelcomePage from "@/components/welcome/WelcomePage";
+import { useSearchParams } from "next/navigation";
+import { useDialogStore } from "@/hooks/use-dialog-store";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const MonacoEditor = dynamic(
@@ -71,14 +75,6 @@ interface CenterStageProps {
 }
 
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
-  const {
-    openFiles,
-    activeFilePath,
-    setActiveFile,
-    closeFile,
-    getActiveFile,
-  } = useEditorStore();
-
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
@@ -98,21 +94,58 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     }
   };
 
-  const activeFile = getActiveFile();
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get("workspaceId");
+  const {
+    setWorkspaceId,
+    getOpenFiles,
+    getActiveFilePath,
+    setActiveFile,
+    closeFile,
+    getActiveFile,
+  } = useEditorStore();
+  const { setCreateProjectOpen } = useDialogStore();
 
-  const { currentRepoPath } = useGitStore();
+  // Sync workspaceId with store
+  React.useEffect(() => {
+    setWorkspaceId(workspaceId);
+  }, [workspaceId, setWorkspaceId]);
+
+  const openFiles = getOpenFiles(workspaceId || undefined);
+  const activeFilePath = getActiveFilePath(workspaceId || undefined);
 
   const activeValue = activeFilePath || "terminal";
 
   const handleAddAgent = (name: string) => {
     if (terminalGridRef.current) {
-        // Switch to terminal tab if not active
-        if (activeFilePath) {
-            setActiveFile(null as any);
-        }
-        terminalGridRef.current.addTerminal(name);
+      // Switch to terminal tab if not active
+      if (activeFilePath) {
+        setActiveFile(null as any, workspaceId || undefined);
+      }
+      terminalGridRef.current.addTerminal(name);
     }
   };
+
+  const activeFile = getActiveFile(workspaceId || undefined);
+  const { currentRepoPath } = useGitStore();
+
+  if (!workspaceId) {
+    return (
+      <main className="h-full overflow-hidden">
+        <WelcomePage
+          onAddProject={() => setCreateProjectOpen(true)}
+          onCloneRemote={() => {
+            // Placeholder for now
+            toastManager.add({
+              title: "Coming Soon",
+              description: "Clone From Remote feature is under development",
+              type: "info"
+            });
+          }}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="h-full flex flex-col overflow-hidden">
@@ -120,9 +153,9 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         value={activeValue}
         onValueChange={(val) => {
           if (val === "terminal") {
-            setActiveFile(null as any);
+            setActiveFile(null as any, workspaceId || undefined);
           } else {
-            setActiveFile(val);
+            setActiveFile(val, workspaceId || undefined);
           }
         }}
         className="flex-1 flex flex-col gap-0"
@@ -140,11 +173,11 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             <span className="text-[13px] font-medium text-pretty">
               Terminal
             </span>
-            
+
             {/* Code Agent Dropdown - Absolute positioning to not affect flex layout flow */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <div 
+                <div
                   role="button"
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-colors"
                   onClick={(e) => e.stopPropagation()}
@@ -153,26 +186,26 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
-                 <DropdownMenuItem onClick={() => handleAddAgent("Claude Code")}>
-                    <Bot className="mr-2 size-4 text-purple-500" />
-                    <span>Claude Code</span>
-                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => handleAddAgent("Codex")}>
-                    <Cpu className="mr-2 size-4 text-blue-500" />
-                    <span>Codex</span>
-                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => handleAddAgent("OpenCode")}>
-                    <Sparkles className="mr-2 size-4 text-yellow-500" />
-                    <span>OpenCode</span>
-                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => handleAddAgent("Droid")}>
-                    <Zap className="mr-2 size-4 text-green-500" />
-                    <span>Droid</span>
-                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => handleAddAgent("Amp")}>
-                    <Brain className="mr-2 size-4 text-orange-500" />
-                    <span>Amp</span>
-                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddAgent("Claude Code")}>
+                  <Bot className="mr-2 size-4 text-purple-500" />
+                  <span>Claude Code</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddAgent("Codex")}>
+                  <Cpu className="mr-2 size-4 text-blue-500" />
+                  <span>Codex</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddAgent("OpenCode")}>
+                  <Sparkles className="mr-2 size-4 text-yellow-500" />
+                  <span>OpenCode</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddAgent("Droid")}>
+                  <Zap className="mr-2 size-4 text-green-500" />
+                  <span>Droid</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAddAgent("Amp")}>
+                  <Brain className="mr-2 size-4 text-orange-500" />
+                  <span>Amp</span>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </TabsTab>
@@ -232,10 +265,10 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             /* Real xterm.js Terminal */
             /* Real xterm.js Terminal */
             <div className="h-full w-full">
-              <TerminalGrid 
+              <TerminalGrid
                 ref={terminalGridRef}
-                workspaceId="default" 
-                className="h-full" 
+                workspaceId={workspaceId}
+                className="h-full"
               />
             </div>
 

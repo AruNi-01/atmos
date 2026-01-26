@@ -42,7 +42,7 @@ const Terminal = ({
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   // WebSocket connection
-  const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080"}/ws/terminal/${sessionId}`;
+  const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080"}/ws/terminal/${sessionId}?workspace_id=${workspaceId}`;
 
   const handleOutput = useCallback((data: string) => {
     terminalRef.current?.write(data);
@@ -68,6 +68,7 @@ const Terminal = ({
     useTerminalWebSocket({
       url: wsUrl,
       sessionId,
+      workspaceId, // Pass workspaceId for automatic compensation
       onOutput: handleOutput,
       onConnected: handleConnected,
       onDisconnected: handleDisconnected,
@@ -88,114 +89,122 @@ const Terminal = ({
   );
 
 
-    // Initialize terminal
-    useEffect(() => {
-      if (!containerRef.current || terminalRef.current) return;
+  // Initialize terminal
+  useEffect(() => {
+    if (!containerRef.current || terminalRef.current) return;
 
-      // Create terminal instance
-      const terminal = new XTerm({
-        ...defaultTerminalOptions,
-        theme: atmosDarkTheme,
+    // Create terminal instance
+    const terminal = new XTerm({
+      ...defaultTerminalOptions,
+      theme: atmosDarkTheme,
+    });
+
+    // Create addons
+    const fitAddon = new FitAddon();
+    const webLinksAddon = new WebLinksAddon();
+    const searchAddon = new SearchAddon();
+
+    // Load addons
+    terminal.loadAddon(fitAddon);
+    terminal.loadAddon(webLinksAddon);
+    terminal.loadAddon(searchAddon);
+
+    // Open terminal in container
+    terminal.open(containerRef.current);
+
+    // Try to load WebGL addon for better performance
+    try {
+      const webglAddon = new WebglAddon();
+      terminal.loadAddon(webglAddon);
+      webglAddonRef.current = webglAddon;
+
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose();
+        webglAddonRef.current = null;
       });
+    } catch (e) {
+      console.warn("WebGL addon failed to load, using canvas renderer", e);
+    }
 
-      // Create addons
-      const fitAddon = new FitAddon();
-      const webLinksAddon = new WebLinksAddon();
-      const searchAddon = new SearchAddon();
+    // Fit terminal to container
+    fitAddon.fit();
 
-      // Load addons
-      terminal.loadAddon(fitAddon);
-      terminal.loadAddon(webLinksAddon);
-      terminal.loadAddon(searchAddon);
+    // Store refs
+    terminalRef.current = terminal;
+    fitAddonRef.current = fitAddon;
 
-      // Open terminal in container
-      terminal.open(containerRef.current);
+    // Handle terminal input
+    terminal.onData((data) => {
+      sendInput(data);
+    });
 
-      // Try to load WebGL addon for better performance
-      try {
-        const webglAddon = new WebglAddon();
-        terminal.loadAddon(webglAddon);
-        webglAddonRef.current = webglAddon;
+    // Handle terminal resize
+    terminal.onResize(({ cols, rows }) => {
+      sendResize({ cols, rows });
+    });
 
-        webglAddon.onContextLoss(() => {
-          webglAddon.dispose();
-          webglAddonRef.current = null;
+    // Connect to WebSocket
+    connect();
+
+    // Setup resize observer
+    const resizeObserver = new ResizeObserver(() => {
+      if (fitAddonRef.current) {
+        // Use requestAnimationFrame to avoid layout thrashing
+        requestAnimationFrame(() => {
+          fitAddonRef.current?.fit();
         });
-      } catch (e) {
-        console.warn("WebGL addon failed to load, using canvas renderer", e);
       }
+    });
 
-      // Fit terminal to container
-      fitAddon.fit();
+    resizeObserver.observe(containerRef.current);
+    resizeObserverRef.current = resizeObserver;
 
-      // Store refs
-      terminalRef.current = terminal;
-      fitAddonRef.current = fitAddon;
+    // Display welcome message
+    terminal.write("\x1b[1;38;5;39mATMOS\x1b[0m \x1b[38;5;244mTerminal Workspace\x1b[0m\r\n\r\n");
 
-      // Handle terminal input
-      terminal.onData((data) => {
-        sendInput(data);
-      });
-
-      // Handle terminal resize
-      terminal.onResize(({ cols, rows }) => {
-        sendResize({ cols, rows });
-      });
-
-      // Connect to WebSocket
-      connect();
-
-      // Setup resize observer
-      const resizeObserver = new ResizeObserver(() => {
-        if (fitAddonRef.current) {
-          // Use requestAnimationFrame to avoid layout thrashing
-          requestAnimationFrame(() => {
-            fitAddonRef.current?.fit();
-          });
-        }
-      });
-
-      resizeObserver.observe(containerRef.current);
-      resizeObserverRef.current = resizeObserver;
-
-      // Display welcome message
-      terminal.write("\x1b[1;38;5;39mATMOS\x1b[0m \x1b[38;5;244mTerminal Workspace\x1b[0m\r\n\r\n");
-
-      if (!isConnected) {
-        terminal.write("\x1b[33mConnecting...\x1b[0m\r\n");
-      }
+    if (!isConnected) {
+      terminal.write("\x1b[33mConnecting...\x1b[0m\r\n");
+    }
 
 
-      // Focus terminal
-      terminal.focus();
+    // Focus terminal
+    terminal.focus();
 
-      return () => {
-        disconnect();
-        resizeObserver.disconnect();
-        webglAddonRef.current?.dispose();
-        terminal.dispose();
-        terminalRef.current = null;
-        fitAddonRef.current = null;
-      };
-    }, [sessionId, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      disconnect();
+      resizeObserver.disconnect();
+      webglAddonRef.current?.dispose();
+      terminal.dispose();
+      terminalRef.current = null;
+      fitAddonRef.current = null;
+    };
+  }, [sessionId, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return (
+  return (
+    <div
+      className="terminal-padding-wrapper"
+      style={{
+        width: "100%",
+        height: "100%",
+        paddingLeft: "2px",
+        paddingTop: "2px",
+        backgroundColor: atmosDarkTheme.background,
+        overflow: "hidden",
+      }}
+    >
       <div
         ref={containerRef}
         className={`atmos-terminal ${className || ""}`}
         style={{
           width: "100%",
           height: "100%",
-          padding: "8px",
-          backgroundColor: atmosDarkTheme.background,
-          borderRadius: "8px",
-          overflow: "hidden",
         }}
         data-session-id={sessionId}
         data-workspace-id={workspaceId}
         data-connected={isConnected}
       />
-    );
+    </div>
+  );
 };
 
 

@@ -6,13 +6,19 @@ import { useEditorStore } from '@/hooks/use-editor-store';
 import { Play, TerminalSquare, FileCode, Check, RefreshCw, Upload, Loader2, GitGraph } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 
+import { useSearchParams } from 'next/navigation';
+
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
   changes?: any[];
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = () => {
-  const { currentProjectPath, openFile, activeFilePath } = useEditorStore();
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get('workspaceId');
+  const { currentProjectPath, openFile, getActiveFilePath } = useEditorStore();
+  const activeFilePath = getActiveFilePath(workspaceId || undefined);
+
   const {
     gitStatus,
     changedFiles,
@@ -144,7 +150,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         {changedFiles.map(file => (
           <div
             key={file.path}
-            onClick={() => openFile(`diff://${file.path}`)}
+            onClick={() => openFile(`diff://${file.path}`, workspaceId || undefined)}
             className={cn(
               "group flex items-center justify-between px-3 py-2 rounded-sm cursor-pointer transition-colors ease-out duration-200 mb-0.5",
               activeFilePath === `diff://${file.path}` ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent/50"

@@ -124,9 +124,32 @@
   background: transparent;
 }
 
-/* Terminal inner padding */
+/* Terminal inner padding - handled by Terminal.tsx wrapper */
 .atmos-terminal {
-  padding: 0 !important; /* No gaps */
+  padding: 0 !important;
+}
+
+/* Unified Scrollbar for XTerm and Terminal Grid */
+.xterm-viewport::-webkit-scrollbar,
+.terminal-grid-container::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.xterm-viewport::-webkit-scrollbar-track,
+.terminal-grid-container::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb,
+.terminal-grid-container::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.2) !important; /* Unified with app scrollbar */
+  border-radius: 10px !important;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb:hover,
+.terminal-grid-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.4) !important;
 }
 
 /* Remove FAB as requested to focus on split buttons */

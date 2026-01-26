@@ -6,6 +6,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { useTheme } from 'next-themes';
 import { cn, toastManager } from '@workspace/ui';
 import { Loader2, Eye, EyeOff, FileText } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useEditorStore, OpenFile } from '@/hooks/use-editor-store';
 import type { editor } from 'monaco-editor';
 import ReactMarkdown from 'react-markdown';
@@ -17,6 +18,8 @@ interface MonacoEditorProps {
 }
 
 export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) => {
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get('workspaceId');
   const { updateFileContent, saveFile } = useEditorStore();
   const { resolvedTheme } = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -102,14 +105,14 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
   // Handle content change
   const handleEditorChange: OnChange = useCallback((value) => {
     if (value !== undefined) {
-      updateFileContent(file.path, value);
+      updateFileContent(file.path, value, workspaceId || undefined);
     }
-  }, [file.path, updateFileContent]);
+  }, [file.path, updateFileContent, workspaceId]);
 
   // Handle save
   const handleSave = useCallback(async () => {
     try {
-      await saveFile(file.path);
+      await saveFile(file.path, workspaceId || undefined);
       toastManager.add({
         title: 'Saved',
         description: `${file.name} saved successfully`,
@@ -122,7 +125,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
         type: 'error',
       });
     }
-  }, [file.path, file.name, saveFile]);
+  }, [file.path, file.name, saveFile, workspaceId]);
 
   // Global save hotkey (Cmd/Ctrl + S)
   useHotkeys('mod+s', (e) => {

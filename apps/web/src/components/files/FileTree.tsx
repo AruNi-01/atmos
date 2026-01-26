@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useTree } from '@headless-tree/react';
 import { syncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
 import { cn, getFileIconProps, Loader2, ChevronRight, Folder } from '@workspace/ui';
 import { FileTreeNode } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
+import { useSearchParams } from 'next/navigation';
 
 // ===== Types =====
 
@@ -25,7 +26,6 @@ interface FileTreeProps {
 
 // ===== Helper Functions =====
 
-// Build a flat map of all items from the tree data
 function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
   const map = new Map<string, FileTreeItem>();
 
@@ -39,7 +39,6 @@ function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
         children: node.children?.map(c => c.path),
       };
       map.set(node.path, item);
-
       if (node.children) {
         traverse(node.children);
       }
@@ -50,7 +49,6 @@ function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
   return map;
 }
 
-// Icon component that renders VSCode-style icons
 function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boolean; isOpen?: boolean; className?: string }) {
   const iconProps = getFileIconProps({ name, isDir, isOpen, className });
   return <img {...iconProps} />;
@@ -59,13 +57,14 @@ function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boo
 // ===== FileTree Component =====
 
 export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
-  const { openFile, activeFilePath } = useEditorStore();
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get('workspaceId');
+  const { openFile, getActiveFilePath } = useEditorStore();
+  const activeFilePath = getActiveFilePath(workspaceId || undefined);
 
-  // Build items map from data
   const itemsMap = useMemo(() => buildItemsMap(data), [data]);
   const rootItemIds = useMemo(() => data.map(node => node.path), [data]);
 
-  // Create tree instance
   const tree = useTree<FileTreeItem>({
     rootItemId: 'root',
     getItemName: (item: ItemInstance<FileTreeItem>) => item.getItemData().name,
@@ -95,16 +94,13 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
     features: [syncDataLoaderFeature],
   });
 
-
-
-  // Handle item click
   const handleItemClick = useCallback((item: FileTreeItem, isFolder: boolean, toggle: () => void) => {
     if (isFolder) {
       toggle();
     } else {
-      openFile(item.path);
+      openFile(item.path, workspaceId || undefined);
     }
-  }, [openFile]);
+  }, [openFile, workspaceId]);
 
   if (isLoading) {
     return (
@@ -158,12 +154,10 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
               'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors outline-none',
               'hover:bg-sidebar-accent/50',
               isActive && 'bg-sidebar-accent text-sidebar-foreground',
-              // Only show focus ring when using keyboard (focus-visible)
               'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1'
             )}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
           >
-            {/* Expand/Collapse Icon for folders */}
             {isFolder && (
               <ChevronRight
                 className={cn(
@@ -172,11 +166,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
                 )}
               />
             )}
-
-            {/* Spacer for files (to align with folders) */}
             {!isFolder && <span className="w-[18px]" />}
-
-            {/* File/Folder Icon */}
             <span className="mr-2 shrink-0">
               <FileIcon
                 name={itemData.name}
@@ -185,8 +175,6 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
                 className="size-4"
               />
             </span>
-
-            {/* Name */}
             <span className="text-[13px] truncate">
               {itemData.name}
             </span>
