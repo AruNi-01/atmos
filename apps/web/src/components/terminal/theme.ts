@@ -7,7 +7,7 @@ export const atmosDarkTheme: ITheme = {
   // Background and foreground
   background: "#00000000", // Transparent background to show container color
   foreground: "#f8f8f8", // Brighter foreground for better contrast
-  cursor: "#60a5fa", // Lighter blue cursor
+  cursor: "#f8f8f8", // White cursor for dark theme
   cursorAccent: "#111827",
 
 
@@ -41,7 +41,7 @@ export const atmosLightTheme: ITheme = {
   // Background and foreground
   background: "#ffffff",
   foreground: "#24292f",
-  cursor: "#0969da",
+  cursor: "#24292f", // Black cursor for light theme
   cursorAccent: "#ffffff",
 
   // Selection
@@ -93,6 +93,7 @@ export const defaultTerminalOptions = {
   lineHeight: terminalFont.lineHeight,
   letterSpacing: terminalFont.letterSpacing,
   scrollback: 10000,
+  scrollSensitivity: 1,
   smoothScrollDuration: 100,
   theme: atmosDarkTheme,
   minimumContrastRatio: 4.5,
