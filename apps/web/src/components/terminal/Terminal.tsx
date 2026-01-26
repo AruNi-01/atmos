@@ -5,7 +5,6 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
-  forwardRef,
   useState,
 } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
@@ -13,9 +12,11 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { useTheme } from "next-themes";
+import { Loader2 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 
-import { defaultTerminalOptions, atmosDarkTheme } from "./theme";
+import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme } from "./theme";
 import { useTerminalWebSocket } from "./use-terminal-websocket";
 import type { TerminalProps } from "./types";
 
@@ -44,6 +45,9 @@ const Terminal = ({
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
 
   // Build WebSocket URL with attach parameters if reconnecting
   const baseWsUrl = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080"}/ws/terminal/${sessionId}`;
@@ -62,6 +66,8 @@ const Terminal = ({
 
   const handleConnected = useCallback(() => {
     setStatus("connected");
+    // Clear any loading content and reset terminal when connected
+    terminalRef.current?.clear();
     onSessionReady?.(sessionId);
   }, [sessionId, onSessionReady]);
 
@@ -73,7 +79,8 @@ const Terminal = ({
   const handleError = useCallback(
     (error: string) => {
       onSessionError?.(sessionId, error);
-      terminalRef.current?.write(`\r\n\x1b[31mError: ${error}\x1b[0m\r\n`);
+      // Only show errors in terminal after initial connection (not during connecting phase)
+      // The loading overlay handles the connecting state
     },
     [sessionId, onSessionError]
   );
@@ -122,6 +129,13 @@ const Terminal = ({
   );
 
 
+  // Update terminal theme when system theme changes
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.options.theme = currentTheme;
+    }
+  }, [currentTheme]);
+
   // Initialize terminal
   useEffect(() => {
     if (!containerRef.current || terminalRef.current) return;
@@ -129,7 +143,7 @@ const Terminal = ({
     // Create terminal instance
     const terminal = new XTerm({
       ...defaultTerminalOptions,
-      theme: atmosDarkTheme,
+      theme: currentTheme,
     });
 
     // Create addons
@@ -192,16 +206,6 @@ const Terminal = ({
     resizeObserver.observe(containerRef.current);
     resizeObserverRef.current = resizeObserver;
 
-    // Display welcome message
-    terminal.write("\x1b[1;38;5;39mATMOS\x1b[0m \x1b[38;5;244mTerminal Workspace\x1b[0m\r\n\r\n");
-
-    if (tmuxWindowIndex !== undefined) {
-      terminal.write("\x1b[33mReconnecting to session...\x1b[0m\r\n");
-    } else {
-      terminal.write("\x1b[33mConnecting...\x1b[0m\r\n");
-    }
-
-
     // Focus terminal
     terminal.focus();
 
@@ -223,11 +227,42 @@ const Terminal = ({
         height: "100%",
         paddingLeft: "2px",
         paddingTop: "2px",
-        backgroundColor: atmosDarkTheme.background,
-        overflow: "hidden",
+        backgroundColor: currentTheme.background,
         position: "relative",
       }}
     >
+      {/* Loading overlay when connecting */}
+      {status === "connecting" && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 20,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: isDark ? "#09090b" : "#ffffff",
+            gap: "12px",
+          }}
+        >
+          <Loader2 
+            size={24} 
+            className="animate-spin"
+            style={{ 
+              color: isDark ? "#71717a" : "#a1a1aa",
+            }} 
+          />
+          <span
+            style={{
+              fontSize: "13px",
+              color: isDark ? "#71717a" : "#a1a1aa",
+            }}
+          >
+            Connecting to terminal...
+          </span>
+        </div>
+      )}
       {/* Status indicator */}
       {status === "reconnecting" && (
         <div
@@ -269,6 +304,7 @@ const Terminal = ({
         style={{
           width: "100%",
           height: "100%",
+          opacity: status === "connecting" ? 0 : 1,
         }}
         data-session-id={sessionId}
         data-workspace-id={workspaceId}

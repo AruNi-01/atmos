@@ -7,6 +7,7 @@ import {
   Columns,
   Rows,
   Terminal as TerminalIcon,
+  Loader2,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ import "react-resizable/css/styles.css";
 import "./terminal-grid.css";
 
 import { useTerminalStore } from "@/hooks/use-terminal-store";
+import { useProjectStore } from "@/hooks/use-project-store";
 
 const GRID_Total_ROWS = 48; // A highly divisible number for good granularity
 
@@ -95,6 +97,8 @@ export interface TerminalGridHandle {
 }
 
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className }, ref) => {
+  const [isMounted, setIsMounted] = React.useState(false);
+  
   const {
     getPanes,
     setPanes,
@@ -104,10 +108,23 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     splitTerminal: splitTerminalInStore
   } = useTerminalStore();
 
-  // Initialize workspace on mount (client-side only)
+  // Check if workspace exists in project store (i.e., data has been loaded)
+  const { projects, isLoading: isProjectsLoading } = useProjectStore();
+  const workspaceExists = React.useMemo(() => {
+    return projects.some(p => p.workspaces.some(w => w.id === workspaceId));
+  }, [projects, workspaceId]);
+
+  // Mark as mounted after hydration
   useEffect(() => {
-    initWorkspace(workspaceId);
-  }, [workspaceId, initWorkspace]);
+    setIsMounted(true);
+  }, []);
+
+  // Initialize workspace on mount (client-side only) - only when workspace exists
+  useEffect(() => {
+    if (isMounted && workspaceExists) {
+      initWorkspace(workspaceId);
+    }
+  }, [workspaceId, workspaceExists, isMounted, initWorkspace]);
 
   const panes = getPanes(workspaceId);
   const hasPanes = Object.keys(panes).length > 0;
@@ -148,7 +165,19 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     splitTerminalInStore(workspaceId, id, direction);
   }, [workspaceId, splitTerminalInStore]);
 
-  // Show loading state before hydration
+  // Show loading state while workspace data is being fetched
+  if (!isMounted || isProjectsLoading || !workspaceExists) {
+    return (
+      <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Loading workspace...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state before terminal panes are initialized
   if (!hasPanes) {
     return (
       <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
