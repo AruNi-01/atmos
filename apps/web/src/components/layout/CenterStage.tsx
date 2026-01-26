@@ -28,7 +28,7 @@ import {
   toastManager,
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
-import { useEditorStore, OpenFile } from "@/hooks/use-editor-store";
+import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
 import { useGitStore } from "@/hooks/use-git-store";
 import { DiffViewer } from "@/components/diff/DiffViewer";
 import { Plus, Bot, Sparkles, Cpu, Zap, Brain } from "lucide-react";
@@ -78,6 +78,9 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
+  
+  // Wait for editor store hydration to avoid SSR mismatch
+  useEditorStoreHydration();
 
   const handleCloseFile = (file: OpenFile) => {
     if (file.isDirty) {
@@ -260,10 +263,18 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         </TabsList>
 
         {/* Main Content Area - Panels are direct children of Tabs flex-col container */}
-        <TabsPanel value="terminal" className="flex-1 min-h-0 min-w-0">
+        {/* 
+          Terminal is kept mounted and uses CSS visibility to avoid re-initialization.
+          This prevents terminal sessions from restarting when switching tabs.
+        */}
+        <div 
+          className={cn(
+            "flex-1 min-h-0 min-w-0",
+            activeValue !== "terminal" && "hidden"
+          )}
+        >
           {useRealTerminal ? (
-            /* Real xterm.js Terminal */
-            /* Real xterm.js Terminal */
+            /* Real xterm.js Terminal - Always mounted, visibility controlled by parent */
             <div className="h-full w-full">
               <TerminalGrid
                 ref={terminalGridRef}
@@ -271,8 +282,6 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 className="h-full"
               />
             </div>
-
-
           ) : (
             /* Fallback Mock Terminal View */
             <div className="flex-1 flex flex-col h-full bg-background">
@@ -323,7 +332,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               </div>
             </div>
           )}
-        </TabsPanel>
+        </div>
 
         {openFiles.map((file) => (
           <TabsPanel

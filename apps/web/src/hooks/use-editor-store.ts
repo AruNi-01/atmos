@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useEffect, useState } from 'react';
 import { fsApi } from '@/api/ws-api';
 
 // ===== 类型定义 =====
@@ -28,6 +29,10 @@ interface EditorStore {
   
   // 当前项目路径 (这个可能是全局的或者也是按 workspace 的，根据之前代码暂定全局，但改为按 workspace 更合理)
   currentProjectPath: string | null;
+  
+  // Hydration tracking
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   
   // 动作
   setWorkspaceId: (workspaceId: string | null) => void;
@@ -67,6 +72,9 @@ export const useEditorStore = create<EditorStore>()(
       workspaceStates: {},
       currentWorkspaceId: null,
       currentProjectPath: null,
+      _hasHydrated: false,
+      
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       setWorkspaceId: (id) => set({ currentWorkspaceId: id }),
 
@@ -75,12 +83,16 @@ export const useEditorStore = create<EditorStore>()(
       getOpenFiles: (workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return [];
+        // Return empty array before hydration to avoid mismatch
+        if (!get()._hasHydrated) return [];
         return get().workspaceStates[id]?.openFiles || [];
       },
 
       getActiveFilePath: (workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return null;
+        // Return null before hydration to avoid mismatch
+        if (!get()._hasHydrated) return null;
         return get().workspaceStates[id]?.activeFilePath || null;
       },
 
@@ -267,6 +279,8 @@ export const useEditorStore = create<EditorStore>()(
       getActiveFile: (workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return undefined;
+        // Return undefined before hydration to avoid mismatch
+        if (!get()._hasHydrated) return undefined;
         const ws = get().workspaceStates[id];
         return ws?.openFiles.find(f => f.path === ws.activeFilePath);
       },
@@ -280,6 +294,31 @@ export const useEditorStore = create<EditorStore>()(
     {
       name: 'atmos-editor-storage',
       storage: createJSONStorage(() => sessionStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+      partialize: (state) => ({
+        workspaceStates: state.workspaceStates,
+        currentWorkspaceId: state.currentWorkspaceId,
+        currentProjectPath: state.currentProjectPath,
+      }),
     }
   )
 );
+
+/**
+ * Hook to wait for store hydration before rendering persisted data
+ */
+export function useEditorStoreHydration() {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    // Mark as hydrated after first client render
+    // This ensures SSR and first client render match (both empty)
+    // Then the persisted data is restored and triggers a re-render
+    useEditorStore.getState().setHasHydrated(true);
+    setIsReady(true);
+  }, []);
+
+  return isReady;
+}

@@ -1,11 +1,9 @@
 "use client";
 
-import React, { useCallback, useState, useMemo } from "react";
+import React, { useCallback, useMemo, useEffect } from "react";
 import { Responsive, Layout } from "react-grid-layout";
-import { v4 as uuidv4 } from "uuid";
 import {
   X,
-  Plus,
   Columns,
   Rows,
   Terminal as TerminalIcon,
@@ -100,12 +98,19 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const {
     getPanes,
     setPanes,
+    initWorkspace,
     addTerminal: addTerminalToStore,
     removeTerminal: removeTerminalFromStore,
     splitTerminal: splitTerminalInStore
   } = useTerminalStore();
 
+  // Initialize workspace on mount (client-side only)
+  useEffect(() => {
+    initWorkspace(workspaceId);
+  }, [workspaceId, initWorkspace]);
+
   const panes = getPanes(workspaceId);
+  const hasPanes = Object.keys(panes).length > 0;
 
   // Expose addTerminal method via ref
   React.useImperativeHandle(ref, () => ({
@@ -142,6 +147,18 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const splitTerminal = useCallback((id: string, direction: "horizontal" | "vertical") => {
     splitTerminalInStore(workspaceId, id, direction);
   }, [workspaceId, splitTerminalInStore]);
+
+  // Show loading state before hydration
+  if (!hasPanes) {
+    return (
+      <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
+        <div className="flex flex-col items-center gap-3">
+          <TerminalIcon className="size-6 animate-pulse text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Initializing terminal...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("terminal-grid-container", className)}>

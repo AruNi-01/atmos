@@ -28,6 +28,11 @@ pub struct UpdateOrderPayload {
     pub sidebar_order: i32,
 }
 
+#[derive(Deserialize)]
+pub struct UpdateTerminalLayoutPayload {
+    pub layout: Option<String>,
+}
+
 /// GET /api/workspace/project/:project_guid - 获取项目下的所有工作区
 pub async fn list_workspaces_by_project(
     State(state): State<AppState>,
@@ -100,4 +105,23 @@ pub async fn delete_workspace(
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     state.workspace_service.delete_workspace(guid).await?;
     Ok(Json(ApiResponse::success(json!({ "message": "Workspace deleted" }))))
+}
+
+/// GET /api/workspace/:guid/terminal-layout - 获取终端布局
+pub async fn get_terminal_layout(
+    State(state): State<AppState>,
+    Path(guid): Path<String>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let layout = state.workspace_service.get_terminal_layout(guid).await?;
+    Ok(Json(ApiResponse::success(json!({ "layout": layout }))))
+}
+
+/// PUT /api/workspace/:guid/terminal-layout - 更新终端布局
+pub async fn update_terminal_layout(
+    State(state): State<AppState>,
+    Path(guid): Path<String>,
+    Json(payload): Json<UpdateTerminalLayoutPayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    state.workspace_service.update_terminal_layout(guid, payload.layout).await?;
+    Ok(Json(ApiResponse::success(json!({ "message": "Terminal layout updated" }))))
 }

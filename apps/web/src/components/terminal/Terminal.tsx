@@ -6,6 +6,7 @@ import {
   useImperativeHandle,
   useRef,
   forwardRef,
+  useState,
 } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -30,9 +31,11 @@ const Terminal = ({
   sessionId,
   workspaceId,
   className,
+  tmuxWindowIndex,
   onSessionReady,
   onSessionClose,
   onSessionError,
+  onTmuxWindowAssigned,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef> }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,19 +43,30 @@ const Terminal = ({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
 
-  // WebSocket connection
-  const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080"}/ws/terminal/${sessionId}?workspace_id=${workspaceId}`;
+  // Build WebSocket URL with attach parameters if reconnecting
+  const baseWsUrl = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080"}/ws/terminal/${sessionId}`;
+  const wsParams = new URLSearchParams({
+    workspace_id: workspaceId,
+  });
+  if (tmuxWindowIndex !== undefined) {
+    wsParams.set("tmux_window", String(tmuxWindowIndex));
+    wsParams.set("attach", "true");
+  }
+  const wsUrl = `${baseWsUrl}?${wsParams.toString()}`;
 
   const handleOutput = useCallback((data: string) => {
     terminalRef.current?.write(data);
   }, []);
 
   const handleConnected = useCallback(() => {
+    setStatus("connected");
     onSessionReady?.(sessionId);
   }, [sessionId, onSessionReady]);
 
   const handleDisconnected = useCallback(() => {
+    setStatus("disconnected");
     onSessionClose?.(sessionId);
   }, [sessionId, onSessionClose]);
 
@@ -64,16 +78,35 @@ const Terminal = ({
     [sessionId, onSessionError]
   );
 
-  const { isConnected, sendInput, sendResize, connect, disconnect } =
+  const handleAttached = useCallback((history?: string) => {
+    // Session attached (reconnected) to existing tmux window
+    setStatus("connected");
+    if (history) {
+      // Write history to terminal (already scrolled back content)
+      terminalRef.current?.write(history);
+    }
+    terminalRef.current?.write("\r\n\x1b[32m[Reconnected to session]\x1b[0m\r\n");
+  }, []);
+
+  const { isConnected, isReconnecting, sendInput, sendResize, connect, disconnect } =
     useTerminalWebSocket({
       url: wsUrl,
       sessionId,
-      workspaceId, // Pass workspaceId for automatic compensation
+      workspaceId,
       onOutput: handleOutput,
       onConnected: handleConnected,
       onDisconnected: handleDisconnected,
       onError: handleError,
+      onAttached: handleAttached,
     });
+
+  // Update status based on reconnecting state
+  useEffect(() => {
+    if (isReconnecting) {
+      setStatus("reconnecting");
+      terminalRef.current?.write("\r\n\x1b[33m[Reconnecting...]\x1b[0m\r\n");
+    }
+  }, [isReconnecting]);
 
   // Expose terminal methods via ref (React 19 style)
   useImperativeHandle(
@@ -162,7 +195,9 @@ const Terminal = ({
     // Display welcome message
     terminal.write("\x1b[1;38;5;39mATMOS\x1b[0m \x1b[38;5;244mTerminal Workspace\x1b[0m\r\n\r\n");
 
-    if (!isConnected) {
+    if (tmuxWindowIndex !== undefined) {
+      terminal.write("\x1b[33mReconnecting to session...\x1b[0m\r\n");
+    } else {
       terminal.write("\x1b[33mConnecting...\x1b[0m\r\n");
     }
 
@@ -190,8 +225,44 @@ const Terminal = ({
         paddingTop: "2px",
         backgroundColor: atmosDarkTheme.background,
         overflow: "hidden",
+        position: "relative",
       }}
     >
+      {/* Status indicator */}
+      {status === "reconnecting" && (
+        <div
+          style={{
+            position: "absolute",
+            top: "4px",
+            right: "8px",
+            zIndex: 10,
+            padding: "2px 8px",
+            borderRadius: "4px",
+            backgroundColor: "rgba(234, 179, 8, 0.2)",
+            color: "#eab308",
+            fontSize: "12px",
+          }}
+        >
+          Reconnecting...
+        </div>
+      )}
+      {status === "disconnected" && (
+        <div
+          style={{
+            position: "absolute",
+            top: "4px",
+            right: "8px",
+            zIndex: 10,
+            padding: "2px 8px",
+            borderRadius: "4px",
+            backgroundColor: "rgba(239, 68, 68, 0.2)",
+            color: "#ef4444",
+            fontSize: "12px",
+          }}
+        >
+          Disconnected
+        </div>
+      )}
       <div
         ref={containerRef}
         className={`atmos-terminal ${className || ""}`}
@@ -202,6 +273,7 @@ const Terminal = ({
         data-session-id={sessionId}
         data-workspace-id={workspaceId}
         data-connected={isConnected}
+        data-status={status}
       />
     </div>
   );

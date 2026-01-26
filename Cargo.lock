@@ -485,6 +485,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "core-engine",
+ "dirs 5.0.1",
  "infra",
  "parking_lot",
  "portable-pty",

@@ -67,6 +67,7 @@ impl<'a> WorkspaceRepo<'a> {
             pinned_at: Set(None),
             is_archived: Set(false),
             archived_at: Set(None),
+            terminal_layout: Set(None),
         };
 
         let result = model.insert(self.db).await?;
@@ -193,6 +194,30 @@ impl<'a> WorkspaceRepo<'a> {
                 workspace::Column::ArchivedAt,
                 Expr::value(None::<chrono::NaiveDateTime>),
             )
+            .col_expr(
+                workspace::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
+    /// 获取工作区终端布局
+    pub async fn get_terminal_layout(&self, guid: String) -> Result<Option<String>> {
+        let workspace = workspace::Entity::find_by_id(guid)
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .one(self.db)
+            .await?;
+        Ok(workspace.and_then(|w| w.terminal_layout))
+    }
+
+    /// 更新工作区终端布局
+    pub async fn update_terminal_layout(&self, guid: String, layout: Option<String>) -> Result<()> {
+        workspace::Entity::update_many()
+            .col_expr(workspace::Column::TerminalLayout, Expr::value(layout))
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),

@@ -4,8 +4,10 @@ export interface TerminalSession {
   id: string;
   workspaceId: string;
   name: string;
-  status: "connecting" | "connected" | "disconnected" | "error";
+  status: "connecting" | "connected" | "disconnected" | "reconnecting" | "error";
   createdAt: Date;
+  /** tmux window index for reconnection */
+  tmuxWindowIndex?: number;
 }
 
 export interface TerminalMessage {
@@ -26,9 +28,13 @@ export interface TerminalProps {
   sessionId: string;
   workspaceId: string;
   className?: string;
+  /** tmux window index for reconnection (if set, will attach instead of create) */
+  tmuxWindowIndex?: number;
   onSessionReady?: (sessionId: string) => void;
   onSessionClose?: (sessionId: string) => void;
   onSessionError?: (sessionId: string, error: string) => void;
+  /** Called when tmux window index is assigned (for new sessions) */
+  onTmuxWindowAssigned?: (sessionId: string, tmuxWindowIndex: number) => void;
 }
 
 export interface TerminalPaneProps {
@@ -64,6 +70,12 @@ export interface WsTerminalCreate {
   shell?: string;
 }
 
+export interface WsTerminalAttach {
+  type: "terminal_attach";
+  workspace_id: string;
+  tmux_window: number;
+}
+
 export interface WsTerminalInput {
   type: "terminal_input";
   session_id: string;
@@ -82,16 +94,30 @@ export interface WsTerminalClose {
   session_id: string;
 }
 
+export interface WsTerminalDestroy {
+  type: "terminal_destroy";
+  session_id: string;
+}
+
 export type WsTerminalRequest =
   | WsTerminalCreate
+  | WsTerminalAttach
   | WsTerminalInput
   | WsTerminalResize
-  | WsTerminalClose;
+  | WsTerminalClose
+  | WsTerminalDestroy;
 
 export interface WsTerminalCreated {
   type: "terminal_created";
   session_id: string;
   workspace_id: string;
+}
+
+export interface WsTerminalAttached {
+  type: "terminal_attached";
+  session_id: string;
+  workspace_id: string;
+  history?: string;
 }
 
 export interface WsTerminalOutput {
@@ -105,6 +131,11 @@ export interface WsTerminalClosed {
   session_id: string;
 }
 
+export interface WsTerminalDestroyed {
+  type: "terminal_destroyed";
+  session_id: string;
+}
+
 export interface WsTerminalError {
   type: "terminal_error";
   session_id?: string;
@@ -113,6 +144,8 @@ export interface WsTerminalError {
 
 export type WsTerminalResponse =
   | WsTerminalCreated
+  | WsTerminalAttached
   | WsTerminalOutput
   | WsTerminalClosed
+  | WsTerminalDestroyed
   | WsTerminalError;
