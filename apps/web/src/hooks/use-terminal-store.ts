@@ -2,28 +2,15 @@
 
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
+import { MosaicNode, MosaicDirection, getLeaves } from "react-mosaic-component";
 import { workspaceLayoutApi, systemApi, TmuxWindow } from "@/api/rest-api";
+import type { TerminalPaneProps } from "@/components/terminal/types";
 
-const GRID_TOTAL_ROWS = 48;
 const SAVE_DEBOUNCE_MS = 500;
 
-export interface GridTerminalPane {
-  id: string;
-  title: string;
-  sessionId: string;
-  workspaceId: string;
-  /** tmux window name for reconnection (e.g., "1", "2", "3") */
-  tmuxWindowName?: string;
-  grid: {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  };
-}
-
 interface TerminalStore {
-  workspacePanes: Record<string, Record<string, GridTerminalPane>>;
+  workspacePanes: Record<string, Record<string, TerminalPaneProps>>;
+  workspaceLayouts: Record<string, MosaicNode<string> | null>;
   /** Track which workspaces have been loaded from backend */
   loadedWorkspaces: Set<string>;
   /** Track pending save operations */
@@ -34,11 +21,12 @@ interface TerminalStore {
   tmuxWindowsCache: Record<string, TmuxWindow[]>;
   
   // Actions
-  getPanes: (workspaceId: string) => Record<string, GridTerminalPane>;
-  setPanes: (workspaceId: string, panes: Record<string, GridTerminalPane>) => void;
+  getPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
+  getLayout: (workspaceId: string) => MosaicNode<string> | null;
+  setLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
   addTerminal: (workspaceId: string, title?: string) => void;
   removeTerminal: (workspaceId: string, id: string) => void;
-  splitTerminal: (workspaceId: string, id: string, direction: "horizontal" | "vertical") => void;
+  splitTerminal: (workspaceId: string, id: string, direction: MosaicDirection) => void;
   
   // Initialization
   initWorkspace: (workspaceId: string) => void;
@@ -53,7 +41,7 @@ interface TerminalStore {
 }
 
 /** Generate next available window name (1, 2, 3, ...) */
-function getNextWindowName(existingPanes: Record<string, GridTerminalPane>): string {
+function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): string {
   const usedNames = new Set(Object.values(existingPanes).map(p => p.tmuxWindowName).filter(Boolean));
   let num = 1;
   while (usedNames.has(String(num))) {
@@ -62,23 +50,29 @@ function getNextWindowName(existingPanes: Record<string, GridTerminalPane>): str
   return String(num);
 }
 
-function createInitialPanes(workspaceId: string): Record<string, GridTerminalPane> {
+function createInitialLayout(workspaceId: string): { 
+  panes: Record<string, TerminalPaneProps>, 
+  layout: MosaicNode<string> 
+} {
   const initialId = uuidv4();
   const windowName = "1";
   return {
-    [initialId]: {
-      id: initialId,
-      title: windowName,
-      sessionId: uuidv4(),
-      workspaceId,
-      tmuxWindowName: windowName,
-      grid: { x: 0, y: 0, w: 12, h: GRID_TOTAL_ROWS },
+    panes: {
+      [initialId]: {
+        id: initialId,
+        title: windowName,
+        sessionId: uuidv4(),
+        workspaceId,
+        tmuxWindowName: windowName,
+      },
     },
+    layout: initialId,
   };
 }
 
 export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   workspacePanes: {},
+  workspaceLayouts: {},
   loadedWorkspaces: new Set(),
   saveTimeouts: {},
   isHydrated: false,
@@ -86,31 +80,69 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
 
   getPanes: (workspaceId) => {
     const state = get();
+    return state.workspacePanes[workspaceId] || {};
+  },
+
+  getLayout: (workspaceId) => {
+    const state = get();
+    return state.workspaceLayouts[workspaceId] || null;
+  },
+
+  setLayout: (workspaceId, layout) => {
+    set((state) => ({
+      workspaceLayouts: {
+        ...state.workspaceLayouts,
+        [workspaceId]: layout,
+      },
+    }));
     
-    // Return existing panes if available
-    if (state.workspacePanes[workspaceId]) {
-      return state.workspacePanes[workspaceId];
+    // Clean up panes that are no longer in the layout
+    const currentPanes = get().workspacePanes[workspaceId] || {};
+    const leaves = layout ? getLeaves(layout) : [];
+    const leafSet = new Set(leaves);
+    
+    const nextPanes: Record<string, TerminalPaneProps> = {};
+    let changed = false;
+    
+    Object.keys(currentPanes).forEach(id => {
+      if (leafSet.has(id)) {
+        nextPanes[id] = currentPanes[id];
+      } else {
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      set((state) => ({
+        workspacePanes: {
+          ...state.workspacePanes,
+          [workspaceId]: nextPanes,
+        },
+      }));
     }
-    
-    // Return empty object during SSR or before hydration
-    // The actual initialization happens via initWorkspace
-    return {};
+
+    // Debounced save to backend
+    get().saveToBackend(workspaceId);
   },
 
   initWorkspace: (workspaceId) => {
     const state = get();
     
     // Skip if already initialized
-    if (state.workspacePanes[workspaceId]) {
+    if (state.workspaceLayouts[workspaceId]) {
       return;
     }
     
-    // Create initial panes on client side only
-    const initialPanes = createInitialPanes(workspaceId);
+    // Create initial layout on client side only
+    const { panes, layout } = createInitialLayout(workspaceId);
     set((state) => ({
       workspacePanes: {
         ...state.workspacePanes,
-        [workspaceId]: initialPanes,
+        [workspaceId]: panes,
+      },
+      workspaceLayouts: {
+        ...state.workspaceLayouts,
+        [workspaceId]: layout,
       },
       isHydrated: true,
     }));
@@ -119,115 +151,137 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     get().loadFromBackend(workspaceId);
   },
 
-  setPanes: (workspaceId, panes) => {
-    set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [workspaceId]: panes,
-      },
-    }));
-    
-    // Debounced save to backend
-    get().saveToBackend(workspaceId);
-  },
-
   addTerminal: (workspaceId, title) => {
     const panes = get().workspacePanes[workspaceId] || {};
-    const panesList = Object.values(panes);
-    const lastPane = panesList[panesList.length - 1];
+    const layout = get().workspaceLayouts[workspaceId];
     const newId = uuidv4();
     const windowName = title || getNextWindowName(panes);
     
-    let newGrid = { x: 0, y: 0, w: 6, h: GRID_TOTAL_ROWS };
-    const next = { ...panes };
-    
-    if (lastPane) {
-       const halfHeight = Math.max(1, Math.floor(lastPane.grid.h / 2));
-       next[lastPane.id] = {
-         ...lastPane,
-         grid: { ...lastPane.grid, h: halfHeight }
-       };
-       newGrid = {
-         x: lastPane.grid.x,
-         y: lastPane.grid.y + halfHeight,
-         w: lastPane.grid.w,
-         h: halfHeight
-       };
-    }
-
-    next[newId] = {
+    const newPane: TerminalPaneProps = {
       id: newId,
       title: windowName,
       sessionId: uuidv4(),
       workspaceId,
       tmuxWindowName: windowName,
-      grid: newGrid,
     };
 
-    get().setPanes(workspaceId, next);
+    const nextPanes = { ...panes, [newId]: newPane };
+    
+    let nextLayout: MosaicNode<string>;
+    if (!layout) {
+      nextLayout = newId;
+    } else {
+      // Add to the end (top-level split)
+      nextLayout = {
+        direction: 'row',
+        first: layout,
+        second: newId,
+      };
+    }
+
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [workspaceId]: nextPanes,
+      },
+      workspaceLayouts: {
+        ...state.workspaceLayouts,
+        [workspaceId]: nextLayout,
+      },
+    }));
+
+    get().saveToBackend(workspaceId);
   },
 
   removeTerminal: (workspaceId, id) => {
-    const panes = get().workspacePanes[workspaceId] || {};
-    const next = { ...panes };
-    delete next[id];
+    const layout = get().workspaceLayouts[workspaceId];
+    if (!layout) return;
+
+    // A simpler way to remove by ID in Mosaic:
+    const removeById = (node: MosaicNode<string> | null, targetId: string): MosaicNode<string> | null => {
+      if (!node) return null;
+      if (typeof node === 'string') {
+        return node === targetId ? null : node;
+      }
+      const first = removeById(node.first, targetId);
+      const second = removeById(node.second, targetId);
+      
+      if (!first) return second;
+      if (!second) return first;
+      
+      return { ...node, first, second };
+    };
+
+    const updatedLayout = removeById(layout, id);
     
-    if (Object.keys(next).length === 0) {
-      const newId = uuidv4();
-      const windowName = "1";
-      next[newId] = {
-        id: newId,
-        title: windowName,
-        sessionId: uuidv4(),
-        workspaceId,
-        tmuxWindowName: windowName,
-        grid: { x: 0, y: 0, w: 12, h: GRID_TOTAL_ROWS },
-      };
+    if (!updatedLayout) {
+      // If no terminals left, create a fresh one
+      const { panes, layout: initialLayout } = createInitialLayout(workspaceId);
+      set((state) => ({
+        workspacePanes: {
+          ...state.workspacePanes,
+          [workspaceId]: panes,
+        },
+        workspaceLayouts: {
+          ...state.workspaceLayouts,
+          [workspaceId]: initialLayout,
+        },
+      }));
+    } else {
+      get().setLayout(workspaceId, updatedLayout);
     }
-    
-    get().setPanes(workspaceId, next);
   },
 
   splitTerminal: (workspaceId, id, direction) => {
+    const layout = get().workspaceLayouts[workspaceId];
     const panes = get().workspacePanes[workspaceId] || {};
-    const target = panes[id];
-    if (!target) return;
+    if (!layout) return;
 
     const newId = uuidv4();
     const windowName = getNextWindowName(panes);
-    const next = { ...panes };
-
-    if (direction === "vertical") {
-      const newH = Math.max(1, Math.floor(target.grid.h / 2));
-      next[id] = {
-        ...target,
-        grid: { ...target.grid, h: newH },
-      };
-      next[newId] = {
-        id: newId,
-        title: windowName,
-        sessionId: uuidv4(),
-        workspaceId,
-        tmuxWindowName: windowName,
-        grid: { x: target.grid.x, y: target.grid.y + newH, w: target.grid.w, h: newH },
-      };
-    } else {
-      const newW = Math.max(1, Math.floor(target.grid.w / 2));
-      next[id] = {
-        ...target,
-        grid: { ...target.grid, w: newW },
-      };
-      next[newId] = {
-        id: newId,
-        title: windowName,
-        sessionId: uuidv4(),
-        workspaceId,
-        tmuxWindowName: windowName,
-        grid: { x: target.grid.x + newW, y: target.grid.y, w: newW, h: target.grid.h },
-      };
-    }
     
-    get().setPanes(workspaceId, next);
+    const newPane: TerminalPaneProps = {
+      id: newId,
+      title: windowName,
+      sessionId: uuidv4(),
+      workspaceId,
+      tmuxWindowName: windowName,
+    };
+
+    const nextPanes = { ...panes, [newId]: newPane };
+
+    const splitById = (node: MosaicNode<string>, targetId: string): MosaicNode<string> => {
+      if (typeof node === 'string') {
+        if (node === targetId) {
+          return {
+            direction,
+            first: node,
+            second: newId,
+          };
+        }
+        return node;
+      }
+      return {
+        ...node,
+        first: splitById(node.first, targetId),
+        second: splitById(node.second, targetId),
+      };
+    };
+
+    const nextLayout = splitById(layout, id);
+    
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [workspaceId]: nextPanes,
+      },
+      workspaceLayouts: {
+        ...state.workspaceLayouts,
+        [workspaceId]: nextLayout,
+      },
+    }));
+
+    get().saveToBackend(workspaceId);
   },
 
   fetchTmuxWindows: async (workspaceId) => {
@@ -272,36 +326,50 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       const existingWindowNames = new Set(existingWindows.map(w => w.name));
       
       if (layoutResponse.layout) {
-        const panes = JSON.parse(layoutResponse.layout) as Record<string, GridTerminalPane>;
-        
-        // Validate and migrate panes
-        const validatedPanes: Record<string, GridTerminalPane> = {};
-        for (const [id, pane] of Object.entries(panes)) {
-          // Ensure tmuxWindowName is set (migrate from old format if needed)
-          const windowName = pane.tmuxWindowName || pane.title || getNextWindowName(validatedPanes);
-          
-          // Check if this window exists in tmux - if so, we'll reuse it
-          const windowExists = existingWindowNames.has(windowName);
-          
-          validatedPanes[id] = {
-            ...pane,
-            workspaceId,
-            title: windowName,
-            tmuxWindowName: windowName,
-            // Generate new sessionId for reconnection
-            sessionId: uuidv4(),
-          };
-          
-          if (windowExists) {
-            console.debug(`Reusing existing tmux window: ${windowName}`);
-          }
+        const data = JSON.parse(layoutResponse.layout);
+        // data.panes and data.layout
+        let panes = data.panes as Record<string, TerminalPaneProps>;
+        let layout = data.layout as MosaicNode<string> | null;
+
+        // Compatibility check: if it's the old grid format
+        if (!layout && data) {
+           // Try to migrate or just use initial
+           // If data has keys that look like panes but no 'layout' property
+           const possiblePanes = data;
+           if (Object.values(possiblePanes)[0]?.hasOwnProperty('grid')) {
+              console.debug('Old grid layout detected, resetting to initial Mosaic layout');
+              return; // Let initWorkspace handle it or use initial
+           }
         }
         
-        if (Object.keys(validatedPanes).length > 0) {
+        if (panes && layout) {
+          // Validate and migrate panes
+          const validatedPanes: Record<string, TerminalPaneProps> = {};
+          for (const [id, pane] of Object.entries(panes)) {
+            const windowName = pane.tmuxWindowName || pane.title || getNextWindowName(validatedPanes);
+            const windowExists = existingWindowNames.has(windowName);
+            
+            validatedPanes[id] = {
+              ...pane,
+              workspaceId,
+              title: windowName,
+              tmuxWindowName: windowName,
+              sessionId: uuidv4(),
+            };
+            
+            if (windowExists) {
+              console.debug(`Reusing existing tmux window: ${windowName}`);
+            }
+          }
+          
           set((state) => ({
             workspacePanes: {
               ...state.workspacePanes,
               [workspaceId]: validatedPanes,
+            },
+            workspaceLayouts: {
+              ...state.workspaceLayouts,
+              [workspaceId]: layout,
             },
             loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
           }));
@@ -309,46 +377,41 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         }
       }
     } catch (error) {
-      // Silently fail - backend may not be running or workspace doesn't exist yet
       console.debug('Failed to load terminal layout from backend:', error);
     }
 
-    // Mark as loaded even if no data found
     set((state) => ({
       loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
     }));
   },
 
   saveToBackend: (workspaceId) => {
-    // Skip in SSR
     if (typeof window === 'undefined') return;
     
     const state = get();
-    
-    // Clear existing timeout for this workspace
     if (state.saveTimeouts[workspaceId]) {
       clearTimeout(state.saveTimeouts[workspaceId]);
     }
     
-    // Set new debounced save
     const timeout = setTimeout(async () => {
       const currentState = get();
       const panes = currentState.workspacePanes[workspaceId];
+      const layout = currentState.workspaceLayouts[workspaceId];
       
-      if (!panes || Object.keys(panes).length === 0) return;
+      if (!panes || !layout) return;
       
       try {
-        // Remove sessionId from saved data (it's regenerated on load)
-        // Keep tmuxWindowName for window reuse on reconnection
-        const cleanPanes: Record<string, Omit<GridTerminalPane, 'sessionId'> & { sessionId?: string }> = {};
+        const cleanPanes: Record<string, Omit<TerminalPaneProps, 'sessionId'>> = {};
         for (const [id, pane] of Object.entries(panes)) {
           const { sessionId, ...rest } = pane;
           cleanPanes[id] = rest;
         }
         
-        await workspaceLayoutApi.updateLayout(workspaceId, JSON.stringify(cleanPanes));
+        await workspaceLayoutApi.updateLayout(workspaceId, JSON.stringify({
+          panes: cleanPanes,
+          layout
+        }));
       } catch (error) {
-        // Silently fail - backend may not be running
         console.debug('Failed to save terminal layout to backend:', error);
       }
     }, SAVE_DEBOUNCE_MS);
@@ -370,10 +433,17 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       [paneId]: {
         ...panes[paneId],
         tmuxWindowName,
-        title: tmuxWindowName, // Keep title in sync
+        title: tmuxWindowName,
       },
     };
     
-    get().setPanes(workspaceId, updatedPanes);
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [workspaceId]: updatedPanes,
+      },
+    }));
+    
+    get().saveToBackend(workspaceId);
   },
 }));

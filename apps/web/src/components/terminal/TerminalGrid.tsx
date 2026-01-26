@@ -1,95 +1,32 @@
 "use client";
 
-import React, { useCallback, useMemo, useEffect } from "react";
-import { Responsive, Layout } from "react-grid-layout";
+import React, { useCallback, useEffect } from "react";
+import {
+  Mosaic,
+  MosaicWindow,
+  MosaicNode,
+  MosaicPath,
+} from "react-mosaic-component";
 import {
   X,
   Columns,
   Rows,
   Terminal as TerminalIcon,
   Loader2,
+  Plus,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Terminal } from "./Terminal";
-import type { TerminalPaneProps } from "./types";
-
-import "react-grid-layout/css/styles.css";
-import "react-resizable/css/styles.css";
-import "./terminal-grid.css";
-
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 
-const GRID_Total_ROWS = 48; // A highly divisible number for good granularity
-
-// Custom SizeProvider to dynamically calculate width AND rowHeight
-function withDynamicGrid(WrappedComponent: React.ComponentType<any>) {
-  return function WithDynamicGrid(props: any) {
-    const [size, setSize] = React.useState({ width: 1200, height: 800 });
-    const ref = React.useRef<HTMLDivElement>(null);
-
-    React.useEffect(() => {
-      if (!ref.current) return;
-
-      const updateSize = () => {
-        if (ref.current) {
-          const { width, height } = ref.current.getBoundingClientRect();
-          setSize({ width, height });
-        }
-      };
-
-      // Initial size
-      updateSize();
-
-      // Observer
-      const observer = new ResizeObserver((entries) => {
-        if (entries[0]) {
-          // We use contentRect or boundingClientRect logic
-          const { width, height } = entries[0].contentRect;
-          setSize({ width, height });
-        }
-      });
-      observer.observe(ref.current);
-      return () => observer.disconnect();
-    }, []);
-
-    // Calculate dynamic row height based on container height
-    // We subtract a small buffer (32px) to account for the status bar and avoid overlap.
-    const containerHeight = Math.max(1, size.height - 14);
-    const dynamicRowHeight = Math.max(1, containerHeight / GRID_Total_ROWS);
-
-    return (
-      <div
-        ref={ref}
-        className={props.className}
-        style={{ width: "100%", height: "100%", overflow: "hidden" }}
-      >
-        <WrappedComponent
-          {...props}
-          width={size.width}
-          rowHeight={dynamicRowHeight}
-        />
-      </div>
-    );
-
-  };
-}
-
-const ResponsiveGridLayout = withDynamicGrid(Responsive);
+import "react-mosaic-component/react-mosaic-component.css";
+import "./terminal-grid.css";
 
 interface TerminalGridProps {
   workspaceId: string;
   className?: string;
-}
-
-interface GridTerminalPane extends TerminalPaneProps {
-  grid: {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  };
 }
 
 export interface TerminalGridHandle {
@@ -101,25 +38,23 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   
   const {
     getPanes,
-    setPanes,
+    getLayout,
+    setLayout,
     initWorkspace,
     addTerminal: addTerminalToStore,
     removeTerminal: removeTerminalFromStore,
     splitTerminal: splitTerminalInStore
   } = useTerminalStore();
 
-  // Check if workspace exists in project store (i.e., data has been loaded)
   const { projects, isLoading: isProjectsLoading } = useProjectStore();
   const workspaceExists = React.useMemo(() => {
     return projects.some(p => p.workspaces.some(w => w.id === workspaceId));
   }, [projects, workspaceId]);
 
-  // Mark as mounted after hydration
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Initialize workspace on mount (client-side only) - only when workspace exists
   useEffect(() => {
     if (isMounted && workspaceExists) {
       initWorkspace(workspaceId);
@@ -127,45 +62,80 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }, [workspaceId, workspaceExists, isMounted, initWorkspace]);
 
   const panes = getPanes(workspaceId);
+  const layout = getLayout(workspaceId);
   const hasPanes = Object.keys(panes).length > 0;
 
-  // Expose addTerminal method via ref
   React.useImperativeHandle(ref, () => ({
     addTerminal: (title?: string) => {
       addTerminalToStore(workspaceId, title);
     }
   }));
 
-  const layouts = useMemo(() => {
-    const lg: Layout = Object.values(panes).map((pane) => ({
-      i: pane.id,
-      ...pane.grid,
-    }));
-    return { lg };
-  }, [panes]);
-
-  const onLayoutChange = (currentLayout: Layout, _allLayouts: Partial<Record<string, Layout>>) => {
-    const next = { ...panes };
-    currentLayout.forEach((item) => {
-      if (next[item.i]) {
-        next[item.i] = {
-          ...next[item.i],
-          grid: { x: item.x, y: item.y, w: item.w, h: item.h },
-        };
-      }
-    });
-    setPanes(workspaceId, next);
-  };
+  const onChange = useCallback((newLayout: MosaicNode<string> | null) => {
+    setLayout(workspaceId, newLayout);
+  }, [workspaceId, setLayout]);
 
   const removeTerminal = useCallback((id: string) => {
     removeTerminalFromStore(workspaceId, id);
   }, [workspaceId, removeTerminalFromStore]);
 
-  const splitTerminal = useCallback((id: string, direction: "horizontal" | "vertical") => {
+  const splitTerminal = useCallback((id: string, direction: "row" | "column") => {
     splitTerminalInStore(workspaceId, id, direction);
   }, [workspaceId, splitTerminalInStore]);
 
-  // Show loading state while workspace data is being fetched
+  const renderTile = useCallback((id: string, path: any[]) => {
+    const pane = panes[id];
+    if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
+
+    return (
+      <MosaicWindow<string>
+        path={path}
+        title={pane.title}
+        renderToolbar={() => (
+          <div className="terminal-mosaic-toolbar">
+            <div className="terminal-mosaic-toolbar-left">
+              <TerminalIcon size={12} className="text-muted-foreground" />
+              <span className="terminal-mosaic-title">
+                {pane.title}
+              </span>
+            </div>
+            <div className="terminal-mosaic-toolbar-right">
+              <button
+                className="terminal-mosaic-btn"
+                onClick={() => splitTerminal(id, "row")}
+                title="Split Horizontal"
+              >
+                <Columns size={12} />
+              </button>
+              <button
+                className="terminal-mosaic-btn"
+                onClick={() => splitTerminal(id, "column")}
+                title="Split Vertical"
+              >
+                <Rows size={12} />
+              </button>
+              <button
+                className="terminal-mosaic-btn terminal-mosaic-btn-close"
+                onClick={() => removeTerminal(id)}
+                title="Close"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          </div>
+        )}
+      >
+        <div className="terminal-mosaic-content">
+          <Terminal
+            sessionId={pane.sessionId}
+            workspaceId={pane.workspaceId}
+            tmuxWindowName={pane.tmuxWindowName}
+          />
+        </div>
+      </MosaicWindow>
+    );
+  }, [panes, splitTerminal, removeTerminal]);
+
   if (!isMounted || isProjectsLoading || !workspaceExists) {
     return (
       <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
@@ -177,79 +147,42 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     );
   }
 
-  // Show loading state before terminal panes are initialized
-  if (!hasPanes) {
+  if (!hasPanes || !layout) {
     return (
       <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
-        <div className="flex flex-col items-center gap-3">
-          <TerminalIcon className="size-6 animate-pulse text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Initializing terminal...</span>
-        </div>
+        <button
+          className="flex flex-col items-center gap-4 hover:text-foreground transition-all duration-300 group"
+          onClick={() => addTerminalToStore(workspaceId)}
+        >
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-0 group-hover:scale-150 transition-transform duration-500" />
+            <div className="relative size-14 rounded-2xl bg-sidebar border border-border flex items-center justify-center group-hover:border-primary/50 group-hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)] transition-all duration-300">
+              <Plus className="size-6 text-muted-foreground group-hover:text-primary group-hover:rotate-90 transition-all duration-500" />
+            </div>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-sm font-semibold tracking-tight text-muted-foreground group-hover:text-foreground transition-colors">
+              Initialize Workspace
+            </span>
+            <span className="text-[11px] text-muted-foreground/60">
+              Click to add your first terminal session
+            </span>
+          </div>
+        </button>
       </div>
     );
   }
 
   return (
-    <div className={cn("terminal-grid-container", className)}>
-      <ResponsiveGridLayout
-        className="terminal-grid-layout"
-        layouts={layouts}
-        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={20}
-        dragConfig={{ handle: ".terminal-grid-toolbar-title" }}
-        onLayoutChange={onLayoutChange}
-        margin={[0, 0]} // Seamless implementation
-        containerPadding={[0, 0]}
-      >
-        {Object.values(panes).map((pane) => (
-          <div key={pane.id} data-grid={pane.grid} className="terminal-grid-item">
-            <div className="terminal-grid-toolbar">
-              <div className="terminal-grid-toolbar-title">
-                <TerminalIcon size={12} className="text-muted-foreground mr-1" />
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] select-none">
-                  {pane.title}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-0.5">
-                <button
-                  className="terminal-grid-toolbar-btn"
-                  onClick={() => splitTerminal(pane.id, "horizontal")}
-                  title="Split Right"
-                >
-                  <Columns size={12} />
-                </button>
-                <button
-                  className="terminal-grid-toolbar-btn"
-                  onClick={() => splitTerminal(pane.id, "vertical")}
-                  title="Split Down"
-                >
-                  <Rows size={12} />
-                </button>
-                <button
-                  className="terminal-grid-toolbar-btn terminal-grid-toolbar-btn-close ml-1"
-                  onClick={() => removeTerminal(pane.id)}
-                  title="Close"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            </div>
-
-            <div className="terminal-grid-content">
-              <Terminal
-                sessionId={pane.sessionId}
-                workspaceId={pane.workspaceId}
-                tmuxWindowName={pane.tmuxWindowName}
-              />
-            </div>
-          </div>
-        ))}
-      </ResponsiveGridLayout>
+    <div className={cn("terminal-mosaic-container", className)}>
+      <Mosaic<string>
+        renderTile={renderTile}
+        value={layout}
+        onChange={onChange}
+        className="mosaic-blueprint-theme" // We can use a custom theme or blueprint
+      />
     </div>
   );
 });
 
 TerminalGrid.displayName = "TerminalGrid";
-

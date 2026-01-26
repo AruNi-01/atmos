@@ -1,6 +1,6 @@
-/* ATMOS Terminal Grid - Seamless Integrated Layout */
+/* ATMOS Terminal Mosaic - Seamless Integrated Layout */
 
-.terminal-grid-container {
+.terminal-mosaic-container {
   width: 100%;
   height: 100%;
   background: var(--background);
@@ -8,60 +8,102 @@
   position: relative;
 }
 
-.terminal-grid-layout {
-  min-height: 100%;
-}
-
-/* Grid Item - NO borders, NO rounded corners */
-.terminal-grid-item {
+/* Base Mosaic Overrides */
+.mosaic-blueprint-theme {
   background: var(--background);
-  overflow: hidden;
-  display: flex !important;
-  flex-direction: column;
-  border-right: 1px solid var(--border); /* Subtle separator as it's seamless */
-  border-bottom: 1px solid var(--border);
 }
 
-.terminal-grid-item.react-draggable-dragging {
-  z-index: 1000;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--primary);
+.mosaic-blueprint-theme .mosaic-window {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  background: var(--background);
 }
 
-.terminal-grid-item.react-resizable-placeholder {
-  background: var(--primary) !important;
-  opacity: 0.05 !important;
+.mosaic-blueprint-theme .mosaic-tile {
+  margin: 0;
 }
 
-/* Integrated Header */
-.terminal-grid-toolbar {
+.mosaic-blueprint-theme .mosaic-root {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.mosaic-blueprint-theme .mosaic-split {
+  z-index: 10;
+  background: var(--border);
+  width: 1px;
+  height: 100%;
+  opacity: 1; /* Always visible but subtle */
+  transition: background 0.2s ease;
+}
+
+.mosaic-blueprint-theme .mosaic-split:hover {
+  background: var(--primary);
+}
+
+.mosaic-blueprint-theme .mosaic-split.column {
+  cursor: ew-resize;
+  width: 2px;
+  margin-left: -1px;
+}
+
+.mosaic-blueprint-theme .mosaic-split.row {
+  cursor: ns-resize;
+  height: 2px;
+  margin-top: -1px;
+}
+
+/* Window Content */
+.mosaic-blueprint-theme .mosaic-window-body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Custom Toolbar */
+.terminal-mosaic-toolbar {
   display: flex;
   align-items: center;
-  height: 28px; /* Compact height */
+  justify-content: space-between;
+  height: 100%;
   width: 100%;
   padding: 0 8px;
-  background: var(--sidebar);
-  border-bottom: 1px solid var(--border);
-  cursor: default;
-  user-select: none;
-}
-
-/* Title area is the drag handle now */
-.terminal-grid-toolbar-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  height: 100%;
+  background: transparent;
   cursor: grab;
+  user-select: none;
+  pointer-events: auto;
 }
 
-.terminal-grid-toolbar-title:active {
+.terminal-mosaic-toolbar:active {
   cursor: grabbing;
 }
 
-/* Toolbar Buttons */
-.terminal-grid-toolbar-btn {
+.terminal-mosaic-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.terminal-mosaic-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-mosaic-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.terminal-mosaic-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -71,104 +113,78 @@
   color: var(--muted-foreground);
   background: transparent;
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.terminal-grid-toolbar-btn:hover {
+.terminal-mosaic-btn:hover {
   color: var(--foreground);
   background: var(--accent);
 }
 
-.terminal-grid-toolbar-btn-close:hover {
-  color: #ff7b72;
-  background: rgba(255, 123, 114, 0.1);
+.terminal-mosaic-btn-close:hover {
+  color: #ef4444; /* Shadcn red */
+  background: rgba(239, 68, 68, 0.1);
 }
 
-/* Resize Handles - Hidden but functional at corners */
-/* Resize Handles - Seamless right-angle indicator on hover */
-.react-resizable-handle {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  bottom: 0;
-  right: 0;
-  cursor: se-resize;
-  z-index: 50;
-  transition: opacity 0.2s ease;
-  opacity: 0; /* Hidden by default */
-}
-
-.terminal-grid-item:hover .react-resizable-handle {
-  opacity: 1; /* Show on hover */
-}
-
-.react-resizable-handle::after {
-  content: "";
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--muted-foreground);
-  border-bottom: 2px solid var(--muted-foreground);
-}
-
-
-/* Terminal Content Wrapper - Deep Integration */
-.terminal-grid-content {
+/* Terminal Content Integration */
+.terminal-mosaic-content {
   flex: 1;
-  min-height: 0;
-  position: relative;
-  background: transparent;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  overscroll-behavior: contain;
+  position: relative;
+  background: var(--background);
 }
 
-/* Terminal inner padding - handled by Terminal.tsx wrapper */
 .atmos-terminal {
   padding: 0 !important;
 }
 
-/* Ensure xterm viewport handles scrolling properly */
-.atmos-terminal .xterm {
-  height: 100% !important;
+/* Mosaic Toolbar Integration */
+.mosaic-blueprint-theme .mosaic-window-toolbar {
+  height: 30px !important;
+  display: flex !important;
+  background: var(--sidebar) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: none !important;
 }
 
-.atmos-terminal .xterm-viewport {
-  overflow-y: scroll !important;
-  overscroll-behavior: contain;
+/* Hide default buttons if they still show up */
+.mosaic-blueprint-theme .mosaic-window-controls {
+  display: none !important;
 }
 
-.atmos-terminal .xterm-screen {
-  height: 100% !important;
+.mosaic-blueprint-theme .mosaic-window-title {
+  display: none !important;
 }
 
-/* Unified Scrollbar for XTerm and Terminal Grid */
-.xterm-viewport::-webkit-scrollbar,
-.terminal-grid-container::-webkit-scrollbar {
+/* Unified Scrollbar */
+.terminal-mosaic-container ::-webkit-scrollbar {
   width: 6px !important;
   height: 6px !important;
 }
 
-.xterm-viewport::-webkit-scrollbar-track,
-.terminal-grid-container::-webkit-scrollbar-track {
+.terminal-mosaic-container ::-webkit-scrollbar-track {
   background: transparent !important;
 }
 
-.xterm-viewport::-webkit-scrollbar-thumb,
-.terminal-grid-container::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.2) !important; /* Unified with app scrollbar */
+.terminal-mosaic-container ::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.2) !important;
   border-radius: 10px !important;
 }
 
-.xterm-viewport::-webkit-scrollbar-thumb:hover,
-.terminal-grid-container::-webkit-scrollbar-thumb:hover {
+.terminal-mosaic-container ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.4) !important;
 }
 
-/* Remove FAB as requested to focus on split buttons */
-.terminal-grid-add-btn {
-  display: none;
+/* Zero State */
+.mosaic-zero-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--background);
+  color: var(--muted-foreground);
 }

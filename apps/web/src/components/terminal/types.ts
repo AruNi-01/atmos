@@ -42,6 +42,7 @@ export interface TerminalPaneProps {
   title: string;
   sessionId: string;
   workspaceId: string;
+  tmuxWindowName?: string;
 }
 
 export interface TerminalMosaicState {
