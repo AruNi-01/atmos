@@ -16,12 +16,14 @@ interface UseTerminalWebSocketOptions {
   onError?: (error: string) => void;
   reconnectAttempts?: number;
   reconnectDelay?: number;
+  workspaceId?: string; // Add workspaceId for compensation
 }
 
 interface UseTerminalWebSocketReturn {
   isConnected: boolean;
   sendInput: (data: string) => void;
   sendResize: (size: TerminalSize) => void;
+  sendCreate: (workspaceId: string) => void;
   connect: () => void;
   disconnect: () => void;
 }
@@ -35,6 +37,7 @@ export function useTerminalWebSocket({
   onError,
   reconnectAttempts = 3,
   reconnectDelay = 1000,
+  workspaceId,
 }: UseTerminalWebSocketOptions): UseTerminalWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectCountRef = useRef(0);
@@ -75,6 +78,16 @@ export function useTerminalWebSocket({
       });
     },
     [sessionId, sendMessage]
+  );
+
+  const sendCreate = useCallback(
+    (workspaceId: string) => {
+      sendMessage({
+        type: "terminal_create",
+        workspace_id: workspaceId,
+      });
+    },
+    [sendMessage]
   );
 
   const connect = useCallback(() => {
@@ -175,6 +188,7 @@ export function useTerminalWebSocket({
     isConnected,
     sendInput,
     sendResize,
+    sendCreate,
     connect,
     disconnect,
   };

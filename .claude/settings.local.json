@@ -17,7 +17,10 @@
       "Bash(git push:*)",
       "Bash(bun run:*)",
       "Bash(bun tsc:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Skill(glm-plan-usage:usage-query-skill)",
+      "Bash(grep:*)",
+      "Bash(find:*)"
     ]
   }
 }

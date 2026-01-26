@@ -65,6 +65,7 @@ import { FileTree } from '@/components/files/FileTree';
 import { fsApi, FileTreeNode, gitApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useGitStatusCheck } from '@/hooks/use-git-info-store';
+import { useDialogStore } from '@/hooks/use-dialog-store';
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -115,7 +116,7 @@ const ProjectItem: React.FC<{
                 )}
             >
                 <div className={cn(
-                    "flex items-center justify-between px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-200",
+                    "flex items-center justify-between px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300",
                     isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]"
                 )}>
                     <div
@@ -190,32 +191,45 @@ const ProjectItem: React.FC<{
                     )}
                 </div>
 
-                {isExpanded && !isDragging && (
-                    <div
-                        className={cn(
-                            "ml-8 mt-1 space-y-0.5 pr-2 transition-all duration-200 overflow-hidden",
-                            isAnyProjectDragging ? "pointer-events-none opacity-0 max-h-0" : "opacity-100 max-h-[1000px]"
-                        )}
-                    >
-                        <SortableContext items={project.workspaces.map(w => w.id)} strategy={verticalListSortingStrategy}>
-                            {project.workspaces.map((ws) => (
-                                <WorkspaceItem
-                                    key={ws.id}
-                                    workspace={ws}
-                                    projectId={project.id}
-                                    projectPath={project.mainFilePath}
-                                    onPin={(wsId) => onPinWorkspace(project.id, wsId)}
-                                    onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
-                                    onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
-                                    onDelete={(wsId) => onDeleteWorkspace(project.id, wsId)}
-                                />
-                            ))}
-                        </SortableContext>
-                        {project.workspaces.length === 0 && (
-                            <div className="py-2 text-[12px] text-muted-foreground italic">No workspaces</div>
-                        )}
+                <div
+                    className={cn(
+                        "grid transition-[grid-template-rows] duration-300 ease-out",
+                        isExpanded && !isDragging && !isAnyProjectDragging ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    )}
+                >
+                    <div className={cn(
+                        "overflow-hidden relative transition-opacity duration-300",
+                        isAnyProjectDragging ? "opacity-0 invisible" : "opacity-100 visible"
+                    )}>
+                        {/* Connecting Vertical Line */}
+                        <div className="absolute left-6 top-0 bottom-4 w-px bg-sidebar-border/60" />
+
+                        <div
+                            className={cn(
+                                "ml-8 mt-1 space-y-0.5 pr-2 transition-all duration-300",
+                                isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
+                            )}
+                        >
+                            <SortableContext items={project.workspaces.map(w => w.id)} strategy={verticalListSortingStrategy}>
+                                {project.workspaces.map((ws) => (
+                                    <WorkspaceItem
+                                        key={ws.id}
+                                        workspace={ws}
+                                        projectId={project.id}
+                                        projectPath={project.mainFilePath}
+                                        onPin={(wsId) => onPinWorkspace(project.id, wsId)}
+                                        onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
+                                        onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
+                                        onDelete={(wsId) => onDeleteWorkspace(project.id, wsId)}
+                                    />
+                                ))}
+                            </SortableContext>
+                            {project.workspaces.length === 0 && (
+                                <div className="py-2 text-[12px] text-muted-foreground italic ml-4">No workspaces</div>
+                            )}
+                        </div>
                     </div>
-                )}
+                </div>
             </div>
         );
     };
@@ -540,10 +554,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     // Track the latest fetch request to prevent race conditions
     const fetchRequestId = useRef(0);
 
-    // Dialog states
-    const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
-    const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
-    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+    // Dialog states from global store
+    const {
+        isCreateProjectOpen,
+        setCreateProjectOpen,
+        isCreateWorkspaceOpen,
+        setCreateWorkspaceOpen,
+        selectedProjectId,
+        setSelectedProjectId
+    } = useDialogStore();
 
     // Fetch projects on mount
     useEffect(() => {
@@ -694,12 +713,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     };
 
     const handleAddProject = () => {
-        setIsCreateProjectOpen(true);
+        setCreateProjectOpen(true);
     };
 
     const handleAddWorkspace = (projectId: string) => {
         setSelectedProjectId(projectId);
-        setIsCreateWorkspaceOpen(true);
+        setCreateWorkspaceOpen(true);
     };
 
     const handleQuickAddWorkspace = async (projectId: string) => {
@@ -883,12 +902,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             {/* Dialogs */}
             <CreateWorkspaceDialog
                 isOpen={isCreateWorkspaceOpen}
-                onClose={() => setIsCreateWorkspaceOpen(false)}
+                onClose={() => setCreateWorkspaceOpen(false)}
                 defaultProjectId={selectedProjectId}
             />
             <CreateProjectDialog
                 isOpen={isCreateProjectOpen}
-                onClose={() => setIsCreateProjectOpen(false)}
+                onClose={() => setCreateProjectOpen(false)}
             />
         </>
     );

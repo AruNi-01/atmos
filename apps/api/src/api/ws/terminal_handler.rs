@@ -19,33 +19,68 @@ use tracing::{debug, error, info, warn};
 
 use crate::app_state::AppState;
 
+/// Terminal query parameters
+#[derive(Debug, Deserialize)]
+pub struct TerminalWsQuery {
+    pub workspace_id: Option<String>,
+    pub shell: Option<String>,
+}
+
 /// Terminal message from client
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ClientTerminalMessage {
-    TerminalInput { data: String },
-    TerminalResize { cols: u16, rows: u16 },
+    TerminalCreate {
+        workspace_id: String,
+        shell: Option<String>,
+    },
+    TerminalInput {
+        data: String,
+    },
+    TerminalResize {
+        cols: u16,
+        rows: u16,
+    },
     TerminalClose,
 }
 
 /// Terminal WebSocket upgrade handler
 pub async fn terminal_ws_handler(
-    ws: WebSocketUpgrade,
     Path(session_id): Path<String>,
     State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<TerminalWsQuery>,
+    ws: WebSocketUpgrade,
 ) -> Response {
+    let workspace_id = query
+        .workspace_id
+        .clone()
+        .unwrap_or_else(|| "default".to_string());
+    let shell = query.shell.clone();
+
     info!(
-        "Terminal WebSocket upgrade request for session: {}",
-        session_id
+        "Terminal WebSocket upgrade request for session: {} (workspace: {})",
+        session_id, workspace_id
     );
-    ws.on_upgrade(move |socket| handle_terminal_socket(socket, session_id, state))
+
+    ws.on_upgrade(move |socket| {
+        handle_terminal_socket(socket, session_id, workspace_id, shell, state)
+    })
 }
 
 /// Handle the terminal WebSocket connection
-async fn handle_terminal_socket(socket: WebSocket, session_id: String, state: AppState) {
+async fn handle_terminal_socket(
+    socket: WebSocket,
+    session_id: String,
+    workspace_id: String,
+    shell: Option<String>,
+    state: AppState,
+) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
 
-    info!("Terminal WebSocket connected for session: {}", session_id);
+    info!(
+        "Terminal WebSocket connected for session: {} (workspace: {})",
+        session_id, workspace_id
+    );
 
     // Get terminal service
     let terminal_service = state.terminal_service.clone();
@@ -54,10 +89,10 @@ async fn handle_terminal_socket(socket: WebSocket, session_id: String, state: Ap
     let output_rx = match terminal_service
         .create_session(
             session_id.clone(),
-            "default".to_string(), // workspace_id
-            None,                  // Use default shell
-            None,                  // Default cols
-            None,                  // Default rows
+            workspace_id.clone(),
+            shell,
+            None, // Default cols
+            None, // Default rows
         )
         .await
     {
@@ -80,7 +115,7 @@ async fn handle_terminal_socket(socket: WebSocket, session_id: String, state: Ap
     // Send session created confirmation
     let created_response = TerminalResponse::TerminalCreated {
         session_id: session_id.clone(),
-        workspace_id: "default".to_string(),
+        workspace_id: workspace_id.clone(),
     };
     if let Ok(json) = serde_json::to_string(&created_response) {
         let _ = ws_sender.send(Message::Text(json.into())).await;
@@ -177,6 +212,16 @@ async fn handle_terminal_message(
             // Try to parse as JSON message
             if let Ok(terminal_msg) = serde_json::from_str::<ClientTerminalMessage>(text_str) {
                 match terminal_msg {
+                    ClientTerminalMessage::TerminalCreate { .. } => {
+                        // Session already created on connect, just ignore or re-confirm
+                        let created_response = TerminalResponse::TerminalCreated {
+                            session_id: session_id.to_string(),
+                            workspace_id: "unknown".to_string(), // We don't track it here easily
+                        };
+                        if let Ok(json) = serde_json::to_string(&created_response) {
+                            let _ = ws_tx.send(json);
+                        }
+                    }
                     ClientTerminalMessage::TerminalInput { data } => {
                         if let Err(e) = terminal_service.send_input(session_id, &data).await {
                             error!("Failed to send input to session {}: {}", session_id, e);
