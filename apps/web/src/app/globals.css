@@ -8,6 +8,23 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
+/* Hack Nerd Font - Terminal font with Powerline/icon support */
+@font-face {
+  font-family: "Hack Nerd Font";
+  src: url("/fonts/HackNerdFont-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Hack Nerd Font";
+  src: url("/fonts/HackNerdFont-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Web app specific styles */
 /* Add your custom styles here */
 

@@ -14,16 +14,20 @@ interface UseTerminalWebSocketOptions {
   onConnected?: () => void;
   onDisconnected?: () => void;
   onError?: (error: string) => void;
+  onAttached?: (history?: string) => void;
   reconnectAttempts?: number;
   reconnectDelay?: number;
-  workspaceId?: string; // Add workspaceId for compensation
+  workspaceId?: string;
 }
 
 interface UseTerminalWebSocketReturn {
   isConnected: boolean;
+  isReconnecting: boolean;
   sendInput: (data: string) => void;
   sendResize: (size: TerminalSize) => void;
   sendCreate: (workspaceId: string) => void;
+  sendAttach: (workspaceId: string, tmuxWindow: number) => void;
+  sendDestroy: () => void;
   connect: () => void;
   disconnect: () => void;
 }
@@ -35,6 +39,7 @@ export function useTerminalWebSocket({
   onConnected,
   onDisconnected,
   onError,
+  onAttached,
   reconnectAttempts = 3,
   reconnectDelay = 1000,
   workspaceId,
@@ -43,6 +48,7 @@ export function useTerminalWebSocket({
   const reconnectCountRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   const clearReconnectTimeout = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -90,6 +96,24 @@ export function useTerminalWebSocket({
     [sendMessage]
   );
 
+  const sendAttach = useCallback(
+    (workspaceId: string, tmuxWindow: number) => {
+      sendMessage({
+        type: "terminal_attach",
+        workspace_id: workspaceId,
+        tmux_window: tmuxWindow,
+      });
+    },
+    [sendMessage]
+  );
+
+  const sendDestroy = useCallback(() => {
+    sendMessage({
+      type: "terminal_destroy",
+      session_id: sessionId,
+    });
+  }, [sessionId, sendMessage]);
+
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return;
@@ -101,6 +125,7 @@ export function useTerminalWebSocket({
 
       ws.onopen = () => {
         setIsConnected(true);
+        setIsReconnecting(false);
         reconnectCountRef.current = 0;
         onConnected?.();
       };
@@ -118,8 +143,22 @@ export function useTerminalWebSocket({
             case "terminal_created":
               // Session created successfully
               break;
+            case "terminal_attached":
+              // Session attached (reconnected)
+              if (message.session_id === sessionId) {
+                onAttached?.(message.history);
+              }
+              break;
             case "terminal_closed":
               if (message.session_id === sessionId) {
+                // Session closed (detached) - could reconnect
+                disconnect();
+              }
+              break;
+            case "terminal_destroyed":
+              if (message.session_id === sessionId) {
+                // Session destroyed - no reconnect possible
+                reconnectCountRef.current = reconnectAttempts; // Prevent reconnect
                 disconnect();
               }
               break;
@@ -140,9 +179,12 @@ export function useTerminalWebSocket({
         // Attempt to reconnect
         if (reconnectCountRef.current < reconnectAttempts) {
           reconnectCountRef.current++;
+          setIsReconnecting(true);
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, reconnectDelay * reconnectCountRef.current);
+        } else {
+          setIsReconnecting(false);
         }
       };
 
@@ -159,6 +201,7 @@ export function useTerminalWebSocket({
     onConnected,
     onDisconnected,
     onError,
+    onAttached,
     reconnectAttempts,
     reconnectDelay,
   ]);
@@ -171,6 +214,7 @@ export function useTerminalWebSocket({
       wsRef.current = null;
     }
     setIsConnected(false);
+    setIsReconnecting(false);
   }, [clearReconnectTimeout, reconnectAttempts]);
 
   // Cleanup on unmount
@@ -186,9 +230,12 @@ export function useTerminalWebSocket({
 
   return {
     isConnected,
+    isReconnecting,
     sendInput,
     sendResize,
     sendCreate,
+    sendAttach,
+    sendDestroy,
     connect,
     disconnect,
   };

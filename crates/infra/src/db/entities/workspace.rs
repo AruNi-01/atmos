@@ -19,6 +19,8 @@ pub struct Model {
     pub pinned_at: Option<DateTime>,
     pub is_archived: bool,
     pub archived_at: Option<DateTime>,
+    /// JSON-encoded terminal layout configuration
+    pub terminal_layout: Option<String>,
 }
 
 impl_base_entity!(Model);

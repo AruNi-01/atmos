@@ -1,5 +1,6 @@
 pub mod dto;
 pub mod project;
+pub mod system;
 pub mod test;
 pub mod workspace;
 pub mod ws;
@@ -13,5 +14,6 @@ pub fn routes() -> Router<AppState> {
         .nest("/api/test", test::routes())
         .nest("/api/project", project::routes())
         .nest("/api/workspace", workspace::routes())
+        .nest("/api/system", system::routes())
         .nest("/ws", ws::routes())
 }

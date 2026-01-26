@@ -1,7 +1,13 @@
-//! Terminal WebSocket handler for PTY communication
+//! Terminal WebSocket handler for PTY communication with tmux persistence
 //!
 //! This handler manages WebSocket connections for terminal sessions,
-//! bridging the frontend xterm.js with backend portable-pty.
+//! bridging the frontend xterm.js with backend tmux-backed PTY.
+//!
+//! Key features:
+//! - Create new terminal sessions (creates tmux window)
+//! - Attach to existing sessions (reconnect to tmux window)
+//! - Close sessions without destroying (detach, keeps tmux window)
+//! - Destroy sessions completely (kills tmux window)
 
 use axum::{
     extract::{
@@ -24,6 +30,10 @@ use crate::app_state::AppState;
 pub struct TerminalWsQuery {
     pub workspace_id: Option<String>,
     pub shell: Option<String>,
+    /// Optional: tmux window index for reconnection
+    pub tmux_window: Option<u32>,
+    /// If true, attach to existing session instead of creating new
+    pub attach: Option<bool>,
 }
 
 /// Terminal message from client
@@ -34,6 +44,10 @@ enum ClientTerminalMessage {
         workspace_id: String,
         shell: Option<String>,
     },
+    TerminalAttach {
+        workspace_id: String,
+        tmux_window: u32,
+    },
     TerminalInput {
         data: String,
     },
@@ -42,6 +56,7 @@ enum ClientTerminalMessage {
         rows: u16,
     },
     TerminalClose,
+    TerminalDestroy,
 }
 
 /// Terminal WebSocket upgrade handler
@@ -56,14 +71,16 @@ pub async fn terminal_ws_handler(
         .clone()
         .unwrap_or_else(|| "default".to_string());
     let shell = query.shell.clone();
+    let tmux_window = query.tmux_window;
+    let attach = query.attach.unwrap_or(false);
 
     info!(
-        "Terminal WebSocket upgrade request for session: {} (workspace: {})",
-        session_id, workspace_id
+        "Terminal WebSocket upgrade request for session: {} (workspace: {}, attach: {}, tmux_window: {:?})",
+        session_id, workspace_id, attach, tmux_window
     );
 
     ws.on_upgrade(move |socket| {
-        handle_terminal_socket(socket, session_id, workspace_id, shell, state)
+        handle_terminal_socket(socket, session_id, workspace_id, shell, tmux_window, attach, state)
     })
 }
 
@@ -73,6 +90,8 @@ async fn handle_terminal_socket(
     session_id: String,
     workspace_id: String,
     shell: Option<String>,
+    tmux_window: Option<u32>,
+    attach: bool,
     state: AppState,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
@@ -85,40 +104,81 @@ async fn handle_terminal_socket(
     // Get terminal service
     let terminal_service = state.terminal_service.clone();
 
-    // Create the terminal session and get output receiver
-    let output_rx = match terminal_service
-        .create_session(
-            session_id.clone(),
-            workspace_id.clone(),
-            shell,
-            None, // Default cols
-            None, // Default rows
-        )
-        .await
-    {
-        Ok(rx) => rx,
-        Err(e) => {
-            error!("Failed to create terminal session: {}", e);
-            let error_response = TerminalResponse::TerminalError {
-                session_id: Some(session_id),
-                error: e.to_string(),
-            };
-            let _ = ws_sender
-                .send(Message::Text(
-                    serde_json::to_string(&error_response).unwrap().into(),
-                ))
-                .await;
-            return;
+    // Create or attach to the terminal session
+    let (output_rx, history) = if attach && tmux_window.is_some() {
+        // Attach to existing tmux window
+        match terminal_service
+            .attach_session(
+                session_id.clone(),
+                workspace_id.clone(),
+                tmux_window.unwrap(),
+                None,
+                None,
+            )
+            .await
+        {
+            Ok((rx, hist)) => (rx, hist),
+            Err(e) => {
+                error!("Failed to attach terminal session: {}", e);
+                let error_response = TerminalResponse::TerminalError {
+                    session_id: Some(session_id),
+                    error: e.to_string(),
+                };
+                let _ = ws_sender
+                    .send(Message::Text(
+                        serde_json::to_string(&error_response).unwrap().into(),
+                    ))
+                    .await;
+                return;
+            }
+        }
+    } else {
+        // Create new session
+        match terminal_service
+            .create_session(
+                session_id.clone(),
+                workspace_id.clone(),
+                shell,
+                None,
+                None,
+            )
+            .await
+        {
+            Ok(rx) => (rx, None),
+            Err(e) => {
+                error!("Failed to create terminal session: {}", e);
+                let error_response = TerminalResponse::TerminalError {
+                    session_id: Some(session_id),
+                    error: e.to_string(),
+                };
+                let _ = ws_sender
+                    .send(Message::Text(
+                        serde_json::to_string(&error_response).unwrap().into(),
+                    ))
+                    .await;
+                return;
+            }
         }
     };
 
-    // Send session created confirmation
-    let created_response = TerminalResponse::TerminalCreated {
-        session_id: session_id.clone(),
-        workspace_id: workspace_id.clone(),
-    };
-    if let Ok(json) = serde_json::to_string(&created_response) {
-        let _ = ws_sender.send(Message::Text(json.into())).await;
+    // Send appropriate response
+    if attach {
+        let attached_response = TerminalResponse::TerminalAttached {
+            session_id: session_id.clone(),
+            workspace_id: workspace_id.clone(),
+            history: history.clone(),
+        };
+        if let Ok(json) = serde_json::to_string(&attached_response) {
+            let _ = ws_sender.send(Message::Text(json.into())).await;
+        }
+    } else {
+        let created_response = TerminalResponse::TerminalCreated {
+            session_id: session_id.clone(),
+            workspace_id: workspace_id.clone(),
+        };
+        if let Ok(json) = serde_json::to_string(&created_response) {
+            let _ = ws_sender.send(Message::Text(json.into())).await;
+        }
     }
 
     // Create channel for WebSocket outgoing messages
@@ -162,20 +222,27 @@ async fn handle_terminal_socket(
         }
     });
 
+    // Track if user requested destroy
+    let destroy_requested = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let destroy_requested_clone = destroy_requested.clone();
+
     // Main loop: Handle incoming WebSocket messages
     let terminal_service_clone = terminal_service.clone();
     let session_id_recv = session_id.clone();
+    let workspace_id_recv = workspace_id.clone();
     while let Some(result) = ws_receiver.next().await {
         match result {
             Ok(msg) => {
-                if !handle_terminal_message(
+                let should_continue = handle_terminal_message(
                     msg,
                     &session_id_recv,
+                    &workspace_id_recv,
                     &terminal_service_clone,
                     &ws_tx,
+                    &destroy_requested_clone,
                 )
-                .await
-                {
+                .await;
+                if !should_continue {
                     break;
                 }
             }
@@ -190,9 +257,13 @@ async fn handle_terminal_socket(
     output_task.abort();
     send_task.abort();
 
-    // Close the terminal session
-    if let Err(e) = terminal_service.close_session(&session_id).await {
-        warn!("Error closing terminal session {}: {}", session_id, e);
+    // Close the terminal session (detach only - keeps tmux window)
+    // If destroy was requested, the handler already called destroy_session
+    if !destroy_requested.load(std::sync::atomic::Ordering::SeqCst) {
+        if let Err(e) = terminal_service.close_session(&session_id).await {
+            // Don't warn if session doesn't exist (may have been destroyed)
+            debug!("Note: closing terminal session {}: {}", session_id, e);
+        }
     }
 
     info!("Terminal WebSocket closed for session: {}", session_id);
@@ -202,8 +273,10 @@ async fn handle_terminal_socket(
 async fn handle_terminal_message(
     msg: Message,
     session_id: &str,
+    workspace_id: &str,
     terminal_service: &Arc<TerminalService>,
     ws_tx: &mpsc::UnboundedSender<String>,
+    destroy_requested: &std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> bool {
     match msg {
         Message::Text(text) => {
@@ -213,12 +286,29 @@ async fn handle_terminal_message(
             if let Ok(terminal_msg) = serde_json::from_str::<ClientTerminalMessage>(text_str) {
                 match terminal_msg {
                     ClientTerminalMessage::TerminalCreate { .. } => {
-                        // Session already created on connect, just ignore or re-confirm
+                        // Session already created on connect, just confirm
                         let created_response = TerminalResponse::TerminalCreated {
                             session_id: session_id.to_string(),
-                            workspace_id: "unknown".to_string(), // We don't track it here easily
+                            workspace_id: workspace_id.to_string(),
                         };
                         if let Ok(json) = serde_json::to_string(&created_response) {
+                            let _ = ws_tx.send(json);
+                        }
+                    }
+                    ClientTerminalMessage::TerminalAttach { workspace_id: ws_id, tmux_window } => {
+                        // For mid-session attach requests (rare case)
+                        // The primary attach flow is through query params on connect
+                        debug!(
+                            "Mid-session attach request for workspace {} window {}",
+                            ws_id, tmux_window
+                        );
+                        // Just confirm the current session
+                        let attached_response = TerminalResponse::TerminalAttached {
+                            session_id: session_id.to_string(),
+                            workspace_id: ws_id,
+                            history: None,
+                        };
+                        if let Ok(json) = serde_json::to_string(&attached_response) {
                             let _ = ws_tx.send(json);
                         }
                     }
@@ -240,11 +330,25 @@ async fn handle_terminal_message(
                         }
                     }
                     ClientTerminalMessage::TerminalClose => {
-                        // Client requested close
+                        // Client requested close (detach only)
                         let close_response = TerminalResponse::TerminalClosed {
                             session_id: session_id.to_string(),
                         };
                         if let Ok(json) = serde_json::to_string(&close_response) {
+                            let _ = ws_tx.send(json);
+                        }
+                        return false;
+                    }
+                    ClientTerminalMessage::TerminalDestroy => {
+                        // Client requested destroy (kill tmux window)
+                        destroy_requested.store(true, std::sync::atomic::Ordering::SeqCst);
+                        if let Err(e) = terminal_service.destroy_session(session_id).await {
+                            warn!("Failed to destroy session {}: {}", session_id, e);
+                        }
+                        let destroy_response = TerminalResponse::TerminalDestroyed {
+                            session_id: session_id.to_string(),
+                        };
+                        if let Ok(json) = serde_json::to_string(&destroy_response) {
                             let _ = ws_tx.send(json);
                         }
                         return false;

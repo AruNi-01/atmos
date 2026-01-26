@@ -1,12 +1,15 @@
-//! Terminal Service - PTY session management using portable-pty
+//! Terminal Service - PTY session management with tmux persistence
 //!
 //! This service handles creating, managing, and destroying terminal sessions
-//! that connect to the system's shell and communicate over WebSocket.
+//! that connect to tmux for persistence and communicate over WebSocket.
 //!
-//! Design: PTY operations run in dedicated threads, communicating via channels
-//! to avoid Sync issues with trait objects.
+//! Design: 
+//! - Each terminal session maps to a tmux window
+//! - PTY operations run in dedicated threads, communicating via channels
+//! - Closing a session detaches the PTY but keeps the tmux window alive
 
 use anyhow::{anyhow, Result};
+use core_engine::TmuxEngine;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -26,7 +29,10 @@ enum SessionCommand {
 /// Terminal session handle - thread-safe wrapper for PTY session
 struct SessionHandle {
     command_tx: mpsc::UnboundedSender<SessionCommand>,
-    _workspace_id: String,
+    #[allow(dead_code)]
+    workspace_id: String,
+    tmux_session: String,
+    tmux_window_index: u32,
 }
 
 /// Message types for terminal communication
@@ -38,6 +44,11 @@ pub enum TerminalMessage {
         workspace_id: String,
         shell: Option<String>,
     },
+    /// Attach to an existing terminal session (reconnection)
+    TerminalAttach {
+        session_id: String,
+        workspace_id: String,
+    },
     /// Send input to terminal
     TerminalInput { session_id: String, data: String },
     /// Resize terminal
@@ -46,8 +57,10 @@ pub enum TerminalMessage {
         cols: u16,
         rows: u16,
     },
-    /// Close terminal session
+    /// Close terminal session (detach only, keeps tmux window)
     TerminalClose { session_id: String },
+    /// Destroy terminal session (kills tmux window)
+    TerminalDestroy { session_id: String },
 }
 
 /// Response messages from terminal service
@@ -59,10 +72,18 @@ pub enum TerminalResponse {
         session_id: String,
         workspace_id: String,
     },
+    /// Terminal session attached (reconnected)
+    TerminalAttached {
+        session_id: String,
+        workspace_id: String,
+        history: Option<String>,
+    },
     /// Terminal output data
     TerminalOutput { session_id: String, data: String },
-    /// Terminal session closed
+    /// Terminal session closed (detached)
     TerminalClosed { session_id: String },
+    /// Terminal session destroyed (killed)
+    TerminalDestroyed { session_id: String },
     /// Error occurred
     TerminalError {
         session_id: Option<String>,
@@ -70,10 +91,11 @@ pub enum TerminalResponse {
     },
 }
 
-/// Terminal service managing all PTY sessions
+/// Terminal service managing all PTY sessions with tmux persistence
 /// This struct is Send + Sync safe
 pub struct TerminalService {
     sessions: Arc<Mutex<HashMap<String, SessionHandle>>>,
+    tmux_engine: Arc<TmuxEngine>,
     default_cols: u16,
     default_rows: u16,
 }
@@ -89,12 +111,38 @@ impl TerminalService {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            tmux_engine: Arc::new(TmuxEngine::new()),
             default_cols: 120,
             default_rows: 30,
         }
     }
 
-    /// Create a new terminal session with specified or default shell
+    /// Create terminal service with custom TmuxEngine
+    pub fn with_tmux_engine(tmux_engine: Arc<TmuxEngine>) -> Self {
+        Self {
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+            tmux_engine,
+            default_cols: 120,
+            default_rows: 30,
+        }
+    }
+
+    /// Get the TmuxEngine reference
+    pub fn tmux_engine(&self) -> Arc<TmuxEngine> {
+        self.tmux_engine.clone()
+    }
+
+    /// Check if tmux is available
+    pub fn is_tmux_available(&self) -> bool {
+        TmuxEngine::check_installed()
+    }
+
+    /// Get tmux version info
+    pub fn get_tmux_version(&self) -> Result<core_engine::TmuxVersion> {
+        TmuxEngine::get_version().map_err(|e| anyhow!("{}", e))
+    }
+
+    /// Create a new terminal session with tmux persistence
     /// Returns a receiver for terminal output
     pub async fn create_session(
         &self,
@@ -112,6 +160,89 @@ impl TerminalService {
             session_id, workspace_id, cols, rows
         );
 
+        // Create or get tmux session for this workspace
+        let tmux_session = self.tmux_engine
+            .create_session(&workspace_id)
+            .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?;
+
+        // Create a new tmux window for this terminal pane
+        let window_name = format!("term_{}", &session_id[..8.min(session_id.len())]);
+        let window_index = self.tmux_engine
+            .create_window(&tmux_session, &window_name)
+            .map_err(|e| anyhow!("Failed to create tmux window: {}", e))?;
+
+        // Now attach to this tmux window via PTY
+        self.attach_to_tmux_window(
+            session_id,
+            workspace_id,
+            tmux_session,
+            window_index,
+            shell,
+            cols,
+            rows,
+            false,
+        )
+        .await
+    }
+
+    /// Attach to an existing tmux window (for reconnection)
+    pub async fn attach_session(
+        &self,
+        session_id: String,
+        workspace_id: String,
+        tmux_window_index: u32,
+        cols: Option<u16>,
+        rows: Option<u16>,
+    ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<String>)> {
+        let cols = cols.unwrap_or(self.default_cols);
+        let rows = rows.unwrap_or(self.default_rows);
+
+        let tmux_session = self.tmux_engine.get_session_name(&workspace_id);
+
+        // Check if window exists
+        if !self.tmux_engine.window_exists(&tmux_session, tmux_window_index)
+            .map_err(|e| anyhow!("Failed to check window: {}", e))? 
+        {
+            return Err(anyhow!("Tmux window does not exist"));
+        }
+
+        // Capture recent history before attaching
+        let history = self.tmux_engine
+            .capture_pane(&tmux_session, tmux_window_index, Some(1000))
+            .ok();
+
+        info!(
+            "Attaching to existing tmux window: {}:{} for session {}",
+            tmux_session, tmux_window_index, session_id
+        );
+
+        let rx = self.attach_to_tmux_window(
+            session_id,
+            workspace_id,
+            tmux_session,
+            tmux_window_index,
+            None, // Don't override shell for existing window
+            cols,
+            rows,
+            true,
+        )
+        .await?;
+
+        Ok((rx, history))
+    }
+
+    /// Internal: Attach PTY to a tmux window
+    async fn attach_to_tmux_window(
+        &self,
+        session_id: String,
+        workspace_id: String,
+        tmux_session: String,
+        window_index: u32,
+        shell: Option<String>,
+        cols: u16,
+        rows: u16,
+        is_attach: bool,
+    ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
         // Channel for sending commands to the PTY thread
         let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
         
@@ -122,17 +253,21 @@ impl TerminalService {
         let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
 
         let session_id_clone = session_id.clone();
+        let tmux_session_clone = tmux_session.clone();
         
         // Spawn a dedicated thread for PTY operations
         thread::spawn(move || {
-            run_pty_session(
+            run_pty_session_with_tmux(
                 session_id_clone,
+                tmux_session_clone,
+                window_index,
                 shell,
                 cols,
                 rows,
                 command_rx,
                 output_tx,
                 init_tx,
+                is_attach,
             );
         });
 
@@ -142,11 +277,13 @@ impl TerminalService {
                 // Store session handle
                 let handle = SessionHandle {
                     command_tx,
-                    _workspace_id: workspace_id.clone(),
+                    workspace_id: workspace_id.clone(),
+                    tmux_session,
+                    tmux_window_index: window_index,
                 };
                 
                 self.sessions.lock().await.insert(session_id.clone(), handle);
-                info!("Terminal session created: {}", session_id);
+                info!("Terminal session created/attached: {} (window index: {})", session_id, window_index);
                 Ok(output_rx)
             }
             Ok(Err(e)) => {
@@ -182,6 +319,16 @@ impl TerminalService {
             .get(session_id)
             .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
 
+        // Resize tmux pane as well
+        if let Err(e) = self.tmux_engine.resize_pane(
+            &handle.tmux_session, 
+            handle.tmux_window_index, 
+            cols, 
+            rows
+        ) {
+            warn!("Failed to resize tmux pane: {}", e);
+        }
+
         handle
             .command_tx
             .send(SessionCommand::Resize { cols, rows })
@@ -191,18 +338,58 @@ impl TerminalService {
         Ok(())
     }
 
-    /// Close and remove a terminal session
+    /// Close a terminal session (detach PTY but keep tmux window for persistence)
     pub async fn close_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
-            // Send close command (ignore error if thread already exited)
+            // Send close command to PTY thread (ignore error if thread already exited)
             let _ = handle.command_tx.send(SessionCommand::Close);
-            info!("Terminal session closed: {}", session_id);
+            info!(
+                "Terminal session closed (detached): {} - tmux window {}:{} preserved",
+                session_id, handle.tmux_session, handle.tmux_window_index
+            );
             Ok(())
         } else {
             warn!("Attempted to close non-existent session: {}", session_id);
             Err(anyhow!("Session not found: {}", session_id))
         }
+    }
+
+    /// Destroy a terminal session (kill tmux window)
+    pub async fn destroy_session(&self, session_id: &str) -> Result<()> {
+        let mut sessions = self.sessions.lock().await;
+        if let Some(handle) = sessions.remove(session_id) {
+            // Send close command to PTY thread
+            let _ = handle.command_tx.send(SessionCommand::Close);
+            
+            // Kill the tmux window
+            if let Err(e) = self.tmux_engine.kill_window(&handle.tmux_session, handle.tmux_window_index) {
+                warn!("Failed to kill tmux window: {}", e);
+            }
+            
+            info!(
+                "Terminal session destroyed: {} - tmux window {}:{} killed",
+                session_id, handle.tmux_session, handle.tmux_window_index
+            );
+            Ok(())
+        } else {
+            warn!("Attempted to destroy non-existent session: {}", session_id);
+            Err(anyhow!("Session not found: {}", session_id))
+        }
+    }
+
+    /// Get session info (tmux window index) for reconnection
+    pub async fn get_session_info(&self, session_id: &str) -> Option<(String, u32)> {
+        let sessions = self.sessions.lock().await;
+        sessions.get(session_id).map(|h| (h.tmux_session.clone(), h.tmux_window_index))
+    }
+
+    /// List all tmux windows for a workspace (for reconnection)
+    pub fn list_workspace_windows(&self, workspace_id: &str) -> Result<Vec<(u32, String)>> {
+        let tmux_session = self.tmux_engine.get_session_name(workspace_id);
+        let windows = self.tmux_engine.list_windows(&tmux_session)
+            .map_err(|e| anyhow!("{}", e))?;
+        Ok(windows.into_iter().map(|w| (w.index, w.name)).collect())
     }
 
     /// Get all active session IDs
@@ -221,15 +408,18 @@ impl TerminalService {
     }
 }
 
-/// Run PTY session in a dedicated thread
-fn run_pty_session(
+/// Run PTY session attached to a tmux window
+fn run_pty_session_with_tmux(
     session_id: String,
-    shell: Option<String>,
+    tmux_session: String,
+    window_index: u32,
+    _shell: Option<String>,
     cols: u16,
     rows: u16,
     mut command_rx: mpsc::UnboundedReceiver<SessionCommand>,
     output_tx: mpsc::UnboundedSender<Vec<u8>>,
     init_tx: oneshot::Sender<Result<()>>,
+    is_attach: bool,
 ) {
     // Create PTY system
     let pty_system = native_pty_system();
@@ -248,21 +438,30 @@ fn run_pty_session(
         }
     };
 
-    // Build command - use specified shell or default
-    let cmd = match shell {
-        Some(shell_path) => {
-            let mut cmd = CommandBuilder::new(&shell_path);
-            if shell_path.contains("bash") || shell_path.contains("zsh") {
-                cmd.arg("-i");
-            }
-            cmd
-        }
-        None => CommandBuilder::new_default_prog(),
+    // Build command to attach to tmux window
+    // We use `tmux attach-session` to connect to the existing tmux pane
+    let socket_path: std::path::PathBuf = dirs::home_dir()
+        .map(|h: std::path::PathBuf| h.join(".atmos").join("atmos.sock"))
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/.atmos/atmos.sock"));
+    
+    let target = format!("{}:{}", tmux_session, window_index);
+    
+    let cmd = if is_attach {
+        // For attach, we just connect to the existing shell in tmux
+        let mut cmd = CommandBuilder::new("tmux");
+        cmd.args(["-S", &socket_path.to_string_lossy(), "attach-session", "-t", &target]);
+        cmd
+    } else {
+        // For new sessions, we need to first ensure the shell is running
+        // The tmux window was already created, so we just attach to it
+        let mut cmd = CommandBuilder::new("tmux");
+        cmd.args(["-S", &socket_path.to_string_lossy(), "attach-session", "-t", &target]);
+        cmd
     };
 
-    // Spawn the shell process
+    // Spawn the tmux attach process
     if let Err(e) = pair.slave.spawn_command(cmd) {
-        let _ = init_tx.send(Err(anyhow!("Failed to spawn shell: {}", e)));
+        let _ = init_tx.send(Err(anyhow!("Failed to attach to tmux: {}", e)));
         return;
     }
 
@@ -310,7 +509,13 @@ fn run_pty_session(
                     }
                 }
                 Err(e) => {
-                    error!("PTY read error for session {}: {}", session_id_reader, e);
+                    // Check if this is expected disconnect
+                    let err_str = e.to_string();
+                    if err_str.contains("Input/output error") || err_str.contains("EIO") {
+                        debug!("PTY disconnected for session: {} (expected on close)", session_id_reader);
+                    } else {
+                        warn!("PTY read error for session {}: {}", session_id_reader, e);
+                    }
                     break;
                 }
             }
@@ -329,11 +534,11 @@ fn run_pty_session(
             match cmd {
                 SessionCommand::Write(data) => {
                     if let Err(e) = writer.write_all(&data) {
-                        error!("Failed to write to PTY for session {}: {}", session_id, e);
+                        debug!("Failed to write to PTY for session {}: {} (may be closed)", session_id, e);
                         break;
                     }
                     if let Err(e) = writer.flush() {
-                        error!("Failed to flush PTY for session {}: {}", session_id, e);
+                        debug!("Failed to flush PTY for session {}: {}", session_id, e);
                         break;
                     }
                 }
@@ -344,11 +549,15 @@ fn run_pty_session(
                         pixel_width: 0,
                         pixel_height: 0,
                     }) {
-                        error!("Failed to resize PTY for session {}: {}", session_id, e);
+                        debug!("Failed to resize PTY for session {}: {}", session_id, e);
                     }
                 }
                 SessionCommand::Close => {
-                    debug!("Closing PTY session: {}", session_id);
+                    debug!("Closing PTY session (detaching): {}", session_id);
+                    // Send detach key sequence to tmux (Ctrl+B, D)
+                    // This detaches cleanly without killing the session
+                    let _ = writer.write_all(&[0x02, b'd']); // Ctrl+B, d
+                    let _ = writer.flush();
                     break;
                 }
             }
@@ -357,7 +566,7 @@ fn run_pty_session(
 
     // Wait for reader thread to finish
     let _ = reader_handle.join();
-    info!("PTY session thread exited: {}", session_id);
+    info!("PTY session thread exited (detached): {}", session_id);
 }
 
 #[cfg(test)]
@@ -374,5 +583,12 @@ mod tests {
     async fn test_session_list_empty() {
         let service = TerminalService::new();
         assert!(service.list_sessions().await.is_empty());
+    }
+
+    #[test]
+    fn test_tmux_check() {
+        let service = TerminalService::new();
+        let available = service.is_tmux_available();
+        println!("tmux available: {}", available);
     }
 }
