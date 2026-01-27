@@ -469,7 +469,7 @@ impl TmuxEngine {
     /// Format: {project_name}_{workspace_name} if names provided, otherwise atmos_{workspace_id}
     fn session_name(&self, workspace_id: &str) -> String {
         // Default format using workspace_id
-        format!("atmos_{}", workspace_id.replace('-', "_"))
+        workspace_id.replace('-', "_")
     }
 
     /// Generate session name from project and workspace names
@@ -491,9 +491,14 @@ impl TmuxEngine {
 
     /// Parse workspace ID from session name
     pub fn parse_workspace_id(&self, session_name: &str) -> Option<String> {
-        session_name
-            .strip_prefix("atmos_")
-            .map(|s| s.replace('_', "-"))
+        // Restore hyphens if any (tmux session names use underscores)
+        Some(session_name.replace('_', "-"))
+    }
+
+    /// Find a window index by its name in a session
+    pub fn find_window_index_by_name(&self, session_name: &str, window_name: &str) -> Result<Option<u32>> {
+        let windows = self.list_windows(session_name)?;
+        Ok(windows.iter().find(|w| w.name == window_name).map(|w| w.index))
     }
 
     /// List all Atmos-managed sessions (those starting with "atmos_")

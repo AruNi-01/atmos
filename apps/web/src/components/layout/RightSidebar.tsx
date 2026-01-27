@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
-import { Play, TerminalSquare, FileCode, Check, RefreshCw, Upload, Loader2, GitGraph } from '@workspace/ui';
+import { Check, RefreshCw, Upload, Loader2, GitGraph, getFileIconProps } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 
 import { useSearchParams } from 'next/navigation';
@@ -11,6 +11,12 @@ import { useSearchParams } from 'next/navigation';
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
   changes?: any[];
+}
+
+// File icon component matching the file tree
+function FileIcon({ name, className }: { name: string; className?: string }) {
+  const iconProps = getFileIconProps({ name, isDir: false, className });
+  return <img {...iconProps} />;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = () => {
@@ -146,43 +152,50 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       </div>
 
       {/* Changes List */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-2">
-        {changedFiles.map(file => (
-          <div
-            key={file.path}
-            onClick={() => openFile(`diff://${file.path}`, workspaceId || undefined)}
-            className={cn(
-              "group flex items-center justify-between px-3 py-2 rounded-sm cursor-pointer transition-colors ease-out duration-200 mb-0.5",
-              activeFilePath === `diff://${file.path}` ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent/50"
-            )}
-          >
-            <div className="flex items-center min-w-0">
-              <FileCode className={cn(
-                "size-3.5 mr-2.5 shrink-0",
-                file.status === 'M' ? 'text-yellow-500/70' :
-                  file.status === 'A' || file.status === '??' ? 'text-emerald-500/70' :
-                    file.status === 'D' ? 'text-red-500/70' : 'text-blue-500/70'
-              )} />
-              <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground truncate font-medium text-pretty">
-                {file.path.split('/').pop()}
+      <div className="flex-1 overflow-y-auto overflow-x-auto no-scrollbar p-2">
+        {changedFiles.map(file => {
+          const fileName = file.path.split('/').pop() || file.path;
+          const dirPath = file.path.split('/').slice(0, -1).join('/');
+          
+          return (
+            <div
+              key={file.path}
+              onClick={() => openFile(`diff://${file.path}`, workspaceId || undefined)}
+              className={cn(
+                "group flex items-center px-3 py-2 rounded-sm cursor-pointer transition-colors ease-out duration-200 mb-0.5 min-w-max",
+                activeFilePath === `diff://${file.path}` ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent/50"
+              )}
+            >
+              {/* File icon */}
+              <FileIcon name={fileName} className="size-4 mr-2 shrink-0" />
+              {/* Filename (always fully visible, never truncate) */}
+              <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0">
+                {fileName}
               </span>
-              <span className="text-[11px] text-muted-foreground/70 ml-1.5 truncate shrink-0 text-pretty">
-                {file.path.split('/').slice(0, -1).join('/')}
-              </span>
+              {/* Path (truncate from start using rtl, max width constrained) */}
+              {dirPath && (
+                <span 
+                  className="text-[11px] text-muted-foreground/50 max-w-[100px] truncate ml-2 shrink"
+                  style={{ direction: 'rtl', textAlign: 'left' }}
+                  title={dirPath}
+                >
+                  <span style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}>{dirPath}</span>
+                </span>
+              )}
+              {/* Git stats (fixed position, always visible) */}
+              <div className="flex items-center gap-1.5 text-[11px] font-mono ml-auto pl-3 shrink-0 tabular-nums">
+                {file.additions > 0 && <span className="text-emerald-500">+{file.additions}</span>}
+                {file.deletions > 0 && <span className="text-red-500">-{file.deletions}</span>}
+                <span className={cn(
+                  "opacity-70",
+                  file.status === 'M' ? 'text-yellow-500' :
+                    file.status === 'A' ? 'text-emerald-500' :
+                      file.status === 'D' ? 'text-red-500' : 'text-foreground'
+                )}>{file.status}</span>
+              </div>
             </div>
-            <div className="flex items-center space-x-1.5 text-[11px] font-mono opacity-0 group-hover:opacity-100 transition-opacity ease-out duration-200 tabular-nums">
-              {file.additions > 0 && <span className="text-emerald-500">+{file.additions}</span>}
-              {file.deletions > 0 && <span className="text-red-500">-{file.deletions}</span>}
-              {/* Status letter if generic */}
-              <span className={cn(
-                "opacity-50 ml-1",
-                file.status === 'M' ? 'text-yellow-500' :
-                  file.status === 'A' ? 'text-emerald-500' :
-                    file.status === 'D' ? 'text-red-500' : 'text-foreground'
-              )}>{file.status}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Placeholder for empty space */}
         <div className="h-4"></div>

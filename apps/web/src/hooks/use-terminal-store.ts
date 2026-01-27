@@ -42,7 +42,12 @@ interface TerminalStore {
 
 /** Generate next available window name (1, 2, 3, ...) */
 function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): string {
-  const usedNames = new Set(Object.values(existingPanes).map(p => p.tmuxWindowName).filter(Boolean));
+  const values = Object.values(existingPanes);
+  const usedNames = new Set([
+     ...values.map(p => p.tmuxWindowName),
+     ...values.map(p => p.title)
+  ].filter(Boolean));
+  
   let num = 1;
   while (usedNames.has(String(num))) {
     num++;
