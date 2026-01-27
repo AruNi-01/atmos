@@ -91,10 +91,13 @@ async fn handle_terminal_socket(
     workspace_id: String,
     shell: Option<String>,
     tmux_window: Option<u32>,
-    attach: bool,
+    attach_requested: bool,
     state: AppState,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
+    
+    // Mutable flag to track whether we actually attached or fell back to create
+    let mut actually_attached = false;
 
     info!(
         "Terminal WebSocket connected for session: {} (workspace: {})",
@@ -105,7 +108,7 @@ async fn handle_terminal_socket(
     let terminal_service = state.terminal_service.clone();
 
     // Create or attach to the terminal session
-    let (output_rx, history) = if attach && tmux_window.is_some() {
+    let (output_rx, history) = if attach_requested && tmux_window.is_some() {
         // Attach to existing tmux window
         match terminal_service
             .attach_session(
@@ -117,19 +120,42 @@ async fn handle_terminal_socket(
             )
             .await
         {
-            Ok((rx, hist)) => (rx, hist),
+            Ok((rx, hist)) => {
+                actually_attached = true;
+                (rx, hist)
+            }
             Err(e) => {
-                error!("Failed to attach terminal session: {}", e);
-                let error_response = TerminalResponse::TerminalError {
-                    session_id: Some(session_id),
-                    error: e.to_string(),
-                };
-                let _ = ws_sender
-                    .send(Message::Text(
-                        serde_json::to_string(&error_response).unwrap().into(),
-                    ))
-                    .await;
-                return;
+                warn!("Failed to attach terminal session ({}). Falling back to creating a new one.", e);
+                // Fallback: Create new session if attachment fails
+                match terminal_service
+                    .create_session(
+                        session_id.clone(),
+                        workspace_id.clone(),
+                        shell.clone(),
+                        None,
+                        None,
+                    )
+                    .await
+                {
+                    Ok(rx) => {
+                        // Mark as not attached since we created a new one
+                        actually_attached = false;
+                        (rx, None)
+                    }
+                    Err(e) => {
+                        error!("Failed to create terminal session after attach failure: {}", e);
+                        let error_response = TerminalResponse::TerminalError {
+                            session_id: Some(session_id),
+                            error: e.to_string(),
+                        };
+                        let _ = ws_sender
+                            .send(Message::Text(
+                                serde_json::to_string(&error_response).unwrap().into(),
+                            ))
+                            .await;
+                        return;
+                    }
+                }
             }
         }
     } else {
@@ -161,8 +187,8 @@ async fn handle_terminal_socket(
         }
     };
 
-    // Send appropriate response
-    if attach {
+    // Send appropriate response based on whether we actually attached or created
+    if actually_attached {
         let attached_response = TerminalResponse::TerminalAttached {
             session_id: session_id.clone(),
             workspace_id: workspace_id.clone(),

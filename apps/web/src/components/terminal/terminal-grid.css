@@ -6,58 +6,62 @@
   background: var(--background);
   overflow: hidden;
   position: relative;
+  padding: 0; /* Removed outer padding */
 }
 
 /* Base Mosaic Overrides */
-.mosaic-blueprint-theme {
-  background: var(--background);
+.atmos-mosaic-theme {
+  background: transparent !important;
 }
 
-.mosaic-blueprint-theme .mosaic-window {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-  background: var(--background);
+.atmos-mosaic-theme .mosaic-window {
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: 8px; /* sm-ish rounded */
+  overflow: hidden;
 }
 
-.mosaic-blueprint-theme .mosaic-tile {
+.atmos-mosaic-theme .mosaic-tile {
   margin: 0;
+  padding: 4px; /* Reduced gap size */
 }
 
-.mosaic-blueprint-theme .mosaic-root {
+.atmos-mosaic-theme .mosaic-root {
   top: 0;
   right: 0;
   bottom: 0;
   left: 0;
 }
 
-.mosaic-blueprint-theme .mosaic-split {
+.atmos-mosaic-theme .mosaic-split {
   z-index: 10;
-  background: var(--border);
-  width: 1px;
-  height: 100%;
-  opacity: 1; /* Always visible but subtle */
+  background: transparent !important; /* Fully transparent to avoid "topping out" look */
+  box-shadow: none !important;
+  border: none !important;
   transition: background 0.2s ease;
+  pointer-events: auto; /* Enable resizing */
 }
 
-.mosaic-blueprint-theme .mosaic-split:hover {
-  background: var(--primary);
+.atmos-mosaic-theme .mosaic-split:hover {
+  background: rgba(255, 255, 255, 0.03) !important; /* Extremely subtle hint on hover */
 }
 
-.mosaic-blueprint-theme .mosaic-split.column {
+.atmos-mosaic-theme .mosaic-split.column {
   cursor: ew-resize;
-  width: 2px;
-  margin-left: -1px;
+  width: 4px; /* Even thinner hit-box */
+  margin-left: -2px;
 }
 
-.mosaic-blueprint-theme .mosaic-split.row {
+.atmos-mosaic-theme .mosaic-split.row {
   cursor: ns-resize;
-  height: 2px;
-  margin-top: -1px;
+  height: 4px; /* Even thinner hit-box */
+  margin-top: -2px;
 }
 
 /* Window Content */
-.mosaic-blueprint-theme .mosaic-window-body {
-  background: var(--background);
+.atmos-mosaic-theme .mosaic-window-body {
+  background: transparent !important;
   color: var(--foreground);
 }
 
@@ -87,11 +91,10 @@
 }
 
 .terminal-mosaic-title {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--foreground);
+  opacity: 0.9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -140,23 +143,37 @@
 
 .atmos-terminal {
   padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.atmos-terminal .xterm {
+  padding: 0 !important;
+}
+
+.atmos-terminal .xterm-viewport {
+  background-color: transparent !important;
+}
+
+.atmos-terminal .xterm-screen {
+  padding: 0 !important;
 }
 
 /* Mosaic Toolbar Integration */
-.mosaic-blueprint-theme .mosaic-window-toolbar {
-  height: 30px !important;
+.atmos-mosaic-theme .mosaic-window-toolbar {
+  height: 34px !important;
   display: flex !important;
-  background: var(--sidebar) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
   border-bottom: 1px solid var(--border) !important;
   box-shadow: none !important;
 }
 
 /* Hide default buttons if they still show up */
-.mosaic-blueprint-theme .mosaic-window-controls {
+.atmos-mosaic-theme .mosaic-window-controls {
   display: none !important;
 }
 
-.mosaic-blueprint-theme .mosaic-window-title {
+.atmos-mosaic-theme .mosaic-window-title {
   display: none !important;
 }
 
