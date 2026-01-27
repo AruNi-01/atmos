@@ -53,7 +53,9 @@ import {
     TabsTab,
     TabsPanel,
     RefreshCw,
-    AlertTriangle
+    AlertTriangle,
+    Eye,
+    EyeOff
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -548,8 +550,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const [fileTreeData, setFileTreeData] = useState<FileTreeNode[]>([]);
     const [fileTreeProjectId, setFileTreeProjectId] = useState<string | null>(null);
     const [fileTreeWorkspaceId, setFileTreeWorkspaceId] = useState<string | null>(null);
+    const [fileTreeShowHidden, setFileTreeShowHidden] = useState(false);
 
     const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+    const [showHiddenFiles, setShowHiddenFiles] = useState(false);
 
     // Track the latest fetch request to prevent race conditions
     const fetchRequestId = useRef(0);
@@ -584,7 +588,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const currentMainFilePath = currentProject?.mainFilePath ?? null;
 
     // Fetch file tree from backend
-    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string, mainFilePath: string) => {
+    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string, mainFilePath: string, showHidden: boolean = false) => {
         if (!mainFilePath) return;
 
         // Increment request ID to invalidate any previous pending requests
@@ -597,7 +601,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         console.log(`[Req #${currentRequestId}] Fetching files for Project: ${projectId}, Workspace: ${workspaceId}, Path: ${mainFilePath}`);
 
         try {
-            const response = await fsApi.listProjectFiles(mainFilePath);
+            const response = await fsApi.listProjectFiles(mainFilePath, { showHidden });
 
             // CRITICAL: Only update state if this is still the latest request
             if (fetchRequestId.current === currentRequestId) {
@@ -605,6 +609,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 setFileTreeData(response.tree);
                 setFileTreeProjectId(projectId);
                 setFileTreeWorkspaceId(workspaceId);
+                setFileTreeShowHidden(showHidden);
                 setCurrentProjectPath(mainFilePath);
             } else {
                 console.log(`[Req #${currentRequestId}] Stale response ignored.`);
@@ -631,12 +636,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     // Keep file tree in sync
     useEffect(() => {
         if (activeTab === 'files' && currentProjectId && currentWorkspaceId && currentMainFilePath) {
-            const isMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
-            if (isMismatch && !isLoadingFiles) {
-                doFetchFileTree(currentProjectId, currentWorkspaceId, currentMainFilePath);
+            const isContextMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
+            const isHiddenMismatch = fileTreeShowHidden !== showHiddenFiles;
+
+            if ((isContextMismatch || isHiddenMismatch) && !isLoadingFiles) {
+                doFetchFileTree(currentProjectId, currentWorkspaceId, currentMainFilePath, showHiddenFiles);
             }
         }
-    }, [activeTab, currentProjectId, currentWorkspaceId, currentMainFilePath, fileTreeProjectId, fileTreeWorkspaceId, isLoadingFiles, doFetchFileTree]);
+    }, [activeTab, currentProjectId, currentWorkspaceId, currentMainFilePath, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
 
     // Handle tab change
     const handleTabChange = (value: string) => {
@@ -646,8 +653,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     // Refresh file tree
     const handleRefreshFiles = () => {
         if (currentProjectId && currentWorkspaceId && currentMainFilePath) {
-            doFetchFileTree(currentProjectId, currentWorkspaceId, currentMainFilePath);
+            doFetchFileTree(currentProjectId, currentWorkspaceId, currentMainFilePath, showHiddenFiles);
         }
+    };
+
+    const toggleHiddenFiles = () => {
+        setShowHiddenFiles(prev => !prev);
     };
 
     // Simplified Display Logic
@@ -844,17 +855,33 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 <span className="text-[12px] font-medium text-muted-foreground truncate">
                                     {currentProject.name}
                                 </span>
-                                <button
-                                    onClick={handleRefreshFiles}
-                                    className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
-                                    title="Refresh files"
-                                    disabled={isLoadingFiles}
-                                >
-                                    <RefreshCw className={cn(
-                                        "size-3.5 text-muted-foreground",
-                                        isLoadingFiles && "animate-spin"
-                                    )} />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={toggleHiddenFiles}
+                                        className={cn(
+                                            "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
+                                            showHiddenFiles ? "text-sidebar-foreground bg-sidebar-accent" : "text-muted-foreground"
+                                        )}
+                                        title={showHiddenFiles ? "Hide hidden files" : "Show hidden files"}
+                                    >
+                                        {showHiddenFiles ? (
+                                            <Eye className="size-3.5" />
+                                        ) : (
+                                            <EyeOff className="size-3.5" />
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={handleRefreshFiles}
+                                        className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
+                                        title="Refresh files"
+                                        disabled={isLoadingFiles}
+                                    >
+                                        <RefreshCw className={cn(
+                                            "size-3.5 text-muted-foreground",
+                                            isLoadingFiles && "animate-spin"
+                                        )} />
+                                    </button>
+                                </div>
                             </div>
                         )}
 

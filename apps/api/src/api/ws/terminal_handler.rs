@@ -80,13 +80,12 @@ pub async fn terminal_ws_handler(
         .unwrap_or_else(|| "default".to_string());
     let shell = query.shell.clone();
     
-    // Parse tmux_window: prefer tmux_window, then try to parse tmux_window_name
-    let tmux_window = query.tmux_window.or_else(|| {
-        query.tmux_window_name.as_ref().and_then(|name| name.parse::<u32>().ok())
-    });
+    // Keep tmux_window index and tmux_window_name separate
+    let tmux_window = query.tmux_window;
+    let tmux_window_name = query.tmux_window_name.clone();
     
-    // Auto-enable attach if tmux_window is provided
-    let attach = query.attach.unwrap_or(false) || tmux_window.is_some();
+    // Only auto-attach if an index OR name is provided explicitly
+    let attach = query.attach.unwrap_or(false) || tmux_window.is_some() || tmux_window_name.is_some();
     
     // Extract naming parameters for human-readable tmux naming
     let project_name = query.project_name.clone();
@@ -105,6 +104,7 @@ pub async fn terminal_ws_handler(
             workspace_id, 
             shell, 
             tmux_window, 
+            tmux_window_name,
             attach, 
             project_name,
             workspace_name,
@@ -121,6 +121,7 @@ async fn handle_terminal_socket(
     workspace_id: String,
     shell: Option<String>,
     tmux_window: Option<u32>,
+    tmux_window_name: Option<String>,
     attach_requested: bool,
     project_name: Option<String>,
     workspace_name: Option<String>,
@@ -141,13 +142,14 @@ async fn handle_terminal_socket(
     let terminal_service = state.terminal_service.clone();
 
     // Create or attach to the terminal session
-    let (output_rx, history) = if attach_requested && tmux_window.is_some() {
+    let (output_rx, history) = if attach_requested && (tmux_window.is_some() || tmux_window_name.is_some()) {
         // Attach to existing tmux window
         match terminal_service
             .attach_session(
                 session_id.clone(),
                 workspace_id.clone(),
-                tmux_window.unwrap(),
+                tmux_window,
+                tmux_window_name,
                 None,
                 None,
                 project_name.clone(),

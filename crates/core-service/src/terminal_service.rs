@@ -159,6 +159,32 @@ impl TerminalService {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
 
+        // Check if session_id is already active in our service
+        // If so, just attach to it. This handles duplicate mount calls (e.g. React Strict Mode)
+        {
+            let sessions = self.sessions.lock().await;
+            if let Some(handle) = sessions.get(&session_id) {
+                info!("Session {} already active, reusing existing handle", session_id);
+                // We need more complex logic to get a new receiver if the old one is gone,
+                // but for now let's just use attach logic if we can.
+                // Actually, the simplest way is to call attach_session internally.
+                drop(sessions);
+                return match self.attach_session(
+                    session_id.clone(),
+                    workspace_id.clone(),
+                    None,
+                    window_name.clone(),
+                    Some(cols),
+                    Some(rows),
+                    project_name.clone(),
+                    workspace_name.clone(),
+                ).await {
+                    Ok((rx, _)) => Ok(rx),
+                    Err(e) => Err(anyhow!("Failed to attach to existing session {}: {}", session_id, e)),
+                };
+            }
+        }
+
         info!(
             "Creating terminal session: {} for workspace: {} ({}x{})",
             session_id, workspace_id, cols, rows
@@ -177,16 +203,33 @@ impl TerminalService {
         };
 
         // Create a new tmux window for this terminal pane
-        // Use provided window_name or generate one
-        let final_window_name = window_name.unwrap_or_else(|| {
-            // Auto-increment: use next available number
-            if let Ok(windows) = self.tmux_engine.list_windows(&tmux_session) {
-                format!("{}", windows.len() + 1)
+        // If a window_name is provided but already exists in tmux, increment it to find a unique name.
+        let existing_windows = self.tmux_engine.list_windows(&tmux_session)
+            .unwrap_or_default();
+        let existing_names: std::collections::HashSet<String> = existing_windows.iter().map(|w| w.name.clone()).collect();
+
+        let final_window_name = if let Some(name) = window_name {
+            if !existing_names.contains(&name) {
+                name
             } else {
-                format!("term_{}", &session_id[..8.min(session_id.len())])
+                // Name conflict! Find next available number
+                let mut num = 1;
+                while existing_names.contains(&num.to_string()) {
+                    num += 1;
+                }
+                num.to_string()
             }
-        });
+        } else {
+            // Auto-increment: use next available number
+            let mut num = existing_windows.len() + 1;
+            while existing_names.contains(&num.to_string()) {
+                num += 1;
+            }
+            num.to_string()
+        };
         
+        info!("Assigning tmux window: {} for session: {}", final_window_name, session_id);
+
         let window_index = self.tmux_engine
             .create_window(&tmux_session, &final_window_name)
             .map_err(|e| anyhow!("Failed to create tmux window: {}", e))?;
@@ -210,7 +253,8 @@ impl TerminalService {
         &self,
         session_id: String,
         workspace_id: String,
-        tmux_window_index: u32,
+        tmux_window_index: Option<u32>,
+        tmux_window_name: Option<String>,
         cols: Option<u16>,
         rows: Option<u16>,
         // Optional human-readable names for session lookup
@@ -227,28 +271,38 @@ impl TerminalService {
             self.tmux_engine.get_session_name(&workspace_id)
         };
 
+        // Determine the actual window index to attach to
+        let final_window_index = if let Some(idx) = tmux_window_index {
+            idx
+        } else if let Some(name) = tmux_window_name {
+            self.tmux_engine.find_window_index_by_name(&tmux_session, &name)?
+                .ok_or_else(|| anyhow!("Tmux window with name '{}' not found", name))?
+        } else {
+            return Err(anyhow!("Neither tmux window index nor name provided for attachment"));
+        };
+
         // Check if window exists
-        if !self.tmux_engine.window_exists(&tmux_session, tmux_window_index)
+        if !self.tmux_engine.window_exists(&tmux_session, final_window_index)
             .map_err(|e| anyhow!("Failed to check window: {}", e))? 
         {
-            return Err(anyhow!("Tmux window does not exist"));
+            return Err(anyhow!("Tmux window does not exist at index {}", final_window_index));
         }
 
         // Capture recent history before attaching (match tmux history-limit)
         let history = self.tmux_engine
-            .capture_pane(&tmux_session, tmux_window_index, Some(10000))
+            .capture_pane(&tmux_session, final_window_index, Some(10000))
             .ok();
 
         info!(
             "Attaching to existing tmux window: {}:{} for session {}",
-            tmux_session, tmux_window_index, session_id
+            tmux_session, final_window_index, session_id
         );
 
         let rx = self.attach_to_tmux_window(
             session_id,
             workspace_id,
             tmux_session,
-            tmux_window_index,
+            final_window_index,
             None, // Don't override shell for existing window
             cols,
             rows,
