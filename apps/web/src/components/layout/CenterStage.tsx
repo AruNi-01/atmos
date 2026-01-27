@@ -161,7 +161,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             setActiveFile(val, workspaceId || undefined);
           }
         }}
-        className="flex-1 flex flex-col gap-0"
+        className="flex-1 flex flex-col gap-0 min-h-0 overflow-hidden"
       >
         {/* Top Tab Bar */}
         <TabsList
@@ -233,7 +233,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 <span
                   className={cn(
                     "text-[13px] font-medium whitespace-nowrap",
-                    isDiff && "italic text-pretty"
+                    isDiff && "text-emerald-500"
                   )}
                 >
                   {file.name}

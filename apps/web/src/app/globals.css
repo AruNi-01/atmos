@@ -45,4 +45,8 @@
   *::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/40;
   }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
