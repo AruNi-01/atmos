@@ -153,10 +153,67 @@
 
 .atmos-terminal .xterm-viewport {
   background-color: transparent !important;
+  /* Hide native scrollbar - xterm uses custom overlay scrollbar */
+  overflow-y: hidden !important;
 }
 
 .atmos-terminal .xterm-screen {
   padding: 0 !important;
+}
+
+/* xterm.js Custom Scrollbar - Slim & Modern Design */
+/* Target the xterm.js overlay scrollbar */
+.atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div,
+.atmos-terminal .xterm-scrollbar,
+.atmos-terminal .xterm .scrollbar {
+  width: 6px !important;
+  right: 2px !important;
+  opacity: 0.6 !important;
+  transition: opacity 0.2s ease, width 0.2s ease !important;
+}
+
+.atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div:hover,
+.atmos-terminal .xterm-scrollbar:hover,
+.atmos-terminal .xterm .scrollbar:hover {
+  width: 8px !important;
+  opacity: 0.8 !important;
+}
+
+/* Style the scrollbar slider/thumb */
+.atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div > div,
+.atmos-terminal .xterm-scrollbar > div,
+.atmos-terminal .xterm .scrollbar.vertical > div.slider {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-radius: 9999px !important;
+  width: 100% !important;
+  transition: background 0.2s ease !important;
+}
+
+.atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div > div:hover,
+.atmos-terminal .xterm-scrollbar > div:hover,
+.atmos-terminal .xterm .scrollbar.vertical > div.slider:hover {
+  background: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Direct targeting of xterm's invisible scrollbar class */
+.atmos-terminal .xterm .invisible.scrollbar {
+  width: 6px !important;
+  right: 2px !important;
+  background: transparent !important;
+}
+
+.atmos-terminal .xterm .invisible.scrollbar.vertical {
+  width: 6px !important;
+}
+
+.atmos-terminal .xterm .invisible.scrollbar > div {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-radius: 9999px !important;
+  width: 6px !important;
+}
+
+.atmos-terminal .xterm .invisible.scrollbar > div:hover {
+  background: rgba(255, 255, 255, 0.4) !important;
 }
 
 /* Mosaic Toolbar Integration */
