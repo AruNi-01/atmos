@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   toastManager,
+  getFileIconProps,
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
@@ -69,6 +70,11 @@ const TerminalGrid = dynamic(
   }
 );
 
+// File icon component matching the file tree
+function FileIcon({ name, className }: { name: string; className?: string }) {
+  const iconProps = getFileIconProps({ name, isDir: false, className });
+  return <img {...iconProps} />;
+}
 
 interface CenterStageProps {
   logs: TerminalLine[];
@@ -223,12 +229,12 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               <TabsTab
                 key={file.path}
                 value={file.path}
-                className="h-full px-2.5 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 group grow-0 justify-start"
+                className="h-full pl-2 pr-1 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 justify-start"
               >
                 {isDiff ? (
                   <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
                 ) : (
-                  <Code className="size-3.5 shrink-0" />
+                  <FileIcon name={file.name} className="size-3.5 shrink-0" />
                 )}
                 <span
                   className={cn(
@@ -239,7 +245,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                   {file.name}
                 </span>
                 {/* Status Icons Slot (Dirty dot / Close button) */}
-                <div className="relative size-5 flex items-center justify-center shrink-0 ml-1">
+                <div className="relative size-4 flex items-center justify-center shrink-0 ml-0">
                   {/* Dirty indicator: Shown when dirty, hidden on hover so X check can take over */}
                   {file.isDirty && (
                     <Circle className="size-1.5 fill-current text-muted-foreground group-hover:hidden" />
