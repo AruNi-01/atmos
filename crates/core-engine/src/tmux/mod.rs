@@ -191,8 +191,16 @@ impl TmuxEngine {
         // and isolate from any local user preferences.
         self.run_tmux(&["set-option", "-g", "status", "off"])?;
         
-        // Also ensure mouse mode is enabled for a better web experience (scrolling/selection)
-        self.run_tmux(&["set-option", "-g", "mouse", "on"])?;
+        // Disable tmux mouse mode - let xterm.js handle all mouse events
+        // This enables unified scrolling where xterm.js scrollbar reflects actual scroll position
+        self.run_tmux(&["set-option", "-g", "mouse", "off"])?;
+        
+        // Disable alternate screen buffer to allow terminal's native scrollback
+        // This makes xterm.js scrollbar work properly while keeping tmux persistence
+        self.run_tmux(&["set-option", "-g", "terminal-overrides", "xterm*:smcup@:rmcup@"])?;
+        
+        // Set scrollback buffer in tmux
+        self.run_tmux(&["set-option", "-g", "history-limit", "10000"])?;
 
         info!("Created tmux session: {}", session_name);
         Ok(session_name)
@@ -203,10 +211,24 @@ impl TmuxEngine {
     pub fn create_window(&self, session_name: &str, window_name: &str) -> Result<u32> {
         // Ensure session exists
         if !self.session_exists(session_name)? {
-            return Err(EngineError::Tmux(format!(
-                "Session does not exist: {}",
-                session_name
-            )));
+            // Try to create the session if it doesn't exist
+            info!("Session {} does not exist, creating it first", session_name);
+            self.run_tmux(&[
+                "new-session",
+                "-d",
+                "-s",
+                session_name,
+                "-x",
+                "120",
+                "-y",
+                "30",
+            ])?;
+            
+            // Apply our standard configuration
+            let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
+            let _ = self.run_tmux(&["set-option", "-g", "mouse", "off"]);
+            let _ = self.run_tmux(&["set-option", "-g", "terminal-overrides", "xterm*:smcup@:rmcup@"]);
+            let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
         }
 
         // Create new window
@@ -221,9 +243,23 @@ impl TmuxEngine {
             "#{window_index}",
         ])?;
 
+        // Handle empty output
+        if output.is_empty() {
+            warn!("new-window returned empty output, trying to get window list");
+            // Try to get the latest window index from the session
+            let windows = self.list_windows(session_name)?;
+            if let Some(last_window) = windows.last() {
+                info!("Using last window index: {}", last_window.index);
+                return Ok(last_window.index);
+            }
+            return Err(EngineError::Tmux(
+                "Failed to create window: no window index returned and no windows found".to_string()
+            ));
+        }
+
         let index = output
             .parse::<u32>()
-            .map_err(|e| EngineError::Tmux(format!("Failed to parse window index: {}", e)))?;
+            .map_err(|e| EngineError::Tmux(format!("Failed to parse window index '{}': {}", output, e)))?;
 
         info!(
             "Created tmux window: {}:{} (index: {})",
@@ -397,8 +433,19 @@ impl TmuxEngine {
 
     /// Check if a session exists
     pub fn session_exists(&self, session_name: &str) -> Result<bool> {
-        let result = self.run_tmux(&["has-session", "-t", session_name]);
-        Ok(result.is_ok())
+        self.ensure_socket_dir()?;
+        
+        let output = Command::new("tmux")
+            .arg("-f")
+            .arg("/dev/null")
+            .arg("-S")
+            .arg(self.socket_arg())
+            .args(["has-session", "-t", session_name])
+            .output()
+            .map_err(|e| EngineError::Tmux(format!("Failed to execute tmux: {}", e)))?;
+
+        // has-session returns 0 if session exists, 1 otherwise
+        Ok(output.status.success())
     }
 
     /// Check if a window exists in a session

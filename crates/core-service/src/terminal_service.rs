@@ -206,9 +206,9 @@ impl TerminalService {
             return Err(anyhow!("Tmux window does not exist"));
         }
 
-        // Capture recent history before attaching
+        // Capture recent history before attaching (match tmux history-limit)
         let history = self.tmux_engine
-            .capture_pane(&tmux_session, tmux_window_index, Some(1000))
+            .capture_pane(&tmux_session, tmux_window_index, Some(10000))
             .ok();
 
         info!(

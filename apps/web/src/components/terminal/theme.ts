@@ -10,7 +10,6 @@ export const atmosDarkTheme: ITheme = {
   cursor: "#f8f8f8", // White cursor for dark theme
   cursorAccent: "#111827",
 
-
   // Selection
   selectionBackground: "#264f78",
   selectionForeground: "#ffffff",
@@ -35,6 +34,11 @@ export const atmosDarkTheme: ITheme = {
   brightMagenta: "#d2a8ff",
   brightCyan: "#56d4dd",
   brightWhite: "#f0f6fc",
+
+  // Scrollbar colors
+  scrollbarSliderBackground: "rgba(121, 121, 121, 0.4)",
+  scrollbarSliderHoverBackground: "rgba(121, 121, 121, 0.7)",
+  scrollbarSliderActiveBackground: "rgba(121, 121, 121, 0.9)",
 };
 
 export const atmosLightTheme: ITheme = {
@@ -68,6 +72,11 @@ export const atmosLightTheme: ITheme = {
   brightMagenta: "#a475f9",
   brightCyan: "#3192aa",
   brightWhite: "#8c959f",
+
+  // Scrollbar colors
+  scrollbarSliderBackground: "rgba(100, 100, 100, 0.3)",
+  scrollbarSliderHoverBackground: "rgba(100, 100, 100, 0.5)",
+  scrollbarSliderActiveBackground: "rgba(100, 100, 100, 0.7)",
 };
 
 // Terminal font configuration
@@ -92,9 +101,19 @@ export const defaultTerminalOptions = {
   fontSize: terminalFont.size,
   lineHeight: terminalFont.lineHeight,
   letterSpacing: terminalFont.letterSpacing,
+  // Scrollback buffer (matched with tmux history-limit)
   scrollback: 10000,
-  scrollSensitivity: 1,
+  scrollSensitivity: 3,
   smoothScrollDuration: 100,
+  // Scroll to bottom on user input
+  scrollOnUserInput: true,
   theme: atmosDarkTheme,
   minimumContrastRatio: 4.5,
+};
+
+// Scrollbar colors for dark theme (add to theme object)
+export const scrollbarColors = {
+  scrollbarSliderBackground: "rgba(121, 121, 121, 0.4)",
+  scrollbarSliderHoverBackground: "rgba(121, 121, 121, 0.6)",
+  scrollbarSliderActiveBackground: "rgba(121, 121, 121, 0.8)",
 };
