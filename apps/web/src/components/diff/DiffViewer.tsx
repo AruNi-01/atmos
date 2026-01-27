@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs';
 import { gitApi } from '@/api/ws-api';
-import { useGitStore } from '@/hooks/use-git-store';
 import { Loader2 } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 
@@ -13,7 +12,29 @@ interface DiffViewerProps {
   filePath: string;
 }
 
-export const DiffViewer: React.FC<DiffViewerProps> = ({ repoPath, filePath }) => {
+// Custom scrollbar CSS for Shadow DOM - matches project's global scrollbar style
+const SCROLLBAR_CSS = `
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.2);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(128, 128, 128, 0.4);
+  }
+  /* Hide scrollbar corner (the white square at bottom-right) */
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+`;
+
+export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [oldFile, setOldFile] = useState<FileContents | null>(null);
@@ -21,6 +42,7 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ repoPath, filePath }) =>
   const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
   const [disableBackground, setDisableBackground] = useState(false);
   const { resolvedTheme } = useTheme();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadDiff = async () => {
@@ -56,6 +78,16 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ repoPath, filePath }) =>
     loadDiff();
   }, [repoPath, filePath]);
 
+  // Memoize options to prevent unnecessary re-renders
+  const diffOptions = useMemo(() => ({
+    theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
+    diffStyle: diffStyle,
+    disableBackground: disableBackground,
+    disableFileHeader: true,
+    overflow: 'scroll' as const,
+    unsafeCSS: SCROLLBAR_CSS,
+  }), [resolvedTheme, diffStyle, disableBackground]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full bg-background">
@@ -84,9 +116,9 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ repoPath, filePath }) =>
   }
 
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden relative">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Custom Header Metadata */}
-      <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0 z-10">
+      <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0">
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-foreground">{filePath}</span>
         </div>
@@ -123,19 +155,24 @@ export const DiffViewer: React.FC<DiffViewerProps> = ({ repoPath, filePath }) =>
         </div>
       </div>
 
-      {/* Diff Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
-        <div className="min-w-fit min-h-full">
-          <MultiFileDiff
-            oldFile={oldFile}
-            newFile={newFile}
-            options={{
-              theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light',
-              diffStyle: diffStyle,
-              disableBackground: disableBackground,
-            }}
-          />
-        </div>
+      {/* Diff Content - MultiFileDiff handles its own scrolling */}
+      <div 
+        ref={containerRef}
+        className="diff-viewer-container flex-1 min-h-0 w-full overflow-scroll bg-background"
+        style={{ 
+          height: '100%',
+          scrollbarGutter: 'stable',
+        }}
+      >
+        <MultiFileDiff
+          oldFile={oldFile}
+          newFile={newFile}
+          options={diffOptions}
+          style={{
+            minHeight: '100%',
+            width: '100%',
+          }}
+        />
       </div>
     </div>
   );
