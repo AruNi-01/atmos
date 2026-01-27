@@ -168,11 +168,22 @@ impl TmuxEngine {
     /// Returns the session name
     pub fn create_session(&self, workspace_id: &str) -> Result<String> {
         let session_name = self.session_name(workspace_id);
-        
+        self.create_session_internal(&session_name)
+    }
+
+    /// Create a new tmux session with human-readable names
+    /// Format: {project_name}_{workspace_name}
+    pub fn create_session_with_names(&self, project_name: &str, workspace_name: &str) -> Result<String> {
+        let session_name = self.session_name_from_names(project_name, workspace_name);
+        self.create_session_internal(&session_name)
+    }
+
+    /// Internal function to create tmux session
+    fn create_session_internal(&self, session_name: &str) -> Result<String> {
         // Check if session already exists
-        if self.session_exists(&session_name)? {
+        if self.session_exists(session_name)? {
             info!("Tmux session already exists: {}", session_name);
-            return Ok(session_name);
+            return Ok(session_name.to_string());
         }
 
         // Create new detached session
@@ -180,7 +191,7 @@ impl TmuxEngine {
             "new-session",
             "-d",
             "-s",
-            &session_name,
+            session_name,
             "-x",
             "120",
             "-y",
@@ -203,7 +214,7 @@ impl TmuxEngine {
         self.run_tmux(&["set-option", "-g", "history-limit", "10000"])?;
 
         info!("Created tmux session: {}", session_name);
-        Ok(session_name)
+        Ok(session_name.to_string())
     }
 
     /// Create a new window in a session
@@ -454,10 +465,28 @@ impl TmuxEngine {
         Ok(windows.iter().any(|w| w.index == window_index))
     }
 
-    /// Generate session name from workspace ID
-    /// Format: atmos_{workspace_id}
+    /// Generate session name from workspace ID or names
+    /// Format: {project_name}_{workspace_name} if names provided, otherwise atmos_{workspace_id}
     fn session_name(&self, workspace_id: &str) -> String {
+        // Default format using workspace_id
         format!("atmos_{}", workspace_id.replace('-', "_"))
+    }
+
+    /// Generate session name from project and workspace names
+    /// Format: {project_name}_{workspace_name} (sanitized for tmux)
+    pub fn session_name_from_names(&self, project_name: &str, workspace_name: &str) -> String {
+        let sanitize = |s: &str| -> String {
+            s.chars()
+                .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+                .collect::<String>()
+                .trim_matches('_')
+                .to_string()
+        };
+        
+        let project = sanitize(project_name);
+        let workspace = sanitize(workspace_name);
+        
+        format!("{}_{}", project, workspace)
     }
 
     /// Parse workspace ID from session name
@@ -509,6 +538,11 @@ impl TmuxEngine {
     /// Get the session name for a workspace
     pub fn get_session_name(&self, workspace_id: &str) -> String {
         self.session_name(workspace_id)
+    }
+
+    /// Get the session name from project and workspace names
+    pub fn get_session_name_from_names(&self, project_name: &str, workspace_name: &str) -> String {
+        self.session_name_from_names(project_name, workspace_name)
     }
 }
 

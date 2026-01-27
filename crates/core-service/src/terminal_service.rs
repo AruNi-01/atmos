@@ -151,6 +151,10 @@ impl TerminalService {
         shell: Option<String>,
         cols: Option<u16>,
         rows: Option<u16>,
+        // Optional human-readable names for clean tmux naming
+        project_name: Option<String>,
+        workspace_name: Option<String>,
+        window_name: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
@@ -161,14 +165,30 @@ impl TerminalService {
         );
 
         // Create or get tmux session for this workspace
-        let tmux_session = self.tmux_engine
-            .create_session(&workspace_id)
-            .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?;
+        // Use human-readable names if provided, otherwise fall back to workspace_id
+        let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
+            self.tmux_engine
+                .create_session_with_names(proj, ws)
+                .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?
+        } else {
+            self.tmux_engine
+                .create_session(&workspace_id)
+                .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?
+        };
 
         // Create a new tmux window for this terminal pane
-        let window_name = format!("term_{}", &session_id[..8.min(session_id.len())]);
+        // Use provided window_name or generate one
+        let final_window_name = window_name.unwrap_or_else(|| {
+            // Auto-increment: use next available number
+            if let Ok(windows) = self.tmux_engine.list_windows(&tmux_session) {
+                format!("{}", windows.len() + 1)
+            } else {
+                format!("term_{}", &session_id[..8.min(session_id.len())])
+            }
+        });
+        
         let window_index = self.tmux_engine
-            .create_window(&tmux_session, &window_name)
+            .create_window(&tmux_session, &final_window_name)
             .map_err(|e| anyhow!("Failed to create tmux window: {}", e))?;
 
         // Now attach to this tmux window via PTY
@@ -193,11 +213,19 @@ impl TerminalService {
         tmux_window_index: u32,
         cols: Option<u16>,
         rows: Option<u16>,
+        // Optional human-readable names for session lookup
+        project_name: Option<String>,
+        workspace_name: Option<String>,
     ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<String>)> {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
 
-        let tmux_session = self.tmux_engine.get_session_name(&workspace_id);
+        // Use human-readable session name if provided, otherwise fall back to workspace_id
+        let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
+            self.tmux_engine.get_session_name_from_names(proj, ws)
+        } else {
+            self.tmux_engine.get_session_name(&workspace_id)
+        };
 
         // Check if window exists
         if !self.tmux_engine.window_exists(&tmux_session, tmux_window_index)

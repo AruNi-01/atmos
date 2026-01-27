@@ -30,7 +30,7 @@ impl DbConnection {
 
     fn get_db_path() -> Result<PathBuf> {
         let home = dirs::home_dir().ok_or(InfraError::HomeDirNotFound)?;
-        Ok(home.join(".atmos").join("db").join("test.db"))
+        Ok(home.join(".atmos").join("db").join("atmos.db"))
     }
 
     pub fn connection(&self) -> &DatabaseConnection {
