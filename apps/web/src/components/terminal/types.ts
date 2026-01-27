@@ -30,6 +30,12 @@ export interface TerminalProps {
   className?: string;
   /** tmux window name for reconnection (if set, will try to attach to existing window) */
   tmuxWindowName?: string;
+  /** Project name for human-readable tmux session naming */
+  projectName?: string;
+  /** Workspace name for human-readable tmux session naming */
+  workspaceName?: string;
+  /** Terminal/window name (e.g., "Claude", "Codex", or auto-incremented number) */
+  terminalName?: string;
   onSessionReady?: (sessionId: string) => void;
   onSessionClose?: (sessionId: string) => void;
   onSessionError?: (sessionId: string, error: string) => void;
@@ -43,6 +49,10 @@ export interface TerminalPaneProps {
   sessionId: string;
   workspaceId: string;
   tmuxWindowName?: string;
+  /** Project name for human-readable tmux session naming */
+  projectName?: string;
+  /** Workspace name for human-readable tmux session naming */
+  workspaceName?: string;
 }
 
 export interface TerminalMosaicState {

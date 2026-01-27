@@ -33,6 +33,9 @@ const Terminal = ({
   workspaceId,
   className,
   tmuxWindowName,
+  projectName,
+  workspaceName,
+  terminalName,
   onSessionReady,
   onSessionClose,
   onSessionError,
@@ -56,6 +59,15 @@ const Terminal = ({
   });
   if (tmuxWindowName) {
     wsParams.set("tmux_window_name", tmuxWindowName);
+  }
+  if (projectName) {
+    wsParams.set("project_name", projectName);
+  }
+  if (workspaceName) {
+    wsParams.set("workspace_name", workspaceName);
+  }
+  if (terminalName) {
+    wsParams.set("terminal_name", terminalName);
   }
   const wsUrl = `${baseWsUrl}?${wsParams.toString()}`;
 

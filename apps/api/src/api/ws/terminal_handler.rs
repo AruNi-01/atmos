@@ -30,10 +30,18 @@ use crate::app_state::AppState;
 pub struct TerminalWsQuery {
     pub workspace_id: Option<String>,
     pub shell: Option<String>,
-    /// Optional: tmux window index for reconnection
+    /// Optional: tmux window index for reconnection (numeric)
     pub tmux_window: Option<u32>,
+    /// Optional: tmux window name for reconnection (string, will be parsed to u32)
+    pub tmux_window_name: Option<String>,
     /// If true, attach to existing session instead of creating new
     pub attach: Option<bool>,
+    /// Optional: project name for human-readable session naming
+    pub project_name: Option<String>,
+    /// Optional: workspace name for human-readable session naming
+    pub workspace_name: Option<String>,
+    /// Optional: terminal/window name (e.g., "Claude", "Codex", or auto-incremented number)
+    pub terminal_name: Option<String>,
 }
 
 /// Terminal message from client
@@ -71,8 +79,19 @@ pub async fn terminal_ws_handler(
         .clone()
         .unwrap_or_else(|| "default".to_string());
     let shell = query.shell.clone();
-    let tmux_window = query.tmux_window;
-    let attach = query.attach.unwrap_or(false);
+    
+    // Parse tmux_window: prefer tmux_window, then try to parse tmux_window_name
+    let tmux_window = query.tmux_window.or_else(|| {
+        query.tmux_window_name.as_ref().and_then(|name| name.parse::<u32>().ok())
+    });
+    
+    // Auto-enable attach if tmux_window is provided
+    let attach = query.attach.unwrap_or(false) || tmux_window.is_some();
+    
+    // Extract naming parameters for human-readable tmux naming
+    let project_name = query.project_name.clone();
+    let workspace_name = query.workspace_name.clone();
+    let terminal_name = query.terminal_name.clone();
 
     info!(
         "Terminal WebSocket upgrade request for session: {} (workspace: {}, attach: {}, tmux_window: {:?})",
@@ -80,7 +99,18 @@ pub async fn terminal_ws_handler(
     );
 
     ws.on_upgrade(move |socket| {
-        handle_terminal_socket(socket, session_id, workspace_id, shell, tmux_window, attach, state)
+        handle_terminal_socket(
+            socket, 
+            session_id, 
+            workspace_id, 
+            shell, 
+            tmux_window, 
+            attach, 
+            project_name,
+            workspace_name,
+            terminal_name,
+            state,
+        )
     })
 }
 
@@ -92,6 +122,9 @@ async fn handle_terminal_socket(
     shell: Option<String>,
     tmux_window: Option<u32>,
     attach_requested: bool,
+    project_name: Option<String>,
+    workspace_name: Option<String>,
+    terminal_name: Option<String>,
     state: AppState,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
@@ -117,6 +150,8 @@ async fn handle_terminal_socket(
                 tmux_window.unwrap(),
                 None,
                 None,
+                project_name.clone(),
+                workspace_name.clone(),
             )
             .await
         {
@@ -134,6 +169,9 @@ async fn handle_terminal_socket(
                         shell.clone(),
                         None,
                         None,
+                        project_name.clone(),
+                        workspace_name.clone(),
+                        terminal_name.clone(),
                     )
                     .await
                 {
@@ -167,6 +205,9 @@ async fn handle_terminal_socket(
                 shell,
                 None,
                 None,
+                project_name,
+                workspace_name,
+                terminal_name,
             )
             .await
         {

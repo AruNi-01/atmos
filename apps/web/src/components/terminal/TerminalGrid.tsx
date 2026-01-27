@@ -55,9 +55,22 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   } = useTerminalStore();
 
   const { projects, isLoading: isProjectsLoading } = useProjectStore();
-  const workspaceExists = React.useMemo(() => {
-    return projects.some(p => p.workspaces.some(w => w.id === workspaceId));
+
+  // Look up project and workspace info for human-readable naming
+  const workspaceInfo = React.useMemo(() => {
+    for (const project of projects) {
+      const workspace = project.workspaces.find(w => w.id === workspaceId);
+      if (workspace) {
+        return {
+          projectName: project.name,
+          workspaceName: workspace.name,
+        };
+      }
+    }
+    return null;
   }, [projects, workspaceId]);
+
+  const workspaceExists = !!workspaceInfo;
 
   useEffect(() => {
     setIsMounted(true);
@@ -156,11 +169,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             sessionId={pane.sessionId}
             workspaceId={pane.workspaceId}
             tmuxWindowName={pane.tmuxWindowName}
+            projectName={workspaceInfo?.projectName}
+            workspaceName={workspaceInfo?.workspaceName}
           />
         </div>
       </MosaicWindow>
     );
-  }, [panes, splitTerminal, removeTerminal]);
+  }, [panes, splitTerminal, removeTerminal, workspaceInfo]);
 
   if (!isMounted || isProjectsLoading || !workspaceExists) {
     return (
