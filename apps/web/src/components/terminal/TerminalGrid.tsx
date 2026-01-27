@@ -1,5 +1,9 @@
 "use client";
 
+// Suppress React 19 ref warnings from react-mosaic-component
+// This must be imported before react-mosaic-component
+import "@/lib/suppress-react19-ref-warning";
+
 import React, { useCallback, useEffect } from "react";
 import {
   Mosaic,
@@ -14,6 +18,10 @@ import {
   Terminal as TerminalIcon,
   Loader2,
   Plus,
+  Folder,
+  ChevronDown,
+  Maximize2,
+  Bot,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -35,7 +43,7 @@ export interface TerminalGridHandle {
 
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className }, ref) => {
   const [isMounted, setIsMounted] = React.useState(false);
-  
+
   const {
     getPanes,
     getLayout,
@@ -91,39 +99,57 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       <MosaicWindow<string>
         path={path}
         title={pane.title}
-        renderToolbar={() => (
-          <div className="terminal-mosaic-toolbar">
-            <div className="terminal-mosaic-toolbar-left">
-              <TerminalIcon size={12} className="text-muted-foreground" />
-              <span className="terminal-mosaic-title">
-                {pane.title}
-              </span>
+        renderToolbar={() => {
+          const isClaude = pane.title.toLowerCase().includes("claude");
+          const statusColor = isClaude ? "bg-yellow-500" : "bg-emerald-500";
+
+          return (
+            <div className="terminal-mosaic-toolbar group/toolbar">
+              <div className="terminal-mosaic-toolbar-left">
+                {/* Status Dot */}
+                <div className={cn("size-2 rounded-full", statusColor)} />
+
+                {/* Title */}
+                <span className="terminal-mosaic-title flex items-center gap-1.5 ml-1">
+                  {pane.title}
+                </span>
+              </div>
+
+              <div className="terminal-mosaic-toolbar-right">
+
+                <div className="flex items-center gap-0.5 opacity-0 group-hover/toolbar:opacity-100 transition-opacity">
+                  <button
+                    className="terminal-mosaic-btn"
+                    onClick={() => splitTerminal(id, "row")}
+                    title="Split Horizontal"
+                  >
+                    <Columns size={12} />
+                  </button>
+                  <button
+                    className="terminal-mosaic-btn"
+                    onClick={() => splitTerminal(id, "column")}
+                    title="Split Vertical"
+                  >
+                    <Rows size={12} />
+                  </button>
+                  <button
+                    className="terminal-mosaic-btn"
+                    title="Maximize"
+                  >
+                    <Maximize2 size={11} />
+                  </button>
+                  <button
+                    className="terminal-mosaic-btn terminal-mosaic-btn-close ml-1"
+                    onClick={() => removeTerminal(id)}
+                    title="Close"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="terminal-mosaic-toolbar-right">
-              <button
-                className="terminal-mosaic-btn"
-                onClick={() => splitTerminal(id, "row")}
-                title="Split Horizontal"
-              >
-                <Columns size={12} />
-              </button>
-              <button
-                className="terminal-mosaic-btn"
-                onClick={() => splitTerminal(id, "column")}
-                title="Split Vertical"
-              >
-                <Rows size={12} />
-              </button>
-              <button
-                className="terminal-mosaic-btn terminal-mosaic-btn-close"
-                onClick={() => removeTerminal(id)}
-                title="Close"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          </div>
-        )}
+          );
+        }}
       >
         <div className="terminal-mosaic-content">
           <Terminal
@@ -179,7 +205,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         renderTile={renderTile}
         value={layout}
         onChange={onChange}
-        className="mosaic-blueprint-theme" // We can use a custom theme or blueprint
+        className="atmos-mosaic-theme"
       />
     </div>
   );

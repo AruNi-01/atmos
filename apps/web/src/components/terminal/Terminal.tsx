@@ -224,9 +224,8 @@ const Terminal = ({
       style={{
         width: "100%",
         height: "100%",
-        paddingLeft: "2px",
-        paddingTop: "2px",
-        backgroundColor: currentTheme.background,
+        padding: "0", /* Removed padding to allow terminal to fill container */
+        backgroundColor: "transparent",
         position: "relative",
       }}
     >
@@ -241,16 +240,16 @@ const Terminal = ({
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: isDark ? "#09090b" : "#ffffff",
+            backgroundColor: "var(--background)",
             gap: "12px",
           }}
         >
-          <Loader2 
-            size={24} 
+          <Loader2
+            size={24}
             className="animate-spin"
-            style={{ 
+            style={{
               color: isDark ? "#71717a" : "#a1a1aa",
-            }} 
+            }}
           />
           <span
             style={{

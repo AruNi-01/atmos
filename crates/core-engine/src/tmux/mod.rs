@@ -107,6 +107,8 @@ impl TmuxEngine {
         self.ensure_socket_dir()?;
         
         let output = Command::new("tmux")
+            .arg("-f")
+            .arg("/dev/null") // Isolate from local ~/.tmux.conf
             .arg("-S")
             .arg(self.socket_arg())
             .args(args)
@@ -184,6 +186,13 @@ impl TmuxEngine {
             "-y",
             "30",
         ])?;
+
+        // Disable status bar globally for this Atmos tmux server to ensure a clean UI
+        // and isolate from any local user preferences.
+        self.run_tmux(&["set-option", "-g", "status", "off"])?;
+        
+        // Also ensure mouse mode is enabled for a better web experience (scrolling/selection)
+        self.run_tmux(&["set-option", "-g", "mouse", "on"])?;
 
         info!("Created tmux session: {}", session_name);
         Ok(session_name)
