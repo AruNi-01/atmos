@@ -80,9 +80,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _heartbeat_task = app_state.ws_service.start_heartbeat();
     info!("WebSocket service started with heartbeat (timeout: 30s)");
 
+    let cors = tower_http::cors::CorsLayer::new()
+        .allow_origin(tower_http::cors::Any)
+        .allow_methods(tower_http::cors::Any)
+        .allow_headers(tower_http::cors::Any);
+
     let app = api::routes()
         .with_state(app_state)
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+        .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
     info!("Server listening on http://0.0.0.0:8080");
