@@ -225,8 +225,19 @@
 .atmos-mosaic-theme .mosaic-window-toolbar {
   height: 34px !important;
   display: flex !important;
-  background: var(--muted) !important;
-  opacity: 0.6; /* Subtly visible */
+  background: var(--background) !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.atmos-mosaic-theme .mosaic-window-toolbar.draggable {
+  border: none !important;
+}
+
+.atmos-mosaic-theme .mosaic-window .mosaic-window-toolbar,
+.atmos-mosaic-theme .mosaic-window .mosaic-window-toolbar.draggable,
+.atmos-mosaic-theme .mosaic-preview .mosaic-window-toolbar {
   border: none !important;
   box-shadow: none !important;
 }
