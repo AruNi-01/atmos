@@ -751,7 +751,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     return (
         <>
-            <aside className="w-full flex flex-col border-r border-sidebar-border h-full select-none">
+            <aside className="w-full flex flex-col h-full select-none">
                 <Tabs
                     defaultValue="projects"
                     className="flex flex-col h-full"
@@ -778,7 +778,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                     </div>
 
                     {/* Tab Panels */}
-                    <TabsPanel value="projects" className="flex-1 overflow-y-auto no-scrollbar py-3">
+                    <TabsPanel value="projects" className="flex-1 overflow-y-auto no-scrollbar pt-1.5 pb-3">
                         <DndContext
                             sensors={sensors}
                             collisionDetection={closestCenter}
@@ -851,7 +851,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                     <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
                         {/* Files Header */}
                         {currentProject && (
-                            <div className="flex items-center justify-between px-3 py-2 border-b border-sidebar-border">
+                            <div className="flex items-center justify-between px-3 py-1.5 border-b border-sidebar-border">
                                 <span className="text-[12px] font-medium text-muted-foreground truncate">
                                     {currentProject.name}
                                 </span>
@@ -886,7 +886,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                         )}
 
                         {/* File Tree Content */}
-                        <div className="flex-1 overflow-y-auto py-2">
+                        <div className="flex-1 overflow-y-auto pt-1.5">
                             {!currentProject ? (
                                 <div className="px-4 py-8 text-center">
                                     <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
