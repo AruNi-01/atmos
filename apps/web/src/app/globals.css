@@ -29,6 +29,13 @@
 /* Add your custom styles here */
 
 @layer base {
+  html,
+  body {
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+  }
+
   *::-webkit-scrollbar {
     width: 6px;
     height: 6px;
