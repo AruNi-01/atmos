@@ -315,6 +315,7 @@ const Terminal = ({
           width: "100%",
           height: "100%",
           opacity: status === "connecting" ? 0 : 1,
+          backgroundColor: currentTheme.background,
         }}
         data-session-id={sessionId}
         data-workspace-id={workspaceId}

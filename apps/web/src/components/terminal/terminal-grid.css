@@ -17,9 +17,9 @@
 .atmos-mosaic-theme .mosaic-window {
   border: 1px solid var(--border) !important;
   box-shadow: none !important;
-  background: transparent !important;
-  border-radius: 8px; /* sm-ish rounded */
-  overflow: hidden;
+  background: var(--background) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
 }
 
 .atmos-mosaic-theme .mosaic-tile {
@@ -61,8 +61,9 @@
 
 /* Window Content */
 .atmos-mosaic-theme .mosaic-window-body {
-  background: transparent !important;
+  background: var(--background) !important;
   color: var(--foreground);
+  border: none !important; /* Content is contained by parent window */
 }
 
 /* Custom Toolbar */
@@ -142,9 +143,11 @@
 }
 
 .atmos-terminal {
-  padding: 0 !important;
+  padding: 8px 4px 8px 12px !important;
   width: 100% !important;
   height: 100% !important;
+  border-radius: 0 0 8px 8px; /* Internal content rounding matches container */
+  overflow: hidden;
 }
 
 .atmos-terminal .xterm {
@@ -183,16 +186,17 @@
 .atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div > div,
 .atmos-terminal .xterm-scrollbar > div,
 .atmos-terminal .xterm .scrollbar.vertical > div.slider {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: var(--muted-foreground) !important;
+  opacity: 0.3 !important;
   border-radius: 9999px !important;
   width: 100% !important;
-  transition: background 0.2s ease !important;
+  transition: all 0.2s ease !important;
 }
 
 .atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div > div:hover,
 .atmos-terminal .xterm-scrollbar > div:hover,
 .atmos-terminal .xterm .scrollbar.vertical > div.slider:hover {
-  background: rgba(255, 255, 255, 0.4) !important;
+  opacity: 0.5 !important;
 }
 
 /* Direct targeting of xterm's invisible scrollbar class */
@@ -207,21 +211,23 @@
 }
 
 .atmos-terminal .xterm .invisible.scrollbar > div {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: var(--muted-foreground) !important;
+  opacity: 0.3 !important;
   border-radius: 9999px !important;
   width: 6px !important;
 }
 
 .atmos-terminal .xterm .invisible.scrollbar > div:hover {
-  background: rgba(255, 255, 255, 0.4) !important;
+  opacity: 0.5 !important;
 }
 
 /* Mosaic Toolbar Integration */
 .atmos-mosaic-theme .mosaic-window-toolbar {
   height: 34px !important;
   display: flex !important;
-  background: rgba(255, 255, 255, 0.02) !important;
-  border-bottom: 1px solid var(--border) !important;
+  background: var(--muted) !important;
+  opacity: 0.6; /* Subtly visible */
+  border: none !important;
   box-shadow: none !important;
 }
 
