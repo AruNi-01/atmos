@@ -186,12 +186,14 @@ impl TmuxEngine {
             return Ok(session_name.to_string());
         }
 
-        // Create new detached session
+        // Create new detached session with the first window named "1"
         self.run_tmux(&[
             "new-session",
             "-d",
             "-s",
             session_name,
+            "-n",
+            "1",
             "-x",
             "120",
             "-y",
@@ -212,9 +214,41 @@ impl TmuxEngine {
         
         // Set scrollback buffer in tmux
         self.run_tmux(&["set-option", "-g", "history-limit", "10000"])?;
+        
+        // Prevent shell from renaming windows (critical for window name-based lookup)
+        self.run_tmux(&["set-option", "-g", "allow-rename", "off"])?;
+        self.run_tmux(&["set-option", "-g", "automatic-rename", "off"])?;
 
-        info!("Created tmux session: {}", session_name);
+
+        info!("Created tmux session: {} (with window '1')", session_name);
         Ok(session_name.to_string())
+    }
+
+    /// Create a grouped session that shares windows with a target session
+    /// but has its own independent view (active window).
+    pub fn create_grouped_session(&self, target_session: &str, new_session: &str) -> Result<()> {
+        if self.session_exists(new_session)? {
+            return Ok(());
+        }
+
+        self.run_tmux(&[
+            "new-session",
+            "-d",
+            "-t",
+            target_session,
+            "-s",
+            new_session,
+        ])?;
+
+        debug!("Created grouped tmux session '{}' linked to '{}'", new_session, target_session);
+        Ok(())
+    }
+
+    /// Select a specific window in a session
+    pub fn select_window(&self, session_name: &str, window_index: u32) -> Result<()> {
+        let target = format!("{}:{}", session_name, window_index);
+        self.run_tmux(&["select-window", "-t", &target])?;
+        Ok(())
     }
 
     /// Create a new window in a session
@@ -240,6 +274,9 @@ impl TmuxEngine {
             let _ = self.run_tmux(&["set-option", "-g", "mouse", "off"]);
             let _ = self.run_tmux(&["set-option", "-g", "terminal-overrides", "xterm*:smcup@:rmcup@"]);
             let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
+            // Prevent shell from renaming windows (critical for window name-based lookup)
+            let _ = self.run_tmux(&["set-option", "-g", "allow-rename", "off"]);
+            let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);
         }
 
         // Create new window
@@ -468,12 +505,18 @@ impl TmuxEngine {
     /// Generate session name from workspace ID or names
     /// Format: {project_name}_{workspace_name} if names provided, otherwise atmos_{workspace_id}
     fn session_name(&self, workspace_id: &str) -> String {
-        // Default format using workspace_id
-        workspace_id.replace('-', "_")
+        // Ensure consistent atmos_ prefix
+        let sanitized_id = workspace_id.replace('-', "_");
+        if sanitized_id.starts_with("atmos_") {
+            sanitized_id
+        } else {
+            format!("atmos_{}", sanitized_id)
+        }
     }
 
     /// Generate session name from project and workspace names
-    /// Format: {project_name}_{workspace_name} (sanitized for tmux)
+    /// Format: atmos_{project_name}_{workspace_name} (sanitized for tmux)
+    /// Avoids duplicating project name if it's already part of workspace name.
     pub fn session_name_from_names(&self, project_name: &str, workspace_name: &str) -> String {
         let sanitize = |s: &str| -> String {
             s.chars()
@@ -486,13 +529,35 @@ impl TmuxEngine {
         let project = sanitize(project_name);
         let workspace = sanitize(workspace_name);
         
-        format!("{}_{}", project, workspace)
+        // Determine the body of the session name
+        let body = if workspace.starts_with(&project) && 
+                      (workspace.len() == project.len() || workspace.as_bytes()[project.len()] == b'_') {
+            // Workspace already starts with project name, use it as is
+            workspace
+        } else {
+            // Concatenate project and workspace
+            format!("{}_{}", project, workspace)
+        };
+
+        // Add atmos_ prefix if not already present
+        if body.starts_with("atmos") && (body.len() == 5 || body.as_bytes()[5] == b'_') {
+            body
+        } else {
+            format!("atmos_{}", body)
+        }
     }
 
     /// Parse workspace ID from session name
     pub fn parse_workspace_id(&self, session_name: &str) -> Option<String> {
+        // Strip atmos_ prefix if present
+        let body = if let Some(stripped) = session_name.strip_prefix("atmos_") {
+            stripped
+        } else {
+            return None;
+        };
+
         // Restore hyphens if any (tmux session names use underscores)
-        Some(session_name.replace('_', "-"))
+        Some(body.replace('_', "-"))
     }
 
     /// Find a window index by its name in a session
@@ -558,9 +623,34 @@ mod tests {
     #[test]
     fn test_session_name_generation() {
         let engine = TmuxEngine::new();
+        // Standard ID based session
         assert_eq!(
             engine.session_name("abc-def-123"),
             "atmos_abc_def_123"
+        );
+        
+        // Name based sessions - with prefix
+        assert_eq!(
+            engine.session_name_from_names("myproj", "myws"),
+            "atmos_myproj_myws"
+        );
+
+        // Name based sessions - avoiding duplication
+        assert_eq!(
+            engine.session_name_from_names("kepano-obsidian", "kepano-obsidian/exeggutor"),
+            "atmos_kepano-obsidian_exeggutor"
+        );
+
+        // Name based sessions - atmos project special case
+        assert_eq!(
+            engine.session_name_from_names("atmos", "atmos/logysk"),
+            "atmos_logysk"
+        );
+        
+        // Name based sessions - atoms prefix already present in user input
+        assert_eq!(
+            engine.session_name_from_names("atmos", "other"),
+            "atmos_other"
         );
     }
 

@@ -49,6 +49,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     getLayout,
     setLayout,
     initWorkspace,
+    isWorkspaceReady,
     addTerminal: addTerminalToStore,
     removeTerminal: removeTerminalFromStore,
     splitTerminal: splitTerminalInStore
@@ -84,6 +85,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   const panes = getPanes(workspaceId);
   const layout = getLayout(workspaceId);
+  const workspaceReady = isWorkspaceReady(workspaceId);
   const hasPanes = Object.keys(panes).length > 0;
 
   React.useImperativeHandle(ref, () => ({
@@ -177,7 +179,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     );
   }, [panes, splitTerminal, removeTerminal, workspaceInfo]);
 
-  if (!isMounted || isProjectsLoading || !workspaceExists) {
+  // Wait for workspace to be ready before rendering any Terminal components
+  // This prevents duplicate tmux window creation during initialization
+  if (!isMounted || isProjectsLoading || !workspaceExists || !workspaceReady) {
     return (
       <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
         <div className="flex flex-col items-center gap-3">

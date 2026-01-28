@@ -13,6 +13,8 @@ interface TerminalStore {
   workspaceLayouts: Record<string, MosaicNode<string> | null>;
   /** Track which workspaces have been loaded from backend */
   loadedWorkspaces: Set<string>;
+  /** Track which workspaces are currently being initialized (loading from backend) */
+  initializingWorkspaces: Set<string>;
   /** Track pending save operations */
   saveTimeouts: Record<string, NodeJS.Timeout>;
   /** Track if store is hydrated (client-side only) */
@@ -23,6 +25,8 @@ interface TerminalStore {
   // Actions
   getPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
   getLayout: (workspaceId: string) => MosaicNode<string> | null;
+  /** Check if workspace has been fully loaded and is ready for rendering */
+  isWorkspaceReady: (workspaceId: string) => boolean;
   setLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
   addTerminal: (workspaceId: string, title?: string) => void;
   removeTerminal: (workspaceId: string, id: string) => void;
@@ -79,6 +83,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   workspacePanes: {},
   workspaceLayouts: {},
   loadedWorkspaces: new Set(),
+  initializingWorkspaces: new Set(),
   saveTimeouts: {},
   isHydrated: false,
   tmuxWindowsCache: {},
@@ -91,6 +96,12 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   getLayout: (workspaceId) => {
     const state = get();
     return state.workspaceLayouts[workspaceId] || null;
+  },
+
+  isWorkspaceReady: (workspaceId) => {
+    const state = get();
+    // Workspace is ready if it has been loaded and is not currently initializing
+    return state.loadedWorkspaces.has(workspaceId) && !state.initializingWorkspaces.has(workspaceId);
   },
 
   setLayout: (workspaceId, layout) => {
@@ -133,26 +144,18 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   initWorkspace: (workspaceId) => {
     const state = get();
     
-    // Skip if already initialized
-    if (state.workspaceLayouts[workspaceId]) {
+    // Skip if already loaded or currently initializing (prevents React Strict Mode double-mount issues)
+    if (state.loadedWorkspaces.has(workspaceId) || state.initializingWorkspaces.has(workspaceId)) {
       return;
     }
     
-    // Create initial layout on client side only
-    const { panes, layout } = createInitialLayout(workspaceId);
+    // Mark as initializing to prevent duplicate calls
     set((state) => ({
-      workspacePanes: {
-        ...state.workspacePanes,
-        [workspaceId]: panes,
-      },
-      workspaceLayouts: {
-        ...state.workspaceLayouts,
-        [workspaceId]: layout,
-      },
-      isHydrated: true,
+      initializingWorkspaces: new Set([...state.initializingWorkspaces, workspaceId]),
     }));
     
-    // Try to load from backend (will replace initial panes if found)
+    // Load from backend first, then create initial layout if nothing found
+    // This prevents creating duplicate panes during async loading
     get().loadFromBackend(workspaceId);
   },
 
@@ -317,6 +320,12 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     
     // Skip if already loaded
     if (state.loadedWorkspaces.has(workspaceId)) {
+      // Remove from initializing if present
+      if (state.initializingWorkspaces.has(workspaceId)) {
+        set((state) => ({
+          initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
+        }));
+      }
       return;
     }
 
@@ -343,11 +352,13 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
            const possiblePanes = data;
            if (Object.values(possiblePanes)[0]?.hasOwnProperty('grid')) {
               console.debug('Old grid layout detected, resetting to initial Mosaic layout');
-              return; // Let initWorkspace handle it or use initial
+              // Fall through to create initial layout below
+              panes = {};
+              layout = null;
            }
         }
         
-        if (panes && layout) {
+        if (panes && layout && Object.keys(panes).length > 0) {
           // Validate and migrate panes
           const validatedPanes: Record<string, TerminalPaneProps> = {};
           for (const [id, pane] of Object.entries(panes)) {
@@ -377,6 +388,8 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
               [workspaceId]: layout,
             },
             loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
+            initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
+            isHydrated: true,
           }));
           return;
         }
@@ -385,8 +398,21 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       console.debug('Failed to load terminal layout from backend:', error);
     }
 
+    // No saved layout found, create initial layout
+    const { panes: initialPanes, layout: initialLayout } = createInitialLayout(workspaceId);
+    
     set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [workspaceId]: initialPanes,
+      },
+      workspaceLayouts: {
+        ...state.workspaceLayouts,
+        [workspaceId]: initialLayout,
+      },
       loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
+      initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
+      isHydrated: true,
     }));
   },
 

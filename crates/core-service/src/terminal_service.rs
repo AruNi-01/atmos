@@ -33,6 +33,7 @@ struct SessionHandle {
     workspace_id: String,
     tmux_session: String,
     tmux_window_index: u32,
+    client_session: String,
 }
 
 /// Message types for terminal communication
@@ -98,6 +99,9 @@ pub struct TerminalService {
     tmux_engine: Arc<TmuxEngine>,
     default_cols: u16,
     default_rows: u16,
+    /// Per-workspace locks to prevent concurrent session creation race conditions
+    /// Key: tmux_session_name (derived from workspace), Value: lock for that session
+    creation_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
 }
 
 impl Default for TerminalService {
@@ -114,6 +118,7 @@ impl TerminalService {
             tmux_engine: Arc::new(TmuxEngine::new()),
             default_cols: 120,
             default_rows: 30,
+            creation_locks: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -124,12 +129,45 @@ impl TerminalService {
             tmux_engine,
             default_cols: 120,
             default_rows: 30,
+            creation_locks: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     /// Get the TmuxEngine reference
     pub fn tmux_engine(&self) -> Arc<TmuxEngine> {
         self.tmux_engine.clone()
+    }
+
+    /// Get or create a lock for a specific tmux session
+    /// This ensures only one session creation happens at a time per workspace
+    /// Also performs cleanup of stale locks as a safety net (for error paths that skip release_creation_lock)
+    async fn get_creation_lock(&self, tmux_session_name: &str) -> Arc<Mutex<()>> {
+        let mut locks = self.creation_locks.lock().await;
+        
+        // Safety net cleanup: remove locks that are no longer in use (only HashMap holds a reference)
+        // This handles cases where release_creation_lock was not called (e.g., early error return)
+        locks.retain(|_, lock| Arc::strong_count(lock) > 1);
+        
+        locks
+            .entry(tmux_session_name.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
+    /// Release the creation lock for a specific tmux session
+    /// This removes the lock from the HashMap to free memory
+    async fn release_creation_lock(&self, tmux_session_name: &str) {
+        let mut locks = self.creation_locks.lock().await;
+        // Only remove if no other thread is holding a reference to this lock
+        if let Some(lock) = locks.get(tmux_session_name) {
+            // strong_count == 1 means only HashMap holds it (our local clone was dropped)
+            // But we need to check after dropping our reference, so we check for <= 2
+            // (HashMap + possibly one active user who is about to release)
+            if Arc::strong_count(lock) <= 2 {
+                locks.remove(tmux_session_name);
+                debug!("Cleaned up creation lock for tmux session: {}", tmux_session_name);
+            }
+        }
     }
 
     /// Check if tmux is available
@@ -159,17 +197,27 @@ impl TerminalService {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
 
-        // Check if session_id is already active in our service
+        // Compute tmux session name (without creating it yet) so we can acquire lock first
+        let tmux_session_name = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
+            self.tmux_engine.get_session_name_from_names(proj, ws)
+        } else {
+            self.tmux_engine.get_session_name(&workspace_id)
+        };
+
+        // Acquire per-workspace creation lock BEFORE creating session to prevent race conditions
+        // This ensures only one session/window creation happens at a time per workspace
+        let creation_lock = self.get_creation_lock(&tmux_session_name).await;
+        let _guard = creation_lock.lock().await;
+
+        // NOW check if session_id is already active in our service (while holding workspace lock)
         // If so, just attach to it. This handles duplicate mount calls (e.g. React Strict Mode)
         {
             let sessions = self.sessions.lock().await;
-            if let Some(handle) = sessions.get(&session_id) {
+            if let Some(_handle) = sessions.get(&session_id) {
                 info!("Session {} already active, reusing existing handle", session_id);
-                // We need more complex logic to get a new receiver if the old one is gone,
-                // but for now let's just use attach logic if we can.
-                // Actually, the simplest way is to call attach_session internally.
                 drop(sessions);
-                return match self.attach_session(
+                // Use internal attach to avoid deadlock since we already hold the guard
+                let res = match self.attach_session_internal(
                     session_id.clone(),
                     workspace_id.clone(),
                     None,
@@ -182,6 +230,10 @@ impl TerminalService {
                     Ok((rx, _)) => Ok(rx),
                     Err(e) => Err(anyhow!("Failed to attach to existing session {}: {}", session_id, e)),
                 };
+                
+                // Clean up lock from HashMap before returning
+                self.release_creation_lock(&tmux_session_name).await;
+                return res;
             }
         }
 
@@ -190,8 +242,9 @@ impl TerminalService {
             session_id, workspace_id, cols, rows
         );
 
-        // Create or get tmux session for this workspace
-        // Use human-readable names if provided, otherwise fall back to workspace_id
+        debug!("Acquired creation lock for tmux session: {}", tmux_session_name);
+
+        // Now create or get tmux session for this workspace (protected by lock)
         let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
             self.tmux_engine
                 .create_session_with_names(proj, ws)
@@ -203,22 +256,45 @@ impl TerminalService {
         };
 
         // Create a new tmux window for this terminal pane
-        // If a window_name is provided but already exists in tmux, increment it to find a unique name.
+        // If a window_name is provided and already exists in tmux, ATTACH to it instead of creating a new one
+        // This prevents duplicate window creation during React Strict Mode double-mounts or page refreshes
         let existing_windows = self.tmux_engine.list_windows(&tmux_session)
             .unwrap_or_default();
         let existing_names: std::collections::HashSet<String> = existing_windows.iter().map(|w| w.name.clone()).collect();
+        
+        debug!("Existing windows for session '{}': {:?}", tmux_session, existing_names);
+
+        // Check if we should attach to an existing window instead of creating a new one
+        if let Some(ref name) = window_name {
+            if existing_names.contains(name) {
+                // Window with this name already exists - attach to it instead of creating a duplicate
+                info!("Window '{}' already exists in session '{}', attaching instead of creating", name, tmux_session);
+                
+                // Use internal attach to avoid deadlock since we already hold the guard
+                let result = self.attach_session_internal(
+                    session_id.clone(),
+                    workspace_id.clone(),
+                    None,
+                    Some(name.clone()),
+                    Some(cols),
+                    Some(rows),
+                    project_name.clone(),
+                    workspace_name.clone(),
+                ).await;
+                
+                // Clean up lock from HashMap
+                self.release_creation_lock(&tmux_session).await;
+                
+                return match result {
+                    Ok((rx, _)) => Ok(rx),
+                    Err(e) => Err(anyhow!("Failed to attach to existing window '{}': {}", name, e)),
+                };
+            }
+        }
 
         let final_window_name = if let Some(name) = window_name {
-            if !existing_names.contains(&name) {
-                name
-            } else {
-                // Name conflict! Find next available number
-                let mut num = 1;
-                while existing_names.contains(&num.to_string()) {
-                    num += 1;
-                }
-                num.to_string()
-            }
+            // Window doesn't exist, use the provided name
+            name
         } else {
             // Auto-increment: use next available number
             let mut num = existing_windows.len() + 1;
@@ -235,17 +311,24 @@ impl TerminalService {
             .map_err(|e| anyhow!("Failed to create tmux window: {}", e))?;
 
         // Now attach to this tmux window via PTY
-        self.attach_to_tmux_window(
+        // We keep the guard until AFTER attach_to_tmux_window completes, which inserts into self.sessions
+        // This ensures a subsequent request for the same session_id will see it in the map
+        let result = self.attach_to_tmux_window(
             session_id,
             workspace_id,
-            tmux_session,
+            tmux_session.clone(),
             window_index,
             shell,
             cols,
             rows,
             false,
         )
-        .await
+        .await;
+
+        // Clean up lock from HashMap
+        self.release_creation_lock(&tmux_session).await;
+        
+        result
     }
 
     /// Attach to an existing tmux window (for reconnection)
@@ -258,6 +341,46 @@ impl TerminalService {
         cols: Option<u16>,
         rows: Option<u16>,
         // Optional human-readable names for session lookup
+        project_name: Option<String>,
+        workspace_name: Option<String>,
+    ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<String>)> {
+        // Compute tmux session name so we can acquire lock
+        let tmux_session_name = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
+            self.tmux_engine.get_session_name_from_names(proj, ws)
+        } else {
+            self.tmux_engine.get_session_name(&workspace_id)
+        };
+
+        // Acquire workspace lock to prevent race conditions during attachment
+        let creation_lock = self.get_creation_lock(&tmux_session_name).await;
+        let _guard = creation_lock.lock().await;
+
+        let result = self.attach_session_internal(
+            session_id,
+            workspace_id,
+            tmux_window_index,
+            tmux_window_name,
+            cols,
+            rows,
+            project_name,
+            workspace_name,
+        ).await;
+
+        // Clean up lock from HashMap
+        self.release_creation_lock(&tmux_session_name).await;
+
+        result
+    }
+
+    /// Internal version of attach_session that doesn't acquire the workspace lock
+    async fn attach_session_internal(
+        &self,
+        session_id: String,
+        workspace_id: String,
+        tmux_window_index: Option<u32>,
+        tmux_window_name: Option<String>,
+        cols: Option<u16>,
+        rows: Option<u16>,
         project_name: Option<String>,
         workspace_name: Option<String>,
     ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<String>)> {
@@ -313,6 +436,7 @@ impl TerminalService {
         Ok((rx, history))
     }
 
+
     /// Internal: Attach PTY to a tmux window
     async fn attach_to_tmux_window(
         &self,
@@ -325,6 +449,19 @@ impl TerminalService {
         rows: u16,
         is_attach: bool,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+        // Create a unique client session for this specific terminal pane
+        // Format: atmos_client_{session_id}
+        let client_session_name = format!("atmos_client_{}", session_id.replace('-', "_"));
+
+        // Create the grouped session if it doesn't exist
+        // This ensures this pane has its own independent view of the windows
+        self.tmux_engine.create_grouped_session(&tmux_session, &client_session_name)
+            .map_err(|e| anyhow!("Failed to create grouped session: {}", e))?;
+
+        // Immediately select the correct window in the client session
+        self.tmux_engine.select_window(&client_session_name, window_index)
+            .map_err(|e| anyhow!("Failed to select window in grouped session: {}", e))?;
+
         // Channel for sending commands to the PTY thread
         let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
         
@@ -335,13 +472,13 @@ impl TerminalService {
         let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
 
         let session_id_clone = session_id.clone();
-        let tmux_session_clone = tmux_session.clone();
+        let client_session_clone = client_session_name.clone();
         
         // Spawn a dedicated thread for PTY operations
         thread::spawn(move || {
             run_pty_session_with_tmux(
                 session_id_clone,
-                tmux_session_clone,
+                client_session_clone,
                 window_index,
                 shell,
                 cols,
@@ -362,6 +499,7 @@ impl TerminalService {
                     workspace_id: workspace_id.clone(),
                     tmux_session,
                     tmux_window_index: window_index,
+                    client_session: client_session_name,
                 };
                 
                 self.sessions.lock().await.insert(session_id.clone(), handle);
@@ -426,8 +564,15 @@ impl TerminalService {
         if let Some(handle) = sessions.remove(session_id) {
             // Send close command to PTY thread (ignore error if thread already exited)
             let _ = handle.command_tx.send(SessionCommand::Close);
+            
+            // KILL the client session to free up resources
+            // The master session and window remain preserved
+            if let Err(e) = self.tmux_engine.kill_session(&handle.client_session) {
+                warn!("Failed to kill client tmux session {}: {}", handle.client_session, e);
+            }
+
             info!(
-                "Terminal session closed (detached): {} - tmux window {}:{} preserved",
+                "Terminal session closed (detached): {} - tmux window {}:{} preserved (client session killed)",
                 session_id, handle.tmux_session, handle.tmux_window_index
             );
             Ok(())
@@ -444,10 +589,13 @@ impl TerminalService {
             // Send close command to PTY thread
             let _ = handle.command_tx.send(SessionCommand::Close);
             
-            // Kill the tmux window
+            // Kill the tmux window in the master session
             if let Err(e) = self.tmux_engine.kill_window(&handle.tmux_session, handle.tmux_window_index) {
                 warn!("Failed to kill tmux window: {}", e);
             }
+
+            // Also kill the client session
+            let _ = self.tmux_engine.kill_session(&handle.client_session);
             
             info!(
                 "Terminal session destroyed: {} - tmux window {}:{} killed",
@@ -493,7 +641,7 @@ impl TerminalService {
 /// Run PTY session attached to a tmux window
 fn run_pty_session_with_tmux(
     session_id: String,
-    tmux_session: String,
+    tmux_session: String, // This is now the client session (grouped)
     window_index: u32,
     _shell: Option<String>,
     cols: u16,
@@ -528,18 +676,10 @@ fn run_pty_session_with_tmux(
     
     let target = format!("{}:{}", tmux_session, window_index);
     
-    let cmd = if is_attach {
-        // For attach, we just connect to the existing shell in tmux
-        let mut cmd = CommandBuilder::new("tmux");
-        cmd.args(["-S", &socket_path.to_string_lossy(), "attach-session", "-t", &target]);
-        cmd
-    } else {
-        // For new sessions, we need to first ensure the shell is running
-        // The tmux window was already created, so we just attach to it
-        let mut cmd = CommandBuilder::new("tmux");
-        cmd.args(["-S", &socket_path.to_string_lossy(), "attach-session", "-t", &target]);
-        cmd
-    };
+    // For session grouping, we attach to the client session
+    // Since select-window was already called, this session is viewing the correct window
+    let mut cmd = CommandBuilder::new("tmux");
+    cmd.args(["-S", &socket_path.to_string_lossy(), "attach-session", "-t", &tmux_session]);
 
     // Spawn the tmux attach process
     if let Err(e) = pair.slave.spawn_command(cmd) {
