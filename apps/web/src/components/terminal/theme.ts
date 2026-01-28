@@ -5,10 +5,10 @@ import type { ITheme } from "@xterm/xterm";
 
 export const atmosDarkTheme: ITheme = {
   // Background and foreground
-  background: "transparent", // Transparent background to show container color
+  background: "#09090b", // Match UI dark background
   foreground: "#f8f8f8", // Brighter foreground for better contrast
   cursor: "#f8f8f8", // White cursor for dark theme
-  cursorAccent: "#111827",
+  cursorAccent: "#09090b",
 
   // Selection
   selectionBackground: "#264f78",
@@ -43,7 +43,7 @@ export const atmosDarkTheme: ITheme = {
 
 export const atmosLightTheme: ITheme = {
   // Background and foreground
-  background: "transparent",
+  background: "#ffffff", // Match UI light background
   foreground: "#24292f",
   cursor: "#24292f", // Black cursor for light theme
   cursorAccent: "#ffffff",
