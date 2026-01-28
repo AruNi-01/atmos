@@ -129,7 +129,7 @@ function ResizeHandle({
     <PanelResizeHandle
       onDragging={onDragging}
       className={cn(
-        "relative flex w-px items-center justify-center bg-white/5 transition-colors duration-200 hover:bg-white/20 group touch-none",
+        "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none",
         "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10", // Expand hit area
         className
       )}
@@ -144,21 +144,21 @@ function ResizeHandle({
         }}
         title={isCollapsed ? "Expand" : "Collapse"}
         className={cn(
-          "absolute z-50 flex size-5 items-center justify-center rounded-full bg-zinc-800 border border-white/10 shadow-lg transition-all duration-200 hover:bg-zinc-700 hover:scale-110 opacity-0 group-hover:opacity-100",
+          "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
           "left-1/2 -translate-x-1/2",
-          isCollapsed && "opacity-100! bg-zinc-700!"
+          isCollapsed && "opacity-100! bg-accent!"
         )}
       >
         {side === "left" ? (
           isCollapsed ? (
-            <ChevronRight className="size-3 text-zinc-400" />
+            <ChevronRight className="size-3 text-muted-foreground" />
           ) : (
-            <ChevronLeft className="size-3 text-zinc-400" />
+            <ChevronLeft className="size-3 text-muted-foreground" />
           )
         ) : isCollapsed ? (
-          <ChevronLeft className="size-3 text-zinc-400" />
+          <ChevronLeft className="size-3 text-muted-foreground" />
         ) : (
-          <ChevronRight className="size-3 text-zinc-400" />
+          <ChevronRight className="size-3 text-muted-foreground" />
         )}
       </button>
     </PanelResizeHandle>
