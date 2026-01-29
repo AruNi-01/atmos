@@ -38,6 +38,7 @@ const Terminal = ({
   projectName,
   workspaceName,
   terminalName,
+  isNewPane,
   onSessionReady,
   onSessionClose,
   onSessionError,
@@ -54,22 +55,32 @@ const Terminal = ({
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
 
-  // Build WebSocket URL with attach parameters if reconnecting
+  // Build WebSocket URL with appropriate parameters
+  // For NEW panes: use terminal_name to CREATE a new tmux window
+  // For EXISTING panes: use tmux_window_name to ATTACH to existing tmux window
   const baseWsUrl = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080"}/ws/terminal/${sessionId}`;
   const wsParams = new URLSearchParams({
     workspace_id: workspaceId,
   });
-  if (tmuxWindowName) {
-    wsParams.set("tmux_window_name", tmuxWindowName);
-  }
   if (projectName) {
     wsParams.set("project_name", projectName);
   }
   if (workspaceName) {
     wsParams.set("workspace_name", workspaceName);
   }
-  if (terminalName) {
-    wsParams.set("terminal_name", terminalName);
+  
+  if (isNewPane) {
+    // New pane: send terminal_name to create a new window with this name
+    // Do NOT send tmux_window_name to avoid triggering attach logic
+    const nameForNewWindow = terminalName || tmuxWindowName;
+    if (nameForNewWindow) {
+      wsParams.set("terminal_name", nameForNewWindow);
+    }
+  } else {
+    // Existing pane (from saved layout or reconnection): attach to existing window
+    if (tmuxWindowName) {
+      wsParams.set("tmux_window_name", tmuxWindowName);
+    }
   }
   const wsUrl = `${baseWsUrl}?${wsParams.toString()}`;
 

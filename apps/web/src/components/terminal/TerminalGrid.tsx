@@ -189,6 +189,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             tmuxWindowName={pane.tmuxWindowName}
             projectName={workspaceInfo?.projectName}
             workspaceName={workspaceInfo?.workspaceName}
+            isNewPane={pane.isNewPane}
           />
         </div>
       </MosaicWindow>

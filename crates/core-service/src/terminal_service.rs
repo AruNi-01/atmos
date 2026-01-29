@@ -649,8 +649,48 @@ fn run_pty_session_with_tmux(
     mut command_rx: mpsc::UnboundedReceiver<SessionCommand>,
     output_tx: mpsc::UnboundedSender<Vec<u8>>,
     init_tx: oneshot::Sender<Result<()>>,
-    is_attach: bool,
+    _is_attach: bool,
 ) {
+    // Build socket path
+    let socket_path: std::path::PathBuf = dirs::home_dir()
+        .map(|h: std::path::PathBuf| h.join(".atmos").join("atmos.sock"))
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/.atmos/atmos.sock"));
+    
+    // Wait for the tmux session to be fully created before attempting to attach
+    // This handles race conditions where the PTY thread starts before tmux finishes processing
+    let max_retries = 10;
+    let retry_delay = std::time::Duration::from_millis(50);
+    let mut session_ready = false;
+    
+    for attempt in 0..max_retries {
+        let check_output = std::process::Command::new("tmux")
+            .args(["-S", &socket_path.to_string_lossy(), "has-session", "-t", &tmux_session])
+            .output();
+        
+        match check_output {
+            Ok(output) if output.status.success() => {
+                session_ready = true;
+                if attempt > 0 {
+                    debug!("Tmux session '{}' ready after {} attempts", tmux_session, attempt + 1);
+                }
+                break;
+            }
+            _ => {
+                if attempt < max_retries - 1 {
+                    std::thread::sleep(retry_delay);
+                }
+            }
+        }
+    }
+    
+    if !session_ready {
+        let _ = init_tx.send(Err(anyhow!(
+            "Tmux session '{}' not ready after {} retries", 
+            tmux_session, max_retries
+        )));
+        return;
+    }
+
     // Create PTY system
     let pty_system = native_pty_system();
 
@@ -667,14 +707,8 @@ fn run_pty_session_with_tmux(
             return;
         }
     };
-
-    // Build command to attach to tmux window
-    // We use `tmux attach-session` to connect to the existing tmux pane
-    let socket_path: std::path::PathBuf = dirs::home_dir()
-        .map(|h: std::path::PathBuf| h.join(".atmos").join("atmos.sock"))
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/.atmos/atmos.sock"));
     
-    let target = format!("{}:{}", tmux_session, window_index);
+    let _target = format!("{}:{}", tmux_session, window_index);
     
     // For session grouping, we attach to the client session
     // Since select-window was already called, this session is viewing the correct window
