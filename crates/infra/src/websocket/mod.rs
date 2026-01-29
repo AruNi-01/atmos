@@ -22,10 +22,10 @@ pub use message::{
     GitCommitResponse, GitFileDiffRequest, GitFileDiffResponse, GitGetStatusRequest,
     GitListBranchesRequest, GitPushRequest, GitPushResponse, GitRenameBranchRequest,
     GitStatusResponse, MessagePayload, ProjectCreateRequest, ProjectDeleteRequest,
-    ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload, WsMessage, WsRequest,
-    WsResponse,
+    ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, ProjectUpdateOrderRequest, 
+    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, 
+    WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, 
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload, 
+    WsMessage, WsRequest, WsResponse,
 };
 pub use service::{WsService, WsServiceConfig};

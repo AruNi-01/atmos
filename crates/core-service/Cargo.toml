@@ -17,3 +17,5 @@ portable-pty = "0.9.0"
 anyhow = "1.0.100"
 parking_lot = "0.12.5"
 dirs = "5.0"
+rand = "0.8"
+
