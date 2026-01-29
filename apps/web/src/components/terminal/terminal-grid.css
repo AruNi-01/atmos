@@ -270,6 +270,20 @@
   background: rgba(156, 163, 175, 0.4) !important;
 }
 
+/* Drag & Drop Styling for Dark Mode */
+.dark .atmos-mosaic-theme .mosaic-preview {
+  background: rgba(30, 35, 42, 0.9) !important;
+  border: 1px solid rgba(55, 65, 81, 0.5) !important;
+}
+
+.dark .atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target {
+  background: rgba(30, 35, 42, 0.6) !important;
+}
+
+.dark .atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover {
+  background: rgba(30, 35, 42, 0.8) !important;
+}
+
 /* Zero State */
 .mosaic-zero-state {
   display: flex;
