@@ -11,7 +11,8 @@ use infra::{
     FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsValidateGitPathRequest, FsWriteFileRequest,
     GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest, GitGetStatusRequest,
     GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, ProjectCreateRequest,
-    ProjectDeleteRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest,
+    ProjectDeleteRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, 
+    ProjectUpdateOrderRequest, WorkspaceArchiveRequest,
     WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
     WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
     WorkspaceUpdateOrderRequest, WsAction, WsMessage, WsMessageHandler, WsRequest,
@@ -85,6 +86,9 @@ impl WsMessageService {
             WsAction::ProjectUpdate => self.handle_project_update(parse_request(request.data)?).await,
             WsAction::ProjectUpdateTargetBranch => {
                 self.handle_project_update_target_branch(parse_request(request.data)?).await
+            }
+            WsAction::ProjectUpdateOrder => {
+                self.handle_project_update_order(parse_request(request.data)?).await
             }
             WsAction::ProjectDelete => self.handle_project_delete(parse_request(request.data)?).await,
             WsAction::ProjectValidatePath => {
@@ -340,6 +344,13 @@ impl WsMessageService {
     ) -> Result<Value> {
         self.project_service
             .update_target_branch(req.guid, req.target_branch)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_project_update_order(&self, req: ProjectUpdateOrderRequest) -> Result<Value> {
+        self.project_service
+            .update_order(req.guid, req.sidebar_order)
             .await?;
         Ok(json!({ "success": true }))
     }

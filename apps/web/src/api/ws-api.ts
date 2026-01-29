@@ -341,6 +341,16 @@ export const wsProjectApi = {
       target_branch: targetBranch,
     });
   },
+
+  /**
+   * 更新项目排序
+   */
+  updateOrder: async (guid: string, sidebarOrder: number): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('project_update_order', {
+      guid,
+      sidebar_order: sidebarOrder,
+    });
+  },
 };
 
 // ===== Workspace API =====

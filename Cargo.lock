@@ -489,6 +489,7 @@ dependencies = [
  "infra",
  "parking_lot",
  "portable-pty",
+ "rand 0.8.5",
  "sea-orm",
  "serde",
  "serde_json",

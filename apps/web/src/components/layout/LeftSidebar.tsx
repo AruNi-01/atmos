@@ -538,6 +538,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         pinWorkspace,
         unpinWorkspace,
         archiveWorkspace,
+        reorderProjects,
+        reorderWorkspaces,
     } = useProjectStore();
 
     const { setCurrentProjectPath } = useEditorStore();
@@ -706,20 +708,24 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             const overProjectIndex = projects.findIndex((i) => i.id === over.id);
 
             if (activeProjectIndex !== -1 && overProjectIndex !== -1) {
-                // Optimistic update
-                // Note: Implement reorder action in store if needed
-                // For now just toast
-                toastManager.add({
-                    title: "Sorted",
-                    description: "Project order updated locally",
-                    type: "info"
-                });
+                // Reorder projects
+                const newProjects = arrayMove(projects, activeProjectIndex, overProjectIndex);
+                await reorderProjects(newProjects);
                 return;
             }
 
             // Check if sorting workspaces within a project
-            // This logic needs to be robust to handle cross-project drags if allowed,
-            // but for now we assume same-list sorting within SortableContext
+            for (const project of projects) {
+                const activeWorkspaceIndex = project.workspaces.findIndex((w) => w.id === active.id);
+                const overWorkspaceIndex = project.workspaces.findIndex((w) => w.id === over.id);
+
+                if (activeWorkspaceIndex !== -1 && overWorkspaceIndex !== -1) {
+                    // Reorder workspaces within the same project
+                    const newWorkspaces = arrayMove(project.workspaces, activeWorkspaceIndex, overWorkspaceIndex);
+                    await reorderWorkspaces(project.id, newWorkspaces);
+                    return;
+                }
+            }
         }
     };
 

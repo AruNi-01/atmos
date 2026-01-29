@@ -5,7 +5,6 @@ import { Project, Workspace } from '@/types/types';
 import { wsProjectApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
-import { generateWorkspaceName, extractRepoPrefix } from '@/utils/workspace-name-generator';
 
 // Sort workspaces: pinned first (by pinnedAt DESC), then by createdAt DESC
 function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
@@ -46,6 +45,9 @@ interface ProjectStore {
   unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   updateWorkspaceBranch: (projectId: string, workspaceId: string, branch: string) => Promise<void>;
+  
+  reorderProjects: (newOrder: Project[]) => Promise<void>;
+  reorderWorkspaces: (projectId: string, newOrder: Workspace[]) => Promise<void>;
   
   setActiveWorkspaceId: (id: string | null) => void;
 }
@@ -130,7 +132,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         projects.map(async (p) => {
           try {
             const workspaces = await wsWorkspaceApi.listByProject(p.guid);
-            return mapProjectModel(p, workspaces.map(mapWorkspaceModel));
+            const mappedWorkspaces = workspaces.map(mapWorkspaceModel);
+            const sortedWorkspaces = sortWorkspaces(mappedWorkspaces);
+            return mapProjectModel(p, sortedWorkspaces);
           } catch (error) {
             console.warn(`Failed to fetch workspaces for project ${p.guid}:`, error);
             return mapProjectModel(p, []);
@@ -251,7 +255,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       set(state => ({
         projects: state.projects.map(p => 
           p.id === data.projectId 
-            ? { ...p, workspaces: [...p.workspaces, newWorkspace] } 
+            ? { ...p, workspaces: sortWorkspaces([...p.workspaces, newWorkspace]) } 
             : p
         )
       }));
@@ -281,14 +285,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         throw new Error('Project not found');
       }
       
-      const prefix = extractRepoPrefix(project.name);
-      const existingNames = project.workspaces.map(w => w.name);
-      const workspaceName = generateWorkspaceName(existingNames, prefix);
-      
+      // Pass empty string to let backend generate Pokemon name
       const newWorkspaceModel = await wsWorkspaceApi.create({
         projectGuid: projectId,
-        name: workspaceName,
-        branch: workspaceName,
+        name: '',  // Backend will generate a unique Pokemon name
+        branch: '', // Backend will use the generated name as branch,
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
@@ -296,14 +297,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       set(state => ({
         projects: state.projects.map(p => 
           p.id === projectId 
-            ? { ...p, workspaces: [...p.workspaces, newWorkspace] } 
+            ? { ...p, workspaces: sortWorkspaces([...p.workspaces, newWorkspace]) } 
             : p
         )
       }));
       
       toastManager.add({ 
         title: 'Quick Workspace Created', 
-        description: `"${workspaceName}" created`, 
+        description: `"${newWorkspace.name}" created`, 
         type: 'success' 
       });
       
@@ -470,6 +471,72 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error updating workspace branch:', error);
       throw error;
+    }
+  },
+
+  reorderProjects: async (newOrder: Project[]) => {
+    try {
+      await waitForConnection();
+      
+      // Optimistically update state
+      set({ projects: newOrder });
+      
+      // Batch update all project orders in the backend
+      await Promise.all(
+        newOrder.map((project, index) => 
+          wsProjectApi.updateOrder(project.id, index)
+        )
+      );
+      
+      toastManager.add({ 
+        title: 'Success', 
+        description: 'Project order saved', 
+        type: 'success' 
+      });
+    } catch (error) {
+      console.error('Error reordering projects:', error);
+      toastManager.add({ 
+        title: 'Error', 
+        description: 'Failed to save project order', 
+        type: 'error' 
+      });
+      // Revert to original order on error
+      get().fetchProjects();
+    }
+  },
+
+  reorderWorkspaces: async (projectId: string, newOrder: Workspace[]) => {
+    try {
+      await waitForConnection();
+      
+      // Optimistically update state
+      set(state => ({
+        projects: state.projects.map(p => 
+          p.id === projectId ? { ...p, workspaces: newOrder } : p
+        )
+      }));
+      
+      // Batch update all workspace orders in the backend
+      await Promise.all(
+        newOrder.map((workspace, index) => 
+          wsWorkspaceApi.updateOrder(workspace.id, index)
+        )
+      );
+      
+      toastManager.add({ 
+        title: 'Success', 
+        description: 'Workspace order saved', 
+        type: 'success' 
+      });
+    } catch (error) {
+      console.error('Error reordering workspaces:', error);
+      toastManager.add({ 
+        title: 'Error', 
+        description: 'Failed to save workspace order', 
+        type: 'error' 
+      });
+      // Revert to original order on error
+      get().fetchProjects();
     }
   },
 

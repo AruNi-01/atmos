@@ -111,6 +111,8 @@ pub enum WsAction {
     ProjectUpdate,
     /// 更新项目目标分支（用于 merge/PR/git diff）
     ProjectUpdateTargetBranch,
+    /// 更新项目排序
+    ProjectUpdateOrder,
     /// 删除项目
     ProjectDelete,
     /// 验证项目路径
@@ -267,6 +269,12 @@ pub struct ProjectDeleteRequest {
 pub struct ProjectUpdateTargetBranchRequest {
     pub guid: String,
     pub target_branch: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectUpdateOrderRequest {
+    pub guid: String,
+    pub sidebar_order: i32,
 }
 
 // ===== Git 操作数据结构 =====

@@ -26,6 +26,7 @@ export type WsAction =
   | 'project_create'
   | 'project_update'
   | 'project_update_target_branch'
+  | 'project_update_order'
   | 'project_delete'
   | 'project_validate_path'
   // Workspace 操作
