@@ -166,28 +166,28 @@ impl TmuxEngine {
 
     /// Create a new tmux session for a workspace
     /// Returns the session name
-    pub fn create_session(&self, workspace_id: &str) -> Result<String> {
+    pub fn create_session(&self, workspace_id: &str, cwd: Option<&str>) -> Result<String> {
         let session_name = self.session_name(workspace_id);
-        self.create_session_internal(&session_name)
+        self.create_session_internal(&session_name, cwd)
     }
 
     /// Create a new tmux session with human-readable names
     /// Format: {project_name}_{workspace_name}
-    pub fn create_session_with_names(&self, project_name: &str, workspace_name: &str) -> Result<String> {
+    pub fn create_session_with_names(&self, project_name: &str, workspace_name: &str, cwd: Option<&str>) -> Result<String> {
         let session_name = self.session_name_from_names(project_name, workspace_name);
-        self.create_session_internal(&session_name)
+        self.create_session_internal(&session_name, cwd)
     }
 
     /// Internal function to create tmux session
-    fn create_session_internal(&self, session_name: &str) -> Result<String> {
+    fn create_session_internal(&self, session_name: &str, cwd: Option<&str>) -> Result<String> {
         // Check if session already exists
         if self.session_exists(session_name)? {
             info!("Tmux session already exists: {}", session_name);
             return Ok(session_name.to_string());
         }
 
-        // Create new detached session with the first window named "1"
-        self.run_tmux(&[
+        // Build the new-session command with optional working directory
+        let mut args = vec![
             "new-session",
             "-d",
             "-s",
@@ -198,7 +198,16 @@ impl TmuxEngine {
             "120",
             "-y",
             "30",
-        ])?;
+        ];
+        
+        // Add working directory if provided
+        if let Some(dir) = cwd {
+            args.push("-c");
+            args.push(dir);
+        }
+        
+        // Create new detached session with the first window named "1"
+        self.run_tmux(&args)?;
 
         // Disable status bar globally for this Atmos tmux server to ensure a clean UI
         // and isolate from any local user preferences.
@@ -253,12 +262,12 @@ impl TmuxEngine {
 
     /// Create a new window in a session
     /// Returns the window index
-    pub fn create_window(&self, session_name: &str, window_name: &str) -> Result<u32> {
+    pub fn create_window(&self, session_name: &str, window_name: &str, cwd: Option<&str>) -> Result<u32> {
         // Ensure session exists
         if !self.session_exists(session_name)? {
             // Try to create the session if it doesn't exist
             info!("Session {} does not exist, creating it first", session_name);
-            self.run_tmux(&[
+            let mut session_args = vec![
                 "new-session",
                 "-d",
                 "-s",
@@ -267,7 +276,12 @@ impl TmuxEngine {
                 "120",
                 "-y",
                 "30",
-            ])?;
+            ];
+            if let Some(dir) = cwd {
+                session_args.push("-c");
+                session_args.push(dir);
+            }
+            self.run_tmux(&session_args)?;
             
             // Apply our standard configuration
             let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
@@ -279,8 +293,8 @@ impl TmuxEngine {
             let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);
         }
 
-        // Create new window
-        let output = self.run_tmux(&[
+        // Create new window with optional working directory
+        let mut args = vec![
             "new-window",
             "-t",
             session_name,
@@ -289,7 +303,12 @@ impl TmuxEngine {
             "-P",
             "-F",
             "#{window_index}",
-        ])?;
+        ];
+        if let Some(dir) = cwd {
+            args.push("-c");
+            args.push(dir);
+        }
+        let output = self.run_tmux(&args)?;
 
         // Handle empty output
         if output.is_empty() {

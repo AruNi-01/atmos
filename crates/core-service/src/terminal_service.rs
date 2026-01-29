@@ -193,6 +193,8 @@ impl TerminalService {
         project_name: Option<String>,
         workspace_name: Option<String>,
         window_name: Option<String>,
+        // Optional working directory for the terminal session
+        cwd: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
@@ -247,11 +249,11 @@ impl TerminalService {
         // Now create or get tmux session for this workspace (protected by lock)
         let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
             self.tmux_engine
-                .create_session_with_names(proj, ws)
+                .create_session_with_names(proj, ws, cwd.as_deref())
                 .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?
         } else {
             self.tmux_engine
-                .create_session(&workspace_id)
+                .create_session(&workspace_id, cwd.as_deref())
                 .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?
         };
 
@@ -307,7 +309,7 @@ impl TerminalService {
         info!("Assigning tmux window: {} for session: {}", final_window_name, session_id);
 
         let window_index = self.tmux_engine
-            .create_window(&tmux_session, &final_window_name)
+            .create_window(&tmux_session, &final_window_name, cwd.as_deref())
             .map_err(|e| anyhow!("Failed to create tmux window: {}", e))?;
 
         // Now attach to this tmux window via PTY
