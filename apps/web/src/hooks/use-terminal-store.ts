@@ -11,6 +11,7 @@ const SAVE_DEBOUNCE_MS = 500;
 interface TerminalStore {
   workspacePanes: Record<string, Record<string, TerminalPaneProps>>;
   workspaceLayouts: Record<string, MosaicNode<string> | null>;
+  workspaceMaximizedIds: Record<string, string | null>;
   /** Track which workspaces have been loaded from backend */
   loadedWorkspaces: Set<string>;
   /** Track which workspaces are currently being initialized (loading from backend) */
@@ -31,6 +32,7 @@ interface TerminalStore {
   addTerminal: (workspaceId: string, title?: string) => void;
   removeTerminal: (workspaceId: string, id: string) => void;
   splitTerminal: (workspaceId: string, id: string, direction: MosaicDirection) => void;
+  toggleMaximize: (workspaceId: string, id: string) => void;
   
   // Initialization
   initWorkspace: (workspaceId: string) => void;
@@ -104,6 +106,7 @@ function createInitialLayout(workspaceId: string): {
 export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   workspacePanes: {},
   workspaceLayouts: {},
+  workspaceMaximizedIds: {},
   loadedWorkspaces: new Set(),
   initializingWorkspaces: new Set(),
   saveTimeouts: {},
@@ -319,6 +322,25 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     get().saveToBackend(workspaceId);
   },
 
+  toggleMaximize: (workspaceId: string, id: string) => {
+    set((state) => {
+      const currentMaximizedId = state.workspaceMaximizedIds[workspaceId];
+      const newMaximizedId = currentMaximizedId === id ? null : id;
+      
+      return {
+        workspaceMaximizedIds: {
+          ...state.workspaceMaximizedIds,
+          [workspaceId]: newMaximizedId,
+        },
+      };
+    });
+
+    const maximizedId = get().workspaceMaximizedIds[workspaceId];
+    workspaceLayoutApi.updateMaximizedTerminalId(workspaceId, maximizedId).catch(err => {
+      console.debug('Failed to save maximized terminal ID to backend:', err);
+    });
+  },
+
   fetchTmuxWindows: async (workspaceId) => {
     try {
       const response = await systemApi.listTmuxWindows(workspaceId);
@@ -419,6 +441,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
               ...state.workspaceLayouts,
               [workspaceId]: layout,
             },
+            workspaceMaximizedIds: {
+              ...state.workspaceMaximizedIds,
+              [workspaceId]: layoutResponse.maximized_terminal_id || null,
+            },
             loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
             initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
             isHydrated: true,
@@ -441,6 +467,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       workspaceLayouts: {
         ...state.workspaceLayouts,
         [workspaceId]: initialLayout,
+      },
+      workspaceMaximizedIds: {
+        ...state.workspaceMaximizedIds,
+        [workspaceId]: null,
       },
       loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
       initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),

@@ -293,3 +293,46 @@
   background: var(--background);
   color: var(--muted-foreground);
 }
+
+/* Maximization Overlay Logic */
+.terminal-mosaic-container {
+  /* Create a containing block for position: fixed children */
+  transform: translate3d(0, 0, 0);
+  contain: paint;
+}
+
+.terminal-mosaic-container[data-maximized-id] .mosaic-window:not(.is-maximized) {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.terminal-mosaic-container[data-maximized-id] .mosaic-window.is-maximized {
+  position: fixed !important;
+  top: 4px !important;
+  left: 4px !important;
+  right: 4px !important;
+  bottom: 4px !important;
+  width: calc(100% - 8px) !important;
+  height: calc(100% - 8px) !important;
+  z-index: 9999 !important;
+  margin: 0 !important;
+  border-radius: 8px !important; /* Restored rounded corners */
+  border: 1px solid var(--border) !important; /* Ensure border is visible */
+  background: var(--background) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important; /* Added shadow for better overlay separation */
+  transform: none !important;
+}
+
+/* Ensure the tile parent doesn't constrain the maximized window */
+.terminal-mosaic-container[data-maximized-id] .mosaic-tile:has(.is-maximized) {
+  z-index: 100 !important;
+}
+
+/* Ensure Splitters are hidden when maximized */
+.terminal-mosaic-container[data-maximized-id] .mosaic-split {
+  display: none !important;
+}

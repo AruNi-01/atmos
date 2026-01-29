@@ -33,6 +33,11 @@ pub struct UpdateTerminalLayoutPayload {
     pub layout: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct UpdateMaximizedTerminalIdPayload {
+    pub terminal_id: Option<String>,
+}
+
 /// GET /api/workspace/project/:project_guid - 获取项目下的所有工作区
 pub async fn list_workspaces_by_project(
     State(state): State<AppState>,
@@ -112,8 +117,14 @@ pub async fn get_terminal_layout(
     State(state): State<AppState>,
     Path(guid): Path<String>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let layout = state.workspace_service.get_terminal_layout(guid).await?;
-    Ok(Json(ApiResponse::success(json!({ "layout": layout }))))
+    let workspace = state.workspace_service.get_workspace(guid).await?;
+    match workspace {
+        Some(ws) => Ok(Json(ApiResponse::success(json!({
+            "layout": ws.terminal_layout,
+            "maximized_terminal_id": ws.maximized_terminal_id
+        })))),
+        None => Ok(Json(ApiResponse::success(json!({ "layout": null, "maximized_terminal_id": null })))),
+    }
 }
 
 /// PUT /api/workspace/:guid/terminal-layout - 更新终端布局
@@ -124,4 +135,14 @@ pub async fn update_terminal_layout(
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     state.workspace_service.update_terminal_layout(guid, payload.layout).await?;
     Ok(Json(ApiResponse::success(json!({ "message": "Terminal layout updated" }))))
+}
+
+/// PUT /api/workspace/:guid/maximized-terminal-id - 更新最大化终端 ID
+pub async fn update_maximized_terminal_id(
+    State(state): State<AppState>,
+    Path(guid): Path<String>,
+    Json(payload): Json<UpdateMaximizedTerminalIdPayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    state.workspace_service.update_maximized_terminal_id(guid, payload.terminal_id).await?;
+    Ok(Json(ApiResponse::success(json!({ "message": "Maximized terminal ID updated" }))))
 }

@@ -28,6 +28,7 @@ export interface TmuxWindow {
 
 export interface TerminalLayoutResponse {
   layout: string | null;
+  maximized_terminal_id?: string | null;
 }
 
 // ===== API Response wrapper =====
@@ -102,6 +103,16 @@ export const workspaceLayoutApi = {
     await fetchApi<{ message: string }>(`/api/workspace/${workspaceId}/terminal-layout`, {
       method: 'PUT',
       body: JSON.stringify({ layout }),
+    });
+  },
+
+  /**
+   * Update maximized terminal ID for a workspace
+   */
+  updateMaximizedTerminalId: async (workspaceId: string, terminalId: string | null): Promise<void> => {
+    await fetchApi<{ message: string }>(`/api/workspace/${workspaceId}/maximized-terminal-id`, {
+      method: 'PUT',
+      body: JSON.stringify({ terminal_id: terminalId }),
     });
   },
 };
