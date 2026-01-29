@@ -16,6 +16,7 @@ use axum::{
     },
     response::Response,
 };
+use core_engine::GitEngine;
 use core_service::{TerminalResponse, TerminalService};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -141,6 +142,33 @@ async fn handle_terminal_socket(
     // Get terminal service
     let terminal_service = state.terminal_service.clone();
 
+    // Calculate workspace working directory based on workspace_name
+    // workspace_name is already in format "{project_name}/{workspace_name}" (e.g., "kepano-obsidian/weepinbell")
+    // Format: ~/.atmos/workspaces/{workspace_name}
+    let cwd = if let Some(ref ws) = workspace_name {
+        let git_engine = GitEngine::new();
+        match git_engine.get_worktree_path(ws) {
+            Ok(path) => {
+                let exists = path.exists();
+                info!("Worktree path for {}: {:?}, exists: {}", ws, path, exists);
+                if exists {
+                    Some(path.to_string_lossy().to_string())
+                } else {
+                    None
+                }
+            }
+            Err(e) => {
+                warn!("Failed to get worktree path for {}: {}", ws, e);
+                None
+            }
+        }
+    } else {
+        info!("No workspace_name provided, using default cwd");
+        None
+    };
+    
+    info!("Terminal session cwd: {:?}", cwd);
+
     // Create or attach to the terminal session
     let (output_rx, history) = if attach_requested && (tmux_window.is_some() || tmux_window_name.is_some()) {
         // Attach to existing tmux window
@@ -174,6 +202,7 @@ async fn handle_terminal_socket(
                         project_name.clone(),
                         workspace_name.clone(),
                         terminal_name.clone(),
+                        cwd.clone(),
                     )
                     .await
                 {
@@ -210,6 +239,7 @@ async fn handle_terminal_socket(
                 project_name,
                 workspace_name,
                 terminal_name,
+                cwd,
             )
             .await
         {
