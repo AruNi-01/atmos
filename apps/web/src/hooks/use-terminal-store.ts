@@ -44,7 +44,7 @@ interface TerminalStore {
   setTmuxWindowName: (workspaceId: string, paneId: string, tmuxWindowName: string) => void;
 }
 
-/** Generate next available window name (1, 2, 3, ...) */
+/** Generate next available window name (1, 2, 3, ...) for numeric names */
 function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): string {
   const values = Object.values(existingPanes);
   const usedNames = new Set([
@@ -57,6 +57,27 @@ function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): st
     num++;
   }
   return String(num);
+}
+
+/** Generate unique window name with suffix for agent windows (e.g., "Claude Code", "Claude Code-2") */
+function getUniqueAgentName(baseName: string, existingPanes: Record<string, TerminalPaneProps>): string {
+  const values = Object.values(existingPanes);
+  const usedNames = new Set([
+     ...values.map(p => p.tmuxWindowName),
+     ...values.map(p => p.title)
+  ].filter(Boolean));
+  
+  // If base name is not used, return it directly
+  if (!usedNames.has(baseName)) {
+    return baseName;
+  }
+  
+  // Find next available suffix: baseName-2, baseName-3, ...
+  let num = 2;
+  while (usedNames.has(`${baseName}-${num}`)) {
+    num++;
+  }
+  return `${baseName}-${num}`;
 }
 
 function createInitialLayout(workspaceId: string): { 
@@ -163,7 +184,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const panes = get().workspacePanes[workspaceId] || {};
     const layout = get().workspaceLayouts[workspaceId];
     const newId = uuidv4();
-    const windowName = title || getNextWindowName(panes);
+    // For agent names (non-numeric), use unique suffix logic; otherwise use numeric names
+    const windowName = title 
+      ? getUniqueAgentName(title, panes) 
+      : getNextWindowName(panes);
     
     const newPane: TerminalPaneProps = {
       id: newId,

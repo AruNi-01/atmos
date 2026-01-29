@@ -26,6 +26,8 @@ export interface TerminalRef {
   clear: () => void;
   write: (data: string) => void;
   scrollToBottom: () => void;
+  /** Destroy the terminal session (kills tmux window) */
+  destroy: () => void;
 }
 
 const Terminal = ({
@@ -106,7 +108,7 @@ const Terminal = ({
     terminalRef.current?.write("\r\n\x1b[32m[Reconnected to session]\x1b[0m\r\n");
   }, []);
 
-  const { isConnected, isReconnecting, sendInput, sendResize, connect, disconnect } =
+  const { isConnected, isReconnecting, sendInput, sendResize, sendDestroy, connect, disconnect } =
     useTerminalWebSocket({
       url: wsUrl,
       sessionId,
@@ -135,8 +137,13 @@ const Terminal = ({
       clear: () => terminalRef.current?.clear(),
       write: (data: string) => terminalRef.current?.write(data),
       scrollToBottom: () => terminalRef.current?.scrollToBottom(),
+      destroy: () => {
+        // Send destroy message to kill tmux window before disconnecting
+        sendDestroy();
+        disconnect();
+      },
     }),
-    [ref]
+    [ref, sendDestroy, disconnect]
   );
 
 

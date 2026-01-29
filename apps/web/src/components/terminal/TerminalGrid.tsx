@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Terminal } from "./Terminal";
+import { Terminal, TerminalRef } from "./Terminal";
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 
@@ -43,6 +43,8 @@ export interface TerminalGridHandle {
 
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className }, ref) => {
   const [isMounted, setIsMounted] = React.useState(false);
+  // Track terminal refs for each pane to call destroy on close
+  const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
 
   const {
     getPanes,
@@ -99,6 +101,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }, [workspaceId, setLayout]);
 
   const removeTerminal = useCallback((id: string) => {
+    // First, destroy the terminal session (kills tmux window)
+    const terminalRef = terminalRefsMap.current.get(id);
+    if (terminalRef) {
+      terminalRef.destroy();
+      terminalRefsMap.current.delete(id);
+    }
+    // Then remove from store
     removeTerminalFromStore(workspaceId, id);
   }, [workspaceId, removeTerminalFromStore]);
 
@@ -168,6 +177,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       >
         <div className="terminal-mosaic-content">
           <Terminal
+            ref={(termRef) => {
+              if (termRef) {
+                terminalRefsMap.current.set(id, termRef);
+              } else {
+                terminalRefsMap.current.delete(id);
+              }
+            }}
             sessionId={pane.sessionId}
             workspaceId={pane.workspaceId}
             tmuxWindowName={pane.tmuxWindowName}
