@@ -36,6 +36,11 @@ export interface TerminalProps {
   workspaceName?: string;
   /** Terminal/window name (e.g., "Claude", "Codex", or auto-incremented number) */
   terminalName?: string;
+  /** 
+   * If true, this is a new pane - use terminalName to create a new window.
+   * If false/undefined, use tmuxWindowName to attach to existing window.
+   */
+  isNewPane?: boolean;
   onSessionReady?: (sessionId: string) => void;
   onSessionClose?: (sessionId: string) => void;
   onSessionError?: (sessionId: string, error: string) => void;
@@ -53,6 +58,11 @@ export interface TerminalPaneProps {
   projectName?: string;
   /** Workspace name for human-readable tmux session naming */
   workspaceName?: string;
+  /** 
+   * If true, this is a newly created pane that doesn't have a tmux window yet.
+   * The Terminal will send terminal_name (to create) instead of tmux_window_name (to attach).
+   */
+  isNewPane?: boolean;
 }
 
 export interface TerminalMosaicState {

@@ -94,6 +94,7 @@ function createInitialLayout(workspaceId: string): {
         sessionId: uuidv4(),
         workspaceId,
         tmuxWindowName: windowName,
+        isNewPane: true, // Mark as new so Terminal creates instead of attaches
       },
     },
     layout: initialId,
@@ -195,6 +196,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       sessionId: uuidv4(),
       workspaceId,
       tmuxWindowName: windowName,
+      isNewPane: true, // Mark as new so Terminal creates instead of attaches
     };
 
     const nextPanes = { ...panes, [newId]: newPane };
@@ -278,6 +280,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       sessionId: uuidv4(),
       workspaceId,
       tmuxWindowName: windowName,
+      isNewPane: true, // Mark as new so Terminal creates instead of attaches
     };
 
     const nextPanes = { ...panes, [newId]: newPane };
@@ -395,10 +398,15 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
               title: windowName,
               tmuxWindowName: windowName,
               sessionId: uuidv4(),
+              // If tmux window exists, attach to it (isNewPane: false)
+              // If not, create a new one (isNewPane: true)
+              isNewPane: !windowExists,
             };
             
             if (windowExists) {
               console.debug(`Reusing existing tmux window: ${windowName}`);
+            } else {
+              console.debug(`Will create new tmux window: ${windowName}`);
             }
           }
           
