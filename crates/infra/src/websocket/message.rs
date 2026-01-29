@@ -101,6 +101,20 @@ pub enum WsAction {
     GitCommit,
     /// 推送更改
     GitPush,
+    /// 暂存文件
+    GitStage,
+    /// 取消暂存
+    GitUnstage,
+    /// 放弃工作区更改
+    GitDiscardUnstaged,
+    /// 放弃未追踪文件
+    GitDiscardUntracked,
+    /// 拉取变更
+    GitPull,
+    /// 获取远程更改
+    GitFetch,
+    /// 同步 (fetch + pull)
+    GitSync,
 
     // ===== Project 操作 =====
     /// 获取所有项目
@@ -409,6 +423,63 @@ pub struct GitPushRequest {
 pub struct GitPushResponse {
     /// 是否成功
     pub success: bool,
+}
+
+/// Git 暂存文件请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitStageRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 要暂存的文件路径列表
+    pub files: Vec<String>,
+}
+
+/// Git 取消暂存请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitUnstageRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 要取消暂存的文件路径列表
+    pub files: Vec<String>,
+}
+
+/// Git 放弃工作区更改请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitDiscardUnstagedRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 要放弃更改的文件路径列表
+    pub files: Vec<String>,
+}
+
+/// Git 放弃未追踪文件请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitDiscardUntrackedRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 要删除的未追踪文件路径列表
+    pub files: Vec<String>,
+}
+
+/// Git 拉取请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitPullRequest {
+    /// 仓库路径
+    pub path: String,
+}
+
+/// Git 获取请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitFetchRequest {
+    /// 仓库路径
+    pub path: String,
+}
+
+/// Git 同步请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitSyncRequest {
+    /// 仓库路径
+    pub path: String,
 }
 
 // ===== Workspace 操作数据结构 =====

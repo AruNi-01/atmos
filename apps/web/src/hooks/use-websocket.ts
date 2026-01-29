@@ -21,6 +21,13 @@ export type WsAction =
   | 'git_file_diff'
   | 'git_commit'
   | 'git_push'
+  | 'git_stage'
+  | 'git_unstage'
+  | 'git_discard_unstaged'
+  | 'git_discard_untracked'
+  | 'git_pull'
+  | 'git_fetch'
+  | 'git_sync'
   // Project 操作
   | 'project_list'
   | 'project_create'

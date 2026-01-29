@@ -14,6 +14,8 @@ pub use websocket::{
     GitBranchesResponse, GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse,
     GitCommitRequest, GitCommitResponse, GitFileDiffRequest, GitFileDiffResponse,
     GitGetStatusRequest, GitListBranchesRequest, GitPushRequest, GitPushResponse,
+    GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
+    GitPullRequest, GitFetchRequest, GitSyncRequest,
     GitRenameBranchRequest, GitStatusResponse, HeartbeatMonitor, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
     ProjectUpdateOrderRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest, 
