@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { gitApi, GitChangedFile, GitChangedFilesResponse, GitStatusResponse } from '@/api/ws-api';
+import { useGitInfoStore } from './use-git-info-store';
 
 // ===== 类型定义 =====
 
@@ -74,10 +75,24 @@ export const useGitStore = create<GitStore>((set, get) => ({
 
     try {
       set({ isLoading: true });
+      useGitInfoStore.setState({ isLoadingStatus: true });
+      
       const status = await gitApi.getStatus(currentRepoPath);
       set({ gitStatus: status });
+      
+      // Sync to header store
+      useGitInfoStore.setState({
+        currentBranch: status.current_branch,
+        hasUncommittedChanges: status.has_uncommitted_changes,
+        hasUnpushedCommits: status.has_unpushed_commits,
+        uncommittedCount: status.uncommitted_count,
+        unpushedCount: status.unpushed_count,
+        lastStatusFetch: Date.now(),
+        isLoadingStatus: false,
+      });
     } catch (error) {
       console.error('Failed to refresh git status:', error);
+      useGitInfoStore.setState({ isLoadingStatus: false });
     } finally {
       set({ isLoading: false });
     }
@@ -161,6 +176,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       set({ isLoading: true });
       await gitApi.stage(currentRepoPath, files);
       await get().refreshChangedFiles();
+      await get().refreshGitStatus();
     } catch (error) {
       console.error('Failed to stage files:', error);
       throw error;
@@ -178,6 +194,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       set({ isLoading: true });
       await gitApi.unstage(currentRepoPath, files);
       await get().refreshChangedFiles();
+      await get().refreshGitStatus();
     } catch (error) {
       console.error('Failed to unstage files:', error);
       throw error;
@@ -195,6 +212,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       set({ isLoading: true });
       await gitApi.discardUnstaged(currentRepoPath, files);
       await get().refreshChangedFiles();
+      await get().refreshGitStatus();
     } catch (error) {
       console.error('Failed to discard unstaged changes:', error);
       throw error;
@@ -212,6 +230,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       set({ isLoading: true });
       await gitApi.discardUntracked(currentRepoPath, files);
       await get().refreshChangedFiles();
+      await get().refreshGitStatus();
     } catch (error) {
       console.error('Failed to discard untracked files:', error);
       throw error;
