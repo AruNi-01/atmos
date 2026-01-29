@@ -258,7 +258,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     pullChanges,
     fetchChanges,
     syncChanges,
-    isLoading
+    isLoading,
+    gitStatus
   } = useGitStore();
 
   const [commitMessage, setCommitMessage] = useState("");
@@ -272,18 +273,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     }
   }, [currentProjectPath, setCurrentRepoPath]);
 
-  const handleCommit = async () => {
-    if (!commitMessage.trim()) return;
-    setIsCommitting(true);
-    try {
-      await commitChanges(commitMessage);
-      setCommitMessage("");
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsCommitting(false);
-    }
-  };
+
 
   const handlePublish = async () => {
     setIsGlobalActionLoading(true);
@@ -307,8 +297,28 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     }
   };
 
+  const handleCommit = async () => {
+    if (!commitMessage.trim()) return;
+
+    setIsCommitting(true);
+    try {
+      // If nothing is staged but we have unstaged changes, stage them first (VS Code style)
+      if (stagedFiles.length === 0 && unstagedFiles.length > 0) {
+        await stageAllUnstaged();
+      }
+
+      await commitChanges(commitMessage);
+      setCommitMessage("");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCommitting(false);
+    }
+  };
+
   const hasChanges = stagedFiles.length > 0 || unstagedFiles.length > 0 || untrackedFiles.length > 0;
   const showPublishButton = !isBranchPublished;
+  const showPushButton = isBranchPublished && !!gitStatus?.has_unpushed_commits && stagedFiles.length === 0 && !commitMessage.trim();
 
   return (
     <aside className="w-full flex flex-col border-l border-white/5 h-full">
@@ -387,20 +397,24 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         {/* Main Button with Dropdown */}
         <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">
           <button
-            onClick={showPublishButton ? handlePublish : handleCommit}
-            disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && (!commitMessage.trim() || stagedFiles.length === 0))}
+            onClick={showPublishButton ? handlePublish : showPushButton ? () => handleGlobalAction(pushChanges) : handleCommit}
+            disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 rounded-l-md transition-all text-xs font-semibold select-none",
-              (isCommitting || isGlobalActionLoading || (!showPublishButton && (!commitMessage.trim() || stagedFiles.length === 0)))
+              (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
                 ? "bg-muted text-muted-foreground cursor-not-allowed"
-                : "bg-primary text-primary-foreground hover:bg-primary/90"
+                : showPushButton
+                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
             )}
           >
             {(isCommitting || isGlobalActionLoading) && <Loader2 className="size-3.5 animate-spin" />}
             <span>
               {showPublishButton
                 ? (isGlobalActionLoading ? 'Publishing...' : 'Publish Branch')
-                : (isCommitting ? 'Committing...' : 'Commit')
+                : showPushButton
+                  ? (isGlobalActionLoading ? 'Syncing...' : `Sync Changes ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ''}`)
+                  : (isCommitting ? 'Committing...' : 'Commit')
               }
             </span>
           </button>
@@ -408,12 +422,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className={cn(
-                "px-2 flex items-center justify-center rounded-r-md border-l border-primary-foreground/10 transition-colors",
-                (isCommitting || isGlobalActionLoading || (!showPublishButton && (!commitMessage.trim() || stagedFiles.length === 0)))
+                "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
+                (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
                   ? "bg-muted text-muted-foreground cursor-not-allowed border-l-transparent"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90",
+                  : showPushButton
+                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
               )}
-                disabled={isCommitting || isGlobalActionLoading}
+                disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
               >
                 <ChevronDown className="size-3.5 opacity-80" />
               </button>
@@ -435,7 +451,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </DropdownMenu>
         </div>
       </div>
-    </aside>
+    </aside >
   );
 };
 
