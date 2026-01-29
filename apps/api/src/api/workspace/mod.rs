@@ -16,4 +16,5 @@ pub fn routes() -> Router<AppState> {
         .route("/{guid}/branch", put(handlers::update_branch))
         .route("/{guid}/order", put(handlers::update_order))
         .route("/{guid}/terminal-layout", get(handlers::get_terminal_layout).put(handlers::update_terminal_layout))
+        .route("/{guid}/maximized-terminal-id", put(handlers::update_maximized_terminal_id))
 }

@@ -68,6 +68,7 @@ impl<'a> WorkspaceRepo<'a> {
             is_archived: Set(false),
             archived_at: Set(None),
             terminal_layout: Set(None),
+            maximized_terminal_id: Set(None),
         };
 
         let result = model.insert(self.db).await?;
@@ -218,6 +219,21 @@ impl<'a> WorkspaceRepo<'a> {
     pub async fn update_terminal_layout(&self, guid: String, layout: Option<String>) -> Result<()> {
         workspace::Entity::update_many()
             .col_expr(workspace::Column::TerminalLayout, Expr::value(layout))
+            .col_expr(
+                workspace::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
+    /// 更新工作区最大化终端 ID
+    pub async fn update_maximized_terminal_id(&self, guid: String, terminal_id: Option<String>) -> Result<()> {
+        workspace::Entity::update_many()
+            .col_expr(workspace::Column::MaximizedTerminalId, Expr::value(terminal_id))
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),

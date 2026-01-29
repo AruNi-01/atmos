@@ -54,7 +54,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     isWorkspaceReady,
     addTerminal: addTerminalToStore,
     removeTerminal: removeTerminalFromStore,
-    splitTerminal: splitTerminalInStore
+    splitTerminal: splitTerminalInStore,
+    toggleMaximize,
+    workspaceMaximizedIds,
   } = useTerminalStore();
 
   const { projects, isLoading: isProjectsLoading } = useProjectStore();
@@ -115,6 +117,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     splitTerminalInStore(workspaceId, id, direction);
   }, [workspaceId, splitTerminalInStore]);
 
+  const onToggleMaximize = useCallback((id: string) => {
+    toggleMaximize(workspaceId, id);
+  }, [workspaceId, toggleMaximize]);
+
   const renderTile = useCallback((id: string, path: any[]) => {
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
@@ -123,6 +129,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       <MosaicWindow<string>
         path={path}
         title={pane.title}
+        className={workspaceMaximizedIds[workspaceId] === id ? "is-maximized" : ""}
         renderToolbar={() => {
           const isClaude = pane.title.toLowerCase().includes("claude");
           const statusColor = isClaude ? "bg-yellow-500" : "bg-emerald-500";
@@ -157,10 +164,21 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                     <Rows size={12} />
                   </button>
                   <button
-                    className="terminal-mosaic-btn"
-                    title="Maximize"
+                    className={cn(
+                      "terminal-mosaic-btn",
+                      workspaceMaximizedIds[workspaceId] === id && "text-primary"
+                    )}
+                    onClick={() => onToggleMaximize(id)}
+                    title={workspaceMaximizedIds[workspaceId] === id ? "Restore" : "Maximize"}
                   >
-                    <Maximize2 size={11} />
+                    {workspaceMaximizedIds[workspaceId] === id ? (
+                      <div className="relative size-3 flex items-center justify-center">
+                        <Maximize2 size={11} className="scale-75 opacity-70" />
+                        <div className="absolute inset-0 border-[1.5px] border-current rounded-[1px] scale-50 translate-x-0.5 -translate-y-0.5" />
+                      </div>
+                    ) : (
+                      <Maximize2 size={11} />
+                    )}
                   </button>
                   <button
                     className="terminal-mosaic-btn terminal-mosaic-btn-close ml-1"
@@ -175,7 +193,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           );
         }}
       >
-        <div className="terminal-mosaic-content">
+        <div className="terminal-mosaic-content" data-pane-id={id}>
           <Terminal
             ref={(termRef) => {
               if (termRef) {
@@ -194,7 +212,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         </div>
       </MosaicWindow>
     );
-  }, [panes, splitTerminal, removeTerminal, workspaceInfo]);
+  }, [panes, splitTerminal, removeTerminal, workspaceInfo, workspaceMaximizedIds, workspaceId, onToggleMaximize]);
 
   // Wait for workspace to be ready before rendering any Terminal components
   // This prevents duplicate tmux window creation during initialization
@@ -235,8 +253,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     );
   }
 
+  const maximizedId = workspaceMaximizedIds[workspaceId];
+
   return (
-    <div className={cn("terminal-mosaic-container", className)}>
+    <div
+      className={cn("terminal-mosaic-container", className)}
+      data-maximized-id={maximizedId || undefined}
+    >
       <Mosaic<string>
         renderTile={renderTile}
         value={layout}

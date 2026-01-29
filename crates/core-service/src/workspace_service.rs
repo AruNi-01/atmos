@@ -131,4 +131,10 @@ impl WorkspaceService {
         let repo = WorkspaceRepo::new(&self.db);
         Ok(repo.update_terminal_layout(guid, layout).await?)
     }
+
+    /// 更新工作区最大化终端 ID
+    pub async fn update_maximized_terminal_id(&self, guid: String, terminal_id: Option<String>) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.update_maximized_terminal_id(guid, terminal_id).await?)
+    }
 }
