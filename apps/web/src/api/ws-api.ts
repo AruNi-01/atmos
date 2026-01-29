@@ -76,16 +76,20 @@ export interface GitStatusResponse {
 // 变更文件信息
 export interface GitChangedFile {
   path: string;
-  status: string; // M, A, D, R, C, U
+  status: string; // M, A, D, R, C, U, ?
   additions: number;
   deletions: number;
+  staged: boolean;
 }
 
 // 变更文件列表响应
 export interface GitChangedFilesResponse {
-  files: GitChangedFile[];
+  staged_files: GitChangedFile[];
+  unstaged_files: GitChangedFile[];
+  untracked_files: GitChangedFile[];
   total_additions: number;
   total_deletions: number;
+  is_branch_published: boolean;
 }
 
 // 文件 diff 响应
@@ -271,6 +275,55 @@ export const gitApi = {
    */
   push: async (path: string): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>('git_push', { path });
+  },
+
+  /**
+   * 暂存文件
+   */
+  stage: async (path: string, files: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_stage', { path, files });
+  },
+
+  /**
+   * 取消暂存
+   */
+  unstage: async (path: string, files: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_unstage', { path, files });
+  },
+
+  /**
+   * 放弃工作区更改
+   */
+  discardUnstaged: async (path: string, files: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_discard_unstaged', { path, files });
+  },
+
+  /**
+   * 放弃未追踪文件
+   */
+  discardUntracked: async (path: string, files: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_discard_untracked', { path, files });
+  },
+
+  /**
+   * 拉取变更
+   */
+  pull: async (path: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_pull', { path });
+  },
+
+  /**
+   * 获取远程变更
+   */
+  fetch: async (path: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_fetch', { path });
+  },
+
+  /**
+   * 同步 (fetch + pull)
+   */
+  sync: async (path: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_sync', { path });
   },
 };
 

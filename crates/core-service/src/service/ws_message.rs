@@ -10,7 +10,10 @@ use core_engine::{FsEngine, GitEngine};
 use infra::{
     FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsValidateGitPathRequest, FsWriteFileRequest,
     GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest, GitGetStatusRequest,
-    GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, ProjectCreateRequest,
+    GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, 
+    GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
+    GitPullRequest, GitFetchRequest, GitSyncRequest,
+    ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, 
     ProjectUpdateOrderRequest, WorkspaceArchiveRequest,
     WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
@@ -79,6 +82,13 @@ impl WsMessageService {
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
             WsAction::GitCommit => self.handle_git_commit(parse_request(request.data)?),
             WsAction::GitPush => self.handle_git_push(parse_request(request.data)?),
+            WsAction::GitStage => self.handle_git_stage(parse_request(request.data)?),
+            WsAction::GitUnstage => self.handle_git_unstage(parse_request(request.data)?),
+            WsAction::GitDiscardUnstaged => self.handle_git_discard_unstaged(parse_request(request.data)?),
+            WsAction::GitDiscardUntracked => self.handle_git_discard_untracked(parse_request(request.data)?),
+            WsAction::GitPull => self.handle_git_pull(parse_request(request.data)?),
+            WsAction::GitFetch => self.handle_git_fetch(parse_request(request.data)?),
+            WsAction::GitSync => self.handle_git_sync(parse_request(request.data)?),
 
             // Project
             WsAction::ProjectList => self.handle_project_list().await,
@@ -257,19 +267,30 @@ impl WsMessageService {
             ServiceError::Validation(format!("Failed to get changed files: {}", e))
         })?;
 
-        let files: Vec<Value> = info.files.into_iter().map(|f| {
+        let convert_file = |f: core_engine::ChangedFileInfo| -> Value {
             json!({
                 "path": f.path,
                 "status": f.status,
                 "additions": f.additions,
                 "deletions": f.deletions,
+                "staged": f.staged,
             })
-        }).collect();
+        };
+
+        let staged_files: Vec<Value> = info.staged_files.into_iter().map(convert_file).collect();
+        let unstaged_files: Vec<Value> = info.unstaged_files.into_iter().map(convert_file).collect();
+        let untracked_files: Vec<Value> = info.untracked_files.into_iter().map(convert_file).collect();
+
+        // Also check if branch is published
+        let is_branch_published = self.git_engine.is_branch_published(&path).unwrap_or(true);
 
         Ok(json!({
-            "files": files,
+            "staged_files": staged_files,
+            "unstaged_files": unstaged_files,
+            "untracked_files": untracked_files,
             "total_additions": info.total_additions,
             "total_deletions": info.total_deletions,
+            "is_branch_published": is_branch_published,
         }))
     }
 
@@ -303,6 +324,69 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         self.git_engine.push(&path).map_err(|e| {
             ServiceError::Validation(format!("Failed to push: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_stage(&self, req: GitStageRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.stage_files(&path, &req.files).map_err(|e| {
+            ServiceError::Validation(format!("Failed to stage files: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_unstage(&self, req: GitUnstageRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.unstage_files(&path, &req.files).map_err(|e| {
+            ServiceError::Validation(format!("Failed to unstage files: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_discard_unstaged(&self, req: GitDiscardUnstagedRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.discard_unstaged(&path, &req.files).map_err(|e| {
+            ServiceError::Validation(format!("Failed to discard unstaged changes: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_discard_untracked(&self, req: GitDiscardUntrackedRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.discard_untracked(&path, &req.files).map_err(|e| {
+            ServiceError::Validation(format!("Failed to discard untracked files: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_pull(&self, req: GitPullRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.pull(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to pull: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_fetch(&self, req: GitFetchRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.fetch(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to fetch: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_sync(&self, req: GitSyncRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.sync(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to sync: {}", e))
         })?;
 
         Ok(json!({ "success": true }))
