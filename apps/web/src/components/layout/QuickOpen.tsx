@@ -24,6 +24,7 @@ import {
   Database,
   AppWindow,
   Braces,
+  Orbit,
   toastManager
 } from '@workspace/ui';
 import { cn } from '@workspace/ui';
@@ -54,6 +55,7 @@ const APP_MAP: Record<string, { icon: React.ReactNode; label: string }> = {
   'WebStorm': { icon: <AppWindow className="size-3.5 text-blue-400" />, label: 'WebStorm' },
   'PyCharm': { icon: <FileCode className="size-3.5 text-yellow-400" />, label: 'PyCharm' },
   'DataGrip': { icon: <Database className="size-3.5 text-purple-400" />, label: 'DataGrip' },
+  'Antigravity': { icon: <Orbit className="size-3.5 text-blue-400" />, label: 'Antigravity' },
 };
 
 export const QuickOpen = ({ workspace }: QuickOpenProps) => {
@@ -159,6 +161,10 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Cursor')}>
             <MousePointer2 className="mr-2 size-4 text-foreground/80" />
             <span>Cursor</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Antigravity')}>
+            <Orbit className="mr-2 size-4 text-blue-400" />
+            <span>Antigravity</span>
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Zed')}>
             <Zap className="mr-2 size-4 text-yellow-500" />

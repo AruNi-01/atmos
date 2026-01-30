@@ -16,6 +16,9 @@ pub enum EngineError {
 
     #[error("FileSystem error: {0}")]
     FileSystem(String),
+
+    #[error("Search error: {0}")]
+    Search(String),
 }
 
 pub type Result<T> = std::result::Result<T, EngineError>;

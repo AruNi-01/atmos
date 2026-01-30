@@ -51,6 +51,22 @@ export interface FsListProjectFilesResponse {
   tree: FileTreeNode[];
 }
 
+// 搜索类型
+export interface SearchMatch {
+  file_path: string;
+  line_number: number;
+  line_content: string;
+  match_start: number;
+  match_end: number;
+  context_before: string[];
+  context_after: string[];
+}
+
+export interface FsSearchContentResponse {
+  matches: SearchMatch[];
+  truncated: boolean;
+}
+
 // Project 类型（后端返回格式）
 export interface ProjectModel {
   guid: string;
@@ -210,6 +226,22 @@ export const fsApi = {
     return wsRequest<FsListProjectFilesResponse>('fs_list_project_files', {
       root_path: rootPath,
       show_hidden: options?.showHidden ?? false,
+    });
+  },
+
+  /**
+   * 搜索文件内容（使用 ripgrep）
+   */
+  searchContent: async (
+    rootPath: string,
+    query: string,
+    options?: { maxResults?: number; caseSensitive?: boolean }
+  ): Promise<FsSearchContentResponse> => {
+    return wsRequest<FsSearchContentResponse>('fs_search_content', {
+      root_path: rootPath,
+      query,
+      max_results: options?.maxResults ?? 50,
+      case_sensitive: options?.caseSensitive ?? false,
     });
   },
 };

@@ -13,6 +13,7 @@ export type WsAction =
   | 'fs_read_file'
   | 'fs_write_file'
   | 'fs_list_project_files'
+  | 'fs_search_content'
   // App 操作
   | 'app_open'
   // Git 操作

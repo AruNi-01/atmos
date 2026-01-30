@@ -85,6 +85,8 @@ pub enum WsAction {
     FsWriteFile,
     /// 列出项目文件树
     FsListProjectFiles,
+    /// 搜索文件内容（使用 ripgrep）
+    FsSearchContent,
 
     // ===== 应用程序操作 =====
     /// 使用外部应用打开路径
@@ -263,6 +265,55 @@ pub struct FileTreeNode {
 pub struct FsListProjectFilesResponse {
     pub root_path: String,
     pub tree: Vec<FileTreeNode>,
+}
+
+/// 搜索文件内容请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsSearchContentRequest {
+    /// 项目根目录路径
+    pub root_path: String,
+    /// 搜索关键词
+    pub query: String,
+    /// 最大结果数（默认 50）
+    #[serde(default = "default_max_results")]
+    pub max_results: usize,
+    /// 是否区分大小写（默认 false）
+    #[serde(default)]
+    pub case_sensitive: bool,
+}
+
+fn default_max_results() -> usize {
+    50
+}
+
+/// 搜索匹配项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchMatch {
+    /// 文件相对路径
+    pub file_path: String,
+    /// 行号
+    pub line_number: usize,
+    /// 行内容
+    pub line_content: String,
+    /// 匹配开始位置
+    pub match_start: usize,
+    /// 匹配结束位置
+    pub match_end: usize,
+    /// 上文内容
+    #[serde(default)]
+    pub context_before: Vec<String>,
+    /// 下文内容
+    #[serde(default)]
+    pub context_after: Vec<String>,
+}
+
+/// 搜索文件内容响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsSearchContentResponse {
+    /// 匹配结果列表
+    pub matches: Vec<SearchMatch>,
+    /// 是否被截断（超过最大结果数）
+    pub truncated: bool,
 }
 
 // ===== 应用程序操作数据结构 =====

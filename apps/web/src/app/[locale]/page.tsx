@@ -4,6 +4,7 @@ import Header from "@/components/layout/Header";
 import LeftSidebar from "@/components/layout/LeftSidebar";
 import CenterStage from "@/components/layout/CenterStage";
 import RightSidebar from "@/components/layout/RightSidebar";
+import GlobalSearch from "@/components/layout/GlobalSearch";
 import { TERMINAL_LOGS } from "@/constants";
 import { FILE_CHANGES } from "@/constants";
 import Footer from "@/components/layout/Footer";
@@ -34,6 +35,8 @@ function HomeContent() {
       />
 
       <Footer />
+      
+      <GlobalSearch />
     </div>
   );
 }

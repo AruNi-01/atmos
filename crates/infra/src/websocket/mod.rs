@@ -16,8 +16,9 @@ pub use heartbeat::{HeartbeatMonitor, DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_TIMEO
 pub use manager::WsManager;
 pub use message::{
     AppOpenRequest, FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse, FsListProjectFilesRequest,
-    FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse, FsValidateGitPathRequest,
-    FsValidateGitPathResponse, FsWriteFileRequest, FsWriteFileResponse, GitBranchesResponse,
+    FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse, FsSearchContentRequest,
+    FsSearchContentResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
+    FsWriteFileRequest, FsWriteFileResponse, GitBranchesResponse,
     GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse, GitCommitRequest,
     GitCommitResponse, GitFileDiffRequest, GitFileDiffResponse, GitGetStatusRequest,
     GitListBranchesRequest, GitPushRequest, GitPushResponse, 
