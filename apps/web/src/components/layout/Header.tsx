@@ -24,6 +24,7 @@ import {
 } from '@workspace/ui';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useProjectStore } from '@/hooks/use-project-store';
+import { useDialogStore } from '@/hooks/use-dialog-store';
 import { gitApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 
@@ -32,6 +33,7 @@ const Header: React.FC = () => {
   const currentWorkspaceId = searchParams.get('workspaceId');
 
   const { projects, updateWorkspaceBranch } = useProjectStore();
+  const { setGlobalSearchOpen } = useDialogStore();
   const {
     currentBranch,
     targetBranch,
@@ -328,6 +330,7 @@ const Header: React.FC = () => {
         <button
           aria-label="Search"
           className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+          onClick={() => setGlobalSearchOpen(true)}
         >
           <Search className="size-4" />
         </button>

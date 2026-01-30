@@ -8,13 +8,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
-    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsValidateGitPathRequest, FsWriteFileRequest,
-    GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest, GitGetStatusRequest,
-    GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, ProjectCreateRequest,
-    ProjectDeleteRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsMessage, WsMessageHandler, WsRequest,
+    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsSearchContentRequest,
+    FsValidateGitPathRequest, FsWriteFileRequest, GitChangedFilesRequest, GitCommitRequest,
+    GitFileDiffRequest, GitGetStatusRequest, GitListBranchesRequest, GitPushRequest,
+    GitRenameBranchRequest, ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest,
+    ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
+    WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
+    WsAction, WsMessage, WsMessageHandler, WsRequest,
 };
 use serde_json::{json, Value};
 
@@ -68,6 +69,9 @@ impl WsMessageService {
             WsAction::FsWriteFile => self.handle_fs_write_file(parse_request(request.data)?),
             WsAction::FsListProjectFiles => {
                 self.handle_fs_list_project_files(parse_request(request.data)?)
+            }
+            WsAction::FsSearchContent => {
+                self.handle_fs_search_content(parse_request(request.data)?)
             }
 
             // Git
@@ -208,6 +212,31 @@ impl WsMessageService {
         Ok(json!({
             "root_path": root_path.to_string_lossy(),
             "tree": convert_tree(tree),
+        }))
+    }
+
+    fn handle_fs_search_content(&self, req: FsSearchContentRequest) -> Result<Value> {
+        let root_path = self.fs_engine.expand_path(&req.root_path)?;
+        let result = core_engine::search_content(
+            &root_path,
+            &req.query,
+            req.max_results,
+            req.case_sensitive,
+        ).map_err(|e| ServiceError::Validation(format!("Search failed: {}", e)))?;
+
+        let matches: Vec<Value> = result.matches.into_iter().map(|m| {
+            json!({
+                "file_path": m.file_path,
+                "line_number": m.line_number,
+                "line_content": m.line_content,
+                "match_start": m.match_start,
+                "match_end": m.match_end,
+            })
+        }).collect();
+
+        Ok(json!({
+            "matches": matches,
+            "truncated": result.truncated,
         }))
     }
 
