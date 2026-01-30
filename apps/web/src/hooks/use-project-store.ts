@@ -27,6 +27,16 @@ function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
   });
 }
 
+export interface WorkspaceSetupProgress {
+  workspaceId: string;
+  status: 'creating' | 'setting_up' | 'completed' | 'error';
+  lastStatus?: 'creating' | 'setting_up' | 'completed'; // Track previous success
+  stepTitle: string;
+  output: string;
+  success: boolean;
+  countdown?: number;
+}
+
 interface ProjectStore {
   projects: Project[];
   activeWorkspaceId: string | null;
@@ -50,6 +60,12 @@ interface ProjectStore {
   reorderWorkspaces: (projectId: string, newOrder: Workspace[]) => Promise<void>;
   
   setActiveWorkspaceId: (id: string | null) => void;
+
+  // Setup Progress
+  setupProgress: Record<string, WorkspaceSetupProgress>;
+  setSetupProgress: (progress: WorkspaceSetupProgress) => void;
+  clearSetupProgress: (workspaceId: string) => void;
+  retryWorkspaceSetup: (workspaceId: string) => Promise<void>;
 }
 
 // 转换后端 Project 模型到前端 Project 类型
@@ -541,4 +557,64 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   setActiveWorkspaceId: (id) => set({ activeWorkspaceId: id }),
+
+  setupProgress: {},
+  setSetupProgress: (progress) => set(state => {
+    const existing = state.setupProgress[progress.workspaceId];
+    let newStatus = progress.status;
+    let lastStatus = existing?.lastStatus;
+
+    if (progress.status === 'error') {
+      lastStatus = existing?.status !== 'error' ? existing?.status : existing?.lastStatus;
+    } else if (progress.status !== existing?.status) {
+      // If moving to a new status that isn't error, update lastStatus to the PREVIOUS status
+      if (existing?.status && existing.status !== 'error') {
+        lastStatus = existing.status;
+      }
+    }
+
+    return {
+      setupProgress: {
+        ...state.setupProgress,
+        [progress.workspaceId]: {
+          ...existing,
+          ...progress,
+          status: newStatus,
+          lastStatus: lastStatus,
+          output: (existing?.output || '') + (progress.output || '')
+        }
+      }
+    };
+  }),
+  clearSetupProgress: (workspaceId) => set(state => {
+    const newProgress = { ...state.setupProgress };
+    delete newProgress[workspaceId];
+    return { setupProgress: newProgress };
+  }),
+  retryWorkspaceSetup: async (workspaceId) => {
+    try {
+      await useWebSocketStore.getState().send('workspace_retry_setup', { guid: workspaceId });
+    } catch (error) {
+      console.error('Failed to retry setup:', error);
+      toastManager.add({
+        title: 'Retry Failed',
+        description: 'Could not trigger setup retry',
+        type: 'error'
+      });
+    }
+  },
 }));
+
+// Listen for setup progress events
+if (typeof window !== 'undefined') {
+  useWebSocketStore.getState().onEvent('workspace_setup_progress', (data) => {
+    useProjectStore.getState().setSetupProgress({
+      workspaceId: data.workspace_id,
+      status: data.status,
+      stepTitle: data.step_title,
+      output: data.output || '',
+      success: data.success,
+      countdown: data.countdown,
+    });
+  });
+}

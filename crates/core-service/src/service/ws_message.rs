@@ -19,10 +19,15 @@ use infra::{
     WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, 
     WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest, 
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, 
+    WorkspaceRetrySetupRequest,
     WsAction, WsMessage, WsMessageHandler, WsRequest,
     ScriptGetRequest, ScriptSaveRequest,
+    WsEvent, WorkspaceSetupProgressNotification,
 };
+use tokio::sync::OnceCell;
 use serde_json::{json, Value};
+use portable_pty::{native_pty_system, PtySize, CommandBuilder};
+use std::io::Read;
 
 use crate::error::{Result, ServiceError};
 use crate::{ProjectService, WorkspaceService};
@@ -34,6 +39,7 @@ pub struct WsMessageService {
     app_engine: core_engine::AppEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
+    ws_manager: OnceCell<Arc<infra::WsManager>>,
 }
 
 impl WsMessageService {
@@ -47,14 +53,20 @@ impl WsMessageService {
             app_engine: core_engine::AppEngine::new(),
             project_service,
             workspace_service,
+            ws_manager: OnceCell::new(),
         }
     }
 
+    pub fn set_ws_manager(&self, manager: Arc<infra::WsManager>) -> Result<()> {
+        self.ws_manager.set(manager).map_err(|_| ServiceError::Processing("WS Manager already set".to_string()))?;
+        Ok(())
+    }
+
     /// Process a WebSocket request and return a response.
-    async fn process_request(&self, request: WsRequest) -> WsMessage {
+    async fn process_request(&self, conn_id: &str, request: WsRequest) -> WsMessage {
         let request_id = request.request_id.clone();
 
-        match self.handle_action(request).await {
+        match self.handle_action(conn_id, request).await {
             Ok(data) => WsMessage::success(&request_id, data),
             Err(e) => {
                 tracing::error!("[WsMessageService] Request failed: {}", e);
@@ -64,7 +76,7 @@ impl WsMessageService {
     }
 
     /// Route action to the appropriate handler.
-    async fn handle_action(&self, request: WsRequest) -> Result<Value> {
+    async fn handle_action(&self, conn_id: &str, request: WsRequest) -> Result<Value> {
         match request.action {
             // File System
             WsAction::FsGetHomeDir => self.handle_fs_get_home_dir(),
@@ -122,7 +134,7 @@ impl WsMessageService {
             // Workspace
             WsAction::WorkspaceList => self.handle_workspace_list(parse_request(request.data)?).await,
             WsAction::WorkspaceCreate => {
-                self.handle_workspace_create(parse_request(request.data)?).await
+                self.handle_workspace_create(conn_id, parse_request(request.data)?).await
             }
             WsAction::WorkspaceUpdateName => {
                 self.handle_workspace_update_name(parse_request(request.data)?).await
@@ -144,6 +156,9 @@ impl WsMessageService {
             }
             WsAction::WorkspaceArchive => {
                 self.handle_workspace_archive(parse_request(request.data)?).await
+            }
+            WsAction::WorkspaceRetrySetup => {
+                self.handle_workspace_retry_setup(conn_id, parse_request(request.data)?).await
             }
         }
     }
@@ -544,11 +559,25 @@ impl WsMessageService {
         Ok(json!(workspaces))
     }
 
-    async fn handle_workspace_create(&self, req: WorkspaceCreateRequest) -> Result<Value> {
+    async fn handle_workspace_create(&self, conn_id: &str, req: WorkspaceCreateRequest) -> Result<Value> {
         let workspace = self
             .workspace_service
-            .create_workspace(req.project_guid, req.name, req.branch, req.sidebar_order)
+            .create_workspace(req.project_guid.clone(), req.name, req.branch, req.sidebar_order)
             .await?;
+        
+        // Spawn setup in background
+        if let Some(manager) = self.ws_manager.get().cloned() {
+            let project_service = self.project_service.clone();
+            let workspace_id = workspace.guid.clone();
+            let conn_id = conn_id.to_string();
+            let project_guid = req.project_guid.clone();
+            let workspace_name = workspace.name.clone();
+
+            tokio::spawn(async move {
+                Self::run_setup_process(manager, project_service, conn_id, project_guid, workspace_id, workspace_name, false).await;
+            });
+        }
+
         Ok(json!(workspace))
     }
 
@@ -595,6 +624,215 @@ impl WsMessageService {
         self.workspace_service.archive_workspace(req.guid).await?;
         Ok(json!({ "success": true }))
     }
+
+    async fn handle_workspace_retry_setup(&self, conn_id: &str, req: WorkspaceRetrySetupRequest) -> Result<Value> {
+        let workspace = self.workspace_service.get_workspace(req.guid.clone()).await?
+            .ok_or_else(|| ServiceError::Validation("Workspace not found".to_string()))?;
+        
+        if let Some(manager) = self.ws_manager.get().cloned() {
+            let project_service = self.project_service.clone();
+            let workspace_id = workspace.guid.clone();
+            let conn_id = conn_id.to_string();
+            let project_guid = workspace.project_guid.clone();
+            let workspace_name = workspace.name.clone();
+
+            tokio::spawn(async move {
+                Self::run_setup_process(manager, project_service, conn_id, project_guid, workspace_id, workspace_name, true).await;
+            });
+        }
+        
+        Ok(json!({ "success": true }))
+    }
+
+    // ===== Setup Process Helper =====
+
+    async fn run_setup_process(
+        manager: Arc<infra::WsManager>,
+        project_service: Arc<ProjectService>,
+        conn_id: String,
+        project_guid: String,
+        workspace_id: String,
+        workspace_name: String,
+        skip_creation: bool,
+    ) {
+        if !skip_creation {
+            // 1. Initial notification: Creating
+            let _ = manager.send_to(&conn_id, &WsMessage::notification(
+                WsEvent::WorkspaceSetupProgress,
+                json!(WorkspaceSetupProgressNotification {
+                    workspace_id: workspace_id.clone(),
+                    status: "creating".to_string(),
+                    step_title: "Workspace Created".to_string(),
+                    output: None,
+                    success: true,
+                    countdown: None,
+                })
+            )).await;
+            
+            // Give UI a bit of time to show the "creating" state
+            tokio::time::sleep(tokio::time::Duration::from_millis(800)).await;
+        }
+
+        // 2. Load project to get script
+        let project = match project_service.get_project(project_guid).await {
+            Ok(Some(p)) => p,
+            _ => return,
+        };
+
+        let project_root = std::path::Path::new(&project.main_file_path);
+        let scripts_path = project_root.join(".atmos/scripts/atmos.json");
+        
+        let setup_script = if scripts_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&scripts_path) {
+                let json: Value = serde_json::from_str(&content).unwrap_or(json!({}));
+                json["setup"].as_str().map(|s| s.to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let workspace_path = GitEngine::new().get_worktree_path(&workspace_name).unwrap_or_default();
+
+        if let Some(script) = setup_script {
+            // 3. Status: Setting Up
+             let _ = manager.send_to(&conn_id, &WsMessage::notification(
+                WsEvent::WorkspaceSetupProgress,
+                json!(WorkspaceSetupProgressNotification {
+                    workspace_id: workspace_id.clone(),
+                    status: "setting_up".to_string(),
+                    step_title: "Running Setup Script".to_string(),
+                    output: Some(format!("\r\n$ Running setup script: {}\r\n", script)),
+                    success: true,
+                    countdown: None,
+                })
+            )).await;
+
+            // Run in PTY
+            let result = Self::execute_script_in_pty(&manager, &conn_id, &workspace_id, &script, &workspace_path, &project.main_file_path).await;
+            
+            if let Err(e) = result {
+                 let _ = manager.send_to(&conn_id, &WsMessage::notification(
+                    WsEvent::WorkspaceSetupProgress,
+                    json!(WorkspaceSetupProgressNotification {
+                        workspace_id: workspace_id.clone(),
+                        status: "error".to_string(),
+                        step_title: "Setup Failed".to_string(),
+                        output: Some(format!("\r\n\x1b[31mError: {}\x1b[0m\r\n", e)),
+                        success: false,
+                        countdown: None,
+                    })
+                )).await;
+                return;
+            }
+        }
+
+        // 4. Status: Completed
+        let _ = manager.send_to(&conn_id, &WsMessage::notification(
+            WsEvent::WorkspaceSetupProgress,
+            json!(WorkspaceSetupProgressNotification {
+                workspace_id: workspace_id.clone(),
+                status: "completed".to_string(),
+                step_title: "Ready to Build".to_string(),
+                output: None,
+                success: true,
+                countdown: None,
+            })
+        )).await;
+    }
+
+    async fn execute_script_in_pty(
+        manager: &Arc<infra::WsManager>,
+        conn_id: &str,
+        workspace_id: &str,
+        script: &str,
+        cwd: &std::path::Path,
+        project_root: &str,
+    ) -> anyhow::Result<()> {
+        let pty_system = native_pty_system();
+        let pair = pty_system.openpty(PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0,
+        })?;
+
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+        
+        let mut cmd = CommandBuilder::new(&shell);
+        // Run as login shell to load user environment (~/.zprofile, ~/.zshrc, etc.)
+        // Note: some shells need -l or --login
+        if shell.contains("zsh") || shell.contains("bash") {
+            cmd.arg("-l");
+        }
+        cmd.arg("-c");
+        // Wrapper logic:
+        // 1. Define echo/printf functions that temporarily disable xtrace
+        // 2. Set PS4 to a clean '$ ' prefix
+        // 3. Enable xtrace (set -x)
+        let wrapper = r#"
+PS4='$ '
+echo() { { set +x; } 2>/dev/null; builtin echo "$@"; { set -x; } 2>/dev/null; }
+printf() { { set +x; } 2>/dev/null; builtin printf "$@"; { set -x; } 2>/dev/null; }
+set -x
+"#;
+        let script_with_wrapper = format!("{}{}", wrapper, script);
+        cmd.arg(script_with_wrapper);
+        cmd.cwd(cwd.to_path_buf());
+        
+        // Inject env vars
+        cmd.env("ATMOS_ROOT_PROJECT_PATH", project_root.to_string());
+        cmd.env("ATMOS_WORKSPACE_PATH", cwd.to_string_lossy().to_string());
+        // For convenience, pass current PATH
+        if let Ok(path) = std::env::var("PATH") {
+            cmd.env("PATH", path);
+        }
+
+        let mut child = pair.slave.spawn_command(cmd)?;
+        drop(pair.slave);
+
+        let mut reader = pair.master.try_clone_reader()?;
+        let manager_clone = manager.clone();
+        let conn_id_clone = conn_id.to_string();
+        let workspace_id_clone = workspace_id.to_string();
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+
+        // Reading task
+        std::thread::spawn(move || {
+            let mut buf = [0u8; 4096];
+            while let Ok(n) = reader.read(&mut buf) {
+                if n == 0 { break; }
+                let s = String::from_utf8_lossy(&buf[..n]).to_string();
+                if tx.send(s).is_err() { break; }
+            }
+        });
+
+        while let Some(output) = rx.recv().await {
+             let _ = manager_clone.send_to(&conn_id_clone, &WsMessage::notification(
+                WsEvent::WorkspaceSetupProgress,
+                json!(WorkspaceSetupProgressNotification {
+                    workspace_id: workspace_id_clone.clone(),
+                    status: "setting_up".to_string(),
+                    step_title: "Running Setup Script".to_string(),
+                    output: Some(output),
+                    success: true,
+                    countdown: None,
+                })
+            )).await;
+        }
+        
+        // Wait, I didn't define WsEvent correctly if I use WsEvent::WorkspaceSetupProgress directly
+        // Let me re-check my previous edit of message.rs
+
+        let status = child.wait()?;
+        if !status.success() {
+            anyhow::bail!("Script exited with status {}", status);
+        }
+
+        Ok(())
+    }
 }
 
 /// Parse request data from JSON Value.
@@ -623,10 +861,10 @@ impl WsMessageHandler for WsMessageService {
             WsMessage::Request(request) => {
                 tracing::debug!(
                     "[WsMessageService] Processing request from {}: {:?}",
-                    conn_id,
+                     conn_id,
                     request.action
                 );
-                let response = self.process_request(request).await;
+                let response = self.process_request(conn_id, request).await;
                 response.to_json().ok()
             }
             WsMessage::Ping => WsMessage::pong().to_json().ok(),

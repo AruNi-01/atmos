@@ -70,11 +70,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         test_service,
         project_service,
         workspace_service,
-        ws_message_service,
+        ws_message_service.clone(),
         message_push_service,
         terminal_service,
         ws_config,
     );
+
+    // Inject WsManager into WsMessageService for server-to-client notifications
+    ws_message_service.set_ws_manager(app_state.ws_service.manager()).map_err(|e| e.to_string())?;
 
     // Start heartbeat monitor
     let _heartbeat_task = app_state.ws_service.start_heartbeat();
