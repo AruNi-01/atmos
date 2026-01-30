@@ -30,12 +30,12 @@ interface CommandDialogProps {
 const CommandDialog = ({ children, open, onOpenChange, shouldFilter = true }: CommandDialogProps & { shouldFilter?: boolean }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 shadow-lg max-w-2xl">
+      <DialogContent className="overflow-hidden p-0 shadow-lg max-w-2xl !top-[15%] !translate-y-0 h-[420px]">
         <DialogTitle className="sr-only">Global Search</DialogTitle>
         <DialogDescription className="sr-only">
           Search for workspaces, files, and code
         </DialogDescription>
-        <Command shouldFilter={shouldFilter} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+        <Command shouldFilter={shouldFilter} className="flex flex-col h-full [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           {children}
         </Command>
       </DialogContent>
@@ -67,7 +67,7 @@ const CommandList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
-    className={cn("max-h-[400px] overflow-y-auto overflow-x-hidden", className)}
+    className={cn("flex-1 flex flex-col overflow-y-auto overflow-x-hidden", className)}
     {...props}
   />
 ));
@@ -79,7 +79,7 @@ const CommandEmpty = React.forwardRef<
 >((props, ref) => (
   <CommandPrimitive.Empty
     ref={ref}
-    className="py-6 text-center text-sm text-muted-foreground"
+    className="flex-1 flex items-center justify-center text-sm text-muted-foreground"
     {...props}
   />
 ));

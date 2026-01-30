@@ -130,6 +130,21 @@ impl AppEngine {
                         .status()
                 }
             }
+            "Antigravity" => {
+                let ag_result = Command::new("antigravity")
+                    .arg(path)
+                    .status();
+                
+                if ag_result.is_ok() {
+                    ag_result
+                } else {
+                    Command::new("open")
+                        .arg("-a")
+                        .arg("Antigravity")
+                        .arg(path)
+                        .status()
+                }
+            }
             "Zed" => {
                 Command::new("open")
                     .arg("-a")
@@ -274,6 +289,11 @@ impl AppEngine {
                     .arg(path)
                     .status()
             }
+            "Antigravity" => {
+                Command::new("antigravity")
+                    .arg(path)
+                    .status()
+            }
             "Sublime Text" => {
                 let subl_result = Command::new("subl")
                     .arg(path)
@@ -388,6 +408,11 @@ impl AppEngine {
             }
             "Cursor" => {
                 Command::new("cursor")
+                    .arg(path)
+                    .status()
+            }
+            "Antigravity" => {
+                Command::new("antigravity")
                     .arg(path)
                     .status()
             }
