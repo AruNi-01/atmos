@@ -294,9 +294,7 @@ export const useEditorStore = create<EditorStore>()(
     {
       name: 'atmos-editor-storage',
       storage: createJSONStorage(() => sessionStorage),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
-      },
+
       partialize: (state) => ({
         workspaceStates: state.workspaceStates,
         currentWorkspaceId: state.currentWorkspaceId,
