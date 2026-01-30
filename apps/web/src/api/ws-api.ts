@@ -58,6 +58,8 @@ export interface SearchMatch {
   line_content: string;
   match_start: number;
   match_end: number;
+  context_before: string[];
+  context_after: string[];
 }
 
 export interface FsSearchContentResponse {

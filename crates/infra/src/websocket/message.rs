@@ -299,6 +299,12 @@ pub struct SearchMatch {
     pub match_start: usize,
     /// 匹配结束位置
     pub match_end: usize,
+    /// 上文内容
+    #[serde(default)]
+    pub context_before: Vec<String>,
+    /// 下文内容
+    #[serde(default)]
+    pub context_after: Vec<String>,
 }
 
 /// 搜索文件内容响应
