@@ -214,6 +214,26 @@ export const fsApi = {
   },
 };
 
+// ===== App API =====
+
+export interface AppOpenResponse {
+  success: boolean;
+  app_name: string;
+  path: string;
+}
+
+export const appApi = {
+  /**
+   * 使用外部应用打开路径
+   */
+  openWith: async (appName: string, path: string): Promise<AppOpenResponse> => {
+    return wsRequest<AppOpenResponse>('app_open', {
+      app_name: appName,
+      path,
+    });
+  },
+};
+
 // ===== Git API =====
 
 export const gitApi = {

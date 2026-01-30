@@ -29,6 +29,7 @@ use crate::{ProjectService, WorkspaceService};
 pub struct WsMessageService {
     fs_engine: FsEngine,
     git_engine: GitEngine,
+    app_engine: core_engine::AppEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
 }
@@ -41,6 +42,7 @@ impl WsMessageService {
         Self {
             fs_engine: FsEngine::new(),
             git_engine: GitEngine::new(),
+            app_engine: core_engine::AppEngine::new(),
             project_service,
             workspace_service,
         }
@@ -73,6 +75,9 @@ impl WsMessageService {
             WsAction::FsListProjectFiles => {
                 self.handle_fs_list_project_files(parse_request(request.data)?)
             }
+
+            // App
+            WsAction::AppOpen => self.handle_app_open(parse_request(request.data)?),
 
             // Git
             WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
@@ -222,6 +227,21 @@ impl WsMessageService {
         Ok(json!({
             "root_path": root_path.to_string_lossy(),
             "tree": convert_tree(tree),
+        }))
+    }
+
+    // ===== App Handlers =====
+
+    fn handle_app_open(&self, req: infra::AppOpenRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.app_engine
+            .open_with_app(&req.app_name, &path.to_string_lossy())
+            .map_err(|e| ServiceError::Validation(format!("Failed to open app: {}", e)))?;
+
+        Ok(json!({
+            "success": true,
+            "app_name": req.app_name,
+            "path": path.to_string_lossy(),
         }))
     }
 
