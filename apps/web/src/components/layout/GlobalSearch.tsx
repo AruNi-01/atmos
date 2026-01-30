@@ -386,7 +386,9 @@ export function GlobalSearch() {
         {globalSearchTab === 'app' && (
           <>
             {filteredAppItems.length === 0 && (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">No results found.</div>
+              <div className="flex h-[300px] w-full flex-col items-center justify-center text-sm text-muted-foreground text-center">
+                No results found.
+              </div>
             )}
             
             {groupedAppItems.workspace.length > 0 && (
@@ -466,15 +468,17 @@ export function GlobalSearch() {
         {globalSearchTab === 'files' && (
           <>
             {!currentProject ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-[300px] w-full flex-col items-center justify-center text-sm text-muted-foreground text-center">
                 Select a workspace to search files
               </div>
             ) : isLoadingFiles ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-[300px] w-full flex-col items-center justify-center text-sm text-muted-foreground text-center">
                 Loading files...
               </div>
             ) : filteredFiles.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">No files found.</div>
+              <div className="flex h-[300px] w-full flex-col items-center justify-center text-sm text-muted-foreground text-center">
+                No files found.
+              </div>
             ) : (
               <CommandGroup heading="Files">
                 {filteredFiles.map(file => (
@@ -501,19 +505,21 @@ export function GlobalSearch() {
         {globalSearchTab === 'code' && (
           <>
             {!currentProject ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-[300px] w-full flex-col items-center justify-center text-sm text-muted-foreground text-center">
                 Select a workspace to search code
               </div>
             ) : !searchQuery.trim() ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-[300px] w-full flex-col items-center justify-center text-sm text-muted-foreground text-center">
                 Type to search in file contents
               </div>
             ) : isSearchingCode ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-[300px] w-full flex-col items-center justify-center text-sm text-muted-foreground text-center">
                 Searching...
               </div>
             ) : codeSearchResults.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">No matches found.</div>
+              <div className="flex h-[300px] w-full flex-col items-center justify-center text-sm text-muted-foreground text-center">
+                No matches found.
+              </div>
             ) : (
               <CommandGroup heading={codeSearchTruncated ? "Results (truncated)" : "Results"}>
                 {codeSearchResults.map((match, index) => (
