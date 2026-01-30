@@ -25,6 +25,7 @@ import {
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useProjectStore } from '@/hooks/use-project-store';
+import { useDialogStore } from '@/hooks/use-dialog-store';
 import { gitApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 
@@ -33,6 +34,7 @@ const Header: React.FC = () => {
   const currentWorkspaceId = searchParams.get('workspaceId');
 
   const { projects, updateWorkspaceBranch } = useProjectStore();
+  const { setGlobalSearchOpen } = useDialogStore();
   const {
     currentBranch,
     targetBranch,
@@ -337,9 +339,14 @@ const Header: React.FC = () => {
       <div className="flex items-center space-x-3 justify-end">
         <button
           aria-label="Search"
-          className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+          className="flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
+          onClick={() => setGlobalSearchOpen(true)}
         >
-          <Search className="size-4" />
+          <Search className="size-3.5" />
+          <span className="flex-1 text-left">Search...</span>
+          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            <span className="text-xs">⌘</span>K
+          </kbd>
         </button>
         <button className="flex items-center space-x-2 px-3 py-1.5 bg-muted/40 hover:bg-muted/60 text-muted-foreground hover:text-foreground text-[12px] font-medium rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 h-8">
           <GitPullRequest className="size-3.5" />

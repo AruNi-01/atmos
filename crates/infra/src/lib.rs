@@ -10,7 +10,8 @@ pub use error::{InfraError, Result};
 pub use websocket::{
     is_control_message, AppOpenRequest, ClientType, FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse,
     FsListProjectFilesRequest, FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse,
-    FsValidateGitPathRequest, FsValidateGitPathResponse, FsWriteFileRequest, FsWriteFileResponse,
+    FsSearchContentRequest, FsSearchContentResponse, FsValidateGitPathRequest,
+    FsValidateGitPathResponse, FsWriteFileRequest, FsWriteFileResponse,
     GitBranchesResponse, GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse,
     GitCommitRequest, GitCommitResponse, GitFileDiffRequest, GitFileDiffResponse,
     GitGetStatusRequest, GitListBranchesRequest, GitPushRequest, GitPushResponse,

@@ -11,6 +11,11 @@ interface DialogStore {
   
   selectedProjectId: string;
   setSelectedProjectId: (id: string) => void;
+  
+  isGlobalSearchOpen: boolean;
+  setGlobalSearchOpen: (open: boolean) => void;
+  globalSearchTab: 'app' | 'files' | 'code';
+  setGlobalSearchTab: (tab: 'app' | 'files' | 'code') => void;
 }
 
 export const useDialogStore = create<DialogStore>((set) => ({
@@ -22,4 +27,9 @@ export const useDialogStore = create<DialogStore>((set) => ({
   
   selectedProjectId: '',
   setSelectedProjectId: (id) => set({ selectedProjectId: id }),
+  
+  isGlobalSearchOpen: false,
+  setGlobalSearchOpen: (open) => set({ isGlobalSearchOpen: open }),
+  globalSearchTab: 'app',
+  setGlobalSearchTab: (tab) => set({ globalSearchTab: tab }),
 }));
