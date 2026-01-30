@@ -90,16 +90,20 @@ export interface GitStatusResponse {
 // 变更文件信息
 export interface GitChangedFile {
   path: string;
-  status: string; // M, A, D, R, C, U
+  status: string; // M, A, D, R, C, U, ?
   additions: number;
   deletions: number;
+  staged: boolean;
 }
 
 // 变更文件列表响应
 export interface GitChangedFilesResponse {
-  files: GitChangedFile[];
+  staged_files: GitChangedFile[];
+  unstaged_files: GitChangedFile[];
+  untracked_files: GitChangedFile[];
   total_additions: number;
   total_deletions: number;
+  is_branch_published: boolean;
 }
 
 // 文件 diff 响应
@@ -240,6 +244,26 @@ export const fsApi = {
   },
 };
 
+// ===== App API =====
+
+export interface AppOpenResponse {
+  success: boolean;
+  app_name: string;
+  path: string;
+}
+
+export const appApi = {
+  /**
+   * 使用外部应用打开路径
+   */
+  openWith: async (appName: string, path: string): Promise<AppOpenResponse> => {
+    return wsRequest<AppOpenResponse>('app_open', {
+      app_name: appName,
+      path,
+    });
+  },
+};
+
 // ===== Git API =====
 
 export const gitApi = {
@@ -301,6 +325,55 @@ export const gitApi = {
    */
   push: async (path: string): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>('git_push', { path });
+  },
+
+  /**
+   * 暂存文件
+   */
+  stage: async (path: string, files: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_stage', { path, files });
+  },
+
+  /**
+   * 取消暂存
+   */
+  unstage: async (path: string, files: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_unstage', { path, files });
+  },
+
+  /**
+   * 放弃工作区更改
+   */
+  discardUnstaged: async (path: string, files: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_discard_unstaged', { path, files });
+  },
+
+  /**
+   * 放弃未追踪文件
+   */
+  discardUntracked: async (path: string, files: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_discard_untracked', { path, files });
+  },
+
+  /**
+   * 拉取变更
+   */
+  pull: async (path: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_pull', { path });
+  },
+
+  /**
+   * 获取远程变更
+   */
+  fetch: async (path: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_fetch', { path });
+  },
+
+  /**
+   * 同步 (fetch + pull)
+   */
+  sync: async (path: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('git_sync', { path });
   },
 };
 
@@ -369,6 +442,16 @@ export const wsProjectApi = {
     return wsRequest<{ success: boolean }>('project_update_target_branch', {
       guid,
       target_branch: targetBranch,
+    });
+  },
+
+  /**
+   * 更新项目排序
+   */
+  updateOrder: async (guid: string, sidebarOrder: number): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('project_update_order', {
+      guid,
+      sidebar_order: sidebarOrder,
     });
   },
 };
@@ -449,3 +532,22 @@ export const wsWorkspaceApi = {
     return wsRequest<{ success: boolean }>('workspace_archive', { guid });
   },
 };
+
+// ===== Script API =====
+
+export const wsScriptApi = {
+  /**
+   * 获取项目脚本
+   */
+  get: async (projectGuid: string): Promise<Record<string, string>> => {
+    return wsRequest<Record<string, string>>('script_get', { project_guid: projectGuid });
+  },
+  
+  /**
+   * 保存项目脚本
+   */
+  save: async (projectGuid: string, scripts: Record<string, string>): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('script_save', { project_guid: projectGuid, scripts });
+  },
+};
+

@@ -14,6 +14,8 @@ export type WsAction =
   | 'fs_write_file'
   | 'fs_list_project_files'
   | 'fs_search_content'
+  // App 操作
+  | 'app_open'
   // Git 操作
   | 'git_get_status'
   | 'git_list_branches'
@@ -22,13 +24,24 @@ export type WsAction =
   | 'git_file_diff'
   | 'git_commit'
   | 'git_push'
+  | 'git_stage'
+  | 'git_unstage'
+  | 'git_discard_unstaged'
+  | 'git_discard_untracked'
+  | 'git_pull'
+  | 'git_fetch'
+  | 'git_sync'
   // Project 操作
   | 'project_list'
   | 'project_create'
   | 'project_update'
   | 'project_update_target_branch'
+  | 'project_update_order'
   | 'project_delete'
   | 'project_validate_path'
+  // Script 操作
+  | 'script_get'
+  | 'script_save'
   // Workspace 操作
   | 'workspace_list'
   | 'workspace_create'

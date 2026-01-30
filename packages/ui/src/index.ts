@@ -25,6 +25,8 @@ export {
   CommandSeparator,
   CommandShortcut,
 } from "./components/ui/command";
+export * from "./components/ui/collapsible";
+export * from "./components/ui/textarea";
 
 // Utilities
 export { cn } from "./lib/utils";

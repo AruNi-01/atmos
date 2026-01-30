@@ -5,6 +5,7 @@ pub mod pty;
 pub mod search;
 pub mod test_engine;
 pub mod tmux;
+pub mod app;
 
 pub use error::EngineError;
 pub use fs::{FileTreeItem, FsEngine, FsEntry, GitValidationResult};
@@ -12,3 +13,4 @@ pub use git::{ChangedFileInfo, ChangedFilesInfo, FileDiffInfo, GitEngine, GitSta
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
 pub use tmux::{TmuxEngine, TmuxSessionInfo, TmuxVersion, TmuxWindowInfo};
+pub use app::AppEngine;
