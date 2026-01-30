@@ -14,6 +14,17 @@ export * from "./components/theme-toggle";
 export * from "./components/language-selector";
 export * from "./components/ui/dropdown-menu";
 export * from "./components/ui/tabs";
+export {
+  Command,
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandSeparator,
+  CommandShortcut,
+} from "./components/ui/command";
 
 // Utilities
 export { cn } from "./lib/utils";
