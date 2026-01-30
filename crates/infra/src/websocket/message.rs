@@ -22,6 +22,15 @@ pub enum WsMessage {
     Response(WsResponse),
     /// 错误响应
     Error(WsError),
+    /// 服务端主动通知
+    Notification(WsNotification),
+}
+
+/// 发送至客户端的主动通知 (Unsolicited notification)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsNotification {
+    pub event: WsEvent,
+    pub data: Value,
 }
 
 /// 通用消息体（向后兼容）
@@ -163,6 +172,32 @@ pub enum WsAction {
     WorkspaceUnpin,
     /// 归档 Workspace
     WorkspaceArchive,
+    /// 重试 Workspace 设置 (脚本执行)
+    WorkspaceRetrySetup,
+}
+
+/// 服务端主动推送的事件类型
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WsEvent {
+    /// 工作区安装/初始化进度
+    WorkspaceSetupProgress,
+}
+
+// ===== 消息通知数据结构 =====
+
+/// 工作区设置进度通知数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceSetupProgressNotification {
+    pub workspace_id: String,
+    /// 当前状态: "creating", "setting_up", "completed", "error"
+    pub status: String,
+    pub step_title: String,
+    /// 脚本输出内容 (按需发送)
+    pub output: Option<String>,
+    pub success: bool,
+    /// 倒计时 (秒)
+    pub countdown: Option<u32>,
 }
 
 // ===== 文件系统操作数据结构 =====
@@ -623,6 +658,11 @@ pub struct WorkspaceArchiveRequest {
     pub guid: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceRetrySetupRequest {
+    pub guid: String,
+}
+
 // ===== WsMessage 工厂方法 =====
 
 impl WsMessage {
@@ -669,6 +709,14 @@ impl WsMessage {
             request_id: request_id.into(),
             code: code.into(),
             message: message.into(),
+        })
+    }
+
+    /// 创建主动通知
+    pub fn notification(event: WsEvent, data: Value) -> Self {
+        Self::Notification(WsNotification {
+            event,
+            data,
         })
     }
 

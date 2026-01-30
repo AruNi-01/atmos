@@ -51,7 +51,8 @@ export type WsAction =
   | 'workspace_delete'
   | 'workspace_pin'
   | 'workspace_unpin'
-  | 'workspace_archive';
+  | 'workspace_archive'
+  | 'workspace_retry_setup';
 
 export interface WsRequest {
   type: 'request';
@@ -80,7 +81,15 @@ export interface WsError {
   };
 }
 
-export type WsMessage = WsRequest | WsResponse | WsError | { type: 'ping' } | { type: 'pong' };
+export interface WsNotification {
+  type: 'notification';
+  payload: {
+    event: string;
+    data: unknown;
+  };
+}
+
+export type WsMessage = WsRequest | WsResponse | WsError | WsNotification | { type: 'ping' } | { type: 'pong' };
 
 // ===== WebSocket 状态管理 =====
 
@@ -97,6 +106,7 @@ interface WebSocketStore {
   connectionState: ConnectionState;
   socket: WebSocket | null;
   pendingRequests: Map<string, PendingRequest>;
+  eventListeners: Map<string, Set<(data: any) => void>>;
   
   // 配置
   url: string;
@@ -112,6 +122,7 @@ interface WebSocketStore {
   connect: () => void;
   disconnect: () => void;
   send: <T = unknown>(action: WsAction, data?: unknown) => Promise<T>;
+  onEvent: (event: string, callback: (data: any) => void) => () => void;
   
   // 内部方法
   _startHeartbeat: () => void;
@@ -136,6 +147,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   connectionState: 'disconnected',
   socket: null,
   pendingRequests: new Map(),
+  eventListeners: new Map(),
   
   // 配置
   url: getWsUrl(),
@@ -274,6 +286,23 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     });
   },
   
+  // 注册事件监听
+  onEvent: (event: string, callback: (data: any) => void) => {
+    const { eventListeners } = get();
+    if (!eventListeners.has(event)) {
+      eventListeners.set(event, new Set());
+    }
+    eventListeners.get(event)!.add(callback);
+    
+    // 返回卸载函数
+    return () => {
+      const listeners = get().eventListeners.get(event);
+      if (listeners) {
+        listeners.delete(callback);
+      }
+    };
+  },
+  
   // 启动心跳
   _startHeartbeat: () => {
     const { heartbeatInterval, socket } = get();
@@ -340,6 +369,16 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           clearTimeout(pending.timeout);
           pendingRequests.delete(request_id);
           pending.reject(new Error(`[${code}] ${errorMessage}`));
+        }
+        return;
+      }
+      
+      // 处理通知
+      if (message.type === 'notification') {
+        const { event: eventName, data } = message.payload;
+        const listeners = get().eventListeners.get(eventName);
+        if (listeners) {
+          listeners.forEach(cb => cb(data));
         }
         return;
       }

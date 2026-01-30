@@ -37,6 +37,8 @@ import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { useSearchParams } from "next/navigation";
 import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useProjectStore } from "@/hooks/use-project-store";
+import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const MonacoEditor = dynamic(
@@ -84,7 +86,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
-  
+
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
 
@@ -114,6 +116,15 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     getActiveFile,
   } = useEditorStore();
   const { setCreateProjectOpen } = useDialogStore();
+  const { setupProgress, clearSetupProgress } = useProjectStore();
+
+  const currentSetupProgress = workspaceId ? setupProgress[workspaceId] : null;
+
+  const handleFinishSetup = () => {
+    if (workspaceId) {
+      clearSetupProgress(workspaceId);
+    }
+  };
 
   // Sync workspaceId with store
   React.useEffect(() => {
@@ -151,6 +162,18 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               type: "info"
             });
           }}
+        />
+      </main>
+    );
+  }
+
+  // Show setup progress if active workspace is being initialized
+  if (currentSetupProgress) {
+    return (
+      <main className="h-full overflow-hidden bg-background">
+        <WorkspaceSetupProgressView
+          progress={currentSetupProgress}
+          onFinish={handleFinishSetup}
         />
       </main>
     );
@@ -273,7 +296,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           Terminal is kept mounted and uses CSS visibility to avoid re-initialization.
           This prevents terminal sessions from restarting when switching tabs.
         */}
-        <div 
+        <div
           className={cn(
             "flex-1 min-h-0 min-w-0",
             activeValue !== "terminal" && "hidden"

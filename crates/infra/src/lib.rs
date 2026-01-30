@@ -22,7 +22,9 @@ pub use websocket::{
     ProjectUpdateOrderRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest, 
     WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest, 
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, 
+    WorkspaceRetrySetupRequest,
     WsAction, WsConnection, WsError, WsErrorPayload, WsManager, WsMessage, WsMessageHandler, 
     WsRequest, WsResponse, WsResult, WsService, WsServiceConfig,
     ScriptGetRequest, ScriptSaveRequest,
+    WsEvent, WorkspaceSetupProgressNotification,
 };
