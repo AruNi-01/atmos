@@ -255,6 +255,8 @@ impl WsMessageService {
                 "line_content": m.line_content,
                 "match_start": m.match_start,
                 "match_end": m.match_end,
+                "context_before": m.context_before,
+                "context_after": m.context_after,
             })
         }).collect();
 
