@@ -23,4 +23,5 @@ pub use websocket::{
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, 
     WsAction, WsConnection, WsError, WsErrorPayload, WsManager, WsMessage, WsMessageHandler, 
     WsRequest, WsResponse, WsResult, WsService, WsServiceConfig,
+    ScriptGetRequest, ScriptSaveRequest,
 };

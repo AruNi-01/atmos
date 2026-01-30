@@ -502,3 +502,22 @@ export const wsWorkspaceApi = {
     return wsRequest<{ success: boolean }>('workspace_archive', { guid });
   },
 };
+
+// ===== Script API =====
+
+export const wsScriptApi = {
+  /**
+   * 获取项目脚本
+   */
+  get: async (projectGuid: string): Promise<Record<string, string>> => {
+    return wsRequest<Record<string, string>>('script_get', { project_guid: projectGuid });
+  },
+  
+  /**
+   * 保存项目脚本
+   */
+  save: async (projectGuid: string, scripts: Record<string, string>): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('script_save', { project_guid: projectGuid, scripts });
+  },
+};
+

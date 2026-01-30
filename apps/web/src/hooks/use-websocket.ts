@@ -38,6 +38,9 @@ export type WsAction =
   | 'project_update_order'
   | 'project_delete'
   | 'project_validate_path'
+  // Script 操作
+  | 'script_get'
+  | 'script_save'
   // Workspace 操作
   | 'workspace_list'
   | 'workspace_create'

@@ -30,5 +30,6 @@ pub use message::{
     WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, 
     WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload, 
     WsMessage, WsRequest, WsResponse,
+    ScriptGetRequest, ScriptSaveRequest,
 };
 pub use service::{WsService, WsServiceConfig};
