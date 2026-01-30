@@ -42,4 +42,9 @@ impl ProjectService {
         let repo = ProjectRepo::new(&self.db);
         Ok(repo.find_by_guid(&guid).await?)
     }
+
+    pub async fn update_order(&self, guid: String, order: i32) -> Result<()> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.update_order(guid, order).await?)
+    }
 }

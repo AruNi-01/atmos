@@ -15,18 +15,22 @@ pub use handler::{
 pub use heartbeat::{HeartbeatMonitor, DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_TIMEOUT_SECS};
 pub use manager::WsManager;
 pub use message::{
-    FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse, FsListProjectFilesRequest,
+    AppOpenRequest, FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse, FsListProjectFilesRequest,
     FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse, FsSearchContentRequest,
     FsSearchContentResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
     FsWriteFileRequest, FsWriteFileResponse, GitBranchesResponse,
     GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse, GitCommitRequest,
     GitCommitResponse, GitFileDiffRequest, GitFileDiffResponse, GitGetStatusRequest,
-    GitListBranchesRequest, GitPushRequest, GitPushResponse, GitRenameBranchRequest,
+    GitListBranchesRequest, GitPushRequest, GitPushResponse, 
+    GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
+    GitPullRequest, GitFetchRequest, GitSyncRequest,
+    GitRenameBranchRequest,
     GitStatusResponse, MessagePayload, ProjectCreateRequest, ProjectDeleteRequest,
-    ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload, WsMessage, WsRequest,
-    WsResponse,
+    ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, ProjectUpdateOrderRequest, 
+    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, 
+    WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, 
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload, 
+    WsMessage, WsRequest, WsResponse,
+    ScriptGetRequest, ScriptSaveRequest,
 };
 pub use service::{WsService, WsServiceConfig};

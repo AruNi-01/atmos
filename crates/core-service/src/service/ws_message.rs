@@ -8,14 +8,19 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
-    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsSearchContentRequest,
-    FsValidateGitPathRequest, FsWriteFileRequest, GitChangedFilesRequest, GitCommitRequest,
-    GitFileDiffRequest, GitGetStatusRequest, GitListBranchesRequest, GitPushRequest,
-    GitRenameBranchRequest, ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
-    WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest,
-    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
+    AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, 
+    FsSearchContentRequest, FsValidateGitPathRequest, FsWriteFileRequest,
+    GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest, GitGetStatusRequest,
+    GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, 
+    GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
+    GitPullRequest, GitFetchRequest, GitSyncRequest,
+    ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest, 
+    ProjectUpdateTargetBranchRequest, ProjectUpdateOrderRequest, 
+    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, 
+    WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest, 
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, 
     WsAction, WsMessage, WsMessageHandler, WsRequest,
+    ScriptGetRequest, ScriptSaveRequest,
 };
 use serde_json::{json, Value};
 
@@ -26,6 +31,7 @@ use crate::{ProjectService, WorkspaceService};
 pub struct WsMessageService {
     fs_engine: FsEngine,
     git_engine: GitEngine,
+    app_engine: core_engine::AppEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
 }
@@ -38,6 +44,7 @@ impl WsMessageService {
         Self {
             fs_engine: FsEngine::new(),
             git_engine: GitEngine::new(),
+            app_engine: core_engine::AppEngine::new(),
             project_service,
             workspace_service,
         }
@@ -74,6 +81,9 @@ impl WsMessageService {
                 self.handle_fs_search_content(parse_request(request.data)?)
             }
 
+            // App
+            WsAction::AppOpen => self.handle_app_open(parse_request(request.data)?),
+
             // Git
             WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
             WsAction::GitListBranches => self.handle_git_list_branches(parse_request(request.data)?),
@@ -82,6 +92,13 @@ impl WsMessageService {
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
             WsAction::GitCommit => self.handle_git_commit(parse_request(request.data)?),
             WsAction::GitPush => self.handle_git_push(parse_request(request.data)?),
+            WsAction::GitStage => self.handle_git_stage(parse_request(request.data)?),
+            WsAction::GitUnstage => self.handle_git_unstage(parse_request(request.data)?),
+            WsAction::GitDiscardUnstaged => self.handle_git_discard_unstaged(parse_request(request.data)?),
+            WsAction::GitDiscardUntracked => self.handle_git_discard_untracked(parse_request(request.data)?),
+            WsAction::GitPull => self.handle_git_pull(parse_request(request.data)?),
+            WsAction::GitFetch => self.handle_git_fetch(parse_request(request.data)?),
+            WsAction::GitSync => self.handle_git_sync(parse_request(request.data)?),
 
             // Project
             WsAction::ProjectList => self.handle_project_list().await,
@@ -90,10 +107,17 @@ impl WsMessageService {
             WsAction::ProjectUpdateTargetBranch => {
                 self.handle_project_update_target_branch(parse_request(request.data)?).await
             }
+            WsAction::ProjectUpdateOrder => {
+                self.handle_project_update_order(parse_request(request.data)?).await
+            }
             WsAction::ProjectDelete => self.handle_project_delete(parse_request(request.data)?).await,
             WsAction::ProjectValidatePath => {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
             }
+
+            // Script
+            WsAction::ScriptGet => self.handle_script_get(parse_request(request.data)?).await,
+            WsAction::ScriptSave => self.handle_script_save(parse_request(request.data)?).await,
 
             // Workspace
             WsAction::WorkspaceList => self.handle_workspace_list(parse_request(request.data)?).await,
@@ -240,6 +264,21 @@ impl WsMessageService {
         }))
     }
 
+    // ===== App Handlers =====
+
+    fn handle_app_open(&self, req: AppOpenRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.app_engine
+            .open_with_app(&req.app_name, &path.to_string_lossy())
+            .map_err(|e| ServiceError::Validation(format!("Failed to open app: {}", e)))?;
+
+        Ok(json!({
+            "success": true,
+            "app_name": req.app_name,
+            "path": path.to_string_lossy(),
+        }))
+    }
+
     // ===== Git Handlers =====
 
     fn handle_git_get_status(&self, req: GitGetStatusRequest) -> Result<Value> {
@@ -282,19 +321,30 @@ impl WsMessageService {
             ServiceError::Validation(format!("Failed to get changed files: {}", e))
         })?;
 
-        let files: Vec<Value> = info.files.into_iter().map(|f| {
+        let convert_file = |f: core_engine::ChangedFileInfo| -> Value {
             json!({
                 "path": f.path,
                 "status": f.status,
                 "additions": f.additions,
                 "deletions": f.deletions,
+                "staged": f.staged,
             })
-        }).collect();
+        };
+
+        let staged_files: Vec<Value> = info.staged_files.into_iter().map(convert_file).collect();
+        let unstaged_files: Vec<Value> = info.unstaged_files.into_iter().map(convert_file).collect();
+        let untracked_files: Vec<Value> = info.untracked_files.into_iter().map(convert_file).collect();
+
+        // Also check if branch is published
+        let is_branch_published = self.git_engine.is_branch_published(&path).unwrap_or(true);
 
         Ok(json!({
-            "files": files,
+            "staged_files": staged_files,
+            "unstaged_files": unstaged_files,
+            "untracked_files": untracked_files,
             "total_additions": info.total_additions,
             "total_deletions": info.total_deletions,
+            "is_branch_published": is_branch_published,
         }))
     }
 
@@ -328,6 +378,69 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         self.git_engine.push(&path).map_err(|e| {
             ServiceError::Validation(format!("Failed to push: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_stage(&self, req: GitStageRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.stage_files(&path, &req.files).map_err(|e| {
+            ServiceError::Validation(format!("Failed to stage files: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_unstage(&self, req: GitUnstageRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.unstage_files(&path, &req.files).map_err(|e| {
+            ServiceError::Validation(format!("Failed to unstage files: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_discard_unstaged(&self, req: GitDiscardUnstagedRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.discard_unstaged(&path, &req.files).map_err(|e| {
+            ServiceError::Validation(format!("Failed to discard unstaged changes: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_discard_untracked(&self, req: GitDiscardUntrackedRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.discard_untracked(&path, &req.files).map_err(|e| {
+            ServiceError::Validation(format!("Failed to discard untracked files: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_pull(&self, req: GitPullRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.pull(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to pull: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_fetch(&self, req: GitFetchRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.fetch(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to fetch: {}", e))
+        })?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_sync(&self, req: GitSyncRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine.sync(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to sync: {}", e))
         })?;
 
         Ok(json!({ "success": true }))
@@ -371,6 +484,52 @@ impl WsMessageService {
             .update_target_branch(req.guid, req.target_branch)
             .await?;
         Ok(json!({ "success": true }))
+    }
+
+    async fn handle_project_update_order(&self, req: ProjectUpdateOrderRequest) -> Result<Value> {
+        self.project_service
+            .update_order(req.guid, req.sidebar_order)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    // ===== Script Handlers =====
+
+    async fn handle_script_get(&self, req: ScriptGetRequest) -> Result<Value> {
+        let project = self.project_service.get_project(req.project_guid).await?;
+        if let Some(project) = project {
+            let scripts_path = std::path::Path::new(&project.main_file_path)
+                .join(".atmos/scripts/atmos.json");
+            
+            if scripts_path.exists() {
+                let (content, _) = self.fs_engine.read_file(&scripts_path)?;
+                let json: Value = serde_json::from_str(&content).unwrap_or(json!({}));
+                Ok(json)
+            } else {
+                Ok(json!({}))
+            }
+        } else {
+             Err(ServiceError::Validation("Project not found".to_string()))
+        }
+    }
+
+    async fn handle_script_save(&self, req: ScriptSaveRequest) -> Result<Value> {
+        let project = self.project_service.get_project(req.project_guid).await?;
+        if let Some(project) = project {
+            let scripts_path = std::path::Path::new(&project.main_file_path)
+                .join(".atmos/scripts/atmos.json");
+            
+            // Ensure directory exists
+            if let Some(parent) = scripts_path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| ServiceError::Validation(format!("Failed to create script directory: {}", e)))?;
+            }
+
+            let content = serde_json::to_string_pretty(&req.scripts).map_err(|e| ServiceError::Validation(format!("Invalid script JSON: {}", e)))?;
+            self.fs_engine.write_file(&scripts_path, &content)?;
+            Ok(json!({ "success": true }))
+        } else {
+             Err(ServiceError::Validation("Project not found".to_string()))
+        }
     }
 
     // ===== Workspace Handlers =====

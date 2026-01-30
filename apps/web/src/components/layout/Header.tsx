@@ -22,6 +22,7 @@ import {
   GitBranch,
   ScrollArea,
 } from '@workspace/ui';
+import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
@@ -220,23 +221,31 @@ const Header: React.FC = () => {
         <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">
           {currentProject?.name || 'Visual Vibe Space'}
         </span>
+        <div className="pl-2">
+          {currentWorkspace && <QuickOpen workspace={currentWorkspace} />}
+        </div>
       </div>
 
       {/* Center: Git Context Flow */}
       {currentWorkspace && (
-        <div className="flex items-center space-x-3 bg-muted/50 px-4 py-1.5 rounded-sm border border-sidebar-border transition-colors ease-out duration-200">
+        <div className={cn(
+          "flex items-center space-x-3 bg-muted/40 px-3 py-1.5 rounded-md border border-transparent transition-all duration-300 ease-out h-8",
+          isEditingCurrentBranch
+            ? "border-sidebar-border bg-background shadow-xs w-fit"
+            : "hover:bg-muted/60 hover:border-border w-fit max-w-[500px]"
+        )}>
           {/* Current Branch (from workspace) */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             <span
-              className={cn("size-2 rounded-full transition-colors", getStatusColor())}
+              className={cn("size-2 rounded-full transition-colors shrink-0", getStatusColor())}
               title={getStatusTooltip()}
             />
             {isEditingCurrentBranch ? (
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-1 animate-in fade-in zoom-in-95 duration-200">
                 <Input
                   value={editedCurrentBranch}
                   onChange={(e) => setEditedCurrentBranch(e.target.value)}
-                  className="h-7 w-40 text-[13px] px-2 py-0 bg-transparent border-transparent hover:border-sidebar-border transition-colors rounded-sm focus:border-sidebar-border"
+                  className="h-6 w-48 text-[13px] px-2 py-0 bg-secondary/50 border-transparent focus:bg-background transition-colors rounded-sm focus:border-primary/20"
                   placeholder="branch-name"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveCurrentBranch();
@@ -246,49 +255,50 @@ const Header: React.FC = () => {
                 />
                 <button
                   onClick={handleSaveCurrentBranch}
-                  className="size-7 flex items-center justify-center hover:bg-green-500/10 rounded-sm text-green-500 transition-colors"
+                  className="size-6 flex items-center justify-center hover:bg-green-500/10 rounded-sm text-green-500 transition-colors shrink-0 relative z-20"
                   aria-label="Save current branch"
                 >
-                  <Check className="size-4" />
+                  <Check className="size-3.5" />
                 </button>
                 <button
                   onClick={handleCancelEditCurrentBranch}
-                  className="size-7 flex items-center justify-center hover:bg-muted rounded-sm text-muted-foreground transition-colors"
+                  className="size-6 flex items-center justify-center hover:bg-muted rounded-sm text-muted-foreground transition-colors shrink-0"
                   aria-label="Cancel editing"
                 >
-                  <X className="size-4" />
+                  <X className="size-3.5" />
                 </button>
               </div>
             ) : (
               <div
-                className="flex items-center space-x-1 cursor-pointer group/branch"
+                className="flex items-center space-x-1.5 cursor-pointer group/branch py-0.5 px-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors overflow-hidden"
                 onClick={() => setIsEditingCurrentBranch(true)}
               >
-                <span className="text-[13px] font-medium text-foreground">
+                <span className="text-[13px] font-medium text-foreground truncate block max-w-[120px]">
                   {displayCurrentBranch}
                 </span>
-                <Edit2 className="size-2.5 opacity-0 group-hover/branch:opacity-100 transition-opacity text-muted-foreground" />
                 {(hasUncommittedChanges || hasUnpushedCommits) && (
-                  <span className="text-[11px] text-amber-500 font-medium">
+                  <span className="text-[11px] text-amber-500 font-medium shrink-0">
                     {hasUncommittedChanges && `+${uncommittedCount}`}
                     {hasUncommittedChanges && hasUnpushedCommits && ' '}
                     {hasUnpushedCommits && `↑${unpushedCount}`}
                   </span>
                 )}
+                <Edit2 className="size-2.5 opacity-0 group-hover/branch:opacity-100 transition-opacity text-muted-foreground shrink-0" />
               </div>
             )}
           </div>
 
-          <ArrowRight className="size-3.5 text-muted-foreground" />
+          <ArrowRight className="size-3 text-muted-foreground/50 shrink-0" />
 
           {/* Target Branch (selectable, saved to project) */}
-          <div className="flex items-center space-x-2">
-            <span className="size-2 rounded-full bg-muted-foreground" />
+          <div className="flex items-center space-x-2 shrink-0 min-w-0">
+            <span className="size-2 rounded-full bg-muted-foreground/30 shrink-0" />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target">
-                  <span>origin/{displayTargetBranch}</span>
-                  <Edit2 className="size-2.5 opacity-0 group-hover/target:opacity-100 transition-opacity" />
+                <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-black/5 dark:hover:bg-white/5 max-w-full">
+                  <span className="opacity-50 shrink-0">origin/</span>
+                  <span className="truncate block max-w-[100px]">{displayTargetBranch}</span>
+                  <Edit2 className="size-2.5 opacity-0 group-hover/target:opacity-100 transition-opacity ml-0.5 shrink-0" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="w-56 p-0">
@@ -334,7 +344,7 @@ const Header: React.FC = () => {
         >
           <Search className="size-4" />
         </button>
-        <button className="flex items-center space-x-2 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[12px] font-medium rounded-sm border border-sidebar-border transition-colors ease-out duration-200">
+        <button className="flex items-center space-x-2 px-3 py-1.5 bg-muted/40 hover:bg-muted/60 text-muted-foreground hover:text-foreground text-[12px] font-medium rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 h-8">
           <GitPullRequest className="size-3.5" />
           <span>Open PR</span>
         </button>

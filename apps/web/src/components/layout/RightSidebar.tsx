@@ -3,10 +3,34 @@
 import React, { useState, useEffect } from 'react';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
-import { Check, RefreshCw, Upload, Loader2, GitGraph, getFileIconProps } from '@workspace/ui';
+import {
+  Check,
+  RefreshCw,
+  Upload,
+  Loader2,
+  getFileIconProps,
+  ChevronRight,
+  Plus,
+  Minus,
+  Undo2,
+  ArrowDown,
+  ArrowUp,
+  ChevronDown
+} from '@workspace/ui';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@workspace/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui";
 import { cn } from "@/lib/utils";
-
 import { useSearchParams } from 'next/navigation';
+import { GitChangedFile } from '@/api/ws-api';
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -19,29 +43,228 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
   return <img {...iconProps} />;
 }
 
+// Helper to shorten path: apps/web/src/components/foo.tsx -> .../components/foo.tsx
+// But user requested format: .../home/pages.tsx. It seems just keeping the last directory and filename.
+function formatPath(path: string) {
+  const parts = path.split('/');
+  if (parts.length <= 2) return path;
+  const fileName = parts.pop();
+  const lastDir = parts.pop();
+  return `.../${lastDir}/${fileName}`;
+}
+
+// Or just separate filename from dir path logic we had, but truncate the dir path.
+function TruncatedPath({ path }: { path: string }) {
+  const parts = path.split('/');
+  const fileName = parts.pop() || "";
+  const dirPath = parts.join('/');
+
+  // Logic: 
+  // If no dir, just filename.
+  // If long dir, condense it.
+
+  let displayDir = dirPath;
+  if (parts.length > 2) {
+    displayDir = `.../${parts.slice(-2).join('/')}`;
+  } else if (parts.length > 0 && displayDir.length > 20) {
+    // Fallback for single very long dir
+    displayDir = `...${displayDir.slice(-15)}`;
+  }
+
+  return (
+    <div className="flex items-baseline min-w-0 flex-1 gap-2">
+      <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap">
+        {fileName}
+      </span>
+      {dirPath && (
+        <span className="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate">
+          {displayDir}
+        </span>
+      )}
+    </div>
+  );
+}
+
+
+interface ChangeSectionProps {
+  title: string;
+  files: GitChangedFile[];
+  defaultOpen?: boolean;
+  onStage?: (files: string[]) => void;
+  onUnstage?: (files: string[]) => void;
+  onDiscard?: (files: string[]) => void;
+  onStageAll?: () => void;
+  onUnstageAll?: () => void;
+  onDiscardAll?: () => void;
+  workspaceId: string | null;
+}
+
+const ChangeSection: React.FC<ChangeSectionProps> = ({
+  title,
+  files,
+  defaultOpen = true,
+  onStage,
+  onUnstage,
+  onDiscard,
+  onStageAll,
+  onUnstageAll,
+  onDiscardAll,
+  workspaceId
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const { openFile, getActiveFilePath } = useEditorStore();
+  const activeFilePath = getActiveFilePath(workspaceId || undefined);
+
+  if (files.length === 0) return null;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
+      <div className="flex items-center justify-between px-2 py-1 hover:bg-sidebar-accent/50 group/header rounded-sm mb-1">
+        <CollapsibleTrigger className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors w-full">
+          <ChevronRight className={cn("size-3.5 transition-transform duration-200", isOpen && "rotate-90")} />
+          <span>{title}</span>
+          <span className="text-[10px] ml-1 px-1.5 rounded-full bg-sidebar-accent text-muted-foreground tabular-nums">
+            {files.length}
+          </span>
+        </CollapsibleTrigger>
+
+        <div className="flex items-center gap-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
+          {onStageAll && (
+            <button onClick={(e) => { e.stopPropagation(); onStageAll(); }} title="Stage All" className="p-1 hover:bg-sidebar-accent rounded hover:text-foreground text-muted-foreground transition-colors">
+              <Plus className="size-3.5" />
+            </button>
+          )}
+          {onUnstageAll && (
+            <button onClick={(e) => { e.stopPropagation(); onUnstageAll(); }} title="Unstage All" className="p-1 hover:bg-sidebar-accent rounded hover:text-foreground text-muted-foreground transition-colors">
+              <Minus className="size-3.5" />
+            </button>
+          )}
+          {onDiscardAll && (
+            <button onClick={(e) => { e.stopPropagation(); onDiscardAll(); }} title="Discard All" className="p-1 hover:bg-sidebar-accent rounded hover:text-foreground text-muted-foreground transition-colors">
+              <Undo2 className="size-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <CollapsibleContent>
+        {/* Added overflow-x-auto to container to support horizontal scrolling if path is very long, 
+            though usually we rely on truncation. User asked for scrolling. */}
+        <div className="flex flex-col gap-0.5 mt-0.5 overflow-x-auto no-scrollbar pb-2">
+          {files.map(file => {
+            const fileName = file.path.split('/').pop() || file.path;
+
+            return (
+              <div
+                key={file.path}
+                onClick={() => openFile(`diff://${file.path}`, workspaceId || undefined)}
+                className={cn(
+                  "group flex items-center px-6 py-1.5 cursor-pointer transition-colors ease-out duration-200 min-w-max relative rounded-sm mx-1",
+                  activeFilePath === `diff://${file.path}` ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent/50"
+                )}
+              >
+                {/* File icon */}
+                <FileIcon name={fileName} className="size-4 mr-2 shrink-0" />
+
+                {/* Filename & Path */}
+                <TruncatedPath path={file.path} />
+
+                {/* Git stats or Hover Actions */}
+                <div className="flex items-center ml-3 h-4 shrink-0">
+                  {/* Default State: Stats & Status */}
+                  <div className={cn(
+                    "flex items-center gap-2 text-[11px] font-mono tabular-nums group-hover:hidden min-w-[30px] justify-end",
+                  )}>
+                    {file.status !== '?' && (
+                      <span className={cn(
+                        "flex",
+                        file.additions > file.deletions ? "text-emerald-500" : "text-red-500"
+                      )}>
+                        {file.additions > 0 ? `+${file.additions}` : `-${file.deletions}`}
+                      </span>
+                    )}
+                    <span className={cn(
+                      "w-3 text-center font-bold",
+                      file.status === 'M' ? 'text-yellow-500' :
+                        file.status === 'A' || file.status === '?' ? 'text-emerald-500' :
+                          file.status === 'D' ? 'text-red-500' : 'text-foreground'
+                    )}>{file.status === '?' ? 'U' : file.status}</span>
+                  </div>
+
+                  {/* Hover State: Actions */}
+                  <div className="hidden group-hover:flex items-center gap-1">
+                    {onStage && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onStage([file.path]); }}
+                        title="Stage Changes"
+                        className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    )}
+                    {onUnstage && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onUnstage([file.path]); }}
+                        title="Unstage Changes"
+                        className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Minus className="size-3.5" />
+                      </button>
+                    )}
+                    {onDiscard && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDiscard([file.path]); }}
+                        title="Discard Changes"
+                        className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Undo2 className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+};
+
 const RightSidebar: React.FC<RightSidebarProps> = () => {
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspaceId');
-  const { currentProjectPath, openFile, getActiveFilePath } = useEditorStore();
-  const activeFilePath = getActiveFilePath(workspaceId || undefined);
+  const { currentProjectPath } = useEditorStore();
 
   const {
-    gitStatus,
-    changedFiles,
+    stagedFiles,
+    unstagedFiles,
+    untrackedFiles,
     setCurrentRepoPath,
     refreshGitStatus,
     refreshChangedFiles,
-    totalAdditions,
-    totalDeletions,
+    isBranchPublished,
     commitChanges,
     pushChanges,
+    stageFiles,
+    unstageFiles,
+    discardUnstagedChanges,
+    discardUntrackedFiles,
+    stageAllUnstaged,
+    stageAllUntracked,
+    unstageAll,
+    discardAllUnstaged,
+    discardAllUntracked,
+    pullChanges,
+    fetchChanges,
+    syncChanges,
     isLoading,
-    selectedFilePath
+    gitStatus
   } = useGitStore();
 
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
-  const [isPushing, setIsPushing] = useState(false);
+  const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
 
   // Sync current project path to git store
   useEffect(() => {
@@ -50,10 +273,40 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     }
   }, [currentProjectPath, setCurrentRepoPath]);
 
+
+
+  const handlePublish = async () => {
+    setIsGlobalActionLoading(true);
+    try {
+      await pushChanges();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGlobalActionLoading(false);
+    }
+  };
+
+  const handleGlobalAction = async (action: () => Promise<void>) => {
+    setIsGlobalActionLoading(true);
+    try {
+      await action();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGlobalActionLoading(false);
+    }
+  };
+
   const handleCommit = async () => {
     if (!commitMessage.trim()) return;
+
     setIsCommitting(true);
     try {
+      // If nothing is staged but we have unstaged changes, stage them first (VS Code style)
+      if (stagedFiles.length === 0 && unstagedFiles.length > 0) {
+        await stageAllUnstaged();
+      }
+
       await commitChanges(commitMessage);
       setCommitMessage("");
     } catch (e) {
@@ -63,162 +316,142 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     }
   };
 
-  const handlePush = async () => {
-    setIsPushing(true);
-    try {
-      await pushChanges();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsPushing(false);
-    }
-  };
-
-  const hasUnpushedCommits = gitStatus?.has_unpushed_commits || false;
-  const unpushedCount = gitStatus?.unpushed_count || 0;
+  const hasChanges = stagedFiles.length > 0 || unstagedFiles.length > 0 || untrackedFiles.length > 0;
+  const showPublishButton = !isBranchPublished;
+  const showPushButton = isBranchPublished && !!gitStatus?.has_unpushed_commits && stagedFiles.length === 0 && !commitMessage.trim();
 
   return (
     <aside className="w-full flex flex-col border-l border-white/5 h-full">
 
       {/* Changes Header */}
-      <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border">
+      <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-muted-foreground uppercase text-balance">Changes</span>
-          {isLoading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+          <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Source Control</span>
+          {(isLoading || isGlobalActionLoading) && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground tabular-nums flex bg-sidebar-accent px-1.5 py-0.5 rounded-sm">
-            <span className="text-emerald-500 mr-1">+{totalAdditions}</span>
-            <span className="text-muted-foreground/50 mr-1">/</span>
-            <span className="text-red-500">-{totalDeletions}</span>
-          </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-sidebar-accent text-sidebar-foreground font-mono tabular-nums">
-            {changedFiles.length}
-          </span>
-        </div>
-      </div>
-
-      {/* Commit Actions */}
-      <div className="flex flex-col p-4 border-b border-sidebar-border gap-3">
-        {changedFiles.length > 0 ? (
-          <>
-            <input
-              type="text"
-              placeholder="Commit message"
-              value={commitMessage}
-              onChange={(e) => setCommitMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleCommit();
-                }
-              }}
-              className="w-full p-2 border border-sidebar-border rounded-sm bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-all ease-out duration-200 text-xs"
-            />
-            <button
-              onClick={handleCommit}
-              disabled={isCommitting || !commitMessage.trim()}
-              className={cn(
-                "w-full flex items-center justify-center space-x-2 py-2 rounded-sm transition-all ease-out duration-200",
-                isCommitting || !commitMessage.trim()
-                  ? "bg-muted text-muted-foreground cursor-not-allowed"
-                  : "bg-emerald-900/20 hover:bg-emerald-900/30 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/40"
-              )}
-            >
-              {isCommitting ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              <span className="text-[13px] font-medium text-pretty">{isCommitting ? 'Committing...' : 'Commit'}</span>
-            </button>
-          </>
-        ) : (
-          <div className="text-xs text-muted-foreground text-center py-2 flex flex-col items-center gap-2">
-            <Check className="size-8 opacity-20" />
-            <span>No changes to commit</span>
-          </div>
-        )}
-
-        {/* Push Button */}
-        {hasUnpushedCommits && (
           <button
-            onClick={handlePush}
-            disabled={isPushing}
-            className="w-full flex items-center justify-center space-x-2 py-2 bg-blue-900/20 hover:bg-blue-900/30 text-blue-400 border border-blue-500/20 hover:border-blue-500/40 rounded-sm transition-all ease-out duration-200"
+            onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
+            className="p-1.5 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+            title="Refresh"
           >
-            {isPushing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-            <span className="text-[13px] font-medium text-pretty">
-              {isPushing ? 'Pushing...' : `Push ${unpushedCount} Commit${unpushedCount > 1 ? 's' : ''}`}
-            </span>
+            <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
           </button>
-        )}
+        </div>
       </div>
 
       {/* Changes List */}
-      <div className="flex-1 overflow-y-auto overflow-x-auto no-scrollbar p-2">
-        {changedFiles.map(file => {
-          const fileName = file.path.split('/').pop() || file.path;
-          const dirPath = file.path.split('/').slice(0, -1).join('/');
-          
-          return (
-            <div
-              key={file.path}
-              onClick={() => openFile(`diff://${file.path}`, workspaceId || undefined)}
-              className={cn(
-                "group flex items-center px-3 py-2 rounded-sm cursor-pointer transition-colors ease-out duration-200 mb-0.5 min-w-max",
-                activeFilePath === `diff://${file.path}` ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent/50"
-              )}
-            >
-              {/* File icon */}
-              <FileIcon name={fileName} className="size-4 mr-2 shrink-0" />
-              {/* Filename (always fully visible, never truncate) */}
-              <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0">
-                {fileName}
-              </span>
-              {/* Path (truncate from start using rtl, max width constrained) */}
-              {dirPath && (
-                <span 
-                  className="text-[11px] text-muted-foreground/50 max-w-[100px] truncate ml-2 shrink"
-                  style={{ direction: 'rtl', textAlign: 'left' }}
-                  title={dirPath}
-                >
-                  <span style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}>{dirPath}</span>
-                </span>
-              )}
-              {/* Git stats (fixed position, always visible) */}
-              <div className="flex items-center gap-1.5 text-[11px] font-mono ml-auto pl-3 shrink-0 tabular-nums">
-                {file.additions > 0 && <span className="text-emerald-500">+{file.additions}</span>}
-                {file.deletions > 0 && <span className="text-red-500">-{file.deletions}</span>}
-                <span className={cn(
-                  "opacity-70",
-                  file.status === 'M' ? 'text-yellow-500' :
-                    file.status === 'A' ? 'text-emerald-500' :
-                      file.status === 'D' ? 'text-red-500' : 'text-foreground'
-                )}>{file.status}</span>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Placeholder for empty space */}
-        <div className="h-4"></div>
+      <div className="flex-1 overflow-y-auto no-scrollbar p-2">
+        {!hasChanges && !isLoading ? (
+          <div className="flex flex-col items-center justify-center p-8 text-muted-foreground/50">
+            <Check className="size-8 opacity-20 mb-2" />
+            <span className="text-xs">No changes detected</span>
+          </div>
+        ) : (
+          <>
+            <ChangeSection
+              title="Staged Changes"
+              files={stagedFiles}
+              workspaceId={workspaceId}
+              onUnstage={unstageFiles}
+              onUnstageAll={unstageAll}
+            />
+            <ChangeSection
+              title="Unstaged Changes"
+              files={unstagedFiles}
+              workspaceId={workspaceId}
+              onStage={stageFiles}
+              onDiscard={discardUnstagedChanges}
+              onStageAll={stageAllUnstaged}
+              onDiscardAll={discardAllUnstaged}
+            />
+            <ChangeSection
+              title="Untracked Changes"
+              files={untrackedFiles}
+              workspaceId={workspaceId}
+              onStage={stageFiles}
+              onDiscard={discardUntrackedFiles}
+              onStageAll={stageAllUntracked}
+              onDiscardAll={discardAllUntracked}
+            />
+          </>
+        )}
       </div>
 
-      {/* Action Pad */}
-      <div className="p-4 border-t border-sidebar-border">
-        <div className="text-xs font-medium text-muted-foreground mb-3 uppercase text-balance">Quick Actions</div>
-        <div className="grid grid-cols-2 gap-3">
+      {/* Commit Actions (Sticky Bottom) */}
+      <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3">
+        {/* Input */}
+        <textarea
+          placeholder="Message (⌘+Enter to commit)"
+          value={commitMessage}
+          onChange={(e) => setCommitMessage(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              handleCommit();
+            }
+          }}
+          className="w-full min-h-[60px] p-2.5 bg-sidebar-accent/50 border-transparent focus:border-sidebar-border/50 focus:bg-sidebar-accent rounded-md text-sidebar-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 transition-all ease-out duration-200 text-xs resize-none"
+        />
+
+        {/* Main Button with Dropdown */}
+        <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">
           <button
-            onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
-            className="flex flex-col items-center justify-center p-3 rounded-sm border border-sidebar-border hover:bg-sidebar-accent hover:border-sidebar-border/80 transition-all ease-out duration-200 group"
+            onClick={showPublishButton ? handlePublish : showPushButton ? () => handleGlobalAction(pushChanges) : handleCommit}
+            disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 rounded-l-md transition-all text-xs font-semibold select-none",
+              (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : showPushButton
+                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+            )}
           >
-            <RefreshCw className={cn("size-5 text-muted-foreground mb-2 group-hover:text-foreground transition-colors ease-out duration-200", isLoading && "animate-spin")} />
-            <span className="text-xs font-medium text-sidebar-foreground text-pretty">Refresh Git</span>
+            {(isCommitting || isGlobalActionLoading) && <Loader2 className="size-3.5 animate-spin" />}
+            <span>
+              {showPublishButton
+                ? (isGlobalActionLoading ? 'Publishing...' : 'Publish Branch')
+                : showPushButton
+                  ? (isGlobalActionLoading ? 'Syncing...' : `Sync Changes ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ''}`)
+                  : (isCommitting ? 'Committing...' : 'Commit')
+              }
+            </span>
           </button>
-          <button className="flex flex-col items-center justify-center p-3 rounded-sm border border-sidebar-border hover:bg-sidebar-accent hover:border-sidebar-border/80 transition-all ease-out duration-200 group">
-            <GitGraph className="size-5 text-muted-foreground mb-2 group-hover:text-foreground transition-colors ease-out duration-200" />
-            <span className="text-xs font-medium text-sidebar-foreground text-pretty">Graph (Soon)</span>
-          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={cn(
+                "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
+                (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
+                  ? "bg-muted text-muted-foreground cursor-not-allowed border-l-transparent"
+                  : showPushButton
+                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
+              )}
+                disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
+              >
+                <ChevronDown className="size-3.5 opacity-80" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges)}>
+                <ArrowDown className="mr-2 size-4" /> Pull
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges)}>
+                <Upload className="mr-2 size-4" /> Push
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges)}>
+                <RefreshCw className="mr-2 size-4" /> Fetch
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges)}>
+                <RefreshCw className="mr-2 size-4" /> Sync
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-    </aside>
+    </aside >
   );
 };
 

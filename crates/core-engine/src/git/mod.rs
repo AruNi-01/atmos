@@ -213,7 +213,7 @@ impl GitEngine {
         // Use git status --porcelain to check for uncommitted changes
         let status_output = Command::new("git")
             .current_dir(repo_path)
-            .args(["status", "--porcelain"])
+            .args(["status", "--porcelain", "-uall"])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get git status: {}", e)))?;
 
@@ -319,11 +319,12 @@ impl GitEngine {
     }
 
     /// Get list of changed files with additions and deletions count
+    /// Categorizes files as staged, unstaged, or untracked
     pub fn get_changed_files(&self, repo_path: &Path) -> Result<ChangedFilesInfo> {
         // Get list of changed files with status
         let status_output = Command::new("git")
             .current_dir(repo_path)
-            .args(["status", "--porcelain"])
+            .args(["status", "--porcelain", "-uall"])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get git status: {}", e)))?;
 
@@ -333,7 +334,9 @@ impl GitEngine {
         }
 
         let status_stdout = String::from_utf8_lossy(&status_output.stdout);
-        let mut files: Vec<ChangedFileInfo> = Vec::new();
+        let mut staged_files: Vec<ChangedFileInfo> = Vec::new();
+        let mut unstaged_files: Vec<ChangedFileInfo> = Vec::new();
+        let mut untracked_files: Vec<ChangedFileInfo> = Vec::new();
         let mut total_additions = 0u32;
         let mut total_deletions = 0u32;
 
@@ -341,36 +344,75 @@ impl GitEngine {
             if line.len() < 3 {
                 continue;
             }
-            let status_code = &line[0..2];
+            // XY format: X=index status, Y=worktree status
+            let x = line.chars().next().unwrap_or(' ');
+            let y = line.chars().nth(1).unwrap_or(' ');
             let file_path = line[3..].to_string();
-
-            // Parse status (XY format: X=index status, Y=worktree status)
-            let status = match status_code.trim() {
-                "M" | " M" | "MM" => "M",
-                "A" | " A" | "AM" => "A",
-                "D" | " D" => "D",
-                "R" | " R" => "R",
-                "C" | " C" => "C",
-                "??" => "A", // Untracked files count as Added
-                "UU" | "AA" | "DD" => "U", // Unmerged
-                _ => "M", // Default to Modified
-            }.to_string();
 
             // Get numstat for this specific file
             let (additions, deletions) = self.get_file_numstat(repo_path, &file_path);
             total_additions += additions;
             total_deletions += deletions;
 
-            files.push(ChangedFileInfo {
-                path: file_path,
-                status,
-                additions,
-                deletions,
-            });
+            // Parse based on XY format:
+            // X shows the status of the index (staged area)
+            // Y shows the status of the work tree (unstaged/working directory)
+            
+            if x == '?' && y == '?' {
+                // Untracked file
+                untracked_files.push(ChangedFileInfo {
+                    path: file_path,
+                    status: "?".to_string(),
+                    additions,
+                    deletions,
+                    staged: false,
+                });
+            } else {
+                // Check for staged changes (X is not space and not ?)
+                if x != ' ' && x != '?' {
+                    let status = match x {
+                        'M' => "M",
+                        'A' => "A",
+                        'D' => "D",
+                        'R' => "R",
+                        'C' => "C",
+                        'U' => "U",
+                        _ => "M",
+                    }.to_string();
+                    
+                    staged_files.push(ChangedFileInfo {
+                        path: file_path.clone(),
+                        status,
+                        additions,
+                        deletions,
+                        staged: true,
+                    });
+                }
+                
+                // Check for unstaged changes (Y is not space)
+                if y != ' ' {
+                    let status = match y {
+                        'M' => "M",
+                        'D' => "D",
+                        'U' => "U",
+                        _ => "M",
+                    }.to_string();
+                    
+                    unstaged_files.push(ChangedFileInfo {
+                        path: file_path,
+                        status,
+                        additions,
+                        deletions,
+                        staged: false,
+                    });
+                }
+            }
         }
 
         Ok(ChangedFilesInfo {
-            files,
+            staged_files,
+            unstaged_files,
+            untracked_files,
             total_additions,
             total_deletions,
         })
@@ -538,6 +580,161 @@ impl GitEngine {
         tracing::info!("Pushed changes to remote");
         Ok(())
     }
+
+    /// Stage specific files
+    pub fn stage_files(&self, repo_path: &Path, paths: &[String]) -> Result<()> {
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        let mut args = vec!["add", "--"];
+        let path_refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
+        args.extend(path_refs);
+
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(&args)
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to stage files: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!("Failed to stage files: {}", stderr)));
+        }
+
+        tracing::info!("Staged {} files", paths.len());
+        Ok(())
+    }
+
+    /// Unstage specific files from staged area
+    pub fn unstage_files(&self, repo_path: &Path, paths: &[String]) -> Result<()> {
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        let mut args = vec!["reset", "HEAD", "--"];
+        let path_refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
+        args.extend(path_refs);
+
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(&args)
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to unstage files: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!("Failed to unstage files: {}", stderr)));
+        }
+
+        tracing::info!("Unstaged {} files", paths.len());
+        Ok(())
+    }
+
+    /// Discard changes to unstaged files (restore to HEAD)
+    pub fn discard_unstaged(&self, repo_path: &Path, paths: &[String]) -> Result<()> {
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        let mut args = vec!["checkout", "--"];
+        let path_refs: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
+        args.extend(path_refs);
+
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(&args)
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to discard changes: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!("Failed to discard changes: {}", stderr)));
+        }
+
+        tracing::info!("Discarded changes to {} files", paths.len());
+        Ok(())
+    }
+
+    /// Discard untracked files
+    pub fn discard_untracked(&self, repo_path: &Path, paths: &[String]) -> Result<()> {
+        if paths.is_empty() {
+            return Ok(());
+        }
+
+        for path in paths {
+            let full_path = repo_path.join(path);
+            if full_path.exists() {
+                if full_path.is_dir() {
+                    std::fs::remove_dir_all(&full_path).map_err(|e| {
+                        EngineError::Git(format!("Failed to remove directory {}: {}", path, e))
+                    })?;
+                } else {
+                    std::fs::remove_file(&full_path).map_err(|e| {
+                        EngineError::Git(format!("Failed to remove file {}: {}", path, e))
+                    })?;
+                }
+            }
+        }
+
+        tracing::info!("Removed {} untracked files", paths.len());
+        Ok(())
+    }
+
+    /// Check if the current branch has been published to remote
+    pub fn is_branch_published(&self, repo_path: &Path) -> Result<bool> {
+        let branch = self.get_current_branch(repo_path)?;
+        
+        // Check if remote tracking branch exists
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "--verify", &format!("origin/{}", branch)])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to check remote branch: {}", e)))?;
+
+        Ok(output.status.success())
+    }
+
+    /// Pull from remote
+    pub fn pull(&self, repo_path: &Path) -> Result<()> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["pull"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to pull: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!("Failed to pull: {}", stderr)));
+        }
+
+        tracing::info!("Pulled from remote");
+        Ok(())
+    }
+
+    /// Fetch from remote
+    pub fn fetch(&self, repo_path: &Path) -> Result<()> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["fetch", "origin"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to fetch: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!("Failed to fetch: {}", stderr)));
+        }
+
+        tracing::info!("Fetched from remote");
+        Ok(())
+    }
+
+    /// Sync (fetch + pull)
+    pub fn sync(&self, repo_path: &Path) -> Result<()> {
+        self.fetch(repo_path)?;
+        self.pull(repo_path)?;
+        Ok(())
+    }
 }
 
 impl Default for GitEngine {
@@ -570,12 +767,19 @@ pub struct ChangedFileInfo {
     pub status: String,
     pub additions: u32,
     pub deletions: u32,
+    /// Whether the file is staged (in index)
+    pub staged: bool,
 }
 
 /// Aggregate information about all changed files
 #[derive(Debug, Clone)]
 pub struct ChangedFilesInfo {
-    pub files: Vec<ChangedFileInfo>,
+    /// Files staged for commit
+    pub staged_files: Vec<ChangedFileInfo>,
+    /// Files with unstaged modifications
+    pub unstaged_files: Vec<ChangedFileInfo>,
+    /// Untracked files
+    pub untracked_files: Vec<ChangedFileInfo>,
     pub total_additions: u32,
     pub total_deletions: u32,
 }
