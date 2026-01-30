@@ -86,6 +86,10 @@ pub enum WsAction {
     /// 列出项目文件树
     FsListProjectFiles,
 
+    // ===== 应用程序操作 =====
+    /// 使用外部应用打开路径
+    AppOpen,
+
     // ===== Git 操作 =====
     /// 获取 Git 状态（未提交/未推送的更改）
     GitGetStatus,
@@ -253,6 +257,17 @@ pub struct FileTreeNode {
 pub struct FsListProjectFilesResponse {
     pub root_path: String,
     pub tree: Vec<FileTreeNode>,
+}
+
+// ===== 应用程序操作数据结构 =====
+
+/// 使用外部应用打开路径请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppOpenRequest {
+    /// 应用名称 (e.g., "Finder", "VS Code", "Terminal")
+    pub app_name: String,
+    /// 要打开的路径
+    pub path: String,
 }
 
 // ===== Project 操作数据结构 =====

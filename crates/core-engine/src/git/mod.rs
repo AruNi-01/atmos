@@ -213,7 +213,7 @@ impl GitEngine {
         // Use git status --porcelain to check for uncommitted changes
         let status_output = Command::new("git")
             .current_dir(repo_path)
-            .args(["status", "--porcelain"])
+            .args(["status", "--porcelain", "-uall"])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get git status: {}", e)))?;
 
@@ -324,7 +324,7 @@ impl GitEngine {
         // Get list of changed files with status
         let status_output = Command::new("git")
             .current_dir(repo_path)
-            .args(["status", "--porcelain"])
+            .args(["status", "--porcelain", "-uall"])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get git status: {}", e)))?;
 

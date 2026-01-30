@@ -8,7 +8,7 @@ pub mod websocket;
 pub use db::{DbConnection, Migrator, TestMessageRepo};
 pub use error::{InfraError, Result};
 pub use websocket::{
-    is_control_message, ClientType, FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse,
+    is_control_message, AppOpenRequest, ClientType, FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse,
     FsListProjectFilesRequest, FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse,
     FsValidateGitPathRequest, FsValidateGitPathResponse, FsWriteFileRequest, FsWriteFileResponse,
     GitBranchesResponse, GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse,

@@ -24,12 +24,11 @@ import {
   Database,
   AppWindow,
   Braces,
-  toastManager,
-  Separator
+  toastManager
 } from '@workspace/ui';
 import { cn } from '@workspace/ui';
 import { useEffect, useState } from 'react';
-import { fsApi } from '@/api/ws-api';
+import { fsApi, appApi } from '@/api/ws-api';
 import { Workspace } from '@/types/types';
 
 interface QuickOpenProps {
@@ -79,7 +78,7 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
     return `${homeDir}/.atmos/workspaces/${workspace.name}`;
   };
 
-  const handleOpenApp = (appName: string) => {
+  const handleOpenApp = async (appName: string) => {
     // Save to local storage
     localStorage.setItem(STORAGE_KEY, appName);
     setLastUsedApp(appName);
@@ -87,12 +86,20 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
     const path = getWorktreePath();
     if (!path) return;
 
-    // TODO: Implement backend API to open app with path
-    toastManager.add({
-      title: `Opening ${appName}`,
-      description: `Path: ${path}`,
-      type: 'info'
-    });
+    try {
+      await appApi.openWith(appName, path);
+      toastManager.add({
+        title: `Opened in ${appName}`,
+        description: `Path: ${path}`,
+        type: 'success'
+      });
+    } catch (error) {
+      toastManager.add({
+        title: 'Failed to open',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error'
+      });
+    }
   };
 
   const handleMainClick = () => {
