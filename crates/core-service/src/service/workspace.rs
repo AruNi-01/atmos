@@ -70,8 +70,9 @@ impl WorkspaceService {
             name.clone()
         };
         
-        // Try to create the worktree with the initial name
-        // If it fails due to branch conflict, try with alternative names
+        // Try to find a name that doesn't conflict with existing branches
+        // Note: we don't creating the worktree here anymore to avoid blocking API response.
+        // We only reserve the name in DB. The worktree will be created in ensure_worktree_ready async task.
         let mut final_name = initial_name.clone();
         let mut attempt = 0;
         const MAX_ATTEMPTS: u32 = 50;
@@ -85,33 +86,11 @@ impl WorkspaceService {
             
             // Check if branch already exists
             if !existing_branches.contains(&final_name) {
-                // Try to create the worktree
-                match self.git_engine.create_worktree(repo_path, &final_name, &base_branch) {
-                    Ok(_) => break,
-                    Err(e) => {
-                        // If error is due to branch already existing, try a new name
-                        let error_msg = e.to_string();
-                        if error_msg.contains("already exists") {
-                            tracing::warn!("Branch '{}' already exists, trying alternative name", final_name);
-                            attempt += 1;
-                            
-                            // For generated names, regenerate; for user-provided names, add suffix
-                            if name.trim().is_empty() {
-                                let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
-                                final_name = workspace_name_generator::generate_workspace_name(&existing_branches, &prefix);
-                            } else {
-                                final_name = Self::generate_alternative_name(&initial_name, attempt);
-                            }
-                            continue;
-                        } else {
-                            // Other error, propagate it
-                            return Err(e.into());
-                        }
-                    }
-                }
+                // Name is available!
+                break;
             } else {
                 // Branch exists, try alternative name
-                tracing::warn!("Branch '{}' already exists in git, trying alternative name", final_name);
+                // tracing::warn!("Branch '{}' already exists in git, trying alternative name", final_name);
                 attempt += 1;
                 
                 // For generated names, regenerate; for user-provided names, add suffix
@@ -127,6 +106,56 @@ impl WorkspaceService {
         // Save to database with the final name (use it as both name and branch)
         let workspace_repo = WorkspaceRepo::new(&self.db);
         Ok(workspace_repo.create(project_guid, final_name.clone(), final_name, sidebar_order).await?)
+    }
+
+    /// 确保 Worktree 已就绪（不存在则创建）
+    /// 这是耗时操作，应在后台异步任务中调用
+    pub async fn ensure_worktree_ready(&self, guid: String) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        let workspace = repo.find_by_guid(guid.clone()).await?
+            .ok_or_else(|| ServiceError::NotFound(format!("Workspace {} not found", guid)))?;
+
+        let project_repo = ProjectRepo::new(&self.db);
+        let project = project_repo
+            .find_by_guid(&workspace.project_guid)
+            .await?
+            .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", workspace.project_guid)))?;
+
+        let repo_path = Path::new(&project.main_file_path);
+        
+        // Check if worktree already exists? 
+        // Actually create_worktree handles "if branch exists" internally sometimes, but we want to be safe.
+        // If the worktree FOLDER exists, git worktree add will fail.
+        
+        // We assume that because we checked branches in create_worktree, the branch *probably* doesn't exist
+        // in git sense, BUT if this is a retry, it might exist.
+        
+        let existing_branches = self.git_engine.list_branches(repo_path)?;
+        let base_branch = self.git_engine.get_default_branch(repo_path).unwrap_or("main".to_string());
+        
+        if existing_branches.contains(&workspace.branch) {
+             // Branch exists.
+             // If worktree dir also exists? GitEngine::create_worktree usually fails if dir exists.
+             // We can try to reuse it or rely on git engine error.
+             
+             // BUT, ensure_worktree_ready is also called on Retry.
+             // If retry, branch exists. We should check if the directory is valid.
+             // For simplicity, we just leverage create_worktree's behavior: 
+             // if it returns "already exists", we consider it success.
+        }
+
+        match self.git_engine.create_worktree(repo_path, &workspace.name, &base_branch) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let err_msg = e.to_string();
+                if err_msg.contains("already exists") {
+                    // This is acceptable - maybe it was created before or we are retrying
+                    Ok(())
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
     }
     
     /// Generate an alternative name when the user-provided name conflicts

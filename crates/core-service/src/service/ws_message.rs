@@ -573,8 +573,9 @@ impl WsMessageService {
             let project_guid = req.project_guid.clone();
             let workspace_name = workspace.name.clone();
 
+            let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {
-                Self::run_setup_process(manager, project_service, conn_id, project_guid, workspace_id, workspace_name, false).await;
+                Self::run_setup_process(manager, project_service, workspace_service, conn_id, project_guid, workspace_id, workspace_name, false).await;
             });
         }
 
@@ -636,8 +637,9 @@ impl WsMessageService {
             let project_guid = workspace.project_guid.clone();
             let workspace_name = workspace.name.clone();
 
+            let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {
-                Self::run_setup_process(manager, project_service, conn_id, project_guid, workspace_id, workspace_name, true).await;
+                Self::run_setup_process(manager, project_service, workspace_service, conn_id, project_guid, workspace_id, workspace_name, true).await;
             });
         }
         
@@ -649,29 +651,43 @@ impl WsMessageService {
     async fn run_setup_process(
         manager: Arc<infra::WsManager>,
         project_service: Arc<ProjectService>,
+        workspace_service: Arc<WorkspaceService>,
         conn_id: String,
         project_guid: String,
         workspace_id: String,
         workspace_name: String,
-        skip_creation: bool,
+        _skip_creation: bool, // We pretty much always run creation check now, but keep param for compatibility
     ) {
-        if !skip_creation {
-            // 1. Initial notification: Creating
-            let _ = manager.send_to(&conn_id, &WsMessage::notification(
+        // 1. Initial notification: Creating
+        let _ = manager.send_to(&conn_id, &WsMessage::notification(
+            WsEvent::WorkspaceSetupProgress,
+            json!(WorkspaceSetupProgressNotification {
+                workspace_id: workspace_id.clone(),
+                status: "creating".to_string(),
+                step_title: "Creating Workspace".to_string(),
+                output: None,
+                success: true,
+                countdown: None,
+            })
+        )).await;
+        
+        // Asynchronously ensure worktree is ready (this was previously blocking in create_workspace)
+        if let Err(e) = workspace_service.ensure_worktree_ready(workspace_id.clone()).await {
+             let _ = manager.send_to(&conn_id, &WsMessage::notification(
                 WsEvent::WorkspaceSetupProgress,
                 json!(WorkspaceSetupProgressNotification {
                     workspace_id: workspace_id.clone(),
-                    status: "creating".to_string(),
-                    step_title: "Workspace Created".to_string(),
-                    output: None,
-                    success: true,
+                    status: "error".to_string(),
+                    step_title: "Workspace Creation Failed".to_string(),
+                    output: Some(format!("\r\n\x1b[31mError creating worktree: {}\x1b[0m\r\n", e)),
+                    success: false,
                     countdown: None,
                 })
             )).await;
-            
-            // Give UI a bit of time to show the "creating" state
-            tokio::time::sleep(tokio::time::Duration::from_millis(800)).await;
+            return;
         }
+
+        // 2. Load project to get script
 
         // 2. Load project to get script
         let project = match project_service.get_project(project_guid).await {
