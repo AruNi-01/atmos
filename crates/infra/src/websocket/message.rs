@@ -136,6 +136,12 @@ pub enum WsAction {
     /// 验证项目路径
     ProjectValidatePath,
 
+    // ===== Script 操作 =====
+    /// 获取项目脚本配置
+    ScriptGet,
+    /// 保存项目脚本配置
+    ScriptSave,
+
     // ===== Workspace 操作 =====
     /// 获取项目下的 Workspace 列表
     WorkspaceList,
@@ -495,6 +501,21 @@ pub struct GitFetchRequest {
 pub struct GitSyncRequest {
     /// 仓库路径
     pub path: String,
+}
+
+
+
+// ===== Script 操作数据结构 =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptGetRequest {
+    pub project_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptSaveRequest {
+    pub project_guid: String,
+    pub scripts: Value,
 }
 
 // ===== Workspace 操作数据结构 =====

@@ -55,12 +55,14 @@ import {
     RefreshCw,
     AlertTriangle,
     Eye,
-    EyeOff
+    EyeOff,
+    FileCode
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
+import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
 import { formatRelativeTime } from '@atmos/shared';
 import { getWorkspaceShortName } from '@/utils/format-time';
 import { FileTree } from '@/components/files/FileTree';
@@ -89,6 +91,7 @@ const ProjectItem: React.FC<{
     onUnpinWorkspace: (projectId: string, workspaceId: string) => void;
     onArchiveWorkspace: (projectId: string, workspaceId: string) => void;
     onDeleteWorkspace: (projectId: string, workspaceId: string) => void;
+    onConfigureScripts: (projectId: string) => void;
 }> = ({
     project,
     isExpanded,
@@ -106,6 +109,7 @@ const ProjectItem: React.FC<{
     onUnpinWorkspace,
     onArchiveWorkspace,
     onDeleteWorkspace,
+    onConfigureScripts,
 }) => {
         const initialLetter = project.name.charAt(0).toUpperCase();
 
@@ -180,6 +184,11 @@ const ProjectItem: React.FC<{
                                         </DropdownMenuSubContent>
                                     </DropdownMenuSub>
                                     <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => onConfigureScripts(project.id)}>
+                                        <FileCode className="size-4 mr-2" />
+                                        <span>Workspace Scripts</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                         className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                                         onClick={() => onDelete(project.id)}
@@ -249,6 +258,7 @@ const SortableProject: React.FC<{
     onUnpinWorkspace: (projectId: string, workspaceId: string) => void;
     onArchiveWorkspace: (projectId: string, workspaceId: string) => void;
     onDeleteWorkspace: (projectId: string, workspaceId: string) => void;
+    onConfigureScripts: (projectId: string) => void;
 }> = (props) => {
     const {
         attributes,
@@ -582,6 +592,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         }
     }, [projects]);
 
+    const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
+
     // Get current workspace and its project
     const currentWorkspaceId = searchParams.get('workspaceId');
     // Don't use useMemo - we need fresh values each render
@@ -755,6 +767,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         }
     };
 
+    const handleConfigureScripts = (projectId: string) => {
+        setScriptDialogProjectId(projectId);
+    };
+
     return (
         <>
             <aside className="w-full flex flex-col h-full select-none">
@@ -808,6 +824,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                         onUnpinWorkspace={unpinWorkspace}
                                         onArchiveWorkspace={archiveWorkspace}
                                         onDeleteWorkspace={deleteWorkspace}
+                                        onConfigureScripts={handleConfigureScripts}
                                     />
                                 ))}
                             </SortableContext>
@@ -837,6 +854,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                         onUnpinWorkspace={() => { }}
                                         onArchiveWorkspace={() => { }}
                                         onDeleteWorkspace={() => { }}
+                                        onConfigureScripts={() => { }}
                                     />
                                 ) : activeId && projects.some(p => p.workspaces.some(w => w.id === activeId)) ? (
                                     (() => {
@@ -941,6 +959,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             <CreateProjectDialog
                 isOpen={isCreateProjectOpen}
                 onClose={() => setCreateProjectOpen(false)}
+            />
+
+            <WorkspaceScriptDialog
+                projectId={scriptDialogProjectId}
+                isOpen={!!scriptDialogProjectId}
+                onClose={() => setScriptDialogProjectId(null)}
             />
         </>
     );

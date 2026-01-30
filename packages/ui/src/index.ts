@@ -15,6 +15,7 @@ export * from "./components/language-selector";
 export * from "./components/ui/dropdown-menu";
 export * from "./components/ui/tabs";
 export * from "./components/ui/collapsible";
+export * from "./components/ui/textarea";
 
 // Utilities
 export { cn } from "./lib/utils";

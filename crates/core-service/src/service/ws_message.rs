@@ -19,6 +19,7 @@ use infra::{
     WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
     WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
     WorkspaceUpdateOrderRequest, WsAction, WsMessage, WsMessageHandler, WsRequest,
+    ScriptGetRequest, ScriptSaveRequest,
 };
 use serde_json::{json, Value};
 
@@ -109,6 +110,10 @@ impl WsMessageService {
             WsAction::ProjectValidatePath => {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
             }
+
+            // Script
+            WsAction::ScriptGet => self.handle_script_get(parse_request(request.data)?).await,
+            WsAction::ScriptSave => self.handle_script_save(parse_request(request.data)?).await,
 
             // Workspace
             WsAction::WorkspaceList => self.handle_workspace_list(parse_request(request.data)?).await,
@@ -457,6 +462,45 @@ impl WsMessageService {
             .update_order(req.guid, req.sidebar_order)
             .await?;
         Ok(json!({ "success": true }))
+    }
+
+    // ===== Script Handlers =====
+
+    async fn handle_script_get(&self, req: ScriptGetRequest) -> Result<Value> {
+        let project = self.project_service.get_project(req.project_guid).await?;
+        if let Some(project) = project {
+            let scripts_path = std::path::Path::new(&project.main_file_path)
+                .join(".atmos/scripts/atmos.json");
+            
+            if scripts_path.exists() {
+                let (content, _) = self.fs_engine.read_file(&scripts_path)?;
+                let json: Value = serde_json::from_str(&content).unwrap_or(json!({}));
+                Ok(json)
+            } else {
+                Ok(json!({}))
+            }
+        } else {
+             Err(ServiceError::Validation("Project not found".to_string()))
+        }
+    }
+
+    async fn handle_script_save(&self, req: ScriptSaveRequest) -> Result<Value> {
+        let project = self.project_service.get_project(req.project_guid).await?;
+        if let Some(project) = project {
+            let scripts_path = std::path::Path::new(&project.main_file_path)
+                .join(".atmos/scripts/atmos.json");
+            
+            // Ensure directory exists
+            if let Some(parent) = scripts_path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| ServiceError::Validation(format!("Failed to create script directory: {}", e)))?;
+            }
+
+            let content = serde_json::to_string_pretty(&req.scripts).map_err(|e| ServiceError::Validation(format!("Invalid script JSON: {}", e)))?;
+            self.fs_engine.write_file(&scripts_path, &content)?;
+            Ok(json!({ "success": true }))
+        } else {
+             Err(ServiceError::Validation("Project not found".to_string()))
+        }
     }
 
     // ===== Workspace Handlers =====
