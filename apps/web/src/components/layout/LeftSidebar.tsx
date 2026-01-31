@@ -309,14 +309,16 @@ const ProjectItem: React.FC<{
                                                         <SketchPicker
                                                             color={customColor}
                                                             onChange={(color) => {
-                                                                const rgb = {
+                                                                setCustomColor({
                                                                     r: color.rgb.r,
                                                                     g: color.rgb.g,
                                                                     b: color.rgb.b,
                                                                     a: color.rgb.a ?? 1,
-                                                                };
-                                                                setCustomColor(rgb);
-                                                                const rgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a})`;
+                                                                });
+                                                            }}
+                                                            onChangeComplete={(color) => {
+                                                                const rgb = color.rgb;
+                                                                const rgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a ?? 1})`;
                                                                 onSetColor(project.id, rgbaColor);
                                                             }}
                                                             styles={{
