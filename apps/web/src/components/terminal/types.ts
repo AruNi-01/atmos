@@ -48,6 +48,8 @@ export interface TerminalProps {
   onTmuxWindowAssigned?: (sessionId: string, tmuxWindowName: string) => void;
   /** If true, bypasses tmux logic and requests a raw shell session */
   noTmux?: boolean;
+  /** Working directory for the terminal session */
+  cwd?: string;
 }
 
 export interface TerminalPaneProps {

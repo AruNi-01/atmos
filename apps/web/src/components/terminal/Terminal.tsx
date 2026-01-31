@@ -44,6 +44,7 @@ const Terminal = ({
   onSessionError,
   onTmuxWindowAssigned,
   noTmux,
+  cwd,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef> }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -63,18 +64,23 @@ const Terminal = ({
     workspace_id: workspaceId,
   });
 
+  if (cwd) {
+    wsParams.set("cwd", cwd);
+  }
+
+  // Common params
+  if (projectName) {
+    wsParams.set("project_name", projectName);
+  }
+  if (workspaceName) {
+    wsParams.set("workspace_name", workspaceName);
+  }
+
   // If noTmux is requested, tell backend to skip tmux
   if (noTmux) {
     wsParams.set("mode", "shell");
   } else {
     // Standard Tmux Logic
-    if (projectName) {
-      wsParams.set("project_name", projectName);
-    }
-    if (workspaceName) {
-      wsParams.set("workspace_name", workspaceName);
-    }
-
     if (isNewPane) {
       // New pane: send terminal_name to create a new window with this name
       // Do NOT send tmux_window_name to avoid triggering attach logic
@@ -284,11 +290,13 @@ const Terminal = ({
           <Loader2
             size={24}
             className="animate-spin"
+            suppressHydrationWarning
             style={{
               color: isDark ? "#71717a" : "#a1a1aa",
             }}
           />
           <span
+            suppressHydrationWarning
             style={{
               fontSize: "13px",
               color: isDark ? "#71717a" : "#a1a1aa",
@@ -336,6 +344,7 @@ const Terminal = ({
       <div
         ref={containerRef}
         className={`atmos-terminal ${className || ""}`}
+        suppressHydrationWarning
         style={{
           width: "100%",
           height: "100%",

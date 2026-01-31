@@ -45,6 +45,8 @@ pub struct TerminalWsQuery {
     pub terminal_name: Option<String>,
     /// Optional: mode (e.g., "shell" to skip tmux persistence)
     pub mode: Option<String>,
+    /// Optional: working directory
+    pub cwd: Option<String>,
 }
 
 /// Terminal message from client
@@ -96,8 +98,8 @@ pub async fn terminal_ws_handler(
     let terminal_name = query.terminal_name.clone();
 
     info!(
-        "Terminal WebSocket upgrade request for session: {} (workspace: {}, attach: {}, tmux_window: {:?})",
-        session_id, workspace_id, attach, tmux_window
+        "Terminal WebSocket upgrade request for session: {} (workspace: {}, attach: {}, tmux_window: {:?}, cwd: {:?})",
+        session_id, workspace_id, attach, tmux_window, query.cwd
     );
 
     ws.on_upgrade(move |socket| {
@@ -114,6 +116,7 @@ pub async fn terminal_ws_handler(
             terminal_name,
 
             query.mode,
+            query.cwd, // Pass cwd
             state,
         )
     })
@@ -133,6 +136,7 @@ async fn handle_terminal_socket(
     terminal_name: Option<String>,
 
     mode: Option<String>,
+    cwd: Option<String>, // Accept cwd
     state: AppState,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
@@ -148,10 +152,12 @@ async fn handle_terminal_socket(
     // Get terminal service
     let terminal_service = state.terminal_service.clone();
 
-    // Calculate workspace working directory based on workspace_name
-    // workspace_name is already in format "{project_name}/{workspace_name}" (e.g., "kepano-obsidian/weepinbell")
-    // Format: ~/.atmos/workspaces/{workspace_name}
-    let cwd = if let Some(ref ws) = workspace_name {
+    // Calculate workspace working directory
+    let cwd = if let Some(path) = cwd {
+        // Use explicitly provided CWD
+        Some(path)
+    } else if let Some(ref ws) = workspace_name {
+        // Fallback: Resolve from workspace_name using GitEngine
         let git_engine = GitEngine::new();
         match git_engine.get_worktree_path(ws) {
             Ok(path) => {
@@ -169,7 +175,7 @@ async fn handle_terminal_socket(
             }
         }
     } else {
-        info!("No workspace_name provided, using default cwd");
+        info!("No cwd or workspace_name provided, using default cwd");
         None
     };
     
