@@ -31,17 +31,56 @@ import {
   ArrowUp,
   ArrowDown,
   getFileIconProps,
+  Maximize,
+  Minimize,
+  FolderOpen,
+  Terminal,
+  Code2,
+  Copy,
+  MousePointer2,
+  Hammer,
+  Cpu,
+  Ghost,
+  Blocks,
+  FileCode,
+  Database,
+  AppWindow,
+  Braces,
+  Orbit,
+  toastManager,
 } from '@workspace/ui';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
-import { fsApi, SearchMatch, FileTreeNode } from '@/api/ws-api';
+import { fsApi, appApi, SearchMatch, FileTreeNode } from '@/api/ws-api';
+
+
+
+// App Map for Icons and labels
+const APP_MAP: Record<string, { icon: React.ReactNode; label: string }> = {
+  'Finder': { icon: <FolderOpen className="size-4 text-blue-500" />, label: 'Finder' },
+  'Terminal': { icon: <Terminal className="size-4" />, label: 'Terminal' },
+  'Cursor': { icon: <MousePointer2 className="size-4 text-foreground/80" />, label: 'Cursor' },
+  'Zed': { icon: <Zap className="size-4 text-yellow-500" />, label: 'Zed' },
+  'Sublime Text': { icon: <FileText className="size-4 text-orange-500" />, label: 'Sublime Text' },
+  'Xcode': { icon: <Hammer className="size-4 text-blue-600" />, label: 'Xcode' },
+  'iTerm': { icon: <Terminal className="size-4 text-foreground/80" />, label: 'iTerm' },
+  'Warp': { icon: <Cpu className="size-4 text-cyan-500" />, label: 'Warp' },
+  'Ghostty': { icon: <Ghost className="size-4 text-purple-500" />, label: 'Ghostty' },
+  'VS Code': { icon: <Code2 className="size-4 text-blue-500" />, label: 'VS Code' },
+  'VS Code Insiders': { icon: <Code2 className="size-4 text-green-600" />, label: 'VS Code Insiders' },
+  'IntelliJ IDEA': { icon: <Braces className="size-4 text-pink-500" />, label: 'IntelliJ IDEA' },
+  'WebStorm': { icon: <AppWindow className="size-4 text-blue-400" />, label: 'WebStorm' },
+  'PyCharm': { icon: <FileCode className="size-4 text-yellow-400" />, label: 'PyCharm' },
+  'DataGrip': { icon: <Database className="size-4 text-purple-400" />, label: 'DataGrip' },
+  'Antigravity': { icon: <Orbit className="size-4 text-blue-400" />, label: 'Antigravity' },
+};
 
 type SearchTab = 'app' | 'files' | 'code';
 
 interface AppSearchItem {
   id: string;
-  type: 'workspace' | 'theme' | 'project' | 'new-workspace';
+  type: 'workspace' | 'theme' | 'project' | 'new-workspace' | 'quick-open';
   title: string;
   description?: string;
   keywords: string[];
@@ -77,6 +116,33 @@ export function GlobalSearch() {
   const [codeSearchTruncated, setCodeSearchTruncated] = useState(false);
   const [selectedValue, setSelectedValue] = useState<string>("");
   const [hoveredValue, setHoveredValue] = useState<string | null>(null);
+
+  // Fullscreen state
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    // Initial check
+    setIsFullScreen(!!document.fullscreenElement);
+
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+    };
+  }, []);
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   // Find current project based on active workspace
   const currentProject = useMemo(() => {
@@ -263,6 +329,19 @@ export function GlobalSearch() {
       },
     });
 
+    // Toggle Full Screen
+    items.push({
+      id: 'toggle-fullscreen',
+      type: 'project',
+      title: isFullScreen ? 'Exit Full Screen' : 'Enter Full Screen',
+      keywords: ['full', 'screen', 'maximize', 'minimize', 'toggle', 'view'],
+      icon: isFullScreen ? <Minimize className="size-4 text-muted-foreground" /> : <Maximize className="size-4 text-muted-foreground" />,
+      action: () => {
+        toggleFullScreen();
+        setGlobalSearchOpen(false);
+      },
+    });
+
     // New Workspace options (for each project)
     projects.forEach(project => {
       items.push({
@@ -296,8 +375,44 @@ export function GlobalSearch() {
       });
     });
 
+
+
+    // Quick Open Apps
+    if (currentProject?.mainFilePath) {
+      Object.entries(APP_MAP).forEach(([appName, { icon, label }]) => {
+        items.push({
+          id: `quick-open-${appName}`,
+          type: 'quick-open',
+          title: `Open in ${label}`,
+          description: appName === 'Finder' ? 'Reveal in Finder' : `Open project in ${label}`,
+          keywords: ['open', 'external', 'app', label, appName, 'quick'],
+          icon: icon,
+          action: async () => {
+            // Save to local storage to sync with QuickOpen button
+            localStorage.setItem('atmos_quick_open_last_used', appName);
+
+            try {
+              await appApi.openWith(appName, currentProject.mainFilePath);
+              toastManager.add({
+                title: `Opened in ${label}`,
+                description: `Path: ${currentProject.mainFilePath}`,
+                type: 'success'
+              });
+            } catch (error) {
+              toastManager.add({
+                title: 'Failed to open',
+                description: error instanceof Error ? error.message : 'Unknown error',
+                type: 'error'
+              });
+            }
+            setGlobalSearchOpen(false);
+          },
+        });
+      });
+    }
+
     return items;
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, currentProject]);
 
   // Fuse.js instance for app search
   const appFuse = useMemo(() => {
@@ -356,6 +471,7 @@ export function GlobalSearch() {
       theme: [],
       project: [],
       'new-workspace': [],
+      'quick-open': [],
     };
 
     filteredAppItems.forEach(item => {
@@ -592,6 +708,23 @@ export function GlobalSearch() {
                 ))}
               </CommandGroup>
             )}
+
+            {/* Start: Quick Open Apps Group */}
+            {groupedAppItems['quick-open'].length > 0 && (
+              <CommandGroup heading="Quick Open">
+                {groupedAppItems['quick-open'].map(item => (
+                  <SearchItem
+                    key={item.id}
+                    value={item.id}
+                    onSelect={item.action}
+                    icon={item.icon}
+                    title={item.title}
+                    description={item.description}
+                  />
+                ))}
+              </CommandGroup>
+            )}
+            {/* End: Quick Open Apps Group */}
           </>
         )}
 

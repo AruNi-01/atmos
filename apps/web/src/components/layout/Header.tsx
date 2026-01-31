@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
-  GitPullRequest,
   Archive,
   Bell,
   Search,
@@ -21,6 +20,8 @@ import {
   cn,
   GitBranch,
   ScrollArea,
+  Maximize,
+  Minimize,
 } from '@workspace/ui';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
@@ -67,6 +68,30 @@ const Header: React.FC = () => {
   // Available branches list
   const [availableBranches, setAvailableBranches] = useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+
+  // Fullscreen state
+  const [isFullScreen, setIsFullScreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+    };
+  }, []);
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   // Sync context when workspace changes
   useEffect(() => {
@@ -348,11 +373,7 @@ const Header: React.FC = () => {
             <span className="text-xs">⌘</span>K
           </kbd>
         </button>
-        <button className="flex items-center space-x-2 px-3 py-1.5 bg-muted/40 hover:bg-muted/60 text-muted-foreground hover:text-foreground text-[12px] font-medium rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 h-8">
-          <GitPullRequest className="size-3.5" />
-          <span>Open PR</span>
-        </button>
-        <div className="h-4 w-px bg-border mx-2"></div>
+
         <button
           aria-label="Notifications"
           className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200 relative"
@@ -367,6 +388,13 @@ const Header: React.FC = () => {
           <Archive className="size-4" />
         </button>
         <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
+        <button
+          onClick={toggleFullScreen}
+          aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+          className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+        >
+          {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+        </button>
       </div>
     </header>
   );

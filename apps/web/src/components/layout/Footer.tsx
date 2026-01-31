@@ -32,33 +32,16 @@ const Footer: React.FC = () => {
             statusColors[connectionState],
             connectionState !== 'connected' && "animate-pulse"
           )}></div>
-          <span className="font-medium text-muted-foreground">{statusText[connectionState]}</span>
-        </div>
-        <div className="flex items-center space-x-1.5 hover:text-blue-500 cursor-pointer transition-colors ease-out duration-200">
-          <GitBranch className="size-3" />
-          <span className="text-pretty">feat/auth-flow</span>
+          <span className="font-medium text-muted-foreground">WebSocket: {statusText[connectionState]}</span>
         </div>
         <div className="h-3 w-px bg-border"></div>
-        <div className="flex items-center space-x-1 tabular-nums">
-          <span>0 errors</span>
-          <span className="text-muted-foreground/30">|</span>
-          <span>1 warning</span>
-        </div>
       </div>
 
       {/* Right Status */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
           <Activity className="size-3 text-emerald-500" />
-          <span className="text-pretty">agent: idle</span>
-        </div>
-        <div className="flex items-center space-x-3 tabular-nums">
-          <span>Ln 42, Col 18</span>
-          <span>UTF-8</span>
-          <span className="text-pretty">TypeScript</span>
-        </div>
-        <div className="flex items-center text-muted-foreground">
-          <Wifi className="size-3" />
+          <span className="text-pretty">Agent: IDLE</span>
         </div>
       </div>
     </footer>
