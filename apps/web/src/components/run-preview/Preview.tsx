@@ -41,11 +41,11 @@ export const Preview = () => {
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-background overflow-hidden">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       {/* Toolbar */}
       <div className="h-10 border-b border-border flex items-center px-2 gap-2 shrink-0 bg-muted/20">
         {/* Device Toggle */}
-        <div className="flex items-center bg-background border border-border rounded-md p-0.5">
+        <div className="flex items-center border border-border rounded-md p-0.5">
           <button
             onClick={() => setViewMode("desktop")}
             className={cn(
@@ -69,7 +69,7 @@ export const Preview = () => {
         </div>
 
         {/* URL Bar */}
-        <div className="flex-1 flex items-center gap-2 bg-background border border-border rounded-md px-2 h-7 mx-1">
+        <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-2 h-7 mx-1">
           <Home className="size-3.5 text-muted-foreground shrink-0" />
           <input
             className="flex-1 bg-transparent border-none text-xs focus:outline-none placeholder:text-muted-foreground/50 h-full min-w-0"
@@ -96,7 +96,7 @@ export const Preview = () => {
       </div>
 
       {/* Iframe Container */}
-      <div className="flex-1 overflow-hidden relative bg-muted/10 w-full flex justify-center border-b border-border">
+      <div className="flex-1 overflow-hidden relative w-full flex justify-center border-b border-border">
         {activeUrl ? (
           <iframe
             key={iframeKey}

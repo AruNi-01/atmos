@@ -362,7 +362,14 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       
       // 处理错误
       if (message.type === 'error') {
-        const { request_id, code, message: errorMessage } = message.payload;
+        const payload = message.payload || (message as any);
+        
+        if (!payload || !payload.request_id) {
+          console.warn('[WebSocket] Received malformed error message:', message);
+          return;
+        }
+
+        const { request_id, code, message: errorMessage } = payload;
         const pending = pendingRequests.get(request_id);
         
         if (pending) {

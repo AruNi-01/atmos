@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
+import { useProjectStore } from '@/hooks/use-project-store';
 import {
   Check,
   RefreshCw,
@@ -225,6 +226,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspaceId');
   const { currentProjectPath } = useEditorStore();
+  const { projects } = useProjectStore();
+  const currentProject = projects.find(p => p.workspaces.some(w => w.id === workspaceId));
+  const currentWorkspace = currentProject?.workspaces.find(w => w.id === workspaceId);
 
   const {
     stagedFiles,
@@ -460,7 +464,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         </div>
 
         <div className={cn("flex-1 min-h-0", activeTab !== "run-preview" && "hidden")}>
-          <RunPreviewPanel workspaceId={workspaceId} />
+          <RunPreviewPanel
+            workspaceId={workspaceId}
+            isActive={activeTab === "run-preview"}
+            projectName={currentProject?.name}
+            workspaceName={currentWorkspace?.name}
+          />
         </div>
       </Tabs>
     </aside >

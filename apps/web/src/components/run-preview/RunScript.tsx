@@ -6,14 +6,29 @@ import { Terminal } from "@/components/terminal/Terminal";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTab } from "@workspace/ui";
 
+import { useEditorStore } from '@/hooks/use-editor-store';
+
 interface RunScriptProps {
   workspaceId: string | null;
+  isActive: boolean;
+  projectName?: string;
+  workspaceName?: string;
 }
 
-export const RunScript: React.FC<RunScriptProps> = ({ workspaceId }) => {
+export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, isActive, projectName, workspaceName }) => {
   // Initial tab
   const [tabs, setTabs] = useState([{ id: '1', name: 'Run' }]);
   const [activeTabId, setActiveTabId] = useState('1');
+  const { currentProjectPath } = useEditorStore();
+
+  // Lazy initialization state
+  const [hasBeenActive, setHasBeenActive] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isActive && !hasBeenActive) {
+      setHasBeenActive(true);
+    }
+  }, [isActive, hasBeenActive]);
 
   const addTab = () => {
     const newId = String(Date.now());
@@ -117,8 +132,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden relative bg-[#09090b]">
-          {tabs.map(tab => (
+        <div className="flex-1 overflow-hidden relative">
+          {hasBeenActive && tabs.map(tab => (
             <div
               key={tab.id}
               className={cn("absolute inset-0", activeTabId === tab.id ? "z-10" : "z-0 invisible")}
@@ -129,11 +144,15 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId }) => {
                 // we attempt to reconnect to the same session if it's still alive.
                 sessionId={`run-script-${workspaceId}-${tab.id}`}
                 workspaceId={workspaceId}
+                projectName={projectName}
+                workspaceName={workspaceName}
                 noTmux={true}
+                cwd={workspaceName ? undefined : (currentProjectPath || undefined)}
               // We treat these as ephemeral in UI but persistent in backend session for this view
               />
             </div>
           ))}
+          {!hasBeenActive && null}
         </div>
       </Tabs>
     </div>
