@@ -5,17 +5,33 @@ import { Monitor, Smartphone, RotateCw, ExternalLink, Home } from "lucide-react"
 import { cn } from "@/lib/utils";
 
 export const Preview = () => {
-  // Default to a placeholder, can be updated by user
-  const [url, setUrl] = useState("http://localhost:3000");
+  // inputUrl tracks the text input, activeUrl tracks the iframe source
+  const [inputUrl, setInputUrl] = useState("");
+  const [activeUrl, setActiveUrl] = useState("");
   const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
   const [iframeKey, setIframeKey] = useState(0); // To force refresh
 
   const handleRefresh = () => {
+    let finalUrl = inputUrl.trim();
+
+    // Fix common typo: https:google.com -> https://google.com
+    if (/^https?:\/\//.test(finalUrl) === false && /^https?:/.test(finalUrl)) {
+      finalUrl = finalUrl.replace(/^(https?):/, "$1://");
+    }
+    // Add http:// if no protocol is present
+    else if (!/^https?:\/\//.test(finalUrl) && finalUrl) {
+      finalUrl = `http://${finalUrl}`;
+    }
+
+    if (finalUrl !== inputUrl) {
+      setInputUrl(finalUrl);
+    }
+    setActiveUrl(finalUrl);
     setIframeKey(prev => prev + 1);
   };
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUrl(e.target.value);
+    setInputUrl(e.target.value);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -57,7 +73,7 @@ export const Preview = () => {
           <Home className="size-3.5 text-muted-foreground shrink-0" />
           <input
             className="flex-1 bg-transparent border-none text-xs focus:outline-none placeholder:text-muted-foreground/50 h-full min-w-0"
-            value={url}
+            value={inputUrl}
             onChange={handleUrlChange}
             onKeyDown={handleKeyDown}
             placeholder="Enter URL..."
@@ -65,7 +81,15 @@ export const Preview = () => {
           <button onClick={handleRefresh} className="text-muted-foreground hover:text-foreground transition-colors p-0.5">
             <RotateCw className="size-3" />
           </button>
-          <a href={url} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground transition-colors p-0.5">
+          <a
+            href={activeUrl || "#"}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              "text-muted-foreground hover:text-foreground transition-colors p-0.5",
+              !activeUrl && "pointer-events-none opacity-50"
+            )}
+          >
             <ExternalLink className="size-3" />
           </a>
         </div>
@@ -73,15 +97,23 @@ export const Preview = () => {
 
       {/* Iframe Container */}
       <div className="flex-1 overflow-hidden relative bg-muted/10 w-full flex justify-center border-b border-border">
-        <iframe
-          key={iframeKey}
-          src={url}
-          className={cn(
-            "h-full bg-white transition-all duration-300 shadow-sm border-x border-border",
-            viewMode === "mobile" ? "w-[375px]" : "w-full"
-          )}
-          title="Preview"
-        />
+        {activeUrl ? (
+          <iframe
+            key={iframeKey}
+            src={activeUrl}
+            className={cn(
+              "h-full transition-all duration-300",
+              viewMode === "mobile"
+                ? "w-[375px] border-x border-border shadow-sm"
+                : "w-full"
+            )}
+            title="Preview"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+            Enter a URL to preview
+          </div>
+        )}
       </div>
     </div>
   );
