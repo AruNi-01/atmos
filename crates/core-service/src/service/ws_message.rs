@@ -568,10 +568,10 @@ impl WsMessageService {
         // Spawn setup in background
         if let Some(manager) = self.ws_manager.get().cloned() {
             let project_service = self.project_service.clone();
-            let workspace_id = workspace.guid.clone();
+            let workspace_id = workspace.model.guid.clone();
             let conn_id = conn_id.to_string();
             let project_guid = req.project_guid.clone();
-            let workspace_name = workspace.name.clone();
+            let workspace_name = workspace.model.name.clone();
 
             let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {
@@ -632,10 +632,10 @@ impl WsMessageService {
         
         if let Some(manager) = self.ws_manager.get().cloned() {
             let project_service = self.project_service.clone();
-            let workspace_id = workspace.guid.clone();
+            let workspace_id = workspace.model.guid.clone();
             let conn_id = conn_id.to_string();
-            let project_guid = workspace.project_guid.clone();
-            let workspace_name = workspace.name.clone();
+            let project_guid = workspace.model.project_guid.clone();
+            let workspace_name = workspace.model.name.clone();
 
             let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {

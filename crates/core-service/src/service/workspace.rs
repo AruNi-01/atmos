@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::path::Path;
 use std::sync::Arc;
 use sea_orm::DatabaseConnection;
@@ -6,6 +7,13 @@ use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use infra::db::entities::workspace;
 use crate::error::{Result, ServiceError};
 use crate::utils::workspace_name_generator;
+
+#[derive(Serialize)]
+pub struct WorkspaceDto {
+    #[serde(flatten)]
+    pub model: workspace::Model,
+    pub local_path: String,
+}
 
 pub struct WorkspaceService {
     db: Arc<DatabaseConnection>,
@@ -21,15 +29,35 @@ impl WorkspaceService {
     }
 
     /// 获取项目下的所有工作区
-    pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<workspace::Model>> {
+    pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.list_by_project(project_guid).await?)
+        let models = repo.list_by_project(project_guid).await?;
+        
+        let mut dtos = Vec::with_capacity(models.len());
+        for model in models {
+            let local_path = self.git_engine.get_worktree_path(&model.name)?
+                .to_string_lossy()
+                .to_string();
+            dtos.push(WorkspaceDto { model, local_path });
+        }
+        
+        Ok(dtos)
     }
 
     /// 获取单个工作区详情
-    pub async fn get_workspace(&self, guid: String) -> Result<Option<workspace::Model>> {
+    pub async fn get_workspace(&self, guid: String) -> Result<Option<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.find_by_guid(guid).await?)
+        let model = repo.find_by_guid(guid).await?;
+        
+        match model {
+            Some(model) => {
+                let local_path = self.git_engine.get_worktree_path(&model.name)?
+                    .to_string_lossy()
+                    .to_string();
+                Ok(Some(WorkspaceDto { model, local_path }))
+            },
+            None => Ok(None),
+        }
     }
 
     /// 创建新工作区
@@ -42,7 +70,7 @@ impl WorkspaceService {
         name: String,
         _branch: String,
         sidebar_order: i32,
-    ) -> Result<workspace::Model> {
+    ) -> Result<WorkspaceDto> {
         // Get project to find the repository path and name
         let project_repo = ProjectRepo::new(&self.db);
         let project = project_repo
@@ -53,7 +81,7 @@ impl WorkspaceService {
         let repo_path = Path::new(&project.main_file_path);
 
         // Get the default branch from the repository
-        let base_branch = self.git_engine.get_default_branch(repo_path)
+        let _base_branch = self.git_engine.get_default_branch(repo_path)
             .unwrap_or_else(|_| "main".to_string());
 
         // Get all existing branches to check for conflicts
@@ -105,7 +133,13 @@ impl WorkspaceService {
 
         // Save to database with the final name (use it as both name and branch)
         let workspace_repo = WorkspaceRepo::new(&self.db);
-        Ok(workspace_repo.create(project_guid, final_name.clone(), final_name, sidebar_order).await?)
+        let model = workspace_repo.create(project_guid, final_name.clone(), final_name, sidebar_order).await?;
+        
+        let local_path = self.git_engine.get_worktree_path(&model.name)?
+            .to_string_lossy()
+            .to_string();
+            
+        Ok(WorkspaceDto { model, local_path })
     }
 
     /// 确保 Worktree 已就绪（不存在则创建）

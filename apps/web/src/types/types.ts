@@ -10,6 +10,7 @@ export interface Workspace {
   isArchived: boolean;
   archivedAt?: string;
   createdAt: string;
+  localPath: string;
 }
 
 export interface Project {

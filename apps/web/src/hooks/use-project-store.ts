@@ -96,6 +96,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     isArchived: model.is_archived,
     archivedAt: model.archived_at ?? undefined,
     createdAt: model.created_at,
+    localPath: model.local_path,
   };
 }
 

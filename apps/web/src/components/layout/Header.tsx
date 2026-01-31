@@ -99,20 +99,21 @@ const Header: React.FC = () => {
       setCurrentContext(
         currentProject.id,
         currentWorkspace.id,
-        currentProject.mainFilePath
+        currentWorkspace.localPath
       );
       // Fetch git status when context changes
       refreshGitStatus();
     }
-  }, [currentProject?.id, currentWorkspace?.id, currentProject?.mainFilePath, setCurrentContext, refreshGitStatus]);
+  }, [currentProject?.id, currentWorkspace?.id, currentWorkspace?.localPath, setCurrentContext, refreshGitStatus]);
 
-  // Fetch available branches when project changes
+  // Fetch available branches when project/workspace changes
   useEffect(() => {
-    if (currentProject?.mainFilePath) {
+    const effectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
+    if (effectivePath) {
       const fetchBranches = async () => {
         setIsLoadingBranches(true);
         try {
-          const branches = await gitApi.listBranches(currentProject.mainFilePath);
+          const branches = await gitApi.listBranches(effectivePath);
           setAvailableBranches(branches.sort());
         } catch (error) {
           console.error('Failed to fetch branches:', error);
@@ -124,7 +125,7 @@ const Header: React.FC = () => {
     } else {
       setAvailableBranches([]);
     }
-  }, [currentProject?.mainFilePath]);
+  }, [currentProject?.mainFilePath, currentWorkspace?.localPath]);
 
   // Sync target branch from project to git info store
   useEffect(() => {
@@ -166,9 +167,9 @@ const Header: React.FC = () => {
 
     if (newBranch && newBranch !== oldBranch) {
       try {
-        // 1. Rename the actual git branch in the repo
+        // 1. Rename the actual git branch in the repo (using workspace path)
         const result = await gitApi.renameBranch(
-          currentProject.mainFilePath,
+          currentWorkspace.localPath,
           oldBranch,
           newBranch
         );
@@ -180,7 +181,7 @@ const Header: React.FC = () => {
           // 3. Refresh git info and branches list
           refreshGitStatus();
           // Update local branches list immediately if needed
-          const branches = await gitApi.listBranches(currentProject.mainFilePath);
+          const branches = await gitApi.listBranches(currentWorkspace.localPath);
           setAvailableBranches(branches.sort());
 
           toastManager.add({

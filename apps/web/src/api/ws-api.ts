@@ -136,6 +136,7 @@ export interface WorkspaceModel {
   pinned_at: string | null;
   is_archived: boolean;
   archived_at: string | null;
+  local_path: string;
 }
 
 // ===== WebSocket API 客户端 =====

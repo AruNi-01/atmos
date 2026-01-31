@@ -71,7 +71,7 @@ import { getWorkspaceShortName } from '@/utils/format-time';
 import { FileTree } from '@/components/files/FileTree';
 import { fsApi, FileTreeNode, gitApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
-import { useGitStatusCheck } from '@/hooks/use-git-info-store';
+import { useGitStatusCheck, useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { SketchPicker } from 'react-color';
 
@@ -262,8 +262,14 @@ const ProjectItem: React.FC<{
                                                         <SketchPicker
                                                             color={customColor}
                                                             onChange={(color) => {
-                                                                setCustomColor(color.rgb);
-                                                                const rgbaColor = `rgba(${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b}, ${color.rgb.a})`;
+                                                                const rgb = {
+                                                                    r: color.rgb.r,
+                                                                    g: color.rgb.g,
+                                                                    b: color.rgb.b,
+                                                                    a: color.rgb.a ?? 1,
+                                                                };
+                                                                setCustomColor(rgb);
+                                                                const rgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a})`;
                                                                 onSetColor(project.id, rgbaColor);
                                                             }}
                                                         />
@@ -645,6 +651,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     } = useProjectStore();
 
     const { setCurrentProjectPath } = useEditorStore();
+    const { setCurrentContext } = useGitInfoStore();
 
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
@@ -686,16 +693,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
 
-    // Get current workspace and its project
     const currentWorkspaceId = searchParams.get('workspaceId');
     // Don't use useMemo - we need fresh values each render
     const currentProject = projects.find(p => p.workspaces.some(w => w.id === currentWorkspaceId));
     const currentProjectId = currentProject?.id ?? null;
-    const currentMainFilePath = currentProject?.mainFilePath ?? null;
+    const currentWorkspace = currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
+    const currentEffectivePath = currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
+
+    // Sync git info context
+    useEffect(() => {
+        if (currentProjectId && currentWorkspaceId && currentEffectivePath) {
+            setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+        }
+    }, [currentProjectId, currentWorkspaceId, currentEffectivePath, setCurrentContext]);
 
     // Fetch file tree from backend
-    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string, mainFilePath: string, showHidden: boolean = false) => {
-        if (!mainFilePath) return;
+    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string, effectivePath: string, showHidden: boolean = false) => {
+        if (!effectivePath) return;
 
         // Increment request ID to invalidate any previous pending requests
         const currentRequestId = ++fetchRequestId.current;
@@ -704,10 +718,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         // Clear data start of new fetch to avoid mixing context
         setFileTreeData([]);
 
-        console.log(`[Req #${currentRequestId}] Fetching files for Project: ${projectId}, Workspace: ${workspaceId}, Path: ${mainFilePath}`);
+        console.log(`[Req #${currentRequestId}] Fetching files for Project: ${projectId}, Workspace: ${workspaceId}, Path: ${effectivePath}`);
 
         try {
-            const response = await fsApi.listProjectFiles(mainFilePath, { showHidden });
+            const response = await fsApi.listProjectFiles(effectivePath, { showHidden });
 
             // CRITICAL: Only update state if this is still the latest request
             if (fetchRequestId.current === currentRequestId) {
@@ -716,7 +730,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 setFileTreeProjectId(projectId);
                 setFileTreeWorkspaceId(workspaceId);
                 setFileTreeShowHidden(showHidden);
-                setCurrentProjectPath(mainFilePath);
+                setCurrentProjectPath(effectivePath);
             } else {
                 console.log(`[Req #${currentRequestId}] Stale response ignored.`);
             }
@@ -741,15 +755,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     // Keep file tree in sync
     useEffect(() => {
-        if (activeTab === 'files' && currentProjectId && currentWorkspaceId && currentMainFilePath) {
+        if (activeTab === 'files' && currentProjectId && currentWorkspaceId && currentEffectivePath) {
             const isContextMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
             const isHiddenMismatch = fileTreeShowHidden !== showHiddenFiles;
 
             if ((isContextMismatch || isHiddenMismatch) && !isLoadingFiles) {
-                doFetchFileTree(currentProjectId, currentWorkspaceId, currentMainFilePath, showHiddenFiles);
+                doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
             }
         }
-    }, [activeTab, currentProjectId, currentWorkspaceId, currentMainFilePath, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
+    }, [activeTab, currentProjectId, currentWorkspaceId, currentEffectivePath, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
 
     // Handle tab change
     const handleTabChange = (value: string) => {
@@ -758,8 +772,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     // Refresh file tree
     const handleRefreshFiles = () => {
-        if (currentProjectId && currentWorkspaceId && currentMainFilePath) {
-            doFetchFileTree(currentProjectId, currentWorkspaceId, currentMainFilePath, showHiddenFiles);
+        if (currentProjectId && currentWorkspaceId && currentEffectivePath) {
+            doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
         }
     };
 
@@ -1010,7 +1024,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                         Select a workspace to view files
                                     </p>
                                 </div>
-                            ) : !currentMainFilePath ? (
+                            ) : !currentEffectivePath ? (
                                 <div className="px-4 py-8 text-center text-muted-foreground">
                                     <p className="text-sm">No project path configured</p>
                                 </div>

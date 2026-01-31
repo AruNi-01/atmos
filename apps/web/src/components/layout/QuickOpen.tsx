@@ -78,8 +78,8 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
 
 
   const getWorktreePath = () => {
-    if (!homeDir || !workspace) return '';
-    return `${homeDir}/.atmos/workspaces/${workspace.name}`;
+    if (!workspace) return '';
+    return workspace.localPath;
   };
 
   const handleOpenApp = async (appName: string) => {

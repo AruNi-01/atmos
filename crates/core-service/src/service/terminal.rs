@@ -1063,6 +1063,8 @@ fn run_simple_pty_session(
         }
     });
 
+    // Wait for reader thread to finish
+    let _ = reader_handle.join();
     debug!("PTY session thread exited for session: {}", session_id);
 }
 
