@@ -15,7 +15,11 @@ import {
   Undo2,
   ArrowDown,
   ArrowUp,
-  ChevronDown
+  ChevronDown,
+  Tabs,
+  TabsList,
+  TabsTab,
+  TabsPanel
 } from '@workspace/ui';
 import {
   Collapsible,
@@ -28,9 +32,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui";
+import { GitBranch, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from 'next/navigation';
 import { GitChangedFile } from '@/api/ws-api';
+import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -43,25 +49,11 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
   return <img {...iconProps} />;
 }
 
-// Helper to shorten path: apps/web/src/components/foo.tsx -> .../components/foo.tsx
-// But user requested format: .../home/pages.tsx. It seems just keeping the last directory and filename.
-function formatPath(path: string) {
-  const parts = path.split('/');
-  if (parts.length <= 2) return path;
-  const fileName = parts.pop();
-  const lastDir = parts.pop();
-  return `.../${lastDir}/${fileName}`;
-}
-
-// Or just separate filename from dir path logic we had, but truncate the dir path.
+// Helper to shorten path
 function TruncatedPath({ path }: { path: string }) {
   const parts = path.split('/');
   const fileName = parts.pop() || "";
   const dirPath = parts.join('/');
-
-  // Logic: 
-  // If no dir, just filename.
-  // If long dir, condense it.
 
   let displayDir = dirPath;
   if (parts.length > 2) {
@@ -148,8 +140,6 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
       </div>
 
       <CollapsibleContent>
-        {/* Added overflow-x-auto to container to support horizontal scrolling if path is very long, 
-            though usually we rely on truncation. User asked for scrolling. */}
         <div className="flex flex-col gap-0.5 mt-0.5 overflow-x-auto no-scrollbar pb-2">
           {files.map(file => {
             const fileName = file.path.split('/').pop() || file.path;
@@ -265,6 +255,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("changes");
 
   // Sync current project path to git store
   useEffect(() => {
@@ -322,135 +313,156 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   return (
     <aside className="w-full flex flex-col border-l border-white/5 h-full">
-
-      {/* Changes Header */}
-      <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Source Control</span>
-          {(isLoading || isGlobalActionLoading) && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+      <Tabs defaultValue="changes" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+        {/* Tabs Header */}
+        <div className="h-10 flex items-center px-2 border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm">
+          <TabsList variant="underline" className="w-full gap-1">
+            <TabsTab value="changes" className="flex-1 h-7 text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0">
+              <GitBranch className="size-3.5" />
+              <span>Changes</span>
+            </TabsTab>
+            <TabsTab value="run-preview" className="flex-1 h-7 text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0">
+              <Play className="size-3.5" />
+              <span>Run/Preview</span>
+            </TabsTab>
+          </TabsList>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
-            className="p-1.5 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
-          </button>
-        </div>
-      </div>
 
-      {/* Changes List */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-2">
-        {!hasChanges && !isLoading ? (
-          <div className="flex flex-col items-center justify-center p-8 text-muted-foreground/50">
-            <Check className="size-8 opacity-20 mb-2" />
-            <span className="text-xs">No changes detected</span>
-          </div>
-        ) : (
-          <>
-            <ChangeSection
-              title="Staged Changes"
-              files={stagedFiles}
-              workspaceId={workspaceId}
-              onUnstage={unstageFiles}
-              onUnstageAll={unstageAll}
-            />
-            <ChangeSection
-              title="Unstaged Changes"
-              files={unstagedFiles}
-              workspaceId={workspaceId}
-              onStage={stageFiles}
-              onDiscard={discardUnstagedChanges}
-              onStageAll={stageAllUnstaged}
-              onDiscardAll={discardAllUnstaged}
-            />
-            <ChangeSection
-              title="Untracked Changes"
-              files={untrackedFiles}
-              workspaceId={workspaceId}
-              onStage={stageFiles}
-              onDiscard={discardUntrackedFiles}
-              onStageAll={stageAllUntracked}
-              onDiscardAll={discardAllUntracked}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Commit Actions (Sticky Bottom) */}
-      <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3">
-        {/* Input */}
-        <textarea
-          placeholder="Message (⌘+Enter to commit)"
-          value={commitMessage}
-          onChange={(e) => setCommitMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              handleCommit();
-            }
-          }}
-          className="w-full min-h-[60px] p-2.5 bg-sidebar-accent/50 border-transparent focus:border-sidebar-border/50 focus:bg-sidebar-accent rounded-md text-sidebar-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 transition-all ease-out duration-200 text-xs resize-none"
-        />
-
-        {/* Main Button with Dropdown */}
-        <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">
-          <button
-            onClick={showPublishButton ? handlePublish : showPushButton ? () => handleGlobalAction(pushChanges) : handleCommit}
-            disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 rounded-l-md transition-all text-xs font-semibold select-none",
-              (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
-                ? "bg-muted text-muted-foreground cursor-not-allowed"
-                : showPushButton
-                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90"
-            )}
-          >
-            {(isCommitting || isGlobalActionLoading) && <Loader2 className="size-3.5 animate-spin" />}
-            <span>
-              {showPublishButton
-                ? (isGlobalActionLoading ? 'Publishing...' : 'Publish Branch')
-                : showPushButton
-                  ? (isGlobalActionLoading ? 'Syncing...' : `Sync Changes ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ''}`)
-                  : (isCommitting ? 'Committing...' : 'Commit')
-              }
-            </span>
-          </button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className={cn(
-                "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
-                (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
-                  ? "bg-muted text-muted-foreground cursor-not-allowed border-l-transparent"
-                  : showPushButton
-                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
-              )}
-                disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
+        <div className={cn("flex-1 flex flex-col min-h-0", activeTab !== "changes" && "hidden")}>
+          {/* Changes Header */}
+          <div className="h-9 flex items-center justify-between px-3 border-b border-sidebar-border shrink-0 bg-sidebar-accent/5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Source Control</span>
+              {(isLoading || isGlobalActionLoading) && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
+                className="p-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                title="Refresh"
               >
-                <ChevronDown className="size-3.5 opacity-80" />
+                <RefreshCw className={cn("size-3", isLoading && "animate-spin")} />
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges)}>
-                <ArrowDown className="mr-2 size-4" /> Pull
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges)}>
-                <Upload className="mr-2 size-4" /> Push
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges)}>
-                <RefreshCw className="mr-2 size-4" /> Fetch
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges)}>
-                <RefreshCw className="mr-2 size-4" /> Sync
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Changes List */}
+          <div className="flex-1 overflow-y-auto no-scrollbar p-2">
+            {!hasChanges && !isLoading ? (
+              <div className="flex flex-col items-center justify-center p-8 text-muted-foreground/50">
+                <Check className="size-8 opacity-20 mb-2" />
+                <span className="text-xs">No changes detected</span>
+              </div>
+            ) : (
+              <>
+                <ChangeSection
+                  title="Staged Changes"
+                  files={stagedFiles}
+                  workspaceId={workspaceId}
+                  onUnstage={unstageFiles}
+                  onUnstageAll={unstageAll}
+                />
+                <ChangeSection
+                  title="Unstaged Changes"
+                  files={unstagedFiles}
+                  workspaceId={workspaceId}
+                  onStage={stageFiles}
+                  onDiscard={discardUnstagedChanges}
+                  onStageAll={stageAllUnstaged}
+                  onDiscardAll={discardAllUnstaged}
+                />
+                <ChangeSection
+                  title="Untracked Changes"
+                  files={untrackedFiles}
+                  workspaceId={workspaceId}
+                  onStage={stageFiles}
+                  onDiscard={discardUntrackedFiles}
+                  onStageAll={stageAllUntracked}
+                  onDiscardAll={discardAllUntracked}
+                />
+              </>
+            )}
+          </div>
+
+          {/* Commit Actions (Sticky Bottom) */}
+          <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3 bg-sidebar/50 backdrop-blur-sm">
+            {/* Input */}
+            <textarea
+              placeholder="Message (⌘+Enter to commit)"
+              value={commitMessage}
+              onChange={(e) => setCommitMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  handleCommit();
+                }
+              }}
+              className="w-full min-h-[60px] p-2.5 bg-sidebar-accent/50 border-transparent focus:border-sidebar-border/50 focus:bg-sidebar-accent rounded-md text-sidebar-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 transition-all ease-out duration-200 text-xs resize-none"
+            />
+
+            {/* Main Button with Dropdown */}
+            <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">
+              <button
+                onClick={showPublishButton ? handlePublish : showPushButton ? () => handleGlobalAction(pushChanges) : handleCommit}
+                disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 rounded-l-md transition-all text-xs font-semibold select-none",
+                  (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : showPushButton
+                      ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
+              >
+                {(isCommitting || isGlobalActionLoading) && <Loader2 className="size-3.5 animate-spin" />}
+                <span>
+                  {showPublishButton
+                    ? (isGlobalActionLoading ? 'Publishing...' : 'Publish Branch')
+                    : showPushButton
+                      ? (isGlobalActionLoading ? 'Syncing...' : `Sync Changes ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ''}`)
+                      : (isCommitting ? 'Committing...' : 'Commit')
+                  }
+                </span>
+              </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
+                    (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
+                      ? "bg-muted text-muted-foreground cursor-not-allowed border-l-transparent"
+                      : showPushButton
+                        ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
+                  )}
+                    disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
+                  >
+                    <ChevronDown className="size-3.5 opacity-80" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges)}>
+                    <ArrowDown className="mr-2 size-4" /> Pull
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges)}>
+                    <Upload className="mr-2 size-4" /> Push
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges)}>
+                    <RefreshCw className="mr-2 size-4" /> Fetch
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges)}>
+                    <RefreshCw className="mr-2 size-4" /> Sync
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </div>
-      </div>
+
+        <div className={cn("flex-1 min-h-0", activeTab !== "run-preview" && "hidden")}>
+          <RunPreviewPanel workspaceId={workspaceId} />
+        </div>
+      </Tabs>
     </aside >
   );
 };

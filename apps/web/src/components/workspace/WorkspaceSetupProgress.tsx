@@ -223,7 +223,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
           {status === 'completed' ? (
             <Button
               size="lg"
-              className="px-12 py-6 text-lg rounded-full shadow-lg hover:shadow-primary/20 hover:scale-105 active:scale-95 transition-all gap-3 bg-primary text-primary-foreground font-bold"
+              className="px-12 py-6 text-lg rounded-sm shadow-lg hover:shadow-primary/20 hover:scale-105 active:scale-95 transition-all gap-3 bg-primary text-primary-foreground font-bold hover:cursor-pointer"
               onClick={onFinish}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
@@ -236,7 +236,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             <Button
               variant="destructive"
               size="lg"
-              className="px-12 rounded-full gap-3 shadow-lg hover:scale-105 active:scale-95 transition-all"
+              className="px-12 rounded-sm gap-3 shadow-lg hover:scale-105 active:scale-95 transition-all hover:cursor-pointer"
               onClick={() => retryWorkspaceSetup(workspaceId)}
             >
               Retry Initialization
