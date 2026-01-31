@@ -123,33 +123,69 @@ impl WorkspaceService {
 
         let repo_path = Path::new(&project.main_file_path);
         
-        // Check if worktree already exists? 
-        // Actually create_worktree handles "if branch exists" internally sometimes, but we want to be safe.
-        // If the worktree FOLDER exists, git worktree add will fail.
+        tracing::info!("[ensure_worktree_ready] Starting for workspace: {}, branch: {}", workspace.name, workspace.branch);
         
-        // We assume that because we checked branches in create_worktree, the branch *probably* doesn't exist
-        // in git sense, BUT if this is a retry, it might exist.
+        // Get the worktree path
+        let worktree_path = self.git_engine.get_worktree_path(&workspace.name)?;
+        tracing::info!("[ensure_worktree_ready] Worktree path: {}", worktree_path.display());
+        
+        // Check if worktree directory already exists and has content
+        if worktree_path.exists() {
+            let has_files = std::fs::read_dir(&worktree_path)
+                .map(|mut entries| entries.next().is_some())
+                .unwrap_or(false);
+            
+            if has_files {
+                tracing::info!("[ensure_worktree_ready] Worktree already exists and has files, skipping creation");
+                return Ok(());
+            } else {
+                tracing::warn!("[ensure_worktree_ready] Worktree directory exists but is empty, will attempt to remove and recreate");
+                // Try to remove the empty directory
+                if let Err(e) = std::fs::remove_dir(&worktree_path) {
+                    tracing::error!("[ensure_worktree_ready] Failed to remove empty worktree directory: {}", e);
+                }
+            }
+        }
         
         let existing_branches = self.git_engine.list_branches(repo_path)?;
         let base_branch = self.git_engine.get_default_branch(repo_path).unwrap_or("main".to_string());
         
+        tracing::info!("[ensure_worktree_ready] Base branch: {}, existing branches count: {}", base_branch, existing_branches.len());
+        
         if existing_branches.contains(&workspace.branch) {
-             // Branch exists.
-             // If worktree dir also exists? GitEngine::create_worktree usually fails if dir exists.
-             // We can try to reuse it or rely on git engine error.
-             
-             // BUT, ensure_worktree_ready is also called on Retry.
-             // If retry, branch exists. We should check if the directory is valid.
-             // For simplicity, we just leverage create_worktree's behavior: 
-             // if it returns "already exists", we consider it success.
+            tracing::warn!("[ensure_worktree_ready] Branch '{}' already exists, will attempt to create worktree anyway", workspace.branch);
         }
 
         match self.git_engine.create_worktree(repo_path, &workspace.name, &base_branch) {
-            Ok(_) => Ok(()),
+            Ok(created_path) => {
+                tracing::info!("[ensure_worktree_ready] Successfully created worktree at: {}", created_path.display());
+                
+                // Verify the worktree was actually created with files
+                if !created_path.exists() {
+                    return Err(ServiceError::Validation(
+                        format!("Worktree was reported as created but directory does not exist: {}", created_path.display())
+                    ));
+                }
+                
+                let has_files = std::fs::read_dir(&created_path)
+                    .map(|mut entries| entries.next().is_some())
+                    .unwrap_or(false);
+                
+                if !has_files {
+                    return Err(ServiceError::Validation(
+                        format!("Worktree directory was created but is empty: {}", created_path.display())
+                    ));
+                }
+                
+                Ok(())
+            },
             Err(e) => {
                 let err_msg = e.to_string();
+                tracing::error!("[ensure_worktree_ready] Failed to create worktree: {}", err_msg);
+                
                 if err_msg.contains("already exists") {
                     // This is acceptable - maybe it was created before or we are retrying
+                    tracing::warn!("[ensure_worktree_ready] Worktree already exists (from git), treating as success");
                     Ok(())
                 } else {
                     Err(e.into())
