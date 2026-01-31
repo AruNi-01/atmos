@@ -212,10 +212,17 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
 const RightSidebar: React.FC<RightSidebarProps> = () => {
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspaceId');
+  const projectIdFromUrl = searchParams.get('projectId');
   const { currentProjectPath } = useEditorStore();
   const { projects } = useProjectStore();
-  const currentProject = projects.find(p => p.workspaces.some(w => w.id === workspaceId));
+
+  const currentProject = projects.find(p =>
+    (workspaceId && p.workspaces.some(w => w.id === workspaceId)) ||
+    (!workspaceId && projectIdFromUrl === p.id)
+  );
   const currentWorkspace = currentProject?.workspaces.find(w => w.id === workspaceId);
+
+  const effectiveContextId = workspaceId || projectIdFromUrl;
 
   const {
     stagedFiles,
@@ -459,7 +466,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
         <div className={cn("flex-1 min-h-0", activeTab !== "run-preview" && "hidden")}>
           <RunPreviewPanel
-            workspaceId={workspaceId}
+            workspaceId={effectiveContextId}
             projectId={currentProject?.id}
             isActive={activeTab === "run-preview"}
             projectName={currentProject?.name}

@@ -64,11 +64,19 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   // Look up project and workspace info for human-readable naming
   const workspaceInfo = React.useMemo(() => {
     for (const project of projects) {
+      if (project.id === workspaceId) {
+        return {
+          projectName: project.name,
+          workspaceName: "Main",
+          localPath: project.mainFilePath,
+        };
+      }
       const workspace = project.workspaces.find(w => w.id === workspaceId);
       if (workspace) {
         return {
           projectName: project.name,
           workspaceName: workspace.name,
+          localPath: workspace.localPath,
         };
       }
     }
@@ -208,6 +216,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             projectName={workspaceInfo?.projectName}
             workspaceName={workspaceInfo?.workspaceName}
             isNewPane={pane.isNewPane}
+            cwd={workspaceInfo?.localPath}
           />
         </div>
       </MosaicWindow>

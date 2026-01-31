@@ -27,6 +27,7 @@ import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
+import { useEditorStore } from '@/hooks/use-editor-store';
 import { gitApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 
@@ -36,6 +37,7 @@ const Header: React.FC = () => {
 
   const { projects, updateWorkspaceBranch, setupProgress } = useProjectStore();
   const { setGlobalSearchOpen } = useDialogStore();
+  const { setCurrentProjectPath } = useEditorStore();
   const {
     currentBranch,
     targetBranch,
@@ -51,9 +53,11 @@ const Header: React.FC = () => {
 
   const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
 
-  // Find current project and workspace
+  const currentProjectIdFromUrl = searchParams.get('projectId');
+  // Find current project based on workspaceId OR projectId
   const currentProject = projects.find(p =>
-    p.workspaces.some(w => w.id === currentWorkspaceId)
+    (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
+    (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
   );
   const currentWorkspace = currentProject?.workspaces.find(
     w => w.id === currentWorkspaceId
@@ -95,23 +99,32 @@ const Header: React.FC = () => {
     }
   };
 
-  // Sync context when workspace changes
+  // Sync context when project/workspace changes
   useEffect(() => {
-    if (currentProject && currentWorkspace) {
-      if (isSettingUp) {
-        // Clear context while setting up to avoid showing stale info from previous workspace
-        setCurrentContext(null, null, null);
+    if (currentProject) {
+      const effectivePath = currentWorkspace?.localPath || currentProject.mainFilePath;
+      if (currentWorkspaceId) {
+        if (isSettingUp) {
+          // Clear context while setting up to avoid showing stale info from previous workspace
+          setCurrentContext(null, null, null);
+        } else {
+          setCurrentContext(
+            currentProject.id,
+            currentWorkspaceId,
+            effectivePath
+          );
+          // Fetch git status when context changes
+          refreshGitStatus();
+          setCurrentProjectPath(effectivePath);
+        }
       } else {
-        setCurrentContext(
-          currentProject.id,
-          currentWorkspace.id,
-          currentWorkspace.localPath
-        );
-        // Fetch git status when context changes
+        // Main dev mode
+        setCurrentContext(currentProject.id, null, effectivePath);
         refreshGitStatus();
+        setCurrentProjectPath(effectivePath);
       }
     }
-  }, [currentProject?.id, currentWorkspace?.id, currentWorkspace?.localPath, isSettingUp, setCurrentContext, refreshGitStatus]);
+  }, [currentProject?.id, currentWorkspaceId, currentWorkspace?.localPath, currentProject?.mainFilePath, isSettingUp, setCurrentContext, refreshGitStatus, setCurrentProjectPath]);
 
   // Fetch available branches when project/workspace changes
   useEffect(() => {
@@ -254,8 +267,26 @@ const Header: React.FC = () => {
         <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">
           {currentProject?.name || 'Visual Vibe Space'}
         </span>
+        {currentProject && (
+          <div className="flex items-center px-2">
+            {!currentWorkspaceId ? (
+              <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium whitespace-nowrap">
+                Dev on main
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-medium whitespace-nowrap">
+                Dev on workspace
+              </span>
+            )}
+          </div>
+        )}
         <div className="pl-2">
-          {currentWorkspace && <QuickOpen workspace={currentWorkspace} />}
+          {(currentWorkspace || currentProject) && (
+            <QuickOpen
+              workspace={currentWorkspace}
+              path={!currentWorkspace ? currentProject?.mainFilePath : null}
+            />
+          )}
         </div>
       </div>
 

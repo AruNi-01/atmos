@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+    Ellipsis,
     Plus,
     Folder,
     Layers,
@@ -59,7 +60,12 @@ import {
     AlertTriangle,
     Eye,
     EyeOff,
-    FileCode
+    FileCode,
+    MapPinned,
+    Tooltip,
+    TooltipTrigger,
+    TooltipContent,
+    TooltipProvider
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -96,6 +102,8 @@ const ProjectItem: React.FC<{
     onArchiveWorkspace: (projectId: string, workspaceId: string) => void;
     onDeleteWorkspace: (projectId: string, workspaceId: string) => void;
     onConfigureScripts: (projectId: string) => void;
+    onSelectMain: (projectId: string) => void;
+    isActiveProject: boolean;
 }> = ({
     project,
     isExpanded,
@@ -114,6 +122,8 @@ const ProjectItem: React.FC<{
     onArchiveWorkspace,
     onDeleteWorkspace,
     onConfigureScripts,
+    onSelectMain,
+    isActiveProject,
 }) => {
         const initialLetter = project.name.charAt(0).toUpperCase();
         const [showColorPicker, setShowColorPicker] = useState(false);
@@ -169,7 +179,8 @@ const ProjectItem: React.FC<{
             >
                 <div className={cn(
                     "flex items-center justify-between px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300",
-                    isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]"
+                    isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
+                    isActiveProject && "bg-sidebar-accent/70"
                 )}>
                     <div
                         {...attributes}
@@ -179,10 +190,28 @@ const ProjectItem: React.FC<{
                     >
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                             <div
-                                className="size-6 flex items-center justify-center bg-sidebar-accent rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 transition-colors group-hover/project:bg-sidebar-accent/80"
+                                className="size-6 flex items-center justify-center bg-sidebar-accent rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 transition-colors group-hover/project:bg-sidebar-accent/80 relative"
                                 style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
                             >
-                                {initialLetter}
+                                <span className="group-hover/project:hidden transition-all duration-200">{initialLetter}</span>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onSelectMain(project.id);
+                                                }}
+                                                className="hidden group-hover/project:flex items-center justify-center size-full absolute inset-0 text-muted-foreground hover:text-foreground transition-colors hover:cursor-pointer"
+                                            >
+                                                <MapPinned className="size-3.5" />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right">
+                                            Building on main/master directory, not workspace/worktree
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </div>
                             <span className="text-[13px] font-medium truncate text-sidebar-foreground group-hover/project:text-sidebar-foreground transition-colors">
                                 {project.name}
@@ -192,17 +221,32 @@ const ProjectItem: React.FC<{
 
                     {!isDragging && (
                         <div className="flex items-center opacity-0 group-hover/project:opacity-100 transition-opacity">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onQuickAddWorkspace(project.id);
+                                            }}
+                                            className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
+                                        >
+                                            <Zap className="size-3.5 text-muted-foreground" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        Quick New Workspace
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200">
-                                        <Plus className="size-3.5 text-muted-foreground" />
+                                    <button className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer">
+                                        <Ellipsis className="size-3.5 text-muted-foreground" />
                                     </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56">
-                                    <DropdownMenuItem onClick={() => onQuickAddWorkspace(project.id)}>
-                                        <Zap className="size-4 mr-2" />
-                                        <span>Quick New Workspace</span>
-                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => onAddWorkspace(project.id)}>
                                         <Plus className="size-4 mr-2" />
                                         <span>New Workspace</span>
@@ -357,6 +401,8 @@ const SortableProject: React.FC<{
     onArchiveWorkspace: (projectId: string, workspaceId: string) => void;
     onDeleteWorkspace: (projectId: string, workspaceId: string) => void;
     onConfigureScripts: (projectId: string) => void;
+    onSelectMain: (projectId: string) => void;
+    isActiveProject: boolean;
 }> = (props) => {
     const {
         attributes,
@@ -695,8 +741,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
 
     const currentWorkspaceId = searchParams.get('workspaceId');
-    // Don't use useMemo - we need fresh values each render
-    const currentProject = projects.find(p => p.workspaces.some(w => w.id === currentWorkspaceId));
+    const currentProjectIdFromUrl = searchParams.get('projectId');
+    // Find current project based on workspaceId OR projectId
+    const currentProject = projects.find(p =>
+        (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
+        (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
+    );
     const currentProjectId = currentProject?.id ?? null;
     const currentWorkspace = currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
     const currentEffectivePath = currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
@@ -704,17 +754,24 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     // Sync git info context
     useEffect(() => {
-        if (currentProjectId && currentWorkspaceId && currentEffectivePath) {
-            if (isSettingUp) {
-                setCurrentContext(null, null, null);
+        if (currentProjectId && currentEffectivePath) {
+            // If we have a workspace, it MUST NOT be setting up to sync context
+            // If we are in main dev mode (no workspaceId), we can sync immediately
+            if (currentWorkspaceId) {
+                if (isSettingUp) {
+                    setCurrentContext(null, null, null);
+                } else {
+                    setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+                }
             } else {
-                setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+                // Main dev mode
+                setCurrentContext(currentProjectId, null, currentEffectivePath);
             }
         }
     }, [currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentContext]);
 
     // Fetch file tree from backend
-    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string, effectivePath: string, showHidden: boolean = false) => {
+    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string | null, effectivePath: string, showHidden: boolean = false) => {
         if (!effectivePath) return;
 
         // Increment request ID to invalidate any previous pending requests
@@ -761,12 +818,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     // Keep file tree in sync
     useEffect(() => {
-        if (activeTab === 'files' && currentProjectId && currentWorkspaceId && currentEffectivePath && !isSettingUp) {
-            const isContextMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
-            const isHiddenMismatch = fileTreeShowHidden !== showHiddenFiles;
+        if (activeTab === 'files' && currentProjectId && currentEffectivePath) {
+            // If we have a workspace, it must not be setting up
+            const canFetch = currentWorkspaceId ? !isSettingUp : true;
 
-            if ((isContextMismatch || isHiddenMismatch) && !isLoadingFiles) {
-                doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
+            if (canFetch) {
+                const isContextMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
+                const isHiddenMismatch = fileTreeShowHidden !== showHiddenFiles;
+
+                if ((isContextMismatch || isHiddenMismatch) && !isLoadingFiles) {
+                    doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
+                }
             }
         }
     }, [activeTab, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
@@ -778,7 +840,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     // Refresh file tree
     const handleRefreshFiles = () => {
-        if (currentProjectId && currentWorkspaceId && currentEffectivePath) {
+        if (currentProjectId && currentEffectivePath) {
             doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
         }
     };
@@ -937,6 +999,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                         onArchiveWorkspace={archiveWorkspace}
                                         onDeleteWorkspace={deleteWorkspace}
                                         onConfigureScripts={handleConfigureScripts}
+                                        onSelectMain={(id) => router.push(`/?projectId=${id}`)}
+                                        isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
                                     />
                                 ))}
                             </SortableContext>
@@ -967,6 +1031,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                         onArchiveWorkspace={() => { }}
                                         onDeleteWorkspace={() => { }}
                                         onConfigureScripts={() => { }}
+                                        onSelectMain={() => { }}
+                                        isActiveProject={false}
                                     />
                                 ) : activeId && projects.some(p => p.workspaces.some(w => w.id === activeId)) ? (
                                     (() => {

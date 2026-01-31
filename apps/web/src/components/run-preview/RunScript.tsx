@@ -234,8 +234,8 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     }
   };
 
-  // If no workspaceId, we can't really connect, but let's handle gracefully
-  if (!workspaceId) return <div className="p-4 text-muted-foreground flex items-center justify-center h-full">No active workspace</div>;
+  // If no workspaceId or projectId, we can't really connect, but let's handle gracefully
+  if (!workspaceId && !projectId) return <div className="p-4 text-muted-foreground flex items-center justify-center h-full">No active project or workspace</div>;
 
   return (
     <TooltipProvider>
@@ -396,10 +396,10 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                   // Using a consistent session ID strategy for "Run Script" tabs
                   // This ensures that when the user switches tabs and comes back, or switches workspace and comes back (if component remounts),
                   // we attempt to reconnect to the same session if it's still alive.
-                  sessionId={`run-script-${workspaceId}-${tab.id}-${sessionVersions[tab.id] || 0}`}
-                  workspaceId={workspaceId}
+                  sessionId={`run-script-${workspaceId || projectId}-${tab.id}-${sessionVersions[tab.id] || 0}`}
+                  workspaceId={workspaceId || projectId || ""}
                   projectName={projectName}
-                  workspaceName={workspaceName}
+                  workspaceName={workspaceName || "Main"}
                   noTmux={true}
                   cwd={workspaceName ? undefined : (currentProjectPath || undefined)}
                   onData={(data) => handleTerminalData(tab.id, data)}

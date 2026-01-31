@@ -107,6 +107,9 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get("workspaceId");
+  const projectId = searchParams.get("projectId");
+  const effectiveContextId = workspaceId || projectId;
+
   const {
     setWorkspaceId,
     getOpenFiles,
@@ -126,13 +129,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     }
   };
 
-  // Sync workspaceId with store
+  // Sync effective context ID with store
   React.useEffect(() => {
-    setWorkspaceId(workspaceId);
-  }, [workspaceId, setWorkspaceId]);
+    setWorkspaceId(effectiveContextId);
+  }, [effectiveContextId, setWorkspaceId]);
 
-  const openFiles = getOpenFiles(workspaceId || undefined);
-  const activeFilePath = getActiveFilePath(workspaceId || undefined);
+  const openFiles = getOpenFiles(effectiveContextId || undefined);
+  const activeFilePath = getActiveFilePath(effectiveContextId || undefined);
 
   const activeValue = activeFilePath || "terminal";
 
@@ -140,16 +143,16 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     if (terminalGridRef.current) {
       // Switch to terminal tab if not active
       if (activeFilePath) {
-        setActiveFile(null as any, workspaceId || undefined);
+        setActiveFile(null as any, effectiveContextId || undefined);
       }
       terminalGridRef.current.addTerminal(name);
     }
   };
 
-  const activeFile = getActiveFile(workspaceId || undefined);
+  const activeFile = getActiveFile(effectiveContextId || undefined);
   const { currentRepoPath } = useGitStore();
 
-  if (!workspaceId) {
+  if (!effectiveContextId) {
     return (
       <main className="h-full overflow-hidden">
         <WelcomePage
@@ -185,9 +188,9 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         value={activeValue}
         onValueChange={(val) => {
           if (val === "terminal") {
-            setActiveFile(null as any, workspaceId || undefined);
+            setActiveFile(null as any, effectiveContextId || undefined);
           } else {
-            setActiveFile(val, workspaceId || undefined);
+            setActiveFile(val, effectiveContextId || undefined);
           }
         }}
         className="flex-1 flex flex-col gap-0 min-h-0 overflow-hidden"
@@ -307,7 +310,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             <div className="h-full w-full">
               <TerminalGrid
                 ref={terminalGridRef}
-                workspaceId={workspaceId}
+                workspaceId={effectiveContextId || ""}
                 className="h-full"
               />
             </div>
