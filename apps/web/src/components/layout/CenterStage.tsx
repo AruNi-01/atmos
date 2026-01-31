@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import dynamic from "next/dynamic";
 import { TerminalLine } from "@/types/types";
 import {
-  Terminal as TerminalIcon,
+  SquareTerminal as TerminalIcon,
   X,
   Code,
   GitCompare,

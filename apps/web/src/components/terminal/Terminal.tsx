@@ -48,8 +48,9 @@ const Terminal = ({
   cwd,
   onData, // New prop
   readOnly,
+  onInputWhileReadOnly,
   ref,
-}: TerminalProps & { ref?: React.Ref<TerminalRef> }) => {
+}: TerminalProps & { ref?: React.Ref<TerminalRef>; onInputWhileReadOnly?: () => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -235,7 +236,10 @@ const Terminal = ({
 
     // Handle terminal input
     terminal.onData((data) => {
-      if (readOnlyRef.current) return;
+      if (readOnlyRef.current) {
+        onInputWhileReadOnly?.();
+        return;
+      }
       sendInput(data);
       onData?.(data); // Notify parent
     });
