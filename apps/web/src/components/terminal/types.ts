@@ -46,6 +46,8 @@ export interface TerminalProps {
   onSessionError?: (sessionId: string, error: string) => void;
   /** Called when tmux window is assigned (for new sessions) */
   onTmuxWindowAssigned?: (sessionId: string, tmuxWindowName: string) => void;
+  /** If true, bypasses tmux logic and requests a raw shell session */
+  noTmux?: boolean;
 }
 
 export interface TerminalPaneProps {

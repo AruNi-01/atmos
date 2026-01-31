@@ -13,6 +13,9 @@ import {
     Pin,
     Archive,
     DndContext,
+    Popover,
+    PopoverTrigger,
+    PopoverContent,
     closestCenter,
     KeyboardSensor,
     PointerSensor,
@@ -70,6 +73,7 @@ import { fsApi, FileTreeNode, gitApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useGitStatusCheck } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
+import { SketchPicker } from 'react-color';
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -112,6 +116,48 @@ const ProjectItem: React.FC<{
     onConfigureScripts,
 }) => {
         const initialLetter = project.name.charAt(0).toUpperCase();
+        const [showColorPicker, setShowColorPicker] = useState(false);
+        const [customColor, setCustomColor] = useState<{ r: number; g: number; b: number; a: number }>({
+            r: 239, g: 68, b: 68, a: 1,
+        });
+
+        // Parse color string to rgb object
+        const parseColorToRgb = (colorStr: string | undefined): { r: number; g: number; b: number; a: number } => {
+            if (!colorStr) return { r: 239, g: 68, b: 68, a: 1 };
+
+            // Handle rgba format
+            const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+            if (rgbaMatch) {
+                return {
+                    r: parseInt(rgbaMatch[1]),
+                    g: parseInt(rgbaMatch[2]),
+                    b: parseInt(rgbaMatch[3]),
+                    a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1,
+                };
+            }
+
+            // Handle hex format
+            const hex = colorStr.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            return { r, g, b, a: 1 };
+        };
+
+        // Convert color to rgba with reduced opacity for vertical line
+        const getVerticalLineStyle = (colorStr: string): React.CSSProperties => {
+            const rgb = parseColorToRgb(colorStr);
+            return {
+                backgroundColor: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.min(rgb.a * 0.25, 0.25)})`,
+            };
+        };
+
+        // Sync customColor when project.borderColor changes
+        useEffect(() => {
+            if (project.borderColor) {
+                setCustomColor(parseColorToRgb(project.borderColor));
+            }
+        }, [project.borderColor]);
 
         return (
             <div
@@ -167,19 +213,62 @@ const ProjectItem: React.FC<{
                                             <Palette className="size-4 mr-2" />
                                             <span>Set Color</span>
                                         </DropdownMenuSubTrigger>
-                                        <DropdownMenuSubContent className="p-1">
-                                            <div className="grid grid-cols-5 gap-1 p-1">
-                                                {PROJECT_COLOR_PRESETS.map((preset) => (
+                                        <DropdownMenuSubContent className="w-[195px] p-3">
+                                            {/* Row 1: Preset Colors */}
+                                            <div className="grid grid-cols-6 gap-1 mb-1">
+                                                {PROJECT_COLOR_PRESETS.filter(p => p.color).map((preset) => (
                                                     <button
                                                         key={preset.name}
                                                         onClick={() => onSetColor(project.id, preset.color)}
-                                                        className="size-6 rounded-md hover:scale-110 transition-transform flex items-center justify-center border border-sidebar-border"
-                                                        style={{ backgroundColor: preset.color || 'transparent' }}
+                                                        className="size-6 rounded hover:scale-110 transition-transform border border-sidebar-border/50"
+                                                        style={{ backgroundColor: preset.color }}
                                                         title={preset.name}
-                                                    >
-                                                        {!preset.color && <X className="size-3 text-muted-foreground" />}
-                                                    </button>
+                                                    />
                                                 ))}
+                                                <button
+                                                    onClick={() => onSetColor(project.id, undefined)}
+                                                    className="size-6 rounded hover:cursor-pointer hover:bg-sidebar-accent transition-colors border border-sidebar-border/50 flex items-center justify-center"
+                                                    title="None"
+                                                >
+                                                    <X className="size-4 text-muted-foreground" />
+                                                </button>
+                                            </div>
+
+                                            {/* Row 2: Custom Color button on the right */}
+                                            <div className="flex items-center gap-1 pt-2">
+                                                <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
+                                                    <PopoverTrigger asChild>
+                                                        <button
+                                                            className="flex items-center gap-2 px-1 text-xs hover:bg-sidebar-accent rounded transition-colors border border-sidebar-border hover:cursor-pointer w-full"
+                                                            title="Custom Color"
+                                                        >
+                                                            <Palette className="size-4 shrink-0" />
+                                                            <span className="font- whitespace-nowrap">Custom Color</span>
+                                                            <div
+                                                                className="size-6 m-[2px] rounded-sm shrink-0 ml-auto"
+                                                                style={{
+                                                                    backgroundColor: `rgba(${customColor.r}, ${customColor.g}, ${customColor.b}, ${customColor.a})`,
+                                                                    boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+                                                                }}
+                                                            />
+                                                        </button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent
+                                                        side="right"
+                                                        align="start"
+                                                        sideOffset={8}
+                                                        className="z-50 p-0 border-0 bg-transparent shadow-none"
+                                                    >
+                                                        <SketchPicker
+                                                            color={customColor}
+                                                            onChange={(color) => {
+                                                                setCustomColor(color.rgb);
+                                                                const rgbaColor = `rgba(${color.rgb.r}, ${color.rgb.g}, ${color.rgb.b}, ${color.rgb.a})`;
+                                                                onSetColor(project.id, rgbaColor);
+                                                            }}
+                                                        />
+                                                    </PopoverContent>
+                                                </Popover>
                                             </div>
                                         </DropdownMenuSubContent>
                                     </DropdownMenuSub>
@@ -213,7 +302,10 @@ const ProjectItem: React.FC<{
                         isAnyProjectDragging ? "opacity-0 invisible" : "opacity-100 visible"
                     )}>
                         {/* Connecting Vertical Line */}
-                        <div className="absolute left-6 top-0 bottom-4 w-px bg-sidebar-border/60" />
+                        <div
+                            className="absolute left-6 top-0 bottom-4 w-px bg-sidebar-border/60"
+                            style={project.borderColor ? getVerticalLineStyle(project.borderColor) : undefined}
+                        />
 
                         <div
                             className={cn(

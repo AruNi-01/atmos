@@ -26,16 +26,17 @@ export interface Project {
 
 // Color presets for project border
 export const PROJECT_COLOR_PRESETS = [
+  { name: 'Gray', color: '#6b7280' },
   { name: 'Red', color: '#ef4444' },
   { name: 'Orange', color: '#f97316' },
   { name: 'Amber', color: '#f59e0b' },
+  { name: 'Yellow', color: '#eab308' },
   { name: 'Green', color: '#22c55e' },
   { name: 'Teal', color: '#14b8a6' },
   { name: 'Blue', color: '#3b82f6' },
   { name: 'Indigo', color: '#6366f1' },
   { name: 'Purple', color: '#a855f7' },
   { name: 'Pink', color: '#ec4899' },
-  { name: 'None', color: undefined },
 ] as const;
 
 export type ProjectColorPreset = typeof PROJECT_COLOR_PRESETS[number];

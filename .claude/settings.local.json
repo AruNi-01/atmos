@@ -20,7 +20,8 @@
       "Bash(npx tsc:*)",
       "Skill(glm-plan-usage:usage-query-skill)",
       "Bash(grep:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(bun add:*)"
     ]
   }
 }
