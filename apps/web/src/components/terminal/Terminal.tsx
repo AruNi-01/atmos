@@ -25,6 +25,7 @@ export interface TerminalRef {
   blur: () => void;
   clear: () => void;
   write: (data: string) => void;
+  sendText: (data: string) => void;
   scrollToBottom: () => void;
   /** Destroy the terminal session (kills tmux window) */
   destroy: () => void;
@@ -45,6 +46,8 @@ const Terminal = ({
   onTmuxWindowAssigned,
   noTmux,
   cwd,
+  onData, // New prop
+  readOnly,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef> }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +55,7 @@ const Terminal = ({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const readOnlyRef = useRef(readOnly);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -160,6 +164,7 @@ const Terminal = ({
       blur: () => terminalRef.current?.blur(),
       clear: () => terminalRef.current?.clear(),
       write: (data: string) => terminalRef.current?.write(data),
+      sendText: (data: string) => sendInput(data),
       scrollToBottom: () => terminalRef.current?.scrollToBottom(),
       destroy: () => {
         // Send destroy message to kill tmux window before disconnecting
@@ -177,6 +182,11 @@ const Terminal = ({
       terminalRef.current.options.theme = currentTheme;
     }
   }, [currentTheme]);
+
+  // Sync readOnly prop to ref
+  useEffect(() => {
+    readOnlyRef.current = readOnly;
+  }, [readOnly]);
 
   // Initialize terminal
   useEffect(() => {
@@ -224,7 +234,9 @@ const Terminal = ({
 
     // Handle terminal input
     terminal.onData((data) => {
+      if (readOnlyRef.current) return;
       sendInput(data);
+      onData?.(data); // Notify parent
     });
 
     // Handle terminal resize
@@ -267,7 +279,8 @@ const Terminal = ({
       style={{
         width: "100%",
         height: "100%",
-        padding: "0", /* Removed padding to allow terminal to fill container */
+        padding: "0",
+        paddingBottom: "8px", /* Prevent last line cutoff */
         backgroundColor: "transparent",
         position: "relative",
       }}

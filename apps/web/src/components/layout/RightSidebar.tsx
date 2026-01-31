@@ -466,6 +466,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         <div className={cn("flex-1 min-h-0", activeTab !== "run-preview" && "hidden")}>
           <RunPreviewPanel
             workspaceId={workspaceId}
+            projectId={currentProject?.id}
             isActive={activeTab === "run-preview"}
             projectName={currentProject?.name}
             workspaceName={currentWorkspace?.name}

@@ -50,6 +50,8 @@ export interface TerminalProps {
   noTmux?: boolean;
   /** Working directory for the terminal session */
   cwd?: string;
+  onData?: (data: string) => void;
+  readOnly?: boolean;
 }
 
 export interface TerminalPaneProps {
