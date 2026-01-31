@@ -33,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui";
-import { GitBranch, Play } from "lucide-react";
+import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from 'next/navigation';
 import { GitChangedFile } from '@/api/ws-api';
@@ -50,33 +50,7 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
   return <img {...iconProps} />;
 }
 
-// Helper to shorten path
-function TruncatedPath({ path }: { path: string }) {
-  const parts = path.split('/');
-  const fileName = parts.pop() || "";
-  const dirPath = parts.join('/');
 
-  let displayDir = dirPath;
-  if (parts.length > 2) {
-    displayDir = `.../${parts.slice(-2).join('/')}`;
-  } else if (parts.length > 0 && displayDir.length > 20) {
-    // Fallback for single very long dir
-    displayDir = `...${displayDir.slice(-15)}`;
-  }
-
-  return (
-    <div className="flex items-baseline min-w-0 flex-1 gap-2">
-      <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap">
-        {fileName}
-      </span>
-      {dirPath && (
-        <span className="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate">
-          {displayDir}
-        </span>
-      )}
-    </div>
-  );
-}
 
 
 interface ChangeSectionProps {
@@ -141,27 +115,40 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
       </div>
 
       <CollapsibleContent>
-        <div className="flex flex-col gap-0.5 mt-0.5 overflow-x-auto no-scrollbar pb-2">
+        <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
           {files.map(file => {
             const fileName = file.path.split('/').pop() || file.path;
+            const parts = file.path.split('/');
+            parts.pop(); // remove filename
+            const dirPath = parts.join('/');
 
             return (
               <div
                 key={file.path}
                 onClick={() => openFile(`diff://${file.path}`, workspaceId || undefined)}
                 className={cn(
-                  "group flex items-center px-6 py-1.5 cursor-pointer transition-colors ease-out duration-200 min-w-max relative rounded-sm mx-1",
+                  "group flex items-center px-2 py-1.5 cursor-pointer transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
                   activeFilePath === `diff://${file.path}` ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent/50"
                 )}
               >
                 {/* File icon */}
-                <FileIcon name={fileName} className="size-4 mr-2 shrink-0" />
+                <FileIcon name={fileName} className="size-4 shrink-0" />
 
-                {/* Filename & Path */}
-                <TruncatedPath path={file.path} />
+                {/* Filename */}
+                <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0">
+                  {fileName}
+                </span>
 
-                {/* Git stats or Hover Actions */}
-                <div className="flex items-center ml-3 h-4 shrink-0">
+                {/* Path - fills space, truncates first */}
+                <span
+                  className="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
+                  dir="rtl"
+                >
+                  {dirPath ? `${dirPath}/` : ""}
+                </span>
+
+                {/* Git stats or Hover Actions - shrinks second */}
+                <div className="flex items-center h-4 shrink min-w-0 overflow-hidden">
                   {/* Default State: Stats & Status */}
                   <div className={cn(
                     "flex items-center gap-2 text-[11px] font-mono tabular-nums group-hover:hidden min-w-[30px] justify-end",
@@ -182,7 +169,7 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
                     )}>{file.status === '?' ? 'U' : file.status}</span>
                   </div>
 
-                  {/* Hover State: Actions */}
+                  {/* Hover Actions */}
                   <div className="hidden group-hover:flex items-center gap-1">
                     {onStage && (
                       <button
@@ -340,6 +327,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               {(isLoading || isGlobalActionLoading) && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
             </div>
             <div className="flex items-center gap-2">
+              <button
+                className="flex items-center gap-1.5 px-2 py-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                title="Create PR"
+              >
+                <GitPullRequestCreateArrow className="size-3" />
+                <span className="text-[10px] font-medium">Create PR</span>
+              </button>
               <button
                 onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
                 className="p-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"

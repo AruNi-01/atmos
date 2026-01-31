@@ -75,6 +75,8 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
     });
   }, []);
 
+
+
   const getWorktreePath = () => {
     if (!homeDir || !workspace) return '';
     return `${homeDir}/.atmos/workspaces/${workspace.name}`;
@@ -120,6 +122,18 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+        e.preventDefault();
+        handleMainClick();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleMainClick]);
+
   const CurrentIcon = APP_MAP[lastUsedApp]?.icon || APP_MAP['Finder'].icon;
   const CurrentLabel = APP_MAP[lastUsedApp]?.label || 'Open';
 
@@ -128,13 +142,16 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
       {/* Main Action Button */}
       <button
         onClick={handleMainClick}
-        className="flex items-center space-x-1.5 px-2.5 border-r border-transparent hover:bg-accent/50 group-hover:border-border/50 rounded-l-md transition-all outline-none h-full"
-        title={`Open in ${CurrentLabel}`}
+        className="flex items-center space-x-1.5 px-2.5 border-r hover:bg-accent/50 border-border/50 rounded-l-md transition-all outline-none h-full hover:cursor-pointer"
+        title={`Open in ${CurrentLabel} (Cmd+O)`}
       >
         {CurrentIcon}
         <span className="text-[13px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
           Open
         </span>
+        <kbd className="pointer-events-none hidden h-4 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-70 group-hover:opacity-100 sm:flex">
+          <span className="text-xs">⌘</span>O
+        </kbd>
       </button>
 
       {/* Dropdown Trigger */}
@@ -148,7 +165,6 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Finder')}>
             <FolderOpen className="mr-2 size-4 text-blue-500" />
             <span>Finder</span>
-            <span className="ml-auto text-xs text-muted-foreground/60 tracking-wider">⌘O</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Terminal')}>
@@ -243,7 +259,6 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
           <DropdownMenuItem className="cursor-pointer" onClick={handleCopyPath}>
             <Copy className="mr-2 size-4" />
             <span>Copy path</span>
-            <span className="ml-auto text-xs text-muted-foreground/60 tracking-wider">⌘⇧C</span>
           </DropdownMenuItem>
 
         </DropdownMenuContent>
