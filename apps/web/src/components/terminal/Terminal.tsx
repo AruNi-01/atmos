@@ -103,7 +103,8 @@ const Terminal = ({
 
   const handleOutput = useCallback((data: string) => {
     terminalRef.current?.write(data);
-  }, []);
+    onData?.(data); // Also forward output to parent (needed for URL detection)
+  }, [onData]);
 
   const handleConnected = useCallback(() => {
     setStatus("connected");

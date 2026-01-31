@@ -23,6 +23,19 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
   const [isRunScriptCollapsed, setIsRunScriptCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Lifted state from Preview
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [activePreviewUrl, setActivePreviewUrl] = useState("");
+
+  const handleDetectedUrl = (url: string) => {
+    // Only auto-set if empty or user hasn't typed anything meaningful yet?
+    // Or always overwrite? User request: "Run 运行成功后，自动把 url 设置到 上面的 Preview 组件中"
+    // Usually, we want to update it.
+    // Let's update both input and active url to make it clear.
+    setPreviewUrl(url);
+    setActivePreviewUrl(url);
+  };
+
   return (
     <PanelGroup
       direction="vertical"
@@ -32,7 +45,12 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
     >
       {/* Top: Preview */}
       <Panel className="min-h-0">
-        <Preview />
+        <Preview
+          url={previewUrl}
+          setUrl={setPreviewUrl}
+          activeUrl={activePreviewUrl}
+          setActiveUrl={setActivePreviewUrl}
+        />
       </Panel>
 
       <VerticalResizeHandle
@@ -63,7 +81,14 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
           isRunScriptCollapsed && "min-h-0!"
         )}
       >
-        <RunScript workspaceId={workspaceId} projectId={projectId} isActive={isActive} projectName={projectName} workspaceName={workspaceName} />
+        <RunScript
+          workspaceId={workspaceId}
+          projectId={projectId}
+          isActive={isActive}
+          projectName={projectName}
+          workspaceName={workspaceName}
+          onDetectedUrl={handleDetectedUrl}
+        />
       </Panel>
     </PanelGroup>
   );

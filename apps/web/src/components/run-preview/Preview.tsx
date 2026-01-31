@@ -4,15 +4,21 @@ import React, { useState } from 'react';
 import { Monitor, Smartphone, RotateCw, ExternalLink, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Preview = () => {
-  // inputUrl tracks the text input, activeUrl tracks the iframe source
-  const [inputUrl, setInputUrl] = useState("");
-  const [activeUrl, setActiveUrl] = useState("");
+
+interface PreviewProps {
+  url: string;
+  setUrl: (url: string) => void;
+  activeUrl: string;
+  setActiveUrl: (url: string) => void;
+}
+
+export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setActiveUrl }) => {
+  // viewMode and iframeKey stay internal
   const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
   const [iframeKey, setIframeKey] = useState(0); // To force refresh
 
   const handleRefresh = () => {
-    let finalUrl = inputUrl.trim();
+    let finalUrl = url.trim();
 
     // Fix common typo: https:google.com -> https://google.com
     if (/^https?:\/\//.test(finalUrl) === false && /^https?:/.test(finalUrl)) {
@@ -23,15 +29,15 @@ export const Preview = () => {
       finalUrl = `http://${finalUrl}`;
     }
 
-    if (finalUrl !== inputUrl) {
-      setInputUrl(finalUrl);
+    if (finalUrl !== url) {
+      setUrl(finalUrl);
     }
     setActiveUrl(finalUrl);
     setIframeKey(prev => prev + 1);
   };
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputUrl(e.target.value);
+    setUrl(e.target.value);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -73,7 +79,7 @@ export const Preview = () => {
           <Home className="size-3.5 text-muted-foreground shrink-0" />
           <input
             className="flex-1 bg-transparent border-none text-xs focus:outline-none placeholder:text-muted-foreground/50 h-full min-w-0"
-            value={inputUrl}
+            value={url}
             onChange={handleUrlChange}
             onKeyDown={handleKeyDown}
             placeholder="Enter URL..."
