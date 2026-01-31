@@ -70,7 +70,7 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
       {/* Toolbar */}
       <div className="h-10 border-b border-border flex items-center px-2 gap-2 shrink-0 bg-muted/20">
         {/* Device Toggle */}
-        <div className="flex items-center border border-border rounded-md p-0.5">
+        <div className="flex items-center border border-border rounded-md p-0.5 shrink-0">
           <button
             onClick={() => setViewMode("desktop")}
             className={cn(
@@ -94,7 +94,7 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
         </div>
 
         {/* URL Bar */}
-        <div className="flex-1 flex items-center gap-2 border border-border rounded-md px-2 h-7 mx-1">
+        <div className="flex-1 flex items-center gap-1 border border-border rounded-md px-1.5 h-7 mx-0.5 min-w-0 overflow-hidden">
           <Home className="size-3.5 text-muted-foreground shrink-0" />
           <input
             className="flex-1 bg-transparent border-none text-xs focus:outline-none placeholder:text-muted-foreground/50 h-full min-w-0"
@@ -103,7 +103,7 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
             onKeyDown={handleKeyDown}
             placeholder="Enter URL..."
           />
-          <button onClick={handleRefresh} className="text-muted-foreground hover:text-foreground transition-colors p-0.5">
+          <button onClick={handleRefresh} className="text-muted-foreground hover:text-foreground transition-colors p-0.5 shrink-0">
             <RotateCw className="size-3" />
           </button>
           <a
@@ -111,7 +111,7 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
             target="_blank"
             rel="noreferrer"
             className={cn(
-              "text-muted-foreground hover:text-foreground transition-colors p-0.5",
+              "text-muted-foreground hover:text-foreground transition-colors p-0.5 shrink-0",
               !activeUrl && "pointer-events-none opacity-50"
             )}
           >
@@ -122,7 +122,7 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
         {/* Maximize Toggle */}
         <button
           onClick={() => setIsMaximized(!isMaximized)}
-          className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-sm hover:bg-muted"
+          className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-sm hover:bg-muted shrink-0"
           title={isMaximized ? "Minimize" : "Maximize"}
         >
           {isMaximized ? (
