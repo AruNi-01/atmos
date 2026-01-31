@@ -270,6 +270,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
 
       set(state => ({
+        setupProgress: {
+          ...state.setupProgress,
+          [newWorkspace.id]: {
+            workspaceId: newWorkspace.id,
+            status: 'creating',
+            stepTitle: 'Initializing...',
+            output: '',
+            success: true
+          }
+        },
         projects: state.projects.map(p => 
           p.id === data.projectId 
             ? { ...p, workspaces: sortWorkspaces([...p.workspaces, newWorkspace]) } 
@@ -312,6 +322,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
 
       set(state => ({
+        setupProgress: {
+          ...state.setupProgress,
+          [newWorkspace.id]: {
+            workspaceId: newWorkspace.id,
+            status: 'creating',
+            stepTitle: 'Initializing...',
+            output: '',
+            success: true
+          }
+        },
         projects: state.projects.map(p => 
           p.id === projectId 
             ? { ...p, workspaces: sortWorkspaces([...p.workspaces, newWorkspace]) } 

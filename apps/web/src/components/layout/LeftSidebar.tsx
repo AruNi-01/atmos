@@ -648,6 +648,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         archiveWorkspace,
         reorderProjects,
         reorderWorkspaces,
+        setupProgress,
     } = useProjectStore();
 
     const { setCurrentProjectPath } = useEditorStore();
@@ -699,13 +700,18 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const currentProjectId = currentProject?.id ?? null;
     const currentWorkspace = currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
     const currentEffectivePath = currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
+    const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
 
     // Sync git info context
     useEffect(() => {
         if (currentProjectId && currentWorkspaceId && currentEffectivePath) {
-            setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+            if (isSettingUp) {
+                setCurrentContext(null, null, null);
+            } else {
+                setCurrentContext(currentProjectId, currentWorkspaceId, currentEffectivePath);
+            }
         }
-    }, [currentProjectId, currentWorkspaceId, currentEffectivePath, setCurrentContext]);
+    }, [currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentContext]);
 
     // Fetch file tree from backend
     const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string, effectivePath: string, showHidden: boolean = false) => {
@@ -755,7 +761,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     // Keep file tree in sync
     useEffect(() => {
-        if (activeTab === 'files' && currentProjectId && currentWorkspaceId && currentEffectivePath) {
+        if (activeTab === 'files' && currentProjectId && currentWorkspaceId && currentEffectivePath && !isSettingUp) {
             const isContextMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
             const isHiddenMismatch = fileTreeShowHidden !== showHiddenFiles;
 
@@ -763,7 +769,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
             }
         }
-    }, [activeTab, currentProjectId, currentWorkspaceId, currentEffectivePath, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
+    }, [activeTab, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
 
     // Handle tab change
     const handleTabChange = (value: string) => {
