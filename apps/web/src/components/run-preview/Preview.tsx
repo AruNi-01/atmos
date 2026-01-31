@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Monitor, Smartphone, RotateCw, ExternalLink, Home } from "lucide-react";
+import { Monitor, Smartphone, RotateCw, ExternalLink, Home, Maximize, Minimize } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
@@ -16,6 +16,7 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
   // viewMode and iframeKey stay internal
   const [viewMode, setViewMode] = useState<"desktop" | "mobile">("desktop");
   const [iframeKey, setIframeKey] = useState(0); // To force refresh
+  const [isMaximized, setIsMaximized] = useState(false);
 
   const handleRefresh = () => {
     let finalUrl = url.trim();
@@ -46,8 +47,26 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
     }
   }
 
+  // Handle ESC key to exit fullscreen
+  React.useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMaximized) {
+        setIsMaximized(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isMaximized]);
+
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden bg-background transition-all duration-300 ease-in-out",
+        isMaximized
+          ? "fixed inset-0 z-50 w-screen h-screen animate-in fade-in zoom-in-95 slide-in-from-bottom-2"
+          : "h-full w-full"
+      )}
+    >
       {/* Toolbar */}
       <div className="h-10 border-b border-border flex items-center px-2 gap-2 shrink-0 bg-muted/20">
         {/* Device Toggle */}
@@ -99,6 +118,19 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
             <ExternalLink className="size-3" />
           </a>
         </div>
+
+        {/* Maximize Toggle */}
+        <button
+          onClick={() => setIsMaximized(!isMaximized)}
+          className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-sm hover:bg-muted"
+          title={isMaximized ? "Minimize" : "Maximize"}
+        >
+          {isMaximized ? (
+            <Minimize className="size-3.5" />
+          ) : (
+            <Maximize className="size-3.5" />
+          )}
+        </button>
       </div>
 
       {/* Iframe Container */}
@@ -108,7 +140,7 @@ export const Preview: React.FC<PreviewProps> = ({ url, setUrl, activeUrl, setAct
             key={iframeKey}
             src={activeUrl}
             className={cn(
-              "h-full transition-all duration-300",
+              "h-full transition-all duration-300 bg-white",
               viewMode === "mobile"
                 ? "w-[375px] border-x border-border shadow-sm"
                 : "w-full"
