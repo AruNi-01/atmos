@@ -144,10 +144,16 @@ export function GlobalSearch() {
     }
   };
 
-  // Find current project based on active workspace
+  // Find current project and workspace
   const currentProject = useMemo(() => {
     return projects.find(p => p.workspaces.some(w => w.id === currentWorkspaceId));
   }, [projects, currentWorkspaceId]);
+
+  const currentWorkspace = useMemo(() => {
+    return currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
+  }, [currentProject, currentWorkspaceId]);
+
+  const currentEffectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
 
   // Keyboard shortcut to open search
   useEffect(() => {
@@ -191,17 +197,17 @@ export function GlobalSearch() {
 
   // Load file tree when switching to files tab
   useEffect(() => {
-    if (globalSearchTab === 'files' && currentProject?.mainFilePath && fileTreeCache.length === 0) {
+    if (globalSearchTab === 'files' && currentEffectivePath && fileTreeCache.length === 0) {
       loadFileTree();
     }
-  }, [globalSearchTab, currentProject?.mainFilePath]);
+  }, [globalSearchTab, currentEffectivePath]);
 
   const loadFileTree = async () => {
-    if (!currentProject?.mainFilePath) return;
+    if (!currentEffectivePath) return;
 
     setIsLoadingFiles(true);
     try {
-      const response = await fsApi.listProjectFiles(currentProject.mainFilePath);
+      const response = await fsApi.listProjectFiles(currentEffectivePath);
       setFileTreeCache(response.tree);
     } catch (error) {
       console.error('Failed to load file tree:', error);
@@ -212,7 +218,7 @@ export function GlobalSearch() {
 
   // Debounced code search
   useEffect(() => {
-    if (globalSearchTab !== 'code' || !searchQuery.trim() || !currentProject?.mainFilePath) {
+    if (globalSearchTab !== 'code' || !searchQuery.trim() || !currentEffectivePath) {
       setCodeSearchResults([]);
       return;
     }
@@ -220,7 +226,7 @@ export function GlobalSearch() {
     const timer = setTimeout(async () => {
       setIsSearchingCode(true);
       try {
-        const response = await fsApi.searchContent(currentProject.mainFilePath, searchQuery.trim());
+        const response = await fsApi.searchContent(currentEffectivePath, searchQuery.trim());
         setCodeSearchResults(response.matches);
         setCodeSearchTruncated(response.truncated);
       } catch (error) {
@@ -232,7 +238,7 @@ export function GlobalSearch() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, globalSearchTab, currentProject?.mainFilePath]);
+  }, [searchQuery, globalSearchTab, currentEffectivePath]);
 
   // Flatten file tree for searching
   const flattenFileTree = useCallback((nodes: FileTreeNode[], prefix = ''): { name: string; path: string; isDir: boolean }[] => {
@@ -378,7 +384,7 @@ export function GlobalSearch() {
 
 
     // Quick Open Apps
-    if (currentProject?.mainFilePath) {
+    if (currentEffectivePath) {
       Object.entries(APP_MAP).forEach(([appName, { icon, label }]) => {
         items.push({
           id: `quick-open-${appName}`,
@@ -392,10 +398,10 @@ export function GlobalSearch() {
             localStorage.setItem('atmos_quick_open_last_used', appName);
 
             try {
-              await appApi.openWith(appName, currentProject.mainFilePath);
+              await appApi.openWith(appName, currentEffectivePath);
               toastManager.add({
                 title: `Opened in ${label}`,
-                description: `Path: ${currentProject.mainFilePath}`,
+                description: `Path: ${currentEffectivePath}`,
                 type: 'success'
               });
             } catch (error) {
@@ -487,8 +493,8 @@ export function GlobalSearch() {
   };
 
   const handleCodeResultSelect = (match: SearchMatch) => {
-    if (currentProject?.mainFilePath) {
-      const fullPath = `${currentProject.mainFilePath}/${match.file_path}`;
+    if (currentEffectivePath) {
+      const fullPath = `${currentEffectivePath}/${match.file_path}`;
       openFile(fullPath, currentWorkspaceId ?? undefined);
       setGlobalSearchOpen(false);
     }
@@ -751,7 +757,7 @@ export function GlobalSearch() {
                     value={file.path}
                     onSelect={() => handleFileSelect(file.path)}
                     title={file.name}
-                    description={file.path.replace(currentProject.mainFilePath + '/', '')}
+                    description={file.path.replace(currentEffectivePath + '/', '')}
                     isDir={file.isDir}
                     shortcut="Open"
                   />

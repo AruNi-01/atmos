@@ -120,8 +120,8 @@ pub async fn get_terminal_layout(
     let workspace = state.workspace_service.get_workspace(guid).await?;
     match workspace {
         Some(ws) => Ok(Json(ApiResponse::success(json!({
-            "layout": ws.terminal_layout,
-            "maximized_terminal_id": ws.maximized_terminal_id
+            "layout": ws.model.terminal_layout,
+            "maximized_terminal_id": ws.model.maximized_terminal_id
         })))),
         None => Ok(Json(ApiResponse::success(json!({ "layout": null, "maximized_terminal_id": null })))),
     }
