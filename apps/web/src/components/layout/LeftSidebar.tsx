@@ -79,6 +79,7 @@ import { fsApi, FileTreeNode, gitApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useGitStatusCheck, useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
+import { useTheme } from 'next-themes';
 import { SketchPicker } from 'react-color';
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
@@ -125,6 +126,8 @@ const ProjectItem: React.FC<{
     onSelectMain,
     isActiveProject,
 }) => {
+        const { theme } = useTheme();
+        const isDark = theme === 'dark';
         const initialLetter = project.name.charAt(0).toUpperCase();
         const [showColorPicker, setShowColorPicker] = useState(false);
         const [customColor, setCustomColor] = useState<{ r: number; g: number; b: number; a: number }>({
@@ -315,6 +318,32 @@ const ProjectItem: React.FC<{
                                                                 setCustomColor(rgb);
                                                                 const rgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a})`;
                                                                 onSetColor(project.id, rgbaColor);
+                                                            }}
+                                                            styles={{
+                                                                default: {
+                                                                    picker: {
+                                                                        background: isDark ? '#1c1c1f' : '#fff',
+                                                                        borderRadius: '12px',
+                                                                        boxShadow: 'none',
+                                                                        border: isDark ? '1px solid #27272a' : '1px solid #e4e4e7',
+                                                                        padding: '12px',
+                                                                        width: '220px',
+                                                                    },
+                                                                    saturation: {
+                                                                        borderRadius: '8px',
+                                                                    },
+                                                                    activeColor: {
+                                                                        borderRadius: '4px',
+                                                                    },
+                                                                    hue: {
+                                                                        height: '10px',
+                                                                        borderRadius: '4px',
+                                                                    },
+                                                                    alpha: {
+                                                                        height: '10px',
+                                                                        borderRadius: '4px',
+                                                                    },
+                                                                }
                                                             }}
                                                         />
                                                     </PopoverContent>
