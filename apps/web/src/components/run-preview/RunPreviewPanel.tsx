@@ -10,12 +10,14 @@ import { cn } from "@/lib/utils";
 
 interface RunPreviewPanelProps {
   workspaceId: string | null;
+  projectId?: string;
   isActive?: boolean;
   projectName?: string;
   workspaceName?: string;
 }
 
-export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, isActive = false, projectName, workspaceName }) => {
+export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, projectId, isActive = false, projectName, workspaceName }) => {
+
   const storage = useAppStorage();
   const runScriptPanelRef = useRef<ImperativePanelHandle>(null);
   const [isRunScriptCollapsed, setIsRunScriptCollapsed] = useState(false);
@@ -61,7 +63,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, i
           isRunScriptCollapsed && "min-h-0!"
         )}
       >
-        <RunScript workspaceId={workspaceId} isActive={isActive} projectName={projectName} workspaceName={workspaceName} />
+        <RunScript workspaceId={workspaceId} projectId={projectId} isActive={isActive} projectName={projectName} workspaceName={workspaceName} />
       </Panel>
     </PanelGroup>
   );
