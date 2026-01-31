@@ -104,7 +104,7 @@ export function GlobalSearch() {
     setSelectedProjectId,
   } = useDialogStore();
 
-  const { projects, quickAddWorkspace } = useProjectStore();
+  const { projects, quickAddWorkspace, setupProgress } = useProjectStore();
   const { openFile, currentProjectPath } = useEditorStore();
   const currentWorkspaceId = searchParams.get('workspaceId');
 
@@ -195,12 +195,14 @@ export function GlobalSearch() {
     }
   }, [selectedValue]);
 
+  const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
+
   // Load file tree when switching to files tab
   useEffect(() => {
-    if (globalSearchTab === 'files' && currentEffectivePath && fileTreeCache.length === 0) {
+    if (globalSearchTab === 'files' && currentEffectivePath && fileTreeCache.length === 0 && !isSettingUp) {
       loadFileTree();
     }
-  }, [globalSearchTab, currentEffectivePath]);
+  }, [globalSearchTab, currentEffectivePath, isSettingUp]);
 
   const loadFileTree = async () => {
     if (!currentEffectivePath) return;
@@ -218,7 +220,7 @@ export function GlobalSearch() {
 
   // Debounced code search
   useEffect(() => {
-    if (globalSearchTab !== 'code' || !searchQuery.trim() || !currentEffectivePath) {
+    if (globalSearchTab !== 'code' || !searchQuery.trim() || !currentEffectivePath || isSettingUp) {
       setCodeSearchResults([]);
       return;
     }
@@ -238,7 +240,7 @@ export function GlobalSearch() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, globalSearchTab, currentEffectivePath]);
+  }, [searchQuery, globalSearchTab, currentEffectivePath, isSettingUp]);
 
   // Flatten file tree for searching
   const flattenFileTree = useCallback((nodes: FileTreeNode[], prefix = ''): { name: string; path: string; isDir: boolean }[] => {

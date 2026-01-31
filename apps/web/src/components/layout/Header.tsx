@@ -34,7 +34,7 @@ const Header: React.FC = () => {
   const searchParams = useSearchParams();
   const currentWorkspaceId = searchParams.get('workspaceId');
 
-  const { projects, updateWorkspaceBranch } = useProjectStore();
+  const { projects, updateWorkspaceBranch, setupProgress } = useProjectStore();
   const { setGlobalSearchOpen } = useDialogStore();
   const {
     currentBranch,
@@ -48,6 +48,8 @@ const Header: React.FC = () => {
     setTargetBranch,
     refreshGitStatus,
   } = useGitInfoStore();
+
+  const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
 
   // Find current project and workspace
   const currentProject = projects.find(p =>
@@ -96,20 +98,25 @@ const Header: React.FC = () => {
   // Sync context when workspace changes
   useEffect(() => {
     if (currentProject && currentWorkspace) {
-      setCurrentContext(
-        currentProject.id,
-        currentWorkspace.id,
-        currentWorkspace.localPath
-      );
-      // Fetch git status when context changes
-      refreshGitStatus();
+      if (isSettingUp) {
+        // Clear context while setting up to avoid showing stale info from previous workspace
+        setCurrentContext(null, null, null);
+      } else {
+        setCurrentContext(
+          currentProject.id,
+          currentWorkspace.id,
+          currentWorkspace.localPath
+        );
+        // Fetch git status when context changes
+        refreshGitStatus();
+      }
     }
-  }, [currentProject?.id, currentWorkspace?.id, currentWorkspace?.localPath, setCurrentContext, refreshGitStatus]);
+  }, [currentProject?.id, currentWorkspace?.id, currentWorkspace?.localPath, isSettingUp, setCurrentContext, refreshGitStatus]);
 
   // Fetch available branches when project/workspace changes
   useEffect(() => {
     const effectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
-    if (effectivePath) {
+    if (effectivePath && !isSettingUp) {
       const fetchBranches = async () => {
         setIsLoadingBranches(true);
         try {
@@ -125,7 +132,7 @@ const Header: React.FC = () => {
     } else {
       setAvailableBranches([]);
     }
-  }, [currentProject?.mainFilePath, currentWorkspace?.localPath]);
+  }, [currentProject?.mainFilePath, currentWorkspace?.localPath, isSettingUp]);
 
   // Sync target branch from project to git info store
   useEffect(() => {
