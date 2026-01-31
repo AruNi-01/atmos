@@ -43,6 +43,8 @@ pub struct TerminalWsQuery {
     pub workspace_name: Option<String>,
     /// Optional: terminal/window name (e.g., "Claude", "Codex", or auto-incremented number)
     pub terminal_name: Option<String>,
+    /// Optional: mode (e.g., "shell" to skip tmux persistence)
+    pub mode: Option<String>,
 }
 
 /// Terminal message from client
@@ -110,6 +112,8 @@ pub async fn terminal_ws_handler(
             project_name,
             workspace_name,
             terminal_name,
+
+            query.mode,
             state,
         )
     })
@@ -127,6 +131,8 @@ async fn handle_terminal_socket(
     project_name: Option<String>,
     workspace_name: Option<String>,
     terminal_name: Option<String>,
+
+    mode: Option<String>,
     state: AppState,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
@@ -170,7 +176,35 @@ async fn handle_terminal_socket(
     info!("Terminal session cwd: {:?}", cwd);
 
     // Create or attach to the terminal session
-    let (output_rx, history) = if attach_requested && (tmux_window.is_some() || tmux_window_name.is_some()) {
+    let (output_rx, history) = if mode.as_deref() == Some("shell") {
+        // Simple shell session (NO tmux)
+        match terminal_service
+            .create_simple_session(
+                session_id.clone(),
+                workspace_id.clone(),
+                shell,
+                None, // Initial size will be set by client resize
+                None,
+                cwd,
+            )
+            .await
+        {
+            Ok(rx) => (rx, None),
+            Err(e) => {
+                error!("Failed to create simple terminal session: {}", e);
+                let error_response = TerminalResponse::TerminalError {
+                    session_id: Some(session_id),
+                    error: e.to_string(),
+                };
+                let _ = ws_sender
+                    .send(Message::Text(
+                        serde_json::to_string(&error_response).unwrap().into(),
+                    ))
+                    .await;
+                return;
+            }
+        }
+    } else if attach_requested && (tmux_window.is_some() || tmux_window_name.is_some()) {
         // Attach to existing tmux window
         match terminal_service
             .attach_session(

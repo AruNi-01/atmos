@@ -11,7 +11,7 @@ interface RunScriptProps {
 
 export const RunScript: React.FC<RunScriptProps> = ({ workspaceId }) => {
   // Initial tab
-  const [tabs, setTabs] = useState([{ id: '1', name: 'Script' }]);
+  const [tabs, setTabs] = useState([{ id: '1', name: 'Run' }]);
   const [activeTabId, setActiveTabId] = useState('1');
 
   const addTab = () => {
@@ -44,7 +44,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId }) => {
               key={tab.id}
               onClick={() => setActiveTabId(tab.id)}
               className={cn(
-                "group flex items-center gap-2 px-3 py-1.5 rounded-t-sm text-[11px] font-medium cursor-pointer border-b-[2px] transition-all min-w-[80px] justify-between select-none relative",
+                "group flex items-center gap-2 px-3 py-1.5 rounded-t-sm text-[11px] font-medium cursor-pointer border-b-2 transition-all min-w-[80px] justify-between select-none relative",
                 activeTabId === tab.id
                   ? "border-primary text-foreground bg-background shadow-sm"
                   : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
@@ -63,7 +63,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId }) => {
           ))}
           <button
             onClick={addTab}
-            className="p-1 hover:bg-muted rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-foreground transition-colors"
             title="New Terminal"
           >
             <Plus className="size-3.5" />
@@ -75,11 +75,11 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId }) => {
 
           <div className="flex items-center h-6 bg-background border border-border rounded-sm shadow-sm overflow-hidden cursor-pointer hover:border-primary/50 transition-colors group/run">
             <button
-              className="flex items-center gap-1.5 px-2 h-full hover:bg-muted transition-colors text-[11px] font-medium text-foreground"
+              className="flex items-center gap-1.5 px-2 h-full hover:bg-muted hover:cursor-pointer transition-colors text-[11px] font-medium text-foreground"
               title="Run configured script"
             >
               <Play className="size-2.5 fill-current group-hover/run:text-primary transition-colors" />
-              <span>Run workspace</span>
+              <span>Run</span>
             </button>
             <div className="w-px h-full bg-border" />
             <span className="flex items-center justify-center px-1.5 text-[9px] text-muted-foreground bg-muted/30 h-full">
@@ -88,7 +88,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId }) => {
           </div>
 
           <button
-            className="size-6 flex items-center justify-center hover:bg-muted rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="size-6 flex items-center justify-center hover:bg-muted hover:cursor-pointer rounded-sm text-muted-foreground hover:text-foreground transition-colors"
             title="Configure Scripts"
           >
             <Settings className="size-3.5" />

@@ -31,9 +31,9 @@ struct SessionHandle {
     command_tx: mpsc::UnboundedSender<SessionCommand>,
     #[allow(dead_code)]
     workspace_id: String,
-    tmux_session: String,
-    tmux_window_index: u32,
-    client_session: String,
+    tmux_session: Option<String>,
+    tmux_window_index: Option<u32>,
+    client_session: Option<String>,
 }
 
 /// Message types for terminal communication
@@ -333,6 +333,84 @@ impl TerminalService {
         result
     }
 
+    /// Create a new simple terminal session (NO tmux persistence)
+    /// Returns a receiver for terminal output
+    pub async fn create_simple_session(
+        &self,
+        session_id: String,
+        workspace_id: String,
+        shell: Option<String>,
+        cols: Option<u16>,
+        rows: Option<u16>,
+        cwd: Option<String>,
+    ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+        let cols = cols.unwrap_or(self.default_cols);
+        let rows = rows.unwrap_or(self.default_rows);
+
+        {
+            let sessions = self.sessions.lock().await;
+            if sessions.contains_key(&session_id) {
+                return Err(anyhow!("Session {} already active", session_id));
+            }
+        }
+
+        info!(
+            "Creating simple terminal session (no tmux): {} for workspace: {} ({}x{})",
+            session_id, workspace_id, cols, rows
+        );
+
+        // Channel for sending commands to the PTY thread
+        let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
+        
+        // Channel for receiving PTY output
+        let (output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        
+        // Channel for receiving initialization result
+        let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
+
+        let session_id_clone = session_id.clone();
+        
+        // Spawn a dedicated thread for PTY operations
+        thread::spawn(move || {
+            run_simple_pty_session(
+                session_id_clone,
+                shell,
+                cols,
+                rows,
+                cwd,
+                command_rx,
+                output_tx,
+                init_tx,
+            );
+        });
+
+        // Wait for initialization result
+        match init_rx.await {
+            Ok(Ok(())) => {
+                // Store session handle
+                let handle = SessionHandle {
+                    command_tx,
+                    workspace_id: workspace_id.clone(),
+                    tmux_session: None,
+                    tmux_window_index: None,
+                    client_session: None,
+                };
+                
+                self.sessions.lock().await.insert(session_id.clone(), handle);
+                info!("Simple terminal session created: {}", session_id);
+                Ok(output_rx)
+            }
+            Ok(Err(e)) => {
+                error!("Failed to create simple terminal session: {}", e);
+                Err(e)
+            }
+            Err(_) => {
+                error!("PTY thread failed to respond");
+                Err(anyhow!("PTY initialization failed"))
+            }
+        }
+    }
+
     /// Attach to an existing tmux window (for reconnection)
     pub async fn attach_session(
         &self,
@@ -499,9 +577,9 @@ impl TerminalService {
                 let handle = SessionHandle {
                     command_tx,
                     workspace_id: workspace_id.clone(),
-                    tmux_session,
-                    tmux_window_index: window_index,
-                    client_session: client_session_name,
+                    tmux_session: Some(tmux_session),
+                    tmux_window_index: Some(window_index),
+                    client_session: Some(client_session_name),
                 };
                 
                 self.sessions.lock().await.insert(session_id.clone(), handle);
@@ -541,14 +619,16 @@ impl TerminalService {
             .get(session_id)
             .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
 
-        // Resize tmux pane as well
-        if let Err(e) = self.tmux_engine.resize_pane(
-            &handle.tmux_session, 
-            handle.tmux_window_index, 
-            cols, 
-            rows
-        ) {
-            warn!("Failed to resize tmux pane: {}", e);
+        // Resize tmux pane as well if it exists
+        if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
+            if let Err(e) = self.tmux_engine.resize_pane(
+                ts, 
+                twi, 
+                cols, 
+                rows
+            ) {
+                warn!("Failed to resize tmux pane: {}", e);
+            }
         }
 
         handle
@@ -569,12 +649,14 @@ impl TerminalService {
             
             // KILL the client session to free up resources
             // The master session and window remain preserved
-            if let Err(e) = self.tmux_engine.kill_session(&handle.client_session) {
-                warn!("Failed to kill client tmux session {}: {}", handle.client_session, e);
+            if let Some(client_session) = &handle.client_session {
+                if let Err(e) = self.tmux_engine.kill_session(client_session) {
+                    warn!("Failed to kill client tmux session {}: {}", client_session, e);
+                }
             }
 
             info!(
-                "Terminal session closed (detached): {} - tmux window {}:{} preserved (client session killed)",
+                "Terminal session closed (detached): {} - tmux window {:?}:{:?} preserved",
                 session_id, handle.tmux_session, handle.tmux_window_index
             );
             Ok(())
@@ -592,15 +674,19 @@ impl TerminalService {
             let _ = handle.command_tx.send(SessionCommand::Close);
             
             // Kill the tmux window in the master session
-            if let Err(e) = self.tmux_engine.kill_window(&handle.tmux_session, handle.tmux_window_index) {
-                warn!("Failed to kill tmux window: {}", e);
+            if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
+                if let Err(e) = self.tmux_engine.kill_window(ts, twi) {
+                    warn!("Failed to kill tmux window: {}", e);
+                }
             }
 
             // Also kill the client session
-            let _ = self.tmux_engine.kill_session(&handle.client_session);
+            if let Some(client_session) = &handle.client_session {
+                let _ = self.tmux_engine.kill_session(client_session);
+            }
             
             info!(
-                "Terminal session destroyed: {} - tmux window {}:{} killed",
+                "Terminal session destroyed: {} - tmux window {:?}:{:?} killed",
                 session_id, handle.tmux_session, handle.tmux_window_index
             );
             Ok(())
@@ -613,7 +699,13 @@ impl TerminalService {
     /// Get session info (tmux window index) for reconnection
     pub async fn get_session_info(&self, session_id: &str) -> Option<(String, u32)> {
         let sessions = self.sessions.lock().await;
-        sessions.get(session_id).map(|h| (h.tmux_session.clone(), h.tmux_window_index))
+        sessions.get(session_id).and_then(|h| {
+            if let (Some(ts), Some(twi)) = (&h.tmux_session, h.tmux_window_index) {
+                Some((ts.clone(), twi))
+            } else {
+                None
+            }
+        })
     }
 
     /// List all tmux windows for a workspace (for reconnection)
@@ -825,6 +917,153 @@ fn run_pty_session_with_tmux(
     // Wait for reader thread to finish
     let _ = reader_handle.join();
     info!("PTY session thread exited (detached): {}", session_id);
+}
+
+/// Run simple PTY session (NO tmux)
+fn run_simple_pty_session(
+    session_id: String,
+    shell: Option<String>,
+    cols: u16,
+    rows: u16,
+    cwd: Option<String>,
+    mut command_rx: mpsc::UnboundedReceiver<SessionCommand>,
+    output_tx: mpsc::UnboundedSender<Vec<u8>>,
+    init_tx: oneshot::Sender<Result<()>>,
+) {
+    // Create PTY system
+    let pty_system = native_pty_system();
+
+    // Open PTY with specified size
+    let pair = match pty_system.openpty(PtySize {
+        rows,
+        cols,
+        pixel_width: 0,
+        pixel_height: 0,
+    }) {
+        Ok(pair) => pair,
+        Err(e) => {
+            let _ = init_tx.send(Err(anyhow!("Failed to open PTY: {}", e)));
+            return;
+        }
+    };
+
+    // Determine shell command
+    let shell_cmd = shell.unwrap_or_else(|| {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
+    });
+
+    let mut cmd = CommandBuilder::new(&shell_cmd);
+    
+    // Set CWD if provided
+    if let Some(dir) = cwd {
+        cmd.cwd(dir);
+    }
+    
+    // Set basic environment variables
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
+
+    // Spawn the shell process
+    if let Err(e) = pair.slave.spawn_command(cmd) {
+        let _ = init_tx.send(Err(anyhow!("Failed to spawn shell '{}': {}", shell_cmd, e)));
+        return;
+    }
+
+    // Get reader and writer
+    let mut reader = match pair.master.try_clone_reader() {
+        Ok(r) => r,
+        Err(e) => {
+            let _ = init_tx.send(Err(anyhow!("Failed to clone PTY reader: {}", e)));
+            return;
+        }
+    };
+
+    let mut writer = match pair.master.take_writer() {
+        Ok(w) => w,
+        Err(e) => {
+            let _ = init_tx.send(Err(anyhow!("Failed to get PTY writer: {}", e)));
+            return;
+        }
+    };
+
+    // Store master for resize operations
+    let master = pair.master;
+
+    // Signal successful initialization
+    if init_tx.send(Ok(())).is_err() {
+        return;
+    }
+
+    // Spawn reader thread
+    let session_id_reader = session_id.clone();
+    let output_tx_clone = output_tx.clone();
+    let reader_handle = thread::spawn(move || {
+        let mut buffer = [0u8; 4096];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => {
+                    debug!("PTY reader EOF for session: {}", session_id_reader);
+                    break;
+                }
+                Ok(n) => {
+                    let data = buffer[..n].to_vec();
+                    if output_tx_clone.send(data).is_err() {
+                        debug!("Output channel closed for session: {}", session_id_reader);
+                        break;
+                    }
+                }
+                Err(e) => {
+                    // Check if this is expected disconnect
+                    let err_str = e.to_string();
+                    if err_str.contains("Input/output error") || err_str.contains("EIO") {
+                        debug!("PTY disconnected for session: {} (expected on close)", session_id_reader);
+                    } else {
+                        warn!("PTY read error for session {}: {}", session_id_reader, e);
+                    }
+                    break;
+                }
+            }
+        }
+    });
+
+    // Process commands in main thread
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    rt.block_on(async {
+        while let Some(cmd) = command_rx.recv().await {
+            match cmd {
+                SessionCommand::Write(data) => {
+                    if let Err(e) = writer.write_all(&data) {
+                        debug!("Failed to write to PTY for session {}: {} (may be closed)", session_id, e);
+                        break;
+                    }
+                    if let Err(e) = writer.flush() {
+                        debug!("Failed to flush PTY for session {}: {}", session_id, e);
+                        break;
+                    }
+                }
+                SessionCommand::Resize { cols, rows } => {
+                    if let Err(e) = master.resize(PtySize {
+                        rows,
+                        cols,
+                        pixel_width: 0,
+                        pixel_height: 0,
+                    }) {
+                        warn!("Failed to resize PTY for session {}: {}", session_id, e);
+                    }
+                }
+                SessionCommand::Close => {
+                    debug!("Closing session {}", session_id);
+                    break;
+                }
+            }
+        }
+    });
+
+    debug!("PTY session thread exited for session: {}", session_id);
 }
 
 #[cfg(test)]

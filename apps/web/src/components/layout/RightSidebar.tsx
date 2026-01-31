@@ -385,7 +385,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </div>
 
           {/* Commit Actions (Sticky Bottom) */}
-          <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3 bg-sidebar/50 backdrop-blur-sm">
+          <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
             {/* Input */}
             <textarea
               placeholder="Message (⌘+Enter to commit)"
@@ -430,7 +430,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   <button className={cn(
                     "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
                     (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
-                      ? "bg-muted text-muted-foreground cursor-not-allowed border-l-transparent"
+                      ? "bg-muted text-muted-foreground border-l-transparent"
                       : showPushButton
                         ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
                         : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
