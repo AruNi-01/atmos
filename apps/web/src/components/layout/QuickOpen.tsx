@@ -33,7 +33,8 @@ import { fsApi, appApi } from '@/api/ws-api';
 import { Workspace } from '@/types/types';
 
 interface QuickOpenProps {
-  workspace: Workspace;
+  workspace?: Workspace | null;
+  path?: string | null;
 }
 
 const STORAGE_KEY = 'atmos_quick_open_last_used';
@@ -58,7 +59,7 @@ const APP_MAP: Record<string, { icon: React.ReactNode; label: string }> = {
   'Antigravity': { icon: <Orbit className="size-3.5 text-blue-400" />, label: 'Antigravity' },
 };
 
-export const QuickOpen = ({ workspace }: QuickOpenProps) => {
+export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const [lastUsedApp, setLastUsedApp] = useState<string>('Finder');
   const [homeDir, setHomeDir] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -78,8 +79,9 @@ export const QuickOpen = ({ workspace }: QuickOpenProps) => {
 
 
   const getWorktreePath = () => {
-    if (!workspace) return '';
-    return workspace.localPath;
+    if (path) return path;
+    if (workspace) return workspace.localPath;
+    return '';
   };
 
   const handleOpenApp = async (appName: string) => {

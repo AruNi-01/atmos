@@ -145,9 +145,13 @@ export function GlobalSearch() {
   };
 
   // Find current project and workspace
+  const currentProjectIdFromUrl = searchParams.get('projectId');
   const currentProject = useMemo(() => {
-    return projects.find(p => p.workspaces.some(w => w.id === currentWorkspaceId));
-  }, [projects, currentWorkspaceId]);
+    return projects.find(p =>
+      (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
+      (!currentWorkspaceId && currentProjectIdFromUrl === p.id)
+    );
+  }, [projects, currentWorkspaceId, currentProjectIdFromUrl]);
 
   const currentWorkspace = useMemo(() => {
     return currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
