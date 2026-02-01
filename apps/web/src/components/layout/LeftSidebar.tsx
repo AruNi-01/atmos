@@ -987,7 +987,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const handleDeleteProject = (projectId: string) => {
         const project = projects.find(p => p.id === projectId);
         if (!project) return;
-        
+
         const hasActiveWorkspaces = project.workspaces.some(w => !w.isArchived);
         setDeleteProjectDialog({
             isOpen: true,
@@ -1000,6 +1000,21 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const handleConfigureScripts = (projectId: string) => {
         setScriptDialogProjectId(projectId);
     };
+
+    // Delay "Add Project" button activation
+    const [isAddProjectReady, setIsAddProjectReady] = useState(false);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (activeTab === 'projects') {
+            timer = setTimeout(() => {
+                setIsAddProjectReady(true);
+            }, 1000); // 1 seconds delay
+        } else {
+            setIsAddProjectReady(false);
+        }
+        return () => clearTimeout(timer);
+    }, [activeTab]);
 
     return (
         <>
@@ -1014,10 +1029,46 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                         <TabsList variant="underline" className="w-full gap-1">
                             <TabsTab
                                 value="projects"
-                                className="flex-1 h-7 text-[12px] gap-1.5"
+                                className="flex-1 h-7 text-[12px] p-0 overflow-hidden relative"
                             >
-                                <Layers className="size-3.5" />
-                                <span>Projects</span>
+                                <div
+                                    className="w-full h-full flex items-center justify-center group cursor-pointer"
+                                    onClick={(e) => {
+                                        if (activeTab === 'projects' && isAddProjectReady) {
+                                            e.stopPropagation();
+                                            handleAddProject();
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-center justify-center gap-0.5">
+                                        <div className="relative size-3.5 shrink-0">
+                                            <Layers className={cn(
+                                                "absolute inset-0 size-3.5 transition-transform duration-300",
+                                                activeTab === 'projects' && isAddProjectReady && "group-hover:-translate-y-8"
+                                            )} />
+                                            <Plus className={cn(
+                                                "absolute inset-0 size-3.5 -translate-x-8 opacity-0 transition-all duration-300",
+                                                activeTab === 'projects' && isAddProjectReady && "group-hover:translate-x-0 group-hover:opacity-100"
+                                            )} />
+                                        </div>
+
+                                        <div className="flex items-center whitespace-nowrap">
+                                            <span className={cn(
+                                                "inline-block overflow-hidden max-w-0 opacity-0 transition-all duration-300 ease-out text-left",
+                                                activeTab === 'projects' && isAddProjectReady && "group-hover:max-w-[40px] group-hover:opacity-100"
+                                            )}>
+                                                Add&nbsp;
+                                            </span>
+                                            <span>Project</span>
+                                            <span className={cn(
+                                                "inline-block overflow-hidden transition-all duration-300 max-w-[10px]",
+                                                activeTab === 'projects' && isAddProjectReady && "group-hover:max-w-0 group-hover:opacity-0 group-hover:translate-x-2"
+                                            )}>
+                                                s
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
                             </TabsTab>
                             <TabsTab
                                 value="files"
@@ -1170,17 +1221,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                     </TabsPanel>
 
                     {/* Add Button */}
-                    {activeTab === 'projects' && (
-                        <div className="p-3 border-t border-sidebar-border">
-                            <button
-                                                onClick={handleAddProject}
-                                                className="w-full flex items-center justify-center space-x-2 bg-transparent hover:bg-sidebar-accent text-sidebar-foreground text-[13px] py-2 rounded-md border border-sidebar-border transition-all duration-200 cursor-pointer"
-                                            >
-                                <Plus className="size-4" />
-                                <span className="font-medium">Add Project</span>
-                            </button>
-                        </div>
-                    )}
+
                 </Tabs>
             </aside>
 
