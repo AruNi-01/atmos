@@ -10,8 +10,7 @@ const Footer: React.FC = () => {
   const { connectionState } = useWebSocketStore();
   const searchParams = useSearchParams();
   const currentWorkspaceId = searchParams.get('workspaceId');
-  const { projects } = useProjectStore();
-  const currentProject = projects[0];
+  const currentProjectId = searchParams.get('projectId');
 
   const statusColors: Record<typeof connectionState, string> = {
     connected: 'bg-emerald-500',
@@ -49,19 +48,19 @@ const Footer: React.FC = () => {
           <Activity className="size-3 text-emerald-500" />
           <span className="text-pretty">Agent: IDLE</span>
         </div>
-        {currentProject && (
-          <>
-            <div className="h-3 w-px bg-border"></div>
-            {!currentWorkspaceId ? (
-              <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-amber-500/10 text-amber-500 font-medium whitespace-nowrap">
-                Dev on main
-              </span>
-            ) : (
-              <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-emerald-500/10 text-emerald-500 font-medium whitespace-nowrap">
-                Dev on workspace
-              </span>
-            )}
-          </>
+        <div className="h-3 w-px bg-border"></div>
+        {currentWorkspaceId ? (
+          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-emerald-500/10 text-emerald-500 font-medium whitespace-nowrap">
+            Dev on workspace
+          </span>
+        ) : currentProjectId ? (
+          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-amber-500/10 text-amber-500 font-medium whitespace-nowrap">
+            Dev on main
+          </span>
+        ) : (
+          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-neutral-500/10 text-neutral-500 font-medium whitespace-nowrap">
+            Waiting to build
+          </span>
         )}
       </div>
     </footer>
