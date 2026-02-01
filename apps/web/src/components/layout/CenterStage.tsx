@@ -62,10 +62,10 @@ const TerminalGrid = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex items-center justify-center h-full bg-[#0d1117]">
+      <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="size-6 animate-spin text-[#58a6ff]" />
-          <span className="text-sm text-[#8b949e]">Loading terminal grid...</span>
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Loading terminal...</span>
         </div>
       </div>
     ),
