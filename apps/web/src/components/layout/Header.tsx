@@ -423,14 +423,6 @@ const Header: React.FC = () => {
             <span className="text-xs">⌘</span>K
           </kbd>
         </button>
-
-        <button
-          aria-label="Notifications"
-          className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200 relative"
-        >
-          <Bell className="size-4" />
-          <span className="absolute top-2 right-2 size-1.5 bg-red-500 rounded-full border-2 border-background"></span>
-        </button>
         <button
           aria-label="Archive"
           className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
