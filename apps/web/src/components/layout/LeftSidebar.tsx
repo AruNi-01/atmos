@@ -72,6 +72,7 @@ import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
+import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { formatRelativeTime } from '@atmos/shared';
 import { getWorkspaceShortName } from '@/utils/format-time';
 import { FileTree } from '@/components/files/FileTree';
@@ -250,13 +251,13 @@ const ProjectItem: React.FC<{
                                     </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56">
-                                    <DropdownMenuItem onClick={() => onAddWorkspace(project.id)}>
+                                    <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
                                         <Plus className="size-4 mr-2" />
                                         <span>New Workspace</span>
                                     </DropdownMenuItem>
 
                                     <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>
+                                        <DropdownMenuSubTrigger className="cursor-pointer">
                                             <Palette className="size-4 mr-2" />
                                             <span>Set Color</span>
                                         </DropdownMenuSubTrigger>
@@ -267,7 +268,7 @@ const ProjectItem: React.FC<{
                                                     <button
                                                         key={preset.name}
                                                         onClick={() => onSetColor(project.id, preset.color)}
-                                                        className="size-6 rounded hover:scale-110 transition-transform border border-sidebar-border/50"
+                                                        className="size-6 rounded hover:scale-110 transition-transform border border-sidebar-border/50 cursor-pointer"
                                                         style={{ backgroundColor: preset.color }}
                                                         title={preset.name}
                                                     />
@@ -354,13 +355,13 @@ const ProjectItem: React.FC<{
                                         </DropdownMenuSubContent>
                                     </DropdownMenuSub>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => onConfigureScripts(project.id)}>
+                                    <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
                                         <FileCode className="size-4 mr-2" />
                                         <span>Workspace Scripts</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
-                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
                                         onClick={() => onDelete(project.id)}
                                     >
                                         <Trash2 className="size-4 mr-2" />
@@ -496,11 +497,22 @@ const WorkspaceContent: React.FC<{
         }
     };
 
+    const performArchive = () => {
+        onArchive?.(workspace.id);
+        // If archiving the currently active workspace, navigate back to welcome page
+        // Use replace to prevent user from navigating back to archived workspace
+        if (isActive) {
+            router.replace('/');
+        }
+    };
+
     const checkGitStatusAndProceed = async (operation: 'archive' | 'delete') => {
-        if (!projectPath) {
-            // No project path, proceed without check
+        // Use workspace's local path for git status check, not project path
+        const workspacePath = workspace.localPath;
+        if (!workspacePath) {
+            // No workspace path, proceed without check
             if (operation === 'archive') {
-                onArchive?.(workspace.id);
+                performArchive();
             } else {
                 setShowDeleteDialog(true);
             }
@@ -509,7 +521,7 @@ const WorkspaceContent: React.FC<{
 
         setIsCheckingGit(true);
         try {
-            const status = await gitApi.getStatus(projectPath);
+            const status = await gitApi.getStatus(workspacePath);
 
             if (status.has_uncommitted_changes || status.has_unpushed_commits) {
                 const issues: string[] = [];
@@ -525,7 +537,7 @@ const WorkspaceContent: React.FC<{
             } else {
                 // Clean, proceed
                 if (operation === 'archive') {
-                    onArchive?.(workspace.id);
+                    performArchive();
                 } else {
                     setShowDeleteDialog(true);
                 }
@@ -534,7 +546,7 @@ const WorkspaceContent: React.FC<{
             console.error('Failed to check git status:', error);
             // Proceed with warning
             if (operation === 'archive') {
-                onArchive?.(workspace.id);
+                performArchive();
             } else {
                 setShowDeleteDialog(true);
             }
@@ -556,7 +568,7 @@ const WorkspaceContent: React.FC<{
     const handleForceOperation = () => {
         setShowGitWarningDialog(false);
         if (pendingOperation === 'archive') {
-            onArchive?.(workspace.id);
+            performArchive();
         } else if (pendingOperation === 'delete') {
             setShowDeleteDialog(true);
         }
@@ -770,6 +782,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     }, [projects]);
 
     const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
+    const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
+        isOpen: boolean;
+        projectId: string;
+        projectName: string;
+        canDelete: boolean;
+    } | null>(null);
 
     const currentWorkspaceId = searchParams.get('workspaceId');
     const currentProjectIdFromUrl = searchParams.get('projectId');
@@ -966,10 +984,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         await updateProject(projectId, { borderColor: color });
     };
 
-    const handleDeleteProject = async (projectId: string) => {
-        if (confirm("Are you sure you want to delete this project?")) {
-            await deleteProject(projectId);
-        }
+    const handleDeleteProject = (projectId: string) => {
+        const project = projects.find(p => p.id === projectId);
+        if (!project) return;
+        
+        const hasActiveWorkspaces = project.workspaces.some(w => !w.isArchived);
+        setDeleteProjectDialog({
+            isOpen: true,
+            projectId,
+            projectName: project.name,
+            canDelete: !hasActiveWorkspaces,
+        });
     };
 
     const handleConfigureScripts = (projectId: string) => {
@@ -1148,9 +1173,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                     {activeTab === 'projects' && (
                         <div className="p-3 border-t border-sidebar-border">
                             <button
-                                onClick={handleAddProject}
-                                className="w-full flex items-center justify-center space-x-2 bg-transparent hover:bg-sidebar-accent text-sidebar-foreground text-[13px] py-2 rounded-md border border-sidebar-border transition-all duration-200"
-                            >
+                                                onClick={handleAddProject}
+                                                className="w-full flex items-center justify-center space-x-2 bg-transparent hover:bg-sidebar-accent text-sidebar-foreground text-[13px] py-2 rounded-md border border-sidebar-border transition-all duration-200 cursor-pointer"
+                                            >
                                 <Plus className="size-4" />
                                 <span className="font-medium">Add Project</span>
                             </button>
@@ -1175,6 +1200,21 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 isOpen={!!scriptDialogProjectId}
                 onClose={() => setScriptDialogProjectId(null)}
             />
+
+            {/* Delete Project Dialog */}
+            {deleteProjectDialog && (
+                <DeleteProjectDialog
+                    isOpen={deleteProjectDialog.isOpen}
+                    onClose={() => setDeleteProjectDialog(null)}
+                    projectId={deleteProjectDialog.projectId}
+                    projectName={deleteProjectDialog.projectName}
+                    canDelete={deleteProjectDialog.canDelete}
+                    onConfirm={async () => {
+                        await deleteProject(deleteProjectDialog.projectId);
+                        setDeleteProjectDialog(null);
+                    }}
+                />
+            )}
         </>
     );
 };

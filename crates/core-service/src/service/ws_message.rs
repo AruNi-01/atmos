@@ -15,11 +15,11 @@ use infra::{
     GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
     GitPullRequest, GitFetchRequest, GitSyncRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest, 
-    ProjectUpdateTargetBranchRequest, ProjectUpdateOrderRequest, 
+    ProjectUpdateTargetBranchRequest, ProjectUpdateOrderRequest, ProjectCheckCanDeleteRequest,
     WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, 
     WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest, 
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, 
-    WorkspaceRetrySetupRequest,
+    WorkspaceRetrySetupRequest, WorkspaceUnarchiveRequest,
     WsAction, WsMessage, WsMessageHandler, WsRequest,
     ScriptGetRequest, ScriptSaveRequest,
     WsEvent, WorkspaceSetupProgressNotification,
@@ -157,8 +157,17 @@ impl WsMessageService {
             WsAction::WorkspaceArchive => {
                 self.handle_workspace_archive(parse_request(request.data)?).await
             }
+            WsAction::WorkspaceUnarchive => {
+                self.handle_workspace_unarchive(parse_request(request.data)?).await
+            }
+            WsAction::WorkspaceListArchived => {
+                self.handle_workspace_list_archived().await
+            }
             WsAction::WorkspaceRetrySetup => {
                 self.handle_workspace_retry_setup(conn_id, parse_request(request.data)?).await
+            }
+            WsAction::ProjectCheckCanDelete => {
+                self.handle_project_check_can_delete(parse_request(request.data)?).await
             }
         }
     }
@@ -624,6 +633,40 @@ impl WsMessageService {
     async fn handle_workspace_archive(&self, req: WorkspaceArchiveRequest) -> Result<Value> {
         self.workspace_service.archive_workspace(req.guid).await?;
         Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_unarchive(&self, req: WorkspaceUnarchiveRequest) -> Result<Value> {
+        self.workspace_service.unarchive_workspace(req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_list_archived(&self) -> Result<Value> {
+        let workspaces = self.workspace_service.list_archived_workspaces().await?;
+        
+        let mut workspace_entries = Vec::new();
+        for ws in workspaces {
+            // Skip workspaces whose project has been deleted
+            let project = self.project_service.get_project(ws.model.project_guid.clone()).await?;
+            let Some(project) = project else {
+                continue;
+            };
+            
+            workspace_entries.push(json!({
+                "guid": ws.model.guid,
+                "name": ws.model.name,
+                "branch": ws.model.branch,
+                "project_guid": ws.model.project_guid,
+                "project_name": project.name,
+                "archived_at": ws.model.archived_at,
+            }));
+        }
+        
+        Ok(json!({ "workspaces": workspace_entries }))
+    }
+
+    async fn handle_project_check_can_delete(&self, req: ProjectCheckCanDeleteRequest) -> Result<Value> {
+        let response = self.project_service.check_can_delete_from_archive_modal(req.guid).await?;
+        Ok(json!(response))
     }
 
     async fn handle_workspace_retry_setup(&self, conn_id: &str, req: WorkspaceRetrySetupRequest) -> Result<Value> {

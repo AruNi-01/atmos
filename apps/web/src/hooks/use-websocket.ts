@@ -52,7 +52,11 @@ export type WsAction =
   | 'workspace_pin'
   | 'workspace_unpin'
   | 'workspace_archive'
-  | 'workspace_retry_setup';
+  | 'workspace_list_archived'
+  | 'workspace_unarchive'
+  | 'workspace_retry_setup'
+  // Project 检查操作
+  | 'project_check_can_delete';
 
 export interface WsRequest {
   type: 'request';

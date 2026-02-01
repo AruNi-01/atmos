@@ -172,8 +172,14 @@ pub enum WsAction {
     WorkspaceUnpin,
     /// 归档 Workspace
     WorkspaceArchive,
+    /// 取消归档 Workspace
+    WorkspaceUnarchive,
+    /// 获取已归档的 Workspace 列表
+    WorkspaceListArchived,
     /// 重试 Workspace 设置 (脚本执行)
     WorkspaceRetrySetup,
+    /// 检查项目是否可以删除（从归档模态）
+    ProjectCheckCanDelete,
 }
 
 /// 服务端主动推送的事件类型
@@ -660,6 +666,16 @@ pub struct WorkspaceArchiveRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceRetrySetupRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUnarchiveRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectCheckCanDeleteRequest {
     pub guid: String,
 }
 

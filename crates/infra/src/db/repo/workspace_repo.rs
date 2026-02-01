@@ -128,16 +128,35 @@ impl<'a> WorkspaceRepo<'a> {
 
     /// 软删除工作区（将 is_deleted 设置为 true）
     pub async fn soft_delete(&self, guid: String) -> Result<()> {
-        workspace::Entity::update_many()
+        tracing::info!("[soft_delete] Attempting to soft delete workspace: {}", guid);
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::IsDeleted, Expr::value(true))
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
             )
-            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::Guid.eq(guid.clone()))
             .exec(self.db)
             .await?;
+        tracing::info!("[soft_delete] Soft delete result for {}: {} rows affected", guid, result.rows_affected);
         Ok(())
+    }
+
+    /// 批量软删除项目下的所有工作区
+    pub async fn soft_delete_by_project(&self, project_guid: String) -> Result<u64> {
+        tracing::info!("[soft_delete_by_project] Soft deleting all workspaces for project: {}", project_guid);
+        let result = workspace::Entity::update_many()
+            .col_expr(workspace::Column::IsDeleted, Expr::value(true))
+            .col_expr(
+                workspace::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(workspace::Column::ProjectGuid.eq(project_guid.clone()))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        tracing::info!("[soft_delete_by_project] Soft deleted {} workspaces for project {}", result.rows_affected, project_guid);
+        Ok(result.rows_affected)
     }
 
     /// 置顶工作区
@@ -243,6 +262,49 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         Ok(())
+    }
+
+    /// 查询所有已归档的工作区（按 archived_at DESC 排序）
+    pub async fn list_archived(&self) -> Result<Vec<workspace::Model>> {
+        let workspaces = workspace::Entity::find()
+            .filter(workspace::Column::IsArchived.eq(true))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .order_by_desc(workspace::Column::ArchivedAt)
+            .all(self.db)
+            .await?;
+        Ok(workspaces)
+    }
+
+    /// 检查项目下所有非删除的工作区是否都已归档
+    pub async fn check_all_workspaces_archived(&self, project_guid: String) -> Result<bool> {
+        let non_archived_count = workspace::Entity::find()
+            .filter(workspace::Column::ProjectGuid.eq(project_guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .filter(workspace::Column::IsArchived.eq(false))
+            .count(self.db)
+            .await?;
+        Ok(non_archived_count == 0)
+    }
+
+    /// 获取项目下所有非删除的工作区（包括已归档的）
+    pub async fn list_all_by_project(&self, project_guid: String) -> Result<Vec<workspace::Model>> {
+        let workspaces = workspace::Entity::find()
+            .filter(workspace::Column::ProjectGuid.eq(project_guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .all(self.db)
+            .await?;
+        Ok(workspaces)
+    }
+
+    /// 获取项目下非归档工作区的数量
+    pub async fn count_active_by_project(&self, project_guid: String) -> Result<u64> {
+        let count = workspace::Entity::find()
+            .filter(workspace::Column::ProjectGuid.eq(project_guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .filter(workspace::Column::IsArchived.eq(false))
+            .count(self.db)
+            .await?;
+        Ok(count)
     }
 }
 

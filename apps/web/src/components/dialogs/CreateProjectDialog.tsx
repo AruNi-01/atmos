@@ -162,6 +162,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
                   variant="outline" 
                   onClick={() => setShowFileBrowser(true)}
                   disabled={!isConnected}
+                  className="cursor-pointer"
                 >
                   Browse...
                 </Button>
@@ -216,12 +217,13 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
             </div>
             
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose}>
+              <Button type="button" variant="outline" onClick={handleClose} className="cursor-pointer">
                 Cancel
               </Button>
               <Button 
                 type="submit" 
                 disabled={isSubmitting || !name || !path || Boolean(validationError && !validationInfo)}
+                className="cursor-pointer"
               >
                 {isSubmitting ? 'Importing...' : 'Import Project'}
               </Button>

@@ -310,6 +310,53 @@ impl WorkspaceService {
         Ok(repo.archive_workspace(guid).await?)
     }
 
+    /// 取消归档工作区
+    pub async fn unarchive_workspace(&self, guid: String) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.unarchive_workspace(guid).await?)
+    }
+
+    /// 获取所有已归档的工作区
+    pub async fn list_archived_workspaces(&self) -> Result<Vec<WorkspaceDto>> {
+        let repo = WorkspaceRepo::new(&self.db);
+        let models = repo.list_archived().await?;
+        
+        let mut dtos = Vec::with_capacity(models.len());
+        for model in models {
+            let local_path = self.git_engine.get_worktree_path(&model.name)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            dtos.push(WorkspaceDto { model, local_path });
+        }
+        
+        Ok(dtos)
+    }
+
+    /// 获取项目下所有非删除的工作区（包括已归档的）
+    pub async fn list_all_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
+        let repo = WorkspaceRepo::new(&self.db);
+        let models = repo.list_all_by_project(project_guid).await?;
+        
+        let mut dtos = Vec::with_capacity(models.len());
+        for model in models {
+            let local_path = self.git_engine.get_worktree_path(&model.name)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            dtos.push(WorkspaceDto { model, local_path });
+        }
+        
+        Ok(dtos)
+    }
+
+    /// 删除工作区的 worktree（仅清理 git worktree，不删除数据库记录）
+    pub async fn cleanup_worktree(&self, workspace_name: &str, project_main_path: &str) -> Result<()> {
+        let repo_path = Path::new(project_main_path);
+        if let Err(e) = self.git_engine.remove_worktree(repo_path, workspace_name) {
+            tracing::warn!("Failed to remove worktree for workspace {}: {}", workspace_name, e);
+        }
+        Ok(())
+    }
+
     /// 获取工作区终端布局
     pub async fn get_terminal_layout(&self, guid: String) -> Result<Option<String>> {
         let repo = WorkspaceRepo::new(&self.db);
