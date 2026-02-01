@@ -194,7 +194,7 @@ const ProjectItem: React.FC<{
                     >
                         <div className="flex items-center space-x-2 flex-1 min-w-0">
                             <div
-                                className="size-6 flex items-center justify-center bg-sidebar-accent rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 transition-colors group-hover/project:bg-sidebar-accent/80 relative"
+                                className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 transition-colors hover:bg-sidebar-accent relative"
                                 style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
                             >
                                 <span className="group-hover/project:hidden transition-all duration-200">{initialLetter}</span>
