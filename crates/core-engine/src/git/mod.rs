@@ -53,7 +53,7 @@ impl GitEngine {
             })?;
         }
 
-        // Check if worktree already exists
+        // Check if worktree directory already exists
         if worktree_path.exists() {
             return Err(EngineError::Git(format!(
                 "Worktree already exists at: {}",
@@ -93,7 +93,7 @@ impl GitEngine {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(EngineError::Git(format!(
-                "Failed to create worktree: {}",
+                "Failed to create worktree (likely branch conflict): {}",
                 stderr
             )));
         }
@@ -273,7 +273,7 @@ impl GitEngine {
     pub fn list_branches(&self, repo_path: &Path) -> Result<Vec<String>> {
         let output = Command::new("git")
             .current_dir(repo_path)
-            .args(["branch", "-r", "--format=%(refname:short)"])
+            .args(["branch", "-a", "--format=%(refname:short)"])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to list branches: {}", e)))?;
 
@@ -289,11 +289,17 @@ impl GitEngine {
         let branches = stdout
             .lines()
             .map(|l| l.trim())
-            .filter(|l| !l.is_empty() && !l.contains("HEAD") && l.contains('/'))
+            .filter(|l| !l.is_empty() && !l.contains("HEAD"))
             .map(|l| {
-                // Handle cases like "origin/main" -> "main"
-                // split_once('/') will take the part after the first slash
-                l.split_once('/').map(|(_, branch)| branch).unwrap_or(l).to_string()
+                // Handle cases like "origin/main" -> "main" or "remotes/origin/main" -> "main"
+                if let Some(stripped) = l.strip_prefix("remotes/") {
+                    stripped.split_once('/').map(|(_, branch)| branch).unwrap_or(stripped)
+                } else if let Some(stripped) = l.strip_prefix("origin/") {
+                    stripped
+                } else {
+                    l
+                }
+                .to_string()
             })
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
