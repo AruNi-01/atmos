@@ -28,8 +28,11 @@ import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
-import { gitApi } from '@/api/ws-api';
+import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
+import { ArchivedWorkspacesModal } from '@/components/dialogs/ArchivedWorkspacesModal';
+import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
+import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 
 const Header: React.FC = () => {
   const searchParams = useSearchParams();
@@ -78,6 +81,24 @@ const Header: React.FC = () => {
   // Fullscreen state
   const [isFullScreen, setIsFullScreen] = useState(false);
 
+  // Archive modal and delete dialog states
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
+    isOpen: boolean;
+    workspaceId: string;
+    workspaceName: string;
+    onDeleted?: () => void;
+  } | null>(null);
+  const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
+    isOpen: boolean;
+    projectId: string;
+    projectName: string;
+    canDelete: boolean;
+    onDeleted?: () => void;
+  } | null>(null);
+
+  const { deleteWorkspace, deleteProject, fetchProjects } = useProjectStore();
+
   useEffect(() => {
     const handleFullScreenChange = () => {
       setIsFullScreen(!!document.fullscreenElement);
@@ -113,18 +134,20 @@ const Header: React.FC = () => {
             currentWorkspaceId,
             effectivePath
           );
-          // Fetch git status when context changes
-          refreshGitStatus();
+          // Set path first, then git status will be refreshed by the git store
           setCurrentProjectPath(effectivePath);
         }
       } else {
         // Main dev mode
         setCurrentContext(currentProject.id, null, effectivePath);
-        refreshGitStatus();
         setCurrentProjectPath(effectivePath);
       }
+    } else {
+      // No project selected, clear context
+      setCurrentContext(null, null, null);
+      setCurrentProjectPath(null);
     }
-  }, [currentProject?.id, currentWorkspaceId, currentWorkspace?.localPath, currentProject?.mainFilePath, isSettingUp, setCurrentContext, refreshGitStatus, setCurrentProjectPath]);
+  }, [currentProject?.id, currentWorkspaceId, currentWorkspace?.localPath, currentProject?.mainFilePath, isSettingUp, setCurrentContext, setCurrentProjectPath]);
 
   // Fetch available branches when project/workspace changes
   useEffect(() => {
@@ -267,19 +290,7 @@ const Header: React.FC = () => {
         <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">
           {currentProject?.name || 'Visual Vibe Space'}
         </span>
-        {currentProject && (
-          <div className="flex items-center px-2">
-            {!currentWorkspaceId ? (
-              <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium whitespace-nowrap">
-                Dev on main
-              </span>
-            ) : (
-              <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-medium whitespace-nowrap">
-                Dev on workspace
-              </span>
-            )}
-          </div>
-        )}
+
         <div className="pl-2">
           {(currentWorkspace || currentProject) && (
             <QuickOpen
@@ -423,6 +434,7 @@ const Header: React.FC = () => {
         <button
           aria-label="Archive"
           className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+          onClick={() => setArchiveModalOpen(true)}
         >
           <Archive className="size-4" />
         </button>
@@ -435,6 +447,62 @@ const Header: React.FC = () => {
           {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
         </button>
       </div>
+
+      {/* Archive Modal */}
+      <ArchivedWorkspacesModal
+        isOpen={archiveModalOpen}
+        onClose={() => setArchiveModalOpen(false)}
+        onDeleteWorkspace={(workspaceId, workspaceName, onDeleted) => {
+          setDeleteWorkspaceDialog({ isOpen: true, workspaceId, workspaceName, onDeleted });
+        }}
+        onDeleteProject={(projectId, projectName, canDelete, onDeleted) => {
+          setDeleteProjectDialog({ isOpen: true, projectId, projectName, canDelete, onDeleted });
+        }}
+      />
+
+      {/* Delete Workspace Dialog */}
+      {deleteWorkspaceDialog && (
+        <DeleteWorkspaceDialog
+          isOpen={deleteWorkspaceDialog.isOpen}
+          onClose={() => setDeleteWorkspaceDialog(null)}
+          workspaceId={deleteWorkspaceDialog.workspaceId}
+          workspaceName={deleteWorkspaceDialog.workspaceName}
+          onConfirm={async () => {
+            // For archived workspaces, we need to call the API directly
+            // since they're not in the projects.workspaces list
+            try {
+              await wsWorkspaceApi.delete(deleteWorkspaceDialog.workspaceId);
+              deleteWorkspaceDialog.onDeleted?.();
+              // Also update local state if workspace exists in projects
+              const projectId = projects.find(p =>
+                p.workspaces.some(w => w.id === deleteWorkspaceDialog.workspaceId)
+              )?.id;
+              if (projectId) {
+                await fetchProjects();
+              }
+            } catch (error) {
+              console.error('Failed to delete workspace:', error);
+            }
+            setDeleteWorkspaceDialog(null);
+          }}
+        />
+      )}
+
+      {/* Delete Project Dialog */}
+      {deleteProjectDialog && (
+        <DeleteProjectDialog
+          isOpen={deleteProjectDialog.isOpen}
+          onClose={() => setDeleteProjectDialog(null)}
+          projectId={deleteProjectDialog.projectId}
+          projectName={deleteProjectDialog.projectName}
+          canDelete={deleteProjectDialog.canDelete}
+          onConfirm={async () => {
+            await deleteProject(deleteProjectDialog.projectId);
+            deleteProjectDialog.onDeleted?.();
+            setDeleteProjectDialog(null);
+          }}
+        />
+      )}
     </header>
   );
 };

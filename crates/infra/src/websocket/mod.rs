@@ -27,10 +27,11 @@ pub use message::{
     GitRenameBranchRequest,
     GitStatusResponse, MessagePayload, ProjectCreateRequest, ProjectDeleteRequest,
     ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, ProjectUpdateOrderRequest, 
+    ProjectCheckCanDeleteRequest,
     WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, 
     WorkspacePinRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, 
     WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload, 
-    WsMessage, WsRequest, WsResponse, WorkspaceRetrySetupRequest,
+    WsMessage, WsRequest, WsResponse, WorkspaceRetrySetupRequest, WorkspaceUnarchiveRequest,
     ScriptGetRequest, ScriptSaveRequest,
     WsEvent, WorkspaceSetupProgressNotification,
 };

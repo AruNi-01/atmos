@@ -33,7 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui";
-import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow } from "lucide-react";
+import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from 'next/navigation';
 import { GitChangedFile } from '@/api/ws-api';
@@ -257,10 +257,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   // Sync current project path to git store
   useEffect(() => {
-    if (currentProjectPath) {
-      setCurrentRepoPath(currentProjectPath);
-    }
+    // Set path if available, otherwise clear it
+    setCurrentRepoPath(currentProjectPath || null);
   }, [currentProjectPath, setCurrentRepoPath]);
+
+  // Check if we have a valid working context
+  const hasWorkingContext = !!(currentProjectPath && (workspaceId || projectIdFromUrl));
 
 
 
@@ -333,28 +335,38 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Source Control</span>
               {(isLoading || isGlobalActionLoading) && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                className="flex items-center gap-1.5 px-2 py-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                title="Create PR"
-              >
-                <GitPullRequestCreateArrow className="size-3" />
-                <span className="text-[10px] font-medium">Create PR</span>
-              </button>
-              <button
-                onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
-                className="p-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
-                title="Refresh"
-              >
-                <RefreshCw className={cn("size-3", isLoading && "animate-spin")} />
-              </button>
-            </div>
+            {hasWorkingContext && (
+              <div className="flex items-center gap-2">
+                <button
+                  className="flex items-center gap-1.5 px-2 py-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                  title="Create PR"
+                >
+                  <GitPullRequestCreateArrow className="size-3" />
+                  <span className="text-[10px] font-medium">Create PR</span>
+                </button>
+                <button
+                  onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
+                  className="p-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw className={cn("size-3", isLoading && "animate-spin")} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Changes List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-2">
-            {!hasChanges && !isLoading ? (
-              <div className="flex flex-col items-center justify-center p-8 text-muted-foreground/50">
+          <div className={cn(
+            "flex-1 overflow-y-auto no-scrollbar p-2",
+            (!hasWorkingContext || (!hasChanges && !isLoading)) && "flex items-center justify-center"
+          )}>
+            {!hasWorkingContext ? (
+              <div className="flex flex-col items-center text-muted-foreground/50">
+                <FolderOpen className="size-8 opacity-20 mb-2" />
+                <span className="text-xs text-center">Select a project or workspace to view changes</span>
+              </div>
+            ) : !hasChanges && !isLoading ? (
+              <div className="flex flex-col items-center text-muted-foreground/50">
                 <Check className="size-8 opacity-20 mb-2" />
                 <span className="text-xs">No changes detected</span>
               </div>
@@ -389,7 +401,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             )}
           </div>
 
-          {/* Commit Actions (Sticky Bottom) */}
+          {/* Commit Actions (Sticky Bottom) - Only show when working context exists */}
+          {hasWorkingContext && (
           <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
             {/* Input */}
             <textarea
@@ -462,6 +475,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               </DropdownMenu>
             </div>
           </div>
+          )}
         </div>
 
         <div className={cn("flex-1 min-h-0", activeTab !== "run-preview" && "hidden")}>

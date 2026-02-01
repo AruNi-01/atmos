@@ -170,6 +170,7 @@ export function FileBrowser({
             onClick={() => parentPath && loadDirectory(parentPath)}
             disabled={!parentPath || isLoading}
             title="Go to parent directory"
+            className="cursor-pointer"
           >
             <ChevronUp className="w-4 h-4" />
           </Button>
@@ -183,6 +184,7 @@ export function FileBrowser({
             }}
             disabled={isLoading}
             title="Go to home directory"
+            className="cursor-pointer"
           >
             <Home className="w-4 h-4" />
           </Button>
@@ -193,6 +195,7 @@ export function FileBrowser({
             onClick={() => loadDirectory(currentPath)}
             disabled={isLoading}
             title="Refresh"
+            className="cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" />
           </Button>
@@ -261,19 +264,21 @@ export function FileBrowser({
         )}
 
         <DialogFooter className="flex gap-2 shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
             Cancel
           </Button>
           <Button
             variant="secondary"
             onClick={handleSelectCurrentDir}
             disabled={!currentPath}
+            className="cursor-pointer"
           >
             Select Current Directory
           </Button>
           <Button
             onClick={handleSelect}
             disabled={!selectedEntry}
+            className="cursor-pointer"
           >
             {selectLabel}
           </Button>

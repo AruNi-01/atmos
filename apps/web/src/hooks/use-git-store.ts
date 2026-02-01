@@ -65,6 +65,23 @@ export const useGitStore = create<GitStore>((set, get) => ({
       // 自动刷新状态
       get().refreshGitStatus();
       get().refreshChangedFiles();
+    } else {
+      // 清除状态当没有路径时
+      set({
+        gitStatus: null,
+        stagedFiles: [],
+        unstagedFiles: [],
+        untrackedFiles: [],
+        totalAdditions: 0,
+        totalDeletions: 0,
+      });
+      useGitInfoStore.setState({
+        currentBranch: null,
+        hasUncommittedChanges: false,
+        hasUnpushedCommits: false,
+        uncommittedCount: 0,
+        unpushedCount: 0,
+      });
     }
   },
 

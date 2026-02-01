@@ -122,6 +122,16 @@ export interface GitCommitResponse {
   commit_hash: string | null;
 }
 
+// Archived Workspace 类型
+export interface ArchivedWorkspace {
+  guid: string;
+  name: string;
+  branch: string;
+  project_guid: string;
+  project_name: string;
+  archived_at: string;
+}
+
 // Workspace 类型（后端返回格式）
 export interface WorkspaceModel {
   guid: string;
@@ -457,6 +467,13 @@ export const wsProjectApi = {
       sidebar_order: sidebarOrder,
     });
   },
+
+  /**
+   * 检查项目是否可以删除
+   */
+  checkCanDelete: async (guid: string): Promise<{ can_delete: boolean; active_workspace_count: number }> => {
+    return wsRequest<{ can_delete: boolean; active_workspace_count: number }>('project_check_can_delete', { guid });
+  },
 };
 
 // ===== Workspace API =====
@@ -533,6 +550,20 @@ export const wsWorkspaceApi = {
    */
   archive: async (guid: string): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>('workspace_archive', { guid });
+  },
+
+  /**
+   * 获取所有归档的 Workspace
+   */
+  listArchived: async (): Promise<{ workspaces: ArchivedWorkspace[] }> => {
+    return wsRequest<{ workspaces: ArchivedWorkspace[] }>('workspace_list_archived', {});
+  },
+
+  /**
+   * 取消归档 Workspace
+   */
+  unarchive: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('workspace_unarchive', { guid });
   },
 };
 
