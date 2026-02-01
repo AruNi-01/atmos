@@ -82,6 +82,7 @@ import { useGitStatusCheck, useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useTheme } from 'next-themes';
 import { SketchPicker } from 'react-color';
+import { Clock, ArrowRight } from '@workspace/ui';
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -1019,9 +1020,30 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     return (
         <>
             <aside className="w-full flex flex-col h-full select-none">
+                {/* Header with Recently Workspaces */}
+                <div className="flex flex-col border-b border-sidebar-border/50">
+                    <div className="flex items-center gap-2 px-4 py-3 text-sm font-medium">
+                        <Layers className="size-4" />
+                        <span>Workspaces</span>
+                    </div>
+
+                    <button
+                        onClick={() => router.push('/?view=recent')}
+                        className="mx-2 mb-2 flex items-center justify-between px-2 py-1.5 text-[13px] text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 rounded-md transition-colors group cursor-pointer"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Clock className="size-3.5" />
+                            <span>Recently Workspaces</span>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-1 group-hover:translate-x-0">
+                            <ArrowRight className="size-3.5" />
+                        </div>
+                    </button>
+                </div>
+
                 <Tabs
                     defaultValue="projects"
-                    className="flex flex-col h-full"
+                    className="flex flex-col h-full overflow-hidden"
                     onValueChange={handleTabChange}
                 >
                     {/* Tabs Header */}

@@ -39,6 +39,7 @@ import { useSearchParams } from "next/navigation";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
+import { RecentWorkspacesView } from "@/components/workspace/RecentWorkspacesView";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const MonacoEditor = dynamic(
@@ -152,7 +153,16 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const activeFile = getActiveFile(effectiveContextId || undefined);
   const { currentRepoPath } = useGitStore();
 
+  const isRecentView = searchParams.get('view') === 'recent';
+
   if (!effectiveContextId) {
+    if (isRecentView) {
+      return (
+        <main className="h-full overflow-hidden">
+          <RecentWorkspacesView />
+        </main>
+      );
+    }
     return (
       <main className="h-full overflow-hidden">
         <WelcomePage
