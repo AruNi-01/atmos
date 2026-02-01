@@ -215,15 +215,25 @@ impl WorkspaceService {
             },
             Err(e) => {
                 let err_msg = e.to_string();
-                tracing::error!("[ensure_worktree_ready] Failed to create worktree: {}", err_msg);
                 
+                // If it already exists, verify it's actually ready
                 if err_msg.contains("already exists") {
-                    // This is acceptable - maybe it was created before or we are retrying
-                    tracing::warn!("[ensure_worktree_ready] Worktree already exists (from git), treating as success");
-                    Ok(())
-                } else {
-                    Err(e.into())
+                    let worktree_path = self.git_engine.get_worktree_path(&workspace.name)?;
+                    let has_files = worktree_path.exists() && std::fs::read_dir(&worktree_path)
+                        .map(|mut entries| entries.next().is_some())
+                        .unwrap_or(false);
+                    
+                    if has_files {
+                        tracing::warn!("[ensure_worktree_ready] Worktree already exists and is ready, treating as success. Details: {}", err_msg);
+                        return Ok(());
+                    } else {
+                        tracing::error!("[ensure_worktree_ready] Worktree reported as 'already exists' but directory is missing or empty: {}", err_msg);
+                        return Err(ServiceError::Validation(format!("Worktree conflict: {}. Try deleting the workspace and recreating it.", err_msg)));
+                    }
                 }
+                
+                tracing::error!("[ensure_worktree_ready] Failed to create worktree: {}", err_msg);
+                Err(e.into())
             }
         }
     }
