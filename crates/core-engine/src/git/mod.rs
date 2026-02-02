@@ -330,7 +330,7 @@ impl GitEngine {
         // Get list of changed files with status
         let status_output = Command::new("git")
             .current_dir(repo_path)
-            .args(["status", "--porcelain", "-uall"])
+            .args(["-c", "core.quotePath=false", "status", "--porcelain", "-uall"])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get git status: {}", e)))?;
 
@@ -353,7 +353,7 @@ impl GitEngine {
             // XY format: X=index status, Y=worktree status
             let x = line.chars().next().unwrap_or(' ');
             let y = line.chars().nth(1).unwrap_or(' ');
-            let file_path = line[3..].to_string();
+            let file_path = Self::unquote_path(&line[3..]);
 
             // Get numstat for this specific file
             let (additions, deletions) = self.get_file_numstat(repo_path, &file_path);
@@ -424,12 +424,23 @@ impl GitEngine {
         })
     }
 
+    /// Helper to unquote path from git output
+    fn unquote_path(path: &str) -> String {
+        if path.starts_with('"') && path.ends_with('"') {
+            path[1..path.len()-1]
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+        } else {
+            path.to_string()
+        }
+    }
+
     /// Get numstat for a specific file
     fn get_file_numstat(&self, repo_path: &Path, file_path: &str) -> (u32, u32) {
         // Try to get diff numstat for tracked files
         let output = Command::new("git")
             .current_dir(repo_path)
-            .args(["diff", "--numstat", "--", file_path])
+            .args(["-c", "core.quotePath=false", "diff", "--numstat", "--", file_path])
             .output();
 
         if let Ok(output) = output {
@@ -463,7 +474,7 @@ impl GitEngine {
         // Determine file status first
         let status_output = Command::new("git")
             .current_dir(repo_path)
-            .args(["status", "--porcelain", "--", file_path])
+            .args(["-c", "core.quotePath=false", "status", "--porcelain", "--", file_path])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get file status: {}", e)))?;
 

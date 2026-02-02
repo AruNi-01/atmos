@@ -237,7 +237,7 @@ export const RecentWorkspacesView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search workspaces..."
-            className="pl-9 bg-muted/30 border-input/50 focus-visible:ring-1 h-11 text-sm rounded-lg"
+            className="pl-9 bg-muted/30 border-input/50 focus-visible:ring-1 h-11 text-sm rounded-sm"
             autoFocus
           />
         </div>
@@ -267,7 +267,7 @@ export const RecentWorkspacesView: React.FC = () => {
                           key={ws.id}
                           onClick={() => handleSelect(ws)}
                           className={cn(
-                            "group flex items-center justify-between p-3 rounded-lg border border-transparent transition-all text-left w-full",
+                            "group flex items-center justify-between p-3 rounded-sm border border-transparent transition-all text-left w-full",
                             ws.isArchivedRemote
                               ? "opacity-60 cursor-not-allowed hover:bg-transparent"
                               : "hover:bg-muted/50 hover:border-sidebar-border/50 cursor-pointer"
@@ -277,7 +277,7 @@ export const RecentWorkspacesView: React.FC = () => {
                             {/* Project Info - Fixed Width for Vertical Alignment */}
                             <div className="flex items-center gap-3 w-[240px] shrink-0">
                               <div className={cn(
-                                "size-8 rounded-md flex items-center justify-center font-semibold text-sm shrink-0 uppercase border",
+                                "size-8 rounded-sm flex items-center justify-center font-semibold text-sm shrink-0 uppercase border",
                                 ws.isArchivedRemote
                                   ? "bg-muted text-muted-foreground border-border"
                                   : "bg-primary/10 text-primary border-primary/20"
@@ -320,7 +320,7 @@ export const RecentWorkspacesView: React.FC = () => {
 
                             {/* Git Status / Archived Badge */}
                             {ws.isArchivedRemote ? (
-                              <div className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-semibold transition-colors bg-muted text-muted-foreground border-border/50">
+                              <div className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-sm border px-3 py-1 text-[10px] font-semibold transition-colors bg-muted text-muted-foreground border-border/50">
                                 <Folder className="size-3" />
                                 Archived
                               </div>
@@ -329,12 +329,12 @@ export const RecentWorkspacesView: React.FC = () => {
                                 {hasGitInfo ? (
                                   <>
                                     {status.uncommitted > 0 && (
-                                      <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition-colors bg-green-500/10 text-green-500 border-green-500/20 font-mono">
+                                      <div className="inline-flex items-center rounded-sm border px-2.5 py-0.5 text-[10px] font-semibold transition-colors bg-green-500/10 text-green-500 border-green-500/20 font-mono">
                                         +{status.uncommitted}
                                       </div>
                                     )}
                                     {status.unpushed > 0 && (
-                                      <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold transition-colors bg-red-500/10 text-red-500 border-red-500/20 font-mono">
+                                      <div className="inline-flex items-center rounded-sm border px-2.5 py-0.5 text-[10px] font-semibold transition-colors bg-red-500/10 text-red-500 border-red-500/20 font-mono">
                                         -{status.unpushed}
                                       </div>
                                     )}

@@ -65,7 +65,8 @@ import {
     Tooltip,
     TooltipTrigger,
     TooltipContent,
-    TooltipProvider
+    TooltipProvider,
+    FolderKanban
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -1064,7 +1065,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 >
                                     <div className="flex items-center justify-center gap-0.5">
                                         <div className="relative size-3.5 shrink-0">
-                                            <Layers className={cn(
+                                            <FolderKanban className={cn(
                                                 "absolute inset-0 size-3.5 transition-transform duration-300",
                                                 activeTab === 'projects' && isAddProjectReady && "group-hover:-translate-y-8"
                                             )} />
