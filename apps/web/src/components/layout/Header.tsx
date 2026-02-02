@@ -82,7 +82,6 @@ const Header: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Archive modal and delete dialog states
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
     isOpen: boolean;
     workspaceId: string;
@@ -423,13 +422,7 @@ const Header: React.FC = () => {
             <span className="text-xs">⌘</span>K
           </kbd>
         </button>
-        <button
-          aria-label="Archive"
-          className="p-2 hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-          onClick={() => setArchiveModalOpen(true)}
-        >
-          <Archive className="size-4" />
-        </button>
+
         <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
         <button
           onClick={toggleFullScreen}
@@ -440,17 +433,7 @@ const Header: React.FC = () => {
         </button>
       </div>
 
-      {/* Archive Modal */}
-      <ArchivedWorkspacesModal
-        isOpen={archiveModalOpen}
-        onClose={() => setArchiveModalOpen(false)}
-        onDeleteWorkspace={(workspaceId, workspaceName, onDeleted) => {
-          setDeleteWorkspaceDialog({ isOpen: true, workspaceId, workspaceName, onDeleted });
-        }}
-        onDeleteProject={(projectId, projectName, canDelete, onDeleted) => {
-          setDeleteProjectDialog({ isOpen: true, projectId, projectName, canDelete, onDeleted });
-        }}
-      />
+
 
       {/* Delete Workspace Dialog */}
       {deleteWorkspaceDialog && (

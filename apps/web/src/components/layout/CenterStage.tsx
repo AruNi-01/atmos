@@ -40,6 +40,7 @@ import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
 import { RecentWorkspacesView } from "@/components/workspace/RecentWorkspacesView";
+import { ArchivedWorkspacesView } from "@/components/workspace/ArchivedWorkspacesView";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const FileViewer = dynamic(
@@ -154,12 +155,20 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const { currentRepoPath } = useGitStore();
 
   const isRecentView = searchParams.get('view') === 'recent';
+  const isArchivedView = searchParams.get('view') === 'archived';
 
   if (!effectiveContextId) {
     if (isRecentView) {
       return (
         <main className="h-full overflow-hidden">
           <RecentWorkspacesView />
+        </main>
+      );
+    }
+    if (isArchivedView) {
+      return (
+        <main className="h-full overflow-hidden">
+          <ArchivedWorkspacesView />
         </main>
       );
     }
@@ -191,6 +200,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       </main>
     );
   }
+
+
 
   return (
     <main className="h-full flex flex-col overflow-hidden">

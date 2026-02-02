@@ -744,9 +744,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     const { setCurrentProjectPath } = useEditorStore();
     const { setCurrentContext } = useGitInfoStore();
+    const view = searchParams.get('view');
 
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(true);
     const [activeId, setActiveId] = useState<string | null>(null);
 
     // File tree state
@@ -1022,234 +1024,276 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         <>
             <aside className="w-full flex flex-col h-full select-none">
                 {/* Header with Recently Workspaces */}
-                <div className="flex flex-col border-b border-sidebar-border/50">
-                    <div className="flex items-center gap-2 px-4 py-3 text-sm font-medium">
-                        <Layers className="size-4" />
-                        <span>Workspaces</span>
-                    </div>
-
-                    <button
-                        onClick={() => router.push('/?view=recent')}
-                        className="mx-2 mb-2 flex items-center justify-between px-2 py-1.5 text-[13px] text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 rounded-md transition-colors group cursor-pointer"
+                <div className="flex flex-col border-b border-sidebar-border/50 shrink-0">
+                    <div
+                        className="h-[39px] flex items-center justify-between px-4 text-sm font-medium cursor-pointer hover:bg-sidebar-accent/50 transition-colors select-none"
+                        onClick={() => setIsWorkspacesExpanded(!isWorkspacesExpanded)}
                     >
                         <div className="flex items-center gap-2">
-                            <Clock className="size-3.5" />
-                            <span>Recently Workspaces</span>
+                            <Layers className="size-4" />
+                            <span>Workspaces</span>
                         </div>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-1 group-hover:translate-x-0">
+                        <div className={cn("text-muted-foreground transition-transform duration-200", isWorkspacesExpanded ? "rotate-90" : "")}>
                             <ArrowRight className="size-3.5" />
                         </div>
-                    </button>
-                </div>
-
-                <Tabs
-                    defaultValue="projects"
-                    className="flex flex-col h-full overflow-hidden"
-                    onValueChange={handleTabChange}
-                >
-                    {/* Tabs Header */}
-                    <div className="h-10 flex items-center px-2 border-b border-sidebar-border">
-                        <TabsList variant="underline" className="w-full gap-1">
-                            <TabsTab
-                                value="projects"
-                                className="flex-1 h-7 text-[12px] p-0 overflow-hidden relative"
-                            >
-                                <div
-                                    className="w-full h-full flex items-center justify-center group cursor-pointer"
-                                    onClick={(e) => {
-                                        if (activeTab === 'projects' && isAddProjectReady) {
-                                            e.stopPropagation();
-                                            handleAddProject();
-                                        }
-                                    }}
-                                >
-                                    <div className="flex items-center justify-center gap-0.5">
-                                        <div className="relative size-3.5 shrink-0">
-                                            <FolderKanban className={cn(
-                                                "absolute inset-0 size-3.5 transition-transform duration-300",
-                                                activeTab === 'projects' && isAddProjectReady && "group-hover:-translate-y-8"
-                                            )} />
-                                            <Plus className={cn(
-                                                "absolute inset-0 size-3.5 -translate-x-8 opacity-0 transition-all duration-300",
-                                                activeTab === 'projects' && isAddProjectReady && "group-hover:translate-x-0 group-hover:opacity-100"
-                                            )} />
-                                        </div>
-
-                                        <div className="flex items-center whitespace-nowrap">
-                                            <span className={cn(
-                                                "inline-block overflow-hidden max-w-0 opacity-0 transition-all duration-300 ease-out text-left",
-                                                activeTab === 'projects' && isAddProjectReady && "group-hover:max-w-[40px] group-hover:opacity-100"
-                                            )}>
-                                                Add&nbsp;
-                                            </span>
-                                            <span>Project</span>
-                                            <span className={cn(
-                                                "inline-block overflow-hidden transition-all duration-300 max-w-[10px]",
-                                                activeTab === 'projects' && isAddProjectReady && "group-hover:max-w-0 group-hover:opacity-0 group-hover:translate-x-2"
-                                            )}>
-                                                s
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </TabsTab>
-                            <TabsTab
-                                value="files"
-                                className="flex-1 h-7 text-[12px] gap-1.5"
-                            >
-                                <Folder className="size-3.5" />
-                                <span>Files</span>
-                            </TabsTab>
-                        </TabsList>
                     </div>
 
-                    {/* Tab Panels */}
-                    <TabsPanel value="projects" className="flex-1 overflow-y-auto no-scrollbar pt-1.5 pb-3">
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragStart={handleDragStart}
-                            onDragEnd={handleDragEnd}
-                            modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-                        >
-                            <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                {projects.map(project => (
-                                    <SortableProject
-                                        key={project.id}
-                                        project={project}
-                                        isExpanded={expandedProjects.includes(project.id)}
-                                        isAnyProjectDragging={isAnyProjectDragging}
-                                        onToggle={toggleProject}
-                                        onAddWorkspace={handleAddWorkspace}
-                                        onQuickAddWorkspace={handleQuickAddWorkspace}
-                                        onSetColor={handleSetColor}
-                                        onDelete={handleDeleteProject}
-                                        onPinWorkspace={pinWorkspace}
-                                        onUnpinWorkspace={unpinWorkspace}
-                                        onArchiveWorkspace={archiveWorkspace}
-                                        onDeleteWorkspace={deleteWorkspace}
-                                        onConfigureScripts={handleConfigureScripts}
-                                        onSelectMain={(id) => router.push(`/?projectId=${id}`)}
-                                        isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
-                                    />
-                                ))}
-                            </SortableContext>
-
-                            <DragOverlay
-                                dropAnimation={{
-                                    sideEffects: defaultDropAnimationSideEffects({
-                                        styles: {
-                                            active: {
-                                                opacity: '0.4',
-                                            },
-                                        },
-                                    }),
-                                }}
+                    <div className={cn(
+                        "grid transition-[grid-template-rows] duration-200 ease-in-out",
+                        isWorkspacesExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    )}>
+                        <div className="overflow-hidden flex flex-col">
+                            <button
+                                onClick={() => router.push('/?view=recent')}
+                                className={cn(
+                                    "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
+                                    view === 'recent'
+                                        ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
+                                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
+                                )}
                             >
-                                {activeId && projects.find(p => p.id === activeId) ? (
-                                    <ProjectItem
-                                        project={projects.find(p => p.id === activeId)!}
-                                        isExpanded={false}
-                                        isDragging={true}
-                                        onToggle={() => { }}
-                                        onAddWorkspace={() => { }}
-                                        onQuickAddWorkspace={() => { }}
-                                        onSetColor={() => { }}
-                                        onDelete={() => { }}
-                                        onPinWorkspace={() => { }}
-                                        onUnpinWorkspace={() => { }}
-                                        onArchiveWorkspace={() => { }}
-                                        onDeleteWorkspace={() => { }}
-                                        onConfigureScripts={() => { }}
-                                        onSelectMain={() => { }}
-                                        isActiveProject={false}
-                                    />
-                                ) : activeId && projects.some(p => p.workspaces.some(w => w.id === activeId)) ? (
-                                    (() => {
-                                        const ws = projects.flatMap(p => p.workspaces).find(w => w.id === activeId)!;
-                                        return (
-                                            <WorkspaceContent
-                                                workspace={ws}
-                                                projectId={ws.projectId}
-                                                isDragging={true}
-                                            />
-                                        );
-                                    })()
-                                ) : null}
-                            </DragOverlay>
-                        </DndContext>
-                    </TabsPanel>
-
-                    <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
-                        {/* Files Header */}
-                        {currentProject && (
-                            <div className="flex items-center justify-between px-3 py-1.5 border-b border-sidebar-border">
-                                <span className="text-[12px] font-medium text-muted-foreground truncate">
-                                    {currentProject.name}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={toggleHiddenFiles}
-                                        className={cn(
-                                            "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
-                                            showHiddenFiles ? "text-sidebar-foreground bg-sidebar-accent" : "text-muted-foreground"
-                                        )}
-                                        title={showHiddenFiles ? "Hide hidden files" : "Show hidden files"}
-                                    >
-                                        {showHiddenFiles ? (
-                                            <Eye className="size-3.5" />
-                                        ) : (
-                                            <EyeOff className="size-3.5" />
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={handleRefreshFiles}
-                                        className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
-                                        title="Refresh files"
-                                        disabled={isLoadingFiles}
-                                    >
-                                        <RefreshCw className={cn(
-                                            "size-3.5 text-muted-foreground",
-                                            isLoadingFiles && "animate-spin"
-                                        )} />
-                                    </button>
+                                <div className="flex items-center gap-2">
+                                    <Clock className="size-3.5" />
+                                    <span>Recently Workspaces</span>
                                 </div>
-                            </div>
-                        )}
-
-                        {/* File Tree Content */}
-                        <div className="flex-1 overflow-y-auto pt-1.5">
-                            {!currentProject ? (
-                                <div className="px-4 py-8 text-center">
-                                    <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
-                                    <p className="text-muted-foreground text-xs text-pretty italic">
-                                        Select a workspace to view files
-                                    </p>
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
+                                    <ArrowRight className="size-3.5" />
                                 </div>
-                            ) : !currentEffectivePath ? (
-                                <div className="px-4 py-8 text-center text-muted-foreground">
-                                    <p className="text-sm">No project path configured</p>
+                            </button>
+                            <button
+                                onClick={() => router.push('/?view=archived')}
+                                className={cn(
+                                    "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
+                                    view === 'archived'
+                                        ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
+                                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
+                                )}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Archive className="size-3.5" />
+                                    <span>Archived Workspaces</span>
                                 </div>
-                            ) : shouldShowLoader ? (
-                                <div className="flex items-center justify-center py-8">
-                                    <RefreshCw className="size-5 animate-spin text-muted-foreground" />
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
+                                    <ArrowRight className="size-3.5" />
                                 </div>
-                            ) : (
-                                <FileTree
-                                    key={`${currentProjectId}-${currentWorkspaceId}`}
-                                    data={fileTreeData}
-                                />
-                            )}
+                            </button>
                         </div>
-                    </TabsPanel>
+                    </div>
+                </div>
 
-                    {/* Add Button */}
 
-                </Tabs>
-            </aside>
+
+                <div className="flex-1 flex flex-col min-h-0">
+
+                    <Tabs
+                        defaultValue="projects"
+                        className="flex flex-col h-full overflow-hidden"
+                        onValueChange={handleTabChange}
+                    >
+                        {/* Tabs Header */}
+                        <div className="h-10 flex items-center px-2 border-b border-sidebar-border">
+                            <TabsList variant="underline" className="w-full gap-1">
+                                <TabsTab
+                                    value="projects"
+                                    className="flex-1 h-7 text-[12px] p-0 overflow-hidden relative"
+                                >
+                                    <div
+                                        className="w-full h-full flex items-center justify-center group cursor-pointer"
+                                        onClick={(e) => {
+                                            if (activeTab === 'projects' && isAddProjectReady) {
+                                                e.stopPropagation();
+                                                handleAddProject();
+                                            }
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-center gap-0.5">
+                                            <div className="relative size-3.5 shrink-0">
+                                                <FolderKanban className={cn(
+                                                    "absolute inset-0 size-3.5 transition-transform duration-300",
+                                                    activeTab === 'projects' && isAddProjectReady && "group-hover:-translate-y-8"
+                                                )} />
+                                                <Plus className={cn(
+                                                    "absolute inset-0 size-3.5 -translate-x-8 opacity-0 transition-all duration-300",
+                                                    activeTab === 'projects' && isAddProjectReady && "group-hover:translate-x-0 group-hover:opacity-100"
+                                                )} />
+                                            </div>
+
+                                            <div className="flex items-center whitespace-nowrap">
+                                                <span className={cn(
+                                                    "inline-block overflow-hidden max-w-0 opacity-0 transition-all duration-300 ease-out text-left",
+                                                    activeTab === 'projects' && isAddProjectReady && "group-hover:max-w-[40px] group-hover:opacity-100"
+                                                )}>
+                                                    Add&nbsp;
+                                                </span>
+                                                <span>Project</span>
+                                                <span className={cn(
+                                                    "inline-block overflow-hidden transition-all duration-300 max-w-[10px]",
+                                                    activeTab === 'projects' && isAddProjectReady && "group-hover:max-w-0 group-hover:opacity-0 group-hover:translate-x-2"
+                                                )}>
+                                                    s
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </TabsTab>
+                                <TabsTab
+                                    value="files"
+                                    className="flex-1 h-7 text-[12px] gap-1.5"
+                                >
+                                    <Folder className="size-3.5" />
+                                    <span>Files</span>
+                                </TabsTab>
+                            </TabsList>
+                        </div>
+
+                        {/* Tab Panels */}
+                        <TabsPanel value="projects" className="flex-1 overflow-y-auto no-scrollbar pt-1.5 pb-3">
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragStart={handleDragStart}
+                                onDragEnd={handleDragEnd}
+                                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+                            >
+                                <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                    {projects.map(project => (
+                                        <SortableProject
+                                            key={project.id}
+                                            project={project}
+                                            isExpanded={expandedProjects.includes(project.id)}
+                                            isAnyProjectDragging={isAnyProjectDragging}
+                                            onToggle={toggleProject}
+                                            onAddWorkspace={handleAddWorkspace}
+                                            onQuickAddWorkspace={handleQuickAddWorkspace}
+                                            onSetColor={handleSetColor}
+                                            onDelete={handleDeleteProject}
+                                            onPinWorkspace={pinWorkspace}
+                                            onUnpinWorkspace={unpinWorkspace}
+                                            onArchiveWorkspace={archiveWorkspace}
+                                            onDeleteWorkspace={deleteWorkspace}
+                                            onConfigureScripts={handleConfigureScripts}
+                                            onSelectMain={(id) => router.push(`/?projectId=${id}`)}
+                                            isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
+                                        />
+                                    ))}
+                                </SortableContext>
+
+                                <DragOverlay
+                                    dropAnimation={{
+                                        sideEffects: defaultDropAnimationSideEffects({
+                                            styles: {
+                                                active: {
+                                                    opacity: '0.4',
+                                                },
+                                            },
+                                        }),
+                                    }}
+                                >
+                                    {activeId && projects.find(p => p.id === activeId) ? (
+                                        <ProjectItem
+                                            project={projects.find(p => p.id === activeId)!}
+                                            isExpanded={false}
+                                            isDragging={true}
+                                            onToggle={() => { }}
+                                            onAddWorkspace={() => { }}
+                                            onQuickAddWorkspace={() => { }}
+                                            onSetColor={() => { }}
+                                            onDelete={() => { }}
+                                            onPinWorkspace={() => { }}
+                                            onUnpinWorkspace={() => { }}
+                                            onArchiveWorkspace={() => { }}
+                                            onDeleteWorkspace={() => { }}
+                                            onConfigureScripts={() => { }}
+                                            onSelectMain={() => { }}
+                                            isActiveProject={false}
+                                        />
+                                    ) : activeId && projects.some(p => p.workspaces.some(w => w.id === activeId)) ? (
+                                        (() => {
+                                            const ws = projects.flatMap(p => p.workspaces).find(w => w.id === activeId)!;
+                                            return (
+                                                <WorkspaceContent
+                                                    workspace={ws}
+                                                    projectId={ws.projectId}
+                                                    isDragging={true}
+                                                />
+                                            );
+                                        })()
+                                    ) : null}
+                                </DragOverlay>
+                            </DndContext>
+                        </TabsPanel>
+
+                        <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
+                            {/* Files Header */}
+                            {currentProject && (
+                                <div className="flex items-center justify-between px-3 py-1.5 border-b border-sidebar-border">
+                                    <span className="text-[12px] font-medium text-muted-foreground truncate">
+                                        {currentProject.name}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={toggleHiddenFiles}
+                                            className={cn(
+                                                "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
+                                                showHiddenFiles ? "text-sidebar-foreground bg-sidebar-accent" : "text-muted-foreground"
+                                            )}
+                                            title={showHiddenFiles ? "Hide hidden files" : "Show hidden files"}
+                                        >
+                                            {showHiddenFiles ? (
+                                                <Eye className="size-3.5" />
+                                            ) : (
+                                                <EyeOff className="size-3.5" />
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={handleRefreshFiles}
+                                            className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
+                                            title="Refresh files"
+                                            disabled={isLoadingFiles}
+                                        >
+                                            <RefreshCw className={cn(
+                                                "size-3.5 text-muted-foreground",
+                                                isLoadingFiles && "animate-spin"
+                                            )} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* File Tree Content */}
+                            <div className="flex-1 overflow-y-auto pt-1.5">
+                                {!currentProject ? (
+                                    <div className="px-4 py-8 text-center">
+                                        <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
+                                        <p className="text-muted-foreground text-xs text-pretty italic">
+                                            Select a workspace to view files
+                                        </p>
+                                    </div>
+                                ) : !currentEffectivePath ? (
+                                    <div className="px-4 py-8 text-center text-muted-foreground">
+                                        <p className="text-sm">No project path configured</p>
+                                    </div>
+                                ) : shouldShowLoader ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <RefreshCw className="size-5 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : (
+                                    <FileTree
+                                        key={`${currentProjectId}-${currentWorkspaceId}`}
+                                        data={fileTreeData}
+                                    />
+                                )}
+                            </div>
+                        </TabsPanel>
+
+                        {/* Add Button */}
+
+                    </Tabs>
+                </div>
+            </aside >
 
             {/* Dialogs */}
-            <CreateWorkspaceDialog
+            < CreateWorkspaceDialog
                 isOpen={isCreateWorkspaceOpen}
                 onClose={() => setCreateWorkspaceOpen(false)}
                 defaultProjectId={selectedProjectId}
@@ -1264,21 +1308,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 isOpen={!!scriptDialogProjectId}
                 onClose={() => setScriptDialogProjectId(null)}
             />
-
-            {/* Delete Project Dialog */}
-            {deleteProjectDialog && (
-                <DeleteProjectDialog
-                    isOpen={deleteProjectDialog.isOpen}
-                    onClose={() => setDeleteProjectDialog(null)}
-                    projectId={deleteProjectDialog.projectId}
-                    projectName={deleteProjectDialog.projectName}
-                    canDelete={deleteProjectDialog.canDelete}
-                    onConfirm={async () => {
-                        await deleteProject(deleteProjectDialog.projectId);
-                        setDeleteProjectDialog(null);
-                    }}
-                />
-            )}
         </>
     );
 };
