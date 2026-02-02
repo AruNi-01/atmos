@@ -10,6 +10,7 @@ export interface FsEntry {
   path: string;
   is_dir: boolean;
   is_symlink: boolean;
+  is_ignored: boolean;
   symlink_target?: string;
   is_git_repo: boolean;
 }
@@ -46,6 +47,7 @@ export interface FileTreeNode {
   path: string;
   is_dir: boolean;
   is_symlink: boolean;
+  is_ignored: boolean;
   symlink_target?: string;
   children?: FileTreeNode[];
 }
