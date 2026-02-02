@@ -2,6 +2,8 @@
 
 use std::path::{Path, PathBuf};
 use std::fs;
+use std::collections::HashSet;
+use std::process::Command;
 use crate::error::EngineError;
 
 pub type Result<T> = std::result::Result<T, EngineError>;
@@ -13,6 +15,7 @@ pub struct FsEntry {
     pub path: PathBuf,
     pub is_dir: bool,
     pub is_symlink: bool,
+    pub is_ignored: bool,
     pub symlink_target: Option<String>,
     pub is_git_repo: bool,
 }
@@ -24,6 +27,7 @@ pub struct FileTreeItem {
     pub path: PathBuf,
     pub is_dir: bool,
     pub is_symlink: bool,
+    pub is_ignored: bool,
     pub symlink_target: Option<String>,
     pub children: Option<Vec<FileTreeItem>>,
 }
@@ -105,11 +109,15 @@ impl FsEngine {
                 false
             };
 
+            // Unify ignore detection logic
+            let is_ignored = self.is_commonly_ignored(&name); // list_dir is simpler, only common ignores for now or we could add git check
+
             entries.push(FsEntry {
                 name,
                 path,
                 is_dir,
                 is_symlink,
+                is_ignored,
                 symlink_target,
                 is_git_repo,
             });
@@ -278,11 +286,36 @@ impl FsEngine {
             )));
         }
 
-        self.build_file_tree(root_path, show_hidden, 0)
+        // Get ignored files using git
+        let mut ignored_paths = HashSet::new();
+        if let Ok(output) = Command::new("git")
+            .current_dir(root_path)
+            .args(["status", "--ignored", "--porcelain", "-uall"])
+            .output()
+        {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    if line.starts_with("!! ") {
+                        let rel_path = line[3..].trim_end_matches('/');
+                        ignored_paths.insert(rel_path.to_string());
+                    }
+                }
+            }
+        }
+
+        self.build_file_tree(root_path, root_path, show_hidden, 0, &ignored_paths)
     }
 
     /// Build file tree recursively with depth limit
-    fn build_file_tree(&self, dir_path: &Path, show_hidden: bool, depth: usize) -> Result<Vec<FileTreeItem>> {
+    fn build_file_tree(
+        &self,
+        root_path: &Path,
+        dir_path: &Path,
+        show_hidden: bool,
+        depth: usize,
+        ignored_paths: &HashSet<String>,
+    ) -> Result<Vec<FileTreeItem>> {
         // Limit recursion depth to prevent excessive file listing
         const MAX_DEPTH: usize = 10;
         if depth >= MAX_DEPTH {
@@ -308,12 +341,14 @@ impl FsEngine {
                 continue;
             }
 
-            // Skip common non-project directories
-            if self.should_skip_directory(&name) {
-                continue;
-            }
-
             let path = entry.path();
+            let rel_path = path.strip_prefix(root_path).unwrap_or(&path);
+            let rel_path_str = rel_path.to_string_lossy().to_string();
+            
+            let is_ignored = ignored_paths.contains(&rel_path_str) 
+                || (rel_path_str.ends_with('/') && ignored_paths.contains(rel_path_str.trim_end_matches('/')))
+                || self.is_commonly_ignored(&name);
+
             let is_dir = path.is_dir();
             let file_type = entry.file_type().ok();
             let is_symlink = file_type.map(|ft| ft.is_symlink()).unwrap_or(false);
@@ -324,8 +359,11 @@ impl FsEngine {
                 None
             };
 
-            let children = if is_dir {
-                Some(self.build_file_tree(&path, show_hidden, depth + 1)?)
+            // Check if we should recurse into this directory
+            let should_recurse = is_dir && !self.should_skip_recursion(&name);
+
+            let children = if should_recurse {
+                Some(self.build_file_tree(root_path, &path, show_hidden, depth + 1, ignored_paths)?)
             } else {
                 None
             };
@@ -335,6 +373,7 @@ impl FsEngine {
                 path,
                 is_dir,
                 is_symlink,
+                is_ignored,
                 symlink_target,
                 children,
             });
@@ -353,7 +392,7 @@ impl FsEngine {
     }
 
     /// Check if a directory should be skipped (common non-project directories)
-    fn should_skip_directory(&self, name: &str) -> bool {
+    fn should_skip_recursion(&self, name: &str) -> bool {
         matches!(
             name,
             "node_modules"
@@ -369,6 +408,11 @@ impl FsEngine {
                 | ".idea"
                 | ".vscode"
         )
+    }
+
+    /// Check if a file/directory is commonly ignored
+    fn is_commonly_ignored(&self, name: &str) -> bool {
+        self.should_skip_recursion(name) || name == "tsconfig.tsbuildinfo" || name == ".DS_Store"
     }
 }
 

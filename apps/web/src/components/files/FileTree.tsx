@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTree } from '@headless-tree/react';
-import { syncDataLoaderFeature } from '@headless-tree/core';
+import { asyncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
 import {
   cn,
@@ -15,7 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from '@workspace/ui';
-import { FileTreeNode } from '@/api/ws-api';
+import { FileTreeNode, fsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useSearchParams } from 'next/navigation';
 
@@ -27,6 +27,7 @@ interface FileTreeItem {
   path: string;
   isDir: boolean;
   isSymlink: boolean;
+  isIgnored: boolean;
   symlinkTarget?: string;
   children?: string[];
 }
@@ -49,6 +50,7 @@ function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
         path: node.path,
         isDir: node.is_dir,
         isSymlink: node.is_symlink,
+        isIgnored: node.is_ignored,
         symlinkTarget: node.symlink_target,
         children: node.children?.map(c => c.path),
       };
@@ -76,13 +78,22 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
   const { openFile, getActiveFilePath } = useEditorStore();
   const activeFilePath = getActiveFilePath(workspaceId || undefined);
 
-  const itemsMap = useMemo(() => buildItemsMap(data), [data]);
+  // Calculate initial items map from props.data to avoid render-cycle lag
+  const initialItemsMap = useMemo(() => buildItemsMap(data), [data]);
+  // Maintain a dynamic map for items loaded on-demand
+  const [lazyItemsMap, setLazyItemsMap] = useState<Map<string, FileTreeItem>>(new Map());
+
+  // Clear lazy items when project/workspace context changes to avoid pollution
+  useEffect(() => {
+    setLazyItemsMap(new Map());
+  }, [data]);
+
   const rootItemIds = useMemo(() => data.map(node => node.path), [data]);
 
   const tree = useTree<FileTreeItem>({
     rootItemId: 'root',
-    getItemName: (item: ItemInstance<FileTreeItem>) => item.getItemData().name,
-    isItemFolder: (item: ItemInstance<FileTreeItem>) => item.getItemData().isDir,
+    getItemName: (item: ItemInstance<FileTreeItem>) => item.getItemData()?.name ?? '',
+    isItemFolder: (item: ItemInstance<FileTreeItem>) => item.getItemData()?.isDir ?? false,
     dataLoader: {
       getItem: (itemId: string): FileTreeItem => {
         if (itemId === 'root') {
@@ -92,22 +103,76 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
             path: '',
             isDir: true,
             isSymlink: false,
+            isIgnored: false,
             symlinkTarget: undefined,
             children: rootItemIds,
           };
         }
-        const item = itemsMap.get(itemId);
-        return item || { id: itemId, name: itemId, path: itemId, isDir: false, isSymlink: false };
+        const item = initialItemsMap.get(itemId) || lazyItemsMap.get(itemId);
+        return item || { id: itemId, name: itemId, path: itemId, isDir: false, isSymlink: false, isIgnored: false };
       },
-      getChildren: (itemId: string): string[] => {
+      getChildren: async (itemId: string): Promise<string[]> => {
         if (itemId === 'root') {
           return rootItemIds;
         }
-        const item = itemsMap.get(itemId);
-        return item?.children || [];
+
+        const item = initialItemsMap.get(itemId) || lazyItemsMap.get(itemId);
+        if (!item) return [];
+
+        // If we already have children string IDs, return them
+        if (item.children && item.children.length > 0) {
+          return item.children;
+        }
+
+        // If it's a directory but we don't have children yet, fetch them (on-demand loading)
+        if (item.isDir) {
+          try {
+            const response = await fsApi.listDir(item.path, { showHidden: true, dirsOnly: false });
+
+            const newChildren: string[] = [];
+            const newEntriesMap = new Map<string, FileTreeItem>();
+
+            response.entries.forEach((entry) => {
+              const childId = entry.path;
+              newChildren.push(childId);
+              newEntriesMap.set(childId, {
+                id: childId,
+                name: entry.name,
+                path: entry.path,
+                isDir: entry.is_dir,
+                isSymlink: entry.is_symlink,
+                isIgnored: entry.is_ignored,
+                symlinkTarget: entry.symlink_target,
+                // Children of children will be loaded on demand too
+              });
+            });
+
+            // Update local state with new items and link them to parent
+            // Update lazy items map with new items and link them to parent
+            setLazyItemsMap((prev: Map<string, FileTreeItem>) => {
+              const next = new Map(prev);
+              newEntriesMap.forEach((val, key) => next.set(key, val));
+
+              // If the parent was in initialItemsMap, we should add it to lazyItemsMap with children
+              const parent = initialItemsMap.get(itemId) || next.get(itemId);
+              if (parent) {
+                next.set(itemId, { ...parent, children: newChildren });
+              }
+
+              return next;
+            });
+
+            return newChildren;
+          } catch (e) {
+            console.error('Failed to load children for', itemId, e);
+            return [];
+          }
+        }
+
+        return [];
       },
     },
-    features: [syncDataLoaderFeature],
+    features: [asyncDataLoaderFeature],
   });
 
   const handleItemClick = useCallback((item: FileTreeItem, isFolder: boolean, toggle: () => void) => {
@@ -147,15 +212,21 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
     >
       {items.map((item) => {
         const itemData = item.getItemData();
+        if (!itemData) return null;
+
         const isFolder = item.isFolder();
         const isExpanded = item.isExpanded();
         const isActive = activeFilePath === itemData.path;
         const depth = item.getItemMeta().level;
 
-        const toggle = () => {
+        const toggle = async () => {
           if (isExpanded) {
             item.collapse();
           } else {
+            // Ensure children are loaded before expanding if we're doing on-demand
+            if (!itemData.children && itemData.isDir) {
+              // Headless tree handles the loading state via asyncDataLoaderFeature
+            }
             item.expand();
           }
         };
@@ -170,6 +241,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
               'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors outline-none',
               'hover:bg-sidebar-accent/50',
               isActive && 'bg-sidebar-accent text-sidebar-foreground',
+              itemData.isIgnored && !isActive && 'opacity-40 grayscale-[0.5]',
               'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1'
             )}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
