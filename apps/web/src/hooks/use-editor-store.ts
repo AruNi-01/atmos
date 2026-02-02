@@ -52,6 +52,7 @@ interface EditorStore {
 }
 
 // 根据文件扩展名获取语言数据省略 (保持原样)
+// 根据文件扩展名获取语言数据省略 (保持原样)
 function getLanguageFromPath(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase();
   const languageMap: Record<string, string> = {
@@ -60,6 +61,19 @@ function getLanguageFromPath(path: string): string {
     'md': 'markdown', 'toml': 'toml', 'yaml': 'yaml',
   };
   return languageMap[ext || ''] || 'plaintext';
+}
+
+function isBinaryFile(path: string): boolean {
+    const ext = path.split('.').pop()?.toLowerCase();
+    const binaryExts = [
+        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tiff', 
+        'pdf', 
+        'mp4', 'webm', 'ogg', 'mp3', 'wav', 
+        'zip', 'tar', 'gz', '7z', 'rar',
+        // Office docs often need special handling, treat as binary for now
+        'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'
+    ];
+    return ext ? binaryExts.includes(ext) : false;
 }
 
 function getFileNameFromPath(path: string): string {
@@ -149,6 +163,29 @@ export const useEditorStore = create<EditorStore>()(
              };
           });
           return;
+        }
+
+        // Check if binary - avoid loading content into memory/websocket
+        if (isBinaryFile(path)) {
+             set((state) => {
+                const ws = state.workspaceStates[id];
+                return {
+                   workspaceStates: {
+                     ...state.workspaceStates,
+                     [id]: {
+                       ...ws,
+                       // Use special protocol to indicate streaming/external load
+                       openFiles: ws.openFiles.map(f => f.path === path ? { 
+                           ...f, 
+                           content: `stream://${path}`, 
+                           originalContent: `stream://${path}`, 
+                           isLoading: false 
+                       } : f)
+                     }
+                   }
+                };
+             });
+             return;
         }
 
         try {
