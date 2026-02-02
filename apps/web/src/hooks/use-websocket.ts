@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
+import { toastManager } from '@workspace/ui';
 
 // ===== 类型定义 =====
 
@@ -358,7 +359,13 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           if (success) {
             pending.resolve(data);
           } else {
-            pending.reject(new Error(`Request failed: ${JSON.stringify(data)}`));
+            const errorMessage = typeof data === 'string' ? data : JSON.stringify(data);
+            toastManager.add({
+              title: "Request Failed",
+              description: errorMessage,
+              type: "error"
+            });
+            pending.reject(new Error(`Request failed: ${errorMessage}`));
           }
         }
         return;
@@ -379,6 +386,13 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         if (pending) {
           clearTimeout(pending.timeout);
           pendingRequests.delete(request_id);
+          
+          toastManager.add({
+            title: "Error",
+            description: errorMessage,
+            type: "error"
+          });
+          
           pending.reject(new Error(`[${code}] ${errorMessage}`));
         }
         return;
