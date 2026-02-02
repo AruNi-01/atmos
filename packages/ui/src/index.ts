@@ -29,6 +29,7 @@ export {
 export * from "./components/ui/collapsible";
 export * from "./components/ui/textarea";
 export * from "./components/ui/tooltip";
+export * from "./components/ui/skeleton";
 
 // Utilities
 export { cn } from "./lib/utils";
