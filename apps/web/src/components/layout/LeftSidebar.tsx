@@ -748,7 +748,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
-    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(true);
+    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(view === 'recent' || view === 'archived');
     const [activeId, setActiveId] = useState<string | null>(null);
 
     // File tree state
