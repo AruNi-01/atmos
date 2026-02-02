@@ -26,12 +26,18 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@workspace/ui";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+  Button
 } from "@workspace/ui";
 import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -97,17 +103,17 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
 
         <div className="flex items-center gap-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
           {onStageAll && (
-            <button onClick={(e) => { e.stopPropagation(); onStageAll(); }} title="Stage All" className="p-1 hover:bg-sidebar-accent rounded hover:text-foreground text-muted-foreground transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); onStageAll(); }} title="Stage All" className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors">
               <Plus className="size-3.5" />
             </button>
           )}
           {onUnstageAll && (
-            <button onClick={(e) => { e.stopPropagation(); onUnstageAll(); }} title="Unstage All" className="p-1 hover:bg-sidebar-accent rounded hover:text-foreground text-muted-foreground transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); onUnstageAll(); }} title="Unstage All" className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors">
               <Minus className="size-3.5" />
             </button>
           )}
           {onDiscardAll && (
-            <button onClick={(e) => { e.stopPropagation(); onDiscardAll(); }} title="Discard All" className="p-1 hover:bg-sidebar-accent rounded hover:text-foreground text-muted-foreground transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); onDiscardAll(); }} title="Discard All" className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors">
               <Undo2 className="size-3.5" />
             </button>
           )}
@@ -154,12 +160,14 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
                     "flex items-center gap-2 text-[11px] font-mono tabular-nums group-hover:hidden min-w-[30px] justify-end",
                   )}>
                     {file.status !== '?' && (
-                      <span className={cn(
-                        "flex",
-                        file.additions > file.deletions ? "text-emerald-500" : "text-red-500"
-                      )}>
-                        {file.additions > 0 ? `+${file.additions}` : `-${file.deletions}`}
-                      </span>
+                      <div className="flex items-center gap-1 font-medium">
+                        {file.additions > 0 && (
+                          <span className="text-emerald-500">+{file.additions}</span>
+                        )}
+                        {file.deletions > 0 && (
+                          <span className="text-red-500">-{file.deletions}</span>
+                        )}
+                      </div>
                     )}
                     <span className={cn(
                       "w-3 text-center font-bold",
@@ -175,7 +183,7 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
                       <button
                         onClick={(e) => { e.stopPropagation(); onStage([file.path]); }}
                         title="Stage Changes"
-                        className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Plus className="size-3.5" />
                       </button>
@@ -184,7 +192,7 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
                       <button
                         onClick={(e) => { e.stopPropagation(); onUnstage([file.path]); }}
                         title="Unstage Changes"
-                        className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Minus className="size-3.5" />
                       </button>
@@ -193,7 +201,7 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
                       <button
                         onClick={(e) => { e.stopPropagation(); onDiscard([file.path]); }}
                         title="Discard Changes"
-                        className="p-1 hover:bg-background rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Undo2 className="size-3.5" />
                       </button>
@@ -254,6 +262,92 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("changes");
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: React.ReactNode;
+    action: () => Promise<void>;
+    confirmLabel: string;
+    isDestructive?: boolean;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    action: async () => { },
+    confirmLabel: "Confirm",
+    isDestructive: false,
+  });
+
+  const confirmAction = (
+    title: string,
+    description: React.ReactNode,
+    action: () => Promise<void>,
+    confirmLabel = "Confirm",
+    isDestructive = false
+  ) => {
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      description,
+      action,
+      confirmLabel,
+      isDestructive
+    });
+  };
+
+  const handleConfirm = async () => {
+    setIsGlobalActionLoading(true);
+    try {
+      await confirmDialog.action();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGlobalActionLoading(false);
+      setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Wrapped handlers for destructive actions
+  const handleDiscardUnstaged = (files: string[]) => {
+    confirmAction(
+      "Discard Changes?",
+      `Are you sure you want to discard changes in ${files.length} file(s)? This action cannot be undone.`,
+      async () => await discardUnstagedChanges(files),
+      "Discard Changes",
+      true
+    );
+  };
+
+  const handleDiscardUntracked = (files: string[]) => {
+    confirmAction(
+      "Delete Files?",
+      `Are you sure you want to delete ${files.length} untracked file(s)? This action cannot be undone.`,
+      async () => await discardUntrackedFiles(files),
+      "Delete Files",
+      true
+    );
+  };
+
+  const handleDiscardAllUnstaged = () => {
+    confirmAction(
+      "Discard All Changes?",
+      "Are you sure you want to discard all unstaged changes? This action cannot be undone.",
+      async () => await discardAllUnstaged(),
+      "Discard All",
+      true
+    );
+  };
+
+  const handleDiscardAllUntracked = () => {
+    confirmAction(
+      "Delete All Untracked?",
+      "Are you sure you want to delete all untracked files? This action cannot be undone.",
+      async () => await discardAllUntracked(),
+      "Delete All",
+      true
+    );
+  };
 
   // Sync current project path to git store
   useEffect(() => {
@@ -338,7 +432,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             {hasWorkingContext && (
               <div className="flex items-center gap-2">
                 <button
-                  className="flex items-center gap-1.5 px-2 py-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-1 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                   title="Create PR"
                 >
                   <GitPullRequestCreateArrow className="size-3" />
@@ -346,7 +440,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 </button>
                 <button
                   onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
-                  className="p-1 hover:bg-sidebar-accent rounded-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                   title="Refresh"
                 >
                   <RefreshCw className={cn("size-3", isLoading && "animate-spin")} />
@@ -384,18 +478,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   files={unstagedFiles}
                   workspaceId={workspaceId}
                   onStage={stageFiles}
-                  onDiscard={discardUnstagedChanges}
+                  onDiscard={handleDiscardUnstaged}
                   onStageAll={stageAllUnstaged}
-                  onDiscardAll={discardAllUnstaged}
+                  onDiscardAll={handleDiscardAllUnstaged}
                 />
                 <ChangeSection
                   title="Untracked Changes"
                   files={untrackedFiles}
                   workspaceId={workspaceId}
                   onStage={stageFiles}
-                  onDiscard={discardUntrackedFiles}
+                  onDiscard={handleDiscardUntracked}
                   onStageAll={stageAllUntracked}
-                  onDiscardAll={discardAllUntracked}
+                  onDiscardAll={handleDiscardAllUntracked}
                 />
               </>
             )}
@@ -403,78 +497,78 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
           {/* Commit Actions (Sticky Bottom) - Only show when working context exists */}
           {hasWorkingContext && (
-          <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
-            {/* Input */}
-            <textarea
-              placeholder="Message (⌘+Enter to commit)"
-              value={commitMessage}
-              onChange={(e) => setCommitMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  handleCommit();
-                }
-              }}
-              className="w-full min-h-[60px] p-2.5 bg-sidebar-accent/50 border-transparent focus:border-sidebar-border/50 focus:bg-sidebar-accent rounded-md text-sidebar-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 transition-all ease-out duration-200 text-xs resize-none"
-            />
-
-            {/* Main Button with Dropdown */}
-            <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">
-              <button
-                onClick={showPublishButton ? handlePublish : showPushButton ? () => handleGlobalAction(pushChanges) : handleCommit}
-                disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 rounded-l-md transition-all text-xs font-semibold select-none",
-                  (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
-                    ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : showPushButton
-                      ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
-                      : "bg-primary text-primary-foreground hover:bg-primary/90"
-                )}
-              >
-                {(isCommitting || isGlobalActionLoading) && <Loader2 className="size-3.5 animate-spin" />}
-                <span>
-                  {showPublishButton
-                    ? (isGlobalActionLoading ? 'Publishing...' : 'Publish Branch')
-                    : showPushButton
-                      ? (isGlobalActionLoading ? 'Syncing...' : `Sync Changes ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ''}`)
-                      : (isCommitting ? 'Committing...' : 'Commit')
+            <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
+              {/* Input */}
+              <textarea
+                placeholder="Message (⌘+Enter to commit)"
+                value={commitMessage}
+                onChange={(e) => setCommitMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleCommit();
                   }
-                </span>
-              </button>
+                }}
+                className="w-full min-h-[60px] p-2.5 bg-sidebar-accent/50 border-transparent focus:border-sidebar-border/50 focus:bg-sidebar-accent rounded-md text-sidebar-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 transition-all ease-out duration-200 text-xs resize-none"
+              />
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className={cn(
-                    "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
+              {/* Main Button with Dropdown */}
+              <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">
+                <button
+                  onClick={showPublishButton ? handlePublish : showPushButton ? () => handleGlobalAction(pushChanges) : handleCommit}
+                  disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 rounded-l-md transition-all text-xs font-semibold select-none",
                     (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
-                      ? "bg-muted text-muted-foreground border-l-transparent"
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : showPushButton
-                        ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
+                        ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90"
                   )}
-                    disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
-                  >
-                    <ChevronDown className="size-3.5 opacity-80" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges)}>
-                    <ArrowDown className="mr-2 size-4" /> Pull
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges)}>
-                    <Upload className="mr-2 size-4" /> Push
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges)}>
-                    <RefreshCw className="mr-2 size-4" /> Fetch
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges)}>
-                    <RefreshCw className="mr-2 size-4" /> Sync
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                >
+                  {(isCommitting || isGlobalActionLoading) && <Loader2 className="size-3.5 animate-spin" />}
+                  <span>
+                    {showPublishButton
+                      ? (isGlobalActionLoading ? 'Publishing...' : 'Publish Branch')
+                      : showPushButton
+                        ? (isGlobalActionLoading ? 'Syncing...' : `Sync Changes ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ''}`)
+                        : (isCommitting ? 'Committing...' : 'Commit')
+                    }
+                  </span>
+                </button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className={cn(
+                      "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
+                      (isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0))))
+                        ? "bg-muted text-muted-foreground border-l-transparent"
+                        : showPushButton
+                          ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
+                    )}
+                      disabled={isCommitting || isGlobalActionLoading || (!showPublishButton && !showPushButton && (!commitMessage.trim() || (stagedFiles.length === 0 && unstagedFiles.length === 0)))}
+                    >
+                      <ChevronDown className="size-3.5 opacity-80" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges)}>
+                      <ArrowDown className="mr-2 size-4" /> Pull
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges)}>
+                      <Upload className="mr-2 size-4" /> Push
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges)}>
+                      <RefreshCw className="mr-2 size-4" /> Fetch
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges)}>
+                      <RefreshCw className="mr-2 size-4" /> Sync
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-          </div>
           )}
         </div>
 
@@ -488,6 +582,31 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           />
         </div>
       </Tabs>
+
+      <Dialog open={confirmDialog.isOpen} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{confirmDialog.title}</DialogTitle>
+            <DialogDescription>
+              {confirmDialog.description}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" size="sm">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant={confirmDialog.isDestructive ? "destructive" : "default"}
+              size="sm"
+              onClick={handleConfirm}
+              disabled={isGlobalActionLoading}
+            >
+              {isGlobalActionLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {confirmDialog.confirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside >
   );
 };
