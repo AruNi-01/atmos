@@ -42,8 +42,8 @@ import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetu
 import { RecentWorkspacesView } from "@/components/workspace/RecentWorkspacesView";
 
 // Dynamic import Monaco Editor to avoid SSR issues
-const MonacoEditor = dynamic(
-  () => import("@/components/editor/MonacoEditor"),
+const FileViewer = dynamic(
+  () => import("@/components/editor/FileViewer"),
   {
     ssr: false,
     loading: () => (
@@ -388,7 +388,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 filePath={file.path.replace("diff://", "")}
               />
             ) : (
-              <MonacoEditor file={file} className="flex-1" />
+              <FileViewer file={file} className="flex-1" />
             )}
           </TabsPanel>
         ))}

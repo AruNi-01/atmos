@@ -211,11 +211,20 @@ impl FsEngine {
             EngineError::FileSystem(format!("Failed to get file metadata: {}", e))
         })?;
 
-        let content = fs::read_to_string(path).map_err(|e| {
-            EngineError::FileSystem(format!("Failed to read file {}: {}", path.display(), e))
-        })?;
-
-        Ok((content, metadata.len()))
+        match fs::read_to_string(path) {
+            Ok(content) => Ok((content, metadata.len())),
+            Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+                let bytes = fs::read(path).map_err(|e| {
+                    EngineError::FileSystem(format!("Failed to read binary file {}: {}", path.display(), e))
+                })?;
+                use base64::Engine as _;
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                // Return as base64 data URI
+                // We use application/octet-stream as generic type, frontend can refine based on extension
+                Ok((format!("data:application/octet-stream;base64,{}", encoded), metadata.len()))
+            }
+            Err(e) => Err(EngineError::FileSystem(format!("Failed to read file {}: {}", path.display(), e))),
+        }
     }
 
     /// Write content to file
