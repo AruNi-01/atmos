@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@atmos/i18n/routing";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { WebSocketProvider } from "@/components/providers/websocket-provider";
-import { ToastProvider, AnchoredToastProvider } from "@workspace/ui";
+import { ToastProvider, AnchoredToastProvider, TooltipProvider } from "@workspace/ui";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -62,7 +62,9 @@ export default async function LocaleLayout({ children, params }: Props) {
             <WebSocketProvider>
               <ToastProvider position="bottom-right">
                 <AnchoredToastProvider>
-                  {children}
+                  <TooltipProvider>
+                    {children}
+                  </TooltipProvider>
                 </AnchoredToastProvider>
               </ToastProvider>
             </WebSocketProvider>
