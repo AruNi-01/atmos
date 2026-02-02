@@ -164,7 +164,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     if (isRecentView) {
       return (
         <main className="h-full overflow-hidden">
-          <RecentWorkspacesView />
+          <RecentWorkspacesView refreshKey={searchParams.toString()} />
         </main>
       );
     }
