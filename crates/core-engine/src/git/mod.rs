@@ -139,11 +139,27 @@ impl GitEngine {
             )));
         }
 
-        // Optionally delete the branch
-        let _ = Command::new("git")
+        // Delete local branch
+        let local_result = Command::new("git")
             .current_dir(repo_path)
             .args(["branch", "-D", workspace_name])
             .output();
+        
+        if local_result.is_ok() {
+            tracing::info!("Deleted local branch: {}", workspace_name);
+        }
+
+        // Delete remote branch if exists
+        let remote_result = Command::new("git")
+            .current_dir(repo_path)
+            .args(["push", "origin", "--delete", workspace_name])
+            .output();
+        
+        if let Ok(output) = remote_result {
+            if output.status.success() {
+                tracing::info!("Deleted remote branch: origin/{}", workspace_name);
+            }
+        }
 
         tracing::info!("Removed worktree for workspace {}", workspace_name);
 
