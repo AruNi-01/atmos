@@ -4,7 +4,17 @@ import React, { useMemo, useCallback } from 'react';
 import { useTree } from '@headless-tree/react';
 import { syncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
-import { cn, getFileIconProps, Loader2, ChevronRight, Folder } from '@workspace/ui';
+import {
+  cn,
+  getFileIconProps,
+  Loader2,
+  ChevronRight,
+  Folder,
+  CornerUpRight,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@workspace/ui';
 import { FileTreeNode } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useSearchParams } from 'next/navigation';
@@ -16,6 +26,8 @@ interface FileTreeItem {
   name: string;
   path: string;
   isDir: boolean;
+  isSymlink: boolean;
+  symlinkTarget?: string;
   children?: string[];
 }
 
@@ -36,6 +48,8 @@ function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
         name: node.name,
         path: node.path,
         isDir: node.is_dir,
+        isSymlink: node.is_symlink,
+        symlinkTarget: node.symlink_target,
         children: node.children?.map(c => c.path),
       };
       map.set(node.path, item);
@@ -77,11 +91,13 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
             name: 'root',
             path: '',
             isDir: true,
+            isSymlink: false,
+            symlinkTarget: undefined,
             children: rootItemIds,
           };
         }
         const item = itemsMap.get(itemId);
-        return item || { id: itemId, name: itemId, path: itemId, isDir: false };
+        return item || { id: itemId, name: itemId, path: itemId, isDir: false, isSymlink: false };
       },
       getChildren: (itemId: string): string[] => {
         if (itemId === 'root') {
@@ -175,9 +191,24 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
                 className="size-4"
               />
             </span>
-            <span className="text-[13px] truncate">
+            <span className="text-[13px] truncate flex-1">
               {itemData.name}
             </span>
+            {itemData.isSymlink && (
+              <span className="ml-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <CornerUpRight className="size-3 text-muted-foreground/60" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-[300px] break-all">
+                    <p className="text-[11px] leading-tight">
+                      <span className="text-muted-foreground mr-1">Points to:</span>
+                      {itemData.symlinkTarget || 'Unknown'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+            )}
           </div>
         );
       })}

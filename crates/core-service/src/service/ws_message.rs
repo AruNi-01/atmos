@@ -193,6 +193,8 @@ impl WsMessageService {
                     "name": e.name,
                     "path": e.path.to_string_lossy(),
                     "is_dir": e.is_dir,
+                    "is_symlink": e.is_symlink,
+                    "symlink_target": e.symlink_target,
                     "is_git_repo": e.is_git_repo,
                 })
             })
@@ -251,6 +253,8 @@ impl WsMessageService {
                         "name": item.name,
                         "path": item.path.to_string_lossy(),
                         "is_dir": item.is_dir,
+                        "is_symlink": item.is_symlink,
+                        "symlink_target": item.symlink_target,
                         "children": item.children.map(convert_tree),
                     })
                 })

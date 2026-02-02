@@ -12,6 +12,8 @@ pub struct FsEntry {
     pub name: String,
     pub path: PathBuf,
     pub is_dir: bool,
+    pub is_symlink: bool,
+    pub symlink_target: Option<String>,
     pub is_git_repo: bool,
 }
 
@@ -21,6 +23,8 @@ pub struct FileTreeItem {
     pub name: String,
     pub path: PathBuf,
     pub is_dir: bool,
+    pub is_symlink: bool,
+    pub symlink_target: Option<String>,
     pub children: Option<Vec<FileTreeItem>>,
 }
 
@@ -80,6 +84,14 @@ impl FsEngine {
 
             let path = entry.path();
             let is_dir = path.is_dir();
+            let file_type = entry.file_type().ok();
+            let is_symlink = file_type.map(|ft| ft.is_symlink()).unwrap_or(false);
+
+            let symlink_target = if is_symlink {
+                fs::read_link(&path).ok().map(|p| p.to_string_lossy().to_string())
+            } else {
+                None
+            };
 
             // Skip files if dirs_only is true
             if dirs_only && !is_dir {
@@ -97,6 +109,8 @@ impl FsEngine {
                 name,
                 path,
                 is_dir,
+                is_symlink,
+                symlink_target,
                 is_git_repo,
             });
         }
@@ -301,6 +315,14 @@ impl FsEngine {
 
             let path = entry.path();
             let is_dir = path.is_dir();
+            let file_type = entry.file_type().ok();
+            let is_symlink = file_type.map(|ft| ft.is_symlink()).unwrap_or(false);
+
+            let symlink_target = if is_symlink {
+                fs::read_link(&path).ok().map(|p| p.to_string_lossy().to_string())
+            } else {
+                None
+            };
 
             let children = if is_dir {
                 Some(self.build_file_tree(&path, show_hidden, depth + 1)?)
@@ -312,6 +334,8 @@ impl FsEngine {
                 name,
                 path,
                 is_dir,
+                is_symlink,
+                symlink_target,
                 children,
             });
         }
