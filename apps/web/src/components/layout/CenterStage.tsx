@@ -14,6 +14,9 @@ import {
   TabsList,
   TabsTab,
   TabsPanel,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -272,45 +275,53 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           {/* Open File Tabs */}
           {openFiles.map((file) => {
             const isDiff = file.path.startsWith("diff://");
+            const displayPath = isDiff ? file.path.replace("diff://", "") : file.path;
+
             return (
-              <TabsTab
-                key={file.path}
-                value={file.path}
-                className="h-full pl-2 pr-1 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start"
-              >
-                {isDiff ? (
-                  <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
-                ) : (
-                  <FileIcon name={file.name} className="size-3.5 shrink-0" />
-                )}
-                <span
-                  className={cn(
-                    "text-[13px] font-medium whitespace-nowrap",
-                    isDiff && "text-emerald-500"
-                  )}
-                >
-                  {file.name}
-                </span>
-                {/* Status Icons Slot (Dirty dot / Close button) */}
-                <div className="relative size-4 flex items-center justify-center shrink-0 ml-0">
-                  {/* Dirty indicator: Shown when dirty, hidden on hover so X check can take over */}
-                  {file.isDirty && (
-                    <Circle className="size-1.5 fill-current text-muted-foreground group-hover:hidden" />
-                  )}
-                  {/* Close button: Absolutely positioned to not affect width, shown on hover */}
-                  <span
-                    role="button"
-                    aria-label="Close tab"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCloseFile(file);
-                    }}
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
+              <Tooltip key={file.path}>
+                <TooltipTrigger asChild>
+                  <TabsTab
+                    value={file.path}
+                    className="h-full pl-2 pr-1 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start"
                   >
-                    <X className="size-3" />
-                  </span>
-                </div>
-              </TabsTab>
+                    {isDiff ? (
+                      <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+                    ) : (
+                      <FileIcon name={file.name} className="size-3.5 shrink-0" />
+                    )}
+                    <span
+                      className={cn(
+                        "text-[13px] font-medium whitespace-nowrap",
+                        isDiff && "text-emerald-500"
+                      )}
+                    >
+                      {file.name}
+                    </span>
+                    {/* Status Icons Slot (Dirty dot / Close button) */}
+                    <div className="relative size-4 flex items-center justify-center shrink-0 ml-0">
+                      {/* Dirty indicator: Shown when dirty, hidden on hover so X check can take over */}
+                      {file.isDirty && (
+                        <Circle className="size-1.5 fill-current text-muted-foreground group-hover:hidden" />
+                      )}
+                      {/* Close button: Absolutely positioned to not affect width, shown on hover */}
+                      <span
+                        role="button"
+                        aria-label="Close tab"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCloseFile(file);
+                        }}
+                        className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
+                      >
+                        <X className="size-3" />
+                      </span>
+                    </div>
+                  </TabsTab>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-md break-all">
+                  {displayPath}
+                </TooltipContent>
+              </Tooltip>
             );
           })}
         </TabsList>
