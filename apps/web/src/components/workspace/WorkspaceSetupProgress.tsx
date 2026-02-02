@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -8,13 +8,18 @@ import {
   Terminal,
   ArrowRight,
   AlertCircle,
-  Clock
+  Clock,
+  FileText,
+  SkipForward,
+  Save
 } from "lucide-react";
 import {
-  Button
+  Button,
+  Textarea
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { WorkspaceSetupProgress, useProjectStore } from "@/hooks/use-project-store";
+import { useWorkspaceContextStore } from "@/hooks/use-workspace-context";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -35,12 +40,43 @@ interface WorkspaceSetupProgressProps {
   onFinish: () => void;
 }
 
+type DisplayStatus = 'creating' | 'setting_up' | 'define_requirements' | 'completed' | 'error';
+
 export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> = ({
   progress,
   onFinish
 }) => {
-  const { status, stepTitle, output, lastStatus, workspaceId } = progress;
-  const { retryWorkspaceSetup } = useProjectStore();
+  const { status: backendStatus, stepTitle, output, lastStatus, workspaceId } = progress;
+  const { retryWorkspaceSetup, projects } = useProjectStore();
+  const { saveRequirement } = useWorkspaceContextStore();
+
+  // Find workspace's localPath from projects
+  const workspaceLocalPath = React.useMemo(() => {
+    for (const project of projects) {
+      const workspace = project.workspaces.find(w => w.id === workspaceId);
+      if (workspace) {
+        return workspace.localPath;
+      }
+    }
+    return null;
+  }, [projects, workspaceId]);
+
+  // Local state for the define_requirements step (front-end controlled)
+  const [showDefineRequirements, setShowDefineRequirements] = useState(false);
+  const [requirementText, setRequirementText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Determine the display status (may differ from backend status)
+  const status: DisplayStatus = showDefineRequirements ? 'define_requirements' : backendStatus;
+
+  // When backend status becomes 'completed', intercept and show define_requirements first
+  const prevBackendStatusRef = useRef(backendStatus);
+  useEffect(() => {
+    if (prevBackendStatusRef.current === 'setting_up' && backendStatus === 'completed') {
+      setShowDefineRequirements(true);
+    }
+    prevBackendStatusRef.current = backendStatus;
+  }, [backendStatus]);
 
   const [localCountdown, setLocalCountdown] = React.useState(5);
   const [isHovered, setIsHovered] = React.useState(false);
@@ -48,6 +84,29 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const lastWrittenLengthRef = useRef(0);
+
+  // Handle Skip - just proceed to completed
+  const handleSkip = () => {
+    setShowDefineRequirements(false);
+  };
+
+  // Handle Save & Continue - save requirement then proceed
+  const handleSaveAndContinue = async () => {
+    if (!workspaceLocalPath || !requirementText.trim()) {
+      setShowDefineRequirements(false);
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      await saveRequirement(workspaceId, workspaceLocalPath, requirementText.trim());
+    } catch (error) {
+      console.error('Failed to save requirement:', error);
+    } finally {
+      setIsSaving(false);
+      setShowDefineRequirements(false);
+    }
+  };
 
   // Initialize terminal
   useEffect(() => {
@@ -131,6 +190,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const steps = [
     { id: 'creating', title: 'Initialize Workspace', description: 'Creating directory and worktree' },
     { id: 'setting_up', title: 'Setting up Environment', description: 'Executing setup scripts' },
+    { id: 'define_requirements', title: 'Define Requirements', description: 'Optional: describe your goals' },
     { id: 'completed', title: 'Finalizing', description: 'Almost ready' }
   ];
 
@@ -148,11 +208,12 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
         <p className="text-muted-foreground">Setting up your development environment...</p>
       </div>
 
-      <div className="w-full grid grid-cols-3 gap-4 shrink-0">
+      <div className="w-full grid grid-cols-4 gap-4 shrink-0">
         {steps.map((step, idx) => {
           const isActive = status === step.id;
           const isDone = currentStepIndex > idx || status === 'completed';
           const isFailed = status === 'error' && currentStepIndex === idx;
+          const isDefineRequirements = step.id === 'define_requirements';
 
           return (
             <div key={step.id} className={cn(
@@ -167,12 +228,16 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                 ) : isFailed ? (
                   <AlertCircle className="size-5 text-destructive" />
                 ) : isActive ? (
-                  <Loader2 className="size-5 text-primary animate-spin" />
+                  isDefineRequirements ? (
+                    <FileText className="size-5 text-primary" />
+                  ) : (
+                    <Loader2 className="size-5 text-primary animate-spin" />
+                  )
                 ) : (
                   <Circle className="size-5 text-muted-foreground" />
                 )}
                 <span className={cn(
-                  "font-semibold",
+                  "font-semibold text-sm",
                   isActive ? "text-primary" : isDone ? "text-emerald-500" : isFailed ? "text-destructive" : "text-foreground"
                 )}>
                   {step.title}
@@ -201,26 +266,72 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
         <Progress value={progressValue} className={cn("h-2 transition-all duration-500", status === 'error' && "bg-destructive/20")} />
       </div>
 
-      <div className="w-full flex-1 min-h-[60px] bg-[#09090b] rounded-xl border border-border overflow-hidden flex flex-col shadow-2xl relative group">
-        <div className="bg-[#161b22] px-4 py-2 border-b border-white/5 flex items-center justify-between">
-          <div className="flex gap-1.5">
-            <div className="size-2.5 rounded-full bg-[#ff5f56]" />
-            <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
-            <div className="size-2.5 rounded-full bg-[#27c93f]" />
+      {status === 'define_requirements' ? (
+        <div className="w-full flex-1 min-h-[200px] rounded-xl border border-border overflow-hidden flex flex-col bg-background">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+            <FileText className="size-4 text-primary" />
+            <span className="text-sm font-medium">Define Your Requirements</span>
+            <span className="text-xs text-muted-foreground ml-2">(Optional)</span>
           </div>
-          <span className="text-[10px] text-[#8b949e] font-mono uppercase tracking-widest">Setup Output</span>
+          <div className="flex-1 p-4 flex flex-col gap-4">
+            <Textarea
+              placeholder="Describe your goals, features, or requirements in Markdown format..."
+              className="flex-1 resize-none font-mono text-sm min-h-[150px]"
+              value={requirementText}
+              onChange={(e) => setRequirementText(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              需求将保存到 <code className="px-1 py-0.5 rounded bg-muted">.atmos/context/requirement.md</code>，可供后续上下文追踪以及引用给 Code Agent。
+            </p>
+          </div>
         </div>
-        <div className="flex-1 p-4 overflow-hidden bg-[#09090b]">
-          <div
-            ref={terminalContainerRef}
-            className="h-full w-full"
-          />
+      ) : (
+        <div className="w-full flex-1 min-h-[60px] bg-[#09090b] rounded-xl border border-border overflow-hidden flex flex-col shadow-2xl relative group">
+          <div className="bg-[#161b22] px-4 py-2 border-b border-white/5 flex items-center justify-between">
+            <div className="flex gap-1.5">
+              <div className="size-2.5 rounded-full bg-[#ff5f56]" />
+              <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
+              <div className="size-2.5 rounded-full bg-[#27c93f]" />
+            </div>
+            <span className="text-[10px] text-[#8b949e] font-mono uppercase tracking-widest">Setup Output</span>
+          </div>
+          <div className="flex-1 p-4 overflow-hidden bg-[#09090b]">
+            <div
+              ref={terminalContainerRef}
+              className="h-full w-full"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="w-full flex flex-col items-center gap-2 shrink-0 pb-2">
-        <div className="flex justify-center min-h-[60px]">
-          {status === 'completed' ? (
+        <div className="flex justify-center min-h-[60px] gap-3">
+          {status === 'define_requirements' ? (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                className="px-8 rounded-sm gap-2 hover:cursor-pointer"
+                onClick={handleSkip}
+              >
+                <SkipForward className="size-4" />
+                Skip
+              </Button>
+              <Button
+                size="lg"
+                className="px-8 rounded-sm gap-2 bg-primary text-primary-foreground hover:cursor-pointer"
+                onClick={handleSaveAndContinue}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Save className="size-4" />
+                )}
+                Save & Continue
+              </Button>
+            </>
+          ) : status === 'completed' ? (
             <Button
               size="lg"
               className="px-12 py-6 text-lg rounded-sm shadow-lg hover:shadow-primary/20 hover:scale-105 active:scale-95 transition-all gap-3 bg-primary text-primary-foreground font-bold hover:cursor-pointer"

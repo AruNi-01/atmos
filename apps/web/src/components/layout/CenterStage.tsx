@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
   toastManager,
   getFileIconProps,
+  LayoutDashboard,
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
@@ -44,6 +45,8 @@ import { useProjectStore } from "@/hooks/use-project-store";
 import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
 import { RecentWorkspacesView } from "@/components/workspace/RecentWorkspacesView";
 import { ArchivedWorkspacesView } from "@/components/workspace/ArchivedWorkspacesView";
+import { OverviewTab } from "@/components/workspace/OverviewTab";
+import { useGitInfoStore } from "@/hooks/use-git-info-store";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const FileViewer = dynamic(
@@ -90,6 +93,7 @@ interface CenterStageProps {
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
+  const [fixedTab, setFixedTab] = React.useState<"overview" | "terminal">("terminal");
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
 
   // Wait for editor store hydration to avoid SSR mismatch
@@ -124,7 +128,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     getActiveFile,
   } = useEditorStore();
   const { setCreateProjectOpen } = useDialogStore();
-  const { setupProgress, clearSetupProgress } = useProjectStore();
+  const { projects, setupProgress, clearSetupProgress } = useProjectStore();
+  const { currentBranch } = useGitInfoStore();
 
   const currentSetupProgress = workspaceId ? setupProgress[workspaceId] : null;
 
@@ -142,7 +147,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const openFiles = getOpenFiles(effectiveContextId || undefined);
   const activeFilePath = getActiveFilePath(effectiveContextId || undefined);
 
-  const activeValue = activeFilePath || "terminal";
+  // activeValue 优先使用打开的文件路径，否则使用 fixedTab
+  const activeValue = activeFilePath || fixedTab;
 
   const handleAddAgent = (name: string) => {
     if (terminalGridRef.current) {
@@ -156,6 +162,22 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   const activeFile = getActiveFile(effectiveContextId || undefined);
   const { currentRepoPath } = useGitStore();
+
+  // Derive workspace and project info for OverviewTab
+  const { currentProject, currentWorkspace } = useMemo(() => {
+    if (!effectiveContextId) return { currentProject: undefined, currentWorkspace: undefined };
+    
+    for (const project of projects) {
+      const workspace = project.workspaces.find(w => w.id === effectiveContextId);
+      if (workspace) {
+        return { currentProject: project, currentWorkspace: workspace };
+      }
+    }
+    
+    // If no workspace found, check if effectiveContextId is a projectId
+    const project = projects.find(p => p.id === effectiveContextId);
+    return { currentProject: project, currentWorkspace: undefined };
+  }, [effectiveContextId, projects]);
 
   const isRecentView = searchParams.get('view') === 'recent';
   const isArchivedView = searchParams.get('view') === 'archived';
@@ -211,7 +233,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       <Tabs
         value={activeValue}
         onValueChange={(val) => {
-          if (val === "terminal") {
+          if (val === "terminal" || val === "overview") {
+            setFixedTab(val);
             setActiveFile(null as any, effectiveContextId || undefined);
           } else {
             setActiveFile(val, effectiveContextId || undefined);
@@ -224,6 +247,19 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           variant="underline"
           className="h-10 w-full justify-start rounded-none border-b border-sidebar-border px-0 bg-transparent overflow-x-auto no-scrollbar"
         >
+          {/* Overview Tab - Fixed, shown when workspace/project is selected */}
+          {effectiveContextId && (
+            <TabsTab
+              value="overview"
+              className="h-full pl-4 pr-4 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start"
+            >
+              <LayoutDashboard className="size-3.5" />
+              <span className="text-[13px] font-medium text-pretty">
+                Overview
+              </span>
+            </TabsTab>
+          )}
+
           <TabsTab
             value="terminal"
             className="relative h-full pl-4 pr-8 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start"
@@ -397,6 +433,27 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             </div>
           )}
         </div>
+
+        {/* Overview Tab Content - CSS visibility controlled like terminal */}
+        {effectiveContextId && (
+          <div
+            className={cn(
+              "flex-1 min-h-0 min-w-0 overflow-auto",
+              activeValue !== "overview" && "hidden"
+            )}
+          >
+            <OverviewTab
+              contextId={effectiveContextId}
+              projectName={currentProject?.name}
+              projectPath={currentProject?.mainFilePath}
+              workspaceName={currentWorkspace?.name}
+              workspacePath={currentWorkspace?.localPath}
+              gitBranch={currentBranch ?? undefined}
+              createdAt={currentWorkspace?.createdAt}
+              isProjectOnly={!currentWorkspace}
+            />
+          </div>
+        )}
 
         {openFiles.map((file) => (
           <TabsPanel
