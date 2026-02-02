@@ -425,18 +425,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
         <div className={cn("flex-1 flex flex-col min-h-0", activeTab !== "changes" && "hidden")}>
           {/* Changes Header */}
-          <div className="flex flex-col px-3 py-2 border-b border-sidebar-border shrink-0 bg-sidebar-accent/5 gap-2">
+          <div className="flex border-b border-sidebar-border shrink-0 bg-sidebar-accent/5 h-10 overflow-hidden">
             {hasWorkingContext && (
-              <div className="flex items-center gap-2">
+              <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors border border-sidebar-border"
+                      className="flex-1 flex items-center justify-center gap-1.5 transition-colors group cursor-pointer border-r border-sidebar-border/50 hover:bg-sidebar-accent text-muted-foreground hover:text-foreground"
                       title="Agent Review"
                     >
-                      <Bot className="size-3" />
-                      <span className="text-[10px] font-medium">Review</span>
-                      <ChevronDown className="size-3 ml-auto" />
+                      <Bot className="size-3.5" />
+                      <span className="text-[11px] font-medium">Review</span>
+                      <ChevronDown className="size-3 opacity-50 group-hover:opacity-100 transition-opacity" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
@@ -454,21 +454,23 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
                 <button
-                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors border border-sidebar-border"
+                  className="flex-1 flex items-center justify-center gap-1.5 transition-colors group cursor-pointer border-r border-sidebar-border/50 hover:bg-sidebar-accent text-muted-foreground hover:text-foreground"
                   title="Create PR"
                 >
-                  <GitPullRequestCreateArrow className="size-3" />
-                  <span className="text-[10px] font-medium">Create PR</span>
+                  <GitPullRequestCreateArrow className="size-3.5" />
+                  <span className="text-[11px] font-medium">Create PR</span>
                 </button>
+
                 <button
                   onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
-                  className="p-1.5 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors border border-sidebar-border"
+                  className="w-10 flex items-center justify-center transition-colors group cursor-pointer hover:bg-sidebar-accent text-muted-foreground hover:text-foreground"
                   title="Refresh"
                 >
-                  <RefreshCw className={cn("size-3", isLoading && "animate-spin")} />
+                  <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
                 </button>
-              </div>
+              </>
             )}
           </div>
 
