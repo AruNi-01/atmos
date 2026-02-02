@@ -58,6 +58,16 @@
   }
 }
 
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
+
 /* SketchPicker Dark Mode Overrides */
 .dark .sketch-picker {
   background: #1c1c1f !important;
