@@ -50,7 +50,11 @@ const GROUP_ORDER: TimeGroup[] = [
   'Older'
 ];
 
-export const RecentWorkspacesView: React.FC = () => {
+interface RecentWorkspacesViewProps {
+  refreshKey?: string | number;
+}
+
+export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey }) => {
   const router = useRouter();
   const { projects } = useProjectStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,16 +123,27 @@ export const RecentWorkspacesView: React.FC = () => {
     );
   }, [allWorkspaces, searchQuery]);
 
+  // Stable key for triggering git status refetch
+  const workspaceIds = useMemo(() => {
+    return filteredWorkspaces
+      .filter(w => w.localPath && !w.isArchivedRemote)
+      .map(w => w.id)
+      .sort()
+      .join(',');
+  }, [filteredWorkspaces]);
+
   // Fetch Git Status for visible/filtered workspaces
   useEffect(() => {
     const toCheck = filteredWorkspaces.filter(w => w.localPath && !w.isArchivedRemote);
 
     let active = true;
+    const fetchedIds = new Set<string>();
 
     const fetchStatus = async () => {
       for (const ws of toCheck) {
         if (!active) break;
-        if (gitStatuses[ws.id]) continue;
+        if (fetchedIds.has(ws.id)) continue;
+        fetchedIds.add(ws.id);
 
         setGitStatuses(prev => ({ ...prev, [ws.id]: { loading: true } }));
 
@@ -151,10 +166,13 @@ export const RecentWorkspacesView: React.FC = () => {
       }
     };
 
+    // Reset git statuses when workspaces change
+    setGitStatuses({});
     fetchStatus();
 
     return () => { active = false; };
-  }, [filteredWorkspaces]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey, workspaceIds]);
 
   const groupedWorkspaces = useMemo(() => {
     const groups: Record<TimeGroup, EnrichedWorkspace[]> = {
