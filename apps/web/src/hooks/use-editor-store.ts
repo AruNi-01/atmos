@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useEffect, useState } from 'react';
 import { fsApi } from '@/api/ws-api';
+import { toastManager } from '@workspace/ui';
 
 // ===== 类型定义 =====
 
@@ -190,6 +191,29 @@ export const useEditorStore = create<EditorStore>()(
 
         try {
           const response = await fsApi.readFile(path);
+          if (!response.exists || response.content === null) {
+            // 文件不存在，提示用户并从打开列表中移除
+            const fileName = path.split('/').pop() || path;
+            toastManager.add({
+              title: 'File not found',
+              description: `"${fileName}" does not exist or has been deleted.`,
+              type: 'error',
+            });
+            set((state) => {
+              const ws = state.workspaceStates[id];
+              return {
+                workspaceStates: {
+                  ...state.workspaceStates,
+                  [id]: {
+                    ...ws,
+                    openFiles: ws.openFiles.filter(f => f.path !== path),
+                    activeFilePath: ws.activeFilePath === path ? (ws.openFiles[0]?.path || null) : ws.activeFilePath
+                  }
+                }
+              };
+            });
+            return;
+          }
           set((state) => {
             const ws = state.workspaceStates[id];
             return {
@@ -197,7 +221,7 @@ export const useEditorStore = create<EditorStore>()(
                  ...state.workspaceStates,
                  [id]: {
                    ...ws,
-                   openFiles: ws.openFiles.map(f => f.path === path ? { ...f, content: response.content, originalContent: response.content, isLoading: false } : f)
+                   openFiles: ws.openFiles.map(f => f.path === path ? { ...f, content: response.content as string, originalContent: response.content as string, isLoading: false } : f)
                  }
                }
             };

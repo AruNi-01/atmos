@@ -32,7 +32,8 @@ export interface FsValidateGitPathResponse {
 // 文件读写类型
 export interface FsReadFileResponse {
   path: string;
-  content: string;
+  exists: boolean;
+  content: string | null;
   size: number;
 }
 

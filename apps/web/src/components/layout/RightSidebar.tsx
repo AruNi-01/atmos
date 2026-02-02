@@ -37,9 +37,10 @@ import {
   DialogDescription,
   DialogFooter,
   DialogClose,
-  Button
+  Button,
+  toastManager
 } from "@workspace/ui";
-import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen } from "lucide-react";
+import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from 'next/navigation';
 import { GitChangedFile } from '@/api/ws-api';
@@ -424,15 +425,37 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
         <div className={cn("flex-1 flex flex-col min-h-0", activeTab !== "changes" && "hidden")}>
           {/* Changes Header */}
-          <div className="h-9 flex items-center justify-between px-3 border-b border-sidebar-border shrink-0 bg-sidebar-accent/5">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Source Control</span>
-              {(isLoading || isGlobalActionLoading) && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
-            </div>
+          <div className="flex flex-col px-3 py-2 border-b border-sidebar-border shrink-0 bg-sidebar-accent/5 gap-2">
             {hasWorkingContext && (
               <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors border border-sidebar-border"
+                      title="Agent Review"
+                    >
+                      <Bot className="size-3" />
+                      <span className="text-[10px] font-medium">Review</span>
+                      <ChevronDown className="size-3 ml-auto" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
+                      <Bot className="size-3 mr-2" />
+                      <span>Code Agent Review</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
+                      <Link className="size-3 mr-2" />
+                      <span>Qodo</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
+                      <Link className="size-3 mr-2" />
+                      <span>Devin Review</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <button
-                  className="flex items-center gap-1.5 px-2 py-1 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors border border-sidebar-border"
                   title="Create PR"
                 >
                   <GitPullRequestCreateArrow className="size-3" />
@@ -440,7 +463,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 </button>
                 <button
                   onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
-                  className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                  className="p-1.5 hover:bg-sidebar-accent rounded-sm cursor-pointer text-muted-foreground hover:text-foreground transition-colors border border-sidebar-border"
                   title="Refresh"
                 >
                   <RefreshCw className={cn("size-3", isLoading && "animate-spin")} />

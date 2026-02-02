@@ -223,10 +223,22 @@ impl WsMessageService {
 
     fn handle_fs_read_file(&self, req: FsReadFileRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
+        
+        // 检查文件是否存在，不存在时返回正常响应而非错误
+        if !path.exists() {
+            return Ok(json!({
+                "path": path.to_string_lossy(),
+                "exists": false,
+                "content": null,
+                "size": 0,
+            }));
+        }
+        
         let (content, size) = self.fs_engine.read_file(&path)?;
 
         Ok(json!({
             "path": path.to_string_lossy(),
+            "exists": true,
             "content": content,
             "size": size,
         }))
