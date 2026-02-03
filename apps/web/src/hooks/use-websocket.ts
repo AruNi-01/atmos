@@ -57,7 +57,9 @@ export type WsAction =
   | 'workspace_unarchive'
   | 'workspace_retry_setup'
   // Project 检查操作
-  | 'project_check_can_delete';
+  | 'project_check_can_delete'
+  // Skills 操作
+  | 'skills_list';
 
 export interface WsRequest {
   type: 'request';

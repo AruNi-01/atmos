@@ -1,5 +1,6 @@
 pub mod message_push;
 pub mod project;
+pub mod skill;
 pub mod terminal;
 pub mod test;
 pub mod workspace;

@@ -592,3 +592,33 @@ export const wsScriptApi = {
   },
 };
 
+// ===== Skills API =====
+
+export interface SkillFile {
+  name: string;
+  relative_path: string;
+  absolute_path: string;
+  content: string | null;
+  is_main: boolean;
+}
+
+export interface SkillInfo {
+  name: string;
+  description: string;
+  agents: string[];
+  scope: 'global' | 'project';
+  project_id: string | null;
+  project_name: string | null;
+  path: string;
+  files: SkillFile[];
+  title: string | null;
+}
+
+export const skillsApi = {
+  /**
+   * 获取已安装的 Skills 列表
+   */
+  list: async (): Promise<{ skills: SkillInfo[] }> => {
+    return wsRequest<{ skills: SkillInfo[] }>('skills_list');
+  },
+};

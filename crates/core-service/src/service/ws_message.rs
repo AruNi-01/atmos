@@ -169,6 +169,9 @@ impl WsMessageService {
             WsAction::ProjectCheckCanDelete => {
                 self.handle_project_check_can_delete(parse_request(request.data)?).await
             }
+
+            // Skills
+            WsAction::SkillsList => self.handle_skills_list().await,
         }
     }
 
@@ -909,6 +912,26 @@ set -x
         }
 
         Ok(())
+    }
+
+    // ===== Skills Handlers =====
+
+    async fn handle_skills_list(&self) -> Result<Value> {
+        use crate::service::skill::SkillScanner;
+
+        // Get all projects with their paths
+        let projects = self.project_service.list_projects().await?;
+        let project_paths: Vec<(String, String, String)> = projects
+            .iter()
+            .map(|p| (p.guid.clone(), p.name.clone(), p.main_file_path.clone()))
+            .collect();
+
+        // Scan for skills
+        let skills = SkillScanner::scan_all(&project_paths);
+
+        Ok(json!({
+            "skills": skills
+        }))
     }
 }
 

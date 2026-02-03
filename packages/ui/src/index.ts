@@ -30,6 +30,7 @@ export * from "./components/ui/collapsible";
 export * from "./components/ui/textarea";
 export * from "./components/ui/tooltip";
 export * from "./components/ui/skeleton";
+export * from "./components/ui/preview-card";
 
 // Utilities
 export { cn } from "./lib/utils";

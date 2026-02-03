@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useParams } from 'next/navigation';
 import {
   ArrowRight,
   Archive,
@@ -22,6 +22,7 @@ import {
   ScrollArea,
   Maximize,
   Minimize,
+  Puzzle,
 } from '@workspace/ui';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
@@ -33,9 +34,12 @@ import { toastManager } from '@workspace/ui';
 import { ArchivedWorkspacesModal } from '@/components/dialogs/ArchivedWorkspacesModal';
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
+import { SkillsModal } from '@/components/skills';
 
 const Header: React.FC = () => {
   const searchParams = useSearchParams();
+  const params = useParams();
+  const locale = params?.locale as string || 'en';
   const currentWorkspaceId = searchParams.get('workspaceId');
 
   const { projects, updateWorkspaceBranch, setupProgress } = useProjectStore();
@@ -80,6 +84,9 @@ const Header: React.FC = () => {
 
   // Fullscreen state
   const [isFullScreen, setIsFullScreen] = useState(false);
+
+  // Skills modal state
+  const [isSkillsModalOpen, setIsSkillsModalOpen] = useState(false);
 
   // Archive modal and delete dialog states
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
@@ -425,6 +432,13 @@ const Header: React.FC = () => {
 
         <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
         <button
+          onClick={() => window.open(`/${locale}/skills`, '_blank')}
+          aria-label="Skills"
+          className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200 cursor-pointer"
+        >
+          <Puzzle className="size-4" />
+        </button>
+        <button
           onClick={toggleFullScreen}
           aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
           className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
@@ -478,6 +492,12 @@ const Header: React.FC = () => {
           }}
         />
       )}
+
+      {/* Skills Modal */}
+      <SkillsModal
+        isOpen={isSkillsModalOpen}
+        onClose={() => setIsSkillsModalOpen(false)}
+      />
     </header>
   );
 };
