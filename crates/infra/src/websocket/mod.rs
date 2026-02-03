@@ -34,5 +34,6 @@ pub use message::{
     WsMessage, WsRequest, WsResponse, WorkspaceRetrySetupRequest, WorkspaceUnarchiveRequest,
     ScriptGetRequest, ScriptSaveRequest,
     WsEvent, WorkspaceSetupProgressNotification,
+    SkillInfo, SkillFile, SkillsListResponse,
 };
 pub use service::{WsService, WsServiceConfig};

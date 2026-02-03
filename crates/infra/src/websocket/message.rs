@@ -180,6 +180,10 @@ pub enum WsAction {
     WorkspaceRetrySetup,
     /// 检查项目是否可以删除（从归档模态）
     ProjectCheckCanDelete,
+
+    // ===== Skills 操作 =====
+    /// 获取已安装的 Skills 列表
+    SkillsList,
 }
 
 /// 服务端主动推送的事件类型
@@ -677,6 +681,52 @@ pub struct WorkspaceUnarchiveRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectCheckCanDeleteRequest {
     pub guid: String,
+}
+
+// ===== Skills 操作数据结构 =====
+
+/// Skill 中的文件信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFile {
+    /// 文件名
+    pub name: String,
+    /// 文件相对路径
+    pub relative_path: String,
+    /// 文件绝对路径
+    pub absolute_path: String,
+    /// 文件内容 (仅文本文件)
+    pub content: Option<String>,
+    /// 是否是主文件 (SKILL.md, README.md 等)
+    pub is_main: bool,
+}
+
+/// 已安装的 Skill 信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillInfo {
+    /// Skill 名称
+    pub name: String,
+    /// Skill 描述
+    pub description: String,
+    /// 来源 Agent 列表 (cursor, claude, factory, etc.)
+    pub agents: Vec<String>,
+    /// 作用域: global 或 project
+    pub scope: String,
+    /// 项目 ID (scope=project 时)
+    pub project_id: Option<String>,
+    /// 项目名称 (scope=project 时)
+    pub project_name: Option<String>,
+    /// Skill 文件路径
+    pub path: String,
+    /// Skill 包含的所有文件
+    pub files: Vec<SkillFile>,
+    /// Skill 标题 (从 frontmatter 提取)
+    pub title: Option<String>,
+}
+
+/// Skills 列表响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillsListResponse {
+    pub skills: Vec<SkillInfo>,
 }
 
 // ===== WsMessage 工厂方法 =====
