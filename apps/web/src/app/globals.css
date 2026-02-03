@@ -66,6 +66,18 @@
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
   }
+
+  /* Scrollbar visible only on hover of container */
+  .scrollbar-on-hover::-webkit-scrollbar-thumb {
+    background: transparent;
+    transition: background 0.2s ease;
+  }
+  .scrollbar-on-hover:hover::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20;
+  }
+  .scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
 }
 
 /* SketchPicker Dark Mode Overrides */
