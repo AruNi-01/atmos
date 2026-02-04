@@ -1,5 +1,6 @@
 // Agent display names and colors
 export const AGENT_CONFIG: Record<string, { name: string; color: string }> = {
+  unified: { name: 'Unified', color: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },
   amp: { name: 'Amp', color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400' },
   antigravity: { name: 'Antigravity', color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
   augment: { name: 'Augment', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },

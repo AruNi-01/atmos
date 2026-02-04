@@ -94,7 +94,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
       <div className="flex items-center gap-1.5 mt-3 flex-wrap overflow-hidden h-[22px]">
         {skill.agents.map((agent) => {
           const config = getAgentConfig(agent);
-          return (
+          const label = (
             <span 
               key={agent} 
               className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0", config.color)}
@@ -102,6 +102,21 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
               {config.name}
             </span>
           );
+
+          if (agent === 'unified') {
+            return (
+              <TooltipProvider key={agent} delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>{label}</TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">From: .agents/skills</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
+
+          return label;
         })}
       </div>
     </div>
