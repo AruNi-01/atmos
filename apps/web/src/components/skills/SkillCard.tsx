@@ -32,7 +32,11 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
       onClick();
     } else {
       const identifier = encodeURIComponent(skill.title || skill.name);
-      router.push(`/${locale}/skills/${skill.scope}/${identifier}`);
+      // Use query params to open skill detail within the current view
+      const params = new URLSearchParams(window.location.search);
+      params.set('skillId', identifier);
+      params.set('skillScope', skill.scope);
+      router.push(`/?${params.toString()}`);
     }
   };
 

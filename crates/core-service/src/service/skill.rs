@@ -111,6 +111,35 @@ impl SkillScanner {
         result
     }
 
+    /// Scan for a specific skill (by name/title matching)
+    pub fn scan_one(
+        project_paths: &[(String, String, String)],
+        scope: &str,
+        identifier: &str,
+    ) -> Option<SkillInfo> {
+        let all_skills = Self::scan_all(project_paths);
+        
+        all_skills.into_iter().find(|skill| {
+            if skill.scope != scope {
+                return false;
+            }
+            
+            // Try matching name
+            if skill.name == identifier {
+                return true;
+            }
+
+            // Try matching title
+            if let Some(title) = &skill.title {
+                if title == identifier {
+                    return true;
+                }
+            }
+            
+            false
+        })
+    }
+
     /// Scan a directory for skills from all agents
     fn scan_directory(
         base_path: &Path,

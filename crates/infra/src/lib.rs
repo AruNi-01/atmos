@@ -27,5 +27,5 @@ pub use websocket::{
     WsRequest, WsResponse, WsResult, WsService, WsServiceConfig,
     ScriptGetRequest, ScriptSaveRequest,
     WsEvent, WorkspaceSetupProgressNotification,
-    SkillInfo, SkillFile, SkillsListResponse,
+    SkillInfo, SkillFile, SkillsListResponse, SkillsGetRequest,
 };

@@ -23,6 +23,7 @@ use infra::{
     WsAction, WsMessage, WsMessageHandler, WsRequest,
     ScriptGetRequest, ScriptSaveRequest,
     WsEvent, WorkspaceSetupProgressNotification,
+    SkillsGetRequest,
 };
 use tokio::sync::OnceCell;
 use serde_json::{json, Value};
@@ -172,6 +173,7 @@ impl WsMessageService {
 
             // Skills
             WsAction::SkillsList => self.handle_skills_list().await,
+            WsAction::SkillsGet => self.handle_skills_get(parse_request(request.data)?).await,
         }
     }
 
@@ -932,6 +934,26 @@ set -x
         Ok(json!({
             "skills": skills
         }))
+    }
+
+    async fn handle_skills_get(&self, req: SkillsGetRequest) -> Result<Value> {
+        use crate::service::skill::SkillScanner;
+
+        // Get all projects with their paths
+        let projects = self.project_service.list_projects().await?;
+        let project_paths: Vec<(String, String, String)> = projects
+            .iter()
+            .map(|p| (p.guid.clone(), p.name.clone(), p.main_file_path.clone()))
+            .collect();
+
+        // Scan for the specific skill
+        let skill = SkillScanner::scan_one(&project_paths, &req.scope, &req.id);
+
+        if let Some(skill) = skill {
+            Ok(json!(skill))
+        } else {
+             Err(ServiceError::Validation("Skill not found".to_string()))
+        }
     }
 }
 

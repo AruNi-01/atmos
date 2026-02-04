@@ -46,6 +46,8 @@ import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetu
 import { RecentWorkspacesView } from "@/components/workspace/RecentWorkspacesView";
 import { ArchivedWorkspacesView } from "@/components/workspace/ArchivedWorkspacesView";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
+import { WorkspacesManagementView } from "@/components/workspace/WorkspacesManagementView";
+import { SkillsView } from "@/components/skills/SkillsView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
 
 // Dynamic import Monaco Editor to avoid SSR issues
@@ -181,19 +183,21 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   const isRecentView = searchParams.get('view') === 'recent';
   const isArchivedView = searchParams.get('view') === 'archived';
+  const isWorkspacesView = searchParams.get('view') === 'workspaces';
+  const isSkillsView = searchParams.get('view') === 'skills';
 
   if (!effectiveContextId) {
-    if (isRecentView) {
+    if (isRecentView || isArchivedView || isWorkspacesView) {
       return (
         <main className="h-full overflow-hidden">
-          <RecentWorkspacesView refreshKey={searchParams.toString()} />
+          <WorkspacesManagementView />
         </main>
       );
     }
-    if (isArchivedView) {
+    if (isSkillsView) {
       return (
         <main className="h-full overflow-hidden">
-          <ArchivedWorkspacesView />
+          <SkillsView />
         </main>
       );
     }
