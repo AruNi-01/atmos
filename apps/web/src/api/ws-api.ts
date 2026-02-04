@@ -621,4 +621,11 @@ export const skillsApi = {
   list: async (): Promise<{ skills: SkillInfo[] }> => {
     return wsRequest<{ skills: SkillInfo[] }>('skills_list');
   },
+
+  /**
+   * 获取单个 Skill 详情
+   */
+  get: async (scope: string, id: string): Promise<SkillInfo> => {
+    return wsRequest<SkillInfo>('skills_get', { scope, id });
+  },
 };

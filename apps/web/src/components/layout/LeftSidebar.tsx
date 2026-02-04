@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { DraggableAttributes, DraggableSyntheticListeners, DragStartEvent } from '@dnd-kit/core';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
     Ellipsis,
     Plus,
@@ -67,7 +67,10 @@ import {
     TooltipTrigger,
     TooltipContent,
     TooltipProvider,
-    FolderKanban
+    FolderKanban,
+    Clock,
+    ArrowRight,
+    Puzzle
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -84,7 +87,6 @@ import { useGitStatusCheck, useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useTheme } from 'next-themes';
 import { SketchPicker } from 'react-color';
-import { Clock, ArrowRight } from '@workspace/ui';
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -728,6 +730,7 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
     const router = useRouter();
+    const pathname = usePathname();
     const searchParams = useSearchParams();
     const {
         projects,
@@ -750,7 +753,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
-    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(view === 'recent' || view === 'archived');
+    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(view === 'workspaces' || view === 'recent' || view === 'archived' || view === 'skills');
     const [activeId, setActiveId] = useState<string | null>(null);
 
     // File tree state
@@ -1025,7 +1028,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     return (
         <>
             <aside className="w-full flex flex-col h-full select-none">
-                {/* Header with Recently Workspaces */}
+                {/* Management Center */}
                 <div className="flex flex-col border-b border-sidebar-border/50 shrink-0">
                     <div
                         className="h-[39px] flex items-center justify-between px-4 text-sm font-medium cursor-pointer hover:bg-sidebar-accent/50 transition-colors select-none"
@@ -1033,7 +1036,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                     >
                         <div className="flex items-center gap-2">
                             <Layers className="size-4" />
-                            <span>Workspaces</span>
+                            <span>Management Center</span>
                         </div>
                         <div className={cn("text-muted-foreground transition-transform duration-200", isWorkspacesExpanded ? "rotate-90" : "")}>
                             <ArrowRight className="size-3.5" />
@@ -1046,34 +1049,34 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                     )}>
                         <div className="overflow-hidden flex flex-col">
                             <button
-                                onClick={() => router.push('/?view=recent')}
+                                onClick={() => router.push('/?view=workspaces')}
                                 className={cn(
                                     "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    view === 'recent'
+                                    view === 'workspaces' || view === 'recent' || view === 'archived'
                                         ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
                                         : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
                                 )}
                             >
                                 <div className="flex items-center gap-2">
                                     <Clock className="size-3.5" />
-                                    <span>Recently Workspaces</span>
+                                    <span>Workspaces</span>
                                 </div>
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
                                     <ArrowRight className="size-3.5" />
                                 </div>
                             </button>
                             <button
-                                onClick={() => router.push('/?view=archived')}
+                                onClick={() => router.push('/?view=skills')}
                                 className={cn(
                                     "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    view === 'archived'
+                                    view === 'skills'
                                         ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
                                         : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
                                 )}
                             >
                                 <div className="flex items-center gap-2">
-                                    <Archive className="size-3.5" />
-                                    <span>Archived Workspaces</span>
+                                    <Puzzle className="size-3.5" />
+                                    <span>Skills</span>
                                 </div>
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
                                     <ArrowRight className="size-3.5" />

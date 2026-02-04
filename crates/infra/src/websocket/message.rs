@@ -184,6 +184,8 @@ pub enum WsAction {
     // ===== Skills 操作 =====
     /// 获取已安装的 Skills 列表
     SkillsList,
+    /// 获取单个 Skill 详情
+    SkillsGet,
 }
 
 /// 服务端主动推送的事件类型
@@ -727,6 +729,12 @@ pub struct SkillInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillsListResponse {
     pub skills: Vec<SkillInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillsGetRequest {
+    pub scope: String,
+    pub id: String,
 }
 
 // ===== WsMessage 工厂方法 =====

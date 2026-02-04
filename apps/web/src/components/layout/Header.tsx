@@ -433,13 +433,6 @@ const Header: React.FC = () => {
 
         <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
         <button
-          onClick={() => window.open(`/${locale}/skills`, '_blank')}
-          aria-label="Skills"
-          className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200 cursor-pointer"
-        >
-          <Puzzle className="size-4" />
-        </button>
-        <button
           onClick={toggleFullScreen}
           aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
           className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
