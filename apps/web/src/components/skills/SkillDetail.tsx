@@ -25,17 +25,20 @@ import {
   PanelGroup,
   PanelResizeHandle,
   ImperativePanelHandle,
+  toastManager,
+  Circle,
+  Save,
 } from '@workspace/ui';
 import { useAppStorage } from "@atmos/shared";
 import { useTheme } from 'next-themes';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { SkillInfo, SkillFile } from '@/api/ws-api';
+import { SkillInfo, SkillFile, fsApi } from '@/api/ws-api';
 import { getAgentConfig } from './constants';
 import { QuickOpen } from '@/components/layout/QuickOpen';
 
 const MonacoEditor = dynamic(
-  () => import('@monaco-editor/react').then(mod => mod.default),
+  () => import('@/components/editor/BaseMonacoEditor').then(mod => mod.BaseMonacoEditor),
   {
     ssr: false,
     loading: () => (
@@ -256,19 +259,23 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
     skill.files?.find(f => f.is_main) || skill.files?.[0] || null
   );
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => {
-    // Expand all directories by default
+    // Expand only the directory of the selected file (if any)
     const dirs = new Set<string>();
-    skill.files?.forEach(f => {
-      const parts = f.relative_path.split('/');
+    const fileToExpand = skill.files?.find(f => f.is_main) || skill.files?.[0];
+    
+    if (fileToExpand) {
+      const parts = fileToExpand.relative_path.split('/');
+      // Add all parent paths
       for (let i = 1; i < parts.length; i++) {
         dirs.add(parts.slice(0, i).join('/'));
       }
-    });
+    }
     return dirs;
   });
   const [isReadOnly, setIsReadOnly] = useState(true);
   const [isPreview, setIsPreview] = useState(true);
   const [fileContent, setFileContent] = useState<string>(selectedFile?.content || '');
+  const [isSaving, setIsSaving] = useState(false);
 
   const [isFilesCollapsed, setIsFilesCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -278,6 +285,10 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
 
   const isMarkdown = selectedFile?.name.endsWith('.md') || selectedFile?.name.endsWith('.mdx');
   const language = selectedFile ? getLanguageFromFileName(selectedFile.name) : 'plaintext';
+  
+  // Dirty check: compare current content with the content in the selectedFile object
+  // Note: We need to make sure selectedFile.content is up to date when we save.
+  const hasUnsavedChanges = selectedFile ? fileContent !== (selectedFile.content || '') : false;
 
   const handleToggleDir = useCallback((path: string) => {
     setExpandedDirs(prev => {
@@ -290,6 +301,48 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
       return next;
     });
   }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!selectedFile || !fileContent) return;
+    
+    setIsSaving(true);
+    try {
+      const res = await fsApi.writeFile(selectedFile.absolute_path, fileContent);
+      if (res.success) {
+        // Update the local selectedFile object content to reflect the saved state
+        // This is important to reset the dirty state
+        selectedFile.content = fileContent;
+        
+        // Force re-render to update UI (dirty state calculation depends on this)
+        // Since we mutated the object, React won't see a "change" in selectedFile prop unless we force it
+        // But the dirty check happens in render. 
+        // We can just setFileContent to the same value to trigger render, 
+        // OR better: update the file in the `skill.files` array via a state update if we had one.
+        // Since we don't have a local `files` state, we are mutating the prop/derived state object.
+        // To ensure the UI updates, we can update a timestamp or similar, or just re-set fileContent.
+        // Actually, since hasUnsavedChanges is derived from fileContent and selectedFile.content,
+        // and we mutated selectedFile.content, we need to trigger a render.
+        setFileContent(prev => prev); // Dummy update to trigger render? No, primitive equality check.
+        // Let's toggle isSaving to false later which triggers render.
+        
+        toastManager.add({
+          title: 'Saved',
+          description: `${selectedFile.name} saved successfully`,
+          type: 'success',
+        });
+      } else {
+        throw new Error('Failed to write file');
+      }
+    } catch (err) {
+      toastManager.add({
+        title: 'Save Failed',
+        description: `Failed to save ${selectedFile.name}`,
+        type: 'error',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [selectedFile, fileContent]);
 
   const handleSelectFile = useCallback((file: SkillFile) => {
     setSelectedFile(file);
@@ -444,8 +497,27 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
                 <div className="flex items-center gap-2 min-w-0">
                   <FileIcon name={selectedFile.name} isDir={false} className="size-4" />
                   <span className="text-sm font-medium truncate">{selectedFile.relative_path}</span>
+                  {hasUnsavedChanges && (
+                    <Circle className="size-1.5 fill-current text-primary animate-in fade-in zoom-in duration-200" />
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
+                  {/* Save button */}
+                  <button
+                    onClick={handleSave}
+                    disabled={!hasUnsavedChanges || isSaving}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors cursor-pointer",
+                      hasUnsavedChanges 
+                        ? "bg-primary/10 text-primary hover:bg-primary/20" 
+                        : "text-muted-foreground opacity-50 cursor-not-allowed"
+                    )}
+                    title={hasUnsavedChanges ? "Save changes (Cmd+S)" : "No unsaved changes"}
+                  >
+                    {isSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
+                    <span>Save</span>
+                  </button>
+
                   {/* Read-only toggle - Only for non-markdown files */}
                   {!isMarkdown && (
                     <button
@@ -499,29 +571,14 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
                     </ScrollArea>
                   ) : (
                     <MonacoEditor
-                      height="100%"
                       language={language}
                       value={fileContent}
                       onChange={(value) => !isReadOnly && setFileContent(value || '')}
-                      theme={resolvedTheme === 'dark' ? 'vs-dark' : 'light'}
-                      options={{
-                        readOnly: isReadOnly,
-                        fontSize: 13,
-                        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                        lineHeight: 1.6,
-                        minimap: { enabled: false },
-                        scrollBeyondLastLine: false,
-                        wordWrap: 'on',
-                        automaticLayout: true,
-                        tabSize: 2,
-                        padding: { top: 16, bottom: 16 },
-                        scrollbar: {
-                          verticalScrollbarSize: 6,
-                          horizontalScrollbarSize: 6,
-                        },
-                        renderLineHighlight: 'line',
-                        lineNumbers: 'on',
-                        folding: true,
+                      isReadOnly={isReadOnly}
+                      onMount={(editor, monaco) => {
+                        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+                          handleSave();
+                        });
                       }}
                     />
                   )
