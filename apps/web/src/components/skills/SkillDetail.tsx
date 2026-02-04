@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   cn,
@@ -10,6 +10,7 @@ import {
   Globe,
   ArrowLeft,
   ChevronRight,
+  ChevronLeft,
   Loader2,
   getFileIconProps,
   Eye,
@@ -20,7 +21,12 @@ import {
   PreviewCardTrigger,
   PreviewCardPopup,
   Info,
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+  ImperativePanelHandle,
 } from '@workspace/ui';
+import { useAppStorage } from "@atmos/shared";
 import { useTheme } from 'next-themes';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -148,7 +154,7 @@ const TreeItem: React.FC<{
           }
         }}
         className={cn(
-          'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors',
+          'flex items-center py-1 px-2 cursor-pointer select-none rounded-none transition-colors',
           'hover:bg-sidebar-accent/50',
           isSelected && 'bg-sidebar-accent text-sidebar-foreground'
         )}
@@ -186,8 +192,64 @@ const TreeItem: React.FC<{
   );
 };
 
+interface ResizeHandleProps {
+  onCollapse: () => void;
+  isCollapsed: boolean;
+  side: "left" | "right";
+  onDragging: (isDragging: boolean) => void;
+  className?: string;
+}
+
+function ResizeHandle({
+  onCollapse,
+  isCollapsed,
+  side,
+  onDragging,
+  className,
+}: ResizeHandleProps) {
+  return (
+    <PanelResizeHandle
+      onDragging={onDragging}
+      className={cn(
+        "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none z-10",
+        "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10", // Expand hit area
+        className
+      )}
+    >
+      {/* Visual Line (1px inherited from w-px parent) */}
+
+      {/* Collapse Hint Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onCollapse();
+        }}
+        title={isCollapsed ? "Expand" : "Collapse"}
+        className={cn(
+          "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
+          "left-1/2 -translate-x-1/2",
+          isCollapsed && "opacity-100! bg-accent!"
+        )}
+      >
+        {side === "left" ? (
+          isCollapsed ? (
+            <ChevronRight className="size-3 text-muted-foreground" />
+          ) : (
+            <ChevronLeft className="size-3 text-muted-foreground" />
+          )
+        ) : isCollapsed ? (
+          <ChevronLeft className="size-3 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="size-3 text-muted-foreground" />
+        )}
+      </button>
+    </PanelResizeHandle>
+  );
+}
+
 export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
   const { resolvedTheme } = useTheme();
+  const storage = useAppStorage();
   const fileCount = skill.files?.length || 0;
   
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(
@@ -207,6 +269,10 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
   const [isReadOnly, setIsReadOnly] = useState(true);
   const [isPreview, setIsPreview] = useState(true);
   const [fileContent, setFileContent] = useState<string>(selectedFile?.content || '');
+
+  const [isFilesCollapsed, setIsFilesCollapsed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const filesPanelRef = useRef<ImperativePanelHandle>(null);
 
   const fileTree = useMemo(() => buildFileTree(skill.files || []), [skill.files]);
 
@@ -246,64 +312,62 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
           <div className="size-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
             <Puzzle className="size-4 text-muted-foreground" />
           </div>
-          <div className="min-w-0">
-            <h2 className="font-semibold text-base truncate">{skill.title || skill.name}</h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <div className="flex items-center gap-1.5 flex-wrap overflow-hidden h-[22px]">
-                {skill.agents.map((agent) => {
-                  const config = getAgentConfig(agent);
-                  return (
-                    <span 
-                      key={agent} 
-                      className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0", config.color)}
-                    >
-                      {config.name}
-                    </span>
-                  );
-                })}
-              </div>
-
-              <div className="flex items-center gap-1.5 ml-2 border-l border-border pl-2 h-5 shrink-0">
+          <div className="min-w-0 flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-base truncate">{skill.title || skill.name}</h2>
+              <div className="flex items-center gap-1.5 shrink-0">
                 <span className={cn(
-                  "text-[9px] px-1 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider",
-                  skill.scope === 'global' 
-                    ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  "text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider h-5",
+                  "bg-muted text-muted-foreground"
                 )}>
-                  {skill.scope === 'global' ? <Globe className="size-2" /> : <Folder className="size-2" />}
+                  {skill.scope === 'global' ? <Globe className="size-2.5" /> : <Folder className="size-2.5" />}
                   {skill.scope}
                 </span>
 
                 {fileCount > 0 && (
-                  <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-1 uppercase tracking-wider font-medium">
-                    <FileText className="size-2" />
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-1 uppercase tracking-wider font-medium h-5">
+                    <FileText className="size-2.5" />
                     {fileCount}
                   </span>
                 )}
-              </div>
 
-              {skill.description && (
-                <PreviewCard>
-                  <PreviewCardTrigger>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground flex items-center gap-1 cursor-help hover:bg-accent transition-colors h-5">
-                      <Info className="size-2.5" />
-                      Description
-                    </span>
-                  </PreviewCardTrigger>
-                  <PreviewCardPopup side="bottom" align="start" className="w-80">
-                    <div className="flex flex-col gap-2 overflow-hidden">
-                      <div className="flex flex-col gap-1">
-                        <h4 className="font-medium text-sm">Description</h4>
-                        <ScrollArea className="max-h-60 overflow-y-auto pr-2">
-                          <p className="text-muted-foreground text-xs leading-relaxed">
-                            {skill.description}
-                          </p>
-                        </ScrollArea>
+                {skill.description && (
+                  <PreviewCard>
+                    <PreviewCardTrigger>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-muted text-muted-foreground flex items-center gap-1 cursor-help hover:bg-accent transition-colors h-5">
+                        <Info className="size-2.5" />
+                        Description
+                      </span>
+                    </PreviewCardTrigger>
+                    <PreviewCardPopup side="bottom" align="start" className="w-80">
+                      <div className="flex flex-col gap-2 overflow-hidden">
+                        <div className="flex flex-col gap-1">
+                          <h4 className="font-medium text-sm">Description</h4>
+                          <ScrollArea className="max-h-60 overflow-y-auto pr-2">
+                            <p className="text-muted-foreground text-xs leading-relaxed">
+                              {skill.description}
+                            </p>
+                          </ScrollArea>
+                        </div>
                       </div>
-                    </div>
-                  </PreviewCardPopup>
-                </PreviewCard>
-              )}
+                    </PreviewCardPopup>
+                  </PreviewCard>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1.5 flex-wrap overflow-hidden h-[22px]">
+              {skill.agents.map((agent) => {
+                const config = getAgentConfig(agent);
+                return (
+                  <span 
+                    key={agent} 
+                    className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0", config.color)}
+                  >
+                    {config.name}
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -313,15 +377,33 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <PanelGroup 
+        direction="horizontal" 
+        className="flex-1 overflow-hidden" 
+        autoSaveId="skill-detail-layout" 
+        storage={storage}
+      >
         {/* File tree sidebar */}
-        <div className="w-60 border-r border-border shrink-0 flex flex-col bg-sidebar">
-          <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+        <Panel 
+          ref={filesPanelRef}
+          defaultSize={20} 
+          minSize={15} 
+          maxSize={40} 
+          collapsible 
+          collapsedSize={0}
+          onCollapse={() => setIsFilesCollapsed(true)}
+          onExpand={() => setIsFilesCollapsed(false)}
+          className={cn(
+            "flex flex-col bg-background min-w-0 transition-all duration-300 ease-in-out",
+            isDragging && "transition-none"
+          )}
+        >
+          <div className="px-3 h-9 border-b border-border flex items-center justify-between shrink-0">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Files</span>
             <span className="text-[10px] text-muted-foreground">{skill.files?.length || 0}</span>
           </div>
           <ScrollArea className="flex-1">
-            <div className="py-1">
+            <div>
               {fileTree.map(node => (
                 <TreeItem
                   key={node.path}
@@ -338,38 +420,60 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
               )}
             </div>
           </ScrollArea>
-        </div>
+        </Panel>
+
+        <ResizeHandle 
+          onCollapse={() => {
+            if (isFilesCollapsed) {
+              filesPanelRef.current?.expand();
+            } else {
+              filesPanelRef.current?.collapse();
+            }
+          }}
+          isCollapsed={isFilesCollapsed}
+          side="left"
+          onDragging={setIsDragging}
+        />
 
         {/* File content area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <Panel className="flex flex-col overflow-hidden min-w-0">
           {selectedFile ? (
             <>
               {/* File toolbar */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-muted/30">
+              <div className="flex items-center justify-between px-4 h-9 border-b border-border shrink-0 bg-muted/30">
                 <div className="flex items-center gap-2 min-w-0">
                   <FileIcon name={selectedFile.name} isDir={false} className="size-4" />
                   <span className="text-sm font-medium truncate">{selectedFile.relative_path}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  {/* Read-only toggle */}
-                  <button
-                    onClick={() => setIsReadOnly(!isReadOnly)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors cursor-pointer",
-                      isReadOnly 
-                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
-                        : "bg-green-500/10 text-green-600 dark:text-green-400"
-                    )}
-                    title={isReadOnly ? "Click to enable editing" : "Click to make read-only"}
-                  >
-                    {isReadOnly ? <Lock className="size-3" /> : <Pencil className="size-3" />}
-                    {isReadOnly ? 'Read-only' : 'Editing'}
-                  </button>
+                  {/* Read-only toggle - Only for non-markdown files */}
+                  {!isMarkdown && (
+                    <button
+                      onClick={() => setIsReadOnly(!isReadOnly)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors cursor-pointer",
+                        isReadOnly 
+                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+                          : "bg-green-500/10 text-green-600 dark:text-green-400"
+                      )}
+                      title={isReadOnly ? "Click to enable editing" : "Click to make read-only"}
+                    >
+                      {isReadOnly ? <Lock className="size-3" /> : <Pencil className="size-3" />}
+                      {isReadOnly ? 'Read-only' : 'Editing'}
+                    </button>
+                  )}
                   
                   {/* Markdown preview toggle */}
                   {isMarkdown && (
                     <button
-                      onClick={() => setIsPreview(!isPreview)}
+                      onClick={() => {
+                        const nextIsPreview = !isPreview;
+                        setIsPreview(nextIsPreview);
+                        // If switching to editor mode, enable editing automatically
+                        if (!nextIsPreview) {
+                          setIsReadOnly(false);
+                        }
+                      }}
                       className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
                       {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
@@ -433,8 +537,8 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
               <p className="text-sm">Select a file to view its content</p>
             </div>
           )}
-        </div>
-      </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 };
