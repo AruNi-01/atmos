@@ -24,40 +24,30 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
   const { resolvedTheme } = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
-  const [isPreview, setIsPreview] = useState(false);
+  const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
+  const isPreview = isMarkdown && previewFilePath === file.path;
 
   // Debounce preview updates
   useEffect(() => {
     if (!isPreview || !isMarkdown) return;
 
     const timer = setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDebouncedContent(file.content);
     }, 3000); // 3 seconds debouncing as requested
 
     return () => clearTimeout(timer);
   }, [file.content, isPreview, isMarkdown]);
 
-  // Sync debounced content immediately when entering preview mode or switching files
-  useEffect(() => {
-    if (isPreview) {
-      setDebouncedContent(file.content);
-    }
-  }, [isPreview, file.path]); // Added file.path to sync on file switch
-
   // Toggle preview
   const togglePreview = useCallback(() => {
-    setIsPreview(prev => !prev);
-  }, []);
-
-  // Sync state if file changes and isn't markdown
-  useEffect(() => {
-    if (!isMarkdown) {
-      setIsPreview(false);
-    }
-  }, [isMarkdown, file.path]);
+    if (!isMarkdown) return;
+    setPreviewFilePath((prev) => (prev === file.path ? null : file.path));
+    setDebouncedContent(file.content);
+  }, [file.content, file.path, isMarkdown]);
 
   // Define custom theme before mount
   const handleEditorWillMount: BeforeMount = useCallback((monaco) => {
@@ -88,27 +78,6 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
     });
   }, []);
 
-  // Handle editor mount
-  const handleEditorMount: OnMount = useCallback((editor, monaco) => {
-    editorRef.current = editor;
-    monacoRef.current = monaco;
-
-    // Focus the editor
-    editor.focus();
-
-    // Add custom keyboard shortcut for save
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      handleSave();
-    });
-  }, []);
-
-  // Handle content change
-  const handleEditorChange: OnChange = useCallback((value) => {
-    if (value !== undefined) {
-      updateFileContent(file.path, value, workspaceId || undefined);
-    }
-  }, [file.path, updateFileContent, workspaceId]);
-
   // Handle save
   const handleSave = useCallback(async () => {
     try {
@@ -126,6 +95,27 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
       });
     }
   }, [file.path, file.name, saveFile, workspaceId]);
+
+  // Handle editor mount
+  const handleEditorMount: OnMount = useCallback((editor, monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+
+    // Focus the editor
+    editor.focus();
+
+    // Add custom keyboard shortcut for save
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      handleSave();
+    });
+  }, [handleSave]);
+
+  // Handle content change
+  const handleEditorChange: OnChange = useCallback((value) => {
+    if (value !== undefined) {
+      updateFileContent(file.path, value, workspaceId || undefined);
+    }
+  }, [file.path, updateFileContent, workspaceId]);
 
   // Global save hotkey (Cmd/Ctrl + S)
   useHotkeys('mod+s', (e) => {

@@ -113,7 +113,7 @@ interface WebSocketStore {
   connectionState: ConnectionState;
   socket: WebSocket | null;
   pendingRequests: Map<string, PendingRequest>;
-  eventListeners: Map<string, Set<(data: any) => void>>;
+  eventListeners: Map<string, Set<(data: unknown) => void>>;
   
   // 配置
   url: string;
@@ -129,7 +129,7 @@ interface WebSocketStore {
   connect: () => void;
   disconnect: () => void;
   send: <T = unknown>(action: WsAction, data?: unknown) => Promise<T>;
-  onEvent: (event: string, callback: (data: any) => void) => () => void;
+  onEvent: (event: string, callback: (data: unknown) => void) => () => void;
   
   // 内部方法
   _startHeartbeat: () => void;
@@ -294,7 +294,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   },
   
   // 注册事件监听
-  onEvent: (event: string, callback: (data: any) => void) => {
+  onEvent: (event: string, callback: (data: unknown) => void) => {
     const { eventListeners } = get();
     if (!eventListeners.has(event)) {
       eventListeners.set(event, new Set());
@@ -375,8 +375,8 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       
       // 处理错误
       if (message.type === 'error') {
-        const payload = message.payload || (message as any);
-        
+        const payload = message.payload;
+
         if (!payload || !payload.request_id) {
           console.warn('[WebSocket] Received malformed error message:', message);
           return;

@@ -48,7 +48,7 @@ import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
-  changes?: any[];
+  changes?: unknown[];
 }
 
 // File icon component matching the file tree

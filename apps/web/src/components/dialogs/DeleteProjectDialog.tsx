@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -30,11 +30,10 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
 }) => {
   const [confirmName, setConfirmName] = useState('');
 
-  useEffect(() => {
-    if (!isOpen) {
-      setConfirmName('');
-    }
-  }, [isOpen]);
+  const handleClose = () => {
+    setConfirmName('');
+    onClose();
+  };
 
   const isNameMatch = confirmName === projectName;
 
@@ -46,7 +45,7 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -86,7 +85,7 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
         <DialogFooter className="gap-2">
           {canDelete ? (
             <>
-              <Button variant="outline" onClick={onClose} className="cursor-pointer">
+              <Button variant="outline" onClick={handleClose} className="cursor-pointer">
                 Cancel
               </Button>
               <Button
@@ -99,7 +98,7 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
               </Button>
             </>
           ) : (
-            <Button variant="outline" onClick={onClose} className="w-full cursor-pointer">
+              <Button variant="outline" onClick={handleClose} className="w-full cursor-pointer">
               Close
             </Button>
           )}

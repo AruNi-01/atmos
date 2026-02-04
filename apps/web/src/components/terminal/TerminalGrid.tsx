@@ -42,7 +42,6 @@ export interface TerminalGridHandle {
 }
 
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className }, ref) => {
-  const [isMounted, setIsMounted] = React.useState(false);
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
 
@@ -62,7 +61,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const { projects, isLoading: isProjectsLoading } = useProjectStore();
 
   // Look up project and workspace info for human-readable naming
-  const workspaceInfo = React.useMemo(() => {
+  const workspaceInfo = (() => {
     for (const project of projects) {
       if (project.id === workspaceId) {
         return {
@@ -81,19 +80,15 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       }
     }
     return null;
-  }, [projects, workspaceId]);
+  })();
 
   const workspaceExists = !!workspaceInfo;
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMounted && workspaceExists) {
+    if (workspaceExists) {
       initWorkspace(workspaceId);
     }
-  }, [workspaceId, workspaceExists, isMounted, initWorkspace]);
+  }, [workspaceId, workspaceExists, initWorkspace]);
 
   const panes = getPanes(workspaceId);
   const layout = getLayout(workspaceId);
@@ -129,7 +124,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     toggleMaximize(workspaceId, id);
   }, [workspaceId, toggleMaximize]);
 
-  const renderTile = useCallback((id: string, path: any[]) => {
+  const renderTile = useCallback((id: string, path: MosaicPath) => {
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
 
@@ -225,7 +220,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   // Wait for workspace to be ready before rendering any Terminal components
   // This prevents duplicate tmux window creation during initialization
-  if (!isMounted || isProjectsLoading || !workspaceExists || !workspaceReady) {
+  if (isProjectsLoading || !workspaceExists || !workspaceReady) {
     return (
       <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
         <div className="flex flex-col items-center gap-3">

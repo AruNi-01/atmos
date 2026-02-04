@@ -88,13 +88,14 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     // Check if terminal is busy
     if (!force && runningScripts[activeTabId]) {
       // If user clicked run recently, treat as force
-      const lastClick = (window as any)._lastRunClickTime;
+      const runClickStore = window as Window & { _lastRunClickTime?: number };
+      const lastClick = runClickStore._lastRunClickTime;
       const now = Date.now();
       if (lastClick && (now - lastClick < 3000)) {
         handleRunScript(true);
         return;
       }
-      (window as any)._lastRunClickTime = now;
+      runClickStore._lastRunClickTime = now;
 
       toastManager.add({
         title: "Terminal is busy",

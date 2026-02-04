@@ -15,7 +15,7 @@ use sea_orm::{
 /// 2. 统一的 trait 约束，确保所有 Repo 遵循相同的模式
 /// 
 /// 推荐的实现模式：
-/// ```rust
+/// ```rust,ignore
 /// impl<'a> BaseRepo<Entity, Model, ActiveModel> for MyRepo<'a> {
 ///     fn db(&self) -> &DatabaseConnection {
 ///         self.db

@@ -582,7 +582,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setupProgress: {},
   setSetupProgress: (progress) => set(state => {
     const existing = state.setupProgress[progress.workspaceId];
-    let newStatus = progress.status;
+    const newStatus = progress.status;
     let lastStatus = existing?.lastStatus;
 
     if (progress.status === 'error') {

@@ -45,6 +45,7 @@ export function useTerminalWebSocket({
   workspaceId,
 }: UseTerminalWebSocketOptions): UseTerminalWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null);
+  const connectRef = useRef<(() => void) | null>(null);
   const reconnectCountRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -114,6 +115,17 @@ export function useTerminalWebSocket({
     });
   }, [sessionId, sendMessage]);
 
+  const disconnect = useCallback(() => {
+    clearReconnectTimeout();
+    reconnectCountRef.current = reconnectAttempts; // Prevent reconnection
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setIsConnected(false);
+    setIsReconnecting(false);
+  }, [clearReconnectTimeout, reconnectAttempts]);
+
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return;
@@ -181,7 +193,7 @@ export function useTerminalWebSocket({
           reconnectCountRef.current++;
           setIsReconnecting(true);
           reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
+            connectRef.current?.();
           }, reconnectDelay * reconnectCountRef.current);
         } else {
           setIsReconnecting(false);
@@ -204,18 +216,12 @@ export function useTerminalWebSocket({
     onAttached,
     reconnectAttempts,
     reconnectDelay,
+    disconnect,
   ]);
 
-  const disconnect = useCallback(() => {
-    clearReconnectTimeout();
-    reconnectCountRef.current = reconnectAttempts; // Prevent reconnection
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    setIsConnected(false);
-    setIsReconnecting(false);
-  }, [clearReconnectTimeout, reconnectAttempts]);
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   // Cleanup on unmount
   useEffect(() => {

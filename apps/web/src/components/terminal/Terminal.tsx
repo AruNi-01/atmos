@@ -150,10 +150,11 @@ const Terminal = ({
       onAttached: handleAttached,
     });
 
-  // Update status based on reconnecting state
+  const uiStatus = isReconnecting ? "reconnecting" : status;
+
+  // Update terminal when reconnecting
   useEffect(() => {
     if (isReconnecting) {
-      setStatus("reconnecting");
       terminalRef.current?.write("\r\n\x1b[33m[Reconnecting...]\x1b[0m\r\n");
     }
   }, [isReconnecting]);
@@ -291,7 +292,7 @@ const Terminal = ({
       }}
     >
       {/* Loading overlay when connecting */}
-      {status === "connecting" && (
+      {uiStatus === "connecting" && (
         <div
           style={{
             position: "absolute",
@@ -325,7 +326,7 @@ const Terminal = ({
         </div>
       )}
       {/* Status indicator */}
-      {status === "reconnecting" && (
+      {uiStatus === "reconnecting" && (
         <div
           style={{
             position: "absolute",
@@ -342,7 +343,7 @@ const Terminal = ({
           Reconnecting...
         </div>
       )}
-      {status === "disconnected" && (
+      {uiStatus === "disconnected" && (
         <div
           style={{
             position: "absolute",
@@ -366,13 +367,13 @@ const Terminal = ({
         style={{
           width: "100%",
           height: "100%",
-          opacity: status === "connecting" ? 0 : 1,
+          opacity: uiStatus === "connecting" ? 0 : 1,
           backgroundColor: currentTheme.background,
         }}
         data-session-id={sessionId}
         data-workspace-id={workspaceId}
         data-connected={isConnected}
-        data-status={status}
+        data-status={uiStatus}
       />
     </div>
   );

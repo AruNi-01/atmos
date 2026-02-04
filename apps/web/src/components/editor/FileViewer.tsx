@@ -204,17 +204,13 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
 
 export const FileViewer: React.FC<FileViewerProps> = ({ file, className }) => {
   const { resolvedTheme } = useTheme();
-  const [hasError, setHasError] = useState(false);
+  const [errorFilePath, setErrorFilePath] = useState<string | null>(null);
+  const hasError = errorFilePath === file.path;
 
   // Check if file is binary
   const isStream = file.content.startsWith('stream://');
   const isBase64 = file.content.startsWith('data:') && file.content.includes(';base64,');
   const isBinary = isStream || isBase64;
-
-  // Reset error state when file changes
-  useEffect(() => {
-    setHasError(false);
-  }, [file.path]);
 
   const docData = useMemo(() => {
     if (!isBinary) return null;
@@ -258,7 +254,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className }) => {
           ext={ext}
           uri={uri}
           fileName={file.name}
-          onError={() => setHasError(true)}
+          onError={() => setErrorFilePath(file.path)}
         />
       </div>
     );

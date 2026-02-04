@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import type { DraggableAttributes, DraggableSyntheticListeners, DragStartEvent } from '@dnd-kit/core';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Ellipsis,
@@ -94,8 +95,8 @@ const ProjectItem: React.FC<{
     isDragging?: boolean;
     isPlaceholder?: boolean;
     isAnyProjectDragging?: boolean;
-    attributes?: any;
-    listeners?: any;
+    attributes?: DraggableAttributes;
+    listeners?: DraggableSyntheticListeners;
     onToggle: (id: string) => void;
     onAddWorkspace: (projectId: string) => void;
     onQuickAddWorkspace: (projectId: string) => void;
@@ -171,6 +172,7 @@ const ProjectItem: React.FC<{
         // Sync customColor when project.borderColor changes
         useEffect(() => {
             if (project.borderColor) {
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setCustomColor(parseColorToRgb(project.borderColor));
             }
         }, [project.borderColor]);
@@ -470,8 +472,8 @@ const WorkspaceContent: React.FC<{
     projectPath?: string;
     isDragging?: boolean;
     isPlaceholder?: boolean;
-    attributes?: any;
-    listeners?: any;
+    attributes?: DraggableAttributes;
+    listeners?: DraggableSyntheticListeners;
     onPin?: (workspaceId: string) => void;
     onUnpin?: (workspaceId: string) => void;
     onArchive?: (workspaceId: string) => void;
@@ -933,8 +935,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         );
     };
 
-    const handleDragStart = (event: { active: { id: any } }) => {
-        setActiveId(event.active.id);
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(String(event.active.id));
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {

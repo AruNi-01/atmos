@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { fsApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 
@@ -39,7 +39,7 @@ interface EditorStore {
   setWorkspaceId: (workspaceId: string | null) => void;
   openFile: (path: string, workspaceId?: string) => Promise<void>;
   closeFile: (path: string, workspaceId?: string) => void;
-  setActiveFile: (path: string, workspaceId?: string) => void;
+  setActiveFile: (path: string | null, workspaceId?: string) => void;
   updateFileContent: (path: string, content: string, workspaceId?: string) => void;
   saveFile: (path: string, workspaceId?: string) => Promise<void>;
   saveActiveFile: (workspaceId?: string) => Promise<void>;
@@ -369,14 +369,13 @@ export const useEditorStore = create<EditorStore>()(
  * Hook to wait for store hydration before rendering persisted data
  */
 export function useEditorStoreHydration() {
-  const [isReady, setIsReady] = useState(false);
+  const isReady = useEditorStore((state) => state._hasHydrated);
 
   useEffect(() => {
     // Mark as hydrated after first client render
     // This ensures SSR and first client render match (both empty)
     // Then the persisted data is restored and triggers a re-render
     useEditorStore.getState().setHasHydrated(true);
-    setIsReady(true);
   }, []);
 
   return isReady;
