@@ -97,7 +97,10 @@ impl SkillScanner {
                         existing.agents.push(agent);
                     }
                 }
+                Self::normalize_agent_order(existing);
             } else {
+                let mut skill = skill;
+                Self::normalize_agent_order(&mut skill);
                 merged.insert(key, skill);
             }
         }
@@ -123,6 +126,13 @@ impl SkillScanner {
                 if let Ok(entries) = fs::read_dir(&skills_path) {
                     for entry in entries.filter_map(|e| e.ok()) {
                         let path = entry.path();
+                        let entry_name = path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        if entry_name.starts_with('.') {
+                            continue;
+                        }
                         // Resolve symlinks to detect same skills
                         let canonical_path = fs::canonicalize(&path).unwrap_or(path.clone());
                         
@@ -135,6 +145,8 @@ impl SkillScanner {
                                 project_id.clone(),
                                 project_name.clone(),
                             ) {
+                                let mut skill = skill;
+                                Self::apply_unified_label(&mut skill, skill_dir);
                                 skills.push(skill);
                             }
                         } else if path.extension().map_or(false, |ext| ext == "md") {
@@ -147,6 +159,8 @@ impl SkillScanner {
                                 project_id.clone(),
                                 project_name.clone(),
                             ) {
+                                let mut skill = skill;
+                                Self::apply_unified_label(&mut skill, skill_dir);
                                 skills.push(skill);
                             }
                         }
@@ -315,6 +329,24 @@ impl SkillScanner {
             content,
             is_main,
         })
+    }
+
+    fn apply_unified_label(skill: &mut SkillInfo, skill_dir: &str) {
+        if skill_dir == ".agents/skills" {
+            let unified = "unified".to_string();
+            if !skill.agents.contains(&unified) {
+                skill.agents.insert(0, unified);
+            }
+        }
+    }
+
+    fn normalize_agent_order(skill: &mut SkillInfo) {
+        if let Some(pos) = skill.agents.iter().position(|agent| agent == "unified") {
+            if pos != 0 {
+                let unified = skill.agents.remove(pos);
+                skill.agents.insert(0, unified);
+            }
+        }
     }
 
     /// Extract description from markdown content (first paragraph or first few lines)
