@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import dynamic from "next/dynamic";
 import { TerminalLine } from "@/types/types";
 import {
@@ -154,7 +154,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     if (terminalGridRef.current) {
       // Switch to terminal tab if not active
       if (activeFilePath) {
-        setActiveFile(null as any, effectiveContextId || undefined);
+        setActiveFile(null, effectiveContextId || undefined);
       }
       terminalGridRef.current.addTerminal(name);
     }
@@ -164,7 +164,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const { currentRepoPath } = useGitStore();
 
   // Derive workspace and project info for OverviewTab
-  const { currentProject, currentWorkspace } = useMemo(() => {
+  const { currentProject, currentWorkspace } = (() => {
     if (!effectiveContextId) return { currentProject: undefined, currentWorkspace: undefined };
     
     for (const project of projects) {
@@ -177,7 +177,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     // If no workspace found, check if effectiveContextId is a projectId
     const project = projects.find(p => p.id === effectiveContextId);
     return { currentProject: project, currentWorkspace: undefined };
-  }, [effectiveContextId, projects]);
+  })();
 
   const isRecentView = searchParams.get('view') === 'recent';
   const isArchivedView = searchParams.get('view') === 'archived';
@@ -235,7 +235,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         onValueChange={(val) => {
           if (val === "terminal" || val === "overview") {
             setFixedTab(val);
-            setActiveFile(null as any, effectiveContextId || undefined);
+            setActiveFile(null, effectiveContextId || undefined);
           } else {
             setActiveFile(val, effectiveContextId || undefined);
           }

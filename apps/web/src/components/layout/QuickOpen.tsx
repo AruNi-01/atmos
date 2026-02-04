@@ -67,11 +67,14 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && APP_MAP[saved]) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLastUsedApp(saved);
     }
 
     fsApi.getHomeDir().then(dir => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHomeDir(dir);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
     });
   }, []);

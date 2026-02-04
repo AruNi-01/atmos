@@ -147,7 +147,7 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
                 <span className="text-muted-foreground">Path to current workspace</span>
               </div>
               <div className="mt-2 text-muted-foreground/80 italic">
-                Note: For complex scripts, create a .sh file in .atmos/scripts/ and reference it (e.g., "./.atmos/scripts/myscript.sh").
+                Note: For complex scripts, create a .sh file in .atmos/scripts/ and reference it (e.g., &quot;./.atmos/scripts/myscript.sh&quot;).
               </div>
             </div>
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
-import path from 'path';
 import mime from 'mime';
 
 export async function GET(request: NextRequest) {
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
   const fileStream = fs.createReadStream(filePath);
 
   // Return stream
-  // @ts-ignore
+  // @ts-expect-error NextResponse supports Node.js ReadStream in the Node runtime.
   return new NextResponse(fileStream, {
     headers: {
       'Content-Type': mimeType,

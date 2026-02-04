@@ -206,7 +206,9 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
 
   return (
     <div
+      // eslint-disable-next-line react-hooks/refs
       ref={tree.registerElement}
+      // eslint-disable-next-line react-hooks/refs
       {...tree.getContainerProps('File tree')}
       className="text-sm"
     >

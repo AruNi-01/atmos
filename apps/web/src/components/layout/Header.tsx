@@ -239,11 +239,12 @@ const Header: React.FC = () => {
             type: 'success'
           });
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Failed to rename branch:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         toastManager.add({
           title: 'Rename Failed',
-          description: error.message || 'Unknown error',
+          description: errorMessage,
           type: 'error'
         });
         // Reset edited branch to original

@@ -65,7 +65,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
           </div>
           
           <p className="text-xs text-muted-foreground">
-            After installing, click "Check Again" to verify the installation.
+            After installing, click &quot;Check Again&quot; to verify the installation.
           </p>
         </div>
         

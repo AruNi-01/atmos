@@ -29,6 +29,14 @@ interface EnrichedWorkspace extends Workspace {
   isArchivedRemote?: boolean;
 }
 
+interface GitStatus {
+  loading?: boolean;
+  hasChanges?: boolean;
+  uncommitted?: number;
+  unpushed?: number;
+  error?: boolean;
+}
+
 type TimeGroup =
   | 'Today'
   | 'Yesterday'
@@ -59,7 +67,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
   const { projects } = useProjectStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<EnrichedWorkspace[]>([]);
-  const [gitStatuses, setGitStatuses] = useState<Record<string, any>>({});
+  const [gitStatuses, setGitStatuses] = useState<Record<string, GitStatus>>({});
 
   // Fetch archived workspaces
   useEffect(() => {
