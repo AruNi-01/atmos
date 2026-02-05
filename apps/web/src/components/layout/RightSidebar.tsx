@@ -407,16 +407,16 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const showPushButton = isBranchPublished && !!gitStatus?.has_unpushed_commits && stagedFiles.length === 0 && !commitMessage.trim();
 
   return (
-    <aside className="w-full flex flex-col border-l border-white/5 h-full">
+    <aside className="w-full flex flex-col h-full">
       <Tabs defaultValue="changes" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
         {/* Tabs Header */}
-        <div className="h-10 flex items-center px-2 border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm">
-          <TabsList variant="underline" className="w-full gap-1">
-            <TabsTab value="changes" className="flex-1 h-7 text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0">
+        <div className="h-10 flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm">
+          <TabsList variant="underline" className="w-full h-full gap-0 items-stretch !py-0">
+            <TabsTab value="changes" className="flex-1 !h-full text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none !border-0">
               <GitBranch className="size-3.5" />
               <span>Changes</span>
             </TabsTab>
-            <TabsTab value="run-preview" className="flex-1 h-7 text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0">
+            <TabsTab value="run-preview" className="flex-1 !h-full text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none !border-0">
               <Play className="size-3.5" />
               <span>Run/Preview</span>
             </TabsTab>

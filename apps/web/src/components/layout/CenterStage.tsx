@@ -249,13 +249,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         {/* Top Tab Bar */}
         <TabsList
           variant="underline"
-          className="h-10 w-full justify-start rounded-none border-b border-sidebar-border px-0 bg-transparent overflow-x-auto no-scrollbar"
+          className="h-10 w-full justify-start border-b border-sidebar-border px-0 bg-transparent overflow-x-auto no-scrollbar gap-0 items-stretch !py-0"
         >
           {/* Overview Tab - Fixed, shown when workspace/project is selected */}
           {effectiveContextId && (
             <TabsTab
               value="overview"
-              className="h-full pl-4 pr-4 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start"
+              className="!h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
             >
               <LayoutDashboard className="size-3.5" />
               <span className="text-[13px] font-medium text-pretty">
@@ -266,7 +266,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
           <TabsTab
             value="terminal"
-            className="relative h-full pl-4 pr-8 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start"
+            className="relative !h-full pl-4 pr-8 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
           >
             <TerminalIcon className="size-3.5" />
             <span className="text-[13px] font-medium text-pretty">
@@ -322,7 +322,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 <TooltipTrigger asChild>
                   <TabsTab
                     value={file.path}
-                    className="h-full pl-2 pr-1 rounded-sm border border-transparent data-active:bg-muted/40 data-active:border-sidebar-border data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start"
+                    className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
                   >
                     {isDiff ? (
                       <GitCompare className="size-3.5 shrink-0 text-emerald-500" />

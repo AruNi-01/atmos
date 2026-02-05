@@ -1096,11 +1096,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                         onValueChange={handleTabChange}
                     >
                         {/* Tabs Header */}
-                        <div className="h-10 flex items-center px-2 border-b border-sidebar-border">
-                            <TabsList variant="underline" className="w-full gap-1">
+                        <div className="h-10 flex border-b border-sidebar-border">
+                            <TabsList variant="underline" className="w-full h-full gap-0 items-stretch !py-0">
                                 <TabsTab
                                     value="projects"
-                                    className="flex-1 h-7 text-[12px] p-0 overflow-hidden relative"
+                                    className="flex-1 !h-full text-[12px] p-0 overflow-hidden relative rounded-none !border-0"
                                 >
                                     <div
                                         className="w-full h-full flex items-center justify-center group cursor-pointer"
@@ -1143,7 +1143,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 </TabsTab>
                                 <TabsTab
                                     value="files"
-                                    className="flex-1 h-7 text-[12px] gap-1.5"
+                                    className="flex-1 !h-full text-[12px] gap-1.5 rounded-none !border-0"
                                 >
                                     <Folder className="size-3.5" />
                                     <span>Files</span>
