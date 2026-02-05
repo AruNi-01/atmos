@@ -128,6 +128,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     setActiveFile,
     closeFile,
     getActiveFile,
+    pinFile,
   } = useEditorStore();
   const { setCreateProjectOpen } = useDialogStore();
   const { projects, setupProgress, clearSetupProgress } = useProjectStore();
@@ -323,6 +324,11 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                   <TabsTab
                     value={file.path}
                     className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
+                    onDoubleClick={() => {
+                      if (file.isPreview) {
+                        pinFile(file.path, effectiveContextId || undefined);
+                      }
+                    }}
                   >
                     {isDiff ? (
                       <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
@@ -332,7 +338,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     <span
                       className={cn(
                         "text-[13px] font-medium whitespace-nowrap",
-                        isDiff && "text-emerald-500"
+                        isDiff && "text-emerald-500",
+                        file.isPreview && "italic"
                       )}
                     >
                       {file.name}

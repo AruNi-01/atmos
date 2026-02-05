@@ -86,7 +86,7 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
   workspaceId
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const { openFile, getActiveFilePath } = useEditorStore();
+  const { openFile, getActiveFilePath, pinFile } = useEditorStore();
   const activeFilePath = getActiveFilePath(workspaceId || undefined);
 
   if (files.length === 0) return null;
@@ -132,7 +132,8 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
             return (
               <div
                 key={file.path}
-                onClick={() => openFile(`diff://${file.path}`, workspaceId || undefined)}
+                onClick={() => openFile(`diff://${file.path}`, workspaceId || undefined, { preview: true })}
+                onDoubleClick={() => pinFile(`diff://${file.path}`, workspaceId || undefined)}
                 className={cn(
                   "group flex items-center px-2 py-1.5 cursor-pointer transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
                   activeFilePath === `diff://${file.path}` ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent/50"

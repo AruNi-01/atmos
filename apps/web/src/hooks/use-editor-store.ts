@@ -16,6 +16,7 @@ export interface OpenFile {
   language: string;
   isDirty: boolean;
   isLoading: boolean;
+  isPreview: boolean; // Preview mode: italic text, replaced on next single-click
 }
 
 interface WorkspaceState {
@@ -37,7 +38,8 @@ interface EditorStore {
   
   // 动作
   setWorkspaceId: (workspaceId: string | null) => void;
-  openFile: (path: string, workspaceId?: string) => Promise<void>;
+  openFile: (path: string, workspaceId?: string, options?: { preview?: boolean }) => Promise<void>;
+  pinFile: (path: string, workspaceId?: string) => void;
   closeFile: (path: string, workspaceId?: string) => void;
   setActiveFile: (path: string | null, workspaceId?: string) => void;
   updateFileContent: (path: string, content: string, workspaceId?: string) => void;
@@ -111,9 +113,11 @@ export const useEditorStore = create<EditorStore>()(
         return get().workspaceStates[id]?.activeFilePath || null;
       },
 
-      openFile: async (path, workspaceId) => {
+      openFile: async (path, workspaceId, options) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
+
+        const isPreview = options?.preview ?? true; // Default to preview mode
 
         const currentState = get().workspaceStates[id] || { openFiles: [], activeFilePath: null };
         const { openFiles } = currentState;
@@ -137,14 +141,30 @@ export const useEditorStore = create<EditorStore>()(
           language: getLanguageFromPath(path),
           isDirty: false,
           isLoading: true,
+          isPreview,
         };
+
+        // If preview mode, replace existing preview tab instead of adding new one
+        let newOpenFiles: OpenFile[];
+        if (isPreview) {
+          const previewIndex = openFiles.findIndex(f => f.isPreview);
+          if (previewIndex !== -1) {
+            // Replace the existing preview tab
+            newOpenFiles = [...openFiles];
+            newOpenFiles[previewIndex] = newFile;
+          } else {
+            newOpenFiles = [...openFiles, newFile];
+          }
+        } else {
+          newOpenFiles = [...openFiles, newFile];
+        }
 
         set((state) => ({
           workspaceStates: {
             ...state.workspaceStates,
             [id]: {
               ...currentState,
-              openFiles: [...openFiles, newFile],
+              openFiles: newOpenFiles,
               activeFilePath: path,
             }
           }
@@ -244,6 +264,25 @@ export const useEditorStore = create<EditorStore>()(
         }
       },
 
+      pinFile: (path, workspaceId) => {
+        const id = workspaceId || get().currentWorkspaceId;
+        if (!id) return;
+        const ws = get().workspaceStates[id];
+        if (!ws) return;
+
+        set((state) => ({
+          workspaceStates: {
+            ...state.workspaceStates,
+            [id]: {
+              ...ws,
+              openFiles: ws.openFiles.map(f => 
+                f.path === path ? { ...f, isPreview: false } : f
+              )
+            }
+          }
+        }));
+      },
+
       closeFile: (path, workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
@@ -294,7 +333,8 @@ export const useEditorStore = create<EditorStore>()(
               ...state.workspaceStates,
               [id]: {
                 ...ws,
-                openFiles: ws.openFiles.map(f => f.path === path ? { ...f, content, isDirty: content !== f.originalContent } : f)
+                // Editing content pins the file (removes preview mode)
+                openFiles: ws.openFiles.map(f => f.path === path ? { ...f, content, isDirty: content !== f.originalContent, isPreview: false } : f)
               }
             }
           };
