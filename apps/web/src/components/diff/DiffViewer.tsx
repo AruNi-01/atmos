@@ -6,6 +6,7 @@ import type { FileContents } from '@pierre/diffs';
 import { gitApi } from '@/api/ws-api';
 import { Loader2 } from '@workspace/ui';
 import { useTheme } from 'next-themes';
+import { useGitStore } from '@/hooks/use-git-store';
 
 interface DiffViewerProps {
   repoPath: string;
@@ -44,6 +45,14 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
   const [disableBackground, setDisableBackground] = useState(false);
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Get diff stats from git store (matches the Changes sidebar)
+  const { stagedFiles, unstagedFiles, untrackedFiles } = useGitStore();
+  const diffStats = useMemo(() => {
+    const allFiles = [...stagedFiles, ...unstagedFiles, ...untrackedFiles];
+    const file = allFiles.find(f => f.path === filePath);
+    return file ? { additions: file.additions, deletions: file.deletions } : null;
+  }, [stagedFiles, unstagedFiles, untrackedFiles, filePath]);
 
   useEffect(() => {
     const loadDiff = async () => {
@@ -120,8 +129,21 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Custom Header Metadata */}
       <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-foreground">{filePath}</span>
+          {diffStats && (diffStats.additions > 0 || diffStats.deletions > 0) && (
+            <span className="text-xs font-mono">
+              {diffStats.additions > 0 && (
+                <span className="text-green-500">+{diffStats.additions}</span>
+              )}
+              {diffStats.additions > 0 && diffStats.deletions > 0 && (
+                <span className="text-muted-foreground mx-1">/</span>
+              )}
+              {diffStats.deletions > 0 && (
+                <span className="text-red-500">-{diffStats.deletions}</span>
+              )}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           {/* Wrapping Toggle */}
