@@ -494,14 +494,16 @@ export function GlobalSearch() {
   }, [filteredAppItems]);
 
   const handleFileSelect = (path: string) => {
-    openFile(path, currentWorkspaceId ?? undefined);
+    // Search results open in pinned mode since user explicitly searched for them
+    openFile(path, currentWorkspaceId ?? undefined, { preview: false });
     setGlobalSearchOpen(false);
   };
 
   const handleCodeResultSelect = (match: SearchMatch) => {
     if (currentEffectivePath) {
       const fullPath = `${currentEffectivePath}/${match.file_path}`;
-      openFile(fullPath, currentWorkspaceId ?? undefined);
+      // Search results open in pinned mode since user explicitly searched for them
+      openFile(fullPath, currentWorkspaceId ?? undefined, { preview: false });
       setGlobalSearchOpen(false);
     }
   };

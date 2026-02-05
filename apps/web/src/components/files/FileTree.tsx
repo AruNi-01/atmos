@@ -75,7 +75,7 @@ function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boo
 export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspaceId');
-  const { openFile, getActiveFilePath } = useEditorStore();
+  const { openFile, getActiveFilePath, pinFile } = useEditorStore();
   const activeFilePath = getActiveFilePath(workspaceId || undefined);
 
   // Calculate initial items map from props.data to avoid render-cycle lag
@@ -179,9 +179,17 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
     if (isFolder) {
       toggle();
     } else {
-      openFile(item.path, workspaceId || undefined);
+      // Single click opens in preview mode
+      openFile(item.path, workspaceId || undefined, { preview: true });
     }
   }, [openFile, workspaceId]);
+
+  const handleItemDoubleClick = useCallback((item: FileTreeItem, isFolder: boolean) => {
+    if (!isFolder) {
+      // Double click pins the file (removes preview mode)
+      pinFile(item.path, workspaceId || undefined);
+    }
+  }, [pinFile, workspaceId]);
 
   if (isLoading) {
     return (
@@ -239,6 +247,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
             ref={item.registerElement}
             {...item.getProps()}
             onClick={() => handleItemClick(itemData, isFolder, toggle)}
+            onDoubleClick={() => handleItemDoubleClick(itemData, isFolder)}
             className={cn(
               'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors outline-none',
               'hover:bg-sidebar-accent/50',

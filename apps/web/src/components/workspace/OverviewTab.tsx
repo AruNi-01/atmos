@@ -153,7 +153,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       const defaultContent = `# Requirement\n\n<!-- Describe your requirement here -->\n`;
       await fsApi.writeFile(filePath, defaultContent);
     }
-    openFile(filePath, contextId);
+    // Opening requirement file should be pinned since it's an explicit user action
+    openFile(filePath, contextId, { preview: false });
   }, [openFile, effectivePath, contextId]);
 
   const handleAddTask = useCallback(async () => {
