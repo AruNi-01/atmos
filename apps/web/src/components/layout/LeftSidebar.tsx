@@ -1313,6 +1313,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 isOpen={!!scriptDialogProjectId}
                 onClose={() => setScriptDialogProjectId(null)}
             />
+
+            {deleteProjectDialog && (
+                <DeleteProjectDialog
+                    isOpen={deleteProjectDialog.isOpen}
+                    onClose={() => setDeleteProjectDialog(null)}
+                    projectId={deleteProjectDialog.projectId}
+                    projectName={deleteProjectDialog.projectName}
+                    canDelete={deleteProjectDialog.canDelete}
+                    onConfirm={async () => {
+                        await deleteProject(deleteProjectDialog.projectId);
+                        setDeleteProjectDialog(null);
+                    }}
+                />
+            )}
         </>
     );
 };

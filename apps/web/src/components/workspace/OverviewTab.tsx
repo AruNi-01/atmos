@@ -250,10 +250,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <LayoutDashboard className="size-4" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">
+            <span className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
               {isProjectOnly ? 'Project Overview' : 'Workspace Overview'}
             </span>
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
               {isProjectOnly ? projectName : workspaceName || projectName}
             </h1>
           </div>
