@@ -210,59 +210,6 @@ fn get_tmux_server_info(tmux_engine: &core_engine::TmuxEngine) -> Value {
     })
 }
 
-/// Gather file descriptor limits.
-fn get_fd_limits() -> Value {
-    let os = std::env::consts::OS;
-
-    // soft limit: ulimit -n (RLIMIT_NOFILE soft)
-    let soft_limit: Option<u64> = std::process::Command::new("sh")
-        .args(["-c", "ulimit -n 2>/dev/null"])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .and_then(|s| s.trim().parse().ok());
-
-    // hard limit: ulimit -Hn
-    let hard_limit: Option<u64> = std::process::Command::new("sh")
-        .args(["-c", "ulimit -Hn 2>/dev/null"])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .and_then(|s| s.trim().parse().ok());
-
-    // system-wide limit
-    let system_limit: Option<u64> = if os == "macos" {
-        std::process::Command::new("sysctl")
-            .args(["-n", "kern.maxfiles"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .and_then(|s| s.trim().parse().ok())
-    } else {
-        std::fs::read_to_string("/proc/sys/fs/file-max")
-            .ok()
-            .and_then(|s| s.trim().parse().ok())
-    };
-
-    // current open FDs for this process
-    let process_open_fds: Option<u64> = if os == "macos" {
-        // Count /dev/fd/* for current process
-        std::fs::read_dir("/dev/fd")
-            .ok()
-            .map(|entries| entries.filter_map(|e| e.ok()).count() as u64)
-    } else {
-        std::fs::read_dir("/proc/self/fd")
-            .ok()
-            .map(|entries| entries.filter_map(|e| e.ok()).count() as u64)
-    };
-
-    json!({
-        "soft_limit": soft_limit,
-        "hard_limit": hard_limit,
-        "system_limit": system_limit,
-        "process_open_fds": process_open_fds,
-    })
-}
 
 /// Gather shell environment information.
 fn get_shell_env_info() -> Value {
@@ -553,16 +500,13 @@ pub async fn get_terminal_overview(
         json!({"running": false})
     };
 
-    // 8. File descriptor limits
-    let fd_limits = get_fd_limits();
-
-    // 9. WebSocket connection count
+    // 8. WebSocket connection count
     let ws_connection_count = state.ws_service.connection_count().await;
 
-    // 10. Shell environment
+    // 9. Shell environment
     let shell_env = get_shell_env_info();
 
-    // 11. PTY device details
+    // 10. PTY device details
     let pty_devices = get_pty_device_details();
 
     Ok(Json(ApiResponse::success(json!({
@@ -579,7 +523,6 @@ pub async fn get_terminal_overview(
         "system_pty": system_pty,
         "orphaned_processes": orphaned_processes,
         "orphaned_process_count": orphaned_processes.len(),
-        "fd_limits": fd_limits,
         "ws_connection_count": ws_connection_count,
         "shell_env": shell_env,
         "pty_devices": pty_devices,

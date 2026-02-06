@@ -43,7 +43,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
   return (
     <div 
       onClick={handleClick}
-      className="h-[140px] rounded-lg border border-border bg-card p-4 hover:bg-accent/50 hover:border-accent transition-colors cursor-pointer flex flex-col"
+      className="h-[140px] rounded-lg border border-border bg-background p-4 hover:bg-accent/50 hover:border-accent transition-colors cursor-pointer flex flex-col"
     >
       <div className="flex items-start gap-3 flex-1 min-h-0">
         <div className="size-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
