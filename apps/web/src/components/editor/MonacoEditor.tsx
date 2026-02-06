@@ -12,6 +12,8 @@ import type { editor } from 'monaco-editor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { BaseMonacoEditor } from './BaseMonacoEditor';
+import { useSelectionPopover } from '@/hooks/use-selection-popover';
+import { SelectionPopover } from '@/components/selection/SelectionPopover';
 
 interface MonacoEditorProps {
   file: OpenFile;
@@ -24,11 +26,41 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
   const { updateFileContent, saveFile } = useEditorStore();
   const { resolvedTheme } = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
   const isPreview = isMarkdown && previewFilePath === file.path;
+
+  // Selection popover for copying code to AI
+  const getSelectionInfo = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return null;
+
+    const selection = editor.getSelection();
+    if (!selection || selection.isEmpty()) return null;
+
+    const model = editor.getModel();
+    if (!model) return null;
+
+    const selectedText = model.getValueInRange(selection);
+    if (!selectedText.trim()) return null;
+
+    return {
+      filePath: file.path,
+      startLine: selection.startLineNumber,
+      endLine: selection.endLineNumber,
+      selectedText,
+      language: file.language,
+    };
+  }, [file.path, file.language]);
+
+  const selectionPopover = useSelectionPopover({
+    getSelectionInfo,
+    containerRef,
+    enabled: !isPreview,
+  });
 
   // Debounce preview updates
   useEffect(() => {
@@ -106,7 +138,19 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
   }
 
   return (
-    <div className={cn('h-full w-full relative flex flex-col', className)}>
+    <div ref={containerRef} className={cn('h-full w-full relative flex flex-col', className)}>
+      {/* Selection Popover for AI */}
+      <SelectionPopover
+        isVisible={selectionPopover.isVisible}
+        position={selectionPopover.position}
+        selectionInfo={selectionPopover.selectionInfo}
+        isExpanded={selectionPopover.isExpanded}
+        onExpand={() => selectionPopover.setIsExpanded(true)}
+        onDismiss={selectionPopover.dismiss}
+        type="editor"
+        popoverRef={selectionPopover.popoverRef}
+      />
+
       {/* Markdown Preview Toggle */}
       {isMarkdown && (
         <button
