@@ -81,6 +81,11 @@ impl TmuxEngine {
         }
     }
 
+    /// Get the full socket file path (public for diagnostics)
+    pub fn socket_file_path(&self) -> String {
+        self.socket_arg()
+    }
+
     /// Get the full socket path
     fn socket_arg(&self) -> String {
         self.socket_path
@@ -418,6 +423,20 @@ impl TmuxEngine {
     }
 
     /// Kill an entire session
+    /// Kill the entire tmux server (all sessions)
+    pub fn kill_server(&self) -> Result<()> {
+        match self.run_tmux(&["kill-server"]) {
+            Ok(_) => {
+                info!("Killed tmux server");
+                Ok(())
+            }
+            Err(e) => {
+                warn!("Failed to kill tmux server: {}", e);
+                Ok(())
+            }
+        }
+    }
+
     pub fn kill_session(&self, session_name: &str) -> Result<()> {
         match self.run_tmux(&["kill-session", "-t", session_name]) {
             Ok(_) => {
@@ -430,6 +449,20 @@ impl TmuxEngine {
                 Ok(())
             }
         }
+    }
+
+    /// Get the tmux server PID (if running)
+    pub fn get_server_pid(&self) -> Option<u32> {
+        self.run_tmux(&["display-message", "-p", "#{pid}"])
+            .ok()
+            .and_then(|s| s.trim().parse().ok())
+    }
+
+    /// Get the tmux server start time as epoch seconds (if running)
+    pub fn get_server_start_time(&self) -> Option<u64> {
+        self.run_tmux(&["display-message", "-p", "#{start_time}"])
+            .ok()
+            .and_then(|s| s.trim().parse().ok())
     }
 
     /// List all sessions

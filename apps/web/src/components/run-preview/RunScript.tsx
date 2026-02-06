@@ -401,6 +401,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                   workspaceId={workspaceId || projectId || ""}
                   projectName={projectName}
                   workspaceName={workspaceName || "Main"}
+                  terminalName={`run-script`}
                   noTmux={true}
                   cwd={workspaceName ? undefined : (currentProjectPath || undefined)}
                   onData={(data) => handleTerminalData(tab.id, data)}

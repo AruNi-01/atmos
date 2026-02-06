@@ -48,6 +48,7 @@ import { ArchivedWorkspacesView } from "@/components/workspace/ArchivedWorkspace
 import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { WorkspacesManagementView } from "@/components/workspace/WorkspacesManagementView";
 import { SkillsView } from "@/components/skills/SkillsView";
+import { TerminalManagerView } from "@/components/terminal/TerminalManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
 
 // Dynamic import Monaco Editor to avoid SSR issues
@@ -186,6 +187,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const isArchivedView = searchParams.get('view') === 'archived';
   const isWorkspacesView = searchParams.get('view') === 'workspaces';
   const isSkillsView = searchParams.get('view') === 'skills';
+  const isTerminalsView = searchParams.get('view') === 'terminals';
 
   if (!effectiveContextId) {
     if (isRecentView || isArchivedView || isWorkspacesView) {
@@ -199,6 +201,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       return (
         <main className="h-full overflow-hidden">
           <SkillsView />
+        </main>
+      );
+    }
+    if (isTerminalsView) {
+      return (
+        <main className="h-full overflow-hidden">
+          <TerminalManagerView />
         </main>
       );
     }

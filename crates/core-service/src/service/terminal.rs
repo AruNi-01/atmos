@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Arc;
 use std::thread;
+use std::time::Instant;
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tracing::{debug, error, info, warn};
 
@@ -26,14 +27,46 @@ enum SessionCommand {
     Close,
 }
 
+/// Type of terminal session
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionType {
+    /// Tmux-backed persistent terminal
+    Tmux,
+    /// Simple PTY without tmux (e.g., Run Script)
+    Simple,
+}
+
 /// Terminal session handle - thread-safe wrapper for PTY session
 struct SessionHandle {
     command_tx: mpsc::UnboundedSender<SessionCommand>,
-    #[allow(dead_code)]
     workspace_id: String,
     tmux_session: Option<String>,
     tmux_window_index: Option<u32>,
     client_session: Option<String>,
+    // Metadata for terminal manager
+    session_type: SessionType,
+    project_name: Option<String>,
+    workspace_name: Option<String>,
+    terminal_name: Option<String>,
+    cwd: Option<String>,
+    created_at: Instant,
+}
+
+/// Detailed session information for the terminal manager UI
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SessionDetail {
+    pub session_id: String,
+    pub workspace_id: String,
+    pub session_type: SessionType,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub terminal_name: Option<String>,
+    pub tmux_session: Option<String>,
+    pub tmux_window_index: Option<u32>,
+    pub cwd: Option<String>,
+    /// Seconds since the session was created
+    pub uptime_secs: u64,
 }
 
 /// Message types for terminal communication
@@ -324,6 +357,10 @@ impl TerminalService {
             cols,
             rows,
             false,
+            project_name,
+            workspace_name,
+            Some(final_window_name),
+            cwd,
         )
         .await;
 
@@ -343,6 +380,10 @@ impl TerminalService {
         cols: Option<u16>,
         rows: Option<u16>,
         cwd: Option<String>,
+        // Optional metadata for terminal manager
+        project_name: Option<String>,
+        workspace_name: Option<String>,
+        terminal_name: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
@@ -369,6 +410,7 @@ impl TerminalService {
         let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
 
         let session_id_clone = session_id.clone();
+        let cwd_for_handle = cwd.clone();
         
         // Spawn a dedicated thread for PTY operations
         thread::spawn(move || {
@@ -387,13 +429,19 @@ impl TerminalService {
         // Wait for initialization result
         match init_rx.await {
             Ok(Ok(())) => {
-                // Store session handle
+                // Store session handle with metadata
                 let handle = SessionHandle {
                     command_tx,
                     workspace_id: workspace_id.clone(),
                     tmux_session: None,
                     tmux_window_index: None,
                     client_session: None,
+                    session_type: SessionType::Simple,
+                    project_name,
+                    workspace_name,
+                    terminal_name,
+                    cwd: cwd_for_handle,
+                    created_at: Instant::now(),
                 };
                 
                 self.sessions.lock().await.insert(session_id.clone(), handle);
@@ -474,6 +522,9 @@ impl TerminalService {
             self.tmux_engine.get_session_name(&workspace_id)
         };
 
+        // Save window name for metadata before it gets consumed
+        let terminal_name = tmux_window_name.clone();
+
         // Determine the actual window index to attach to
         let final_window_index = if let Some(idx) = tmux_window_index {
             idx
@@ -510,6 +561,10 @@ impl TerminalService {
             cols,
             rows,
             true,
+            project_name,
+            workspace_name,
+            terminal_name,
+            None, // CWD not tracked for attach
         )
         .await?;
 
@@ -528,6 +583,11 @@ impl TerminalService {
         cols: u16,
         rows: u16,
         is_attach: bool,
+        // Metadata for terminal manager
+        project_name: Option<String>,
+        workspace_name: Option<String>,
+        terminal_name: Option<String>,
+        cwd: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
         // Create a unique client session for this specific terminal pane
         // Format: atmos_client_{session_id}
@@ -573,13 +633,19 @@ impl TerminalService {
         // Wait for initialization result
         match init_rx.await {
             Ok(Ok(())) => {
-                // Store session handle
+                // Store session handle with metadata
                 let handle = SessionHandle {
                     command_tx,
                     workspace_id: workspace_id.clone(),
                     tmux_session: Some(tmux_session),
                     tmux_window_index: Some(window_index),
                     client_session: Some(client_session_name),
+                    session_type: SessionType::Tmux,
+                    project_name,
+                    workspace_name,
+                    terminal_name,
+                    cwd,
+                    created_at: Instant::now(),
                 };
                 
                 self.sessions.lock().await.insert(session_id.clone(), handle);
@@ -719,6 +785,26 @@ impl TerminalService {
     /// Get all active session IDs
     pub async fn list_sessions(&self) -> Vec<String> {
         self.sessions.lock().await.keys().cloned().collect()
+    }
+
+    /// List detailed information about all active sessions (for Terminal Manager UI)
+    pub async fn list_session_details(&self) -> Vec<SessionDetail> {
+        let sessions = self.sessions.lock().await;
+        sessions
+            .iter()
+            .map(|(id, handle)| SessionDetail {
+                session_id: id.clone(),
+                workspace_id: handle.workspace_id.clone(),
+                session_type: handle.session_type.clone(),
+                project_name: handle.project_name.clone(),
+                workspace_name: handle.workspace_name.clone(),
+                terminal_name: handle.terminal_name.clone(),
+                tmux_session: handle.tmux_session.clone(),
+                tmux_window_index: handle.tmux_window_index,
+                cwd: handle.cwd.clone(),
+                uptime_secs: handle.created_at.elapsed().as_secs(),
+            })
+            .collect()
     }
 
     /// Check if a session exists

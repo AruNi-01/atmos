@@ -84,6 +84,11 @@ const Terminal = ({
   // If noTmux is requested, tell backend to skip tmux
   if (noTmux) {
     wsParams.set("mode", "shell");
+    // Still pass terminal_name for metadata display in Terminal Manager
+    const nameForShell = terminalName || tmuxWindowName;
+    if (nameForShell) {
+      wsParams.set("terminal_name", nameForShell);
+    }
   } else {
     // Standard Tmux Logic
     if (isNewPane) {
