@@ -14,7 +14,7 @@ use core_service::{MessagePushService, ProjectService, TerminalService, TestServ
 use infra::{DbConnection, Migrator, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
 use tower_http::trace::TraceLayer;
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -57,6 +57,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Terminal service for PTY management
     let terminal_service = Arc::new(TerminalService::new());
+
+    // CRITICAL: Clean up stale tmux client sessions from previous crashes/hot-reloads.
+    // During development with hot-reload, the process may be killed before cleanup.
+    // This leaves orphaned tmux "grouped sessions" (atmos_client_*) that each hold
+    // a PTY device. Without this cleanup, PTY devices accumulate and eventually
+    // cause "unable to allocate pty: Device not configured" system-wide.
+    terminal_service.cleanup_stale_client_sessions();
     info!("Terminal service initialized");
 
     // Configure WebSocket service
@@ -64,6 +71,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         heartbeat_interval_secs: 10,
         connection_timeout_secs: 30,
     };
+
+    // Keep a reference for shutdown cleanup (must clone before moving into AppState)
+    let terminal_service_shutdown = terminal_service.clone();
 
     // Create AppState with dependency injection
     let app_state = AppState::new(
@@ -96,7 +106,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
     info!("Server listening on http://0.0.0.0:8080");
 
-    axum::serve(listener, app).await?;
+    // Serve with graceful shutdown — ensures PTY resources are cleaned up
+    // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
+    // Without this, each restart leaks PTY devices until the system runs out.
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+
+    // Graceful shutdown: clean up all terminal sessions and PTY resources
+    info!("Shutdown signal received, cleaning up terminal sessions...");
+    terminal_service_shutdown.shutdown().await;
+    info!("Server shutdown complete");
 
     Ok(())
+}
+
+/// Wait for a shutdown signal (Ctrl+C or SIGTERM).
+/// Used by axum's graceful shutdown to stop accepting new connections
+/// before cleaning up PTY resources.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            warn!("Received Ctrl+C, initiating graceful shutdown...");
+        }
+        _ = terminate => {
+            warn!("Received SIGTERM, initiating graceful shutdown...");
+        }
+    }
 }
