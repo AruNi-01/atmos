@@ -281,7 +281,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               onChange={(e) => setRequirementText(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              需求将保存到 <code className="px-1 py-0.5 rounded bg-muted">.atmos/context/requirement.md</code>，可供后续上下文追踪以及引用给 Code Agent。
+              The requirement will be saved to <code className="px-1 py-0.5 rounded bg-muted">.atmos/context/requirement.md</code> for subsequent context tracking and reference to Code Agent.
             </p>
           </div>
         </div>
