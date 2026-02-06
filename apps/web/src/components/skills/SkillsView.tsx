@@ -103,10 +103,10 @@ export const SkillsView: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!skillId) {
+    if (!skillId && skills.length === 0 && !isLoading) {
       loadSkills();
     }
-  }, [loadSkills, skillId]);
+  }, [loadSkills, skillId, skills.length, isLoading]);
 
   useEffect(() => {
     const loadSkillDetail = async () => {
