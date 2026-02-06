@@ -80,7 +80,7 @@ type SearchTab = 'app' | 'files' | 'code';
 
 interface AppSearchItem {
   id: string;
-  type: 'workspace' | 'theme' | 'project' | 'new-workspace' | 'quick-open';
+  type: 'workspace' | 'theme' | 'project' | 'new-workspace' | 'quick-open' | 'management';
   title: string;
   description?: string;
   keywords: string[];
@@ -341,6 +341,46 @@ export function GlobalSearch() {
       },
     });
 
+    // Management Center shortcuts
+    items.push({
+      id: 'management-workspaces',
+      type: 'management',
+      title: 'Management Center: Workspaces',
+      description: 'Open workspace management',
+      keywords: ['management', 'center', 'workspaces', 'workspace', 'admin', 'overview'],
+      icon: <Layers className="size-4 text-muted-foreground" />,
+      action: () => {
+        router.push('/?view=workspaces');
+        setGlobalSearchOpen(false);
+      },
+    });
+
+    items.push({
+      id: 'management-skills',
+      type: 'management',
+      title: 'Management Center: Skills',
+      description: 'Open skills management',
+      keywords: ['management', 'center', 'skills', 'skill', 'catalog', 'library'],
+      icon: <Blocks className="size-4 text-muted-foreground" />,
+      action: () => {
+        router.push('/?view=skills');
+        setGlobalSearchOpen(false);
+      },
+    });
+
+    items.push({
+      id: 'management-terminals',
+      type: 'management',
+      title: 'Management Center: Terminals',
+      description: 'Open terminal management',
+      keywords: ['management', 'center', 'terminals', 'terminal', 'sessions'],
+      icon: <Terminal className="size-4 text-muted-foreground" />,
+      action: () => {
+        router.push('/?view=terminals');
+        setGlobalSearchOpen(false);
+      },
+    });
+
     // Toggle Full Screen
     items.push({
       id: 'toggle-fullscreen',
@@ -484,6 +524,7 @@ export function GlobalSearch() {
       project: [],
       'new-workspace': [],
       'quick-open': [],
+      management: [],
     };
 
     filteredAppItems.forEach(item => {
@@ -652,7 +693,7 @@ export function GlobalSearch() {
         className="text-base"
       />
 
-      <CommandList className="bg-muted/30 dark:bg-black/60 rounded-t-[20px] mt-1 pt-2 shadow-inner/5">
+      <CommandList className="bg-muted/50 dark:bg-black/70 rounded-t-[20px] mt-1 pt-2 shadow-inner/5">
         {/* App Search Tab */}
         {globalSearchTab === 'app' && (
           <>
@@ -703,6 +744,21 @@ export function GlobalSearch() {
                     icon={item.icon}
                     title={item.title}
                     shortcut={item.shortcut}
+                  />
+                ))}
+              </CommandGroup>
+            )}
+
+            {groupedAppItems.management.length > 0 && (
+              <CommandGroup heading="Management Center">
+                {groupedAppItems.management.map(item => (
+                  <SearchItem
+                    key={item.id}
+                    value={item.id}
+                    onSelect={item.action}
+                    icon={item.icon}
+                    title={item.title}
+                    description={item.description}
                   />
                 ))}
               </CommandGroup>
