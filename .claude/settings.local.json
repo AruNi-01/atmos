@@ -21,7 +21,8 @@
       "Skill(glm-plan-usage:usage-query-skill)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "Bash(bun add:*)"
+      "Bash(bun add:*)",
+      "Bash(bash:*)"
     ]
   }
 }

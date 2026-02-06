@@ -730,6 +730,82 @@ impl TerminalService {
     pub async fn session_count(&self) -> usize {
         self.sessions.lock().await.len()
     }
+
+    /// Gracefully shutdown all terminal sessions.
+    /// Called during application shutdown to clean up PTY resources and prevent
+    /// PTY device exhaustion ("unable to allocate pty: Device not configured").
+    pub async fn shutdown(&self) {
+        info!("Shutting down terminal service, cleaning up all sessions...");
+
+        let mut sessions = self.sessions.lock().await;
+        let count = sessions.len();
+
+        if count == 0 {
+            info!("No active terminal sessions to clean up");
+            drop(sessions);
+        } else {
+            // Drain all sessions and clean up
+            let handles: Vec<(String, SessionHandle)> = sessions.drain().collect();
+            drop(sessions); // Release the lock early
+
+            for (session_id, handle) in &handles {
+                // Send close command to PTY thread
+                let _ = handle.command_tx.send(SessionCommand::Close);
+
+                // Kill the client tmux session to force the tmux attach process to exit
+                if let Some(client_session) = &handle.client_session {
+                    if let Err(e) = self.tmux_engine.kill_session(client_session) {
+                        warn!("Failed to kill client session {} during shutdown: {}", client_session, e);
+                    }
+                }
+
+                debug!("Sent shutdown signal to session: {}", session_id);
+            }
+
+            // Give PTY threads a moment to clean up (they need to:
+            // 1. Process the Close command
+            // 2. Wait for the reader thread to see EOF
+            // 3. Exit cleanly)
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+            info!("Terminal service shutdown complete: cleaned up {} sessions", count);
+        }
+
+        // Also clean up any stale client sessions that might have leaked
+        self.cleanup_stale_client_sessions();
+    }
+
+    /// Clean up stale tmux client sessions from previous crashes or hot-reloads.
+    /// Called on startup and shutdown to release PTY resources from orphaned sessions.
+    ///
+    /// During hot-reload, the process is killed before cleanup can happen.
+    /// This leaves behind tmux "grouped sessions" (atmos_client_*) that each hold
+    /// a PTY device. Over many hot-reloads, these accumulate and exhaust the system's
+    /// PTY device pool.
+    pub fn cleanup_stale_client_sessions(&self) {
+        match self.tmux_engine.list_sessions() {
+            Ok(sessions) => {
+                let mut cleaned = 0;
+                for session in sessions {
+                    if session.name.starts_with("atmos_client_") {
+                        if let Err(e) = self.tmux_engine.kill_session(&session.name) {
+                            warn!("Failed to kill stale client session {}: {}", session.name, e);
+                        } else {
+                            cleaned += 1;
+                        }
+                    }
+                }
+                if cleaned > 0 {
+                    info!("Cleaned up {} stale tmux client sessions", cleaned);
+                } else {
+                    debug!("No stale tmux client sessions found");
+                }
+            }
+            Err(e) => {
+                warn!("Failed to list tmux sessions for cleanup: {}", e);
+            }
+        }
+    }
 }
 
 /// Run PTY session attached to a tmux window
@@ -814,6 +890,13 @@ fn run_pty_session_with_tmux(
         let _ = init_tx.send(Err(anyhow!("Failed to attach to tmux: {}", e)));
         return;
     }
+
+    // CRITICAL: Drop the slave immediately after spawning.
+    // The slave holds a PTY file descriptor. If not dropped, the master's reader
+    // will never see EOF even after the spawned process exits, causing the
+    // reader thread to block forever and the PTY device to leak.
+    // This is the primary cause of "unable to allocate pty: Device not configured".
+    drop(pair.slave);
 
     // Get reader and writer
     let mut reader = match pair.master.try_clone_reader() {
@@ -968,6 +1051,10 @@ fn run_simple_pty_session(
         let _ = init_tx.send(Err(anyhow!("Failed to spawn shell '{}': {}", shell_cmd, e)));
         return;
     }
+
+    // CRITICAL: Drop the slave immediately after spawning.
+    // See run_pty_session_with_tmux for detailed explanation.
+    drop(pair.slave);
 
     // Get reader and writer
     let mut reader = match pair.master.try_clone_reader() {
