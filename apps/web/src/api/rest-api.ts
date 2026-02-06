@@ -123,12 +123,6 @@ export interface TmuxServerInfo {
   running: boolean;
 }
 
-export interface FdLimits {
-  soft_limit: number | null;
-  hard_limit: number | null;
-  system_limit: number | null;
-  process_open_fds: number | null;
-}
 
 export interface ShellEnvInfo {
   shell: string;
@@ -168,7 +162,6 @@ export interface TerminalOverviewResponse {
   system_pty: SystemPtyInfo;
   orphaned_processes: OrphanedProcess[];
   orphaned_process_count: number;
-  fd_limits: FdLimits;
   ws_connection_count: number;
   shell_env: ShellEnvInfo;
   pty_devices: PtyDeviceDetail[];

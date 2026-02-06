@@ -25,7 +25,6 @@ import {
   HardDrive,
   Globe,
   Skull,
-  FileText,
   Info,
   ChevronDown,
   Hash,
@@ -48,7 +47,6 @@ import {
   type SystemPtyInfo,
   type PtyHealth,
   type TmuxServerInfo,
-  type FdLimits,
   type ShellEnvInfo,
   type OrphanedProcess,
   type PtyDeviceDetail,
@@ -275,9 +273,11 @@ const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
 
   return (
     <Collapsible className="rounded-lg border border-border bg-background p-5">
-      <CollapsibleTrigger className="w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
-        <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
-        <HardDrive className="size-4" />
+      <CollapsibleTrigger className="group w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
+        <span className="relative size-4 shrink-0">
+          <HardDrive className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
+          <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+        </span>
         System PTY Usage
         <span className="text-xs font-normal text-muted-foreground">
           ({pty.os})
@@ -403,9 +403,11 @@ const OrphanedProcessesSection: React.FC<{ orphans: OrphanedProcess[]; count: nu
 
   return (
     <Collapsible className="rounded-lg border border-border bg-background p-5">
-      <CollapsibleTrigger className="w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
-        <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
-        <Skull className="size-4 text-red-500" />
+      <CollapsibleTrigger className="group w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
+        <span className="relative size-4 shrink-0">
+          <Skull className="absolute inset-0 size-4 text-red-500 transition-opacity duration-150 group-hover:opacity-0" />
+          <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+        </span>
         Orphaned Processes
         <span className="text-xs font-medium text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full">
           {count} detected
@@ -574,89 +576,6 @@ const TmuxServerSection: React.FC<{ server: TmuxServerInfo; onKillServer: () => 
   );
 };
 
-// --- File Descriptor Limits Section ---
-
-const FdLimitsSection: React.FC<{ fd: FdLimits }> = ({ fd }) => {
-  const processUsage = (fd.process_open_fds != null && fd.soft_limit != null && fd.soft_limit > 0)
-    ? ((fd.process_open_fds / fd.soft_limit) * 100)
-    : null;
-
-  const processHealth = processUsage != null
-    ? processUsage >= 90 ? 'critical' : processUsage >= 70 ? 'warning' : 'healthy'
-    : 'unknown';
-
-  return (
-    <div className="rounded-lg border border-border bg-background p-5">
-      <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-        <FileText className="size-4" />
-        File Descriptor Limits
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="size-3.5 text-muted-foreground" />
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs text-xs">
-              File descriptors are limited per-process. Each terminal, file, and network connection uses one.
-              Exceeding the soft limit will cause &quot;Too many open files&quot; errors.
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </h2>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Soft Limit</span>
-          <p className="text-sm font-semibold tabular-nums">
-            {fd.soft_limit != null ? fd.soft_limit.toLocaleString() : '—'}
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Hard Limit</span>
-          <p className="text-sm font-semibold tabular-nums">
-            {fd.hard_limit != null ? fd.hard_limit.toLocaleString() : '—'}
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">System Limit</span>
-          <p className="text-sm font-semibold tabular-nums">
-            {fd.system_limit != null ? fd.system_limit.toLocaleString() : '—'}
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Process Open</span>
-          <p className={cn("text-sm font-semibold tabular-nums", healthColor[processHealth as PtyHealth])}>
-            {fd.process_open_fds != null ? fd.process_open_fds.toLocaleString() : '—'}
-            {processUsage != null && (
-              <span className="text-[10px] font-normal text-muted-foreground ml-1">
-                ({processUsage.toFixed(1)}%)
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
-
-      {/* Usage Bar for process FDs */}
-      {fd.process_open_fds != null && fd.soft_limit != null && fd.soft_limit > 0 && (
-        <div className="mt-3">
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                processHealth === 'critical' ? 'bg-red-500' :
-                processHealth === 'warning' ? 'bg-amber-500' :
-                'bg-emerald-500'
-              )}
-              style={{ width: `${Math.min((fd.process_open_fds / fd.soft_limit) * 100, 100)}%` }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // --- Shell Environment Section ---
 
@@ -712,9 +631,11 @@ const PtyDeviceDetailSection: React.FC<{ devices: PtyDeviceDetail[] }> = ({ devi
 
   return (
     <Collapsible className="rounded-lg border border-border bg-background p-5">
-      <CollapsibleTrigger className="w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
-        <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
-        <Hash className="size-4" />
+      <CollapsibleTrigger className="group w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
+        <span className="relative size-4 shrink-0">
+          <Hash className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
+          <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+        </span>
         PTY Device Details
         <span className="text-xs font-normal text-muted-foreground">
           ({devices.length} device{devices.length !== 1 ? 's' : ''})
@@ -773,9 +694,11 @@ const SessionsGroupSection: React.FC<{
 
   return (
     <Collapsible className="rounded-lg border border-border bg-background p-5">
-      <CollapsibleTrigger className="w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
-        <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
-        <SquareTerminal className="size-4" />
+      <CollapsibleTrigger className="group w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
+        <span className="relative size-4 shrink-0">
+          <SquareTerminal className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
+          <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+        </span>
         Sessions
         <span className="text-xs font-normal text-muted-foreground">
           ({data.active_session_count} active{data.tmux.installed ? `, ${data.tmux.session_count} tmux` : ''})
@@ -918,9 +841,7 @@ export const TerminalManagerView: React.FC = () => {
             <div>
               <h1 className="text-base font-semibold text-foreground">Terminal Manager</h1>
               <p className="text-sm text-muted-foreground">
-                {data
-                  ? `${data.active_session_count} active session${data.active_session_count !== 1 ? 's' : ''}, ${data.tmux.session_count} tmux session${data.tmux.session_count !== 1 ? 's' : ''}`
-                  : 'Monitor and manage terminal sessions'}
+                Monitor and manage terminal sessions
               </p>
             </div>
           </div>
@@ -1051,9 +972,6 @@ export const TerminalManagerView: React.FC = () => {
 
               {/* Shell Environment */}
               <ShellEnvSection env={data.shell_env} />
-
-              {/* File Descriptor Limits */}
-              <FdLimitsSection fd={data.fd_limits} />
 
               {/* Sessions & Tmux */}
               <SessionsGroupSection data={data} onKillServer={handleKillServer} onKillSession={handleKillSession} />

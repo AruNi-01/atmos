@@ -693,7 +693,7 @@ export function GlobalSearch() {
         className="text-base"
       />
 
-      <CommandList className="bg-muted/50 dark:bg-black/70 rounded-t-[20px] mt-1 pt-2 shadow-inner/5">
+      <CommandList className="bg-muted/50 dark:bg-black/60 rounded-t-[20px] mt-1 pt-2 shadow-inner/5">
         {/* App Search Tab */}
         {globalSearchTab === 'app' && (
           <>
