@@ -1,8 +1,395 @@
 use axum::{extract::State, Json};
 use serde_json::{json, Value};
+use tracing::{info, warn};
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{app_state::AppState, error::ApiResult};
 use crate::api::dto::ApiResponse;
+
+/// Gather system-level PTY usage information.
+/// Works on macOS (sysctl + /dev/ttys*) and Linux (/dev/pts/*).
+fn get_system_pty_info() -> Value {
+    let os = std::env::consts::OS;
+
+    // 1. Max PTY limit
+    let pty_max: Option<u64> = if os == "macos" {
+        std::process::Command::new("sysctl")
+            .args(["-n", "kern.tty.ptmx_max"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .and_then(|s| s.trim().parse().ok())
+    } else {
+        // Linux: /proc/sys/kernel/pty/max
+        std::fs::read_to_string("/proc/sys/kernel/pty/max")
+            .ok()
+            .and_then(|s| s.trim().parse().ok())
+    };
+
+    // 2. Current PTY device count
+    let pty_current: Option<u64> = if os == "macos" {
+        // Count /dev/ttys* files
+        std::fs::read_dir("/dev")
+            .ok()
+            .map(|entries| {
+                entries
+                    .filter_map(|e| e.ok())
+                    .filter(|e| {
+                        e.file_name()
+                            .to_string_lossy()
+                            .starts_with("ttys")
+                    })
+                    .count() as u64
+            })
+    } else {
+        // Linux: /proc/sys/kernel/pty/nr or count /dev/pts/*
+        std::fs::read_to_string("/proc/sys/kernel/pty/nr")
+            .ok()
+            .and_then(|s| s.trim().parse().ok())
+            .or_else(|| {
+                std::fs::read_dir("/dev/pts")
+                    .ok()
+                    .map(|entries| entries.filter_map(|e| e.ok()).count() as u64)
+            })
+    };
+
+    // 3. Usage percentage
+    let usage_percent: Option<f64> = match (pty_current, pty_max) {
+        (Some(cur), Some(max)) if max > 0 => Some((cur as f64 / max as f64) * 100.0),
+        _ => None,
+    };
+
+    // 4. Health level
+    let health = match usage_percent {
+        Some(p) if p >= 90.0 => "critical",
+        Some(p) if p >= 70.0 => "warning",
+        Some(_) => "healthy",
+        None => "unknown",
+    };
+
+    // 5. Top processes holding PTY devices (via lsof, capped)
+    let top_processes = get_pty_process_summary();
+
+    json!({
+        "os": os,
+        "pty_max": pty_max,
+        "pty_current": pty_current,
+        "usage_percent": usage_percent.map(|p| (p * 10.0).round() / 10.0),
+        "health": health,
+        "top_processes": top_processes,
+    })
+}
+
+/// Get a summary of which commands are using the most PTY devices.
+/// Returns a list of { command, count } sorted by count descending, top 10.
+fn get_pty_process_summary() -> Vec<Value> {
+    let os = std::env::consts::OS;
+
+    // Use shell glob for reliable PTY device enumeration
+    let output = if os == "macos" {
+        std::process::Command::new("sh")
+            .args(["-c", "lsof /dev/ttys* 2>/dev/null"])
+            .output()
+    } else {
+        std::process::Command::new("sh")
+            .args(["-c", "lsof /dev/pts/* 2>/dev/null"])
+            .output()
+    };
+
+    // Parse lsof output: COMMAND is the first column
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let mut counts: HashMap<String, u32> = HashMap::new();
+
+            for line in stdout.lines().skip(1) {
+                // lsof output: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+                let command = line.split_whitespace().next().unwrap_or("").to_string();
+                if !command.is_empty() {
+                    *counts.entry(command).or_insert(0) += 1;
+                }
+            }
+
+            let mut sorted: Vec<(String, u32)> = counts.into_iter().collect();
+            sorted.sort_by(|a, b| b.1.cmp(&a.1));
+            sorted.truncate(10);
+
+            sorted
+                .into_iter()
+                .map(|(cmd, count)| json!({ "command": cmd, "count": count }))
+                .collect()
+        }
+        Err(e) => {
+            warn!("Failed to get PTY process summary: {}", e);
+            vec![]
+        }
+    }
+}
+
+/// Detect orphaned shell processes (PPID=1) that may be holding PTY devices.
+/// Returns a list of { pid, command, elapsed } sorted by PID.
+fn get_orphaned_processes() -> Vec<Value> {
+    // ps -eo pid,ppid,etime,command : get PID, parent PID, elapsed time, and full command
+    let output = std::process::Command::new("sh")
+        .args(["-c", "ps -eo pid,ppid,etime,comm 2>/dev/null"])
+        .output();
+
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let shell_names = ["zsh", "bash", "sh", "fish", "tcsh", "csh", "ksh", "dash"];
+
+            let mut orphans: Vec<Value> = stdout
+                .lines()
+                .skip(1) // skip header
+                .filter_map(|line| {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 4 {
+                        let pid: u32 = parts[0].trim().parse().ok()?;
+                        let ppid: u32 = parts[1].trim().parse().ok()?;
+                        let elapsed = parts[2].trim().to_string();
+                        let comm = parts[3].trim().to_string();
+
+                        // Only report orphans (PPID=1) that are shell processes
+                        if ppid == 1 && shell_names.iter().any(|s| comm.contains(s)) {
+                            Some(json!({
+                                "pid": pid,
+                                "command": comm,
+                                "elapsed": elapsed,
+                            }))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            // Limit to top 50
+            orphans.truncate(50);
+            orphans
+        }
+        Err(e) => {
+            warn!("Failed to detect orphaned processes: {}", e);
+            vec![]
+        }
+    }
+}
+
+/// Gather tmux server information (socket, PID, uptime, total sessions/windows).
+fn get_tmux_server_info(tmux_engine: &core_engine::TmuxEngine) -> Value {
+    let socket_path = tmux_engine.socket_file_path();
+    let server_pid = tmux_engine.get_server_pid();
+
+    // Calculate uptime from server start time
+    let uptime_secs: Option<u64> = tmux_engine.get_server_start_time().and_then(|start| {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|now| now.as_secs().saturating_sub(start))
+    });
+
+    // Count total sessions and windows
+    let (total_sessions, total_windows) = tmux_engine
+        .list_sessions()
+        .map(|sessions| {
+            let ws: u32 = sessions.iter().map(|s| s.windows).sum();
+            (sessions.len() as u32, ws)
+        })
+        .unwrap_or((0, 0));
+
+    json!({
+        "socket_path": socket_path,
+        "server_pid": server_pid,
+        "uptime_secs": uptime_secs,
+        "total_sessions": total_sessions,
+        "total_windows": total_windows,
+        "running": server_pid.is_some(),
+    })
+}
+
+/// Gather file descriptor limits.
+fn get_fd_limits() -> Value {
+    let os = std::env::consts::OS;
+
+    // soft limit: ulimit -n (RLIMIT_NOFILE soft)
+    let soft_limit: Option<u64> = std::process::Command::new("sh")
+        .args(["-c", "ulimit -n 2>/dev/null"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .and_then(|s| s.trim().parse().ok());
+
+    // hard limit: ulimit -Hn
+    let hard_limit: Option<u64> = std::process::Command::new("sh")
+        .args(["-c", "ulimit -Hn 2>/dev/null"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .and_then(|s| s.trim().parse().ok());
+
+    // system-wide limit
+    let system_limit: Option<u64> = if os == "macos" {
+        std::process::Command::new("sysctl")
+            .args(["-n", "kern.maxfiles"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .and_then(|s| s.trim().parse().ok())
+    } else {
+        std::fs::read_to_string("/proc/sys/fs/file-max")
+            .ok()
+            .and_then(|s| s.trim().parse().ok())
+    };
+
+    // current open FDs for this process
+    let process_open_fds: Option<u64> = if os == "macos" {
+        // Count /dev/fd/* for current process
+        std::fs::read_dir("/dev/fd")
+            .ok()
+            .map(|entries| entries.filter_map(|e| e.ok()).count() as u64)
+    } else {
+        std::fs::read_dir("/proc/self/fd")
+            .ok()
+            .map(|entries| entries.filter_map(|e| e.ok()).count() as u64)
+    };
+
+    json!({
+        "soft_limit": soft_limit,
+        "hard_limit": hard_limit,
+        "system_limit": system_limit,
+        "process_open_fds": process_open_fds,
+    })
+}
+
+/// Gather shell environment information.
+fn get_shell_env_info() -> Value {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "unknown".to_string());
+    let term = std::env::var("TERM").unwrap_or_else(|_| "unknown".to_string());
+    let user = std::env::var("USER")
+        .or_else(|_| std::env::var("LOGNAME"))
+        .unwrap_or_else(|_| "unknown".to_string());
+    let home = std::env::var("HOME").unwrap_or_else(|_| "unknown".to_string());
+    let os = std::env::consts::OS.to_string();
+    let arch = std::env::consts::ARCH.to_string();
+
+    // Get OS version
+    let os_version: Option<String> = if os == "macos" {
+        std::process::Command::new("sw_vers")
+            .args(["-productVersion"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+    } else {
+        std::fs::read_to_string("/etc/os-release")
+            .ok()
+            .and_then(|content| {
+                content.lines()
+                    .find(|l| l.starts_with("PRETTY_NAME="))
+                    .map(|l| l.trim_start_matches("PRETTY_NAME=").trim_matches('"').to_string())
+            })
+    };
+
+    // Get hostname
+    let hostname: Option<String> = std::process::Command::new("hostname")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string());
+
+    json!({
+        "shell": shell,
+        "term": term,
+        "user": user,
+        "home": home,
+        "os": os,
+        "arch": arch,
+        "os_version": os_version,
+        "hostname": hostname,
+    })
+}
+
+/// Get detailed PTY device list with per-device process information.
+/// Returns a list of { device, pid, user, command } for each PTY device.
+fn get_pty_device_details() -> Vec<Value> {
+    let os = std::env::consts::OS;
+
+    let output = if os == "macos" {
+        std::process::Command::new("sh")
+            .args(["-c", "lsof /dev/ttys* 2>/dev/null"])
+            .output()
+    } else {
+        std::process::Command::new("sh")
+            .args(["-c", "lsof /dev/pts/* 2>/dev/null"])
+            .output()
+    };
+
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            // Parse lsof: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+            // Group by device (NAME column), collect unique pid + command per device
+            let mut device_map: HashMap<String, Vec<Value>> = HashMap::new();
+
+            for line in stdout.lines().skip(1) {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 9 {
+                    let command = parts[0].to_string();
+                    let pid = parts[1].to_string();
+                    let user = parts[2].to_string();
+                    let fd = parts[3].to_string();
+                    let device_name = parts[parts.len() - 1].to_string();
+
+                    device_map.entry(device_name).or_default().push(json!({
+                        "command": command,
+                        "pid": pid,
+                        "user": user,
+                        "fd": fd,
+                    }));
+                }
+            }
+
+            let mut devices: Vec<Value> = device_map
+                .into_iter()
+                .map(|(device, processes)| {
+                    // Deduplicate by pid within each device
+                    let mut seen_pids = std::collections::HashSet::new();
+                    let unique_processes: Vec<Value> = processes
+                        .into_iter()
+                        .filter(|p| {
+                            let pid = p["pid"].as_str().unwrap_or("").to_string();
+                            seen_pids.insert(pid)
+                        })
+                        .collect();
+
+                    json!({
+                        "device": device,
+                        "process_count": unique_processes.len(),
+                        "processes": unique_processes,
+                    })
+                })
+                .collect();
+
+            // Sort by device name
+            devices.sort_by(|a, b| {
+                let da = a["device"].as_str().unwrap_or("");
+                let db = b["device"].as_str().unwrap_or("");
+                da.cmp(db)
+            });
+
+            // Cap at 100 devices
+            devices.truncate(100);
+            devices
+        }
+        Err(e) => {
+            warn!("Failed to get PTY device details: {}", e);
+            vec![]
+        }
+    }
+}
 
 /// GET /api/system/tmux-status - Check tmux installation status
 pub async fn get_tmux_status(
@@ -61,4 +448,247 @@ pub async fn list_tmux_windows(
     Ok(Json(ApiResponse::success(json!({
         "windows": windows
     }))))
+}
+
+/// GET /api/system/terminal-overview - Comprehensive terminal overview for Terminal Manager UI
+pub async fn get_terminal_overview(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let terminal_service = &state.terminal_service;
+    let tmux_engine = terminal_service.tmux_engine();
+
+    // 1. Active Atmos sessions (in-memory handles)
+    let active_sessions = terminal_service.list_session_details().await;
+    let active_sessions_json: Vec<Value> = active_sessions
+        .iter()
+        .map(|s| {
+            json!({
+                "session_id": s.session_id,
+                "workspace_id": s.workspace_id,
+                "session_type": s.session_type,
+                "project_name": s.project_name,
+                "workspace_name": s.workspace_name,
+                "terminal_name": s.terminal_name,
+                "tmux_session": s.tmux_session,
+                "tmux_window_index": s.tmux_window_index,
+                "cwd": s.cwd,
+                "uptime_secs": s.uptime_secs,
+            })
+        })
+        .collect();
+
+    // 2. Tmux status
+    let tmux_installed = terminal_service.is_tmux_available();
+    let tmux_version = if tmux_installed {
+        terminal_service.get_tmux_version().ok().map(|v| v.raw)
+    } else {
+        None
+    };
+
+    // 3. Tmux sessions (all atmos_* master sessions, excluding client sessions)
+    let tmux_sessions: Vec<Value> = if tmux_installed {
+        tmux_engine
+            .list_atmos_sessions()
+            .map(|sessions| {
+                sessions
+                    .into_iter()
+                    .filter(|s| !s.name.starts_with("atmos_client_"))
+                    .map(|s| {
+                        // List windows for each session
+                        let windows: Vec<Value> = tmux_engine
+                            .list_windows(&s.name)
+                            .map(|ws| {
+                                ws.into_iter()
+                                    .map(|w| {
+                                        json!({
+                                            "index": w.index,
+                                            "name": w.name,
+                                            "active": w.active,
+                                        })
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+
+                        json!({
+                            "name": s.name,
+                            "windows": s.windows,
+                            "window_list": windows,
+                            "created": s.created,
+                            "attached": s.attached,
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    } else {
+        vec![]
+    };
+
+    // 4. Stale client sessions count (for health indicator)
+    let stale_client_count: usize = if tmux_installed {
+        tmux_engine
+            .list_sessions()
+            .map(|sessions| {
+                sessions
+                    .iter()
+                    .filter(|s| s.name.starts_with("atmos_client_"))
+                    .count()
+            })
+            .unwrap_or(0)
+    } else {
+        0
+    };
+
+    // 5. System-level PTY info
+    let system_pty = get_system_pty_info();
+
+    // 6. Orphaned processes
+    let orphaned_processes = get_orphaned_processes();
+
+    // 7. Tmux server info
+    let tmux_server = if tmux_installed {
+        get_tmux_server_info(&tmux_engine)
+    } else {
+        json!({"running": false})
+    };
+
+    // 8. File descriptor limits
+    let fd_limits = get_fd_limits();
+
+    // 9. WebSocket connection count
+    let ws_connection_count = state.ws_service.connection_count().await;
+
+    // 10. Shell environment
+    let shell_env = get_shell_env_info();
+
+    // 11. PTY device details
+    let pty_devices = get_pty_device_details();
+
+    Ok(Json(ApiResponse::success(json!({
+        "active_sessions": active_sessions_json,
+        "active_session_count": active_sessions.len(),
+        "tmux": {
+            "installed": tmux_installed,
+            "version": tmux_version,
+            "sessions": tmux_sessions,
+            "session_count": tmux_sessions.len(),
+            "stale_client_sessions": stale_client_count,
+        },
+        "tmux_server": tmux_server,
+        "system_pty": system_pty,
+        "orphaned_processes": orphaned_processes,
+        "orphaned_process_count": orphaned_processes.len(),
+        "fd_limits": fd_limits,
+        "ws_connection_count": ws_connection_count,
+        "shell_env": shell_env,
+        "pty_devices": pty_devices,
+    }))))
+}
+
+/// POST /api/system/terminal-cleanup - Clean up stale terminal resources
+pub async fn cleanup_terminals(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let terminal_service = &state.terminal_service;
+    let tmux_engine = terminal_service.tmux_engine();
+
+    // Count stale sessions before cleanup
+    let before_count = tmux_engine
+        .list_sessions()
+        .map(|sessions| {
+            sessions
+                .iter()
+                .filter(|s| s.name.starts_with("atmos_client_"))
+                .count()
+        })
+        .unwrap_or(0);
+
+    // Perform cleanup
+    terminal_service.cleanup_stale_client_sessions();
+
+    // Count after cleanup
+    let after_count = tmux_engine
+        .list_sessions()
+        .map(|sessions| {
+            sessions
+                .iter()
+                .filter(|s| s.name.starts_with("atmos_client_"))
+                .count()
+        })
+        .unwrap_or(0);
+
+    let cleaned = if before_count > after_count {
+        before_count - after_count
+    } else {
+        0
+    };
+
+    info!(
+        "Terminal cleanup complete: {} stale client sessions removed",
+        cleaned
+    );
+
+    Ok(Json(ApiResponse::success(json!({
+        "cleaned_client_sessions": cleaned,
+        "remaining_client_sessions": after_count,
+    }))))
+}
+
+/// POST /api/system/tmux-kill-server - Kill the entire tmux server
+pub async fn kill_tmux_server(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let tmux_engine = state.terminal_service.tmux_engine();
+
+    // Shut down all in-memory sessions first
+    state.terminal_service.shutdown().await;
+
+    // Kill the tmux server
+    tmux_engine.kill_server().map_err(|e| {
+        warn!("Failed to kill tmux server: {}", e);
+    }).ok();
+
+    info!("Tmux server killed via Terminal Manager");
+
+    Ok(Json(ApiResponse::success(json!({
+        "killed": true,
+    }))))
+}
+
+/// POST /api/system/tmux-kill-session - Kill a specific tmux session
+pub async fn kill_tmux_session(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let session_name = body["session_name"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+
+    if session_name.is_empty() {
+        return Ok(Json(ApiResponse::success(json!({
+            "killed": false,
+            "error": "session_name is required",
+        }))));
+    }
+
+    let tmux_engine = state.terminal_service.tmux_engine();
+
+    match tmux_engine.kill_session(&session_name) {
+        Ok(_) => {
+            info!("Killed tmux session '{}' via Terminal Manager", session_name);
+            Ok(Json(ApiResponse::success(json!({
+                "killed": true,
+                "session_name": session_name,
+            }))))
+        }
+        Err(e) => {
+            warn!("Failed to kill tmux session '{}': {}", session_name, e);
+            Ok(Json(ApiResponse::success(json!({
+                "killed": false,
+                "error": format!("{}", e),
+            }))))
+        }
+    }
 }

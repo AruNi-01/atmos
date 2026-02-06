@@ -191,7 +191,10 @@ async fn handle_terminal_socket(
                 shell,
                 None, // Initial size will be set by client resize
                 None,
-                cwd,
+                cwd.clone(),
+                project_name.clone(),
+                workspace_name.clone(),
+                terminal_name.clone(),
             )
             .await
         {

@@ -70,7 +70,8 @@ import {
     FolderKanban,
     Clock,
     ArrowRight,
-    Puzzle
+    Puzzle,
+    SquareTerminal
 } from "@workspace/ui";
 import { Project, Workspace, PROJECT_COLOR_PRESETS } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -753,7 +754,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
-    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(view === 'workspaces' || view === 'recent' || view === 'archived' || view === 'skills');
+    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(view === 'workspaces' || view === 'recent' || view === 'archived' || view === 'skills' || view === 'terminals');
     const [activeId, setActiveId] = useState<string | null>(null);
 
     // File tree state
@@ -1077,6 +1078,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 <div className="flex items-center gap-2">
                                     <Puzzle className="size-3.5" />
                                     <span>Skills</span>
+                                </div>
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
+                                    <ArrowRight className="size-3.5" />
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => router.push('/?view=terminals')}
+                                className={cn(
+                                    "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
+                                    view === 'terminals'
+                                        ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
+                                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
+                                )}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <SquareTerminal className="size-3.5" />
+                                    <span>Terminals</span>
                                 </div>
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
                                     <ArrowRight className="size-3.5" />
