@@ -590,13 +590,9 @@ impl TmuxEngine {
             // Concatenate project and workspace
             format!("{}_{}", project, workspace)
         };
-
-        // Add atmos_ prefix if not already present
-        if body.starts_with("atmos") && (body.len() == 5 || body.as_bytes()[5] == b'_') {
-            body
-        } else {
-            format!("atmos_{}", body)
-        }
+        
+        // Always add atmos_ prefix
+        format!("atmos_{}", body)
     }
 
     /// Parse workspace ID from session name
@@ -693,16 +689,22 @@ mod tests {
             "atmos_kepano-obsidian_exeggutor"
         );
 
-        // Name based sessions - atmos project special case
+        // Name based sessions - atmos project (now properly prefixed)
         assert_eq!(
             engine.session_name_from_names("atmos", "atmos/logysk"),
-            "atmos_logysk"
+            "atmos_atmos_logysk"
         );
         
-        // Name based sessions - atoms prefix already present in user input
+        // Name based sessions - atmos project with different workspace
         assert_eq!(
             engine.session_name_from_names("atmos", "other"),
-            "atmos_other"
+            "atmos_atmos_other"
+        );
+        
+        // Name based sessions - simple workspace names
+        assert_eq!(
+            engine.session_name_from_names("atmos", "mankey"),
+            "atmos_atmos_mankey"
         );
     }
 
