@@ -31,6 +31,16 @@ export * from "./components/ui/textarea";
 export * from "./components/ui/tooltip";
 export * from "./components/ui/skeleton";
 export * from "./components/ui/preview-card";
+export * from "./components/logo-svg";
+export * from "./components/ui/avatar";
+export * from "./components/ui/badge";
+export * from "./components/ui/craft-button";
+export * from "./components/ui/marquee";
+export * from "./components/ui/motion-preset";
+export * from "./components/ui/navigation-menu";
+export * from "./components/ui/rating";
+export * from "./components/ui/separator";
+export * from "./components/ui/sheet";
 
 // Utilities
 export { cn } from "./lib/utils";

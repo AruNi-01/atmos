@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-import { HammerIcon } from 'lucide-react'
+import { Hammer } from 'lucide-react'
 
 import Link from 'next/link'
 
@@ -75,7 +75,7 @@ const Header = ({ navigationData, className }: HeaderProps) => {
           {/* Actions */}
           <Button variant='outline' className='rounded-full px-4! max-sm:hidden' asChild>
             <Link href='#'>
-              Let’s Build <HammerIcon />
+              Let’s Build <Hammer className='size-4' />
             </Link>
           </Button>
 
@@ -84,7 +84,7 @@ const Header = ({ navigationData, className }: HeaderProps) => {
               <Button variant='outline' size='icon' className='rounded-full px-4! sm:hidden' asChild>
                 <Link href='#'>
                   <span className='sr-only'>Let’s Build</span>
-                  <HammerIcon />
+                  <Hammer className='size-4' />
                 </Link>
               </Button>
             </TooltipTrigger>

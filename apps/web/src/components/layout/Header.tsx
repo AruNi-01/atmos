@@ -6,7 +6,6 @@ import {
   Archive,
   Bell,
   Search,
-  Hexagon,
   ThemeToggle,
   Edit2,
   Check,
@@ -24,6 +23,7 @@ import {
   Minimize,
   Puzzle,
 } from '@workspace/ui';
+import LogoSvg from '@workspace/ui/components/logo-svg';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -296,7 +296,7 @@ const Header: React.FC = () => {
       {/* Left: Identity */}
       <div className="flex items-center space-x-4">
         <div className={cn("flex items-center text-foreground font-semibold text-balance")}>
-          <Hexagon className="size-4 mr-2 text-emerald-500 fill-emerald-500/10" />
+          <LogoSvg className="size-6 mr-2 text-primary" />
           <span className="text-[14px]">ATMOS</span>
         </div>
         <span className="text-muted-foreground/30 text-lg font-light">/</span>
