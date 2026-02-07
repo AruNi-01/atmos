@@ -16,4 +16,5 @@ pub fn routes() -> Router<AppState> {
         .route("/terminal-cleanup", post(handlers::cleanup_terminals))
         .route("/tmux-kill-server", post(handlers::kill_tmux_server))
         .route("/tmux-kill-session", post(handlers::kill_tmux_session))
+        .route("/kill-orphaned-processes", post(handlers::kill_orphaned_processes))
 }

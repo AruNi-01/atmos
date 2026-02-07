@@ -1,7 +1,7 @@
 use axum::{extract::State, Json};
 use serde_json::{json, Value};
 use tracing::{info, warn};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{app_state::AppState, error::ApiResult};
@@ -83,6 +83,7 @@ fn get_system_pty_info() -> Value {
 
 /// Get a summary of which commands are using the most PTY devices.
 /// Returns a list of { command, count } sorted by count descending, top 10.
+/// Counts unique PTY devices per process, not file descriptors.
 fn get_pty_process_summary() -> Vec<Value> {
     let os = std::env::consts::OS;
 
@@ -97,21 +98,30 @@ fn get_pty_process_summary() -> Vec<Value> {
             .output()
     };
 
-    // Parse lsof output: COMMAND is the first column
+    // Parse lsof output: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+    // Count unique PTY devices per command (process name), not file descriptors
     match output {
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout);
-            let mut counts: HashMap<String, u32> = HashMap::new();
+            // Map command -> set of unique device names
+            let mut device_counts: HashMap<String, HashSet<String>> = HashMap::new();
 
             for line in stdout.lines().skip(1) {
-                // lsof output: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
-                let command = line.split_whitespace().next().unwrap_or("").to_string();
-                if !command.is_empty() {
-                    *counts.entry(command).or_insert(0) += 1;
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 9 {
+                    let command = parts[0].to_string();
+                    let device_name = parts[parts.len() - 1].trim().to_string();
+                    device_counts
+                        .entry(command)
+                        .or_insert_with(HashSet::new)
+                        .insert(device_name);
                 }
             }
 
-            let mut sorted: Vec<(String, u32)> = counts.into_iter().collect();
+            let mut sorted: Vec<(String, u32)> = device_counts
+                .into_iter()
+                .map(|(cmd, devices)| (cmd, devices.len() as u32))
+                .collect();
             sorted.sort_by(|a, b| b.1.cmp(&a.1));
             sorted.truncate(10);
 
@@ -131,8 +141,9 @@ fn get_pty_process_summary() -> Vec<Value> {
 /// Returns a list of { pid, command, elapsed } sorted by PID.
 fn get_orphaned_processes() -> Vec<Value> {
     // ps -eo pid,ppid,etime,command : get PID, parent PID, elapsed time, and full command
+    // Use 'command' instead of 'comm' to get full command line (not truncated)
     let output = std::process::Command::new("sh")
-        .args(["-c", "ps -eo pid,ppid,etime,comm 2>/dev/null"])
+        .args(["-c", "ps -eo pid,ppid,etime,command 2>/dev/null"])
         .output();
 
     match output {
@@ -144,31 +155,38 @@ fn get_orphaned_processes() -> Vec<Value> {
                 .lines()
                 .skip(1) // skip header
                 .filter_map(|line| {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 4 {
-                        let pid: u32 = parts[0].trim().parse().ok()?;
-                        let ppid: u32 = parts[1].trim().parse().ok()?;
-                        let elapsed = parts[2].trim().to_string();
-                        let comm = parts[3].trim().to_string();
+                    // Parse line: PID PPID ELAPSED COMMAND...
+                    // The command field may contain spaces, so we need to parse carefully
+                    let mut parts = line.split_whitespace();
+                    let pid_str = parts.next()?;
+                    let ppid_str = parts.next()?;
+                    let elapsed = parts.next()?.to_string();
+                    
+                    // Everything after elapsed time is the command
+                    let command: String = parts.collect::<Vec<&str>>().join(" ");
+                    
+                    let pid: u32 = pid_str.trim().parse().ok()?;
+                    let ppid: u32 = ppid_str.trim().parse().ok()?;
 
-                        // Only report orphans (PPID=1) that are shell processes
-                        if ppid == 1 && shell_names.iter().any(|s| comm.contains(s)) {
-                            Some(json!({
-                                "pid": pid,
-                                "command": comm,
-                                "elapsed": elapsed,
-                            }))
-                        } else {
-                            None
-                        }
+                    // Only report orphans (PPID=1) that are shell processes
+                    // Check if command contains any shell name (case-insensitive for robustness)
+                    let command_lower = command.to_lowercase();
+                    if ppid == 1 && shell_names.iter().any(|s| command_lower.contains(s)) {
+                        Some(json!({
+                            "pid": pid,
+                            "command": command,
+                            "elapsed": elapsed,
+                        }))
                     } else {
                         None
                     }
                 })
                 .collect();
 
-            // Limit to top 50
-            orphans.truncate(50);
+            // Sort by PID for consistency
+            orphans.sort_by_key(|v| v["pid"].as_u64().unwrap_or(0));
+            
+            // Return all orphans (no limit) - user needs to see the full picture
             orphans
         }
         Err(e) => {
@@ -303,7 +321,7 @@ fn get_pty_device_details() -> Vec<Value> {
                 .into_iter()
                 .map(|(device, processes)| {
                     // Deduplicate by pid within each device
-                    let mut seen_pids = std::collections::HashSet::new();
+                    let mut seen_pids = HashSet::new();
                     let unique_processes: Vec<Value> = processes
                         .into_iter()
                         .filter(|p| {
@@ -547,8 +565,10 @@ pub async fn cleanup_terminals(
         })
         .unwrap_or(0);
 
-    // Perform cleanup
-    terminal_service.cleanup_stale_client_sessions();
+    // Perform cleanup: exclude active sessions so we don't kill live terminals
+    // (killing an active session would make tmux write "[exited]" / "can't find session" into the PTY)
+    let active_client_names = terminal_service.get_active_client_session_names().await;
+    terminal_service.cleanup_stale_client_sessions(Some(&active_client_names));
 
     // Count after cleanup
     let after_count = tmux_engine
@@ -634,4 +654,51 @@ pub async fn kill_tmux_session(
             }))))
         }
     }
+}
+
+/// POST /api/system/kill-orphaned-processes - Kill all orphaned processes (PPID=1 shell processes)
+pub async fn kill_orphaned_processes(
+    Json(body): Json<Value>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let pids: Vec<u32> = body["pids"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|v| v.as_u64().map(|n| n as u32))
+        .collect();
+
+    if pids.is_empty() {
+        return Ok(Json(ApiResponse::success(json!({
+            "killed": 0,
+            "error": "pids array is required and must not be empty",
+        }))));
+    }
+
+    let total = pids.len();
+    let mut killed_count = 0;
+    let mut failed_pids = Vec::new();
+
+    for pid in &pids {
+        // Use kill command to terminate the process
+        let result = std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .output();
+
+        match result {
+            Ok(output) if output.status.success() => {
+                killed_count += 1;
+                info!("Killed orphaned process {} via Terminal Manager", pid);
+            }
+            _ => {
+                failed_pids.push(*pid);
+                warn!("Failed to kill orphaned process {}", pid);
+            }
+        }
+    }
+
+    Ok(Json(ApiResponse::success(json!({
+        "killed": killed_count,
+        "total": total,
+        "failed_pids": failed_pids,
+    }))))
 }
