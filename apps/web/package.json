@@ -52,6 +52,7 @@
     "@types/react-color": "^3.0.13",
     "@types/react-dom": "^19",
     "@types/uuid": "^11.0.0",
+    "@xterm/addon-unicode11": "^0.9.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.2",
     "monaco-editor": "^0.55.1",
