@@ -72,7 +72,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   // When backend status becomes 'completed', intercept and show define_requirements first
   const prevBackendStatusRef = useRef(backendStatus);
   useEffect(() => {
-    if (prevBackendStatusRef.current === 'setting_up' && backendStatus === 'completed') {
+    if (backendStatus === 'completed' && prevBackendStatusRef.current !== 'completed') {
       setShowDefineRequirements(true);
     }
     prevBackendStatusRef.current = backendStatus;
@@ -285,7 +285,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             </p>
           </div>
         </div>
-      ) : (
+      ) : status === 'setting_up' ? (
         <div className="w-full flex-1 min-h-[60px] bg-[#09090b] rounded-xl border border-border overflow-hidden flex flex-col shadow-2xl relative group">
           <div className="bg-[#161b22] px-4 py-2 border-b border-white/5 flex items-center justify-between">
             <div className="flex gap-1.5">
@@ -301,6 +301,28 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               className="h-full w-full"
             />
           </div>
+        </div>
+      ) : (
+        <div className="w-full flex-1 min-h-[200px] rounded-xl border border-border bg-background flex items-center justify-center text-sm text-muted-foreground px-6 text-center">
+          {status === 'creating' ? (
+            <div className="space-y-2 max-w-md">
+              <p className="text-sm text-foreground font-medium">Creating workspace structure</p>
+              <p>We’re setting up folders, worktrees, and the initial project layout.</p>
+              <p>You can review files on the left while we prepare everything.</p>
+            </div>
+          ) : status === 'completed' ? (
+            <div className="space-y-2 max-w-md">
+              <p className="text-sm text-foreground font-medium">Final checks</p>
+              <p>Cleaning up setup tasks and getting everything ready to build.</p>
+              <p>Almost there — you can start in just a moment.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-w-md">
+              <p className="text-sm text-foreground font-medium">Preparing</p>
+              <p>Getting ready to run environment setup and project scripts.</p>
+              <p>This usually takes only a few seconds.</p>
+            </div>
+          )}
         </div>
       )}
 

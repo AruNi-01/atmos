@@ -289,7 +289,7 @@ impl GitEngine {
     pub fn list_branches(&self, repo_path: &Path) -> Result<Vec<String>> {
         let output = Command::new("git")
             .current_dir(repo_path)
-            .args(["branch", "-a", "--format=%(refname:short)"])
+            .args(["for-each-ref", "refs/remotes/origin", "--format=%(refname)"])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to list branches: {}", e)))?;
 
@@ -305,17 +305,10 @@ impl GitEngine {
         let branches = stdout
             .lines()
             .map(|l| l.trim())
-            .filter(|l| !l.is_empty() && !l.contains("HEAD"))
-            .map(|l| {
-                // Handle cases like "origin/main" -> "main" or "remotes/origin/main" -> "main"
-                if let Some(stripped) = l.strip_prefix("remotes/") {
-                    stripped.split_once('/').map(|(_, branch)| branch).unwrap_or(stripped)
-                } else if let Some(stripped) = l.strip_prefix("origin/") {
-                    stripped
-                } else {
-                    l
-                }
-                .to_string()
+            .filter(|l| !l.is_empty() && !l.ends_with("/HEAD"))
+            .filter_map(|l| {
+                // refs/remotes/origin/main -> main
+                l.strip_prefix("refs/remotes/origin/").map(|s| s.to_string())
             })
             .collect::<std::collections::HashSet<_>>()
             .into_iter()

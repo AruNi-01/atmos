@@ -81,6 +81,8 @@ const Header: React.FC = () => {
   // Available branches list
   const [availableBranches, setAvailableBranches] = useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
+  const [isTargetBranchOpen, setIsTargetBranchOpen] = useState(false);
+  const [targetBranchFilter, setTargetBranchFilter] = useState('');
 
   // Fullscreen state
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -194,6 +196,10 @@ const Header: React.FC = () => {
   useEffect(() => {
     setEditedCurrentBranch(currentWorkspace?.branch || '');
   }, [currentWorkspace?.branch]);
+
+  const filteredBranches = availableBranches.filter(branch =>
+    branch.toLowerCase().includes(targetBranchFilter.trim().toLowerCase())
+  );
 
   const handleSaveTargetBranch = async () => {
     if (!currentProject) return;
@@ -375,7 +381,13 @@ const Header: React.FC = () => {
           {/* Target Branch (selectable, saved to project) */}
           <div className="flex items-center space-x-2 shrink-0 min-w-0">
             <span className="size-2 rounded-full bg-muted-foreground/30 shrink-0" />
-            <DropdownMenu>
+            <DropdownMenu
+              open={isTargetBranchOpen}
+              onOpenChange={(open) => {
+                setIsTargetBranchOpen(open);
+                if (open) setTargetBranchFilter('');
+              }}
+            >
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-black/5 dark:hover:bg-white/5 max-w-full">
                   <span className="opacity-50 shrink-0">origin/</span>
@@ -383,31 +395,43 @@ const Header: React.FC = () => {
                   <Edit2 className="size-2.5 opacity-0 group-hover/target:opacity-100 transition-opacity ml-0.5 shrink-0" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-56 p-0">
-                <ScrollArea className="h-[200px]">
-                  <div className="p-1">
+              <DropdownMenuContent align="center" className="w-72 p-3 bg-background overflow-visible">
+                <div className="space-y-2">
+                  <p className="text-[12px] text-muted-foreground">Select target branch</p>
+                  <Input
+                    value={targetBranchFilter}
+                    onChange={(e) => setTargetBranchFilter(e.target.value)}
+                    placeholder="Search branches..."
+                    className="h-8 text-[12px] bg-background"
+                  />
+                </div>
+                <ScrollArea className="h-[240px] mt-2 overflow-x-auto">
+                  <div className="p-1 w-max min-w-full">
                     {isLoadingBranches ? (
                       <div className="p-2 text-[12px] text-muted-foreground text-center">Loading branches...</div>
-                    ) : availableBranches.length > 0 ? (
-                      availableBranches.map(branch => (
+                    ) : filteredBranches.length > 0 ? (
+                      filteredBranches.map(branch => (
                         <DropdownMenuItem
                           key={branch}
                           onClick={() => setTargetBranch(currentProject!.id, branch)}
                           className={cn(
-                            "flex items-center justify-between text-[13px] cursor-pointer",
+                            "flex items-center justify-between text-[13px] cursor-pointer whitespace-nowrap min-w-max",
                             displayTargetBranch === branch && "bg-accent text-accent-foreground font-medium"
                           )}
                         >
-                          <div className="flex items-center">
-                            <GitBranch className="size-3.5 mr-2 text-muted-foreground" />
-                            <span className="truncate text-muted-foreground/60 mr-1">origin/</span>
-                            <span className="truncate">{branch}</span>
+                          <div className="flex items-center whitespace-nowrap">
+                            {displayTargetBranch === branch ? (
+                              <Check className="size-3.5 mr-2 text-emerald-500 shrink-0" />
+                            ) : (
+                              <GitBranch className="size-3.5 mr-2 text-muted-foreground shrink-0" />
+                            )}
+                            <span className="text-muted-foreground/60 mr-1">origin/</span>
+                            <span>{branch}</span>
                           </div>
-                          {displayTargetBranch === branch && <Check className="size-3.5" />}
                         </DropdownMenuItem>
                       ))
                     ) : (
-                      <div className="p-2 text-[12px] text-muted-foreground text-center">No branches found</div>
+                      <div className="p-2 text-[12px] text-muted-foreground text-center">No matching branches</div>
                     )}
                   </div>
                 </ScrollArea>
