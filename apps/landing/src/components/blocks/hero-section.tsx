@@ -3,12 +3,22 @@
 import Link from 'next/link'
 import { ArrowUpRightIcon, RocketIcon } from 'lucide-react'
 import { Button } from '@workspace/ui/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogTitle,
+  DialogDescription
+} from '@workspace/ui/components/ui/dialog'
 
 import { MotionPreset } from '@/components/ui/motion-preset'
 
+import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
 import { Marquee } from '@/components/ui/marquee'
 import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@/components/ui/craft-button'
+
+import AtmosPreview from '@/assets/img/atmos_preview.png'
 
 const HeroSection = () => {
   return (
@@ -128,7 +138,7 @@ const HeroSection = () => {
           <MotionPreset fade slide blur transition={{ duration: 0.5 }} delay={0.5}>
             <p className='text-muted-foreground text-lg'>
               Build, create, and thrive in your <span className='text-foreground'>personal productivity habitat</span>.
-              An open-source platform for developers to organize their digital life, manage workspaces, and harness the power of AI agents directly in the terminal.
+              An open-source platform for developers.
             </p>
           </MotionPreset>
 
@@ -148,6 +158,43 @@ const HeroSection = () => {
                 </Link>
               </Button>
             </div>
+          </MotionPreset>
+        </div>
+
+        {/* Right side: Preview Image */}
+        <div className='flex items-center justify-center max-md:hidden'>
+          <MotionPreset
+            fade
+            zoom
+            blur
+            transition={{ duration: 1, delay: 0.5 }}
+            className='relative flex items-center justify-center w-full'
+          >
+            <Dialog>
+              <DialogTrigger asChild>
+                <div className='relative w-full cursor-pointer group'>
+                  <div className='absolute inset-0  rounded-full opacity-50 transition-opacity duration-300 group-hover:opacity-80' />
+                  <Image
+                    src={AtmosPreview}
+                    alt='Atmos Visual Terminal Preview'
+                    className='relative w-full h-auto rounded-lg border border-border/50 transition-transform duration-300 group-hover:scale-[1.02]'
+                    priority
+                  />
+                </div>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[90vw] max-w-[95vw] w-auto p-0 overflow-hidden bg-transparent border-none shadow-none">
+                <DialogTitle className="sr-only">Atmos Visual Terminal Preview</DialogTitle>
+                <DialogDescription className="sr-only">Full size preview of the Atmos interface</DialogDescription>
+                <div className="relative w-full h-auto flex items-center justify-center">
+                  <Image
+                    src={AtmosPreview}
+                    alt='Atmos Visual Terminal Preview'
+                    className='max-w-[90vw] max-h-[90vh] w-auto h-auto rounded-lg'
+                    priority
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
           </MotionPreset>
         </div>
       </MotionPreset>
