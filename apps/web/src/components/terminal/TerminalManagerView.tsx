@@ -385,7 +385,24 @@ const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
 
 // --- Orphaned Processes Section ---
 
-const OrphanedProcessesSection: React.FC<{ orphans: OrphanedProcess[]; count: number }> = ({ orphans, count }) => {
+const OrphanedProcessesSection: React.FC<{ 
+  orphans: OrphanedProcess[]; 
+  count: number;
+  onKillAll: (pids: number[]) => Promise<void>;
+}> = ({ orphans, count, onKillAll }) => {
+  const [isKilling, setIsKilling] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const handleKillAll = async () => {
+    setIsKilling(true);
+    try {
+      await onKillAll(orphans.map(o => o.pid));
+    } finally {
+      setIsKilling(false);
+      setPopoverOpen(false);
+    }
+  };
+
   if (count === 0) {
     return (
       <div className="rounded-lg border border-border bg-background p-5">
@@ -415,13 +432,55 @@ const OrphanedProcessesSection: React.FC<{ orphans: OrphanedProcess[]; count: nu
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Info className="size-3.5 text-muted-foreground ml-auto" />
+              <Info className="size-3.5 text-muted-foreground" />
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs text-xs">
+            <TooltipContent side="right" className="max-w-xs text-xs">
               Orphaned processes are shell processes whose parent has died (PPID=1). They often hold PTY file descriptors and can lead to PTY exhaustion. Usually caused by crashes or ungraceful shutdowns.
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <PopoverTrigger asChild onClick={(e) => { e.stopPropagation(); }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-7 px-3 text-xs cursor-pointer gap-1.5 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+            >
+              <Power className="size-3.5" />
+              Kill All
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="end" className="w-64">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Kill All Orphaned Processes?</p>
+                <p className="text-xs text-muted-foreground">
+                  This will terminate all {count} orphaned shell process{count > 1 ? 'es' : ''} (PPID=1). This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs cursor-pointer"
+                  onClick={() => setPopoverOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-7 text-xs cursor-pointer"
+                  disabled={isKilling}
+                  onClick={handleKillAll}
+                >
+                  {isKilling ? <Loader2 className="size-3 animate-spin mr-1" /> : <Power className="size-3 mr-1" />}
+                  Confirm Kill All
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
       </CollapsibleTrigger>
 
       <CollapsibleContent>
@@ -826,6 +885,19 @@ export const TerminalManagerView: React.FC = () => {
     }
   };
 
+  const handleKillAllOrphaned = async (pids: number[]) => {
+    try {
+      const result = await systemApi.killOrphanedProcesses(pids);
+      console.log(`Killed ${result.killed} out of ${result.total} orphaned processes`);
+      if (result.failed_pids.length > 0) {
+        console.warn(`Failed to kill PIDs: ${result.failed_pids.join(', ')}`);
+      }
+      await loadData();
+    } catch (err) {
+      console.error('Failed to kill orphaned processes:', err);
+    }
+  };
+
   const hasStaleClients = (data?.tmux.stale_client_sessions ?? 0) > 0;
   const hasOrphans = (data?.orphaned_process_count ?? 0) > 0;
 
@@ -986,6 +1058,7 @@ export const TerminalManagerView: React.FC = () => {
               <OrphanedProcessesSection
                 orphans={data.orphaned_processes}
                 count={data.orphaned_process_count}
+                onKillAll={handleKillAllOrphaned}
               />
             </div>
           </ScrollArea>

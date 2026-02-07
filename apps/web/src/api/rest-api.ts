@@ -230,6 +230,16 @@ export const systemApi = {
       body: JSON.stringify({ session_name: sessionName }),
     });
   },
+
+  /**
+   * Kill all orphaned processes by their PIDs
+   */
+  killOrphanedProcesses: async (pids: number[]): Promise<{ killed: number; total: number; failed_pids: number[] }> => {
+    return fetchApi<{ killed: number; total: number; failed_pids: number[] }>('/api/system/kill-orphaned-processes', {
+      method: 'POST',
+      body: JSON.stringify({ pids }),
+    });
+  },
 };
 
 // ===== Workspace Terminal Layout API =====
