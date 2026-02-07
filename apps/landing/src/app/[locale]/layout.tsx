@@ -5,6 +5,8 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@atmos/i18n/routing";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { TooltipProvider } from "@workspace/ui/components/ui/tooltip";
+import Header from "@/components/layout/header";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -30,6 +32,25 @@ type Props = {
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
+
+const navigationData = [
+  {
+    title: "Home",
+    href: "/#hero",
+  },
+  {
+    title: "Portfolio",
+    href: "/#portfolio",
+  },
+  {
+    title: "Services",
+    href: "/#services",
+  },
+  {
+    title: "About",
+    href: "#", // Placeholder
+  }
+];
 
 export default async function LocaleLayout({ children, params }: Props) {
   const { locale } = await params;
@@ -57,7 +78,10 @@ export default async function LocaleLayout({ children, params }: Props) {
           disableTransitionOnChange
         >
           <NextIntlClientProvider messages={messages}>
-            {children}
+            <TooltipProvider>
+              <Header navigationData={navigationData} />
+              {children}
+            </TooltipProvider>
           </NextIntlClientProvider>
         </ThemeProvider>
       </body>
