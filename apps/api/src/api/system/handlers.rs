@@ -567,8 +567,7 @@ pub async fn cleanup_terminals(
 
     // Perform cleanup: exclude active sessions so we don't kill live terminals
     // (killing an active session would make tmux write "[exited]" / "can't find session" into the PTY)
-    let active_client_names = terminal_service.get_active_client_session_names().await;
-    terminal_service.cleanup_stale_client_sessions(Some(&active_client_names));
+    terminal_service.cleanup_stale_client_sessions();
 
     // Count after cleanup
     let after_count = tmux_engine

@@ -12,6 +12,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { useTheme } from "next-themes";
 import { Loader2 } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
@@ -212,6 +213,9 @@ const Terminal = ({
     const searchAddon = new SearchAddon();
 
     // Load addons
+    const unicode11Addon = new Unicode11Addon();
+    terminal.loadAddon(unicode11Addon);
+    terminal.unicode.activeVersion = "11";
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
     terminal.loadAddon(searchAddon);
