@@ -3,7 +3,7 @@
 //! This service handles creating, managing, and destroying terminal sessions
 //! that connect to tmux for persistence and communicate over WebSocket.
 //!
-//! Design: 
+//! Design:
 //! - Each terminal session maps to a tmux window
 //! - PTY operations run in dedicated threads, communicating via channels
 //! - Closing a session detaches the PTY but keeps the tmux window alive
@@ -176,11 +176,11 @@ impl TerminalService {
     /// Also performs cleanup of stale locks as a safety net (for error paths that skip release_creation_lock)
     async fn get_creation_lock(&self, tmux_session_name: &str) -> Arc<Mutex<()>> {
         let mut locks = self.creation_locks.lock().await;
-        
+
         // Safety net cleanup: remove locks that are no longer in use (only HashMap holds a reference)
         // This handles cases where release_creation_lock was not called (e.g., early error return)
         locks.retain(|_, lock| Arc::strong_count(lock) > 1);
-        
+
         locks
             .entry(tmux_session_name.to_string())
             .or_insert_with(|| Arc::new(Mutex::new(())))
@@ -265,7 +265,7 @@ impl TerminalService {
                     Ok((rx, _)) => Ok(rx),
                     Err(e) => Err(anyhow!("Failed to attach to existing session {}: {}", session_id, e)),
                 };
-                
+
                 // Clean up lock from HashMap before returning
                 self.release_creation_lock(&tmux_session_name).await;
                 return res;
@@ -296,7 +296,7 @@ impl TerminalService {
         let existing_windows = self.tmux_engine.list_windows(&tmux_session)
             .unwrap_or_default();
         let existing_names: std::collections::HashSet<String> = existing_windows.iter().map(|w| w.name.clone()).collect();
-        
+
         debug!("Existing windows for session '{}': {:?}", tmux_session, existing_names);
 
         // Check if we should attach to an existing window instead of creating a new one
@@ -304,7 +304,7 @@ impl TerminalService {
             if existing_names.contains(name) {
                 // Window with this name already exists - attach to it instead of creating a duplicate
                 info!("Window '{}' already exists in session '{}', attaching instead of creating", name, tmux_session);
-                
+
                 // Use internal attach to avoid deadlock since we already hold the guard
                 let result = self.attach_session_internal(
                     session_id.clone(),
@@ -316,10 +316,10 @@ impl TerminalService {
                     project_name.clone(),
                     workspace_name.clone(),
                 ).await;
-                
+
                 // Clean up lock from HashMap
                 self.release_creation_lock(&tmux_session).await;
-                
+
                 return match result {
                     Ok((rx, _)) => Ok(rx),
                     Err(e) => Err(anyhow!("Failed to attach to existing window '{}': {}", name, e)),
@@ -338,7 +338,7 @@ impl TerminalService {
             }
             num.to_string()
         };
-        
+
         info!("Assigning tmux window: {} for session: {}", final_window_name, session_id);
 
         let window_index = self.tmux_engine
@@ -366,7 +366,7 @@ impl TerminalService {
 
         // Clean up lock from HashMap
         self.release_creation_lock(&tmux_session).await;
-        
+
         result
     }
 
@@ -402,16 +402,16 @@ impl TerminalService {
 
         // Channel for sending commands to the PTY thread
         let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
-        
+
         // Channel for receiving PTY output
         let (output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
-        
+
         // Channel for receiving initialization result
         let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
 
         let session_id_clone = session_id.clone();
         let cwd_for_handle = cwd.clone();
-        
+
         // Spawn a dedicated thread for PTY operations
         thread::spawn(move || {
             run_simple_pty_session(
@@ -443,7 +443,7 @@ impl TerminalService {
                     cwd: cwd_for_handle,
                     created_at: Instant::now(),
                 };
-                
+
                 self.sessions.lock().await.insert(session_id.clone(), handle);
                 info!("Simple terminal session created: {}", session_id);
                 Ok(output_rx)
@@ -537,7 +537,7 @@ impl TerminalService {
 
         // Check if window exists
         if !self.tmux_engine.window_exists(&tmux_session, final_window_index)
-            .map_err(|e| anyhow!("Failed to check window: {}", e))? 
+            .map_err(|e| anyhow!("Failed to check window: {}", e))?
         {
             return Err(anyhow!("Tmux window does not exist at index {}", final_window_index));
         }
@@ -604,16 +604,16 @@ impl TerminalService {
 
         // Channel for sending commands to the PTY thread
         let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
-        
+
         // Channel for receiving PTY output
         let (output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
-        
+
         // Channel for receiving initialization result
         let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
 
         let session_id_clone = session_id.clone();
         let client_session_clone = client_session_name.clone();
-        
+
         // Spawn a dedicated thread for PTY operations
         thread::spawn(move || {
             run_pty_session_with_tmux(
@@ -647,7 +647,7 @@ impl TerminalService {
                     cwd,
                     created_at: Instant::now(),
                 };
-                
+
                 self.sessions.lock().await.insert(session_id.clone(), handle);
                 info!("Terminal session created/attached: {} (window index: {})", session_id, window_index);
                 Ok(output_rx)
@@ -679,23 +679,16 @@ impl TerminalService {
     }
 
     /// Resize a terminal session
+    ///
+    /// Only resizes the PTY. For tmux-backed sessions, the PTY resize triggers
+    /// SIGWINCH on the tmux client, which propagates the size change to the tmux
+    /// server automatically. Calling `tmux resize-pane` on top of that causes a
+    /// double reflow, duplicating content in the scrollback.
     pub async fn resize(&self, session_id: &str, cols: u16, rows: u16) -> Result<()> {
         let sessions = self.sessions.lock().await;
         let handle = sessions
             .get(session_id)
             .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
-
-        // Resize tmux pane as well if it exists
-        if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
-            if let Err(e) = self.tmux_engine.resize_pane(
-                ts, 
-                twi, 
-                cols, 
-                rows
-            ) {
-                warn!("Failed to resize tmux pane: {}", e);
-            }
-        }
 
         handle
             .command_tx
@@ -712,7 +705,7 @@ impl TerminalService {
         if let Some(handle) = sessions.remove(session_id) {
             // Send close command to PTY thread (ignore error if thread already exited)
             let _ = handle.command_tx.send(SessionCommand::Close);
-            
+
             // KILL the client session to free up resources
             // The master session and window remain preserved
             if let Some(client_session) = &handle.client_session {
@@ -738,7 +731,7 @@ impl TerminalService {
         if let Some(handle) = sessions.remove(session_id) {
             // Send close command to PTY thread
             let _ = handle.command_tx.send(SessionCommand::Close);
-            
+
             // Kill the tmux window in the master session
             if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
                 if let Err(e) = self.tmux_engine.kill_window(ts, twi) {
@@ -750,7 +743,7 @@ impl TerminalService {
             if let Some(client_session) = &handle.client_session {
                 let _ = self.tmux_engine.kill_session(client_session);
             }
-            
+
             info!(
                 "Terminal session destroyed: {} - tmux window {:?}:{:?} killed",
                 session_id, handle.tmux_session, handle.tmux_window_index
@@ -911,18 +904,18 @@ fn run_pty_session_with_tmux(
     let socket_path: std::path::PathBuf = dirs::home_dir()
         .map(|h: std::path::PathBuf| h.join(".atmos").join("atmos.sock"))
         .unwrap_or_else(|| std::path::PathBuf::from("/tmp/.atmos/atmos.sock"));
-    
+
     // Wait for the tmux session to be fully created before attempting to attach
     // This handles race conditions where the PTY thread starts before tmux finishes processing
     let max_retries = 10;
     let retry_delay = std::time::Duration::from_millis(50);
     let mut session_ready = false;
-    
+
     for attempt in 0..max_retries {
         let check_output = std::process::Command::new("tmux")
             .args(["-S", &socket_path.to_string_lossy(), "has-session", "-t", &tmux_session])
             .output();
-        
+
         match check_output {
             Ok(output) if output.status.success() => {
                 session_ready = true;
@@ -938,10 +931,10 @@ fn run_pty_session_with_tmux(
             }
         }
     }
-    
+
     if !session_ready {
         let _ = init_tx.send(Err(anyhow!(
-            "Tmux session '{}' not ready after {} retries", 
+            "Tmux session '{}' not ready after {} retries",
             tmux_session, max_retries
         )));
         return;
@@ -963,9 +956,9 @@ fn run_pty_session_with_tmux(
             return;
         }
     };
-    
+
     let _target = format!("{}:{}", tmux_session, window_index);
-    
+
     // For session grouping, we attach to the client session
     // Since select-window was already called, this session is viewing the correct window
     let mut cmd = CommandBuilder::new("tmux");
@@ -1122,12 +1115,12 @@ fn run_simple_pty_session(
     });
 
     let mut cmd = CommandBuilder::new(&shell_cmd);
-    
+
     // Set CWD if provided
     if let Some(dir) = cwd {
         cmd.cwd(dir);
     }
-    
+
     // Set basic environment variables
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");

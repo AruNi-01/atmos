@@ -84,14 +84,15 @@ pub async fn terminal_ws_handler(
         .clone()
         .unwrap_or_else(|| "default".to_string());
     let shell = query.shell.clone();
-    
+
     // Keep tmux_window index and tmux_window_name separate
     let tmux_window = query.tmux_window;
     let tmux_window_name = query.tmux_window_name.clone();
-    
+
     // Only auto-attach if an index OR name is provided explicitly
-    let attach = query.attach.unwrap_or(false) || tmux_window.is_some() || tmux_window_name.is_some();
-    
+    let attach =
+        query.attach.unwrap_or(false) || tmux_window.is_some() || tmux_window_name.is_some();
+
     // Extract naming parameters for human-readable tmux naming
     let project_name = query.project_name.clone();
     let workspace_name = query.workspace_name.clone();
@@ -104,17 +105,16 @@ pub async fn terminal_ws_handler(
 
     ws.on_upgrade(move |socket| {
         handle_terminal_socket(
-            socket, 
-            session_id, 
-            workspace_id, 
-            shell, 
-            tmux_window, 
+            socket,
+            session_id,
+            workspace_id,
+            shell,
+            tmux_window,
             tmux_window_name,
-            attach, 
+            attach,
             project_name,
             workspace_name,
             terminal_name,
-
             query.mode,
             query.cwd, // Pass cwd
             state,
@@ -140,7 +140,7 @@ async fn handle_terminal_socket(
     state: AppState,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
-    
+
     // Mutable flag to track whether we actually attached or fell back to create
     let mut actually_attached = false;
 
@@ -178,7 +178,7 @@ async fn handle_terminal_socket(
         info!("No cwd or workspace_name provided, using default cwd");
         None
     };
-    
+
     info!("Terminal session cwd: {:?}", cwd);
 
     // Create or attach to the terminal session
@@ -233,7 +233,10 @@ async fn handle_terminal_socket(
                 (rx, hist)
             }
             Err(e) => {
-                warn!("Failed to attach terminal session ({}). Falling back to creating a new one.", e);
+                warn!(
+                    "Failed to attach terminal session ({}). Falling back to creating a new one.",
+                    e
+                );
                 // Fallback: Create new session if attachment fails
                 match terminal_service
                     .create_session(
@@ -255,7 +258,10 @@ async fn handle_terminal_socket(
                         (rx, None)
                     }
                     Err(e) => {
-                        error!("Failed to create terminal session after attach failure: {}", e);
+                        error!(
+                            "Failed to create terminal session after attach failure: {}",
+                            e
+                        );
                         let error_response = TerminalResponse::TerminalError {
                             session_id: Some(session_id),
                             error: e.to_string(),
@@ -327,13 +333,46 @@ async fn handle_terminal_socket(
     let (ws_tx, mut ws_rx) = mpsc::unbounded_channel::<String>();
 
     // Task: Forward PTY output to WebSocket
+    // Uses a streaming UTF-8 decoder to avoid splitting multi-byte characters
+    // (e.g. emoji, CJK) across chunk boundaries, which would produce ��� via
+    // from_utf8_lossy.
     let session_id_output = session_id.clone();
     let ws_tx_clone = ws_tx.clone();
     let output_task = tokio::spawn(async move {
         let mut output_rx = output_rx;
+        let mut carry: Vec<u8> = Vec::new();
         while let Some(data) = output_rx.recv().await {
-            // Convert bytes to string (terminal output is typically UTF-8)
-            let text = String::from_utf8_lossy(&data).to_string();
+            carry.extend_from_slice(&data);
+
+            let valid_up_to = match std::str::from_utf8(&carry) {
+                Ok(_) => carry.len(),
+                Err(e) => {
+                    let up_to = e.valid_up_to();
+                    // Check if the trailing bytes are an incomplete (but
+                    // potentially valid) multi-byte sequence rather than truly
+                    // invalid bytes. Keep at most 3 trailing bytes (max
+                    // continuation length in UTF-8).
+                    let remaining = carry.len() - up_to;
+                    if remaining <= 3 && e.error_len().is_none() {
+                        // Incomplete sequence at the end — keep it for the
+                        // next chunk.
+                        up_to
+                    } else {
+                        // Genuinely invalid bytes — skip past the bad byte(s)
+                        // so we don't get stuck.
+                        up_to + e.error_len().unwrap_or(1)
+                    }
+                }
+            };
+
+            if valid_up_to == 0 {
+                continue;
+            }
+
+            // SAFETY: we just verified the bytes up to `valid_up_to` are valid
+            // UTF-8.
+            let text = unsafe { std::str::from_utf8_unchecked(&carry[..valid_up_to]) }.to_owned();
+            carry.drain(..valid_up_to);
             let response = TerminalResponse::TerminalOutput {
                 session_id: session_id_output.clone(),
                 data: text,
@@ -437,7 +476,10 @@ async fn handle_terminal_message(
                             let _ = ws_tx.send(json);
                         }
                     }
-                    ClientTerminalMessage::TerminalAttach { workspace_id: ws_id, tmux_window } => {
+                    ClientTerminalMessage::TerminalAttach {
+                        workspace_id: ws_id,
+                        tmux_window,
+                    } => {
                         // For mid-session attach requests (rare case)
                         // The primary attach flow is through query params on connect
                         debug!(
