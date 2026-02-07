@@ -262,14 +262,15 @@ const Terminal = ({
     // Connect to WebSocket
     connect();
 
-    // Setup resize observer
+    // Setup resize observer with debounce to coalesce rapid resize events
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
-      if (fitAddonRef.current) {
-        // Use requestAnimationFrame to avoid layout thrashing
+      if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
         requestAnimationFrame(() => {
           fitAddonRef.current?.fit();
         });
-      }
+      }, 50);
     });
 
     resizeObserver.observe(containerRef.current);
