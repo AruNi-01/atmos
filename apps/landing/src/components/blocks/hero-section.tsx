@@ -11,12 +11,12 @@ import {
   DialogDescription
 } from '@workspace/ui/components/ui/dialog'
 
-import { MotionPreset } from '@/components/ui/motion-preset'
+import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 
 import Image from 'next/image'
-import { Badge } from '@/components/ui/badge'
-import { Marquee } from '@/components/ui/marquee'
-import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@/components/ui/craft-button'
+import { Badge } from '@workspace/ui/components/ui/badge'
+import { Marquee } from '@workspace/ui/components/ui/marquee'
+import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@workspace/ui/components/ui/craft-button'
 
 import AtmosPreview from '@/assets/img/atmos_preview.png'
 

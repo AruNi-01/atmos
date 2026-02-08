@@ -6,7 +6,7 @@ import { ArrowUpRightIcon } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
-import { MotionPreset } from '@/components/ui/motion-preset'
+import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { cn } from '@/lib/utils'
 import { PrimaryFlowButton, SecondaryFlowButton } from '@workspace/ui/components/ui/flow-button'
 

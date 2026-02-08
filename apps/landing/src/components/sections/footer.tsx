@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { GithubIcon, InstagramIcon, MessageSquareText, TwitterIcon, YoutubeIcon } from 'lucide-react'
 
-import { Separator } from '@/components/ui/separator'
-import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@/components/ui/craft-button'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@workspace/ui/components/ui/craft-button'
 import LogoSvg from '@/assets/svg/logo-svg'
 
-import { MotionPreset } from '@/components/ui/motion-preset'
+import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 
 const Footer = () => {
   const pathname = usePathname()
