@@ -41,4 +41,5 @@
 html {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overscroll-behavior-y: none;
 }

@@ -7,7 +7,7 @@ import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 
 const Footer = () => {
   return (
-    <footer className='relative'>
+    <footer className='relative overflow-hidden'>
       <MotionPreset
         fade
         blur
