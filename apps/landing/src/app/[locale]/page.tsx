@@ -87,13 +87,7 @@ function LandingContent() {
   const t = useTranslations("landing");
 
   return (
-    <div className="min-h-screen bg-background font-sans transition-colors duration-300">
-      {/*
-         TODO: Refactor Header to match shadcn template if needed (Craft, Portfolio, Services...)
-         For now, keeping the page structure clean with new blocks.
-      */}
-
-      {/* Main Content */}
+    <div className="min-h-screen font-sans transition-colors duration-300">
       <main className='relative flex flex-col overflow-x-clip *:scroll-mt-15.5'>
         <HeroSection />
         <FeatureShowcase />
@@ -101,8 +95,6 @@ function LandingContent() {
         <Benefits featuresList={featuresList} />
         <FAQ faqItems={faqItems} />
       </main>
-
-      {/* Footer */}
       <Footer />
     </div>
   );
