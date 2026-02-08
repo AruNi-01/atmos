@@ -17,7 +17,7 @@ import Logo from '@/components/logo'
 import { ModeToggle } from '@/components/layout/mode-toggle'
 
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
-import { motion, useScroll, useSpring } from 'motion/react'
+import { motion, useScroll, useSpring, useTransform } from 'motion/react'
 
 type HeaderProps = {
   navigationData: Navigation[]
@@ -26,6 +26,8 @@ type HeaderProps = {
 
 const Header = ({ navigationData, className }: HeaderProps) => {
   const [isScrolled, setIsScrolled] = useState(false)
+  const [windowWidth, setWindowWidth] = useState(0)
+
   const { scrollYProgress } = useScroll()
   const scaleX = useSpring(scrollYProgress, {
     stiffness: 100,
@@ -33,16 +35,37 @@ const Header = ({ navigationData, className }: HeaderProps) => {
     restDelta: 0.001
   })
 
+  // Calculate triggers for vertical bars based on screen width
+  const containerWidth = 1152 // max-w-6xl
+  const boxWidth = Math.min(windowWidth, containerWidth)
+  const leftEdge = (windowWidth - boxWidth) / 2
+  const rightEdge = windowWidth - leftEdge
+
+  const leftTrigger = windowWidth > 0 ? leftEdge / windowWidth : 0
+  const rightTrigger = windowWidth > 0 ? rightEdge / windowWidth : 1
+
+  const leftScaleY = useTransform(scaleX, [leftTrigger, leftTrigger + 0.05], [0, 1])
+  const rightScaleY = useTransform(scaleX, [rightTrigger, rightTrigger + 0.05], [0, 1])
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 0)
     }
 
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth)
+    }
+
+    // Initial measurement
+    handleResize()
+
     window.addEventListener('scroll', handleScroll)
+    window.addEventListener('resize', handleResize)
     handleScroll()
 
     return () => {
       window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleResize)
     }
   }, [])
 
@@ -61,7 +84,15 @@ const Header = ({ navigationData, className }: HeaderProps) => {
         className
       )}
     >
-      <div className='mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 min-[1147px]:border-x sm:px-6 lg:px-8'>
+      <div className='relative mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 min-[1147px]:border-x sm:px-6 lg:px-8'>
+        <motion.div
+          className="absolute -left-px top-0 bottom-0 w-px bg-primary origin-bottom hidden min-[1147px]:block"
+          style={{ scaleY: leftScaleY }}
+        />
+        <motion.div
+          className="absolute -right-px top-0 bottom-0 w-px bg-primary origin-bottom hidden min-[1147px]:block"
+          style={{ scaleY: rightScaleY }}
+        />
         {/* Logo */}
         <Link href='/#hero' className='flex items-center gap-3'>
           <Logo animate={!isScrolled} />
