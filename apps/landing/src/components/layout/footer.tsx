@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import LogoSvg from '@/assets/svg/logo-svg'
 
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
+import LogoSvg from '@workspace/ui/components/logo-svg'
 
 const Footer = () => {
   return (
