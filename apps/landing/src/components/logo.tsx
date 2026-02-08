@@ -85,15 +85,15 @@ const Logo = ({ className, animate = true }: { className?: string; animate?: boo
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <AnimatedLogoSvg className='size-8.5 text-primary' animate={animate} />
-      <div className='relative whitespace-nowrap'>
+      <AnimatedLogoSvg className='size-8.5 text-primary cursor-default' animate={animate} />
+      <div className='relative whitespace-nowrap pl-1'>
         <TextScramble
-          as="span"
-          className='text-primary text-[20px] font-medium uppercase select-none inline-block tabular-nums tracking-widest cursor-default min-w-[5ch]'
+          className='text-primary text-xl font-bold uppercase select-none inline-block tabular-nums tracking-widest cursor-default min-w-[5ch]'
           trigger={isHovered}
-          characterSet="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+          duration={1}
+          characterSet='. '
         >
-          ATMOS
+          ATMOS Landing...
         </TextScramble>
       </div>
     </div>
