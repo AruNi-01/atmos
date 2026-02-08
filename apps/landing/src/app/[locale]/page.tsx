@@ -40,21 +40,66 @@ export default async function LandingPage({ params }: Props) {
   return <LandingContent />;
 }
 
+import { ZapIcon, ChartSplineIcon, FilesIcon } from 'lucide-react';
+import AtmosPreview from '@/assets/img/atmos_preview.png';
+import Benefits from "@/components/blocks/benefits";
+import FAQ from "@/components/blocks/faq";
+
+// ... existing imports
+
+const featuresList = [
+  {
+    icon: <ZapIcon className='text-primary' />,
+    title: 'Fast and Efficient',
+    description: "Atmos is built for speed, ensuring your workflow remains uninterrupted and fluid.",
+    image: AtmosPreview
+  },
+  {
+    icon: <ChartSplineIcon className='text-primary' />,
+    title: 'Insightful Analytics',
+    description: "Gain deep insights into your coding habits and project metrics with built-in analytics.",
+    image: AtmosPreview
+  },
+  {
+    icon: <FilesIcon className='text-primary' />,
+    title: 'Seamless File Management',
+    description: "Manage your files across multiple workspaces with ease and precision.",
+    image: AtmosPreview
+  }
+]
+
+const faqItems = [
+  {
+    question: "What is Atmos?",
+    answer: "Atmos is a visual terminal workspace designed to enhance your personal productivity habitat, allowing you to build with any agent."
+  },
+  {
+    question: "Is it open source?",
+    answer: "Yes, Atmos is an open-source platform built for developers."
+  },
+  {
+    question: "How do I get started?",
+    answer: "Simply click the 'Get Started' button to download the application and follow the setup instructions."
+  }
+]
+
 function LandingContent() {
   const t = useTranslations("landing");
 
   return (
     <div className="min-h-screen bg-background font-sans transition-colors duration-300">
-      {/* 
-         TODO: Refactor Header to match shadcn template if needed (Craft, Portfolio, Services...) 
+      {/*
+         TODO: Refactor Header to match shadcn template if needed (Craft, Portfolio, Services...)
          For now, keeping the page structure clean with new blocks.
       */}
 
       {/* Main Content */}
       <main className='relative flex flex-col overflow-x-clip *:scroll-mt-15.5'>
-        <HeroSection avatars={avatars} />
+        <HeroSection />
         <Portfolio />
         <Services />
+        <Benefits featuresList={featuresList} />
+        <FAQ faqItems={faqItems} />
       </main>
 
       {/* Footer */}

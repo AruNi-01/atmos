@@ -40,7 +40,8 @@ export * from "./components/ui/motion-preset";
 export * from "./components/ui/navigation-menu";
 export * from "./components/ui/rating";
 export * from "./components/ui/separator";
-export * from "./components/ui/sheet";
+export * from "./components/ui/accordion";
+export * from "./components/ui/flow-button";
 
 // Utilities
 export { cn } from "./lib/utils";
