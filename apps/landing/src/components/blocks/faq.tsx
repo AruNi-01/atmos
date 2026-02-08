@@ -7,6 +7,7 @@ import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import AtmosPreview from '@/assets/img/atmos_preview.png'
+import { BlinkingGrid } from '@/components/ui/blinking-grid'
 
 export type FAQs = {
   question: string
@@ -25,7 +26,7 @@ const FAQ = ({ faqItems }: { faqItems: FAQs }) => {
   return (
     <section id='faq'>
       <MotionPreset className='relative flex border-y max-[1196px]:mx-auto max-[1196px]:max-w-6xl'>
-        <div className='m-1.75 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-[1196px]:hidden'></div>
+        <BlinkingGrid className='m-1.75 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-[1196px]:hidden' />
 
         <div className='bg-background flex w-full max-w-6xl shrink-0 flex-col gap-8 px-4 py-12 min-[1147px]:border-x sm:gap-16 sm:px-6 sm:py-16 lg:px-8 lg:py-24'>
           {/* FAQ Header */}
@@ -88,7 +89,7 @@ const FAQ = ({ faqItems }: { faqItems: FAQs }) => {
           </div>
         </div>
 
-        <div className='m-1.75 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-[1196px]:hidden'></div>
+        <BlinkingGrid className='m-1.75 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-[1196px]:hidden' />
       </MotionPreset>
     </section>
   )
