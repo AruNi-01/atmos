@@ -9,6 +9,9 @@
 
 /* Landing app specific styles */
 @theme inline {
+  --font-sans: var(--font-geist-pixel-square);
+  --font-mono: var(--font-geist-mono);
+
   --animate-marquee-horizontal: marquee-horizontal var(--marquee-duration) infinite linear;
   --animate-marquee-vertical: marquee-vertical var(--marquee-duration) infinite linear;
 
