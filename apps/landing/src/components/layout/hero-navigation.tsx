@@ -20,8 +20,8 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
   navigationMenuTriggerStyle
-} from '@/components/ui/navigation-menu'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet'
+} from '@workspace/ui/components/ui/navigation-menu'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@workspace/ui/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/ui/tooltip'
 import Logo from '@/components/logo'
 

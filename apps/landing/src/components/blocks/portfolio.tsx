@@ -3,10 +3,10 @@
 import { useRef, useState, useEffect } from 'react'
 import { EyeIcon } from 'lucide-react'
 import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@workspace/ui/components/ui/badge'
 import { Button } from '@workspace/ui/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import { MotionPreset } from '@/components/ui/motion-preset'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 
 import { cn } from '@/lib/utils'
 

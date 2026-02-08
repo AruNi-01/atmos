@@ -3,14 +3,14 @@
 import Link from 'next/link'
 import { ArrowUpRightIcon, FramerIcon, LaptopIcon, MessageSquareMoreIcon, PaletteIcon, PenToolIcon } from 'lucide-react'
 
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@workspace/ui/components/ui/badge'
 import { Button } from '@workspace/ui/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@workspace/ui/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import { Separator } from '@workspace/ui/components/ui/separator'
 
-import { MotionPreset } from '@/components/ui/motion-preset'
-import { Marquee } from '@/components/ui/marquee'
-import { CraftButton, CraftButtonIcon, CraftButtonLabel } from '@/components/ui/craft-button'
+import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
+import { Marquee } from '@workspace/ui/components/ui/marquee'
+import { CraftButton, CraftButtonIcon, CraftButtonLabel } from '@workspace/ui/components/ui/craft-button'
 
 const skills = [
   'Rust', 'Tauri', 'React', 'Axum', 'SQLite', 'Tmux', 'Tokio', 'Git'

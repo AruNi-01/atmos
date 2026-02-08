@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@workspace/ui/components/ui/accordion'
-import { MotionPreset } from '@/components/ui/motion-preset'
+import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import AtmosPreview from '@/assets/img/atmos_preview.png'

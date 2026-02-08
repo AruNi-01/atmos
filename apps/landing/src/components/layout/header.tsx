@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import Logo from '@/components/logo'
 import { ModeToggle } from '@/components/layout/mode-toggle'
 
-import { MotionPreset } from '@/components/ui/motion-preset'
+import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 
 type HeaderProps = {
   navigationData: Navigation[]
