@@ -1,12 +1,12 @@
+/* Import additional animations */
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
 /* Import UI package global styles */
 @import "@workspace/ui/globals.css";
 
 /* Tell Tailwind to scan our UI package components */
 @source "../../../../packages/ui/src";
-
-/* Import additional animations */
-@import "tw-animate-css";
-@plugin "@tailwindcss/typography";
 
 /* Hack Nerd Font - Terminal font with Powerline/icon support */
 @font-face {

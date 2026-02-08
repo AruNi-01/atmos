@@ -1,11 +1,11 @@
+/* Import additional animations */
+@import "tw-animate-css";
+
 /* Import UI package global styles */
 @import "@workspace/ui/globals.css";
 
 /* Tell Tailwind to scan our UI package components */
 @source "../../../../packages/ui/src";
-
-/* Import additional animations */
-@import "tw-animate-css";
 
 /* Landing app specific styles */
 @theme inline {
