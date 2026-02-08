@@ -20,6 +20,7 @@
     "@workspace/ui": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "geist": "^1.7.0",
     "lucide-react": "^0.562.0",
     "motion": "^12.33.0",
     "next": "16.1.2",
