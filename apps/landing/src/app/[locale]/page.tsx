@@ -3,7 +3,7 @@ import { setRequestLocale } from "next-intl/server";
 import HeroSection from "@/components/blocks/hero-section";
 import Portfolio from "@/components/blocks/portfolio";
 import Services from "@/components/blocks/services";
-import Footer from "@/components/sections/footer";
+import Footer from "@/components/layout/footer";
 import FAQ from "@/components/blocks/faq";
 import FeatureShowcase from "@/components/blocks/feature-showcase";
 import Benefits from "@/components/blocks/benefits";
