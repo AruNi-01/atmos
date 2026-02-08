@@ -11,6 +11,7 @@ import { Separator } from '@workspace/ui/components/ui/separator'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { Marquee } from '@workspace/ui/components/ui/marquee'
 import { CraftButton, CraftButtonIcon, CraftButtonLabel } from '@workspace/ui/components/ui/craft-button'
+import { BlinkingGrid } from '@/components/ui/blinking-grid'
 
 const skills = [
   'Rust', 'Tauri', 'React', 'Axum', 'SQLite', 'Tmux', 'Tokio', 'Git'
@@ -51,7 +52,7 @@ const Services = () => {
         delay={0.15}
         className='relative overflow-hidden border-y xl:flex'
       >
-        <div className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden'></div>
+        <BlinkingGrid className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden' />
 
         <div className='mx-auto max-w-6xl space-y-8 px-4 py-8 min-[1158px]:border-x sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
           <div className='space-y-2.5'>
@@ -164,7 +165,7 @@ const Services = () => {
             </Button>
           </MotionPreset>
         </div>
-        <div className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden'></div>
+        <BlinkingGrid className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden' />
       </MotionPreset>
     </section>
   )

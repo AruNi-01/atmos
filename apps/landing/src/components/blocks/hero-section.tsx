@@ -19,6 +19,7 @@ import { Marquee } from '@workspace/ui/components/ui/marquee'
 import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@workspace/ui/components/ui/craft-button'
 
 import AtmosPreview from '@/assets/img/atmos_preview.png'
+import { BlinkingGrid } from '@/components/ui/blinking-grid'
 
 const HeroSection = () => {
   return (
@@ -205,7 +206,7 @@ const HeroSection = () => {
         delay={0.15}
         className='relative flex border-y max-[1196px]:mx-auto max-[1196px]:max-w-6xl'
       >
-        <div className='m-1.75 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-[1196px]:hidden'></div>
+        <BlinkingGrid className='m-1.75 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-[1196px]:hidden' />
 
         <div className='bg-background flex max-w-6xl grow gap-2.5 px-4 py-2.5 max-md:flex-col min-[1147px]:border-x sm:px-6 lg:px-8'>
           <MotionPreset
@@ -255,7 +256,7 @@ const HeroSection = () => {
             </Marquee>
           </MotionPreset>
         </div>
-        <div className='m-1.75 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-[1196px]:hidden'></div>
+        <BlinkingGrid className='m-1.75 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-[1196px]:hidden' />
       </MotionPreset>
     </section>
   )
