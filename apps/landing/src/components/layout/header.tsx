@@ -57,7 +57,7 @@ const Header = ({ navigationData, className }: HeaderProps) => {
       <div className='mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 min-[1147px]:border-x sm:px-6 lg:px-8'>
         {/* Logo */}
         <Link href='/#hero' className='flex items-center gap-3'>
-          <Logo />
+          <Logo animate={!isScrolled} />
         </Link>
 
         <div className='flex items-center gap-3'>
