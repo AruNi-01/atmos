@@ -217,13 +217,13 @@ const HeroSection = () => {
             className='flex shrink-0 items-center gap-1.75 max-md:justify-center max-sm:flex-col max-sm:text-center'
           >
             <div>
-              <p className='text-lg font-medium text-nowrap'>Build with any agent</p>
+              <p className='text-lg font-medium text-nowrap pr-4'>Build with any agent</p>
             </div>
           </MotionPreset>
           <MotionPreset fade blur delay={0.7} transition={{ duration: 0.5 }} className='relative overflow-hidden w-full'>
             <div className='from-background pointer-events-none absolute inset-y-0 left-0 z-1 w-10 bg-linear-to-r via-85% to-transparent' />
             <div className='from-background pointer-events-none absolute inset-y-0 right-0 z-1 w-10 bg-linear-to-l via-85% to-transparent' />
-            <Marquee pauseOnHover duration={30} gap={8} className='*:items-center'>
+            <Marquee pauseOnHover duration={30} gap={5} className='*:items-center'>
               <div className='flex items-center gap-2'>
                 <span className="text-xl">🤖</span>
                 <span className='text-lg font-semibold opacity-70'>Claude Code</span>

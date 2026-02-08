@@ -4,6 +4,11 @@ import HeroSection from "@/components/blocks/hero-section";
 import Portfolio from "@/components/blocks/portfolio";
 import Services from "@/components/blocks/services";
 import Footer from "@/components/sections/footer";
+import FAQ from "@/components/blocks/faq";
+import FeatureShowcase from "@/components/blocks/feature-showcase";
+import Benefits from "@/components/blocks/benefits";
+import { ZapIcon, ChartSplineIcon, FilesIcon } from 'lucide-react';
+import AtmosPreview from '@/assets/img/atmos_preview.png';
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -39,11 +44,6 @@ export default async function LandingPage({ params }: Props) {
 
   return <LandingContent />;
 }
-
-import { ZapIcon, ChartSplineIcon, FilesIcon } from 'lucide-react';
-import AtmosPreview from '@/assets/img/atmos_preview.png';
-import Benefits from "@/components/blocks/benefits";
-import FAQ from "@/components/blocks/faq";
 
 // ... existing imports
 
@@ -96,7 +96,7 @@ function LandingContent() {
       {/* Main Content */}
       <main className='relative flex flex-col overflow-x-clip *:scroll-mt-15.5'>
         <HeroSection />
-        <Portfolio />
+        <FeatureShowcase />
         <Services />
         <Benefits featuresList={featuresList} />
         <FAQ faqItems={faqItems} />
