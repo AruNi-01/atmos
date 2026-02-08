@@ -17,6 +17,7 @@ import Logo from '@/components/logo'
 import { ModeToggle } from '@/components/layout/mode-toggle'
 
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
+import { motion, useScroll, useSpring } from 'motion/react'
 
 type HeaderProps = {
   navigationData: Navigation[]
@@ -25,6 +26,12 @@ type HeaderProps = {
 
 const Header = ({ navigationData, className }: HeaderProps) => {
   const [isScrolled, setIsScrolled] = useState(false)
+  const { scrollYProgress } = useScroll()
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001
+  })
 
   useEffect(() => {
     const handleScroll = () => {
@@ -92,6 +99,10 @@ const Header = ({ navigationData, className }: HeaderProps) => {
           </Tooltip>
         </div>
       </div>
+      <motion.div
+        className="absolute -bottom-px left-0 right-0 h-px bg-primary origin-left"
+        style={{ scaleX }}
+      />
     </MotionPreset>
   )
 }
