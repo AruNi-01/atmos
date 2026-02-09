@@ -24,7 +24,13 @@ use tracing::{debug, error, info, warn};
 enum SessionCommand {
     Write(Vec<u8>),
     Resize { cols: u16, rows: u16 },
-    Close,
+    /// Close the PTY session. If `client_session` is provided, the PTY thread
+    /// will kill the tmux client session AFTER detaching cleanly to avoid
+    /// producing "[exited]" / "can't find session" error output.
+    Close {
+        client_session: Option<String>,
+        socket_path: Option<std::path::PathBuf>,
+    },
 }
 
 /// Type of terminal session
@@ -703,16 +709,22 @@ impl TerminalService {
     pub async fn close_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
-            // Send close command to PTY thread (ignore error if thread already exited)
-            let _ = handle.command_tx.send(SessionCommand::Close);
+            // Build socket path for the PTY thread to use when killing the client session
+            let sock = dirs::home_dir()
+                .map(|h| h.join(".atmos").join("atmos.sock"))
+                .unwrap_or_else(|| std::path::PathBuf::from("/tmp/.atmos/atmos.sock"));
 
-            // KILL the client session to free up resources
-            // The master session and window remain preserved
-            if let Some(client_session) = &handle.client_session {
-                if let Err(e) = self.tmux_engine.kill_session(client_session) {
-                    warn!("Failed to kill client tmux session {}: {}", client_session, e);
-                }
-            }
+            // Send Close command WITH the client session info so the PTY thread
+            // can kill it AFTER detaching cleanly. This avoids the race condition
+            // where kill_session runs before the PTY detaches, causing tmux to
+            // write "[exited]" / "can't find session" error output to the PTY.
+            let _ = handle.command_tx.send(SessionCommand::Close {
+                client_session: handle.client_session.clone(),
+                socket_path: Some(sock),
+            });
+
+            // NOTE: We intentionally do NOT call kill_session here.
+            // The PTY thread will kill the client session after detaching cleanly.
 
             info!(
                 "Terminal session closed (detached): {} - tmux window {:?}:{:?} preserved",
@@ -729,8 +741,13 @@ impl TerminalService {
     pub async fn destroy_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
-            // Send close command to PTY thread
-            let _ = handle.command_tx.send(SessionCommand::Close);
+            // For destroy, we intentionally kill the window AND client session immediately.
+            // Error output from the dying session is expected and acceptable since the user
+            // explicitly requested destruction.
+            let _ = handle.command_tx.send(SessionCommand::Close {
+                client_session: None, // We handle kill ourselves below
+                socket_path: None,
+            });
 
             // Kill the tmux window in the master session
             if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
@@ -827,16 +844,17 @@ impl TerminalService {
             let handles: Vec<(String, SessionHandle)> = sessions.drain().collect();
             drop(sessions); // Release the lock early
 
-            for (session_id, handle) in &handles {
-                // Send close command to PTY thread
-                let _ = handle.command_tx.send(SessionCommand::Close);
+            let sock = dirs::home_dir()
+                .map(|h| h.join(".atmos").join("atmos.sock"))
+                .unwrap_or_else(|| std::path::PathBuf::from("/tmp/.atmos/atmos.sock"));
 
-                // Kill the client tmux session to force the tmux attach process to exit
-                if let Some(client_session) = &handle.client_session {
-                    if let Err(e) = self.tmux_engine.kill_session(client_session) {
-                        warn!("Failed to kill client session {} during shutdown: {}", client_session, e);
-                    }
-                }
+            for (session_id, handle) in &handles {
+                // Send close command to PTY thread with client session info
+                // so it can clean up after detaching
+                let _ = handle.command_tx.send(SessionCommand::Close {
+                    client_session: handle.client_session.clone(),
+                    socket_path: Some(sock.clone()),
+                });
 
                 debug!("Sent shutdown signal to session: {}", session_id);
             }
@@ -1041,6 +1059,10 @@ fn run_pty_session_with_tmux(
         .build()
         .unwrap();
 
+    // Will be set by Close command for post-detach cleanup
+    let mut close_client_session: Option<String> = None;
+    let mut close_socket_path: Option<std::path::PathBuf> = None;
+
     rt.block_on(async {
         while let Some(cmd) = command_rx.recv().await {
             match cmd {
@@ -1064,20 +1086,38 @@ fn run_pty_session_with_tmux(
                         debug!("Failed to resize PTY for session {}: {}", session_id, e);
                     }
                 }
-                SessionCommand::Close => {
+                SessionCommand::Close { client_session: cs, socket_path: sp } => {
                     debug!("Closing PTY session (detaching): {}", session_id);
                     // Send detach key sequence to tmux (Ctrl+B, D)
                     // This detaches cleanly without killing the session
                     let _ = writer.write_all(&[0x02, b'd']); // Ctrl+B, d
                     let _ = writer.flush();
+
+                    // Store client session info for post-detach cleanup
+                    close_client_session = cs;
+                    close_socket_path = sp;
                     break;
                 }
             }
         }
     });
 
-    // Wait for reader thread to finish
+    // Wait for reader thread to finish (reader exits once PTY sees EOF from detach)
     let _ = reader_handle.join();
+
+    // NOW kill the client tmux session as cleanup AFTER the PTY has fully detached.
+    // This ordering is critical: killing the session while the PTY is still attached
+    // causes tmux to write "[exited]" / "can't find session" to the PTY output,
+    // which can leak to the frontend terminal.
+    if let Some(cs) = close_client_session {
+        if let Some(sp) = close_socket_path {
+            let _ = std::process::Command::new("tmux")
+                .args(["-S", &sp.to_string_lossy(), "kill-session", "-t", &cs])
+                .output();
+            debug!("Killed client tmux session after detach: {}", cs);
+        }
+    }
+
     info!("PTY session thread exited (detached): {}", session_id);
 }
 
@@ -1221,7 +1261,7 @@ fn run_simple_pty_session(
                         warn!("Failed to resize PTY for session {}: {}", session_id, e);
                     }
                 }
-                SessionCommand::Close => {
+                SessionCommand::Close { .. } => {
                     debug!("Closing session {}", session_id);
                     break;
                 }
