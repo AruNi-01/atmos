@@ -31,25 +31,6 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
-const navigationData = [
-  {
-    title: "Home",
-    href: "/#hero",
-  },
-  {
-    title: "Portfolio",
-    href: "/#portfolio",
-  },
-  {
-    title: "Services",
-    href: "/#services",
-  },
-  {
-    title: "About",
-    href: "#", // Placeholder
-  }
-];
-
 export default async function LocaleLayout({ children, params }: Props) {
   const { locale } = await params;
 
@@ -77,7 +58,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         >
           <NextIntlClientProvider messages={messages}>
             <TooltipProvider>
-              <Header navigationData={navigationData} />
+              <Header />
               {children}
             </TooltipProvider>
           </NextIntlClientProvider>

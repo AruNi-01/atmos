@@ -9,8 +9,6 @@ import Link from 'next/link'
 import { Button } from '@workspace/ui/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/ui/tooltip'
 
-import { type Navigation } from '@/components/layout/hero-navigation'
-
 import { cn } from '@/lib/utils'
 
 import Logo from '@/components/logo'
@@ -20,11 +18,10 @@ import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { motion, useScroll, useSpring, useTransform } from 'motion/react'
 
 type HeaderProps = {
-  navigationData: Navigation[]
   className?: string
 }
 
-const Header = ({ navigationData, className }: HeaderProps) => {
+const Header = ({ className }: HeaderProps) => {
   const [isScrolled, setIsScrolled] = useState(false)
   const [windowWidth, setWindowWidth] = useState(0)
 
