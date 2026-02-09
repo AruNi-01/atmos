@@ -222,17 +222,31 @@ impl TmuxEngine {
         // This enables unified scrolling where xterm.js scrollbar reflects actual scroll position
         self.run_tmux(&["set-option", "-g", "mouse", "off"])?;
         
-        // Disable alternate screen buffer to allow terminal's native scrollback
-        // This makes xterm.js scrollbar work properly while keeping tmux persistence
-        self.run_tmux(&["set-option", "-g", "terminal-overrides", "xterm*:smcup@:rmcup@"])?;
-        
+        // NOTE: We intentionally do NOT disable the alternate screen buffer
+        // (smcup@:rmcup@). Keeping the alternate screen enabled is critical for
+        // correct resize behavior. Without it, tmux's screen redraw after SIGWINCH
+        // pushes old content into xterm.js scrollback, causing visible duplication
+        // every time the terminal is resized. With the alternate screen, tmux draws
+        // on a separate buffer that has no scrollback, so redraws are clean.
+        // Tradeoff: xterm.js scrollbar won't show tmux content (tmux manages its
+        // own scrollback internally, accessible via copy-mode).
+        //
+        // Reset terminal-overrides to default in case a previous version set
+        // smcup@:rmcup@ (the setting persists on the running tmux server).
+        let _ = self.run_tmux(&["set-option", "-g", "-u", "terminal-overrides"]);
+
         // Set scrollback buffer in tmux
         self.run_tmux(&["set-option", "-g", "history-limit", "10000"])?;
+
+        // Use aggressive-resize so each window is sized based on the client
+        // actually viewing it, not the smallest client in the session group.
+        // This is important for grouped sessions where each terminal pane has
+        // its own client session but they share windows.
+        self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"])?;
         
         // Prevent shell from renaming windows (critical for window name-based lookup)
         self.run_tmux(&["set-option", "-g", "allow-rename", "off"])?;
         self.run_tmux(&["set-option", "-g", "automatic-rename", "off"])?;
-
 
         info!("Created tmux session: {} (with window '1')", session_name);
         Ok(session_name.to_string())
@@ -291,8 +305,9 @@ impl TmuxEngine {
             // Apply our standard configuration
             let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
             let _ = self.run_tmux(&["set-option", "-g", "mouse", "off"]);
-            let _ = self.run_tmux(&["set-option", "-g", "terminal-overrides", "xterm*:smcup@:rmcup@"]);
+            // NOTE: Do NOT disable alternate screen (smcup@:rmcup@) — see create_session_internal
             let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
+            let _ = self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"]);
             // Prevent shell from renaming windows (critical for window name-based lookup)
             let _ = self.run_tmux(&["set-option", "-g", "allow-rename", "off"]);
             let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);

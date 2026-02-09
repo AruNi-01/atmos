@@ -709,15 +709,14 @@ impl TerminalService {
     pub async fn close_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
-            // Build socket path for the PTY thread to use when killing the client session
-            let sock = dirs::home_dir()
-                .map(|h| h.join(".atmos").join("atmos.sock"))
-                .unwrap_or_else(|| std::path::PathBuf::from("/tmp/.atmos/atmos.sock"));
+            // Use TmuxEngine's socket path for consistency
+            let sock = std::path::PathBuf::from(self.tmux_engine.socket_file_path());
 
             // Send Close command WITH the client session info so the PTY thread
-            // can kill it AFTER detaching cleanly. This avoids the race condition
-            // where kill_session runs before the PTY detaches, causing tmux to
-            // write "[exited]" / "can't find session" error output to the PTY.
+            // can detach cleanly using `tmux detach-client` and then kill the
+            // client session. This avoids the race condition where kill_session
+            // runs before the PTY detaches, causing tmux to write "[exited]" /
+            // "can't find session" error output to the PTY.
             let _ = handle.command_tx.send(SessionCommand::Close {
                 client_session: handle.client_session.clone(),
                 socket_path: Some(sock),
@@ -741,22 +740,33 @@ impl TerminalService {
     pub async fn destroy_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
-            // For destroy, we intentionally kill the window AND client session immediately.
-            // Error output from the dying session is expected and acceptable since the user
-            // explicitly requested destruction.
+            // Step 1: Detach the client FIRST to prevent "[exited]" output.
+            // `detach-client` causes a clean exit of the tmux attach process,
+            // unlike `kill-session` which produces "[exited]" / "can't find session".
+            // After detach, the PTY reader sees EOF and stops forwarding output.
+            if let Some(ref client_session) = handle.client_session {
+                let socket = self.tmux_engine.socket_file_path();
+                let _ = std::process::Command::new("tmux")
+                    .args(["-f", "/dev/null", "-S", &socket,
+                           "detach-client", "-s", client_session])
+                    .output();
+            }
+
+            // Step 2: Send Close command to PTY thread (it will exit cleanly
+            // since the tmux client is already detached)
             let _ = handle.command_tx.send(SessionCommand::Close {
                 client_session: None, // We handle kill ourselves below
                 socket_path: None,
             });
 
-            // Kill the tmux window in the master session
+            // Step 3: Kill the tmux window in the master session
             if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
                 if let Err(e) = self.tmux_engine.kill_window(ts, twi) {
                     warn!("Failed to kill tmux window: {}", e);
                 }
             }
 
-            // Also kill the client session
+            // Step 4: Kill the client session
             if let Some(client_session) = &handle.client_session {
                 let _ = self.tmux_engine.kill_session(client_session);
             }
@@ -844,13 +854,11 @@ impl TerminalService {
             let handles: Vec<(String, SessionHandle)> = sessions.drain().collect();
             drop(sessions); // Release the lock early
 
-            let sock = dirs::home_dir()
-                .map(|h| h.join(".atmos").join("atmos.sock"))
-                .unwrap_or_else(|| std::path::PathBuf::from("/tmp/.atmos/atmos.sock"));
+            let sock = std::path::PathBuf::from(self.tmux_engine.socket_file_path());
 
             for (session_id, handle) in &handles {
                 // Send close command to PTY thread with client session info
-                // so it can clean up after detaching
+                // so it can detach cleanly and then kill the client session
                 let _ = handle.command_tx.send(SessionCommand::Close {
                     client_session: handle.client_session.clone(),
                     socket_path: Some(sock.clone()),
@@ -931,7 +939,7 @@ fn run_pty_session_with_tmux(
 
     for attempt in 0..max_retries {
         let check_output = std::process::Command::new("tmux")
-            .args(["-S", &socket_path.to_string_lossy(), "has-session", "-t", &tmux_session])
+            .args(["-f", "/dev/null", "-S", &socket_path.to_string_lossy(), "has-session", "-t", &tmux_session])
             .output();
 
         match check_output {
@@ -979,8 +987,10 @@ fn run_pty_session_with_tmux(
 
     // For session grouping, we attach to the client session
     // Since select-window was already called, this session is viewing the correct window
+    // -f /dev/null isolates from user's ~/.tmux.conf which could change the prefix key
+    // or other settings, causing detach and other key-based operations to fail.
     let mut cmd = CommandBuilder::new("tmux");
-    cmd.args(["-S", &socket_path.to_string_lossy(), "attach-session", "-t", &tmux_session]);
+    cmd.args(["-f", "/dev/null", "-S", &socket_path.to_string_lossy(), "attach-session", "-t", &tmux_session]);
 
     // Spawn the tmux attach process
     if let Err(e) = pair.slave.spawn_command(cmd) {
@@ -1088,10 +1098,31 @@ fn run_pty_session_with_tmux(
                 }
                 SessionCommand::Close { client_session: cs, socket_path: sp } => {
                     debug!("Closing PTY session (detaching): {}", session_id);
-                    // Send detach key sequence to tmux (Ctrl+B, D)
-                    // This detaches cleanly without killing the session
-                    let _ = writer.write_all(&[0x02, b'd']); // Ctrl+B, d
-                    let _ = writer.flush();
+
+                    // Use `tmux detach-client` for reliable detach instead of the
+                    // fragile Ctrl+B,d key sequence. The key sequence is unreliable:
+                    // 1. Depends on prefix key being Ctrl+B (user's .tmux.conf may differ)
+                    // 2. Input buffering can interfere with prefix + 'd' sequence
+                    // 3. Programs consuming input (vim, etc.) intercept the keys
+                    // `detach-client` is a direct command to the tmux server that
+                    // always works and produces a clean exit (no "[exited]" message).
+                    let detached = if let (Some(ref client_name), Some(ref sock)) = (&cs, &sp) {
+                        std::process::Command::new("tmux")
+                            .args(["-f", "/dev/null", "-S", &sock.to_string_lossy(),
+                                   "detach-client", "-s", client_name])
+                            .output()
+                            .map(|o| o.status.success())
+                            .unwrap_or(false)
+                    } else {
+                        false
+                    };
+
+                    if !detached {
+                        // Fallback to key sequence if detach-client failed or
+                        // client info was not provided (shouldn't happen normally)
+                        let _ = writer.write_all(&[0x02, b'd']); // Ctrl+B, d
+                        let _ = writer.flush();
+                    }
 
                     // Store client session info for post-detach cleanup
                     close_client_session = cs;
