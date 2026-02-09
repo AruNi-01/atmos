@@ -280,15 +280,24 @@ const Terminal = ({
     const connectUrl = `${wsUrl}&cols=${terminal.cols}&rows=${terminal.rows}`;
     connect(connectUrl);
 
-    // Setup resize observer with debounce to coalesce rapid resize events
+    // Setup resize observer with debounce to coalesce rapid resize events.
+    // 150ms debounce (matching agentboard) to prevent rapid resize bursts.
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (resizeTimer) clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
+      resizeTimer = setTimeout(() => {
         requestAnimationFrame(() => {
-          fitAddonRef.current?.fit();
+          if (terminalRef.current && fitAddonRef.current) {
+            // Clear scrollback before fitting to prevent content duplication.
+            // When the PTY is resized, tmux sends a full-screen redraw (SIGWINCH).
+            // With alternate screen disabled (smcup@:rmcup@), this redraw writes
+            // to the main buffer. Without clearing, old content remains in the
+            // xterm.js scrollback, making it look like the content is duplicated.
+            terminalRef.current.clear();
+            fitAddonRef.current.fit();
+          }
         });
-      }, 50);
+      }, 150);
     });
 
     resizeObserver.observe(containerRef.current);
