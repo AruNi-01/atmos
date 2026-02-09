@@ -169,8 +169,36 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   initWorkspace: (workspaceId) => {
     const state = get();
     
-    // Skip if already loaded or currently initializing (prevents React Strict Mode double-mount issues)
-    if (state.loadedWorkspaces.has(workspaceId) || state.initializingWorkspaces.has(workspaceId)) {
+    // Skip if currently initializing (prevents React Strict Mode double-mount issues)
+    if (state.initializingWorkspaces.has(workspaceId)) {
+      return;
+    }
+    
+    // If workspace was already loaded (user switching back to it), regenerate
+    // sessionIds for all panes. This is critical to prevent a race condition:
+    // when the user switches away, the old PTY threads asynchronously detach and
+    // kill the old tmux client sessions (atmos_client_{sessionId}). If the user
+    // switches back before that cleanup completes, reusing the same sessionId
+    // causes the old cleanup to kill the newly created session, producing
+    // "can't find session: atmos_client_xxx" errors in the terminal.
+    // Fresh UUIDs guarantee no naming collision with ongoing cleanup.
+    if (state.loadedWorkspaces.has(workspaceId)) {
+      const panes = state.workspacePanes[workspaceId];
+      if (panes && Object.keys(panes).length > 0) {
+        const refreshedPanes: Record<string, TerminalPaneProps> = {};
+        for (const [id, pane] of Object.entries(panes)) {
+          refreshedPanes[id] = {
+            ...pane,
+            sessionId: uuidv4(),
+          };
+        }
+        set((state) => ({
+          workspacePanes: {
+            ...state.workspacePanes,
+            [workspaceId]: refreshedPanes,
+          },
+        }));
+      }
       return;
     }
     
