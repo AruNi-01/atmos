@@ -48,6 +48,9 @@ export function useTerminalWebSocket({
   const connectRef = useRef<(() => void) | null>(null);
   const reconnectCountRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  /** Once disconnect() is called, this ref prevents any further reconnection
+   *  attempts even from stale onclose handlers of previous WebSocket instances. */
+  const disconnectedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
 
@@ -116,6 +119,9 @@ export function useTerminalWebSocket({
   }, [sessionId, sendMessage]);
 
   const disconnect = useCallback(() => {
+    // Mark as permanently disconnected - prevents all future reconnection
+    // attempts, even from stale onclose handlers of previous WebSocket instances
+    disconnectedRef.current = true;
     clearReconnectTimeout();
     reconnectCountRef.current = reconnectAttempts; // Prevent reconnection
     if (wsRef.current) {
@@ -132,6 +138,10 @@ export function useTerminalWebSocket({
     }
 
     try {
+      // Reset disconnected flag since connect() is always an intentional call.
+      // The flag only prevents stale onclose handlers from triggering reconnection.
+      disconnectedRef.current = false;
+      reconnectCountRef.current = 0;
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
@@ -188,6 +198,12 @@ export function useTerminalWebSocket({
         setIsConnected(false);
         onDisconnected?.();
 
+        // Do NOT reconnect if disconnect() was called (permanent teardown)
+        if (disconnectedRef.current) {
+          setIsReconnecting(false);
+          return;
+        }
+
         // Attempt to reconnect
         if (reconnectCountRef.current < reconnectAttempts) {
           reconnectCountRef.current++;
@@ -223,9 +239,13 @@ export function useTerminalWebSocket({
     connectRef.current = connect;
   }, [connect]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - must also set disconnectedRef to prevent
+  // zombie reconnections from stale onclose handlers.
+  // This cleanup runs BEFORE Terminal.tsx's disconnect() during unmount,
+  // so we need to mark as disconnected here as well.
   useEffect(() => {
     return () => {
+      disconnectedRef.current = true;
       clearReconnectTimeout();
       if (wsRef.current) {
         wsRef.current.close();
