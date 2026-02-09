@@ -144,9 +144,18 @@ const getWsUrl = (): string => {
     return 'ws://localhost:8080/ws';
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // 在开发环境中使用后端端口
-  const host = process.env.NODE_ENV === 'development' ? 'localhost:8080' : window.location.host;
-  return `${protocol}//${host}/ws`;
+  // 优先使用环境变量，支持 Tailscale 等内网穿透场景
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return `${process.env.NEXT_PUBLIC_WS_URL}/ws`;
+  }
+  // 在开发环境中：如果通过非 localhost 访问（如 Tailscale），使用当前 host + 后端端口
+  if (process.env.NODE_ENV === 'development') {
+    const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'localhost:8080'
+      : `${window.location.hostname}:8080`;
+    return `${protocol}//${host}/ws`;
+  }
+  return `${protocol}//${window.location.host}/ws`;
 };
 
 export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
