@@ -58,6 +58,8 @@ const Terminal = ({
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const readOnlyRef = useRef(readOnly);
+  // Accumulates wheel delta for smooth trackpad scrolling (same approach as agentboard)
+  const wheelAccumRef = useRef(0);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
@@ -125,9 +127,6 @@ const Terminal = ({
     }
     // Re-fit to ensure terminal matches current container dimensions
     fitAddonRef.current?.fit();
-
-    // Clear any loading content and reset terminal when connected
-    terminalRef.current?.clear();
     onSessionReady?.(sessionId);
   }, [sessionId, onSessionReady]);
 
@@ -280,20 +279,50 @@ const Terminal = ({
     const connectUrl = `${wsUrl}&cols=${terminal.cols}&rows=${terminal.rows}`;
     connect(connectUrl);
 
+    // Forward wheel events to tmux for scrollback (matching agentboard approach).
+    // With scrollback: 0, xterm.js has no local scrollback. Instead, wheel events
+    // are converted to SGR mouse sequences and sent through the PTY to tmux.
+    // tmux (with mouse: on) enters copy-mode on scroll-up, providing persistent
+    // scrollback that survives workspace switches and reconnections.
+    const WHEEL_STEP = 30; // Accumulation threshold to avoid trackpad spam
+    terminal.attachCustomWheelEventHandler((ev) => {
+      // Don't intercept wheel over HTML overlays
+      const target = ev.target as HTMLElement | null;
+      if (target?.closest('input, textarea, [contenteditable="true"]')) {
+        return true;
+      }
+      // If user has active text selection, let them scroll to extend it
+      if (terminal.hasSelection()) return true;
+      // Shift+scroll = horizontal scroll, let browser handle
+      if (ev.shiftKey) return true;
+
+      wheelAccumRef.current += ev.deltaY;
+
+      // Convert accumulated delta to SGR mouse wheel sequences
+      // SGR encoding: ESC[<button;col;rowM — button 64 = scroll up, 65 = scroll down
+      const col = Math.floor(terminal.cols / 2);
+      const row = Math.floor(terminal.rows / 2);
+
+      while (Math.abs(wheelAccumRef.current) >= WHEEL_STEP) {
+        const down = wheelAccumRef.current > 0;
+        wheelAccumRef.current += down ? -WHEEL_STEP : WHEEL_STEP;
+        const button = down ? 65 : 64;
+        sendInput(`\x1b[<${button};${col};${row}M`);
+      }
+
+      return false; // We handled it — prevent xterm.js local scroll
+    });
+
     // Setup resize observer with debounce to coalesce rapid resize events.
     // 150ms debounce (matching agentboard) to prevent rapid resize bursts.
+    // No clear() needed: with scrollback: 0 and alternate screen enabled (default),
+    // tmux redraws cleanly on resize without duplication.
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         requestAnimationFrame(() => {
-          if (terminalRef.current && fitAddonRef.current) {
-            // Clear scrollback before fitting to prevent content duplication.
-            // When the PTY is resized, tmux sends a full-screen redraw (SIGWINCH).
-            // With alternate screen disabled (smcup@:rmcup@), this redraw writes
-            // to the main buffer. Without clearing, old content remains in the
-            // xterm.js scrollback, making it look like the content is duplicated.
-            terminalRef.current.clear();
+          if (fitAddonRef.current) {
             fitAddonRef.current.fit();
           }
         });

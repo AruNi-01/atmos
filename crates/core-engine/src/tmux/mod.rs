@@ -218,9 +218,12 @@ impl TmuxEngine {
         // and isolate from any local user preferences.
         self.run_tmux(&["set-option", "-g", "status", "off"])?;
         
-        // Disable tmux mouse mode - let xterm.js handle all mouse events
-        // This enables unified scrolling where xterm.js scrollbar reflects actual scroll position
-        self.run_tmux(&["set-option", "-g", "mouse", "off"])?;
+        // Enable tmux mouse mode so wheel events are forwarded to tmux for scrollback.
+        // The frontend sends SGR mouse sequences via a custom wheel handler, tmux enters
+        // copy-mode on scroll-up and provides persistent scrollback that survives reconnections.
+        // xterm.js scrollback is disabled (scrollback: 0) — tmux owns all scrollback.
+        // Text selection: users hold Shift for local xterm.js selection (standard tmux behavior).
+        self.run_tmux(&["set-option", "-g", "mouse", "on"])?;
         
         // NOTE: We intentionally do NOT disable the alternate screen buffer
         // (smcup@:rmcup@). Keeping the alternate screen enabled is critical for
@@ -304,7 +307,7 @@ impl TmuxEngine {
             
             // Apply our standard configuration
             let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
-            let _ = self.run_tmux(&["set-option", "-g", "mouse", "off"]);
+            let _ = self.run_tmux(&["set-option", "-g", "mouse", "on"]);
             // NOTE: Do NOT disable alternate screen (smcup@:rmcup@) — see create_session_internal
             let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
             let _ = self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"]);
