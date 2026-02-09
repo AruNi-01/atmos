@@ -106,6 +106,7 @@ dependencies = [
  "axum",
  "core-engine",
  "core-service",
+ "dotenvy",
  "futures-util",
  "infra",
  "sea-orm-migration",

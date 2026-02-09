@@ -69,7 +69,18 @@ const Terminal = ({
 
   // For NEW panes: use terminal_name to CREATE a new tmux window
   // For EXISTING panes: use tmux_window_name to ATTACH to existing tmux window
-  const baseWsUrl = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080"}/ws/terminal/${sessionId}`;
+  const getTerminalWsUrl = () => {
+    if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+    if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      if (!isLocal) {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        return `${protocol}//${window.location.hostname}:8080`;
+      }
+    }
+    return "ws://localhost:8080";
+  };
+  const baseWsUrl = `${getTerminalWsUrl()}/ws/terminal/${sessionId}`;
   const wsParams = new URLSearchParams({
     workspace_id: workspaceId,
   });
