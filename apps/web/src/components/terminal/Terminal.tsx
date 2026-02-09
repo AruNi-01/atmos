@@ -59,6 +59,8 @@ const Terminal = ({
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const readOnlyRef = useRef(readOnly);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
+  // Ref to hold sendResize so handleConnected can call it without circular dependency
+  const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
@@ -115,6 +117,15 @@ const Terminal = ({
 
   const handleConnected = useCallback(() => {
     setStatus("connected");
+
+    // Belt-and-suspenders: send current terminal dimensions immediately after WS opens.
+    // This ensures the backend PTY has the correct size even if URL params were not processed.
+    if (terminalRef.current) {
+      sendResizeRef.current({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
+    }
+    // Re-fit to ensure terminal matches current container dimensions
+    fitAddonRef.current?.fit();
+
     // Clear any loading content and reset terminal when connected
     terminalRef.current?.clear();
     onSessionReady?.(sessionId);
@@ -155,6 +166,9 @@ const Terminal = ({
       onError: handleError,
       onAttached: handleAttached,
     });
+
+  // Keep sendResize ref in sync (breaks circular dependency with handleConnected)
+  sendResizeRef.current = sendResize;
 
   const uiStatus = isReconnecting ? "reconnecting" : status;
 
@@ -237,10 +251,7 @@ const Terminal = ({
       console.warn("WebGL addon failed to load, using canvas renderer", e);
     }
 
-    // Fit terminal to container
-    fitAddon.fit();
-
-    // Store refs
+    // Store refs BEFORE fit so handlers can access them
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
@@ -254,13 +265,20 @@ const Terminal = ({
       onData?.(data); // Notify parent
     });
 
-    // Handle terminal resize
+    // IMPORTANT: Register onResize BEFORE fitAddon.fit() so the initial
+    // resize event (from default 80x24 to actual size) is captured.
     terminal.onResize(({ cols, rows }) => {
       sendResize({ cols, rows });
     });
 
-    // Connect to WebSocket
-    connect();
+    // Fit terminal to container (now onResize handler is registered to capture this)
+    fitAddon.fit();
+
+    // Connect to WebSocket with initial terminal dimensions in URL.
+    // This ensures the backend creates the PTY with the correct size from the start,
+    // preventing garbled output from cols/rows mismatch.
+    const connectUrl = `${wsUrl}&cols=${terminal.cols}&rows=${terminal.rows}`;
+    connect(connectUrl);
 
     // Setup resize observer with debounce to coalesce rapid resize events
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;

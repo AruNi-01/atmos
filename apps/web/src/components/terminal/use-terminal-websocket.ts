@@ -28,7 +28,8 @@ interface UseTerminalWebSocketReturn {
   sendCreate: (workspaceId: string) => void;
   sendAttach: (workspaceId: string, tmuxWindowName: string) => void;
   sendDestroy: () => void;
-  connect: () => void;
+  /** Connect to WebSocket. Pass urlOverride to use a different URL (e.g. with cols/rows). */
+  connect: (urlOverride?: string) => void;
   disconnect: () => void;
 }
 
@@ -132,9 +133,18 @@ export function useTerminalWebSocket({
     setIsReconnecting(false);
   }, [clearReconnectTimeout, reconnectAttempts]);
 
-  const connect = useCallback(() => {
+  // Store the effective URL for reconnections (may include cols/rows from initial connect)
+  const effectiveUrlRef = useRef(url);
+
+  const connect = useCallback((urlOverride?: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return;
+    }
+
+    // If a URL override is provided (e.g. with cols/rows), store it for reconnections
+    const connectUrl = urlOverride || effectiveUrlRef.current;
+    if (urlOverride) {
+      effectiveUrlRef.current = urlOverride;
     }
 
     try {
@@ -142,7 +152,7 @@ export function useTerminalWebSocket({
       // The flag only prevents stale onclose handlers from triggering reconnection.
       disconnectedRef.current = false;
       reconnectCountRef.current = 0;
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(connectUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
