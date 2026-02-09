@@ -54,7 +54,9 @@ pub struct TerminalWsQuery {
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ClientTerminalMessage {
     TerminalCreate {
+        #[allow(dead_code)]
         workspace_id: String,
+        #[allow(dead_code)]
         shell: Option<String>,
     },
     TerminalAttach {

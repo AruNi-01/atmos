@@ -7,8 +7,11 @@ use serde_json::json;
 
 #[derive(Debug)]
 pub enum ApiError {
+    #[allow(dead_code)]
     InternalError(String),
+    #[allow(dead_code)]
     BadRequest(String),
+    #[allow(dead_code)]
     NotFound(String),
     ServiceError(core_service::ServiceError),
     InfraError(infra::InfraError),
