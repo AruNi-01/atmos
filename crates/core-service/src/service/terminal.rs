@@ -888,11 +888,28 @@ impl TerminalService {
     /// a PTY device. Over many hot-reloads, these accumulate and exhaust the system's
     /// PTY device pool.
     pub fn cleanup_stale_client_sessions(&self) {
+        // Collect the set of client session names that are currently active
+        // so we don't kill live sessions. Killing a live session would cause
+        // tmux to write "[exited]" / "can't find session" into the PTY output.
+        // Use try_lock to avoid blocking if sessions mutex is held.
+        let active_clients: std::collections::HashSet<String> = self
+            .sessions
+            .try_lock()
+            .map(|sessions| {
+                sessions
+                    .values()
+                    .filter_map(|h| h.client_session.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+
         match self.tmux_engine.list_sessions() {
             Ok(sessions) => {
                 let mut cleaned = 0;
                 for session in sessions {
-                    if session.name.starts_with("atmos_client_") {
+                    if session.name.starts_with("atmos_client_")
+                        && !active_clients.contains(&session.name)
+                    {
                         if let Err(e) = self.tmux_engine.kill_session(&session.name) {
                             warn!("Failed to kill stale client session {}: {}", session.name, e);
                         } else {
@@ -901,7 +918,7 @@ impl TerminalService {
                     }
                 }
                 if cleaned > 0 {
-                    info!("Cleaned up {} stale tmux client sessions", cleaned);
+                    info!("Cleaned up {} stale tmux client sessions (skipped {} active)", cleaned, active_clients.len());
                 } else {
                     debug!("No stale tmux client sessions found");
                 }
