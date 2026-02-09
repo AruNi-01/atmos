@@ -101,12 +101,12 @@ export const defaultTerminalOptions = {
   fontSize: terminalFont.size,
   lineHeight: terminalFont.lineHeight,
   letterSpacing: terminalFont.letterSpacing,
-  // Scrollback buffer (matched with tmux history-limit)
-  scrollback: 10000,
-  scrollSensitivity: 3,
-  smoothScrollDuration: 100,
-  // Scroll to bottom on user input
-  scrollOnUserInput: true,
+  // Scrollback disabled — tmux owns all scrollback (history-limit: 10000).
+  // Wheel events are forwarded to tmux as SGR mouse sequences, which triggers
+  // tmux copy-mode for scrollback. This ensures scrollback persists across
+  // workspace switches (unlike xterm.js scrollback which is lost on reconnection).
+  scrollback: 0,
+  scrollOnUserInput: false,
   theme: atmosDarkTheme,
   minimumContrastRatio: 4.5,
 };
