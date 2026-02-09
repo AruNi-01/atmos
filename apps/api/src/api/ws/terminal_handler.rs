@@ -47,6 +47,10 @@ pub struct TerminalWsQuery {
     pub mode: Option<String>,
     /// Optional: working directory
     pub cwd: Option<String>,
+    /// Optional: initial terminal columns (from frontend fitAddon)
+    pub cols: Option<u16>,
+    /// Optional: initial terminal rows (from frontend fitAddon)
+    pub rows: Option<u16>,
 }
 
 /// Terminal message from client
@@ -105,6 +109,9 @@ pub async fn terminal_ws_handler(
         session_id, workspace_id, attach, tmux_window, query.cwd
     );
 
+    let initial_cols = query.cols;
+    let initial_rows = query.rows;
+
     ws.on_upgrade(move |socket| {
         handle_terminal_socket(
             socket,
@@ -119,6 +126,8 @@ pub async fn terminal_ws_handler(
             terminal_name,
             query.mode,
             query.cwd, // Pass cwd
+            initial_cols,
+            initial_rows,
             state,
         )
     })
@@ -139,6 +148,8 @@ async fn handle_terminal_socket(
 
     mode: Option<String>,
     cwd: Option<String>, // Accept cwd
+    initial_cols: Option<u16>,
+    initial_rows: Option<u16>,
     state: AppState,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
@@ -191,8 +202,8 @@ async fn handle_terminal_socket(
                 session_id.clone(),
                 workspace_id.clone(),
                 shell,
-                None, // Initial size will be set by client resize
-                None,
+                initial_cols,
+                initial_rows,
                 cwd.clone(),
                 project_name.clone(),
                 workspace_name.clone(),
@@ -223,8 +234,8 @@ async fn handle_terminal_socket(
                 workspace_id.clone(),
                 tmux_window,
                 tmux_window_name,
-                None,
-                None,
+                initial_cols,
+                initial_rows,
                 project_name.clone(),
                 workspace_name.clone(),
             )
@@ -245,8 +256,8 @@ async fn handle_terminal_socket(
                         session_id.clone(),
                         workspace_id.clone(),
                         shell.clone(),
-                        None,
-                        None,
+                        initial_cols,
+                        initial_rows,
                         project_name.clone(),
                         workspace_name.clone(),
                         terminal_name.clone(),
@@ -285,8 +296,8 @@ async fn handle_terminal_socket(
                 session_id.clone(),
                 workspace_id.clone(),
                 shell,
-                None,
-                None,
+                initial_cols,
+                initial_rows,
                 project_name,
                 workspace_name,
                 terminal_name,
