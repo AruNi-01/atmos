@@ -9,6 +9,7 @@ mod utils;
 use std::sync::Arc;
 
 use app_state::AppState;
+use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{MessagePushService, ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService};
 use infra::{DbConnection, Migrator, WsServiceConfig};
@@ -19,6 +20,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenvy::from_filename("apps/api/.env").ok();
+    dotenvy::dotenv().ok();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -93,18 +97,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _heartbeat_task = app_state.ws_service.start_heartbeat();
     info!("WebSocket service started with heartbeat (timeout: 30s)");
 
-    let cors = tower_http::cors::CorsLayer::new()
-        .allow_origin(tower_http::cors::Any)
-        .allow_methods(tower_http::cors::Any)
-        .allow_headers(tower_http::cors::Any);
+    let server_config = ServerConfig::from_env();
+    let cors = server_config.cors_layer();
 
     let app = api::routes()
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
         .layer(cors);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
-    info!("Server listening on http://0.0.0.0:8080");
+    let addr = server_config.socket_addr();
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    info!("Server listening on http://{}", addr);
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
