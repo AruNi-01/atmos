@@ -38,6 +38,15 @@ class SafeClipboardProvider implements IClipboardProvider {
     }
   }
 }
+
+// Strip tmux mouse-enable sequences from PTY output so xterm never enters mouse
+// report mode. This allows selection + copy to work without scrolling first.
+// Sequences: ESC[?1000h, ESC[?1002h, ESC[?1003h, ESC[?1006h
+const MOUSE_ENABLE_PATTERN = /\x1b\[\?100[0236]h/g;
+function stripMouseEnable(data: string): string {
+  return data.replace(MOUSE_ENABLE_PATTERN, "");
+}
+
 import "@xterm/xterm/css/xterm.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme } from "./theme";
@@ -210,8 +219,9 @@ const Terminal = ({
   const wsUrl = `${baseWsUrl}?${wsParams.toString()}`;
 
   const handleOutput = useCallback((data: string) => {
-    terminalRef.current?.write(data);
-    onData?.(data); // Also forward output to parent (needed for URL detection)
+    const filtered = stripMouseEnable(data);
+    if (filtered) terminalRef.current?.write(filtered);
+    onData?.(data); // Forward original for parent (e.g. URL detection)
   }, [onData]);
 
   const handleConnected = useCallback(() => {
@@ -245,8 +255,7 @@ const Terminal = ({
     // Session attached (reconnected) to existing tmux window
     setStatus("connected");
     if (history) {
-      // Write history to terminal (already scrolled back content)
-      terminalRef.current?.write(history);
+      terminalRef.current?.write(stripMouseEnable(history));
     }
     terminalRef.current?.write("\r\n\x1b[32m[Reconnected to session]\x1b[0m\r\n");
   }, []);
