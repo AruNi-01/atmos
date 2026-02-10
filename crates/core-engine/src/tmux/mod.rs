@@ -171,20 +171,39 @@ impl TmuxEngine {
 
     /// Create a new tmux session for a workspace
     /// Returns the session name
-    pub fn create_session(&self, workspace_id: &str, cwd: Option<&str>) -> Result<String> {
+    ///
+    /// If `shell_command` is provided, it is used as the initial command for the first
+    /// window ("1"), enabling shim injection for dynamic terminal titles.
+    pub fn create_session(
+        &self,
+        workspace_id: &str,
+        cwd: Option<&str>,
+        shell_command: Option<&[String]>,
+    ) -> Result<String> {
         let session_name = self.session_name(workspace_id);
-        self.create_session_internal(&session_name, cwd)
+        self.create_session_internal(&session_name, cwd, shell_command)
     }
 
     /// Create a new tmux session with human-readable names
     /// Format: {project_name}_{workspace_name}
-    pub fn create_session_with_names(&self, project_name: &str, workspace_name: &str, cwd: Option<&str>) -> Result<String> {
+    pub fn create_session_with_names(
+        &self,
+        project_name: &str,
+        workspace_name: &str,
+        cwd: Option<&str>,
+        shell_command: Option<&[String]>,
+    ) -> Result<String> {
         let session_name = self.session_name_from_names(project_name, workspace_name);
-        self.create_session_internal(&session_name, cwd)
+        self.create_session_internal(&session_name, cwd, shell_command)
     }
 
     /// Internal function to create tmux session
-    fn create_session_internal(&self, session_name: &str, cwd: Option<&str>) -> Result<String> {
+    fn create_session_internal(
+        &self,
+        session_name: &str,
+        cwd: Option<&str>,
+        shell_command: Option<&[String]>,
+    ) -> Result<String> {
         // Check if session already exists
         if self.session_exists(session_name)? {
             info!("Tmux session already exists: {}", session_name);
@@ -192,31 +211,46 @@ impl TmuxEngine {
         }
 
         // Build the new-session command with optional working directory
-        let mut args = vec![
-            "new-session",
-            "-d",
-            "-s",
-            session_name,
-            "-n",
-            "1",
-            "-x",
-            "120",
-            "-y",
-            "30",
+        let mut args: Vec<String> = vec![
+            "new-session".to_string(),
+            "-d".to_string(),
+            "-s".to_string(),
+            session_name.to_string(),
+            "-n".to_string(),
+            "1".to_string(),
+            "-x".to_string(),
+            "120".to_string(),
+            "-y".to_string(),
+            "30".to_string(),
         ];
         
         // Add working directory if provided
         if let Some(dir) = cwd {
-            args.push("-c");
-            args.push(dir);
+            args.push("-c".to_string());
+            args.push(dir.to_string());
         }
         
+        // Append shell command for first window (shim injection for dynamic titles)
+        if let Some(cmd) = shell_command {
+            for part in cmd {
+                args.push(part.clone());
+            }
+            debug!("Tmux new-session with shim-injected shell for window 1: {:?}", cmd);
+        }
+        
+        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         // Create new detached session with the first window named "1"
-        self.run_tmux(&args)?;
+        self.run_tmux(&args_refs)?;
 
         // Disable status bar globally for this Atmos tmux server to ensure a clean UI
         // and isolate from any local user preferences.
         self.run_tmux(&["set-option", "-g", "status", "off"])?;
+        
+        // Enable passthrough so shell shim OSC sequences (wrapped in DCS) can reach
+        // the PTY reader and ultimately xterm.js on the frontend.
+        // Without this, tmux silently drops unrecognized escape sequences.
+        // Requires tmux 3.3+ (we check gracefully — older versions ignore unknown options).
+        let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
         
         // Enable tmux mouse mode so wheel events are forwarded to tmux for scrollback.
         // The frontend sends SGR mouse sequences via a custom wheel handler, tmux enters
@@ -284,29 +318,49 @@ impl TmuxEngine {
 
     /// Create a new window in a session
     /// Returns the window index
-    pub fn create_window(&self, session_name: &str, window_name: &str, cwd: Option<&str>) -> Result<u32> {
+    ///
+    /// If `shell_command` is provided, it is used as the shell command for the
+    /// new window instead of the default shell. This enables shim injection
+    /// for dynamic terminal titles. Example:
+    /// `["bash", "--init-file", "/path/to/shim.bash"]`
+    pub fn create_window(
+        &self,
+        session_name: &str,
+        window_name: &str,
+        cwd: Option<&str>,
+        shell_command: Option<&[String]>,
+    ) -> Result<u32> {
         // Ensure session exists
         if !self.session_exists(session_name)? {
-            // Try to create the session if it doesn't exist
+            // Try to create the session if it doesn't exist (first window "1" with shim if provided)
             info!("Session {} does not exist, creating it first", session_name);
-            let mut session_args = vec![
-                "new-session",
-                "-d",
-                "-s",
-                session_name,
-                "-x",
-                "120",
-                "-y",
-                "30",
+            let mut session_args: Vec<String> = vec![
+                "new-session".to_string(),
+                "-d".to_string(),
+                "-s".to_string(),
+                session_name.to_string(),
+                "-n".to_string(),
+                "1".to_string(),
+                "-x".to_string(),
+                "120".to_string(),
+                "-y".to_string(),
+                "30".to_string(),
             ];
             if let Some(dir) = cwd {
-                session_args.push("-c");
-                session_args.push(dir);
+                session_args.push("-c".to_string());
+                session_args.push(dir.to_string());
             }
-            self.run_tmux(&session_args)?;
+            if let Some(cmd) = shell_command {
+                for part in cmd {
+                    session_args.push(part.clone());
+                }
+            }
+            let session_args_refs: Vec<&str> = session_args.iter().map(|s| s.as_str()).collect();
+            self.run_tmux(&session_args_refs)?;
             
             // Apply our standard configuration
             let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
+            let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
             let _ = self.run_tmux(&["set-option", "-g", "mouse", "on"]);
             // NOTE: Do NOT disable alternate screen (smcup@:rmcup@) — see create_session_internal
             let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
@@ -316,22 +370,31 @@ impl TmuxEngine {
             let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);
         }
 
-        // Create new window with optional working directory
-        let mut args = vec![
-            "new-window",
-            "-t",
-            session_name,
-            "-n",
-            window_name,
-            "-P",
-            "-F",
-            "#{window_index}",
+        // Create new window with optional working directory and shell command
+        let mut args: Vec<String> = vec![
+            "new-window".to_string(),
+            "-t".to_string(),
+            session_name.to_string(),
+            "-n".to_string(),
+            window_name.to_string(),
+            "-P".to_string(),
+            "-F".to_string(),
+            "#{window_index}".to_string(),
         ];
         if let Some(dir) = cwd {
-            args.push("-c");
-            args.push(dir);
+            args.push("-c".to_string());
+            args.push(dir.to_string());
         }
-        let output = self.run_tmux(&args)?;
+        // Append shell command with shim injection (if provided)
+        if let Some(cmd) = shell_command {
+            for part in cmd {
+                args.push(part.clone());
+            }
+            debug!("Tmux new-window with shim-injected shell: {:?}", cmd);
+        }
+
+        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        let output = self.run_tmux(&args_refs)?;
 
         // Handle empty output
         if output.is_empty() {
@@ -373,6 +436,27 @@ impl TmuxEngine {
 
         debug!("Got PTY for {}: {}", target, tty);
         Ok(tty)
+    }
+
+    /// Get the current foreground command running in a pane.
+    ///
+    /// Returns the process name (e.g., "vim", "python3", "zsh").
+    /// When the shell is idle at a prompt, this returns the shell name itself.
+    pub fn get_pane_current_command(&self, session_name: &str, window_index: u32) -> Result<String> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let cmd = self.run_tmux(&["display-message", "-t", &target, "-p", "#{pane_current_command}"])?;
+        debug!("Pane current command for {}: {}", target, cmd);
+        Ok(cmd.trim().to_string())
+    }
+
+    /// Get the current working directory of a pane.
+    ///
+    /// tmux tracks this via OSC 7 sequences that modern shells emit automatically.
+    pub fn get_pane_current_path(&self, session_name: &str, window_index: u32) -> Result<String> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let path = self.run_tmux(&["display-message", "-t", &target, "-p", "#{pane_current_path}"])?;
+        debug!("Pane current path for {}: {}", target, path);
+        Ok(path.trim().to_string())
     }
 
     /// Send keys (input) to a specific window

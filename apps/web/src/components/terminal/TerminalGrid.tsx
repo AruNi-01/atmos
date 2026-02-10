@@ -56,6 +56,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     splitTerminal: splitTerminalInStore,
     toggleMaximize,
     workspaceMaximizedIds,
+    setDynamicTitle,
   } = useTerminalStore();
 
   const { projects, isLoading: isProjectsLoading } = useProjectStore();
@@ -128,10 +129,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
 
+    // Display dynamic title (from shell shim) if available, otherwise the static title
+    const displayTitle = pane.dynamicTitle || pane.title;
+
     return (
       <MosaicWindow<string>
         path={path}
-        title={pane.title}
+        title={displayTitle}
         className={workspaceMaximizedIds[workspaceId] === id ? "is-maximized" : ""}
         renderToolbar={() => {
           const isClaude = pane.title.toLowerCase().includes("claude");
@@ -143,9 +147,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                 {/* Status Dot */}
                 <div className={cn("size-2 rounded-full", statusColor)} />
 
-                {/* Title */}
+                {/* Title — shows dynamic title (command name / cwd) when available */}
                 <span className="terminal-mosaic-title flex items-center gap-1.5 ml-1">
-                  {pane.title}
+                  {displayTitle}
                 </span>
               </div>
 
@@ -212,11 +216,12 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             workspaceName={workspaceInfo?.workspaceName}
             isNewPane={pane.isNewPane}
             cwd={workspaceInfo?.localPath}
+            onTitleChange={(title) => setDynamicTitle(workspaceId, id, title)}
           />
         </div>
       </MosaicWindow>
     );
-  }, [panes, splitTerminal, removeTerminal, workspaceInfo, workspaceMaximizedIds, workspaceId, onToggleMaximize]);
+  }, [panes, splitTerminal, removeTerminal, workspaceInfo, workspaceMaximizedIds, workspaceId, onToggleMaximize, setDynamicTitle]);
 
   // Wait for workspace to be ready before rendering any Terminal components
   // This prevents duplicate tmux window creation during initialization

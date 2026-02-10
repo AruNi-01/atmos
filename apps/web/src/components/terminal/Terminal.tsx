@@ -32,6 +32,53 @@ export interface TerminalRef {
   destroy: () => void;
 }
 
+// ── Dynamic title helpers ──────────────────────────────────────────────
+// These are used by the OSC 9999 handler to produce clean tab titles.
+
+/** Known multi-word commands where the subcommand is meaningful */
+const MULTI_WORD_CMDS = new Set([
+  "cargo", "npm", "yarn", "pnpm", "bun", "docker", "git",
+  "kubectl", "go", "just", "make", "python", "ruby", "node",
+]);
+
+/**
+ * Extract a human-readable command name from a full command string.
+ * Strips sudo/env prefixes and keeps relevant subcommands.
+ *  "sudo cargo watch -x run" → "cargo watch"
+ *  "vim src/main.rs"         → "vim"
+ *  "RUST_LOG=debug cargo r"  → "cargo r"
+ */
+function extractCommandName(fullCommand: string): string {
+  // Strip leading env-var assignments (FOO=bar) and sudo/env prefixes
+  const stripped = fullCommand
+    .replace(/^(\s*(sudo|command|env)\s+)*/g, "")
+    .replace(/^\s*\S+=\S+\s+/g, "")
+    .trim();
+
+  const parts = stripped.split(/\s+/);
+  if (parts.length === 0) return fullCommand;
+
+  const cmd = parts[0];
+  // For multi-word commands, include the subcommand
+  if (MULTI_WORD_CMDS.has(cmd) && parts.length > 1) {
+    return `${cmd} ${parts[1]}`;
+  }
+  return cmd;
+}
+
+/**
+ * Shorten an absolute path for display in a tab title.
+ * "/Users/john/projects/atmos/src" → "atmos/src"
+ * "/home/user"                     → "~"
+ */
+function shortenPath(fullPath: string): string {
+  if (!fullPath || fullPath === "/") return "/";
+  const parts = fullPath.split("/").filter(Boolean);
+  if (parts.length <= 2) return fullPath;
+  // Show last 2 path components
+  return parts.slice(-2).join("/");
+}
+
 const Terminal = ({
   sessionId,
   workspaceId,
@@ -50,6 +97,7 @@ const Terminal = ({
   onData, // New prop
   readOnly,
   onInputWhileReadOnly,
+  onTitleChange,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef>; onInputWhileReadOnly?: () => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +106,13 @@ const Terminal = ({
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const readOnlyRef = useRef(readOnly);
+  // Keep onTitleChange callback ref in sync to avoid stale closures in the OSC handler
+  const onTitleChangeRef = useRef(onTitleChange);
+  onTitleChangeRef.current = onTitleChange;
+
+  // Track last emitted title and pending CMD_START timer for debounce/dedup
+  const lastTitleRef = useRef<string>("");
+  const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Accumulates wheel delta for smooth trackpad scrolling (same approach as agentboard)
   const wheelAccumRef = useRef(0);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
@@ -247,6 +302,55 @@ const Terminal = ({
     // Open terminal in container
     terminal.open(containerRef.current);
 
+    // Register OSC 9999 handler for dynamic tab title updates.
+    // The shell shim emits: \033]9999;CMD_START:<command>\007
+    //                    or: \033]9999;CMD_END:<cwd>\007
+    // xterm.js intercepts these sequences and never renders them.
+    //
+    // Optimizations:
+    //   1. Dedup — skip update if the new title equals the current one
+    //   2. Debounce CMD_START — short-lived commands (ls, pwd, echo) finish
+    //      before the timer fires, so CMD_END cancels the pending CMD_START
+    //      and the title never flickers.
+    const CMD_START_DELAY_MS = 150;
+
+    terminal.parser.registerOscHandler(9999, (data: string) => {
+      const colonIdx = data.indexOf(":");
+      if (colonIdx === -1) return true;
+
+      const metaType = data.substring(0, colonIdx);
+      const payload = data.substring(colonIdx + 1);
+
+      if (metaType === "CMD_START") {
+        const title = extractCommandName(payload);
+        // Cancel any previous pending CMD_START
+        if (cmdStartTimerRef.current) {
+          clearTimeout(cmdStartTimerRef.current);
+        }
+        // Debounce: only show the command name if it runs longer than the threshold
+        cmdStartTimerRef.current = setTimeout(() => {
+          cmdStartTimerRef.current = null;
+          if (title !== lastTitleRef.current) {
+            lastTitleRef.current = title;
+            onTitleChangeRef.current?.(title);
+          }
+        }, CMD_START_DELAY_MS);
+      } else if (metaType === "CMD_END") {
+        // Cancel any pending CMD_START — the command finished fast
+        if (cmdStartTimerRef.current) {
+          clearTimeout(cmdStartTimerRef.current);
+          cmdStartTimerRef.current = null;
+        }
+        const title = shortenPath(payload);
+        if (title !== lastTitleRef.current) {
+          lastTitleRef.current = title;
+          onTitleChangeRef.current?.(title);
+        }
+      }
+
+      return true; // consumed — don't render the sequence
+    });
+
     // Try to load WebGL addon for better performance
     try {
       const webglAddon = new WebglAddon();
@@ -349,6 +453,7 @@ const Terminal = ({
     return () => {
       disconnect();
       resizeObserver.disconnect();
+      if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
       webglAddonRef.current?.dispose();
       terminal.dispose();
       terminalRef.current = null;
@@ -362,10 +467,10 @@ const Terminal = ({
       style={{
         width: "100%",
         height: "100%",
-        padding: "0",
-        paddingBottom: "8px", /* Prevent last line cutoff */
+        padding: "8px 12px", /* Spacing around xterm — must be on wrapper, not xterm mount, so FitAddon measures correctly */
         backgroundColor: "transparent",
         position: "relative",
+        boxSizing: "border-box",
       }}
     >
       {/* Loading overlay when connecting */}

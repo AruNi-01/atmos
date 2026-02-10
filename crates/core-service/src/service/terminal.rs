@@ -13,6 +13,7 @@ use core_engine::TmuxEngine;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
@@ -141,6 +142,8 @@ pub struct TerminalService {
     /// Per-workspace locks to prevent concurrent session creation race conditions
     /// Key: tmux_session_name (derived from workspace), Value: lock for that session
     creation_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
+    /// Directory where shell shim scripts are installed (for dynamic title injection)
+    shims_dir: Option<PathBuf>,
 }
 
 impl Default for TerminalService {
@@ -152,23 +155,43 @@ impl Default for TerminalService {
 impl TerminalService {
     /// Create a new terminal service
     pub fn new() -> Self {
+        // Install shell shims for dynamic terminal titles
+        let shims_dir = match core_engine::shims::ensure_installed() {
+            Ok(dir) => Some(dir),
+            Err(e) => {
+                warn!("Failed to install shell shims (dynamic titles disabled): {}", e);
+                None
+            }
+        };
+
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             tmux_engine: Arc::new(TmuxEngine::new()),
             default_cols: 120,
             default_rows: 30,
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
+            shims_dir,
         }
     }
 
     /// Create terminal service with custom TmuxEngine
     pub fn with_tmux_engine(tmux_engine: Arc<TmuxEngine>) -> Self {
+        // Install shell shims for dynamic terminal titles
+        let shims_dir = match core_engine::shims::ensure_installed() {
+            Ok(dir) => Some(dir),
+            Err(e) => {
+                warn!("Failed to install shell shims (dynamic titles disabled): {}", e);
+                None
+            }
+        };
+
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
             tmux_engine,
             default_cols: 120,
             default_rows: 30,
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
+            shims_dir,
         }
     }
 
@@ -285,14 +308,20 @@ impl TerminalService {
 
         debug!("Acquired creation lock for tmux session: {}", tmux_session_name);
 
+        // Build shell command with shim injection (for both session and window creation)
+        let shell_command = self.shims_dir.as_ref().and_then(|dir| {
+            core_engine::shims::build_shell_command(dir, shell.as_deref())
+        });
+
         // Now create or get tmux session for this workspace (protected by lock)
+        // Pass shell_command so the first window "1" also gets shim injection
         let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
             self.tmux_engine
-                .create_session_with_names(proj, ws, cwd.as_deref())
+                .create_session_with_names(proj, ws, cwd.as_deref(), shell_command.as_deref())
                 .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?
         } else {
             self.tmux_engine
-                .create_session(&workspace_id, cwd.as_deref())
+                .create_session(&workspace_id, cwd.as_deref(), shell_command.as_deref())
                 .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?
         };
 
@@ -347,8 +376,14 @@ impl TerminalService {
 
         info!("Assigning tmux window: {} for session: {}", final_window_name, session_id);
 
+        // shell_command already built above (for session creation), reuse for new window
         let window_index = self.tmux_engine
-            .create_window(&tmux_session, &final_window_name, cwd.as_deref())
+            .create_window(
+                &tmux_session,
+                &final_window_name,
+                cwd.as_deref(),
+                shell_command.as_deref(),
+            )
             .map_err(|e| anyhow!("Failed to create tmux window: {}", e))?;
 
         // Now attach to this tmux window via PTY
@@ -417,6 +452,7 @@ impl TerminalService {
 
         let session_id_clone = session_id.clone();
         let cwd_for_handle = cwd.clone();
+        let shims_dir = self.shims_dir.clone();
 
         // Spawn a dedicated thread for PTY operations
         thread::spawn(move || {
@@ -426,6 +462,7 @@ impl TerminalService {
                 cols,
                 rows,
                 cwd,
+                shims_dir,
                 command_rx,
                 output_tx,
                 init_tx,
@@ -613,6 +650,8 @@ impl TerminalService {
 
         // Channel for receiving PTY output
         let (output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        // Keep a clone so we can inject a synthetic title OSC after init
+        let title_tx = output_tx.clone();
 
         // Channel for receiving initialization result
         let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
@@ -639,6 +678,11 @@ impl TerminalService {
         // Wait for initialization result
         match init_rx.await {
             Ok(Ok(())) => {
+                // Inject a synthetic OSC 9999 so the frontend gets an immediate
+                // dynamic title even on reconnect / page refresh.
+                // Query tmux for the current pane state (command + cwd).
+                self.inject_initial_title(&tmux_session, window_index, &title_tx);
+
                 // Store session handle with metadata
                 let handle = SessionHandle {
                     command_tx,
@@ -666,6 +710,46 @@ impl TerminalService {
                 error!("PTY thread failed to respond");
                 Err(anyhow!("PTY initialization failed"))
             }
+        }
+    }
+
+    /// Inject a synthetic OSC 9999 sequence so the frontend gets an immediate
+    /// dynamic title on connect/reconnect without waiting for user interaction.
+    ///
+    /// Queries tmux for the pane's current foreground command and working directory,
+    /// then decides whether to send CMD_START (program running) or CMD_END (shell idle).
+    fn inject_initial_title(
+        &self,
+        tmux_session: &str,
+        window_index: u32,
+        output_tx: &mpsc::UnboundedSender<Vec<u8>>,
+    ) {
+        // Known shell names — if pane_current_command matches one of these, the shell is idle
+        const SHELLS: &[&str] = &["zsh", "bash", "fish", "sh", "dash", "ksh", "tcsh", "csh"];
+
+        let current_cmd = match self.tmux_engine.get_pane_current_command(tmux_session, window_index) {
+            Ok(cmd) => cmd,
+            Err(e) => {
+                debug!("Could not query pane command for initial title: {}", e);
+                return;
+            }
+        };
+
+        let osc = if SHELLS.contains(&current_cmd.as_str()) {
+            // Shell is idle at prompt — show the current working directory
+            match self.tmux_engine.get_pane_current_path(tmux_session, window_index) {
+                Ok(path) if !path.is_empty() => format!("\x1b]9999;CMD_END:{}\x07", path),
+                _ => return, // Can't determine path, skip
+            }
+        } else {
+            // A foreground program is running — show its name
+            format!("\x1b]9999;CMD_START:{}\x07", current_cmd)
+        };
+
+        if let Err(e) = output_tx.send(osc.into_bytes()) {
+            debug!("Failed to inject initial title OSC: {}", e);
+        } else {
+            debug!("Injected initial title OSC for {}:{}", tmux_session, window_index);
         }
     }
 
@@ -1176,6 +1260,7 @@ fn run_simple_pty_session(
     cols: u16,
     rows: u16,
     cwd: Option<String>,
+    shims_dir: Option<PathBuf>,
     mut command_rx: mpsc::UnboundedReceiver<SessionCommand>,
     output_tx: mpsc::UnboundedSender<Vec<u8>>,
     init_tx: oneshot::Sender<Result<()>>,
@@ -1197,12 +1282,29 @@ fn run_simple_pty_session(
         }
     };
 
-    // Determine shell command
-    let shell_cmd = shell.unwrap_or_else(|| {
-        std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
+    // Try to build shell command with shim injection for dynamic title support
+    let shell_command = shims_dir.as_ref().and_then(|dir| {
+        core_engine::shims::build_shell_command(dir, shell.as_deref())
     });
 
-    let mut cmd = CommandBuilder::new(&shell_cmd);
+    // Determine the actual command to run
+    let (shell_cmd, cmd) = if let Some(ref shell_args) = shell_command {
+        // Use shim-injected command (e.g., ["bash", "--init-file", "/path/to/shim"])
+        let mut cmd = CommandBuilder::new(&shell_args[0]);
+        for arg in &shell_args[1..] {
+            cmd.arg(arg);
+        }
+        (shell_args[0].clone(), cmd)
+    } else {
+        // Fallback: plain shell without shim
+        let shell_cmd = shell.unwrap_or_else(|| {
+            std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
+        });
+        let cmd = CommandBuilder::new(&shell_cmd);
+        (shell_cmd, cmd)
+    };
+
+    let mut cmd = cmd;
 
     // Set CWD if provided
     if let Some(dir) = cwd {

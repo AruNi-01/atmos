@@ -3,6 +3,7 @@ pub mod fs;
 pub mod git;
 pub mod pty;
 pub mod search;
+pub mod shims;
 pub mod test_engine;
 pub mod tmux;
 pub mod app;

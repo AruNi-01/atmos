@@ -52,6 +52,8 @@ export interface TerminalProps {
   cwd?: string;
   onData?: (data: string) => void;
   readOnly?: boolean;
+  /** Called when the terminal's dynamic title changes (from shell shim OSC sequences) */
+  onTitleChange?: (title: string) => void;
 }
 
 export interface TerminalPaneProps {
@@ -69,6 +71,11 @@ export interface TerminalPaneProps {
    * The Terminal will send terminal_name (to create) instead of tmux_window_name (to attach).
    */
   isNewPane?: boolean;
+  /** 
+   * Dynamic title from shell shim (e.g., running command name or current directory).
+   * This is transient and NOT persisted to backend — only used for tab display.
+   */
+  dynamicTitle?: string;
 }
 
 export interface TerminalMosaicState {
