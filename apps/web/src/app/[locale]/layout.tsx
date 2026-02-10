@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@atmos/i18n/routing";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { WebSocketProvider } from "@/components/providers/websocket-provider";
+import { TmuxCheckProvider } from "@/components/providers/tmux-check-provider";
 import { ToastProvider, AnchoredToastProvider, TooltipProvider } from "@workspace/ui";
 import { Agentation } from "agentation";
 import "../globals.css";
@@ -61,14 +62,16 @@ export default async function LocaleLayout({ children, params }: Props) {
         >
           <NextIntlClientProvider messages={messages}>
             <WebSocketProvider>
-              <ToastProvider position="bottom-right">
-                <AnchoredToastProvider>
-                  <TooltipProvider>
-                    {children}
-                  </TooltipProvider>
-                  {process.env.NODE_ENV === "development" && <Agentation />}
-                </AnchoredToastProvider>
-              </ToastProvider>
+              <TmuxCheckProvider>
+                <ToastProvider position="bottom-right">
+                  <AnchoredToastProvider>
+                    <TooltipProvider>
+                      {children}
+                    </TooltipProvider>
+                    {process.env.NODE_ENV === "development" && <Agentation />}
+                  </AnchoredToastProvider>
+                </ToastProvider>
+              </TmuxCheckProvider>
             </WebSocketProvider>
           </NextIntlClientProvider>
         </ThemeProvider>
