@@ -15,6 +15,7 @@ interface UseTerminalWebSocketOptions {
   onDisconnected?: () => void;
   onError?: (error: string) => void;
   onAttached?: (history?: string) => void;
+  onCopyModeStatus?: (inCopyMode: boolean) => void;
   reconnectAttempts?: number;
   reconnectDelay?: number;
   workspaceId?: string;
@@ -28,6 +29,10 @@ interface UseTerminalWebSocketReturn {
   sendCreate: (workspaceId: string) => void;
   sendAttach: (workspaceId: string, tmuxWindowName: string) => void;
   sendDestroy: () => void;
+  /** Safely exit tmux copy-mode via backend `send-keys -X cancel` */
+  sendCancelCopyMode: () => void;
+  /** Check if tmux pane is currently in copy-mode */
+  sendCheckCopyMode: () => void;
   /** Connect to WebSocket. Pass urlOverride to use a different URL (e.g. with cols/rows). */
   connect: (urlOverride?: string) => void;
   disconnect: () => void;
@@ -41,6 +46,7 @@ export function useTerminalWebSocket({
   onDisconnected,
   onError,
   onAttached,
+  onCopyModeStatus,
   reconnectAttempts = 3,
   reconnectDelay = 1000,
   workspaceId,
@@ -115,6 +121,20 @@ export function useTerminalWebSocket({
   const sendDestroy = useCallback(() => {
     sendMessage({
       type: "terminal_destroy",
+      session_id: sessionId,
+    });
+  }, [sessionId, sendMessage]);
+
+  const sendCancelCopyMode = useCallback(() => {
+    sendMessage({
+      type: "tmux_cancel_copy_mode",
+      session_id: sessionId,
+    });
+  }, [sessionId, sendMessage]);
+
+  const sendCheckCopyMode = useCallback(() => {
+    sendMessage({
+      type: "tmux_check_copy_mode",
       session_id: sessionId,
     });
   }, [sessionId, sendMessage]);
@@ -197,6 +217,11 @@ export function useTerminalWebSocket({
             case "terminal_error":
               onError?.(message.error);
               break;
+            case "tmux_copy_mode_status":
+              if (message.session_id === sessionId) {
+                onCopyModeStatus?.(message.in_copy_mode);
+              }
+              break;
           }
         } catch {
           // Handle non-JSON messages (raw terminal output)
@@ -240,6 +265,7 @@ export function useTerminalWebSocket({
     onDisconnected,
     onError,
     onAttached,
+    onCopyModeStatus,
     reconnectAttempts,
     reconnectDelay,
     disconnect,
@@ -272,6 +298,8 @@ export function useTerminalWebSocket({
     sendCreate,
     sendAttach,
     sendDestroy,
+    sendCancelCopyMode,
+    sendCheckCopyMode,
     connect,
     disconnect,
   };

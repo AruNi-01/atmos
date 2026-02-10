@@ -133,13 +133,25 @@ export interface WsTerminalDestroy {
   session_id: string;
 }
 
+export interface WsTmuxCancelCopyMode {
+  type: "tmux_cancel_copy_mode";
+  session_id: string;
+}
+
+export interface WsTmuxCheckCopyMode {
+  type: "tmux_check_copy_mode";
+  session_id: string;
+}
+
 export type WsTerminalRequest =
   | WsTerminalCreate
   | WsTerminalAttach
   | WsTerminalInput
   | WsTerminalResize
   | WsTerminalClose
-  | WsTerminalDestroy;
+  | WsTerminalDestroy
+  | WsTmuxCancelCopyMode
+  | WsTmuxCheckCopyMode;
 
 export interface WsTerminalCreated {
   type: "terminal_created";
@@ -176,10 +188,17 @@ export interface WsTerminalError {
   error: string;
 }
 
+export interface WsTmuxCopyModeStatus {
+  type: "tmux_copy_mode_status";
+  session_id: string;
+  in_copy_mode: boolean;
+}
+
 export type WsTerminalResponse =
   | WsTerminalCreated
   | WsTerminalAttached
   | WsTerminalOutput
   | WsTerminalClosed
   | WsTerminalDestroyed
-  | WsTerminalError;
+  | WsTerminalError
+  | WsTmuxCopyModeStatus;

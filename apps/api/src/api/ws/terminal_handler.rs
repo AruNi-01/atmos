@@ -76,6 +76,10 @@ enum ClientTerminalMessage {
     },
     TerminalClose,
     TerminalDestroy,
+    /// Exit tmux copy-mode safely via `send-keys -X cancel`
+    TmuxCancelCopyMode,
+    /// Check if tmux pane is currently in copy-mode
+    TmuxCheckCopyMode,
 }
 
 /// Terminal WebSocket upgrade handler
@@ -549,6 +553,24 @@ async fn handle_terminal_message(
                             let _ = ws_tx.send(json);
                         }
                         return false;
+                    }
+                    ClientTerminalMessage::TmuxCancelCopyMode => {
+                        // Safely exit tmux copy-mode via `send-keys -X cancel`.
+                        // No-op if not in copy-mode — completely safe.
+                        if let Err(e) = terminal_service.tmux_cancel_copy_mode(session_id).await {
+                            debug!("Failed to cancel copy-mode for {}: {}", session_id, e);
+                        }
+                    }
+                    ClientTerminalMessage::TmuxCheckCopyMode => {
+                        // Query tmux for copy-mode status and respond
+                        let in_copy_mode = terminal_service.tmux_check_copy_mode(session_id).await.unwrap_or(false);
+                        let response = TerminalResponse::TmuxCopyModeStatus {
+                            session_id: session_id.to_string(),
+                            in_copy_mode,
+                        };
+                        if let Ok(json) = serde_json::to_string(&response) {
+                            let _ = ws_tx.send(json);
+                        }
                     }
                 }
             } else {
