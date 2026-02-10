@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "agentation": "^2.2.0",
     "@atmos/i18n": "workspace:*",
     "@atmos/shared": "workspace:*",
     "@headless-tree/core": "^1.6.2",
