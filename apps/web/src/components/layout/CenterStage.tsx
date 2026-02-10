@@ -268,9 +268,6 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               className="!h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
             >
               <LayoutDashboard className="size-3.5" />
-              <span className="text-[13px] font-medium text-pretty">
-                Overview
-              </span>
             </TabsTab>
           )}
 

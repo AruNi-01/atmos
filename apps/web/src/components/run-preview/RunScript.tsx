@@ -36,6 +36,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   const [isLocked, setIsLocked] = useState(true);
   const [sessionVersions, setSessionVersions] = useState<Record<string, number>>({});
   const terminalRefs = React.useRef<Record<string, TerminalRef | null>>({});
+  const lastLockedToastTime = React.useRef<number>(0);
 
   React.useEffect(() => {
     if (isActive && !hasBeenActive) {
@@ -407,11 +408,15 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                   onData={(data) => handleTerminalData(tab.id, data)}
                   readOnly={tab.id === '1' ? isLocked : false}
                   onInputWhileReadOnly={() => {
-                    toastManager.add({
-                      title: "Terminal is Locked",
-                      description: "Unlock the terminal to interact with it.",
-                      type: "info"
-                    });
+                    const now = Date.now();
+                    if (now - lastLockedToastTime.current >= 3000) {
+                      lastLockedToastTime.current = now;
+                      toastManager.add({
+                        title: "Terminal is Locked",
+                        description: "Unlock the terminal to interact with it.",
+                        type: "info"
+                      });
+                    }
                   }}
                 // We treat these as ephemeral in UI but persistent in backend session for this view
                 />
