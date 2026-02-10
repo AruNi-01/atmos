@@ -41,8 +41,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { format } from 'date-fns';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { useTheme } from 'next-themes';
 import { useWorkspaceContext, type TaskStatus } from '@/hooks/use-workspace-context';
 import { useEditorStore } from '@/hooks/use-editor-store';
@@ -566,14 +565,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
           ) : requirement ? (
             <div className="relative">
-              <div className={cn(
-                "prose prose-sm max-w-none text-[13px] text-muted-foreground leading-relaxed",
-                resolvedTheme === 'dark' && "prose-invert"
-              )}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {requirementExpanded || !needsExpansion ? requirement : requirementPreview!}
-                </ReactMarkdown>
-              </div>
+              <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
+                {requirementExpanded || !needsExpansion ? requirement : requirementPreview!}
+              </MarkdownRenderer>
               {needsExpansion && (
                 <Button
                   variant="ghost"

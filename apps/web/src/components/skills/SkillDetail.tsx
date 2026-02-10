@@ -31,8 +31,7 @@ import {
 } from '@workspace/ui';
 import { useAppStorage } from "@atmos/shared";
 import { useTheme } from 'next-themes';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { SkillInfo, SkillFile, fsApi } from '@/api/ws-api';
 import { getAgentConfig } from './constants';
 import { QuickOpen } from '@/components/layout/QuickOpen';
@@ -560,13 +559,10 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
                 {selectedFile.content !== null ? (
                   isMarkdown && isPreview ? (
                     <ScrollArea className="h-full">
-                      <div className={cn(
-                        "px-8 py-6 prose prose-sm max-w-none",
-                        resolvedTheme === 'dark' && "prose-invert"
-                      )}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <div className="px-8 py-6">
+                        <MarkdownRenderer>
                           {fileContent}
-                        </ReactMarkdown>
+                        </MarkdownRenderer>
                       </div>
                     </ScrollArea>
                   ) : (
