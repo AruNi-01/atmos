@@ -84,21 +84,29 @@ impl WorkspaceService {
         let _base_branch = self.git_engine.get_default_branch(repo_path)
             .unwrap_or_else(|_| "main".to_string());
 
-        // Get all existing branches to check for conflicts
-        let existing_branches = self.git_engine.list_branches(repo_path)
+        // Get all existing branches and DB workspace names to check for conflicts
+        let mut existing_names: Vec<String> = self.git_engine.list_branches(repo_path)
             .unwrap_or_else(|_| Vec::new());
+        
+        let workspace_repo = WorkspaceRepo::new(&self.db);
+        let db_workspaces = workspace_repo.list_all_by_project(project_guid.clone()).await?;
+        for ws in &db_workspaces {
+            if !existing_names.contains(&ws.name) {
+                existing_names.push(ws.name.clone());
+            }
+        }
         
         // Determine the initial name to try
         let initial_name = if name.trim().is_empty() {
             // No name provided, use Pokemon name generator
             let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
-            workspace_name_generator::generate_workspace_name(&existing_branches, &prefix)
+            workspace_name_generator::generate_workspace_name(&existing_names, &prefix)
         } else {
             // Use the provided name
             name.clone()
         };
         
-        // Try to find a name that doesn't conflict with existing branches
+        // Try to find a name that doesn't conflict with existing branches or DB names
         // Note: we don't creating the worktree here anymore to avoid blocking API response.
         // We only reserve the name in DB. The worktree will be created in ensure_worktree_ready async task.
         let mut final_name = initial_name.clone();
@@ -112,19 +120,15 @@ impl WorkspaceService {
                 ));
             }
             
-            // Check if branch already exists
-            if !existing_branches.contains(&final_name) {
-                // Name is available!
+            if !existing_names.contains(&final_name) {
                 break;
             } else {
-                // Branch exists, try alternative name
-                // tracing::warn!("Branch '{}' already exists in git, trying alternative name", final_name);
                 attempt += 1;
                 
                 // For generated names, regenerate; for user-provided names, add suffix
                 if name.trim().is_empty() {
                     let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
-                    final_name = workspace_name_generator::generate_workspace_name(&existing_branches, &prefix);
+                    final_name = workspace_name_generator::generate_workspace_name(&existing_names, &prefix);
                 } else {
                     final_name = Self::generate_alternative_name(&initial_name, attempt);
                 }
@@ -186,11 +190,19 @@ impl WorkspaceService {
         
         tracing::info!("[ensure_worktree_ready] Base branch: {}, existing branches count: {}", base_branch, existing_branches.len());
         
+        let mut workspace_name = workspace.name.clone();
         if existing_branches.contains(&workspace.branch) {
-            tracing::warn!("[ensure_worktree_ready] Branch '{}' already exists, will attempt to create worktree anyway", workspace.branch);
+            tracing::warn!("[ensure_worktree_ready] Branch '{}' already exists, regenerating a new name", workspace.branch);
+            let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
+            workspace_name = workspace_name_generator::generate_workspace_name(&existing_branches, &prefix);
+            tracing::info!("[ensure_worktree_ready] New name generated: {}", workspace_name);
+            
+            let repo = WorkspaceRepo::new(&self.db);
+            repo.update_name(guid.clone(), workspace_name.clone()).await?;
+            repo.update_branch(guid.clone(), workspace_name.clone()).await?;
         }
 
-        match self.git_engine.create_worktree(repo_path, &workspace.name, &base_branch) {
+        match self.git_engine.create_worktree(repo_path, &workspace_name, &base_branch) {
             Ok(created_path) => {
                 tracing::info!("[ensure_worktree_ready] Successfully created worktree at: {}", created_path.display());
                 
