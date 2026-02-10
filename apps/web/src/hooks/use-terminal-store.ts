@@ -29,7 +29,7 @@ interface TerminalStore {
   /** Check if workspace has been fully loaded and is ready for rendering */
   isWorkspaceReady: (workspaceId: string) => boolean;
   setLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
-  addTerminal: (workspaceId: string, title?: string) => void;
+  addTerminal: (workspaceId: string, title?: string) => string;
   removeTerminal: (workspaceId: string, id: string) => void;
   splitTerminal: (workspaceId: string, id: string, direction: MosaicDirection) => void;
   toggleMaximize: (workspaceId: string, id: string) => void;
@@ -259,6 +259,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     }));
 
     get().saveToBackend(workspaceId);
+    return newId;
   },
 
   removeTerminal: (workspaceId, id) => {

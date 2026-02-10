@@ -39,11 +39,15 @@ interface TerminalGridProps {
 
 export interface TerminalGridHandle {
   addTerminal: (title?: string) => void;
+  /** Create a new terminal tab and run command after session is ready */
+  createAndRunTerminal: (options: { title: string; command: string }) => Promise<void>;
 }
 
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className }, ref) => {
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
+  // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
+  const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
 
   const {
     getPanes,
@@ -99,8 +103,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   React.useImperativeHandle(ref, () => ({
     addTerminal: (title?: string) => {
       addTerminalToStore(workspaceId, title);
-    }
-  }));
+    },
+    createAndRunTerminal: async ({ title, command }) => {
+      const paneId = addTerminalToStore(workspaceId, title);
+      pendingCommandsRef.current.set(paneId, command + "\r");
+      // Command will be sent when Terminal fires onSessionReady
+    },
+  }), [workspaceId, addTerminalToStore]);
 
   const onChange = useCallback((newLayout: MosaicNode<string> | null) => {
     setLayout(workspaceId, newLayout);
@@ -217,6 +226,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             isNewPane={pane.isNewPane}
             cwd={workspaceInfo?.localPath}
             onTitleChange={(title) => setDynamicTitle(workspaceId, id, title)}
+            onSessionReady={() => {
+              const cmd = pendingCommandsRef.current.get(id);
+              if (cmd) {
+                pendingCommandsRef.current.delete(id);
+                terminalRefsMap.current.get(id)?.sendText(cmd);
+              }
+            }}
           />
         </div>
       </MosaicWindow>

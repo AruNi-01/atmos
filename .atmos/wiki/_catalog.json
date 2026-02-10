@@ -1,0 +1,169 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-02-10T15:25:00Z",
+  "project": {
+    "name": "ATMOS",
+    "description": "Visual Terminal Workspace - A multi-layered monorepo combining high-performance Rust backend with Next.js/Tauri frontend",
+    "repository": "https://github.com/AruNi-01/atmos"
+  },
+  "catalog": [
+    {
+      "id": "overview",
+      "title": "项目概览",
+      "path": "overview",
+      "order": 0,
+      "file": "overview/index.md",
+      "children": [
+        {
+          "id": "overview.quick-start",
+          "title": "快速开始",
+          "path": "overview/quick-start",
+          "order": 0,
+          "file": "overview/quick-start.md",
+          "children": []
+        },
+        {
+          "id": "overview.tech-stack",
+          "title": "技术栈",
+          "path": "overview/tech-stack",
+          "order": 1,
+          "file": "overview/tech-stack.md",
+          "children": []
+        },
+        {
+          "id": "overview.monorepo",
+          "title": "Monorepo 结构",
+          "path": "overview/monorepo",
+          "order": 2,
+          "file": "overview/monorepo.md",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "infra",
+      "title": "基础设施层 (L1)",
+      "path": "infra",
+      "order": 1,
+      "file": "infra/index.md",
+      "children": [
+        {
+          "id": "infra.database",
+          "title": "数据库与 ORM",
+          "path": "infra/database",
+          "order": 0,
+          "file": "infra/database.md",
+          "children": []
+        },
+        {
+          "id": "infra.websocket",
+          "title": "WebSocket 服务",
+          "path": "infra/websocket",
+          "order": 1,
+          "file": "infra/websocket.md",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "core-engine",
+      "title": "核心引擎层 (L2)",
+      "path": "core-engine",
+      "order": 2,
+      "file": "core-engine/index.md",
+      "children": [
+        {
+          "id": "core-engine.tmux",
+          "title": "Tmux 引擎",
+          "path": "core-engine/tmux",
+          "order": 0,
+          "file": "core-engine/tmux.md",
+          "children": []
+        },
+        {
+          "id": "core-engine.git",
+          "title": "Git 引擎",
+          "path": "core-engine/git",
+          "order": 1,
+          "file": "core-engine/git.md",
+          "children": []
+        },
+        {
+          "id": "core-engine.fs",
+          "title": "文件系统引擎",
+          "path": "core-engine/fs",
+          "order": 2,
+          "file": "core-engine/fs.md",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "core-service",
+      "title": "业务服务层 (L3)",
+      "path": "core-service",
+      "order": 3,
+      "file": "core-service/index.md",
+      "children": [
+        {
+          "id": "core-service.workspace",
+          "title": "工作区服务",
+          "path": "core-service/workspace",
+          "order": 0,
+          "file": "core-service/workspace.md",
+          "children": []
+        },
+        {
+          "id": "core-service.terminal",
+          "title": "终端服务",
+          "path": "core-service/terminal",
+          "order": 1,
+          "file": "core-service/terminal.md",
+          "children": []
+        },
+        {
+          "id": "core-service.project",
+          "title": "项目服务",
+          "path": "core-service/project",
+          "order": 2,
+          "file": "core-service/project.md",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "title": "API 入口",
+      "path": "api",
+      "order": 4,
+      "file": "api/index.md",
+      "children": [
+        {
+          "id": "api.routes",
+          "title": "HTTP 路由与 WebSocket",
+          "path": "api/routes",
+          "order": 0,
+          "file": "api/routes.md",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "frontend",
+      "title": "前端应用",
+      "path": "frontend",
+      "order": 5,
+      "file": "frontend/index.md",
+      "children": [
+        {
+          "id": "frontend.web-app",
+          "title": "Web 应用架构",
+          "path": "frontend/web-app",
+          "order": 0,
+          "file": "frontend/web-app.md",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
