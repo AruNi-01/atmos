@@ -420,31 +420,33 @@ const OrphanedProcessesSection: React.FC<{
 
   return (
     <Collapsible className="rounded-lg border border-border bg-background p-5">
-      <CollapsibleTrigger className="group w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
-        <span className="relative size-4 shrink-0">
-          <Skull className="absolute inset-0 size-4 text-red-500 transition-opacity duration-150 group-hover:opacity-0" />
-          <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-        </span>
-        Orphaned Processes
-        <span className="text-xs font-medium text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full">
-          {count} detected
-        </span>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="size-3.5 text-muted-foreground" />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs text-xs">
-              Orphaned processes are shell processes whose parent has died (PPID=1). They often hold PTY file descriptors and can lead to PTY exhaustion. Usually caused by crashes or ungraceful shutdowns.
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <div className="flex items-center gap-2">
+        <CollapsibleTrigger className="group flex-1 text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
+          <span className="relative size-4 shrink-0">
+            <Skull className="absolute inset-0 size-4 text-red-500 transition-opacity duration-150 group-hover:opacity-0" />
+            <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+          </span>
+          Orphaned Processes
+          <span className="text-xs font-medium text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full">
+            {count} detected
+          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="size-3.5 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs">
+                Orphaned processes are shell processes whose parent has died (PPID=1). They often hold PTY file descriptors and can lead to PTY exhaustion. Usually caused by crashes or ungraceful shutdowns.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </CollapsibleTrigger>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger asChild onClick={(e) => { e.stopPropagation(); }}>
+          <PopoverTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              className="ml-auto h-7 px-3 text-xs cursor-pointer gap-1.5 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+              className="h-7 px-3 text-xs cursor-pointer gap-1.5 text-red-500 hover:text-red-600 hover:bg-red-500/10"
             >
               <Power className="size-3.5" />
               Kill All
@@ -481,7 +483,7 @@ const OrphanedProcessesSection: React.FC<{
             </div>
           </PopoverContent>
         </Popover>
-      </CollapsibleTrigger>
+      </div>
 
       <CollapsibleContent>
         <div className="pt-4 space-y-3">
