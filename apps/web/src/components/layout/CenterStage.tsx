@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
 import { useGitStore } from "@/hooks/use-git-store";
 import { DiffViewer } from "@/components/diff/DiffViewer";
-import { Plus, Bot, Sparkles, Cpu, Zap, Brain } from "lucide-react";
+import { Plus, Bot, Sparkles, Cpu, Zap, Brain, BookOpen } from "lucide-react";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { useSearchParams } from "next/navigation";
@@ -50,6 +50,7 @@ import { WorkspacesManagementView } from "@/components/workspace/WorkspacesManag
 import { SkillsView } from "@/components/skills/SkillsView";
 import { TerminalManagerView } from "@/components/terminal/TerminalManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
+import { WikiTab } from "@/components/wiki";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const FileViewer = dynamic(
@@ -96,7 +97,7 @@ interface CenterStageProps {
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
-  const [fixedTab, setFixedTab] = React.useState<"overview" | "terminal">("terminal");
+  const [fixedTab, setFixedTab] = React.useState<"overview" | "terminal" | "wiki">("terminal");
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
 
   // Wait for editor store hydration to avoid SSR mismatch
@@ -247,7 +248,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       <Tabs
         value={activeValue}
         onValueChange={(val) => {
-          if (val === "terminal" || val === "overview") {
+          if (val === "terminal" || val === "overview" || val === "wiki") {
             setFixedTab(val);
             setActiveFile(null, effectiveContextId || undefined);
           } else {
@@ -269,6 +270,19 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             >
               <LayoutDashboard className="size-3.5" />
             </TabsTab>
+          )}
+          {effectiveContextId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <TabsTab
+                  value="wiki"
+                  className="!h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                >
+                  <BookOpen className="size-3.5" />
+                </TabsTab>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Project Wiki</TooltipContent>
+            </Tooltip>
           )}
 
           <TabsTab
@@ -468,6 +482,24 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               gitBranch={currentBranch ?? undefined}
               createdAt={currentWorkspace?.createdAt}
               isProjectOnly={!currentWorkspace}
+            />
+          </div>
+        )}
+
+        {/* Wiki Tab Content */}
+        {effectiveContextId && (
+          <div
+            className={cn(
+              "flex-1 min-h-0 min-w-0 overflow-hidden",
+              activeValue !== "wiki" && "hidden"
+            )}
+          >
+            <WikiTab
+              contextId={effectiveContextId}
+              effectivePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
+              projectName={currentProject?.name}
+              terminalGridRef={terminalGridRef}
+              onSwitchToTerminal={() => setFixedTab("terminal")}
             />
           </div>
         )}

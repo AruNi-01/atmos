@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSlug from 'rehype-slug';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { Copy, Check } from 'lucide-react';
@@ -40,10 +41,55 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!code?.trim() || !containerRef.current) return;
+    setError(null);
+    let cancelled = false;
+
+    import('mermaid').then((mermaid) => {
+      if (cancelled) return;
+      try {
+        mermaid.default.initialize({
+          startOnLoad: false,
+          theme: isDark ? 'dark' : 'default',
+          securityLevel: 'strict',
+        });
+        const id = `mermaid-${Math.random().toString(36).slice(2)}`;
+        mermaid.default.render(id, code).then(({ svg }) => {
+          if (cancelled || !containerRef.current) return;
+          containerRef.current.innerHTML = svg;
+        }).catch((err: Error) => {
+          if (!cancelled) setError(err.message || 'Mermaid render failed');
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Mermaid failed');
+      }
+    }).catch(() => setError('Mermaid not loaded'));
+
+    return () => { cancelled = true; };
+  }, [code, isDark]);
+
+  if (error) {
+    return (
+      <div className="my-4 p-4 rounded-lg border border-destructive/50 bg-destructive/5 text-destructive text-sm">
+        {error}
+      </div>
+    );
+  }
+
+  return <div ref={containerRef} className="mermaid-container my-4 flex justify-center" />;
+}
+
 function CodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
   const codeText = String(children).replace(/\n$/, '');
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   const isInline = !className && !String(children).includes('\n');
 
@@ -53,6 +99,10 @@ function CodeBlock({ className, children, ...props }: React.ComponentPropsWithou
         {children}
       </code>
     );
+  }
+
+  if (language === 'mermaid') {
+    return <MermaidBlock code={codeText} isDark={!!isDark} />;
   }
 
   return (
@@ -110,6 +160,7 @@ export function MarkdownRenderer({ children, className }: MarkdownRendererProps)
     )}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeSlug]}
         components={markdownComponents}
       >
         {children}
