@@ -25,7 +25,9 @@
       "Bash(bash:*)",
       "Bash(ls:*)",
       "Bash(claude mcp list)",
-      "Bash(claude mcp add agentation -- npx agentation-mcp server)"
+      "Bash(claude mcp add agentation -- npx agentation-mcp server)",
+      "Bash(bun install:*)",
+      "mcp__agentation__agentation_get_all_pending"
     ]
   }
 }
