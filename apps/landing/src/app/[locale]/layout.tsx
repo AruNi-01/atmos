@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@atmos/i18n/routing";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TooltipProvider } from "@workspace/ui/components/ui/tooltip";
+import { Agentation } from "agentation";
 import Header from "@/components/layout/header";
 import "../globals.css";
 
@@ -62,6 +63,7 @@ export default async function LocaleLayout({ children, params }: Props) {
               {children}
             </TooltipProvider>
           </NextIntlClientProvider>
+          {process.env.NODE_ENV === "development" && <Agentation />}
         </ThemeProvider>
       </body>
     </html>
