@@ -107,6 +107,15 @@ impl TmuxEngine {
         Ok(())
     }
 
+    /// Execute an arbitrary tmux command (public API for service layer).
+    ///
+    /// Prefer using dedicated methods (create_window, send_keys, etc.) when available.
+    /// This is exposed for one-off commands like `send-keys -X cancel` that don't
+    /// warrant their own dedicated method.
+    pub fn run_tmux_pub(&self, args: &[&str]) -> Result<String> {
+        self.run_tmux(args)
+    }
+
     /// Execute a tmux command and return output
     fn run_tmux(&self, args: &[&str]) -> Result<String> {
         self.ensure_socket_dir()?;

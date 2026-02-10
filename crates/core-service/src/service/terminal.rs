@@ -130,6 +130,11 @@ pub enum TerminalResponse {
         session_id: Option<String>,
         error: String,
     },
+    /// Response to tmux copy-mode status check
+    TmuxCopyModeStatus {
+        session_id: String,
+        in_copy_mode: bool,
+    },
 }
 
 /// Terminal service managing all PTY sessions with tmux persistence
@@ -750,6 +755,51 @@ impl TerminalService {
             debug!("Failed to inject initial title OSC: {}", e);
         } else {
             debug!("Injected initial title OSC for {}:{}", tmux_session, window_index);
+        }
+    }
+
+    /// Cancel tmux copy-mode for a session.
+    ///
+    /// Uses `tmux send-keys -X cancel` which is a no-op if not in copy-mode.
+    /// This is the safe way to exit copy-mode (unlike sending 'q' which would
+    /// type into the shell if copy-mode already exited).
+    pub async fn tmux_cancel_copy_mode(&self, session_id: &str) -> Result<()> {
+        let sessions = self.sessions.lock().await;
+        let handle = sessions
+            .get(session_id)
+            .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
+
+        if let (Some(tmux_session), Some(window_index)) =
+            (&handle.tmux_session, handle.tmux_window_index)
+        {
+            let target = format!("{}:{}.0", tmux_session, window_index);
+            self.tmux_engine
+                .run_tmux_pub(&["send-keys", "-X", "-t", &target, "cancel"])
+                .map_err(|e| anyhow!("Failed to cancel copy-mode: {}", e))?;
+        }
+        Ok(())
+    }
+
+    /// Check if a tmux pane is currently in copy-mode.
+    ///
+    /// Returns true if the pane is in copy-mode (user scrolled up).
+    pub async fn tmux_check_copy_mode(&self, session_id: &str) -> Result<bool> {
+        let sessions = self.sessions.lock().await;
+        let handle = sessions
+            .get(session_id)
+            .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
+
+        if let (Some(tmux_session), Some(window_index)) =
+            (&handle.tmux_session, handle.tmux_window_index)
+        {
+            let target = format!("{}:{}.0", tmux_session, window_index);
+            let result = self
+                .tmux_engine
+                .run_tmux_pub(&["display-message", "-t", &target, "-p", "#{pane_in_mode}"])
+                .map_err(|e| anyhow!("Failed to check copy-mode: {}", e))?;
+            Ok(result.trim() == "1")
+        } else {
+            Ok(false)
         }
     }
 
