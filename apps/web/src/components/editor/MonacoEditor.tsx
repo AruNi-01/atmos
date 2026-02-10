@@ -3,14 +3,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { OnMount, OnChange } from '@monaco-editor/react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { useTheme } from 'next-themes';
 import { cn, toastManager } from '@workspace/ui';
 import { Loader2, Eye, FileText } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useEditorStore, OpenFile } from '@/hooks/use-editor-store';
 import type { editor } from 'monaco-editor';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { BaseMonacoEditor } from './BaseMonacoEditor';
 import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
@@ -24,7 +22,6 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
   const searchParams = useSearchParams();
   const workspaceId = searchParams.get('workspaceId');
   const { updateFileContent, saveFile } = useEditorStore();
-  const { resolvedTheme } = useTheme();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
@@ -185,13 +182,10 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
         </div>
 
         {isPreview && isMarkdown && (
-          <div className={cn(
-            "absolute inset-0 overflow-y-auto bg-background px-8 py-12 prose prose-sm max-w-none scroll-smooth",
-            resolvedTheme === 'dark' && "prose-invert"
-          )}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <div className="absolute inset-0 overflow-y-auto bg-background px-8 py-12 scroll-smooth">
+            <MarkdownRenderer>
               {debouncedContent}
-            </ReactMarkdown>
+            </MarkdownRenderer>
           </div>
         )}
       </div>
