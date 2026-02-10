@@ -1,0 +1,43 @@
+# Atmos Terminal Dynamic Title Shim - Zsh .zshrc
+#
+# This file lives in a temporary ZDOTDIR. It:
+#   1. Restores ZDOTDIR to $HOME (so subsequent zsh operations are normal)
+#   2. Sources the user's real .zshrc
+#   3. Installs Atmos preexec/precmd hooks AFTER the user's config
+#      (so our hooks aren't overridden by oh-my-zsh, starship, etc.)
+#
+# Protocol: \033]9999;TYPE:PAYLOAD\007
+#   CMD_START:<command>  — a foreground command is starting
+#   CMD_END:<cwd>        — the command finished, shell is idle at <cwd>
+#
+# Inside tmux, OSC sequences are wrapped in DCS passthrough so they
+# reach the outer PTY reader (tmux drops unrecognized OSC codes).
+
+# ── 1. Restore ZDOTDIR and load user's config ─────────────────────────
+ZDOTDIR="$HOME"
+
+# Source user's .zprofile if this is a login shell (tmux starts login shells)
+if [[ -o login ]] && [ -f "$HOME/.zprofile" ]; then
+    source "$HOME/.zprofile"
+fi
+
+[ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc"
+
+# ── 2. Atmos hooks ────────────────────────────────────────────────────
+__atmos_send_meta() {
+    if [ -n "$TMUX" ]; then
+        # Inside tmux: wrap in DCS passthrough (\ePtmux;\e<esc-seq>\e\\)
+        printf '\033Ptmux;\033\033]9999;%s:%s\007\033\\' "$1" "$2"
+    else
+        # Outside tmux: plain OSC
+        printf '\033]9999;%s:%s\007' "$1" "$2"
+    fi
+}
+
+# $3 in preexec is the full command string as typed by the user
+__atmos_preexec() { __atmos_send_meta "CMD_START" "$3" }
+__atmos_precmd()  { __atmos_send_meta "CMD_END" "$PWD" }
+
+autoload -U add-zsh-hook
+add-zsh-hook preexec __atmos_preexec
+add-zsh-hook precmd  __atmos_precmd

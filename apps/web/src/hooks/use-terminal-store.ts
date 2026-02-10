@@ -44,6 +44,9 @@ interface TerminalStore {
   
   // Tmux window tracking
   setTmuxWindowName: (workspaceId: string, paneId: string, tmuxWindowName: string) => void;
+  
+  // Dynamic title (from shell shim OSC sequences)
+  setDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
 }
 
 /** Generate next available window name (1, 2, 3, ...) for numeric names */
@@ -522,9 +525,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       if (!panes || !layout) return;
       
       try {
-        const cleanPanes: Record<string, Omit<TerminalPaneProps, 'sessionId'>> = {};
+        const cleanPanes: Record<string, Omit<TerminalPaneProps, 'sessionId' | 'dynamicTitle'>> = {};
         for (const [id, pane] of Object.entries(panes)) {
-          const { sessionId, ...rest } = pane;
+          // Strip transient fields that should not be persisted
+          const { sessionId, dynamicTitle, ...rest } = pane;
           cleanPanes[id] = rest;
         }
         
@@ -566,5 +570,27 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     }));
     
     get().saveToBackend(workspaceId);
+  },
+
+  setDynamicTitle: (workspaceId, paneId, dynamicTitle) => {
+    const panes = get().workspacePanes[workspaceId];
+    if (!panes || !panes[paneId]) return;
+    
+    // Only update if the title actually changed (avoid unnecessary re-renders)
+    if (panes[paneId].dynamicTitle === dynamicTitle) return;
+    
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [workspaceId]: {
+          ...panes,
+          [paneId]: {
+            ...panes[paneId],
+            dynamicTitle,
+          },
+        },
+      },
+    }));
+    // NOTE: Do NOT call saveToBackend — dynamicTitle is transient display-only
   },
 }));

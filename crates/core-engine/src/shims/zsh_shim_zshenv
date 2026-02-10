@@ -1,0 +1,10 @@
+# Atmos Terminal Dynamic Title Shim - Zsh .zshenv
+#
+# This file lives in a temporary ZDOTDIR and proxies back to the user's
+# real .zshenv so that environment variables are set correctly.
+#
+# Chain: ZDOTDIR=~/.atmos/shims/zdotdir → this file → $HOME/.zshenv
+
+if [ -f "$HOME/.zshenv" ]; then
+    ZDOTDIR="$HOME" source "$HOME/.zshenv"
+fi
