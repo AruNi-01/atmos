@@ -672,9 +672,14 @@ const Terminal = ({
             setShowScrollDown(false);
             terminalRef.current?.scrollToBottom();
           }}
-          className="terminal-scroll-to-bottom"
+          className="terminal-scroll-to-bottom group"
         >
-          <ArrowDown size={14} />
+          <ArrowDown size={14} className="terminal-scroll-icon" />
+          <span className="terminal-scroll-label">
+            <span className="terminal-scroll-prompt">$</span>{" "}
+            <span className="terminal-scroll-cd">cd</span>{" "}
+            <span className="terminal-scroll-target">bottom</span>
+          </span>
         </button>
       )}
     </div>

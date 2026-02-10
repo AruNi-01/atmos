@@ -132,6 +132,11 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+/* Container query context for scroll button narrow detection */
+.terminal-padding-wrapper {
+  container-type: inline-size;
+}
+
 /* Scroll-to-bottom ghost button */
 .terminal-scroll-to-bottom {
   position: absolute;
@@ -142,11 +147,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0;
   width: 28px;
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: 9999px;
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
   color: var(--muted-foreground);
   background: rgba(255, 255, 255, 0.06);
@@ -154,19 +160,92 @@
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   opacity: 0.7;
-  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    opacity 0.25s ease,
+    background 0.25s ease,
+    transform 0.25s ease,
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    gap 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   animation: scrollBtnFadeIn 0.15s ease-out;
 }
 
-.terminal-scroll-to-bottom:hover {
-  opacity: 1;
+.terminal-scroll-icon {
+  flex-shrink: 0;
+  transition: opacity 0.2s ease 0.05s;
+}
+
+.terminal-scroll-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  line-height: 1;
+  transition:
+    max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+}
+
+.terminal-scroll-prompt {
+  color: var(--muted-foreground);
+}
+
+.terminal-scroll-cd {
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.terminal-scroll-target {
   color: var(--foreground);
-  background: rgba(255, 255, 255, 0.12);
-  transform: translateX(-50%) scale(1.08);
+}
+
+/* Hover expand — only when container is wide enough (>=200px) */
+@container (min-width: 200px) {
+  .terminal-scroll-to-bottom:hover {
+    opacity: 1;
+    width: 108px;
+    padding: 0 10px;
+    gap: 5px;
+    color: var(--foreground);
+    background: rgba(255, 255, 255, 0.10);
+    transform: translateX(-50%);
+  }
+
+  .terminal-scroll-to-bottom:hover .terminal-scroll-icon {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    transition: opacity 0.1s ease, width 0.2s ease 0.1s;
+  }
+
+  .terminal-scroll-to-bottom:hover .terminal-scroll-label {
+    max-width: 100px;
+    opacity: 1;
+    transition:
+      max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.05s,
+      opacity 0.25s ease 0.1s;
+  }
+}
+
+/* Hover fallback — narrow container, just brighten */
+@container (max-width: 199px) {
+  .terminal-scroll-to-bottom:hover {
+    opacity: 1;
+    color: var(--foreground);
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateX(-50%) scale(1.05);
+  }
 }
 
 .terminal-scroll-to-bottom:active {
-  transform: translateX(-50%) scale(0.95);
+  transform: translateX(-50%) scale(0.97);
 }
 
 @keyframes scrollBtnFadeIn {
