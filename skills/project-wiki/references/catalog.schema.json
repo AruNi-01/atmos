@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://atmos.dev/schemas/project-wiki/catalog.json",
+  "title": "Project Wiki Catalog Schema",
+  "description": "Schema for validating the _catalog.json file in ATMOS Project Wiki",
+  "type": "object",
+  "required": ["version", "generated_at", "project", "catalog"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "The version of the catalog format",
+      "pattern": "^\\d+\\.\\d+$",
+      "examples": ["1.0"]
+    },
+    "generated_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp of when the catalog was generated",
+      "format": "date-time",
+      "examples": ["2026-02-10T12:00:00Z"]
+    },
+    "project": {
+      "type": "object",
+      "description": "Metadata about the project",
+      "required": ["name", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the project",
+          "minLength": 1,
+          "examples": ["ATMOS"]
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the project",
+          "minLength": 1,
+          "examples": ["Visual Terminal Workspace"]
+        },
+        "repository": {
+          "type": "string",
+          "description": "The URL of the project repository",
+          "format": "uri",
+          "examples": ["https://github.com/AruNi-01/atmos"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "catalog": {
+      "type": "array",
+      "description": "The hierarchical catalog structure",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/catalogItem"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "catalogItem": {
+      "type": "object",
+      "description": "A single item in the catalog tree",
+      "required": ["id", "title", "path", "order", "file", "children"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this catalog item, using dot notation for hierarchy",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)*$",
+          "examples": ["overview", "core.authentication", "api.endpoints"]
+        },
+        "title": {
+          "type": "string",
+          "description": "Display title for this catalog item",
+          "minLength": 1,
+          "examples": ["Project Overview", "User Authentication", "API Endpoints"]
+        },
+        "path": {
+          "type": "string",
+          "description": "File path relative to .atmos/wiki/ directory",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*$",
+          "examples": ["overview", "core/authentication", "api/endpoints"]
+        },
+        "order": {
+          "type": "integer",
+          "description": "Sort order for this item among its siblings",
+          "minimum": 0,
+          "examples": [0, 1, 2]
+        },
+        "file": {
+          "type": "string",
+          "description": "Path to the Markdown file for this item, relative to .atmos/wiki/",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*\\.(md|markdown)$",
+          "examples": ["overview/index.md", "core/authentication.md"]
+        },
+        "children": {
+          "type": "array",
+          "description": "Child catalog items",
+          "items": {
+            "$ref": "#/definitions/catalogItem"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-02-10T12:00:00Z",
+  "project": {
+    "name": "ATMOS",
+    "description": "Visual Terminal Workspace",
+    "repository": "https://github.com/AruNi-01/atmos"
+  },
+  "catalog": [
+    {
+      "id": "overview",
+      "title": "Project Overview",
+      "path": "overview",
+      "order": 0,
+      "file": "overview/index.md",
+      "children": [
+        {
+          "id": "overview.quick-start",
+          "title": "Quick Start",
+          "path": "overview/quick-start",
+          "order": 0,
+          "file": "overview/quick-start.md",
+          "children": []
+        },
+        {
+          "id": "overview.tech-stack",
+          "title": "Tech Stack",
+          "path": "overview/tech-stack",
+          "order": 1,
+          "file": "overview/tech-stack.md",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "core",
+      "title": "Core Modules",
+      "path": "core",
+      "order": 1,
+      "file": "core/index.md",
+      "children": [
+        {
+          "id": "core.authentication",
+          "title": "User Authentication",
+          "path": "core/authentication",
+          "order": 0,
+          "file": "core/authentication.md",
+          "children": []
+        },
+        {
+          "id": "core.authorization",
+          "title": "Authorization & Permissions",
+          "path": "core/authorization",
+          "order": 1,
+          "file": "core/authorization.md",
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "title": "API Reference",
+      "path": "api",
+      "order": 2,
+      "file": "api/index.md",
+      "children": [
+        {
+          "id": "api.endpoints",
+          "title": "REST Endpoints",
+          "path": "api/endpoints",
+          "order": 0,
+          "file": "api/endpoints.md",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
