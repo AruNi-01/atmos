@@ -22,7 +22,10 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(bun add:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(ls:*)",
+      "Bash(claude mcp list)",
+      "Bash(claude mcp add agentation -- npx agentation-mcp server)"
     ]
   }
 }
