@@ -285,11 +285,16 @@ impl GitEngine {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
-    /// List only remote branches for a repository
+    /// List both local and remote branches for a repository
     pub fn list_branches(&self, repo_path: &Path) -> Result<Vec<String>> {
         let output = Command::new("git")
             .current_dir(repo_path)
-            .args(["for-each-ref", "refs/remotes/origin", "--format=%(refname)"])
+            .args([
+                "for-each-ref",
+                "refs/heads",
+                "refs/remotes/origin",
+                "--format=%(refname)",
+            ])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to list branches: {}", e)))?;
 
@@ -307,8 +312,11 @@ impl GitEngine {
             .map(|l| l.trim())
             .filter(|l| !l.is_empty() && !l.ends_with("/HEAD"))
             .filter_map(|l| {
+                // refs/heads/main -> main
                 // refs/remotes/origin/main -> main
-                l.strip_prefix("refs/remotes/origin/").map(|s| s.to_string())
+                l.strip_prefix("refs/heads/")
+                    .or_else(|| l.strip_prefix("refs/remotes/origin/"))
+                    .map(|s| s.to_string())
             })
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
