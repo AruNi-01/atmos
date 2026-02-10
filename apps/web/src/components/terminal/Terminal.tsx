@@ -337,6 +337,8 @@ const Terminal = ({
     const terminal = new XTerm({
       ...defaultTerminalOptions,
       theme: currentTheme,
+      // noTmux (Run Script): use xterm local scrollback; tmux: tmux owns scrollback.
+      scrollback: noTmux ? 10000 : 0,
     });
 
     // Create addons
@@ -485,9 +487,11 @@ const Terminal = ({
 
     // ── Wheel → tmux scrollback ──────────────────────────────────────
     // With scrollback: 0, xterm.js has no local scrollback. Wheel events
-    // are converted to SGR mouse sequences and sent to tmux.
+    // are converted to SGR mouse sequences and sent to tmux for copy-mode.
+    // When noTmux (Run Script terminal): no tmux, SGR would be echoed as raw text — skip.
     const WHEEL_STEP = 30;
     terminal.attachCustomWheelEventHandler((ev) => {
+      if (noTmux) return true; // Let browser handle; don't send SGR to plain PTY
       const target = ev.target as HTMLElement | null;
       if (target?.closest('input, textarea, [contenteditable="true"]')) return true;
       if (terminal.hasSelection()) return true;
