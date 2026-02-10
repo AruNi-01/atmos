@@ -132,6 +132,48 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+/* Scroll-to-bottom ghost button */
+.terminal-scroll-to-bottom {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  opacity: 0.7;
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
+  animation: scrollBtnFadeIn 0.15s ease-out;
+}
+
+.terminal-scroll-to-bottom:hover {
+  opacity: 1;
+  color: var(--foreground);
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateX(-50%) scale(1.08);
+}
+
+.terminal-scroll-to-bottom:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+@keyframes scrollBtnFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 0.7; transform: translateX(-50%) translateY(0); }
+}
+
 /* Terminal Content Integration */
 .terminal-mosaic-content {
   flex: 1;

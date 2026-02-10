@@ -14,7 +14,7 @@ import { SearchAddon } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { useTheme } from "next-themes";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowDown } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme } from "./theme";
@@ -115,6 +115,9 @@ const Terminal = ({
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Accumulates wheel delta for smooth trackpad scrolling (same approach as agentboard)
   const wheelAccumRef = useRef(0);
+  // Scroll-to-bottom button: visible when tmux is in copy-mode (user scrolled up)
+  const isScrolledUpRef = useRef(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
@@ -423,9 +426,25 @@ const Terminal = ({
         wheelAccumRef.current += down ? -WHEEL_STEP : WHEEL_STEP;
         const button = down ? 65 : 64;
         sendInput(`\x1b[<${button};${col};${row}M`);
+
+        // Show scroll-to-bottom button when scrolling up (tmux enters copy-mode)
+        if (!down && !isScrolledUpRef.current) {
+          isScrolledUpRef.current = true;
+          setShowScrollDown(true);
+        }
       }
 
       return false; // We handled it — prevent xterm.js local scroll
+    });
+
+    // Hide scroll-to-bottom button when the user types any key.
+    // In tmux copy-mode, pressing 'q' exits copy-mode — the user is back at the prompt.
+    // Any other keypress also means they want to interact, so hide the indicator.
+    terminal.onData(() => {
+      if (isScrolledUpRef.current) {
+        isScrolledUpRef.current = false;
+        setShowScrollDown(false);
+      }
     });
 
     // Setup resize observer with debounce to coalesce rapid resize events.
@@ -557,6 +576,20 @@ const Terminal = ({
         data-connected={isConnected}
         data-status={uiStatus}
       />
+      {/* Scroll-to-bottom button — appears when user scrolls up in tmux copy-mode */}
+      {showScrollDown && (
+        <button
+          type="button"
+          onClick={() => {
+            sendInput("q"); // Exit tmux copy-mode → snaps back to live terminal
+            isScrolledUpRef.current = false;
+            setShowScrollDown(false);
+          }}
+          className="terminal-scroll-to-bottom"
+        >
+          <ArrowDown size={14} />
+        </button>
+      )}
     </div>
   );
 };
