@@ -24,3 +24,4 @@ futures-util = "0.3"
 uuid = { version = "1.0", features = ["v4"] }
 sea-orm-migration = "1.1"
 dotenvy = "0.15"
+dirs = "5.0"

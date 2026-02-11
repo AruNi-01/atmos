@@ -21,8 +21,11 @@ FILE_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*\.(
 VERSION_PATTERN = re.compile(r"^\d+\.\d+$")
 ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
+VALID_SECTIONS = {"getting-started", "deep-dive"}
+VALID_LEVELS = {"beginner", "intermediate", "advanced"}
 
-def validate_catalog_item(item: dict, path_prefix: str, errors: list, seen_ids: set):
+
+def validate_catalog_item(item: dict, path_prefix: str, errors: list, warnings: list, seen_ids: set, stats: dict):
     """Recursively validate a single catalog item and its children."""
     item_desc = f"'{item.get('id', '?')}'"
 
@@ -37,6 +40,11 @@ def validate_catalog_item(item: dict, path_prefix: str, errors: list, seen_ids: 
     order = item.get("order")
     file = item.get("file", "")
     children = item.get("children")
+
+    # Optional v2.0 fields
+    section = item.get("section")
+    level = item.get("level")
+    reading_time = item.get("reading_time")
 
     # Type checks
     if not isinstance(title, str) or len(title) == 0:
@@ -63,19 +71,48 @@ def validate_catalog_item(item: dict, path_prefix: str, errors: list, seen_ids: 
             errors.append(f"Duplicate catalog item id: {item_desc}")
         seen_ids.add(item_id)
 
+    # Optional field validation (v2.0)
+    if section is not None:
+        if section not in VALID_SECTIONS:
+            errors.append(f"Item {item_desc}: invalid section '{section}' (expected: {', '.join(VALID_SECTIONS)})")
+        else:
+            stats["sections"].add(section)
+    else:
+        warnings.append(f"Item {item_desc}: missing optional 'section' field (recommended for v2.0)")
+
+    if level is not None:
+        if level not in VALID_LEVELS:
+            errors.append(f"Item {item_desc}: invalid level '{level}' (expected: {', '.join(VALID_LEVELS)})")
+        else:
+            stats["levels"][level] = stats["levels"].get(level, 0) + 1
+    else:
+        warnings.append(f"Item {item_desc}: missing optional 'level' field (recommended for v2.0)")
+
+    if reading_time is not None:
+        if not isinstance(reading_time, int) or reading_time < 1 or reading_time > 30:
+            errors.append(f"Item {item_desc}: 'reading_time' must be an integer between 1 and 30")
+        else:
+            stats["total_reading_time"] += reading_time
+
     # Recurse into children
     if isinstance(children, list):
         for i, child in enumerate(children):
             if not isinstance(child, dict):
                 errors.append(f"Item {item_desc}: child[{i}] must be an object")
                 continue
-            validate_catalog_item(child, f"{path_prefix} > {child.get('id', '?')}", errors, seen_ids)
+            validate_catalog_item(child, f"{path_prefix} > {child.get('id', '?')}", errors, warnings, seen_ids, stats)
 
 
-def validate(catalog: dict) -> list:
-    """Validate a catalog dict. Returns list of error strings (empty = valid)."""
+def validate(catalog: dict) -> tuple:
+    """Validate a catalog dict. Returns (errors, warnings, stats)."""
     errors = []
+    warnings = []
     seen_ids = set()
+    stats = {
+        "sections": set(),
+        "levels": {},
+        "total_reading_time": 0,
+    }
 
     # Top-level required fields
     for field in ("version", "generated_at", "project", "catalog"):
@@ -85,7 +122,7 @@ def validate(catalog: dict) -> list:
     # version
     version = catalog.get("version", "")
     if version and not VERSION_PATTERN.match(str(version)):
-        errors.append(f"Invalid version format: '{version}' (expected X.Y, e.g. '1.0')")
+        errors.append(f"Invalid version format: '{version}' (expected X.Y, e.g. '2.0')")
 
     # generated_at
     generated_at = catalog.get("generated_at", "")
@@ -114,11 +151,19 @@ def validate(catalog: dict) -> list:
             if not isinstance(item, dict):
                 errors.append(f"catalog[{i}] must be an object")
                 continue
-            validate_catalog_item(item, f"catalog[{i}]", errors, seen_ids)
+            validate_catalog_item(item, f"catalog[{i}]", errors, warnings, seen_ids, stats)
+
+        # v2.0: Check for two-part structure
+        top_level_sections = {item.get("section") for item in catalog_items if isinstance(item, dict)}
+        if "getting-started" not in top_level_sections or "deep-dive" not in top_level_sections:
+            warnings.append(
+                "Catalog does not have both 'getting-started' and 'deep-dive' top-level sections "
+                "(recommended for v2.0 two-part structure)"
+            )
     elif catalog_items is not None:
         errors.append("'catalog' must be an array")
 
-    return errors
+    return errors, warnings, stats
 
 
 def count_items(items: list) -> int:
@@ -147,7 +192,7 @@ def main():
         print(f"Error: Invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
 
-    errors = validate(catalog)
+    errors, warnings, stats = validate(catalog)
 
     if not errors:
         total = count_items(catalog.get("catalog", []))
@@ -155,6 +200,21 @@ def main():
         print(f"   Version: {catalog.get('version', '?')}")
         print(f"   Project: {catalog.get('project', {}).get('name', '?')}")
         print(f"   Total items: {total}")
+
+        # v2.0 enhanced stats
+        if stats["sections"]:
+            print(f"   Sections: {', '.join(sorted(stats['sections']))}")
+        if stats["levels"]:
+            level_summary = ", ".join(f"{k}: {v}" for k, v in sorted(stats["levels"].items()))
+            print(f"   Levels: {level_summary}")
+        if stats["total_reading_time"]:
+            print(f"   Total reading time: ~{stats['total_reading_time']} minutes")
+
+        if warnings:
+            print(f"\n⚠️  {len(warnings)} warning(s):")
+            for i, w in enumerate(warnings, 1):
+                print(f"  {i}. {w}")
+
         sys.exit(0)
     else:
         print(f"❌ Catalog validation failed ({len(errors)} errors):", file=sys.stderr)
@@ -162,6 +222,13 @@ def main():
         for i, error in enumerate(errors, 1):
             print(f"  {i}. {error}", file=sys.stderr)
         print("", file=sys.stderr)
+
+        if warnings:
+            print(f"⚠️  Also found {len(warnings)} warning(s):", file=sys.stderr)
+            for i, w in enumerate(warnings, 1):
+                print(f"  {i}. {w}", file=sys.stderr)
+            print("", file=sys.stderr)
+
         sys.exit(1)
 
 

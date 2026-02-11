@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "generated_at": "2026-02-10T15:25:00Z",
+  "version": "2.0",
+  "generated_at": "2026-02-11T12:00:00Z",
   "project": {
     "name": "ATMOS",
     "description": "Visual Terminal Workspace - A multi-layered monorepo combining high-performance Rust backend with Next.js/Tauri frontend",
@@ -8,159 +8,294 @@
   },
   "catalog": [
     {
-      "id": "overview",
-      "title": "项目概览",
-      "path": "overview",
+      "id": "getting-started",
+      "title": "Getting Started",
+      "path": "getting-started",
       "order": 0,
-      "file": "overview/index.md",
+      "file": "getting-started/index.md",
+      "section": "getting-started",
+      "level": "beginner",
+      "reading_time": 5,
       "children": [
         {
-          "id": "overview.quick-start",
-          "title": "快速开始",
-          "path": "overview/quick-start",
+          "id": "getting-started.overview",
+          "title": "Project Overview",
+          "path": "getting-started/overview",
           "order": 0,
-          "file": "overview/quick-start.md",
+          "file": "getting-started/overview.md",
+          "section": "getting-started",
+          "level": "beginner",
+          "reading_time": 8,
           "children": []
         },
         {
-          "id": "overview.tech-stack",
-          "title": "技术栈",
-          "path": "overview/tech-stack",
+          "id": "getting-started.quick-start",
+          "title": "Quick Start",
+          "path": "getting-started/quick-start",
           "order": 1,
-          "file": "overview/tech-stack.md",
+          "file": "getting-started/quick-start.md",
+          "section": "getting-started",
+          "level": "beginner",
+          "reading_time": 6,
           "children": []
         },
         {
-          "id": "overview.monorepo",
-          "title": "Monorepo 结构",
-          "path": "overview/monorepo",
+          "id": "getting-started.installation",
+          "title": "Installation & Setup",
+          "path": "getting-started/installation",
           "order": 2,
-          "file": "overview/monorepo.md",
+          "file": "getting-started/installation.md",
+          "section": "getting-started",
+          "level": "beginner",
+          "reading_time": 8,
+          "children": []
+        },
+        {
+          "id": "getting-started.architecture",
+          "title": "Architecture Overview",
+          "path": "getting-started/architecture",
+          "order": 3,
+          "file": "getting-started/architecture.md",
+          "section": "getting-started",
+          "level": "beginner",
+          "reading_time": 10,
+          "children": []
+        },
+        {
+          "id": "getting-started.key-concepts",
+          "title": "Key Concepts",
+          "path": "getting-started/key-concepts",
+          "order": 4,
+          "file": "getting-started/key-concepts.md",
+          "section": "getting-started",
+          "level": "beginner",
+          "reading_time": 7,
+          "children": []
+        },
+        {
+          "id": "getting-started.configuration",
+          "title": "Configuration Guide",
+          "path": "getting-started/configuration",
+          "order": 5,
+          "file": "getting-started/configuration.md",
+          "section": "getting-started",
+          "level": "intermediate",
+          "reading_time": 8,
           "children": []
         }
       ]
     },
     {
-      "id": "infra",
-      "title": "基础设施层 (L1)",
-      "path": "infra",
+      "id": "deep-dive",
+      "title": "Deep Dive",
+      "path": "deep-dive",
       "order": 1,
-      "file": "infra/index.md",
+      "file": "deep-dive/index.md",
+      "section": "deep-dive",
+      "level": "intermediate",
+      "reading_time": 5,
       "children": [
         {
-          "id": "infra.database",
-          "title": "数据库与 ORM",
-          "path": "infra/database",
+          "id": "deep-dive.infra",
+          "title": "Infrastructure Layer",
+          "path": "deep-dive/infra",
           "order": 0,
-          "file": "infra/database.md",
-          "children": []
+          "file": "deep-dive/infra/index.md",
+          "section": "deep-dive",
+          "level": "intermediate",
+          "reading_time": 8,
+          "children": [
+            {
+              "id": "deep-dive.infra.database",
+              "title": "Database & ORM",
+              "path": "deep-dive/infra/database",
+              "order": 0,
+              "file": "deep-dive/infra/database.md",
+              "section": "deep-dive",
+              "level": "advanced",
+              "reading_time": 12,
+              "children": []
+            },
+            {
+              "id": "deep-dive.infra.websocket",
+              "title": "WebSocket Service",
+              "path": "deep-dive/infra/websocket",
+              "order": 1,
+              "file": "deep-dive/infra/websocket.md",
+              "section": "deep-dive",
+              "level": "advanced",
+              "reading_time": 13,
+              "children": []
+            }
+          ]
         },
         {
-          "id": "infra.websocket",
-          "title": "WebSocket 服务",
-          "path": "infra/websocket",
+          "id": "deep-dive.core-engine",
+          "title": "Core Engine Layer",
+          "path": "deep-dive/core-engine",
           "order": 1,
-          "file": "infra/websocket.md",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "core-engine",
-      "title": "核心引擎层 (L2)",
-      "path": "core-engine",
-      "order": 2,
-      "file": "core-engine/index.md",
-      "children": [
-        {
-          "id": "core-engine.tmux",
-          "title": "Tmux 引擎",
-          "path": "core-engine/tmux",
-          "order": 0,
-          "file": "core-engine/tmux.md",
-          "children": []
+          "file": "deep-dive/core-engine/index.md",
+          "section": "deep-dive",
+          "level": "intermediate",
+          "reading_time": 8,
+          "children": [
+            {
+              "id": "deep-dive.core-engine.tmux",
+              "title": "Tmux Engine",
+              "path": "deep-dive/core-engine/tmux",
+              "order": 0,
+              "file": "deep-dive/core-engine/tmux.md",
+              "section": "deep-dive",
+              "level": "advanced",
+              "reading_time": 12,
+              "children": []
+            },
+            {
+              "id": "deep-dive.core-engine.git",
+              "title": "Git Engine",
+              "path": "deep-dive/core-engine/git",
+              "order": 1,
+              "file": "deep-dive/core-engine/git.md",
+              "section": "deep-dive",
+              "level": "advanced",
+              "reading_time": 10,
+              "children": []
+            },
+            {
+              "id": "deep-dive.core-engine.fs",
+              "title": "File System Engine",
+              "path": "deep-dive/core-engine/fs",
+              "order": 2,
+              "file": "deep-dive/core-engine/fs.md",
+              "section": "deep-dive",
+              "level": "advanced",
+              "reading_time": 10,
+              "children": []
+            }
+          ]
         },
         {
-          "id": "core-engine.git",
-          "title": "Git 引擎",
-          "path": "core-engine/git",
-          "order": 1,
-          "file": "core-engine/git.md",
-          "children": []
-        },
-        {
-          "id": "core-engine.fs",
-          "title": "文件系统引擎",
-          "path": "core-engine/fs",
+          "id": "deep-dive.core-service",
+          "title": "Business Service Layer",
+          "path": "deep-dive/core-service",
           "order": 2,
-          "file": "core-engine/fs.md",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "core-service",
-      "title": "业务服务层 (L3)",
-      "path": "core-service",
-      "order": 3,
-      "file": "core-service/index.md",
-      "children": [
+          "file": "deep-dive/core-service/index.md",
+          "section": "deep-dive",
+          "level": "intermediate",
+          "reading_time": 8,
+          "children": [
+            {
+              "id": "deep-dive.core-service.workspace",
+              "title": "Workspace Service",
+              "path": "deep-dive/core-service/workspace",
+              "order": 0,
+              "file": "deep-dive/core-service/workspace.md",
+              "section": "deep-dive",
+              "level": "advanced",
+              "reading_time": 13,
+              "children": []
+            },
+            {
+              "id": "deep-dive.core-service.terminal",
+              "title": "Terminal Service",
+              "path": "deep-dive/core-service/terminal",
+              "order": 1,
+              "file": "deep-dive/core-service/terminal.md",
+              "section": "deep-dive",
+              "level": "advanced",
+              "reading_time": 12,
+              "children": []
+            },
+            {
+              "id": "deep-dive.core-service.project",
+              "title": "Project Service",
+              "path": "deep-dive/core-service/project",
+              "order": 2,
+              "file": "deep-dive/core-service/project.md",
+              "section": "deep-dive",
+              "level": "intermediate",
+              "reading_time": 10,
+              "children": []
+            }
+          ]
+        },
         {
-          "id": "core-service.workspace",
-          "title": "工作区服务",
-          "path": "core-service/workspace",
-          "order": 0,
-          "file": "core-service/workspace.md",
+          "id": "deep-dive.api",
+          "title": "API Layer",
+          "path": "deep-dive/api",
+          "order": 3,
+          "file": "deep-dive/api/index.md",
+          "section": "deep-dive",
+          "level": "intermediate",
+          "reading_time": 8,
+          "children": [
+            {
+              "id": "deep-dive.api.routes",
+              "title": "HTTP Routes & Handlers",
+              "path": "deep-dive/api/routes",
+              "order": 0,
+              "file": "deep-dive/api/routes.md",
+              "section": "deep-dive",
+              "level": "intermediate",
+              "reading_time": 12,
+              "children": []
+            },
+            {
+              "id": "deep-dive.api.websocket-handlers",
+              "title": "WebSocket Handlers",
+              "path": "deep-dive/api/websocket-handlers",
+              "order": 1,
+              "file": "deep-dive/api/websocket-handlers.md",
+              "section": "deep-dive",
+              "level": "advanced",
+              "reading_time": 10,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "deep-dive.frontend",
+          "title": "Frontend Application",
+          "path": "deep-dive/frontend",
+          "order": 4,
+          "file": "deep-dive/frontend/index.md",
+          "section": "deep-dive",
+          "level": "intermediate",
+          "reading_time": 8,
+          "children": [
+            {
+              "id": "deep-dive.frontend.web-app",
+              "title": "Web Application Architecture",
+              "path": "deep-dive/frontend/web-app",
+              "order": 0,
+              "file": "deep-dive/frontend/web-app.md",
+              "section": "deep-dive",
+              "level": "intermediate",
+              "reading_time": 12,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "deep-dive.build-system",
+          "title": "Build System & Tooling",
+          "path": "deep-dive/build-system",
+          "order": 5,
+          "file": "deep-dive/build-system/index.md",
+          "section": "deep-dive",
+          "level": "intermediate",
+          "reading_time": 10,
           "children": []
         },
         {
-          "id": "core-service.terminal",
-          "title": "终端服务",
-          "path": "core-service/terminal",
-          "order": 1,
-          "file": "core-service/terminal.md",
-          "children": []
-        },
-        {
-          "id": "core-service.project",
-          "title": "项目服务",
-          "path": "core-service/project",
-          "order": 2,
-          "file": "core-service/project.md",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "api",
-      "title": "API 入口",
-      "path": "api",
-      "order": 4,
-      "file": "api/index.md",
-      "children": [
-        {
-          "id": "api.routes",
-          "title": "HTTP 路由与 WebSocket",
-          "path": "api/routes",
-          "order": 0,
-          "file": "api/routes.md",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "frontend",
-      "title": "前端应用",
-      "path": "frontend",
-      "order": 5,
-      "file": "frontend/index.md",
-      "children": [
-        {
-          "id": "frontend.web-app",
-          "title": "Web 应用架构",
-          "path": "frontend/web-app",
-          "order": 0,
-          "file": "frontend/web-app.md",
+          "id": "deep-dive.design-decisions",
+          "title": "Design Decisions",
+          "path": "deep-dive/design-decisions",
+          "order": 6,
+          "file": "deep-dive/design-decisions/index.md",
+          "section": "deep-dive",
+          "level": "advanced",
+          "reading_time": 12,
           "children": []
         }
       ]

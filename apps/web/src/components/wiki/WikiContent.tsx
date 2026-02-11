@@ -10,10 +10,10 @@ import {
   cn,
   toastManager,
 } from "@workspace/ui";
-import { AlertTriangle, ChevronRight, Eye, Loader2, Pencil, Save } from "lucide-react";
+import { AlertTriangle, ChevronRight, Clock, Eye, Loader2, Pencil, Save } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
-import { parseFrontmatter } from "./wiki-utils";
+import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
 import { fsApi } from "@/api/ws-api";
 
 const MonacoEditor = dynamic(
@@ -28,6 +28,20 @@ const MonacoEditor = dynamic(
     ),
   }
 );
+
+/** Level badge styles */
+function getLevelConfig(level?: WikiLevel | string): { label: string; className: string } | null {
+  switch (level) {
+    case "beginner":
+      return { label: "Beginner", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" };
+    case "intermediate":
+      return { label: "Intermediate", className: "bg-amber-500/15 text-amber-600 dark:text-amber-400" };
+    case "advanced":
+      return { label: "Advanced", className: "bg-rose-500/15 text-rose-600 dark:text-rose-400" };
+    default:
+      return null;
+  }
+}
 
 interface WikiContentProps {
   contextId: string;
@@ -150,13 +164,33 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const { frontmatter, body } = parseFrontmatter(contentToRender);
   const title = (frontmatter.title as string) ?? activePage ?? "Untitled";
   const sources = (frontmatter.sources as string[]) ?? [];
+  const levelConfig = getLevelConfig(frontmatter.level);
+  const readingTime = frontmatter.reading_time
+    ? Number(frontmatter.reading_time)
+    : undefined;
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Header with Edit/Preview toggle */}
       <div className="h-10 shrink-0 px-4 border-b border-border bg-muted/20 flex items-center justify-between gap-3">
-        <div className="flex flex-col min-w-0 flex-1">
-          <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <h2 className="text-base font-semibold text-foreground truncate">{title}</h2>
+          {levelConfig && (
+            <span
+              className={cn(
+                "text-[10px] font-medium px-1.5 py-0.5 rounded-full leading-none shrink-0",
+                levelConfig.className
+              )}
+            >
+              {levelConfig.label}
+            </span>
+          )}
+          {readingTime && (
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
+              <Clock className="size-3" />
+              {readingTime} min
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {hasUnsavedChanges && (
