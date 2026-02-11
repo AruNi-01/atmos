@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEditorStore, OpenFile } from '@/hooks/use-editor-store';
 import type { editor } from 'monaco-editor';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
+import { MarkdownToc } from '@/components/markdown/MarkdownToc';
 import { BaseMonacoEditor } from './BaseMonacoEditor';
 import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
@@ -182,11 +183,14 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
         </div>
 
         {isPreview && isMarkdown && (
-          <div className="absolute inset-0 overflow-y-auto bg-background px-8 py-12 scroll-smooth">
-            <MarkdownRenderer>
-              {debouncedContent}
-            </MarkdownRenderer>
-          </div>
+          <>
+            <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto bg-background px-8 py-12 scroll-smooth">
+              <MarkdownRenderer>
+                {debouncedContent}
+              </MarkdownRenderer>
+            </div>
+            <MarkdownToc markdown={debouncedContent} scrollContainerId="editor-preview-root" />
+          </>
         )}
       </div>
     </div>

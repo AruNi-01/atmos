@@ -32,6 +32,7 @@ import {
 import { useAppStorage } from "@atmos/shared";
 import { useTheme } from 'next-themes';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
+import { MarkdownToc } from '@/components/markdown/MarkdownToc';
 import { SkillInfo, SkillFile, fsApi } from '@/api/ws-api';
 import { getAgentConfig } from './constants';
 import { QuickOpen } from '@/components/layout/QuickOpen';
@@ -501,21 +502,18 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
-                  {/* Save button */}
-                  <button
-                    onClick={handleSave}
-                    disabled={!hasUnsavedChanges || isSaving}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors cursor-pointer",
-                      hasUnsavedChanges 
-                        ? "bg-primary/10 text-primary hover:bg-primary/20" 
-                        : "text-muted-foreground opacity-50 cursor-not-allowed"
-                    )}
-                    title={hasUnsavedChanges ? "Save changes (Cmd+S)" : "No unsaved changes"}
-                  >
-                    {isSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
-                    <span>Save</span>
-                  </button>
+                  {/* Save button - only show when there are unsaved changes */}
+                  {hasUnsavedChanges && (
+                    <button
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-colors cursor-pointer bg-primary/10 text-primary hover:bg-primary/20"
+                      title="Save changes (Cmd+S)"
+                    >
+                      {isSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
+                      <span>Save</span>
+                    </button>
+                  )}
 
                   {/* Read-only toggle - Only for non-markdown files */}
                   {!isMarkdown && (
@@ -558,13 +556,16 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
               <div className="flex-1 overflow-hidden relative">
                 {selectedFile.content !== null ? (
                   isMarkdown && isPreview ? (
-                    <ScrollArea className="h-full">
-                      <div className="px-8 py-6">
-                        <MarkdownRenderer>
-                          {fileContent}
-                        </MarkdownRenderer>
-                      </div>
-                    </ScrollArea>
+                    <>
+                      <ScrollArea className="h-full">
+                        <div id="skill-content-root" className="px-8 py-6">
+                          <MarkdownRenderer>
+                            {fileContent}
+                          </MarkdownRenderer>
+                        </div>
+                      </ScrollArea>
+                      <MarkdownToc markdown={fileContent} scrollContainerId="skill-content-root" />
+                    </>
                   ) : (
                     <MonacoEditor
                       language={language}
