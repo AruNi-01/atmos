@@ -396,6 +396,70 @@ pub async fn list_tmux_sessions(
     }))))
 }
 
+/// Resolve workspace_id to tmux session name. Tries workspace lookup (for name-based sessions)
+/// then falls back to workspace_id-based session name.
+async fn resolve_session_name(state: &AppState, workspace_id: &str) -> Option<String> {
+    // 1. Try workspace lookup for name-based session (atmos_{project}_{workspace})
+    if let Ok(Some(ws)) = state.workspace_service.get_workspace(workspace_id.to_string()).await {
+        if let Ok(Some(proj)) = state.project_service.get_project(ws.model.project_guid.clone()).await {
+            return Some(state.terminal_service.tmux_engine().get_session_name_from_names(
+                &proj.name,
+                &ws.model.name,
+            ));
+        }
+    }
+    // 2. Try as project (main dev: workspace_id = project_id)
+    // Frontend uses workspaceName "Main" for project-only (ProjectWikiTerminal, TerminalGrid),
+    // so we must use "Main" to match atmos_{project}_Main session.
+    if let Ok(Some(proj)) = state.project_service.get_project(workspace_id.to_string()).await {
+        return Some(state.terminal_service.tmux_engine().get_session_name_from_names(
+            &proj.name,
+            "Main",
+        ));
+    }
+    // 3. Fallback: workspace_id as session name base
+    Some(state.terminal_service.tmux_engine().get_session_name(workspace_id))
+}
+
+/// GET /api/system/project-wiki-window/:workspace_id - Check if Project Wiki tmux window exists
+pub async fn check_project_wiki_window(
+    State(state): State<AppState>,
+    axum::extract::Path(workspace_id): axum::extract::Path<String>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let session_name = match resolve_session_name(&state, &workspace_id).await {
+        Some(s) => s,
+        None => return Ok(Json(ApiResponse::success(json!({ "exists": false })))),
+    };
+    let exists = state.terminal_service
+        .has_project_wiki_window(&session_name)
+        .unwrap_or(false);
+    Ok(Json(ApiResponse::success(json!({ "exists": exists }))))
+}
+
+/// POST /api/system/project-wiki-window/:workspace_id - Kill the Project Wiki tmux window
+pub async fn kill_project_wiki_window(
+    State(state): State<AppState>,
+    axum::extract::Path(workspace_id): axum::extract::Path<String>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let session_name = match resolve_session_name(&state, &workspace_id).await {
+        Some(s) => s,
+        None => return Ok(Json(ApiResponse::success(json!({
+            "killed": false,
+            "message": "Could not resolve workspace to tmux session"
+        })))),
+    };
+    match state.terminal_service.kill_project_wiki_window(&session_name) {
+        Ok(()) => Ok(Json(ApiResponse::success(json!({
+            "killed": true,
+            "message": "Project Wiki window closed"
+        })))),
+        Err(e) => Ok(Json(ApiResponse::success(json!({
+            "killed": false,
+            "message": format!("{}", e)
+        })))),
+    }
+}
+
 /// GET /api/system/tmux-windows/:workspace_id - List tmux windows for a workspace
 pub async fn list_tmux_windows(
     State(state): State<AppState>,

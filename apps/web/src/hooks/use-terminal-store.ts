@@ -64,8 +64,16 @@ function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): st
   return String(num);
 }
 
+/** Fixed tmux window name for Project Wiki - never gets -1/-2 suffix */
+const PROJECT_WIKI_WINDOW_NAME = "Generate Project Wiki";
+
 /** Generate unique window name with suffix for agent windows (e.g., "Claude Code", "Claude Code-2") */
 function getUniqueAgentName(baseName: string, existingPanes: Record<string, TerminalPaneProps>): string {
+  // Project Wiki uses a fixed name - always return as-is for attach/reuse
+  if (baseName === PROJECT_WIKI_WINDOW_NAME) {
+    return baseName;
+  }
+
   const values = Object.values(existingPanes);
   const usedNames = new Set([
      ...values.map(p => p.tmuxWindowName),
