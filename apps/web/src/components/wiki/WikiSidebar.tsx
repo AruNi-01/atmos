@@ -12,7 +12,7 @@ import {
   ScrollArea,
   cn,
 } from "@workspace/ui";
-import { ChevronRight, ExternalLink, FileText, FolderOpen, Github, Gitlab } from "lucide-react";
+import { ChevronRight, ExternalLink, FileText, FolderOpen, Github, Gitlab, Info } from "lucide-react";
 import { format } from "date-fns";
 import type { CatalogData, CatalogItem } from "./wiki-utils";
 
@@ -114,20 +114,17 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background border-r border-border">
+    <div className="flex flex-col h-full bg-background">
       <button
         type="button"
         onClick={() => setInfoOpen(true)}
-        className="px-3 py-3 border-b border-border shrink-0 w-full text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none"
+        title="Project info"
+        className="h-10 px-4 border-b border-border shrink-0 w-full flex items-center gap-2 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none bg-muted/20"
       >
-        <h3 className="text-sm font-semibold text-foreground truncate">
+        <h3 className="text-base font-semibold text-foreground truncate flex-1 min-w-0">
           {project?.name ?? "Project Wiki"}
         </h3>
-        {project?.description && (
-          <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
-            {project.description}
-          </p>
-        )}
+        <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       </button>
 
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>

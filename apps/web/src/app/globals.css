@@ -26,7 +26,44 @@
 }
 
 /* Web app specific styles */
-/* Add your custom styles here */
+
+/* Shiki Dual Theme - light uses default colors, dark uses --shiki-dark CSS vars */
+.shiki,
+.shiki span {
+  font-family: var(--font-geist-mono);
+  background-color: transparent !important;
+}
+
+html.dark .shiki,
+html.dark .shiki span {
+  color: var(--shiki-dark) !important;
+  background-color: transparent !important;
+}
+
+/* Base Shiki Pre & Span Styles */
+pre.shiki {
+  @apply py-3;
+}
+
+pre.shiki span.line {
+  @apply px-4 py-0.5;
+}
+
+/* Shiki Line Numbers */
+pre.shiki-line-numbers code {
+  counter-reset: step;
+  counter-increment: step 0;
+}
+
+pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
+  content: counter(step);
+  counter-increment: step;
+  width: 1rem;
+  margin-right: 1.3rem;
+  margin-left: 0.2rem;
+  display: inline-block;
+  @apply text-right font-mono text-xs text-neutral-400 dark:text-neutral-500;
+}
 
 @layer base {
   html,
