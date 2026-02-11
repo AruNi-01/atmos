@@ -1,6 +1,7 @@
 {
   "version": "2.0",
   "generated_at": "2026-02-11T12:00:00Z",
+  "commit_hash": "a1b2c3d4e5f6789012345678901234567890abcd",
   "project": {
     "name": "ATMOS",
     "description": "Visual Terminal Workspace - A multi-layered monorepo combining high-performance Rust backend with Next.js/Tauri frontend",

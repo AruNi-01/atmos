@@ -295,6 +295,13 @@ export const gitApi = {
   },
 
   /**
+   * 获取当前 HEAD 提交 hash
+   */
+  getHeadCommit: async (path: string): Promise<{ commit_hash: string }> => {
+    return wsRequest<{ commit_hash: string }>('git_get_head_commit', { path });
+  },
+
+  /**
    * 列出仓库所有分支
    */
   listBranches: async (path: string): Promise<string[]> => {

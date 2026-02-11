@@ -104,6 +104,8 @@ pub enum WsAction {
     // ===== Git 操作 =====
     /// 获取 Git 状态（未提交/未推送的更改）
     GitGetStatus,
+    /// 获取 HEAD 提交 hash
+    GitGetHeadCommit,
     /// 列出仓库的所有分支
     GitListBranches,
     /// 重命名 Git 分支
@@ -419,6 +421,13 @@ pub struct ProjectUpdateOrderRequest {
 /// 获取 Git 状态请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitGetStatusRequest {
+    /// 仓库/工作区路径
+    pub path: String,
+}
+
+/// 获取 HEAD 提交 hash 请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGetHeadCommitRequest {
     /// 仓库/工作区路径
     pub path: String,
 }

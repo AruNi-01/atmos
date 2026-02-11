@@ -111,6 +111,7 @@ Required articles (adapt to the specific project):
    - Include `level` (beginner/intermediate/advanced) and `reading_time` (estimated minutes) for each article.
    - Include `section` (getting-started/deep-dive) to indicate which part the article belongs to.
    - Refer to `examples/sample_catalog.json` for a concrete example.
+   - **Required for incremental updates**: Run `git rev-parse HEAD` and add the result as `commit_hash` at the root level of the catalog. This field is mandatory — without it, incremental wiki updates will not work.
 3. **Validation**: Validate `_catalog.json` against the JSON Schema. Use scripts in `scripts/` if available.
 
 ---

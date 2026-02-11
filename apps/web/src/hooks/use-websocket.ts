@@ -19,6 +19,7 @@ export type WsAction =
   | 'app_open'
   // Git 操作
   | 'git_get_status'
+  | 'git_get_head_commit'
   | 'git_list_branches'
   | 'git_rename_branch'
   | 'git_changed_files'

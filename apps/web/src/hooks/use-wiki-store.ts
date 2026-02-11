@@ -3,8 +3,17 @@
 import { useCallback, useMemo } from "react";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { fsApi } from "@/api/ws-api";
+import { fsApi, gitApi } from "@/api/ws-api";
 import type { CatalogData } from "@/components/wiki/wiki-utils";
+
+export interface WikiUpdateStatus {
+  hasUpdate: boolean;
+  checking: boolean;
+  catalogCommit: string | null;
+  currentCommit: string | null;
+  /** True if catalog has no commit_hash (legacy wiki) */
+  needsRegeneration?: boolean;
+}
 
 interface WikiContextState {
   catalog: CatalogData | null;
@@ -15,12 +24,14 @@ interface WikiContextState {
   contentLoading: boolean;
   contentError: string | null;
   wikiExists: boolean | null;
+  updateStatus: WikiUpdateStatus | null;
 }
 
 interface WikiStore {
   contextStates: Record<string, WikiContextState>;
   checkWikiExists: (contextId: string, effectivePath: string) => Promise<boolean>;
   loadCatalog: (contextId: string, effectivePath: string) => Promise<void>;
+  checkForUpdates: (contextId: string, effectivePath: string) => Promise<void>;
   loadPage: (contextId: string, effectivePath: string, filePath: string) => Promise<void>;
   setActivePage: (contextId: string, pageId: string) => void;
   resetContext: (contextId: string) => void;
@@ -35,6 +46,7 @@ const getDefaultState = (): WikiContextState => ({
   contentLoading: false,
   contentError: null,
   wikiExists: null,
+  updateStatus: null,
 });
 
 function ensureContext(
@@ -128,6 +140,82 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
             catalog: null,
             catalogLoading: false,
             catalogError: err instanceof Error ? err.message : "Failed to load catalog.",
+          },
+        },
+      }));
+    }
+  },
+
+  checkForUpdates: async (contextId, effectivePath) => {
+    const { contextStates } = useWikiStore.getState();
+    const state = contextStates[contextId];
+    const catalog = state?.catalog;
+    if (!catalog) return;
+
+    const catalogCommit = catalog.commit_hash;
+    if (!catalogCommit) {
+      set((s) => ({
+        contextStates: {
+          ...s.contextStates,
+          [contextId]: {
+            ...ensureContext(s.contextStates, contextId),
+            updateStatus: {
+              hasUpdate: false,
+              checking: false,
+              catalogCommit: null,
+              currentCommit: null,
+              needsRegeneration: true,
+            },
+          },
+        },
+      }));
+      return;
+    }
+
+    set((s) => ({
+      contextStates: {
+        ...s.contextStates,
+        [contextId]: {
+          ...ensureContext(s.contextStates, contextId),
+          updateStatus: {
+            hasUpdate: false,
+            checking: true,
+            catalogCommit,
+            currentCommit: null,
+          },
+        },
+      },
+    }));
+
+    try {
+      const { commit_hash: currentCommit } = await gitApi.getHeadCommit(effectivePath);
+      const hasUpdate = currentCommit !== catalogCommit;
+      set((s) => ({
+        contextStates: {
+          ...s.contextStates,
+          [contextId]: {
+            ...ensureContext(s.contextStates, contextId),
+            updateStatus: {
+              hasUpdate,
+              checking: false,
+              catalogCommit,
+              currentCommit,
+            },
+          },
+        },
+      }));
+    } catch {
+      set((s) => ({
+        contextStates: {
+          ...s.contextStates,
+          [contextId]: {
+            ...ensureContext(s.contextStates, contextId),
+            updateStatus: {
+              hasUpdate: false,
+              checking: false,
+              catalogCommit,
+              currentCommit: null,
+            },
           },
         },
       }));
@@ -231,6 +319,14 @@ export function useWikiContext(contextId: string | null) {
     [contextId]
   );
 
+  const checkForUpdates = useCallback(
+    (effectivePath: string) =>
+      contextId
+        ? useWikiStore.getState().checkForUpdates(contextId, effectivePath)
+        : Promise.resolve(),
+    [contextId]
+  );
+
   const loadPage = useCallback(
     (effectivePath: string, filePath: string) =>
       contextId
@@ -252,9 +348,10 @@ export function useWikiContext(contextId: string | null) {
       ...state,
       checkWikiExists,
       loadCatalog,
+      checkForUpdates,
       loadPage,
       setActivePage,
     }),
-    [state, checkWikiExists, loadCatalog, loadPage, setActivePage]
+    [state, checkWikiExists, loadCatalog, checkForUpdates, loadPage, setActivePage]
   );
 }

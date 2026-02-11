@@ -87,6 +87,10 @@ export const WikiTab: React.FC<WikiTabProps> = ({
       projectName={projectName}
       wikiPage={wikiPage}
       onWikiPageChange={onWikiPageChange}
+      terminalGridRef={terminalGridRef}
+      onSwitchToTerminal={onSwitchToTerminal}
+      onSwitchToProjectWikiAndRun={onSwitchToProjectWikiAndRun}
+      onProjectWikiReplaceAndRun={onProjectWikiReplaceAndRun}
     />
   );
 };
