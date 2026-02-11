@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
@@ -15,6 +15,7 @@ import {
   CodeBlockContent,
 } from '@/components/code-block/code-block';
 import { CopyButton } from '@/components/code-block/copy-button';
+import { ExpandButton } from '@/components/code-block/expand-button';
 import { highlight, DualThemes, type Languages } from '@/utils/shiki';
 
 const LANG_ALIASES: Record<string, string> = {
@@ -195,6 +196,25 @@ function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPro
   const codeText = String(children).replace(/\n$/, '');
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const [expanded, setExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const checkOverflow = useCallback(() => {
+    const el = contentRef.current;
+    if (el) {
+      setHasOverflow(el.scrollHeight > el.clientHeight);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+    const el = contentRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(checkOverflow);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [checkOverflow]);
 
   const isInline = !className && !String(children).includes('\n');
 
@@ -219,9 +239,17 @@ function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPro
             {language || 'code'}
           </span>
         </CodeBlockGroup>
-        <CopyButton content={codeText} />
+        <CodeBlockGroup>
+          {(hasOverflow || expanded) && (
+            <ExpandButton
+              expanded={expanded}
+              onToggle={() => setExpanded((v) => !v)}
+            />
+          )}
+          <CopyButton content={codeText} />
+        </CodeBlockGroup>
       </CodeBlockHeader>
-      <CodeBlockContent>
+      <CodeBlockContent ref={contentRef} expanded={expanded}>
         <ShikiCode code={codeText} language={language} />
       </CodeBlockContent>
     </CodeBlock>

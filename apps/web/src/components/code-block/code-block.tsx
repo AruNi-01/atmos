@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import { forwardRef, type ComponentProps } from "react";
 import { cn } from "@workspace/ui";
 import { FileIcon } from "@react-symbols/icons/utils";
 
@@ -83,25 +83,29 @@ const CodeBlockGroup = ({
   );
 };
 
-const CodeBlockContent = ({
-  className,
-  children,
-  ...props
-}: ComponentProps<"div">) => {
-  return (
-    <div
-      className={cn(
-        "max-h-96 overflow-y-auto",
-        "bg-background",
-        "rounded-lg font-mono text-sm leading-5 whitespace-pre",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-};
+interface CodeBlockContentProps extends ComponentProps<"div"> {
+  expanded?: boolean;
+}
+
+const CodeBlockContent = forwardRef<HTMLDivElement, CodeBlockContentProps>(
+  ({ className, children, expanded = false, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          expanded ? "overflow-y-auto" : "max-h-96 overflow-y-auto",
+          "bg-background",
+          "rounded-lg font-mono text-sm leading-5 whitespace-pre",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  },
+);
+CodeBlockContent.displayName = "CodeBlockContent";
 
 export {
   CodeBlock,
