@@ -68,7 +68,11 @@ export default async function LocaleLayout({ children, params }: Props) {
                     <TooltipProvider>
                       {children}
                     </TooltipProvider>
-                    {process.env.NODE_ENV === "development" && <Agentation />}
+                    {process.env.NODE_ENV === "development" && (
+                      <div className="fixed top-0 left-0 right-0 z-[9999]">
+                        <Agentation />
+                      </div>
+                    )}
                   </AnchoredToastProvider>
                 </ToastProvider>
               </TmuxCheckProvider>
