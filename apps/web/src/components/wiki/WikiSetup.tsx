@@ -11,9 +11,16 @@ import {
   SelectValue,
   Input,
   toastManager,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@workspace/ui";
-import { BookOpen, Copy, Loader2, Download } from "lucide-react";
+import { BookOpen, Copy, Loader2, Download, AlertTriangle } from "lucide-react";
 import { shellQuote } from "@/lib/shell-quote";
+import { systemApi } from "@/api/rest-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import { skillsApi } from "@/api/ws-api";
 
@@ -75,73 +82,62 @@ function buildCommand(
   return parts.join(" ");
 }
 
-function buildPrompt(
-  skillPath: string | null,
-  language: string,
-  customLanguage: string
-): string {
+function buildPrompt(language: string, customLanguage: string): string {
   const lang = language === "other" ? customLanguage : language;
   const langInstruction = lang ? ` Generate all wiki content in ${lang}.` : "";
 
-  const base =
-    skillPath
-      ? `Read the skill instructions at ${skillPath} and follow them to generate a complete project wiki. You are in the project root. Create the wiki in ./.atmos/wiki/.${langInstruction}`
-      : `Generate a complete project wiki in ./.atmos/wiki/. Create _catalog.json and markdown files per the project-wiki convention. Analyze the codebase and document key modules.${langInstruction}`;
+  const skillRef = `${PROJECT_WIKI_SKILL_PATH}/SKILL.md`;
 
-  return base;
+  return `Read the skill instructions at ${skillRef} and follow them to generate a complete project wiki. You are in the project root. Create the wiki in ./.atmos/wiki/.${langInstruction}`;
 }
 
 interface WikiSetupProps {
   effectivePath: string;
+  workspaceId: string;
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal: () => void;
+  /** Switch to Project Wiki tab and run command (preferred over Terminal tab) */
+  onSwitchToProjectWikiAndRun?: (command: string) => void;
+  /** Kill existing Project Wiki window, remount terminal, then run (for conflict replace) */
+  onProjectWikiReplaceAndRun?: (command: string) => Promise<void>;
   onRetryCheck: () => void;
 }
 
 export const WikiSetup: React.FC<WikiSetupProps> = ({
   effectivePath,
+  workspaceId,
   terminalGridRef,
   onSwitchToTerminal,
+  onSwitchToProjectWikiAndRun,
+  onProjectWikiReplaceAndRun,
   onRetryCheck,
 }) => {
   const [agentId, setAgentId] = useState<(typeof AGENT_OPTIONS)[number]["id"]>("claude");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [skillPath, setSkillPath] = useState<string | null>(null);
+  const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
   const [language, setLanguage] = useState("en");
   const [customLanguage, setCustomLanguage] = useState("");
   const [isInstalling, setIsInstalling] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
 
-  const loadSkill = useCallback(async () => {
+  const checkSystemSkill = useCallback(async () => {
+    setSkillLoading(true);
+    setSystemHasSkill(null);
     try {
-      const { skills } = await skillsApi.list();
-      const projectWiki = skills.find(
-        (s) => s.name === "project-wiki" || s.name?.toLowerCase().includes("project-wiki")
-      );
-      if (projectWiki) {
-        const mainFile = projectWiki.files?.find((f) => f.is_main) ?? projectWiki.files?.[0];
-        setSkillPath(mainFile?.absolute_path ?? projectWiki.path);
-      } else {
-        setSkillPath(null);
-      }
+      const installed = await skillsApi.isProjectWikiInstalledInSystem();
+      setSystemHasSkill(installed);
     } catch {
-      setSkillPath(null);
+      setSystemHasSkill(false);
     } finally {
       setSkillLoading(false);
     }
   }, []);
 
   React.useEffect(() => {
-    let cancelled = false;
-    loadSkill().then(() => {
-      if (!cancelled) {
-        // no-op
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [loadSkill]);
+    checkSystemSkill();
+  }, [checkSystemSkill]);
 
   const handleInstallSkill = useCallback(async () => {
     setIsInstalling(true);
@@ -153,7 +149,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           description: result.message,
           type: "success",
         });
-        await loadSkill();
+        await checkSystemSkill();
         onRetryCheck();
       } else {
         throw new Error(result.message);
@@ -167,10 +163,10 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     } finally {
       setIsInstalling(false);
     }
-  }, [loadSkill, onRetryCheck]);
+  }, [checkSystemSkill, onRetryCheck]);
 
   const handleCopyPrompt = useCallback(() => {
-    const prompt = buildPrompt(skillPath, language, customLanguage);
+    const prompt = buildPrompt(language, customLanguage);
     const command = buildCommand(agentId, prompt, true);
     navigator.clipboard.writeText(command);
     toastManager.add({
@@ -178,27 +174,20 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
       description: "Paste and run this command in your Code Agent terminal.",
       type: "success",
     });
-  }, [agentId, skillPath, language, customLanguage]);
+  }, [agentId, language, customLanguage]);
 
-  const handleGenerate = useCallback(async () => {
-    if (!effectivePath || !terminalGridRef.current) {
-      toastManager.add({
-        title: "Cannot generate",
-        description: "Project path or terminal not available.",
-        type: "error",
-      });
-      return;
-    }
-
-    const prompt = buildPrompt(skillPath, language, customLanguage);
-    const command = buildCommand(agentId, prompt, true);
-
-    setIsGenerating(true);
-    try {
-      const handle = terminalGridRef.current;
-      if (typeof handle.createAndRunTerminal === "function") {
-        await handle.createAndRunTerminal({
-          title: "Project Wiki",
+  const doRunGenerate = useCallback(
+    (command: string) => {
+      if (onSwitchToProjectWikiAndRun) {
+        onSwitchToProjectWikiAndRun(command);
+        toastManager.add({
+          title: "Wiki generation started",
+          description: "Switched to Project Wiki tab. Check progress there.",
+          type: "info",
+        });
+      } else if (terminalGridRef.current?.createAndRunTerminal) {
+        terminalGridRef.current.createAndRunTerminal({
+          title: "Generate Project Wiki",
           command,
         });
         onSwitchToTerminal();
@@ -214,26 +203,72 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           type: "error",
         });
       }
+    },
+    [terminalGridRef, onSwitchToTerminal, onSwitchToProjectWikiAndRun]
+  );
+
+  const handleGenerate = useCallback(async () => {
+    if (!effectivePath) {
+      toastManager.add({
+        title: "Cannot generate",
+        description: "Project path not available.",
+        type: "error",
+      });
+      return;
+    }
+
+    const prompt = buildPrompt(language, customLanguage);
+    const command = buildCommand(agentId, prompt, true);
+
+    setIsGenerating(true);
+    try {
+      if (workspaceId) {
+        const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
+        if (exists) {
+          setPendingCommand(command);
+          setConflictDialogOpen(true);
+          setIsGenerating(false);
+          return;
+        }
+      }
+      doRunGenerate(command);
+    } catch (_err) {
+      setPendingCommand(command);
+      setConflictDialogOpen(true);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [effectivePath, workspaceId, agentId, language, customLanguage, doRunGenerate]);
+
+  const handleConfirmReplaceAndGenerate = useCallback(async () => {
+    const cmd = pendingCommand;
+    setPendingCommand(null);
+    setConflictDialogOpen(false);
+    if (!cmd) return;
+
+    setIsGenerating(true);
+    try {
+      if (onProjectWikiReplaceAndRun) {
+        await onProjectWikiReplaceAndRun(cmd);
+      } else {
+        if (workspaceId) {
+          await systemApi.killProjectWikiWindow(workspaceId);
+        }
+        doRunGenerate(cmd);
+      }
     } catch (err) {
       toastManager.add({
-        title: "Failed to start",
+        title: "Failed to close previous terminal",
         description: err instanceof Error ? err.message : "Unknown error",
         type: "error",
       });
     } finally {
       setIsGenerating(false);
     }
-  }, [
-    effectivePath,
-    agentId,
-    skillPath,
-    language,
-    customLanguage,
-    terminalGridRef,
-    onSwitchToTerminal,
-  ]);
+  }, [workspaceId, pendingCommand, doRunGenerate, onProjectWikiReplaceAndRun]);
 
-  const skillMissing = !skillLoading && !skillPath;
+  // 仅当明确检测到已安装时才隐藏；加载中或检测失败时都显示安装入口
+  const skillMissing = systemHasSkill !== true;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] p-6 max-w-2xl mx-auto">
@@ -265,12 +300,11 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           </ul>
         </div>
 
-        {/* Skill install */}
+        {/* Skill install - show when ~/.atmos/skills/.system/project-wiki is missing */}
         {skillMissing && (
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
             <p className="text-sm text-muted-foreground">
-              The project-wiki skill is not installed. Install it to use the full skill
-              instructions.
+              The project-wiki skill is not installed. Install it to use the full skill instructions.
             </p>
             <Button
               variant="outline"
@@ -349,7 +383,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           <Button
             className="flex-1"
             onClick={handleGenerate}
-            disabled={isGenerating}
+            disabled={isGenerating || skillMissing}
           >
             {isGenerating ? (
               <>
@@ -360,7 +394,12 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
               "Generate Wiki"
             )}
           </Button>
-          <Button variant="outline" onClick={handleCopyPrompt} className="flex-1 sm:flex-none">
+          <Button
+            variant="outline"
+            onClick={handleCopyPrompt}
+            disabled={skillMissing}
+            className="flex-1 sm:flex-none"
+          >
             <Copy className="size-4 mr-2" />
             Copy prompt for agent
           </Button>
@@ -370,6 +409,44 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           A new terminal tab will open and run the agent. Return to Wiki when done.
         </p>
       </div>
+
+      {/* 冲突确认：检测到已有 Project Wiki 终端在运行时弹出 */}
+      <Dialog open={conflictDialogOpen} onOpenChange={(open) => !open && (setConflictDialogOpen(false), setPendingCommand(null))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-500" />
+              Project Wiki generation in progress
+            </DialogTitle>
+            <DialogDescription>
+              A Project Wiki terminal is already running. Continuing will close it and start a new generation. Any in-progress work may be interrupted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-4">
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="cursor-pointer"
+              onClick={handleConfirmReplaceAndGenerate}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                  Starting...
+                </>
+              ) : (
+                "Replace & generate"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

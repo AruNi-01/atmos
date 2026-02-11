@@ -51,6 +51,8 @@ import { SkillsView } from "@/components/skills/SkillsView";
 import { TerminalManagerView } from "@/components/terminal/TerminalManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
 import { WikiTab } from "@/components/wiki";
+import { ProjectWikiTerminal } from "@/components/terminal/ProjectWikiTerminal";
+import { systemApi } from "@/api/rest-api";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const FileViewer = dynamic(
@@ -94,13 +96,17 @@ interface CenterStageProps {
   logs: TerminalLine[];
 }
 
-type FixedTab = "overview" | "terminal" | "wiki";
-const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki"]);
+type FixedTab = "overview" | "terminal" | "wiki" | "project-wiki";
+const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki", "project-wiki"]);
 
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
+  const [projectWikiPendingCommand, setProjectWikiPendingCommand] = React.useState<string | null>(null);
+  const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
+  const [projectWikiTabVisible, setProjectWikiTabVisible] = React.useState(false);
+  const [projectWikiTerminalKey, setProjectWikiTerminalKey] = React.useState(0);
 
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
@@ -113,8 +119,6 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   // --- URL-synced tab state ---
   const tabFromUrl = searchParams.get("tab");
-  const fixedTab: FixedTab =
-    tabFromUrl && FIXED_TABS.has(tabFromUrl) ? (tabFromUrl as FixedTab) : "terminal";
   const wikiPageFromUrl = searchParams.get("wikiPage") || undefined;
 
   const updateUrlParams = React.useCallback(
@@ -150,6 +154,30 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     },
     [updateUrlParams]
   );
+
+  // 刷新时若有 Project Wiki tmux 窗口在运行，恢复显示 Tab（生成中刷新后可继续查看进度）
+  React.useEffect(() => {
+    if (!effectiveContextId) return;
+    systemApi.checkProjectWikiWindow(effectiveContextId).then(
+      ({ exists }) => exists && setProjectWikiTabVisible(true),
+      () => {}
+    );
+  }, [effectiveContextId]);
+
+  // Project Wiki Tab 为临时 Tab；手动关闭后不再显示；若 URL 指向 project-wiki 但 tab 已关闭，切回 terminal
+  const fixedTab: FixedTab = React.useMemo(() => {
+    if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) {
+      return "terminal";
+    }
+    return (tabFromUrl && FIXED_TABS.has(tabFromUrl) ? tabFromUrl : "terminal") as FixedTab;
+  }, [tabFromUrl, projectWikiTabVisible]);
+
+  // 当 project-wiki 已关闭但 URL 仍指向它时，同步 URL
+  React.useEffect(() => {
+    if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) {
+      updateUrlParams({ tab: "terminal" });
+    }
+  }, [tabFromUrl, projectWikiTabVisible, updateUrlParams]);
 
   const handleCloseFile = (file: OpenFile) => {
     if (file.isDirty) {
@@ -375,8 +403,34 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             </DropdownMenu>
           </TabsTab>
 
-
-
+          {/* Project Wiki Tab - 仅在有生成时或 tmux 窗口存在时显示 */}
+          {effectiveContextId && projectWikiTabVisible && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <TabsTab
+                  value="project-wiki"
+                  className="group/projectwiki !h-full pl-4 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                >
+                  <TerminalIcon className="size-3.5 shrink-0" />
+                  <span className="text-[13px] font-medium text-pretty">
+                    Project Wiki
+                  </span>
+                  <span
+                    role="button"
+                    aria-label="Close Project Wiki tab"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProjectWikiCloseConfirmOpen(true);
+                    }}
+                    className="size-4 flex items-center justify-center shrink-0 ml-0 rounded-sm opacity-0 group-hover/projectwiki:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
+                  >
+                    <X className="size-3" />
+                  </span>
+                </TabsTab>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Project Wiki Terminal</TooltipContent>
+            </Tooltip>
+          )}
 
           {/* Open File Tabs */}
           {openFiles.map((file) => {
@@ -510,6 +564,23 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           )}
         </div>
 
+        {/* Project Wiki Tab Content */}
+        {effectiveContextId && projectWikiTabVisible && (
+          <div
+            className={cn(
+              "flex-1 min-h-0 min-w-0",
+              activeValue !== "project-wiki" && "hidden"
+            )}
+          >
+            <ProjectWikiTerminal
+              key={projectWikiTerminalKey}
+              workspaceId={effectiveContextId}
+              pendingCommand={projectWikiPendingCommand}
+              onCommandSent={() => setProjectWikiPendingCommand(null)}
+            />
+          </div>
+        )}
+
         {/* Overview Tab Content - CSS visibility controlled like terminal */}
         {effectiveContextId && (
           <div
@@ -545,6 +616,32 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               projectName={currentProject?.name}
               terminalGridRef={terminalGridRef}
               onSwitchToTerminal={() => setFixedTab("terminal")}
+              onSwitchToProjectWikiAndRun={(command) => {
+                setProjectWikiPendingCommand(command);
+                setProjectWikiTabVisible(true);
+                setFixedTab("project-wiki");
+              }}
+              onProjectWikiReplaceAndRun={async (command) => {
+                if (!effectiveContextId) return;
+                try {
+                  await systemApi.killProjectWikiWindow(effectiveContextId);
+                  setProjectWikiTerminalKey((k) => k + 1);
+                  setProjectWikiPendingCommand(command);
+                  setProjectWikiTabVisible(true);
+                  setFixedTab("project-wiki");
+                  toastManager.add({
+                    title: "Wiki generation started",
+                    description: "Switched to Project Wiki tab. Check progress there.",
+                    type: "info",
+                  });
+                } catch (err) {
+                  toastManager.add({
+                    title: "Failed to close previous terminal",
+                    description: err instanceof Error ? err.message : "Unknown error",
+                    type: "error",
+                  });
+                }
+              }}
               wikiPage={wikiPageFromUrl}
               onWikiPageChange={setWikiPage}
             />
@@ -568,6 +665,49 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           </TabsPanel>
         ))}
       </Tabs>
+
+      {/* Project Wiki Tab Close Confirmation */}
+      <Dialog open={projectWikiCloseConfirmOpen} onOpenChange={(open) => !open && setProjectWikiCloseConfirmOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close Project Wiki terminal?</DialogTitle>
+            <DialogDescription>
+              Any running wiki generation will be stopped. You can start a new generation from the Wiki tab.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-4">
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => setProjectWikiCloseConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={async () => {
+                if (effectiveContextId) {
+                  try {
+                    await systemApi.killProjectWikiWindow(effectiveContextId);
+                    setProjectWikiTabVisible(false);
+                    setFixedTab("terminal");
+                  } catch (err) {
+                    toastManager.add({
+                      title: "Failed to close terminal",
+                      description: err instanceof Error ? err.message : "Unknown error",
+                      type: "error",
+                    });
+                  }
+                }
+                setProjectWikiCloseConfirmOpen(false);
+              }}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Unsaved Changes Dialog */}
       <Dialog

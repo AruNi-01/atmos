@@ -13,6 +13,10 @@ interface WikiTabProps {
   projectName?: string;
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal: () => void;
+  /** Switch to Project Wiki tab and run the given command in its terminal */
+  onSwitchToProjectWikiAndRun?: (command: string) => void;
+  /** Kill existing Project Wiki window, remount terminal, then run command (for replace flow) */
+  onProjectWikiReplaceAndRun?: (command: string) => Promise<void>;
   /** Current wiki page from URL (e.g. "overview/index") */
   wikiPage?: string;
   /** Called when wiki page changes — syncs to URL */
@@ -25,6 +29,8 @@ export const WikiTab: React.FC<WikiTabProps> = ({
   projectName,
   terminalGridRef,
   onSwitchToTerminal,
+  onSwitchToProjectWikiAndRun,
+  onProjectWikiReplaceAndRun,
   wikiPage,
   onWikiPageChange,
 }) => {
@@ -64,8 +70,11 @@ export const WikiTab: React.FC<WikiTabProps> = ({
     return (
       <WikiSetup
         effectivePath={effectivePath}
+        workspaceId={contextId}
         terminalGridRef={terminalGridRef}
         onSwitchToTerminal={onSwitchToTerminal}
+        onSwitchToProjectWikiAndRun={onSwitchToProjectWikiAndRun}
+        onProjectWikiReplaceAndRun={onProjectWikiReplaceAndRun}
         onRetryCheck={handleRetryCheck}
       />
     );

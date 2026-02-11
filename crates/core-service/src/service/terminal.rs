@@ -936,6 +936,20 @@ impl TerminalService {
         Ok(windows.into_iter().map(|w| (w.index, w.name)).collect())
     }
 
+    /// Check if a "Generate Project Wiki" tmux window exists in the given session.
+    pub fn has_project_wiki_window(&self, session_name: &str) -> Result<bool> {
+        let idx = self.tmux_engine.find_window_index_by_name(session_name, "Generate Project Wiki")?;
+        Ok(idx.is_some())
+    }
+
+    /// Kill the "Generate Project Wiki" tmux window in the given session.
+    pub fn kill_project_wiki_window(&self, session_name: &str) -> Result<()> {
+        if let Some(index) = self.tmux_engine.find_window_index_by_name(session_name, "Generate Project Wiki")? {
+            self.tmux_engine.kill_window(session_name, index)?;
+        }
+        Ok(())
+    }
+
     /// Get all active session IDs
     pub async fn list_sessions(&self) -> Vec<String> {
         self.sessions.lock().await.keys().cloned().collect()
