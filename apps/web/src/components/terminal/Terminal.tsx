@@ -337,8 +337,11 @@ const Terminal = ({
     const terminal = new XTerm({
       ...defaultTerminalOptions,
       theme: currentTheme,
-      // noTmux (Run Script): use xterm local scrollback; tmux: tmux owns scrollback.
-      scrollback: noTmux ? 10000 : 0,
+      // Both tmux and noTmux modes use local scrollback so that xterm.js can
+      // handle scroll + selection natively (drag-to-edge auto-scroll, wheel
+      // scroll while selecting, etc.). For tmux mode, normal (non-selection)
+      // wheel events are still forwarded to tmux via SGR sequences.
+      scrollback: 10000,
     });
 
     // Create addons
@@ -486,12 +489,15 @@ const Terminal = ({
     });
 
     // ── Wheel → tmux scrollback ──────────────────────────────────────
-    // With scrollback: 0, xterm.js has no local scrollback. Wheel events
-    // are converted to SGR mouse sequences and sent to tmux for copy-mode.
-    // When noTmux (Run Script terminal): no tmux, SGR would be echoed as raw text — skip.
+    // xterm.js now has local scrollback (10000). Two scrolling modes:
+    //   1. Selection active → return true so xterm.js scrolls locally,
+    //      preserving the selection and enabling drag-to-edge auto-scroll.
+    //   2. No selection → send SGR mouse sequences to tmux for copy-mode
+    //      scrollback (deeper history than local buffer).
+    // When noTmux (Run Script terminal): always let xterm.js handle it.
     const WHEEL_STEP = 30;
     terminal.attachCustomWheelEventHandler((ev) => {
-      if (noTmux) return true; // Let browser handle; don't send SGR to plain PTY
+      if (noTmux) return true;
       const target = ev.target as HTMLElement | null;
       if (target?.closest('input, textarea, [contenteditable="true"]')) return true;
       if (terminal.hasSelection()) return true;
@@ -513,9 +519,7 @@ const Terminal = ({
         sendInput(`\x1b[<${button};${col};${row}M`);
       }
 
-      // Optimistically show button on scroll-up (tmux enters copy-mode)
       if (scrolledUp) enterCopyMode();
-      // Ask backend for accurate copy-mode state (debounced)
       if (didScroll) requestCopyModeCheck();
 
       return false;
@@ -526,7 +530,7 @@ const Terminal = ({
     terminal.onData((data) => {
       const isMouseSequence = /^\x1b\[(<[\d;]+[Mm]|[\d;]+M|M[\x20-\xff]{3})$/.test(data);
       if (inCopyModeRef.current && isMouseSequence) {
-        return; // Drop mouse event, xterm handles selection locally
+        return;
       }
     });
 

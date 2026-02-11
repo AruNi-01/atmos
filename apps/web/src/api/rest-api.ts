@@ -235,6 +235,22 @@ export const systemApi = {
   },
 
   /**
+   * Check if Project Wiki tmux window exists for a workspace
+   */
+  checkProjectWikiWindow: async (workspaceId: string): Promise<{ exists: boolean }> => {
+    return fetchApi<{ exists: boolean }>(`/api/system/project-wiki-window/${workspaceId}`);
+  },
+
+  /**
+   * Kill the Project Wiki tmux window for a workspace
+   */
+  killProjectWikiWindow: async (workspaceId: string): Promise<{ killed: boolean; message?: string }> => {
+    return fetchApi<{ killed: boolean; message?: string }>(`/api/system/project-wiki-window/${workspaceId}`, {
+      method: 'POST',
+    });
+  },
+
+  /**
    * Kill a specific tmux session
    */
   killTmuxSession: async (sessionName: string): Promise<{ killed: boolean; session_name?: string; error?: string }> => {

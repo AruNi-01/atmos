@@ -145,6 +145,10 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
           setRenderedSvg(svg);
         }).catch((err: Error) => {
           if (!cancelled) setError(err.message || 'Mermaid render failed');
+        }).finally(() => {
+          // Clean up mermaid's error/temp elements appended to document.body
+          document.getElementById(id)?.remove();
+          document.getElementById(`d${id}`)?.remove();
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Mermaid failed');
