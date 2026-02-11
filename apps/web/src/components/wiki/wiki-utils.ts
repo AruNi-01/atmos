@@ -4,7 +4,7 @@
  */
 import BananaSlug, { slug } from "github-slugger";
 
-export type WikiSection = "getting-started" | "deep-dive";
+export type WikiSection = "getting-started" | "deep-dive" | "specify-wiki";
 export type WikiLevel = "beginner" | "intermediate" | "advanced";
 
 export interface CatalogItem {
@@ -25,6 +25,8 @@ export interface CatalogItem {
 export interface CatalogData {
   version: string;
   generated_at: string;
+  /** Git HEAD commit hash when wiki was generated (required for incremental updates; missing in legacy wikis) */
+  commit_hash?: string;
   project: {
     name: string;
     description: string;
@@ -40,7 +42,7 @@ export interface Heading {
 }
 
 /** Known top-level section ids for the two-part wiki structure */
-const TOP_LEVEL_SECTION_IDS = new Set(["getting-started", "deep-dive"]);
+const TOP_LEVEL_SECTION_IDS = new Set(["getting-started", "deep-dive", "specify-wiki"]);
 
 /** Check if a catalog item is a top-level section header (not a navigable page) */
 export function isTopLevelSection(item: CatalogItem): boolean {

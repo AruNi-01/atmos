@@ -10,8 +10,8 @@ use core_engine::{FsEngine, GitEngine};
 use infra::{
     AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, 
     FsSearchContentRequest, FsValidateGitPathRequest, FsWriteFileRequest,
-    GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest, GitGetStatusRequest,
-    GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, 
+    GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest, GitGetHeadCommitRequest,
+    GitGetStatusRequest, GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, 
     GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
     GitPullRequest, GitFetchRequest, GitSyncRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest, 
@@ -99,6 +99,7 @@ impl WsMessageService {
 
             // Git
             WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
+            WsAction::GitGetHeadCommit => self.handle_git_get_head_commit(parse_request(request.data)?),
             WsAction::GitListBranches => self.handle_git_list_branches(parse_request(request.data)?),
             WsAction::GitRenameBranch => self.handle_git_rename_branch(parse_request(request.data)?),
             WsAction::GitChangedFiles => self.handle_git_changed_files(parse_request(request.data)?),
@@ -346,6 +347,14 @@ impl WsMessageService {
             "unpushed_count": status.unpushed_count,
             "current_branch": current_branch,
         }))
+    }
+
+    fn handle_git_get_head_commit(&self, req: GitGetHeadCommitRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let commit_hash = self.git_engine.get_head_commit(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to get HEAD commit: {}", e))
+        })?;
+        Ok(json!({ "commit_hash": commit_hash }))
     }
 
     fn handle_git_list_branches(&self, req: GitListBranchesRequest) -> Result<Value> {
@@ -958,14 +967,18 @@ set -x
         }
     }
 
-    /// Install project-wiki skill to ~/.atmos/skills/.system/project-wiki.
-    /// Tries to copy from project root first; falls back to git clone from GitHub.
+    /// Install project-wiki and project-wiki-update skills to ~/.atmos/skills/.system/.
+    /// Tries to copy from project root first; falls back to git clone from GitHub for project-wiki.
     async fn handle_wiki_skill_install(&self) -> Result<Value> {
         let home = dirs::home_dir()
             .ok_or_else(|| ServiceError::Validation("Cannot determine home directory".to_string()))?;
-        let target_dir = home.join(".atmos").join("skills").join(".system").join("project-wiki");
+        let system_dir = home.join(".atmos").join("skills").join(".system");
+        let target_dir = system_dir.join("project-wiki");
 
         if target_dir.exists() {
+            // Still try to install project-wiki-update if missing
+            Self::install_project_wiki_update_if_needed(&system_dir)?;
+            Self::install_project_wiki_specify_if_needed(&system_dir)?;
             return Ok(json!({
                 "success": true,
                 "path": target_dir.to_string_lossy(),
@@ -985,6 +998,8 @@ set -x
         if source_in_project.exists() && source_in_project.is_dir() {
             Self::copy_dir_all(&source_in_project, &target_dir)
                 .map_err(|e| ServiceError::Validation(format!("Failed to copy skill: {}", e)))?;
+            Self::install_project_wiki_update_if_needed(&system_dir)?;
+            Self::install_project_wiki_specify_if_needed(&system_dir)?;
             return Ok(json!({
                 "success": true,
                 "path": target_dir.to_string_lossy(),
@@ -1022,6 +1037,23 @@ set -x
             Self::copy_dir_all(&skill_src, &target_dir)
                 .map_err(|e| ServiceError::Validation(format!("Failed to copy skill: {}", e)))?;
         }
+        // project-wiki-update: try from cloned repo (may not exist in older GitHub versions)
+        let update_src = clone_path.join("skills").join("project-wiki-update");
+        if update_src.exists() && update_src.is_dir() {
+            let update_dst = system_dir.join("project-wiki-update");
+            let _ = std::fs::create_dir_all(system_dir.as_path());
+            let _ = Self::copy_dir_all(&update_src, &update_dst);
+        }
+        // project-wiki-specify: try from cloned repo (may not exist in older GitHub versions)
+        let specify_src = clone_path.join("skills").join("project-wiki-specify");
+        if specify_src.exists() && specify_src.is_dir() {
+            let specify_dst = system_dir.join("project-wiki-specify");
+            let _ = std::fs::create_dir_all(system_dir.as_path());
+            let _ = Self::copy_dir_all(&specify_src, &specify_dst);
+        }
+        // Also try project root in case we're in development with uncommitted skills
+        Self::install_project_wiki_update_if_needed(&system_dir)?;
+        Self::install_project_wiki_specify_if_needed(&system_dir)?;
         let _ = std::fs::remove_dir_all(&temp_dir);
 
         Ok(json!({
@@ -1029,6 +1061,36 @@ set -x
             "path": target_dir.to_string_lossy(),
             "message": "Skill installed from GitHub"
         }))
+    }
+
+    /// Install project-wiki-update skill from project root if it exists and target does not.
+    fn install_project_wiki_update_if_needed(system_dir: &std::path::Path) -> Result<()> {
+        let target = system_dir.join("project-wiki-update");
+        if target.exists() {
+            return Ok(());
+        }
+        let project_root = std::env::current_dir().unwrap_or_default();
+        let source = project_root.join("skills").join("project-wiki-update");
+        if source.exists() && source.is_dir() {
+            Self::copy_dir_all(&source, &target)
+                .map_err(|e| ServiceError::Validation(format!("Failed to copy project-wiki-update: {}", e)))?;
+        }
+        Ok(())
+    }
+
+    /// Install project-wiki-specify skill from project root if it exists and target does not.
+    fn install_project_wiki_specify_if_needed(system_dir: &std::path::Path) -> Result<()> {
+        let target = system_dir.join("project-wiki-specify");
+        if target.exists() {
+            return Ok(());
+        }
+        let project_root = std::env::current_dir().unwrap_or_default();
+        let source = project_root.join("skills").join("project-wiki-specify");
+        if source.exists() && source.is_dir() {
+            Self::copy_dir_all(&source, &target)
+                .map_err(|e| ServiceError::Validation(format!("Failed to copy project-wiki-specify: {}", e)))?;
+        }
+        Ok(())
     }
 
     /// Check if project-wiki skill exists in ~/.atmos/skills/.system/project-wiki

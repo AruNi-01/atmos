@@ -4,7 +4,7 @@
   "title": "Project Wiki Catalog Schema",
   "description": "Schema for validating the _catalog.json file in ATMOS Project Wiki. Supports two-part structure (Getting Started + Deep Dive) with reading time and difficulty level metadata.",
   "type": "object",
-  "required": ["version", "generated_at", "project", "catalog"],
+  "required": ["version", "generated_at", "project", "catalog", "commit_hash"],
   "properties": {
     "version": {
       "type": "string",
@@ -17,6 +17,12 @@
       "description": "ISO 8601 timestamp of when the catalog was generated",
       "format": "date-time",
       "examples": ["2026-02-10T12:00:00Z"]
+    },
+    "commit_hash": {
+      "type": "string",
+      "description": "Git HEAD commit hash when the wiki was generated (required for incremental updates)",
+      "pattern": "^[0-9a-f]{7,40}$",
+      "examples": ["abc1234", "a1b2c3d4e5f6789012345678901234567890abcd"]
     },
     "project": {
       "type": "object",
@@ -46,7 +52,7 @@
     },
     "catalog": {
       "type": "array",
-      "description": "The hierarchical catalog structure. Should contain two top-level sections: getting-started and deep-dive.",
+      "description": "The hierarchical catalog structure. Top-level sections: getting-started, deep-dive, and optionally specify-wiki.",
       "minItems": 1,
       "items": {
         "$ref": "#/definitions/catalogItem"
@@ -93,8 +99,8 @@
         "section": {
           "type": "string",
           "description": "Which major section this article belongs to",
-          "enum": ["getting-started", "deep-dive"],
-          "examples": ["getting-started", "deep-dive"]
+          "enum": ["getting-started", "deep-dive", "specify-wiki"],
+          "examples": ["getting-started", "deep-dive", "specify-wiki"]
         },
         "level": {
           "type": "string",

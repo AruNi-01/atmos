@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Button,
   Panel,
@@ -15,6 +15,10 @@ import { useWikiContext } from "@/hooks/use-wiki-store";
 import { WikiSidebar } from "./WikiSidebar";
 import { WikiContent } from "./WikiContent";
 import { WikiToc } from "./WikiToc";
+import { WikiUpdateDialog } from "./WikiUpdateDialog";
+import { WikiSpecifyDialog } from "./WikiSpecifyDialog";
+
+import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 
 interface WikiViewerProps {
   contextId: string;
@@ -24,6 +28,10 @@ interface WikiViewerProps {
   wikiPage?: string;
   /** Called when wiki page changes — syncs to URL */
   onWikiPageChange: (page: string) => void;
+  terminalGridRef?: React.RefObject<TerminalGridHandle | null>;
+  onSwitchToTerminal?: () => void;
+  onSwitchToProjectWikiAndRun?: (command: string) => void;
+  onProjectWikiReplaceAndRun?: (command: string) => Promise<void>;
 }
 
 export const WikiViewer: React.FC<WikiViewerProps> = ({
@@ -32,10 +40,43 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   projectName,
   wikiPage,
   onWikiPageChange,
+  terminalGridRef,
+  onSwitchToTerminal,
+  onSwitchToProjectWikiAndRun,
+  onProjectWikiReplaceAndRun,
 }) => {
-  const { catalog, catalogLoading, catalogError, activePage, loadCatalog, loadPage } =
-    useWikiContext(contextId);
+  const {
+    catalog,
+    catalogLoading,
+    catalogError,
+    activePage,
+    updateStatus,
+    loadCatalog,
+    loadPage,
+    checkForUpdates,
+  } = useWikiContext(contextId);
   const storage = useAppStorage();
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [specifyDialogOpen, setSpecifyDialogOpen] = useState(false);
+
+  const handleTriggerUpdate = useCallback(() => {
+    setUpdateDialogOpen(true);
+  }, []);
+
+  const handleUpdateComplete = useCallback(() => {
+    setUpdateDialogOpen(false);
+  }, []);
+
+  const handleTriggerSpecify = useCallback(() => {
+    setSpecifyDialogOpen(true);
+  }, []);
+
+  const handleSpecifyComplete = useCallback(() => {
+    setSpecifyDialogOpen(false);
+    if (effectivePath) {
+      loadCatalog(effectivePath); // Reload catalog to show new Specify Wiki section
+    }
+  }, [effectivePath, loadCatalog]);
 
   // Left sidebar collapse state
   const sidebarRef = useRef<ImperativePanelHandle>(null);
@@ -51,6 +92,12 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
     },
     [effectivePath, loadPage, onWikiPageChange]
   );
+
+  // After catalog loads, check if wiki is outdated (commit changed)
+  useEffect(() => {
+    if (!effectivePath || !catalog) return;
+    checkForUpdates(effectivePath);
+  }, [effectivePath, catalog, checkForUpdates]);
 
   // On mount: if URL has a wikiPage, load it; otherwise load first page
   useEffect(() => {
@@ -131,6 +178,9 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
             catalog={catalog}
             activePage={activePage}
             onSelectPage={handleSelectPage}
+            updateStatus={updateStatus ?? null}
+            onTriggerUpdate={handleTriggerUpdate}
+            onTriggerSpecify={handleTriggerSpecify}
           />
         </Panel>
 
@@ -174,6 +224,33 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
 
       {/* Notion-style floating TOC on right edge */}
       <WikiToc contextId={contextId} />
+
+      <WikiSpecifyDialog
+        open={specifyDialogOpen}
+        onOpenChange={setSpecifyDialogOpen}
+        effectivePath={effectivePath}
+        workspaceId={contextId}
+        terminalGridRef={terminalGridRef}
+        onSwitchToTerminal={onSwitchToTerminal}
+        onSwitchToProjectWikiAndRun={onSwitchToProjectWikiAndRun}
+        onProjectWikiReplaceAndRun={onProjectWikiReplaceAndRun}
+        onComplete={handleSpecifyComplete}
+      />
+      {catalog.commit_hash && updateStatus?.currentCommit && (
+        <WikiUpdateDialog
+          open={updateDialogOpen}
+          onOpenChange={setUpdateDialogOpen}
+          effectivePath={effectivePath}
+          catalogCommit={catalog.commit_hash}
+          currentCommit={updateStatus.currentCommit}
+          workspaceId={contextId}
+          terminalGridRef={terminalGridRef}
+          onSwitchToTerminal={onSwitchToTerminal}
+          onSwitchToProjectWikiAndRun={onSwitchToProjectWikiAndRun}
+          onProjectWikiReplaceAndRun={onProjectWikiReplaceAndRun}
+          onComplete={handleUpdateComplete}
+        />
+      )}
     </div>
   );
 };

@@ -285,6 +285,25 @@ impl GitEngine {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    /// Get the current HEAD commit hash (full SHA)
+    pub fn get_head_commit(&self, repo_path: &Path) -> Result<String> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to get HEAD commit: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!(
+                "Failed to get HEAD commit: {}",
+                stderr
+            )));
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
     /// List both local and remote branches for a repository
     pub fn list_branches(&self, repo_path: &Path) -> Result<Vec<String>> {
         let output = Command::new("git")

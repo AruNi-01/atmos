@@ -21,8 +21,10 @@ FILE_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*\.(
 VERSION_PATTERN = re.compile(r"^\d+\.\d+$")
 ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
-VALID_SECTIONS = {"getting-started", "deep-dive"}
+# specify-wiki is optional — users who never use Specify Wiki will not have it
+VALID_SECTIONS = {"getting-started", "deep-dive", "specify-wiki"}
 VALID_LEVELS = {"beginner", "intermediate", "advanced"}
+COMMIT_HASH_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 def validate_catalog_item(item: dict, path_prefix: str, errors: list, warnings: list, seen_ids: set, stats: dict):
@@ -115,7 +117,7 @@ def validate(catalog: dict) -> tuple:
     }
 
     # Top-level required fields
-    for field in ("version", "generated_at", "project", "catalog"):
+    for field in ("version", "generated_at", "project", "catalog", "commit_hash"):
         if field not in catalog:
             errors.append(f"Missing required top-level field: '{field}'")
 
@@ -128,6 +130,15 @@ def validate(catalog: dict) -> tuple:
     generated_at = catalog.get("generated_at", "")
     if generated_at and not ISO8601_PATTERN.match(str(generated_at)):
         errors.append(f"Invalid generated_at format: '{generated_at}' (expected ISO 8601)")
+
+    # commit_hash (required for incremental updates)
+    commit_hash = catalog.get("commit_hash", "")
+    if not commit_hash:
+        errors.append("Missing required 'commit_hash' field (run 'git rev-parse HEAD' at generation time)")
+    elif not isinstance(commit_hash, str) or not COMMIT_HASH_PATTERN.match(commit_hash):
+        errors.append(
+            f"Invalid commit_hash: '{commit_hash}' (expected git SHA, 7-40 hex chars)"
+        )
 
     # project
     project = catalog.get("project")
@@ -153,12 +164,12 @@ def validate(catalog: dict) -> tuple:
                 continue
             validate_catalog_item(item, f"catalog[{i}]", errors, warnings, seen_ids, stats)
 
-        # v2.0: Check for two-part structure
+        # v2.0: Check for two-part structure. specify-wiki is optional — never required.
         top_level_sections = {item.get("section") for item in catalog_items if isinstance(item, dict)}
         if "getting-started" not in top_level_sections or "deep-dive" not in top_level_sections:
             warnings.append(
                 "Catalog does not have both 'getting-started' and 'deep-dive' top-level sections "
-                "(recommended for v2.0 two-part structure)"
+                "(recommended for v2.0). 'specify-wiki' is optional and never required for validation."
             )
     elif catalog_items is not None:
         errors.append("'catalog' must be an array")

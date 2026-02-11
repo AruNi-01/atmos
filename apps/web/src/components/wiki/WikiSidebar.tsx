@@ -10,17 +10,25 @@ import {
   DialogHeader,
   DialogTitle,
   ScrollArea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { ChevronRight, Clock, ExternalLink, Github, Gitlab, Info } from "lucide-react";
+import { ChevronRight, Clock, ExternalLink, FilePlus, Github, Gitlab, Info, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import type { CatalogData, CatalogItem } from "./wiki-utils";
+import type { WikiUpdateStatus } from "@/hooks/use-wiki-store";
 import { isTopLevelSection } from "./wiki-utils";
 
 interface WikiSidebarProps {
   catalog: CatalogData;
   activePage: string | null;
   onSelectPage: (file: string) => void;
+  updateStatus?: WikiUpdateStatus | null;
+  onTriggerUpdate?: () => void;
+  onTriggerSpecify?: () => void;
 }
 
 function getRepoIcon(repoUrl: string): React.ComponentType<{ className?: string }> {
@@ -210,10 +218,16 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
   catalog,
   activePage,
   onSelectPage,
+  updateStatus,
+  onTriggerUpdate,
+  onTriggerSpecify,
 }) => {
   const [infoOpen, setInfoOpen] = useState(false);
   const sorted = [...catalog.catalog].sort((a, b) => a.order - b.order);
   const project = catalog.project;
+  const hasUpdate = updateStatus?.hasUpdate ?? false;
+  const needsRegeneration = updateStatus?.needsRegeneration ?? false;
+  const checking = updateStatus?.checking ?? false;
 
   const formatGeneratedAt = (iso: string) => {
     try {
@@ -225,17 +239,75 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <button
-        type="button"
-        onClick={() => setInfoOpen(true)}
-        title="Project info"
-        className="h-10 px-4 border-b border-border shrink-0 w-full flex items-center gap-2 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none bg-muted/20"
-      >
-        <h3 className="text-base font-semibold text-foreground truncate flex-1 min-w-0">
-          {project?.name ?? "Project Wiki"}
-        </h3>
-        <Info className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      </button>
+      <div className="shrink-0 border-b border-border">
+        <button
+          type="button"
+          onClick={onTriggerSpecify}
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-colors"
+        >
+          <FilePlus className="size-4 shrink-0" />
+          Specify Wiki
+        </button>
+      </div>
+      <div className="h-10 px-4 border-b border-border shrink-0 w-full flex items-center gap-2 bg-muted/20">
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          title="Project info"
+          className="flex-1 min-w-0 flex items-center gap-2 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none -m-1 p-1"
+        >
+          <h3 className="text-base font-semibold text-foreground truncate">
+            {project?.name ?? "Project Wiki"}
+          </h3>
+        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {hasUpdate && onTriggerUpdate && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onTriggerUpdate}
+                    className="p-1.5 rounded-md text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 animate-pulse"
+                    aria-label="Wiki is outdated. Click to update."
+                  >
+                    <RefreshCw className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px]">
+                  <p>Wiki is outdated. Click to update.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {needsRegeneration && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="p-1.5 rounded-md text-muted-foreground cursor-help">
+                    <RefreshCw className="size-4" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px]">
+                  <p>Legacy wiki. Regenerate fully to enable incremental updates.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {checking && (
+            <RefreshCw className="size-4 shrink-0 text-muted-foreground animate-spin" />
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          title="Project info"
+          className="p-1.5 rounded-md hover:bg-accent/30 transition-colors cursor-pointer"
+          aria-label="Project info"
+        >
+          <Info className="size-4 shrink-0 text-muted-foreground" />
+        </button>
+      </div>
 
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
         <DialogContent className="max-w-md">

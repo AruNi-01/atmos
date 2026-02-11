@@ -1,0 +1,99 @@
+---
+name: project-wiki-update
+description: This skill should be used when the user wants to incrementally update an existing Project Wiki. It detects code changes since the wiki was generated, identifies affected wiki pages, and only regenerates those pages while preserving unchanged content.
+---
+
+# Project Wiki Incremental Update Skill
+
+This skill guides a Code Agent to **incrementally update** an existing Project Wiki when the codebase has changed since the wiki was last generated. It follows the same formatting and content conventions as the full generation skill.
+
+## Prerequisites
+
+1. An existing wiki must exist at `./.atmos/wiki/` with a valid `_catalog.json` that includes `commit_hash`.
+2. Read these shared references in this skill directory before making any changes:
+   - **Content & formatting guidelines**: `references/content-guidelines.md` (if it exists; otherwise follow project-wiki conventions)
+   - **Catalog schema**: `references/catalog.schema.json`
+   - **Output structure**: `references/output_structure.md`
+
+## Input Context
+
+The user prompt will provide:
+- `catalog_commit`: The git commit hash when the wiki was generated (from `_catalog.json`)
+- `current_commit`: The current HEAD commit hash
+
+## Three-Phase Hybrid Strategy
+
+### Phase 1: Source-Matched Pages (Automatic)
+
+1. Read `_catalog.json` to get `commit_hash` and the full catalog structure.
+2. Parse every wiki page's frontmatter to collect all `sources` fields → build a "covered files" set.
+3. Run `git diff --name-only <catalog_commit>..HEAD` to get all changed files.
+4. Partition changed files:
+   - **Covered**: Files that appear in at least one page's `sources` → those pages are "definitely needs update".
+   - **Uncovered**: Files not referenced by any page's `sources`.
+
+### Phase 2: Uncovered Changes Analysis (AI Reasoning)
+
+For each uncovered changed file, reason about it:
+- **Add to existing page**: The change is conceptually related to an existing wiki topic (e.g., a new helper in `crates/infra/src/websocket/`) → update that page's content and add the file to its `sources` frontmatter.
+- **Create new page**: A new module, feature, or API was introduced that deserves its own documentation → create a new wiki page, add it to `_catalog.json`.
+- **Skip**: Trivial changes (config files, formatting, test-only, CI scripts, `.gitignore`, lock files) that do not warrant documentation updates.
+
+### Phase 3: Cross-Cutting Impact Check
+
+Review whether any changed file is a widely-used shared utility, base type, or core abstraction. If so, update wiki pages that describe behavior depending on it, even if they do not directly list it in `sources`.
+
+## Execution Steps
+
+### Step 1: Gather Changed Files
+
+```bash
+git diff --name-only <catalog_commit>..HEAD
+```
+
+If the old commit is no longer in history (force push/rebase), fall back to suggesting a full regeneration via the project-wiki skill.
+
+### Step 2: Map Sources to Pages
+
+For each leaf item in the catalog, read its Markdown file and extract the `sources` frontmatter. Build a mapping: `file_path -> [wiki_page_paths]`.
+
+### Step 3: Identify Affected Pages
+
+- Pages whose `sources` overlap with changed files → **must update**
+- For uncovered changed files, use AI reasoning to decide: add to existing, create new, or skip.
+
+### Step 4: Regenerate Affected Pages Only
+
+For each affected page:
+1. Re-read the relevant source files (they may have changed).
+2. Regenerate the Markdown content following the same style as the generation skill (prose-first, Mermaid diagrams, minimal inline code).
+3. Preserve the same frontmatter structure; update `sources` if you added new source files.
+4. Update `updated_at` in frontmatter.
+
+**Do NOT modify** wiki pages that are not affected.
+
+### Step 5: Update Catalog Metadata
+
+1. Update `commit_hash` in `_catalog.json` to the current HEAD: `git rev-parse HEAD`
+2. Update `generated_at` to the current ISO 8601 timestamp.
+3. If you added new catalog items, insert them in the correct order and update the catalog structure.
+
+### Step 6: Validate
+
+Run the validation scripts:
+- `scripts/validate_frontmatter.py .atmos/wiki/`
+- `scripts/validate_catalog.py .atmos/wiki/_catalog.json`
+
+## Edge Cases
+
+- **Massive diff**: If hundreds of files changed, use `git diff --stat` first. If too many files changed (>50 meaningful source files), suggest full regeneration instead.
+- **New files with no existing page**: Create new wiki pages and add them to the appropriate section (Getting Started or Deep Dive) in `_catalog.json`.
+- **Deleted files**: If a source file was deleted, remove it from the page's `sources` and update the content to reflect the change.
+
+## Alignment with project-wiki
+
+All generated or updated content MUST follow the same conventions as the full project-wiki skill:
+- Same frontmatter schema (title, section, level, reading_time, path, sources, updated_at)
+- Same content style (prose-first, minimal code, prefer Mermaid)
+- Same file naming (kebab-case under `.atmos/wiki/`)
+- Same catalog structure (Getting Started / Deep Dive, CatalogItem fields)
