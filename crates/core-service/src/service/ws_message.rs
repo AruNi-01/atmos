@@ -175,6 +175,7 @@ impl WsMessageService {
             WsAction::SkillsList => self.handle_skills_list().await,
             WsAction::SkillsGet => self.handle_skills_get(parse_request(request.data)?).await,
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
+            WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
         }
     }
 
@@ -1028,6 +1029,16 @@ set -x
             "path": target_dir.to_string_lossy(),
             "message": "Skill installed from GitHub"
         }))
+    }
+
+    /// Check if project-wiki skill exists in ~/.atmos/skills/.system/project-wiki
+    async fn handle_wiki_skill_system_status(&self) -> Result<Value> {
+        let target_dir = dirs::home_dir()
+            .map(|h| h.join(".atmos").join("skills").join(".system").join("project-wiki"));
+        let installed = target_dir
+            .map(|p| p.exists() && p.is_dir())
+            .unwrap_or(false);
+        Ok(json!({ "installed": installed }))
     }
 
     fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {

@@ -61,7 +61,8 @@ export type WsAction =
   // Skills 操作
   | 'skills_list'
   | 'skills_get'
-  | 'wiki_skill_install';
+  | 'wiki_skill_install'
+  | 'wiki_skill_system_status';
 
 export interface WsRequest {
   type: 'request';

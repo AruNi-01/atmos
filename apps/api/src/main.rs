@@ -34,7 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting ATMOS API Server...");
 
-    // Sync project-wiki skill to ~/.atmos/skills/.system/ when running from ATMOS source
+    // Sync project-wiki skill to ~/.atmos/skills/.system/ on startup (from project or GitHub)
     tokio::task::spawn_blocking(utils::wiki_skill_sync::sync_project_wiki_skill_on_startup);
 
     let db_connection = DbConnection::new().await?;

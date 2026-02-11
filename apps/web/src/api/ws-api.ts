@@ -635,4 +635,12 @@ export const skillsApi = {
   installProjectWiki: async (): Promise<{ success: boolean; path: string; message: string }> => {
     return wsRequest<{ success: boolean; path: string; message: string }>('wiki_skill_install');
   },
+
+  /**
+   * Check if project-wiki skill is installed in ~/.atmos/skills/.system/project-wiki
+   */
+  isProjectWikiInstalledInSystem: async (): Promise<boolean> => {
+    const res = await wsRequest<{ installed: boolean }>('wiki_skill_system_status');
+    return res.installed;
+  },
 };

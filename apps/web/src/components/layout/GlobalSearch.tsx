@@ -648,11 +648,11 @@ export function GlobalSearch() {
           <span className="text-xs font-bold truncate flex-1 text-foreground">{match.file_path}</span>
           <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border/20">L{match.line_number}</span>
         </div>
-        <div className="font-mono text-[11px] leading-relaxed space-y-1">
+        <div className="font-mono text-[11px] leading-relaxed space-y-1 overflow-hidden">
           {match.context_before.map((line, i) => (
             <div key={i} className="text-muted-foreground/70 whitespace-pre overflow-hidden truncate">{line}</div>
           ))}
-          <div className="bg-primary/20 text-foreground px-2 py-1.5 -mx-2 rounded-md border-l-4 border-primary shadow-sm font-medium">
+          <div className="bg-primary/20 text-foreground px-2 py-1.5 -mx-2 rounded-md border-l-4 border-primary shadow-sm font-medium whitespace-pre-wrap break-all">
             {match.line_content}
           </div>
           {match.context_after.map((line, i) => (
