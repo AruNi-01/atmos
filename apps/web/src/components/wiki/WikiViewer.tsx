@@ -155,7 +155,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
             className={cn(
               "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100 cursor-pointer",
               "left-1/2 -translate-x-1/2",
-              isSidebarCollapsed && "opacity-100! bg-accent!"
+              isSidebarCollapsed && "hover:opacity-100! hover:bg-accent!"
             )}
           >
             {isSidebarCollapsed ? (

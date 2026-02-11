@@ -12,7 +12,7 @@ import {
   ScrollArea,
   cn,
 } from "@workspace/ui";
-import { ChevronRight, ExternalLink, FileText, FolderOpen, Github, Gitlab, Info } from "lucide-react";
+import { ChevronRight, ExternalLink, Github, Gitlab, Info } from "lucide-react";
 import { format } from "date-fns";
 import type { CatalogData, CatalogItem } from "./wiki-utils";
 
@@ -58,7 +58,6 @@ const WikiSidebarItem: React.FC<{
         )}
         style={{ paddingLeft: `${depth * 12 + 12}px` }}
       >
-        <FileText className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate">{item.title}</span>
       </button>
     );
@@ -78,7 +77,6 @@ const WikiSidebarItem: React.FC<{
         <ChevronRight
           className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
         />
-        <FolderOpen className="size-3.5 shrink-0" />
         <span className="truncate font-medium">{item.title}</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
