@@ -106,6 +106,7 @@ dependencies = [
  "axum",
  "core-engine",
  "core-service",
+ "dirs 5.0.1",
  "dotenvy",
  "futures-util",
  "infra",

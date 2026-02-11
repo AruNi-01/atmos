@@ -628,4 +628,11 @@ export const skillsApi = {
   get: async (scope: string, id: string): Promise<SkillInfo> => {
     return wsRequest<SkillInfo>('skills_get', { scope, id });
   },
+
+  /**
+   * Install project-wiki skill to ~/.atmos/skills/.system/project-wiki
+   */
+  installProjectWiki: async (): Promise<{ success: boolean; path: string; message: string }> => {
+    return wsRequest<{ success: boolean; path: string; message: string }>('wiki_skill_install');
+  },
 };

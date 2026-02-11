@@ -7,6 +7,7 @@ use infra::{SkillInfo, SkillFile};
 
 /// Agent skill directory configurations
 const AGENT_SKILL_DIRS: &[(&str, &str)] = &[
+    ("atmos", ".atmos/skills/.system"),
     ("amp", ".agents/skills"),
     ("antigravity", ".agent/skills"),
     ("augment", ".augment/rules"),

@@ -174,6 +174,7 @@ impl WsMessageService {
             // Skills
             WsAction::SkillsList => self.handle_skills_list().await,
             WsAction::SkillsGet => self.handle_skills_get(parse_request(request.data)?).await,
+            WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
         }
     }
 
@@ -954,6 +955,94 @@ set -x
         } else {
              Err(ServiceError::Validation("Skill not found".to_string()))
         }
+    }
+
+    /// Install project-wiki skill to ~/.atmos/skills/.system/project-wiki.
+    /// Tries to copy from project root first; falls back to git clone from GitHub.
+    async fn handle_wiki_skill_install(&self) -> Result<Value> {
+        let home = dirs::home_dir()
+            .ok_or_else(|| ServiceError::Validation("Cannot determine home directory".to_string()))?;
+        let target_dir = home.join(".atmos").join("skills").join(".system").join("project-wiki");
+
+        if target_dir.exists() {
+            return Ok(json!({
+                "success": true,
+                "path": target_dir.to_string_lossy(),
+                "message": "Skill already installed"
+            }));
+        }
+
+        // Ensure parent directory exists
+        if let Some(parent) = target_dir.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| ServiceError::Validation(format!("Failed to create directory: {}", e)))?;
+        }
+
+        // Try copy from project root (when running from ATMOS source)
+        let project_root = std::env::current_dir().unwrap_or_default();
+        let source_in_project = project_root.join("skills").join("project-wiki");
+        if source_in_project.exists() && source_in_project.is_dir() {
+            Self::copy_dir_all(&source_in_project, &target_dir)
+                .map_err(|e| ServiceError::Validation(format!("Failed to copy skill: {}", e)))?;
+            return Ok(json!({
+                "success": true,
+                "path": target_dir.to_string_lossy(),
+                "message": "Skill installed from project"
+            }));
+        }
+
+        // Fallback: clone from GitHub
+        let temp_dir = std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let clone_path = temp_dir.join("atmos");
+
+        let clone_status = tokio::process::Command::new("git")
+            .args([
+                "clone",
+                "--depth",
+                "1",
+                "https://github.com/AruNi-01/atmos.git",
+                clone_path.to_str().unwrap_or("atmos"),
+            ])
+            .current_dir(temp_dir.parent().unwrap_or(&std::env::temp_dir()))
+            .status()
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Git clone failed: {}", e)))?;
+
+        if !clone_status.success() {
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            return Err(ServiceError::Validation(
+                "Failed to clone from GitHub. Check network and git installation.".to_string(),
+            ));
+        }
+
+        let skill_src = clone_path.join("skills").join("project-wiki");
+        if skill_src.exists() {
+            Self::copy_dir_all(&skill_src, &target_dir)
+                .map_err(|e| ServiceError::Validation(format!("Failed to copy skill: {}", e)))?;
+        }
+        let _ = std::fs::remove_dir_all(&temp_dir);
+
+        Ok(json!({
+            "success": true,
+            "path": target_dir.to_string_lossy(),
+            "message": "Skill installed from GitHub"
+        }))
+    }
+
+    fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let ty = entry.file_type()?;
+            let dst_path = dst.join(entry.file_name());
+            if ty.is_dir() {
+                Self::copy_dir_all(&entry.path(), &dst_path)?;
+            } else {
+                std::fs::copy(entry.path(), dst_path)?;
+            }
+        }
+        Ok(())
     }
 }
 

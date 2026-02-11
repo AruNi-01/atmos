@@ -59,7 +59,9 @@ export type WsAction =
   // Project 检查操作
   | 'project_check_can_delete'
   // Skills 操作
-  | 'skills_list';
+  | 'skills_list'
+  | 'skills_get'
+  | 'wiki_skill_install';
 
 export interface WsRequest {
   type: 'request';

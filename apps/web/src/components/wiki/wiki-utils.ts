@@ -4,6 +4,9 @@
  */
 import BananaSlug, { slug } from "github-slugger";
 
+export type WikiSection = "getting-started" | "deep-dive";
+export type WikiLevel = "beginner" | "intermediate" | "advanced";
+
 export interface CatalogItem {
   id: string;
   title: string;
@@ -11,6 +14,12 @@ export interface CatalogItem {
   order: number;
   file: string;
   children: CatalogItem[];
+  /** Which major section: "getting-started" or "deep-dive" */
+  section?: WikiSection;
+  /** Difficulty level */
+  level?: WikiLevel;
+  /** Estimated reading time in minutes */
+  reading_time?: number;
 }
 
 export interface CatalogData {
@@ -28,6 +37,14 @@ export interface Heading {
   level: 2 | 3 | 4;
   text: string;
   id: string;
+}
+
+/** Known top-level section ids for the two-part wiki structure */
+const TOP_LEVEL_SECTION_IDS = new Set(["getting-started", "deep-dive"]);
+
+/** Check if a catalog item is a top-level section header (not a navigable page) */
+export function isTopLevelSection(item: CatalogItem): boolean {
+  return TOP_LEVEL_SECTION_IDS.has(item.id) || item.section === item.id;
 }
 
 /** Flatten catalog into a list of leaf items (pages) with file paths, sorted by order */
@@ -80,6 +97,9 @@ export interface ParsedFrontmatter {
   path?: string;
   sources?: string[];
   updated_at?: string;
+  section?: WikiSection;
+  level?: WikiLevel;
+  reading_time?: number;
   [key: string]: unknown;
 }
 

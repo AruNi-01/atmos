@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://atmos.dev/schemas/project-wiki/catalog.json",
   "title": "Project Wiki Catalog Schema",
-  "description": "Schema for validating the _catalog.json file in ATMOS Project Wiki",
+  "description": "Schema for validating the _catalog.json file in ATMOS Project Wiki. Supports two-part structure (Getting Started + Deep Dive) with reading time and difficulty level metadata.",
   "type": "object",
   "required": ["version", "generated_at", "project", "catalog"],
   "properties": {
@@ -10,7 +10,7 @@
       "type": "string",
       "description": "The version of the catalog format",
       "pattern": "^\\d+\\.\\d+$",
-      "examples": ["1.0"]
+      "examples": ["2.0"]
     },
     "generated_at": {
       "type": "string",
@@ -46,7 +46,7 @@
     },
     "catalog": {
       "type": "array",
-      "description": "The hierarchical catalog structure",
+      "description": "The hierarchical catalog structure. Should contain two top-level sections: getting-started and deep-dive.",
       "minItems": 1,
       "items": {
         "$ref": "#/definitions/catalogItem"
@@ -64,19 +64,19 @@
           "type": "string",
           "description": "Unique identifier for this catalog item, using dot notation for hierarchy",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)*$",
-          "examples": ["overview", "core.authentication", "api.endpoints"]
+          "examples": ["getting-started", "getting-started.quick-start", "deep-dive.infra.websocket"]
         },
         "title": {
           "type": "string",
           "description": "Display title for this catalog item",
           "minLength": 1,
-          "examples": ["Project Overview", "User Authentication", "API Endpoints"]
+          "examples": ["Getting Started", "Quick Start", "WebSocket Service Deep Dive"]
         },
         "path": {
           "type": "string",
           "description": "File path relative to .atmos/wiki/ directory",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*$",
-          "examples": ["overview", "core/authentication", "api/endpoints"]
+          "examples": ["getting-started", "getting-started/quick-start", "deep-dive/infra/websocket"]
         },
         "order": {
           "type": "integer",
@@ -88,7 +88,26 @@
           "type": "string",
           "description": "Path to the Markdown file for this item, relative to .atmos/wiki/",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*\\.(md|markdown)$",
-          "examples": ["overview/index.md", "core/authentication.md"]
+          "examples": ["getting-started/index.md", "deep-dive/infra/websocket.md"]
+        },
+        "section": {
+          "type": "string",
+          "description": "Which major section this article belongs to",
+          "enum": ["getting-started", "deep-dive"],
+          "examples": ["getting-started", "deep-dive"]
+        },
+        "level": {
+          "type": "string",
+          "description": "Difficulty level of this article",
+          "enum": ["beginner", "intermediate", "advanced"],
+          "examples": ["beginner", "intermediate", "advanced"]
+        },
+        "reading_time": {
+          "type": "integer",
+          "description": "Estimated reading time in minutes",
+          "minimum": 1,
+          "maximum": 30,
+          "examples": [5, 10, 15]
         },
         "children": {
           "type": "array",

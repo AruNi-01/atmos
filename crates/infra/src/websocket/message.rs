@@ -186,6 +186,8 @@ pub enum WsAction {
     SkillsList,
     /// 获取单个 Skill 详情
     SkillsGet,
+    /// 安装 Project Wiki skill 到 ~/.atmos/skills/.system/project-wiki
+    WikiSkillInstall,
 }
 
 /// 服务端主动推送的事件类型
