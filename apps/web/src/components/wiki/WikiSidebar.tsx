@@ -36,7 +36,7 @@ const WikiSidebarItem: React.FC<{
         type="button"
         onClick={() => onSelectPage(item.file)}
         className={cn(
-          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-sm transition-colors",
+          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-sm transition-colors cursor-pointer",
           "hover:bg-accent/50",
           isActive && "bg-accent text-accent-foreground"
         )}
@@ -54,7 +54,7 @@ const WikiSidebarItem: React.FC<{
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger
         className={cn(
-          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-sm transition-colors",
+          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-sm transition-colors cursor-pointer",
           "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
         )}
         style={{ paddingLeft: `${depth * 12 + 12}px` }}

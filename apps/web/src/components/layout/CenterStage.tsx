@@ -39,7 +39,7 @@ import { DiffViewer } from "@/components/diff/DiffViewer";
 import { Plus, Bot, Sparkles, Cpu, Zap, Brain, BookOpen } from "lucide-react";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
@@ -94,14 +94,62 @@ interface CenterStageProps {
   logs: TerminalLine[];
 }
 
+type FixedTab = "overview" | "terminal" | "wiki";
+const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki"]);
+
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
-  const [fixedTab, setFixedTab] = React.useState<"overview" | "terminal" | "wiki">("terminal");
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
 
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const workspaceId = searchParams.get("workspaceId");
+  const projectId = searchParams.get("projectId");
+  const effectiveContextId = workspaceId || projectId;
+
+  // --- URL-synced tab state ---
+  const tabFromUrl = searchParams.get("tab");
+  const fixedTab: FixedTab =
+    tabFromUrl && FIXED_TABS.has(tabFromUrl) ? (tabFromUrl as FixedTab) : "terminal";
+  const wikiPageFromUrl = searchParams.get("wikiPage") || undefined;
+
+  const updateUrlParams = React.useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === null) {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      }
+      router.push(`/?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const setFixedTab = React.useCallback(
+    (tab: FixedTab) => {
+      const updates: Record<string, string | null> = { tab };
+      // Clear wikiPage when leaving wiki tab
+      if (tab !== "wiki") {
+        updates.wikiPage = null;
+      }
+      updateUrlParams(updates);
+    },
+    [updateUrlParams]
+  );
+
+  const setWikiPage = React.useCallback(
+    (page: string) => {
+      updateUrlParams({ tab: "wiki", wikiPage: page });
+    },
+    [updateUrlParams]
+  );
 
   const handleCloseFile = (file: OpenFile) => {
     if (file.isDirty) {
@@ -117,11 +165,6 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       setFileToClose(null);
     }
   };
-
-  const searchParams = useSearchParams();
-  const workspaceId = searchParams.get("workspaceId");
-  const projectId = searchParams.get("projectId");
-  const effectiveContextId = workspaceId || projectId;
 
   const {
     setWorkspaceId,
@@ -248,11 +291,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       <Tabs
         value={activeValue}
         onValueChange={(val) => {
-          if (val === "terminal" || val === "overview" || val === "wiki") {
-            setFixedTab(val);
+          if (FIXED_TABS.has(val)) {
+            setFixedTab(val as FixedTab);
             setActiveFile(null, effectiveContextId || undefined);
           } else {
             setActiveFile(val, effectiveContextId || undefined);
+            // Clear tab param when opening a file
+            updateUrlParams({ tab: null, wikiPage: null });
           }
         }}
         className="flex-1 flex flex-col gap-0 min-h-0 overflow-hidden"
@@ -500,6 +545,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               projectName={currentProject?.name}
               terminalGridRef={terminalGridRef}
               onSwitchToTerminal={() => setFixedTab("terminal")}
+              wikiPage={wikiPageFromUrl}
+              onWikiPageChange={setWikiPage}
             />
           </div>
         )}

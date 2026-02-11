@@ -7,6 +7,7 @@ import rehypeSlug from 'rehype-slug';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { Copy, Check } from 'lucide-react';
+import { MermaidViewerModal } from './MermaidViewerModal';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -44,10 +45,13 @@ function CopyButton({ text }: { text: string }) {
 function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!code?.trim() || !containerRef.current) return;
     setError(null);
+    setRenderedSvg(null);
     let cancelled = false;
 
     import('mermaid').then((mermaid) => {
@@ -62,6 +66,7 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
         mermaid.default.render(id, code).then(({ svg }) => {
           if (cancelled || !containerRef.current) return;
           containerRef.current.innerHTML = svg;
+          setRenderedSvg(svg);
         }).catch((err: Error) => {
           if (!cancelled) setError(err.message || 'Mermaid render failed');
         });
@@ -81,7 +86,32 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
     );
   }
 
-  return <div ref={containerRef} className="mermaid-container my-4 flex justify-center" />;
+  return (
+    <>
+      <div
+        ref={containerRef}
+        role="button"
+        tabIndex={0}
+        onClick={() => renderedSvg && setModalOpen(true)}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && renderedSvg) {
+            e.preventDefault();
+            setModalOpen(true);
+          }
+        }}
+        className="mermaid-container my-4 flex justify-center cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg overflow-hidden"
+        aria-label="Click to enlarge diagram"
+      />
+      {renderedSvg && (
+        <MermaidViewerModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          svgContent={renderedSvg}
+          isDark={isDark}
+        />
+      )}
+    </>
+  );
 }
 
 function CodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {

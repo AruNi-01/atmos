@@ -13,6 +13,10 @@ interface WikiTabProps {
   projectName?: string;
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal: () => void;
+  /** Current wiki page from URL (e.g. "overview/index") */
+  wikiPage?: string;
+  /** Called when wiki page changes — syncs to URL */
+  onWikiPageChange: (page: string) => void;
 }
 
 export const WikiTab: React.FC<WikiTabProps> = ({
@@ -21,6 +25,8 @@ export const WikiTab: React.FC<WikiTabProps> = ({
   projectName,
   terminalGridRef,
   onSwitchToTerminal,
+  wikiPage,
+  onWikiPageChange,
 }) => {
   const {
     wikiExists,
@@ -70,6 +76,8 @@ export const WikiTab: React.FC<WikiTabProps> = ({
       contextId={contextId}
       effectivePath={effectivePath}
       projectName={projectName}
+      wikiPage={wikiPage}
+      onWikiPageChange={onWikiPageChange}
     />
   );
 };
