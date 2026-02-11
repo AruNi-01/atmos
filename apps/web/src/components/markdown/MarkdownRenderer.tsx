@@ -1,44 +1,119 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
-import { Copy, Check } from 'lucide-react';
 import { MermaidViewerModal } from './MermaidViewerModal';
+import {
+  CodeBlock,
+  CodeBlockHeader,
+  CodeBlockIcon,
+  CodeBlockGroup,
+  CodeBlockContent,
+} from '@/components/code-block/code-block';
+import { CopyButton } from '@/components/code-block/copy-button';
+import { highlight, DualThemes, type Languages } from '@/utils/shiki';
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+const LANG_ALIASES: Record<string, string> = {
+  sh: 'bash',
+  shell: 'bash',
+  zsh: 'bash',
+  js: 'javascript',
+  ts: 'typescript',
+  py: 'python',
+  rs: 'rust',
+  yml: 'yaml',
+  'c++': 'cpp',
+  md: 'markdown',
+};
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback
+const LANG_TO_EXT: Record<string, string> = {
+  javascript: 'js',
+  typescript: 'ts',
+  tsx: 'tsx',
+  jsx: 'jsx',
+  python: 'py',
+  rust: 'rs',
+  bash: 'sh',
+  shellscript: 'sh',
+  markdown: 'md',
+  yaml: 'yml',
+  toml: 'toml',
+  json: 'json',
+  html: 'html',
+  css: 'css',
+  go: 'go',
+  java: 'java',
+  sql: 'sql',
+  dockerfile: 'dockerfile',
+  c: 'c',
+  cpp: 'cpp',
+};
+
+const SUPPORTED_LANGS = new Set([
+  'html', 'javascript', 'typescript', 'tsx', 'jsx', 'css', 'json',
+  'bash', 'shellscript', 'markdown', 'python', 'rust', 'go', 'java',
+  'yaml', 'toml', 'sql', 'dockerfile', 'c', 'cpp',
+]);
+
+function normalizeLang(lang: string): string {
+  const lower = lang.toLowerCase();
+  return LANG_ALIASES[lower] ?? lower;
+}
+
+function ShikiCode({
+  code,
+  language,
+}: {
+  code: string;
+  language: string;
+}) {
+  const [html, setHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const normalized = normalizeLang(language);
+
+    if (!SUPPORTED_LANGS.has(normalized)) {
+      setHtml(null);
+      return;
     }
-  }, [text]);
+
+    highlight()
+      .then((highlighter) => {
+        if (cancelled) return;
+        const result = highlighter.codeToHtml(code, {
+          lang: normalized as Languages,
+          themes: DualThemes,
+          transformers: [{
+            name: 'add-line-numbers',
+            pre(node) {
+              node.properties.class = `${node.properties.class ?? ''} shiki-line-numbers`;
+            },
+          }],
+        });
+        setHtml(result);
+      })
+      .catch(() => {
+        if (!cancelled) setHtml(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [code, language]);
+
+  if (html) {
+    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  }
 
   return (
-    <button
-      onClick={handleCopy}
-      className="flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors cursor-pointer text-zinc-400 hover:bg-black/5 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-    >
-      {copied ? (
-        <>
-          <Check className="size-3.5" />
-          <span>Copied</span>
-        </>
-      ) : (
-        <>
-          <Copy className="size-3.5" />
-          <span>Copy</span>
-        </>
-      )}
-    </button>
+    <pre className="py-3">
+      <code className="text-[13px] leading-relaxed">{code}</code>
+    </pre>
   );
 }
 
@@ -114,7 +189,7 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   );
 }
 
-function CodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
+function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
   const codeText = String(children).replace(/\n$/, '');
@@ -136,24 +211,25 @@ function CodeBlock({ className, children, ...props }: React.ComponentPropsWithou
   }
 
   return (
-    <div className="not-prose relative group rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700/50 my-4">
-      <div className="flex items-center justify-between px-4 py-2 bg-zinc-100 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-700/50">
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-          {language || 'code'}
-        </span>
-        <CopyButton text={codeText} />
-      </div>
-      <pre className="!m-0 !rounded-none !bg-zinc-50 dark:!bg-zinc-900 p-4 overflow-x-auto">
-        <code className={cn(className, "text-[13px] leading-relaxed text-zinc-800 dark:text-zinc-200")} {...props}>
-          {children}
-        </code>
-      </pre>
-    </div>
+    <CodeBlock className="my-4">
+      <CodeBlockHeader>
+        <CodeBlockGroup>
+          <CodeBlockIcon language={LANG_TO_EXT[normalizeLang(language)] || language || 'txt'} />
+          <span className="text-xs uppercase tracking-wider">
+            {language || 'code'}
+          </span>
+        </CodeBlockGroup>
+        <CopyButton content={codeText} />
+      </CodeBlockHeader>
+      <CodeBlockContent>
+        <ShikiCode code={codeText} language={language} />
+      </CodeBlockContent>
+    </CodeBlock>
   );
 }
 
 const markdownComponents: Components = {
-  code: CodeBlock,
+  code: MarkdownCodeBlock,
   pre: ({ children }) => <>{children}</>,
   table: ({ children }) => (
     <div className="not-prose my-4 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700/50">

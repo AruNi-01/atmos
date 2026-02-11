@@ -2,8 +2,15 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { ScrollArea, cn, toastManager } from "@workspace/ui";
-import { AlertTriangle, Eye, Loader2, Pencil, Save } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  ScrollArea,
+  cn,
+  toastManager,
+} from "@workspace/ui";
+import { AlertTriangle, ChevronRight, Eye, Loader2, Pencil, Save } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
 import { parseFrontmatter } from "./wiki-utils";
@@ -147,21 +154,9 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Header with Edit/Preview toggle */}
-      <div className="shrink-0 px-4 py-2 border-b border-border bg-muted/20 flex items-center justify-between gap-3">
+      <div className="h-10 shrink-0 px-4 border-b border-border bg-muted/20 flex items-center justify-between gap-3">
         <div className="flex flex-col min-w-0 flex-1">
           <h2 className="text-base font-semibold text-foreground">{title}</h2>
-          {sources.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {sources.map((src) => (
-                <span
-                  key={src}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono"
-                >
-                  {src}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {hasUnsavedChanges && (
@@ -204,7 +199,27 @@ export const WikiContent: React.FC<WikiContentProps> = ({
         {isPreview ? (
           <ScrollArea className="h-full">
             <div ref={topRef} />
-            <div id="wiki-content-root" className="px-6 py-6">
+            <div id="wiki-content-root" className="px-6 py-6 space-y-4">
+              {sources.length > 0 && (
+                <Collapsible defaultOpen={false} className="rounded-lg border border-border">
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer transition-colors">
+                    <ChevronRight className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+                    <span>Relevant source files</span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="flex flex-wrap gap-1.5 px-3 pt-2 pb-3 border-t border-border">
+                      {sources.map((src) => (
+                        <span
+                          key={src}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono"
+                        >
+                          {src}
+                        </span>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
               <MarkdownRenderer>{body}</MarkdownRenderer>
             </div>
           </ScrollArea>
