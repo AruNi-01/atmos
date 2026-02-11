@@ -5,16 +5,32 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   ScrollArea,
   cn,
 } from "@workspace/ui";
-import { ChevronRight, FileText, FolderOpen } from "lucide-react";
+import { ChevronRight, ExternalLink, FileText, FolderOpen, Github, Gitlab } from "lucide-react";
+import { format } from "date-fns";
 import type { CatalogData, CatalogItem } from "./wiki-utils";
 
 interface WikiSidebarProps {
   catalog: CatalogData;
   activePage: string | null;
   onSelectPage: (file: string) => void;
+}
+
+function getRepoIcon(repoUrl: string): React.ComponentType<{ className?: string }> {
+  try {
+    const host = new URL(repoUrl).hostname.toLowerCase();
+    if (host.includes("github")) return Github;
+    if (host.includes("gitlab")) return Gitlab;
+  } catch {
+    // invalid URL
+  }
+  return ExternalLink;
 }
 
 function isLeaf(item: CatalogItem): boolean {
@@ -36,7 +52,7 @@ const WikiSidebarItem: React.FC<{
         type="button"
         onClick={() => onSelectPage(item.file)}
         className={cn(
-          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-sm transition-colors cursor-pointer",
+          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-none transition-colors cursor-pointer",
           "hover:bg-accent/50",
           isActive && "bg-accent text-accent-foreground"
         )}
@@ -54,7 +70,7 @@ const WikiSidebarItem: React.FC<{
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger
         className={cn(
-          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-sm transition-colors cursor-pointer",
+          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-none transition-colors cursor-pointer",
           "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
         )}
         style={{ paddingLeft: `${depth * 12 + 12}px` }}
@@ -85,22 +101,83 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
   activePage,
   onSelectPage,
 }) => {
+  const [infoOpen, setInfoOpen] = useState(false);
   const sorted = [...catalog.catalog].sort((a, b) => a.order - b.order);
+  const project = catalog.project;
+
+  const formatGeneratedAt = (iso: string) => {
+    try {
+      return format(new Date(iso), "yyyy-MM-dd HH:mm");
+    } catch {
+      return iso;
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-background border-r border-border">
-      <div className="px-3 py-3 border-b border-border shrink-0">
+      <button
+        type="button"
+        onClick={() => setInfoOpen(true)}
+        className="px-3 py-3 border-b border-border shrink-0 w-full text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none"
+      >
         <h3 className="text-sm font-semibold text-foreground truncate">
-          {catalog.project?.name ?? "Project Wiki"}
+          {project?.name ?? "Project Wiki"}
         </h3>
-        {catalog.project?.description && (
-          <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-            {catalog.project.description}
+        {project?.description && (
+          <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
+            {project.description}
           </p>
         )}
-      </div>
+      </button>
+
+      <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{project?.name ?? "Project Wiki"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            {project?.description && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                <p className="text-foreground">{project.description}</p>
+              </div>
+            )}
+            {project?.repository && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Repository</p>
+                <a
+                  href={project.repository}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-primary hover:underline"
+                >
+                  {React.createElement(getRepoIcon(project.repository), {
+                    className: "size-4 shrink-0",
+                  })}
+                  <span className="truncate max-w-[280px]">{project.repository}</span>
+                  <ExternalLink className="size-3 shrink-0 opacity-60" />
+                </a>
+              </div>
+            )}
+            <div className="flex justify-between items-start gap-4 pt-2 border-t border-border">
+              {catalog.version && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-0.5">Version</p>
+                  <p className="font-mono text-foreground">{catalog.version}</p>
+                </div>
+              )}
+              {catalog.generated_at && (
+                <div className="text-right ml-auto">
+                  <p className="text-xs font-medium text-muted-foreground mb-0.5">Generated</p>
+                  <p className="text-foreground">{formatGeneratedAt(catalog.generated_at)}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <ScrollArea className="flex-1">
-        <div className="py-2">
+        <div>
           {sorted.map((item) => (
             <WikiSidebarItem
               key={item.id}
