@@ -213,7 +213,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FilePlus className="size-5 text-violet-500" />
+              <FilePlus className="size-5 text-muted-foreground" />
               Specify Wiki
             </DialogTitle>
             <DialogDescription>
@@ -240,7 +240,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                     key={ex}
                     type="button"
                     onClick={() => handleExampleClick(ex)}
-                    className="text-[11px] px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground truncate max-w-[280px]"
+                    className="text-[11px] px-2 py-1 rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground truncate max-w-[280px] cursor-pointer"
                   >
                     {ex}
                   </button>
@@ -252,7 +252,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                 Code Agent
               </label>
               <Select value={agentId} onValueChange={(v) => setAgentId(v as typeof agentId)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full cursor-pointer">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -266,10 +266,10 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRunning}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRunning} className="cursor-pointer">
               Cancel
             </Button>
-            <Button onClick={handleRunSpecify} disabled={isRunning || !topic.trim()}>
+            <Button onClick={handleRunSpecify} disabled={isRunning || !topic.trim()} className="cursor-pointer">
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
@@ -299,10 +299,10 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))}>
+            <Button variant="outline" onClick={() => (setConflictDialogOpen(false), setPendingCommand(null))} className="cursor-pointer">
               Cancel
             </Button>
-            <Button onClick={handleConfirmReplaceAndRun} disabled={isRunning}>
+            <Button onClick={handleConfirmReplaceAndRun} disabled={isRunning} className="cursor-pointer">
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />

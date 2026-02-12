@@ -35,7 +35,7 @@ const AGENT_OPTIONS = [
   { id: "droid", label: "Droid", cmd: "droid", yoloFlag: "" },
   { id: "opencode", label: "OpenCode", cmd: "opencode", yoloFlag: "--yolo" },
   { id: "kimi", label: "Kimi", cmd: "kimi", yoloFlag: "" },
-  { id: "cursor", label: "Cursor Agent", cmd: "cursor", yoloFlag: "" },
+  { id: "cursor", label: "Cursor Agent", cmd: "agent", yoloFlag: "--force" },
   { id: "kilocode", label: "Kilo Code", cmd: "kilocode", yoloFlag: "" },
   { id: "kiro", label: "Kiro", cmd: "kiro", yoloFlag: "" },
 ] as const;
@@ -87,8 +87,15 @@ function buildPrompt(language: string, customLanguage: string): string {
   const langInstruction = lang ? ` Generate all wiki content in ${lang}.` : "";
 
   const skillRef = `${PROJECT_WIKI_SKILL_PATH}/SKILL.md`;
+  const initScript = `${PROJECT_WIKI_SKILL_PATH}/scripts/init_wiki_todo.sh`;
 
-  return `Read the skill instructions at ${skillRef} and follow them to generate a complete project wiki. You are in the project root. Create the wiki in ./.atmos/wiki/.${langInstruction}`;
+  return `Read the skill instructions at ${skillRef} and follow them to generate a complete project wiki. You are in the project root. Create the wiki in ./.atmos/wiki/.${langInstruction}
+
+MANDATORY (do not skip):
+1. First run: bash ${initScript} — this pre-creates .atmos/wiki/_todo.md
+2. Maintain _todo.md throughout: update checkboxes as you complete each step
+3. Before considering complete: validate_catalog, validate_frontmatter, and validate_todo must ALL pass
+4. If Python unavailable: use bash ${PROJECT_WIKI_SKILL_PATH}/scripts/validate_catalog.sh and bash ${PROJECT_WIKI_SKILL_PATH}/scripts/validate_todo.sh`;
 }
 
 interface WikiSetupProps {
