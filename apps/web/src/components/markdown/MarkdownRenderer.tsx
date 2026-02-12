@@ -15,6 +15,7 @@ import {
   CodeBlockContent,
   CodeBlockIcon,
 } from '@/components/code-block/code-block';
+import { resolveWikiPath } from "@/components/wiki/wiki-utils";
 import { CopyButton } from '@/components/code-block/copy-button';
 import { ExpandButton } from '@/components/code-block/expand-button';
 import { highlight, DualThemes, type Languages } from '@/utils/shiki';
@@ -339,7 +340,7 @@ function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPro
   );
 }
 
-const markdownComponents: Components = {
+const DEFAULT_MARKDOWN_COMPONENTS: Components = {
   code: MarkdownCodeBlock,
   pre: ({ children }) => <>{children}</>,
   table: ({ children }) => (
@@ -364,10 +365,45 @@ const markdownComponents: Components = {
 interface MarkdownRendererProps {
   children: string;
   className?: string;
+  /** When set, intercepts relative .md links and calls this instead of navigating */
+  wikiBasePath?: string;
+  onWikiLinkNavigate?: (slug: string, hash?: string) => void;
 }
 
-export function MarkdownRenderer({ children, className }: MarkdownRendererProps) {
+export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLinkNavigate }: MarkdownRendererProps) {
   const { resolvedTheme } = useTheme();
+
+  const components = React.useMemo(() => {
+    if (!wikiBasePath || !onWikiLinkNavigate) return DEFAULT_MARKDOWN_COMPONENTS;
+    return {
+      ...DEFAULT_MARKDOWN_COMPONENTS,
+      a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+        if (!href) return <a {...props}>{children}</a>;
+        const resolved = resolveWikiPath(wikiBasePath, href);
+        if (resolved) {
+          return (
+            <a
+              {...props}
+              href={href}
+              onClick={(e) => {
+                e.preventDefault();
+                onWikiLinkNavigate(resolved.slug, resolved.hash);
+                if (resolved.hash) {
+                  setTimeout(() => {
+                    window.location.hash = resolved.hash!;
+                  }, 50);
+                }
+              }}
+              className={cn("cursor-pointer", props.className)}
+            >
+              {children}
+            </a>
+          );
+        }
+        return <a href={href} {...props}>{children}</a>;
+      },
+    };
+  }, [wikiBasePath, onWikiLinkNavigate]);
 
   return (
     <div className={cn(
@@ -378,7 +414,7 @@ export function MarkdownRenderer({ children, className }: MarkdownRendererProps)
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSlug]}
-        components={markdownComponents}
+        components={components}
       >
         {children}
       </ReactMarkdown>

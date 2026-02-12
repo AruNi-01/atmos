@@ -211,6 +211,38 @@ export function extractHeadings(markdown: string): Heading[] {
   return headings;
 }
 
+export interface ResolvedWikiLink {
+  slug: string;
+  hash?: string;
+}
+
+/**
+ * Resolve a relative markdown link (e.g. ./quick-start.md, ../deep-dive/core-engine/fs-git.md)
+ * against the current wiki page. Returns { slug, hash? } or null if not a wiki-internal .md link.
+ */
+export function resolveWikiPath(currentPage: string, href: string): ResolvedWikiLink | null {
+  const [pathPart, hashPart] = href.split("#");
+  const trimmed = pathPart.trim();
+  if (!trimmed.endsWith(".md")) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("//")) {
+    return null;
+  }
+  const currentDir = currentPage.includes("/") ? currentPage.replace(/\/[^/]*$/, "") + "/" : "";
+  const combined = currentDir + trimmed;
+  const segments = combined.split("/").filter(Boolean);
+  const result: string[] = [];
+  for (const seg of segments) {
+    if (seg === ".") continue;
+    if (seg === "..") {
+      result.pop();
+      continue;
+    }
+    result.push(seg);
+  }
+  const slug = result.join("/").replace(/\.md$/, "");
+  return slug ? { slug, hash: hashPart || undefined } : null;
+}
+
 /** Parse frontmatter from markdown content */
 export interface ParsedFrontmatter {
   title?: string;

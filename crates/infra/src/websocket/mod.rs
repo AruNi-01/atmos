@@ -20,7 +20,7 @@ pub use message::{
     FsSearchContentResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
     FsWriteFileRequest, FsWriteFileResponse, GitBranchesResponse,
     GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse, GitCommitRequest,
-    GitCommitResponse, GitFileDiffRequest, GitFileDiffResponse, GitGetHeadCommitRequest,
+    GitCommitResponse, GitFileDiffRequest, GitFileDiffResponse,     GitGetHeadCommitRequest, GitGetCommitCountRequest,
     GitGetStatusRequest,
     GitListBranchesRequest, GitPushRequest, GitPushResponse, 
     GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,

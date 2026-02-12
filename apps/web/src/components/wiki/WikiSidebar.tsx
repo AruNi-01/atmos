@@ -241,82 +241,70 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* 项目名称区域：左侧 2/3 名称，右侧 1/3 按钮平分，无间距 */}
+      {/* 项目名称区域：名称+Info 合成一个按钮，右侧仅保留刷新按钮 */}
       <div className="h-10 shrink-0 w-full flex items-stretch border-b border-border bg-muted/20">
         <button
           type="button"
           onClick={() => setInfoOpen(true)}
           title="Project info"
-          className="flex-[2] min-w-0 flex items-center px-3 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none"
+          className="flex-1 min-w-0 flex items-center gap-2 px-3 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none"
         >
-          <h3 className="text-base font-semibold text-foreground truncate">
+          <h3 className="text-base font-semibold text-foreground truncate flex-1">
             {project?.name ?? "Project Wiki"}
           </h3>
+          <Info className="size-4 shrink-0 text-muted-foreground" />
         </button>
-        <div className="flex-[1] flex shrink-0 min-w-0">
-          {/* 左按钮位：Update | Regeneration 提示 | Checking 动画 | Up to date */}
-          <div className="flex-1 flex items-center justify-center min-w-0">
-            {checking ? (
-              <span className="w-full h-full flex items-center justify-center text-muted-foreground animate-spin">
-                <RefreshCw className="size-4" />
-              </span>
-            ) : hasUpdate && onTriggerUpdate ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={onTriggerUpdate}
-                      className="relative w-full h-full flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
-                      aria-label="Wiki is outdated. Click to update."
-                    >
-                      <RefreshCw className="size-4" />
-                      <span className="absolute top-1 right-1 size-1.5 rounded-full bg-amber-500" aria-hidden />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[200px]">
-                    <p>Wiki is outdated. Click to update.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : needsRegeneration ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="w-full h-full flex items-center justify-center text-muted-foreground cursor-help">
-                      <RefreshCw className="size-4" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[220px]">
-                    <p>Legacy wiki. Regenerate fully to enable incremental updates.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="w-full h-full flex items-center justify-center text-muted-foreground cursor-default">
-                      <RefreshCw className="size-4" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[220px]">
-                    <p>Wiki is up to date</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-          {/* 右按钮位：Info */}
-          <button
-            type="button"
-            onClick={() => setInfoOpen(true)}
-            title="Project info"
-            className="flex-1 flex items-center justify-center min-w-0 hover:bg-accent/30 transition-colors cursor-pointer"
-            aria-label="Project info"
-          >
-            <Info className="size-4 shrink-0 text-muted-foreground" />
-          </button>
+        <div className="shrink-0 w-10 flex items-center justify-center border-l border-border">
+          {checking ? (
+            <span className="flex items-center justify-center text-muted-foreground animate-spin">
+              <RefreshCw className="size-4" />
+            </span>
+          ) : hasUpdate && onTriggerUpdate ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onTriggerUpdate}
+                    className="relative size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
+                    aria-label="Wiki is outdated. Click to update."
+                  >
+                    <RefreshCw className="size-4" />
+                    <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-amber-500" aria-hidden />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px]">
+                  <p>Wiki is outdated. Click to update.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : needsRegeneration ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center justify-center text-muted-foreground cursor-help size-10">
+                    <RefreshCw className="size-4" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px]">
+                  <p>Legacy wiki. Regenerate fully to enable incremental updates.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center justify-center text-muted-foreground cursor-default size-10">
+                    <RefreshCw className="size-4" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[220px]">
+                  <p>Wiki is up to date</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
 

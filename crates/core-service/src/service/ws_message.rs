@@ -10,7 +10,7 @@ use core_engine::{FsEngine, GitEngine};
 use infra::{
     AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, 
     FsSearchContentRequest, FsValidateGitPathRequest, FsWriteFileRequest,
-    GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest, GitGetHeadCommitRequest,
+    GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest,     GitGetHeadCommitRequest, GitGetCommitCountRequest,
     GitGetStatusRequest, GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, 
     GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
     GitPullRequest, GitFetchRequest, GitSyncRequest,
@@ -100,6 +100,7 @@ impl WsMessageService {
             // Git
             WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
             WsAction::GitGetHeadCommit => self.handle_git_get_head_commit(parse_request(request.data)?),
+            WsAction::GitGetCommitCount => self.handle_git_get_commit_count(parse_request(request.data)?),
             WsAction::GitListBranches => self.handle_git_list_branches(parse_request(request.data)?),
             WsAction::GitRenameBranch => self.handle_git_rename_branch(parse_request(request.data)?),
             WsAction::GitChangedFiles => self.handle_git_changed_files(parse_request(request.data)?),
@@ -355,6 +356,14 @@ impl WsMessageService {
             ServiceError::Validation(format!("Failed to get HEAD commit: {}", e))
         })?;
         Ok(json!({ "commit_hash": commit_hash }))
+    }
+
+    fn handle_git_get_commit_count(&self, req: GitGetCommitCountRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let count = self.git_engine
+            .get_commit_count(&path, &req.base_commit, &req.head_commit)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get commit count: {}", e)))?;
+        Ok(json!({ "count": count }))
     }
 
     fn handle_git_list_branches(&self, req: GitListBranchesRequest) -> Result<Value> {

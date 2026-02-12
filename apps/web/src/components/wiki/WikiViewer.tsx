@@ -218,7 +218,11 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
 
         {/* Main Content */}
         <Panel defaultSize={80} minSize={50}>
-          <WikiContent contextId={contextId} effectivePath={effectivePath} />
+          <WikiContent
+            contextId={contextId}
+            effectivePath={effectivePath}
+            onWikiLinkNavigate={(slug) => handleSelectPage(`${slug}.md`)}
+          />
         </Panel>
       </PanelGroup>
 
@@ -243,6 +247,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
           effectivePath={effectivePath}
           catalogCommit={catalog.commit_hash}
           currentCommit={updateStatus.currentCommit}
+          commitCount={updateStatus.commitCount}
           workspaceId={contextId}
           terminalGridRef={terminalGridRef}
           onSwitchToTerminal={onSwitchToTerminal}

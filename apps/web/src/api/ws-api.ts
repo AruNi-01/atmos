@@ -301,6 +301,18 @@ export const gitApi = {
     return wsRequest<{ commit_hash: string }>('git_get_head_commit', { path });
   },
 
+  getCommitCount: async (
+    path: string,
+    baseCommit: string,
+    headCommit: string
+  ): Promise<{ count: number }> => {
+    return wsRequest<{ count: number }>('git_get_commit_count', {
+      path,
+      base_commit: baseCommit,
+      head_commit: headCommit,
+    });
+  },
+
   /**
    * 列出仓库所有分支
    */
