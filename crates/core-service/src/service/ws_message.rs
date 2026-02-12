@@ -976,9 +976,11 @@ set -x
         let target_dir = system_dir.join("project-wiki");
 
         if target_dir.exists() {
-            // Still try to install project-wiki-update if missing
-            Self::install_project_wiki_update_if_needed(&system_dir)?;
-            Self::install_project_wiki_specify_if_needed(&system_dir)?;
+            // Still try to install project-wiki-update and project-wiki-specify if missing
+            let temp_to_clean = Self::install_missing_wiki_skills_from_project_then_github(&system_dir).await?;
+            if let Some(temp) = temp_to_clean {
+                let _ = std::fs::remove_dir_all(temp);
+            }
             return Ok(json!({
                 "success": true,
                 "path": target_dir.to_string_lossy(),
@@ -1063,6 +1065,74 @@ set -x
         }))
     }
 
+    /// When project-wiki exists but project-wiki-update or project-wiki-specify are missing:
+    /// 1) Try copy from project root; 2) If still missing, clone from GitHub and copy.
+    /// Returns Some(temp_dir) if clone was performed (caller should clean up), None otherwise.
+    async fn install_missing_wiki_skills_from_project_then_github(
+        system_dir: &std::path::Path,
+    ) -> Result<Option<std::path::PathBuf>> {
+        Self::install_project_wiki_update_if_needed(system_dir)?;
+        Self::install_project_wiki_specify_if_needed(system_dir)?;
+
+        let update_ok = system_dir
+            .join("project-wiki-update")
+            .join("SKILL.md")
+            .exists();
+        let specify_ok = system_dir
+            .join("project-wiki-specify")
+            .join("SKILL.md")
+            .exists();
+        if update_ok && specify_ok {
+            return Ok(None);
+        }
+
+        // Clone from GitHub and install missing skills
+        let temp_dir = std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let clone_path = temp_dir.join("atmos");
+
+        let clone_status = tokio::process::Command::new("git")
+            .args([
+                "clone",
+                "--depth",
+                "1",
+                "https://github.com/AruNi-01/atmos.git",
+                clone_path.to_str().unwrap_or("atmos"),
+            ])
+            .current_dir(temp_dir.parent().unwrap_or(&std::env::temp_dir()))
+            .status()
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Git clone failed: {}", e)))?;
+
+        if !clone_status.success() {
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            return Err(ServiceError::Validation(
+                "Failed to clone from GitHub. Check network and git installation.".to_string(),
+            ));
+        }
+
+        if !update_ok {
+            let update_src = clone_path.join("skills").join("project-wiki-update");
+            if update_src.exists() && update_src.is_dir() {
+                let update_dst = system_dir.join("project-wiki-update");
+                let _ = std::fs::create_dir_all(system_dir);
+                Self::copy_dir_all(&update_src, &update_dst)
+                    .map_err(|e| ServiceError::Validation(format!("Failed to copy project-wiki-update: {}", e)))?;
+            }
+        }
+        if !specify_ok {
+            let specify_src = clone_path.join("skills").join("project-wiki-specify");
+            if specify_src.exists() && specify_src.is_dir() {
+                let specify_dst = system_dir.join("project-wiki-specify");
+                let _ = std::fs::create_dir_all(system_dir);
+                Self::copy_dir_all(&specify_src, &specify_dst)
+                    .map_err(|e| ServiceError::Validation(format!("Failed to copy project-wiki-specify: {}", e)))?;
+            }
+        }
+
+        Ok(Some(temp_dir))
+    }
+
     /// Install project-wiki-update skill from project root if it exists and target does not.
     fn install_project_wiki_update_if_needed(system_dir: &std::path::Path) -> Result<()> {
         let target = system_dir.join("project-wiki-update");
@@ -1093,26 +1163,42 @@ set -x
         Ok(())
     }
 
-    /// Check if project-wiki skill exists in ~/.atmos/skills/.system/project-wiki
+    /// Check if project-wiki, project-wiki-update, and project-wiki-specify all exist with SKILL.md in ~/.atmos/skills/.system/
     async fn handle_wiki_skill_system_status(&self) -> Result<Value> {
-        let target_dir = dirs::home_dir()
-            .map(|h| h.join(".atmos").join("skills").join(".system").join("project-wiki"));
-        let installed = target_dir
-            .map(|p| p.exists() && p.is_dir())
+        let system_dir = dirs::home_dir()
+            .map(|h| h.join(".atmos").join("skills").join(".system"));
+        let installed = system_dir
+            .map(|d| {
+                let skill_ok = |name: &str| {
+                    let skill_path = d.join(name);
+                    let skill_md = skill_path.join("SKILL.md");
+                    skill_path.exists() && skill_path.is_dir() && skill_md.exists() && skill_md.is_file()
+                };
+                skill_ok("project-wiki") && skill_ok("project-wiki-update") && skill_ok("project-wiki-specify")
+            })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))
     }
 
+    /// Recursively copy directory, following symlinks (equivalent to cp -rL).
+    /// project-wiki-update and project-wiki-specify contain symlinks to ../project-wiki/;
+    /// we must copy the resolved target content, not the symlink itself.
     fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
         std::fs::create_dir_all(dst)?;
         for entry in std::fs::read_dir(src)? {
             let entry = entry?;
-            let ty = entry.file_type()?;
+            let src_path = entry.path();
             let dst_path = dst.join(entry.file_name());
-            if ty.is_dir() {
-                Self::copy_dir_all(&entry.path(), &dst_path)?;
+            let ty = entry.file_type()?;
+            let is_dir = if ty.is_symlink() {
+                std::fs::metadata(&src_path).map(|m| m.is_dir()).unwrap_or(false)
             } else {
-                std::fs::copy(entry.path(), dst_path)?;
+                ty.is_dir()
+            };
+            if is_dir {
+                Self::copy_dir_all(&src_path, &dst_path)?;
+            } else {
+                std::fs::copy(&src_path, &dst_path)?;
             }
         }
         Ok(())

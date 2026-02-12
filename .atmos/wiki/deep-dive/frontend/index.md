@@ -9,7 +9,10 @@ sources:
   - apps/web/src/app/[locale]/layout.tsx
   - apps/web/src/api/rest-api.ts
   - apps/web/src/api/ws-api.ts
-updated_at: 2026-02-12T12:00:00Z
+  - apps/web/src/components/wiki/WikiSidebar.tsx
+  - apps/web/src/components/wiki/WikiSpecifyDialog.tsx
+  - apps/web/src/components/wiki/WikiUpdateDialog.tsx
+updated_at: 2026-02-12T14:30:00Z
 ---
 
 # 前端应用
