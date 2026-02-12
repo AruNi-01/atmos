@@ -14,7 +14,7 @@ pub use websocket::{
     FsValidateGitPathResponse, FsWriteFileRequest, FsWriteFileResponse,
     GitBranchesResponse,     GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse,
     GitCommitRequest, GitCommitResponse, GitFileDiffRequest, GitFileDiffResponse,
-    GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitPushRequest,
+    GitGetHeadCommitRequest, GitGetCommitCountRequest, GitGetStatusRequest, GitListBranchesRequest, GitPushRequest,
     GitPushResponse,
     GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
     GitPullRequest, GitFetchRequest, GitSyncRequest,

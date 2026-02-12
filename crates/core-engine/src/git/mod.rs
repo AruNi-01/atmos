@@ -285,6 +285,23 @@ impl GitEngine {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    /// Count commits between base and head (exclusive of base): git rev-list --count base..head
+    pub fn get_commit_count(&self, repo_path: &Path, base_commit: &str, head_commit: &str) -> Result<u32> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-list", "--count", &format!("{}..{}", base_commit, head_commit)])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to get commit count: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!("Failed to get commit count: {}", stderr)));
+        }
+
+        let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        s.parse::<u32>().map_err(|_| EngineError::Git("Invalid commit count".to_string()))
+    }
+
     /// Get the current HEAD commit hash (full SHA)
     pub fn get_head_commit(&self, repo_path: &Path) -> Result<String> {
         let output = Command::new("git")

@@ -106,6 +106,8 @@ pub enum WsAction {
     GitGetStatus,
     /// 获取 HEAD 提交 hash
     GitGetHeadCommit,
+    /// 获取 base..head 之间的提交数量
+    GitGetCommitCount,
     /// 列出仓库的所有分支
     GitListBranches,
     /// 重命名 Git 分支
@@ -430,6 +432,14 @@ pub struct GitGetStatusRequest {
 pub struct GitGetHeadCommitRequest {
     /// 仓库/工作区路径
     pub path: String,
+}
+
+/// 获取 base..head 提交数量请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGetCommitCountRequest {
+    pub path: String,
+    pub base_commit: String,
+    pub head_commit: String,
 }
 
 /// Git 状态响应

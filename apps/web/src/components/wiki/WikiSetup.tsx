@@ -20,26 +20,12 @@ import {
 } from "@workspace/ui";
 import { BookOpen, Copy, Loader2, Download, AlertTriangle } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
+import { WIKI_LANGUAGE_OPTIONS } from "./wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import { skillsApi } from "@/api/ws-api";
 
 const PROJECT_WIKI_SKILL_PATH = "~/.atmos/skills/.system/project-wiki";
-
-const COMMON_LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "zh", label: "Chinese" },
-  { value: "ja", label: "Japanese" },
-  { value: "ko", label: "Korean" },
-  { value: "es", label: "Español" },
-  { value: "fr", label: "Français" },
-  { value: "de", label: "Deutsch" },
-  { value: "pt", label: "Português" },
-  { value: "ru", label: "Русский" },
-  { value: "ar", label: "العربية" },
-  { value: "hi", label: "हिन्दी" },
-  { value: "other", label: "Other (custom)" },
-];
 
 function buildPrompt(language: string, customLanguage: string): string {
   const lang = language === "other" ? customLanguage : language;
@@ -310,7 +296,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {COMMON_LANGUAGES.map((opt) => (
+                {WIKI_LANGUAGE_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                   </SelectItem>

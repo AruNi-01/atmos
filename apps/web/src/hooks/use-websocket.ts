@@ -20,6 +20,7 @@ export type WsAction =
   // Git 操作
   | 'git_get_status'
   | 'git_get_head_commit'
+  | 'git_get_commit_count'
   | 'git_list_branches'
   | 'git_rename_branch'
   | 'git_changed_files'

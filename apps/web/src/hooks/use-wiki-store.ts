@@ -12,6 +12,8 @@ export interface WikiUpdateStatus {
   checking: boolean;
   catalogCommit: string | null;
   currentCommit: string | null;
+  /** Commits between catalog and current (when hasUpdate) */
+  commitCount?: number;
   /** True if catalog has no commit_hash (legacy wiki) */
   needsRegeneration?: boolean;
 }
@@ -207,6 +209,15 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
     try {
       const { commit_hash: currentCommit } = await gitApi.getHeadCommit(effectivePath);
       const hasUpdate = currentCommit !== catalogCommit;
+      let commitCount: number | undefined;
+      if (hasUpdate) {
+        try {
+          const { count } = await gitApi.getCommitCount(effectivePath, catalogCommit, currentCommit);
+          commitCount = count;
+        } catch {
+          commitCount = undefined;
+        }
+      }
       set((s) => ({
         contextStates: {
           ...s.contextStates,
@@ -217,6 +228,7 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
               checking: false,
               catalogCommit,
               currentCommit,
+              commitCount,
             },
           },
         },

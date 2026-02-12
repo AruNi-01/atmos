@@ -47,11 +47,14 @@ function getLevelConfig(level?: WikiLevel | string): { label: string; className:
 interface WikiContentProps {
   contextId: string;
   effectivePath: string;
+  /** Called when a relative .md link is clicked (slug without .md) */
+  onWikiLinkNavigate?: (slug: string, hash?: string) => void;
 }
 
 export const WikiContent: React.FC<WikiContentProps> = ({
   contextId,
   effectivePath,
+  onWikiLinkNavigate,
 }) => {
   const { activeContent, activePage, contentLoading, contentError } =
     useWikiContext(contextId);
@@ -265,7 +268,12 @@ export const WikiContent: React.FC<WikiContentProps> = ({
                   </CollapsibleContent>
                 </Collapsible>
               )}
-              <MarkdownRenderer>{body}</MarkdownRenderer>
+              <MarkdownRenderer
+                wikiBasePath={activePage ?? undefined}
+                onWikiLinkNavigate={onWikiLinkNavigate}
+              >
+                {body}
+              </MarkdownRenderer>
               {formattedUpdatedAt && (
                 <div className="flex justify-end pt-6">
                   <span className="text-[11px] text-muted-foreground">
