@@ -16,13 +16,17 @@ mkdir -p "$WIKI_DIR"
 cat > "$WIKI_DIR/_todo.md" << 'TODOMD'
 # Project Wiki Generation Checklist
 
+- [ ] Git metadata collected (_metadata/)
 - [ ] Deep codebase research done
+- [ ] Core concepts extracted (_concepts.json)
 - [ ] _catalog.json created (schema-compliant)
-- [ ] validate_catalog passes (~/.atmos/skills/.system/project-wiki/scripts/)
+- [ ] validate_catalog passes
 - [ ] _mindmap.md created
+- [ ] Research briefings generated (_briefings/)
 - [ ] All Markdown articles generated
-- [ ] validate_frontmatter passes (~/.atmos/skills/.system/project-wiki/scripts/)
-- [ ] validate_todo passes (~/.atmos/skills/.system/project-wiki/scripts/)
+- [ ] validate_frontmatter passes
+- [ ] validate_content passes
+- [ ] validate_todo passes
 - [ ] Final verification complete
 TODOMD
 

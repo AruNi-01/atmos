@@ -11,17 +11,20 @@ This skill guides a Code Agent to generate a **deep, research-grade** Project Wi
 
 Before considering the wiki complete, ALL of the following must be true:
 
-1. **Create/maintain `_todo.md`** — Run `bash ~/.atmos/skills/.system/project-wiki/scripts/init_wiki_todo.sh` from project root (or create manually), update checkboxes as you progress.
-2. **validate_catalog passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py` or `.sh` (use `.sh` if no Python).
-3. **validate_frontmatter passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py` (Python only).
-4. **validate_todo passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_todo.py` or `.sh` (use `.sh` if no Python).
-5. All `_todo.md` items checked `[x]` — Do not mark complete until every item is checked.
+1. **Create/maintain `_todo.md`** — Run `~/.atmos/skills/.system/project-wiki/scripts/init_wiki_todo.sh` from project root (or create manually), update checkboxes as you progress.
+2. **Git metadata collected** — Run `~/.atmos/skills/.system/project-wiki/scripts/collect_metadata.sh` (outputs to `.atmos/wiki/_metadata/`).
+3. **validate_catalog passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py` or `.sh`.
+4. **validate_frontmatter passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py`.
+5. **validate_content passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_content.py` or `.sh`.
+6. **validate_todo passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_todo.py` or `.sh`.
+7. All `_todo.md` items checked `[x]` — Do not mark complete until every item is checked.
 
-**Validation scripts are dual-version**: `validate_catalog` and `validate_todo` each have `.py` and `.sh` variants. Use `.sh` on systems without Python.
+**Validation scripts**: `validate_catalog`, `validate_content`, and `validate_todo` each have `.py` and `.sh` variants. Use `.sh` on systems without Python when available.
 
 ## Core Philosophy
 
-- **Deep Research**: Every article is produced by thoroughly reading actual source code, not just skimming README files.
+- **Concept Research, Not Code Summary**: Each article is produced by a research-type Agent that explores *why* and *how it evolved*, not just *what* the code does. Metadata (Git history, PRs, Issues) is as important as source code.
+- **Deep Research**: Every article is produced by thoroughly reading actual source code and related metadata, not just skimming README files.
 - **Two-Part Structure**: The Wiki is split into **Getting Started** (for newcomers) and **Deep Dive** (for contributors/maintainers).
 - **Local First**: The Wiki lives with the code. No external databases or services required.
 - **Agent-Driven**: Empowers any Code Agent to perform high-quality documentation generation.
@@ -34,44 +37,49 @@ Follow this multi-step process sequentially to generate a complete and accurate 
 
 ---
 
-### Step 0: Create `_todo.md` (Mandatory First Step)
+### Step 1: Create `_todo.md` (Mandatory First Step)
 
-Before any other work, ensure `./.atmos/wiki/_todo.md` exists. Preferred: run from project root (script is in the skill directory, not your project):
+Before any other work, ensure `./.atmos/wiki/_todo.md` exists. Run from project root:
 
 ```bash
 bash ~/.atmos/skills/.system/project-wiki/scripts/init_wiki_todo.sh
 ```
 
-Or create manually with the following checklist. Update it as you complete each item. **Do not consider the wiki complete until all items are checked.**
-
-```markdown
-# Project Wiki Generation Checklist
-
-- [ ] Deep codebase research done
-- [ ] _catalog.json created (schema-compliant)
-- [ ] validate_catalog passes (~/.atmos/skills/.system/project-wiki/scripts/validate_catalog)
-- [ ] _mindmap.md created
-- [ ] All Markdown articles generated
-- [ ] validate_frontmatter passes (~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py)
-- [ ] validate_todo passes (~/.atmos/skills/.system/project-wiki/scripts/validate_todo)
-- [ ] Final verification complete
-```
-
-Use this file as your source of truth. After each major step, update the checkboxes. If validation fails, fix the issues and re-run validation — do not check the box until it passes.
+Or create manually. See the script for the full checklist. Update checkboxes as you complete each item. **Do not consider the wiki complete until all items are checked.** Use this file as your source of truth.
 
 ---
 
-### Step 1: Deep Codebase Research
+### Step 2: Collect Git Metadata
 
-**This is the most important step.** Do NOT just read README files. You must deeply explore the entire codebase.
+Run the metadata collection script from project root:
 
-#### 1.1 Initial Survey (Broad Scan)
+```bash
+bash ~/.atmos/skills/.system/project-wiki/scripts/collect_metadata.sh
+```
+
+This creates `.atmos/wiki/_metadata/` with:
+- `commit_graph.txt` — `git log --oneline --graph`
+- `commit_details.txt` — Full commit log with file stats
+- `contributors.txt` — `git shortlog`
+- `prs.json`, `issues.json` — PR/Issue list (if `gh` CLI available)
+
+**Critical**: Read these files before and during article generation. Git history and PR/Issue discussions reveal design intent and evolution — metadata often explains *why* better than code alone.
+
+Update `_todo.md`: check `[x] Git metadata collected`.
+
+---
+
+### Step 3: Deep Codebase Research
+
+**This is the most important step.** Do NOT just read README files. You must deeply explore the entire codebase. Also read `.atmos/wiki/_metadata/` (from Step 2) to understand how the project evolved.
+
+#### 3.1 Initial Survey (Broad Scan)
 
 1. Read the project's top-level files: `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`, `Cargo.toml`, `package.json`, `justfile`, `Makefile`, etc.
 2. Map the full directory structure (all levels) to understand the project layout.
 3. Identify the tech stack, frameworks, languages, and build tools.
 
-#### 1.2 Deep Code Exploration (Source-Level)
+#### 3.2 Deep Code Exploration (Source-Level)
 
 For **each major module/package/crate** in the project:
 
@@ -83,7 +91,7 @@ For **each major module/package/crate** in the project:
 6. **Read error types**: Error handling reveals the failure modes and edge cases of a module.
 7. **Trace data flow**: Follow how data moves from API entry points through business logic to storage.
 
-#### 1.3 Research Notes
+#### 3.3 Research Notes
 
 For each module, build mental notes covering:
 
@@ -96,17 +104,45 @@ For each module, build mental notes covering:
 - **Error Handling**: What can go wrong and how is it handled?
 - **Source Files**: Which files contain the code described? (Record precise file paths and line ranges.)
 
+Update `_todo.md`: check `[x] Deep codebase research done`.
+
 ---
 
-### Step 2: Design the Two-Part Catalog Structure
+### Step 4: Extract Core Concepts
 
-Create the output directory and `_todo.md` if not already done:
+Based on the codebase research and metadata, extract 5–15 core concepts that define the project's architecture and design. Create `./.atmos/wiki/_concepts.json`:
+
+```json
+{
+  "concepts": [
+    {
+      "id": "concept-id",
+      "name": "Concept Name",
+      "description": "1-2 sentence description",
+      "importance": "high|medium|low",
+      "related_files": ["path/to/file.rs", "..."],
+      "related_commits": ["abc1234: commit message", "..."],
+      "related_concepts": ["other-concept-id", "..."]
+    }
+  ]
+}
+```
+
+**What counts as a concept**: Recurring design patterns, technical decisions (e.g. "Worktree isolation", "RwLock connection registry"), business abstractions (e.g. "Workspace lifecycle"). Use metadata to identify how the team talks about these ideas (PR titles, commit messages).
+
+Update `_todo.md`: check `[x] Core concepts extracted`.
+
+---
+
+### Step 5: Design the Two-Part Catalog Structure
+
+Create the output directory if not already done:
 
 ```bash
 mkdir -p ./.atmos/wiki/
 ```
 
-Ensure `_todo.md` exists from Step 0.
+Ensure `_todo.md` exists from Step 1 and concepts from Step 4.
 
 The Wiki MUST be organized into **two major sections**:
 
@@ -149,7 +185,7 @@ Required articles (adapt to the specific project):
 
 ---
 
-### Step 3: Generate the Catalog (`_catalog.json`)
+### Step 6: Generate the Catalog (`_catalog.json`)
 
 **CRITICAL**: The frontend and validation scripts expect an exact schema. Deviations cause rendering failure or validation errors. Read `references/catalog.schema.json` and `examples/catalog.template.json` before writing.
 
@@ -200,11 +236,11 @@ python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py .atmos/
 
 - If it fails: read the error output, fix `_catalog.json`, run again.
 - Repeat until the script exits with success (✅).
-- **Do NOT proceed to Step 4 until validation passes.** Update `_todo.md` to check `[x] validate_catalog passes` only after success.
+- **Do NOT proceed to Step 7 until validation passes.** Update `_todo.md` to check `[x] validate_catalog passes` only after success.
 
 ---
 
-### Step 4: Generate the Mindmap (`_mindmap.md`)
+### Step 7: Generate the Mindmap (`_mindmap.md`)
 
 - **Action**: Create `_mindmap.md` in `./.atmos/wiki/`.
 - **Content**: Generate a Mermaid `mindmap` showing the project's architecture, organized by the two-part structure.
@@ -212,27 +248,48 @@ python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py .atmos/
 
 ---
 
-### Step 5: Generate Markdown Content for Each Catalog Entry
+### Step 8: Generate Research Briefings
+
+For each **Deep Dive** catalog entry (leaf article, not index), generate a research briefing in `.atmos/wiki/_briefings/`. Use `references/briefing_template.md` and `examples/sample_briefing.md` as templates.
+
+Each briefing MUST include:
+- **Involved concepts** (from `_concepts.json`)
+- **Role in the project** (2–4 sentences)
+- **Relevant Git history** (3–5 commits from `_metadata/commit_details.txt`)
+- **Related PRs/Issues** (if any)
+- **Research questions** (see template)
+- **Required source files** (at least 5 for Deep Dive)
+
+File path: `_briefings/{path}.md` (e.g. `_briefings/deep-dive/infra/websocket.md`).
+
+Update `_todo.md`: check `[x] Research briefings generated`.
+
+---
+
+### Step 9: Generate Markdown Content for Each Catalog Entry
 
 Iterate through every entry in the `catalog` array and generate the corresponding Markdown file.
 
-#### Parallel Generation (Recommended)
+#### Agent Role: Research-Type, Not Document Generator
 
-For improved efficiency, spawn multiple subagents to generate documentation in parallel:
+**Critical**: Subagents must act as **technical researchers**, not document writers. Their task is to *research a concept* and produce findings, not to "summarize code." Include the research briefing (from Step 8) for Deep Dive articles, and instruct the Agent to answer every research question in the briefing.
+
+#### Parallel Generation (Recommended)
 
 1. **Identify Parallelizable Items**: Extract all leaf-level catalog items.
 2. **Spawn Subagents**: For each item, spawn a subagent with:
    - The catalog item metadata (`id`, `title`, `path`, `file`, `level`, `section`)
+   - **For Deep Dive**: The research briefing from `_briefings/{path}.md` and instruction to answer all research questions
    - The project's overall context (architecture, tech stack)
-   - **Specific source files to read** -- provide the list of files the subagent MUST read before writing
+   - **Specific source files to read** — the subagent MUST read these before writing
    - The content generation rules (see below)
-   - **CRITICAL: Metadata format** -- Copy this verbatim into the subagent prompt:
+   - **CRITICAL: Metadata format** — Copy into the subagent prompt:
 
-     > **Metadata MUST use YAML frontmatter ONLY.** The file MUST start with `---` on the first line, followed by valid YAML (title, section, level, reading_time, path, sources as array, updated_at), then `---` on a line by itself, then a blank line, then the H1 title and body. Do NOT use markdown blockquotes (`> **Reading Time:**`), do NOT put metadata anywhere except in the YAML block. Incorrect format causes frontend rendering failure.
+     > **Metadata MUST use YAML frontmatter ONLY.** The file MUST start with `---` on the first line, followed by valid YAML (title, section, level, reading_time, path, sources as array, updated_at), then `---` on a line by itself, then a blank line, then the H1 title and body. Do NOT use markdown blockquotes (`> **Reading Time:**`), do NOT put metadata anywhere except in the YAML block.
 
-   - **CRITICAL: Prose-first, not code-first** -- Copy this into the subagent prompt:
+   - **CRITICAL: Research-type role** — Copy into the subagent prompt:
 
-     > **Readers want business logic, implementation reasoning, and technical architecture — NOT code.** Translate code logic into natural language. Use Mermaid diagrams (architecture, flowchart, sequence) liberally. Keep code blocks minimal (0–2 per article). Prefer diagrams and structured prose over code snippets.
+     > **You are a technical researcher, not a document summarizer.** Your task is to *research* this topic. Read the research briefing (if provided) and answer every research question. Read the source files and metadata (Git history). Explain *why* and *how it evolved*, not just *what*. If your article is under the word minimum, expand by adding more detail to each section — do not add filler.
 
 3. **Parallelization Strategy**:
    - Process index/overview pages first to establish context.
@@ -340,7 +397,7 @@ First paragraph of content...
 
 ---
 
-### Step 6: Metadata Format Verification (Mandatory)
+### Step 10: Metadata Format Verification (Mandatory)
 
 After all Markdown files are generated, validate metadata format. Use the validation script:
 
@@ -366,6 +423,27 @@ python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py .at
 
 ---
 
+### Step 11: Content Depth Validation (Blocking Gate)
+
+Run the content depth validator:
+
+```bash
+python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_content.py .atmos/wiki/
+# OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_content.sh .atmos/wiki/
+```
+
+This checks each article for: word count (800+ / 1500+), Mermaid diagrams (2+ / 3+), H2 sections (4+ / 6+), source files (3+ / 5+), cross-reference links (2+ / 4+).
+
+**For each failing article:**
+1. Read the failure reasons.
+2. Re-read the research briefing and source files.
+3. Regenerate the article with explicit instructions to expand the weak areas.
+4. Re-run validation until all pass.
+
+Do NOT consider the wiki complete until `validate_content` exits with success. Update `_todo.md`: check `[x] validate_content passes`.
+
+---
+
 ## Final Verification
 
 Before finishing, you MUST run all validation scripts and fix any errors. The wiki is NOT complete until all pass. **Use `.sh` versions if Python is not available.**
@@ -381,18 +459,25 @@ Before finishing, you MUST run all validation scripts and fix any errors. The wi
    ```bash
    python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py .atmos/wiki/
    ```
-   Must exit with success. Regenerate any failing Markdown files. (Python required; no .sh variant.)
+   Must exit with success. Regenerate any failing Markdown files.
 
-3. **Todo checklist validation** (required):
+3. **Content depth validation** (required):
+   ```bash
+   python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_content.py .atmos/wiki/
+   # OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_content.sh .atmos/wiki/
+   ```
+   Must exit with success. Expand and regenerate any failing articles.
+
+4. **Todo checklist validation** (required):
    ```bash
    python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_todo.py .atmos/wiki/_todo.md
    # OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_todo.sh .atmos/wiki/_todo.md
    ```
    Must exit with success. Ensure all checklist items are checked `[x]`.
 
-4. All `_todo.md` items checked? If any validation was skipped, go back and fix.
+5. All `_todo.md` items checked? If any validation was skipped, go back and fix.
 
-5. Additional checks:
+6. Additional checks:
    - Does every catalog entry have a corresponding Markdown file on disk?
    - Does every Markdown file have proper YAML frontmatter with `section`, `level`, `reading_time`?
    - Does every article meet the minimum depth requirements (word count, source references, diagrams)?
@@ -401,7 +486,7 @@ Before finishing, you MUST run all validation scripts and fix any errors. The wi
    - Does the Wiki have both "Getting Started" and "Deep Dive" sections with appropriate articles?
    - Do all "Next Steps" sections link to valid articles?
 
-6. Update `_todo.md` to mark "Final verification complete".
+7. Update `_todo.md` to mark "Final verification complete".
 
 ---
 
@@ -410,6 +495,7 @@ Before finishing, you MUST run all validation scripts and fix any errors. The wi
 ### Reference Files
 
 - **`references/output_structure.md`** - Complete output structure specification
+- **`references/briefing_template.md`** - Research briefing template
 - **`references/catalog.schema.json`** - JSON Schema for `_catalog.json` validation
 - **`references/frontend-integration.md`** - Frontend rendering guide
 
@@ -418,14 +504,15 @@ Before finishing, you MUST run all validation scripts and fix any errors. The wi
 - **`examples/catalog.template.json`** - Minimal catalog skeleton; copy and populate (project, children)
 - **`examples/sample_catalog.json`** - Full two-part catalog structure example
 - **`examples/sample_document.md`** - A deep, well-researched wiki document example
+- **`examples/sample_briefing.md`** - Research briefing example
 
 ### Scripts (all in `~/.atmos/skills/.system/project-wiki/scripts/`)
 
 - **`init_wiki_todo.sh`** - Pre-create `_todo.md` (run from project root)
-- **`validate_catalog.sh`** - Bash + jq validation for `_catalog.json` (no Python)
-- **`validate_catalog.py`** - Python3 validation for `_catalog.json`
-- **`validate_frontmatter.py`** - Validate YAML frontmatter format of all Markdown files
-- **`validate_todo.sh`** - Bash validation for `_todo.md` (no Python)
-- **`validate_todo.py`** - Python3 validation for `_todo.md`
+- **`collect_metadata.sh`** - Collect Git metadata to `_metadata/`
+- **`validate_catalog.sh`** / **`validate_catalog.py`** - Validate `_catalog.json`
+- **`validate_frontmatter.py`** - Validate YAML frontmatter format
+- **`validate_content.sh`** / **`validate_content.py`** - Validate content depth (word count, diagrams, etc.)
+- **`validate_todo.sh`** / **`validate_todo.py`** - Validate `_todo.md`
 
 By following this skill, a **deep, research-grade, truly useful** Project Wiki will be produced -- one that readers will actually want to read and learn from.

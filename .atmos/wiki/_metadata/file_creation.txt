@@ -1,0 +1,359 @@
+e1ee52e 2026-02-12 13:50:27 +0800 feat(wiki): add specify-wiki section and enhance validation
+.atmos/wiki/specify-wiki/index.md
+.atmos/wiki/specify-wiki/wiki-implementation.md
+
+4bcf4f3 2026-02-12 11:58:10 +0800 chore(wiki): update catalog and enhance wiki components
+apps/web/src/components/wiki/AgentSelect.tsx
+
+d27f631 2026-02-12 11:02:36 +0800 refactor(wiki): update project wiki structure and enhance functionality
+.atmos/wiki/_catalog.json
+.atmos/wiki/_mindmap.md
+.atmos/wiki/_todo.md
+.atmos/wiki/deep-dive/api/index.md
+.atmos/wiki/deep-dive/api/routes.md
+.atmos/wiki/deep-dive/api/websocket-handlers.md
+.atmos/wiki/deep-dive/build-system/index.md
+.atmos/wiki/deep-dive/core-engine/fs.md
+.atmos/wiki/deep-dive/core-engine/git.md
+.atmos/wiki/deep-dive/core-engine/index.md
+.atmos/wiki/deep-dive/core-engine/tmux.md
+.atmos/wiki/deep-dive/core-service/index.md
+.atmos/wiki/deep-dive/core-service/project.md
+.atmos/wiki/deep-dive/core-service/terminal.md
+.atmos/wiki/deep-dive/core-service/workspace.md
+.atmos/wiki/deep-dive/design-decisions/index.md
+.atmos/wiki/deep-dive/frontend/index.md
+.atmos/wiki/deep-dive/frontend/web-app.md
+.atmos/wiki/deep-dive/index.md
+.atmos/wiki/deep-dive/infra/database.md
+.atmos/wiki/deep-dive/infra/index.md
+.atmos/wiki/deep-dive/infra/websocket.md
+.atmos/wiki/getting-started/architecture.md
+.atmos/wiki/getting-started/configuration.md
+.atmos/wiki/getting-started/index.md
+.atmos/wiki/getting-started/installation.md
+.atmos/wiki/getting-started/key-concepts.md
+.atmos/wiki/getting-started/overview.md
+.atmos/wiki/getting-started/quick-start.md
+skills/project-wiki/examples/catalog.template.json
+skills/project-wiki/scripts/init_wiki_todo.sh
+skills/project-wiki/scripts/validate_todo.py
+skills/project-wiki/scripts/validate_todo.sh
+
+113e211 2026-02-11 21:19:12 +0800 feat(wiki): enhance project-wiki skill synchronization and update handling
+apps/web/src/components/wiki/WikiSpecifyDialog.tsx
+apps/web/src/components/wiki/WikiUpdateDialog.tsx
+skills/project-wiki-specify/SKILL.md
+skills/project-wiki-specify/references
+skills/project-wiki-specify/scripts
+skills/project-wiki-update/SKILL.md
+skills/project-wiki-update/references
+skills/project-wiki-update/scripts
+specs/tech/wiki_incremental_update.md
+
+e2bf6ab 2026-02-11 18:27:14 +0800 feat(wiki): add Project Wiki Terminal tab as temporary tab
+apps/web/src/components/terminal/ProjectWikiTerminal.tsx
+
+8e1112c 2026-02-11 16:30:41 +0800 chore: update dependencies and enhance wiki structure
+.atmos/wiki/deep-dive/api/index.md
+.atmos/wiki/deep-dive/api/routes.md
+.atmos/wiki/deep-dive/api/websocket-handlers.md
+.atmos/wiki/deep-dive/build-system/index.md
+.atmos/wiki/deep-dive/core-engine/fs.md
+.atmos/wiki/deep-dive/core-engine/git.md
+.atmos/wiki/deep-dive/core-engine/index.md
+.atmos/wiki/deep-dive/core-engine/tmux.md
+.atmos/wiki/deep-dive/core-service/index.md
+.atmos/wiki/deep-dive/core-service/project.md
+.atmos/wiki/deep-dive/core-service/terminal.md
+.atmos/wiki/deep-dive/core-service/workspace.md
+.atmos/wiki/deep-dive/design-decisions/index.md
+.atmos/wiki/deep-dive/frontend/index.md
+.atmos/wiki/deep-dive/frontend/web-app.md
+.atmos/wiki/deep-dive/infra/database.md
+.atmos/wiki/deep-dive/infra/index.md
+.atmos/wiki/deep-dive/infra/websocket.md
+.atmos/wiki/getting-started/architecture.md
+.atmos/wiki/getting-started/configuration.md
+.atmos/wiki/getting-started/index.md
+.atmos/wiki/getting-started/installation.md
+.atmos/wiki/getting-started/key-concepts.md
+.atmos/wiki/getting-started/overview.md
+.atmos/wiki/getting-started/quick-start.md
+apps/api/src/utils/wiki_skill_sync.rs
+apps/web/public/agents/amp.svg
+apps/web/public/agents/claude-code.svg
+apps/web/public/agents/codex.svg
+apps/web/public/agents/copilot.svg
+apps/web/public/agents/cursor.svg
+apps/web/public/agents/droid.svg
+apps/web/public/agents/gemini.svg
+apps/web/public/agents/goose.svg
+apps/web/public/agents/kilo.svg
+apps/web/public/agents/kiro-cli.svg
+apps/web/public/agents/opencode.svg
+skills/project-wiki/scripts/validate_frontmatter.py
+
+261e81e 2026-02-11 15:10:04 +0800 feat(web): add code block expand/collapse, unified markdown TOC, and skill detail save button improvement
+apps/web/src/components/code-block/expand-button.tsx
+apps/web/src/components/markdown/MarkdownToc.tsx
+
+fa53473 2026-02-11 13:27:48 +0800 feat(web): integrate code-blocks with Shiki syntax highlighting
+apps/web/src/components/code-block/code-block.tsx
+apps/web/src/components/code-block/copy-button.tsx
+apps/web/src/utils/copy.ts
+apps/web/src/utils/shiki.ts
+
+8249773 2026-02-11 11:16:25 +0800 feat(wiki): improve Mermaid modal, TOC scroll, and hash anchor on refresh
+apps/web/src/components/markdown/MermaidViewerModal.tsx
+
+8eaf278 2026-02-10 23:36:58 +0800 feat(web): enhance Markdown rendering and terminal functionality
+.atmos/wiki/_catalog.json
+.atmos/wiki/_mindmap.md
+.atmos/wiki/api/index.md
+.atmos/wiki/api/routes.md
+.atmos/wiki/core-engine/fs.md
+.atmos/wiki/core-engine/git.md
+.atmos/wiki/core-engine/index.md
+.atmos/wiki/core-engine/tmux.md
+.atmos/wiki/core-service/index.md
+.atmos/wiki/core-service/project.md
+.atmos/wiki/core-service/terminal.md
+.atmos/wiki/core-service/workspace.md
+.atmos/wiki/frontend/index.md
+.atmos/wiki/frontend/web-app.md
+.atmos/wiki/infra/database.md
+.atmos/wiki/infra/index.md
+.atmos/wiki/infra/websocket.md
+.atmos/wiki/overview/index.md
+.atmos/wiki/overview/monorepo.md
+.atmos/wiki/overview/quick-start.md
+.atmos/wiki/overview/tech-stack.md
+apps/web/src/components/wiki/WikiContent.tsx
+apps/web/src/components/wiki/WikiSetup.tsx
+apps/web/src/components/wiki/WikiSidebar.tsx
+apps/web/src/components/wiki/WikiTab.tsx
+apps/web/src/components/wiki/WikiToc.tsx
+apps/web/src/components/wiki/WikiViewer.tsx
+apps/web/src/components/wiki/index.ts
+apps/web/src/components/wiki/wiki-utils.ts
+apps/web/src/hooks/use-wiki-store.ts
+apps/web/src/lib/shell-quote.ts
+specs/tech/project-wiki.md
+
+6f9cf49 2026-02-10 23:10:04 +0800 feat(web): add global tmux install guide modal
+apps/web/src/components/providers/tmux-check-provider.tsx
+
+3c21e50 2026-02-10 19:39:58 +0800 style(terminal): scroll-to-bottom button hover expand to `$ cd bottom` with smooth animation
+skills/code-review-excellence/SKILL.md
+skills/code-review-expert/README.md
+skills/code-review-expert/SKILL.md
+skills/code-review-expert/agents/agent.yaml
+skills/code-review-expert/references/code-quality-checklist.md
+skills/code-review-expert/references/removal-plan.md
+skills/code-review-expert/references/security-checklist.md
+skills/code-review-expert/references/solid-checklist.md
+skills/project-wiki/README.md
+skills/project-wiki/SKILL.md
+skills/project-wiki/examples/sample_catalog.json
+skills/project-wiki/examples/sample_document.md
+skills/project-wiki/references/catalog.schema.json
+skills/project-wiki/references/frontend-integration.md
+skills/project-wiki/references/output_structure.md
+skills/project-wiki/scripts/validate_catalog.py
+skills/project-wiki/scripts/validate_catalog.sh
+
+964e240 2026-02-10 14:16:08 +0800 chore: update code
+.agent/skills/agentation
+.agents/skills/agentation/SKILL.md
+.claude/skills/agentation
+.cursor/skills/agentation
+.factory/skills/agentation
+.kiro/skills/agentation
+
+0a6589a 2026-02-10 14:08:23 +0800 feat(terminal): implement dynamic title updates for terminal sessions
+crates/core-engine/src/shims/bash_shim.sh
+crates/core-engine/src/shims/fish_shim.fish
+crates/core-engine/src/shims/mod.rs
+crates/core-engine/src/shims/zsh_shim_zshenv
+crates/core-engine/src/shims/zsh_shim_zshrc
+"specs/tech/Web \347\273\210\347\253\257\345\212\250\346\200\201\346\240\207\351\242\230\346\212\200\346\234\257\346\226\271\346\241\210\357\274\232\345\237\272\344\272\216 Shell \345\236\253\347\211\207\346\263\250\345\205\245.md"
+
+6ffc690 2026-02-10 11:03:39 +0800 feat(web): enhance markdown code blocks and tables with better dark/light theme support
+apps/web/src/components/markdown/MarkdownRenderer.tsx
+
+ad85af1 2026-02-09 20:26:27 +0800 feat: add Tailscale network support with env-based config
+apps/api/.env.example
+apps/web/.env.example
+
+8b86dfe 2026-02-08 22:52:07 +0800 feat: Add new SVG icons for landing and web apps, and centralize the `LogoSvg` component.
+apps/landing/src/app/icon.svg
+apps/web/src/app/icon.svg
+
+ca53326 2026-02-08 22:23:00 +0800 feat: Introduce a `BlinkingGrid` component and integrate it into the hero, services, and FAQ sections.
+apps/landing/src/components/ui/blinking-grid.tsx
+
+831bed7 2026-02-08 20:41:26 +0800 feat: Add `FeatureShowcase` component to the landing page, replacing `Portfolio`, and refine `HeroSection` and `Logo` styling.
+apps/landing/src/components/blocks/feature-showcase.tsx
+
+e9348da 2026-02-08 17:25:23 +0800 feat: Introduce `TextScramble` component and animate the logo with a text scramble effect.
+packages/ui/src/components/ui/text-scramble.tsx
+
+cee7c3f 2026-02-08 16:29:44 +0800 feat: Migrate local UI components from landing app to shared `@workspace/ui` package and add a new preview image.
+apps/landing/src/assets/img/atmos_preview_2.png
+
+f9a2ebc 2026-02-08 16:23:19 +0800 feat: Add Accordion and FlowButton UI components and integrate them into the landing page with new Benefits and FAQ sections.
+apps/landing/src/components/blocks/benefits.tsx
+apps/landing/src/components/blocks/faq.tsx
+packages/ui/src/components/ui/accordion.tsx
+packages/ui/src/components/ui/flow-button.tsx
+
+021e586 2026-02-07 23:03:35 +0800 feat: Introduce new UI components including NavigationMenu, Separator, and Avatar, refactor logo assets, and update dependencies.
+apps/landing/src/assets/img/atmos_preview.png
+packages/ui/src/components/logo-svg.tsx
+packages/ui/src/components/ui/avatar.tsx
+packages/ui/src/components/ui/badge.tsx
+packages/ui/src/components/ui/craft-button.tsx
+packages/ui/src/components/ui/marquee.tsx
+packages/ui/src/components/ui/motion-preset.tsx
+packages/ui/src/components/ui/navigation-menu.tsx
+packages/ui/src/components/ui/rating.tsx
+packages/ui/src/components/ui/separator.tsx
+packages/ui/src/components/ui/sheet.tsx
+
+4546a3e 2026-02-07 21:36:00 +0800 feat: Add new landing page sections and a collection of UI components, including services, hero, portfolio, and various UI elements.
+apps/landing/src/assets/svg/logo-svg.tsx
+apps/landing/src/components/blocks/hero-section.tsx
+apps/landing/src/components/blocks/portfolio.tsx
+apps/landing/src/components/blocks/services.tsx
+apps/landing/src/components/layout/header.tsx
+apps/landing/src/components/layout/hero-navigation.tsx
+apps/landing/src/components/layout/mode-toggle.tsx
+apps/landing/src/components/logo.tsx
+apps/landing/src/components/ui/avatar.tsx
+apps/landing/src/components/ui/badge.tsx
+apps/landing/src/components/ui/craft-button.tsx
+apps/landing/src/components/ui/marquee.tsx
+apps/landing/src/components/ui/motion-preset.tsx
+apps/landing/src/components/ui/navigation-menu.tsx
+apps/landing/src/components/ui/rating.tsx
+apps/landing/src/components/ui/separator.tsx
+apps/landing/src/components/ui/sheet.tsx
+apps/landing/src/hooks/use-active-section.ts
+
+e686ab9 2026-02-06 21:27:21 +0800 feat(terminal): add Terminal Manager with kill server/session controls
+apps/web/src/components/terminal/TerminalManagerView.tsx
+
+c25f5bd 2026-02-06 15:06:14 +0800 feat(web): integrate selection popover in MonacoEditor for code copying
+apps/web/src/hooks/use-selection-popover.ts
+apps/web/src/lib/format-selection-for-ai.ts
+docs/plans/2026-02-05-selection-popover-design.md
+tmp/diff_viewer_output.html
+
+ab450dc 2026-02-06 15:05:05 +0800 feat(web): add selection popover animation and rotating tips in diff viewer
+apps/web/src/components/selection/SelectionPopover.tsx
+
+7ed30ab 2026-02-04 16:06:01 +0800 refactor(web): extract and reuse BaseMonacoEditor
+apps/web/src/components/editor/BaseMonacoEditor.tsx
+
+e896ab8 2026-02-04 13:24:02 +0800 refactor: restructure Management Center with Workspaces and Skills views
+.gemini-clipboard/clipboard-1770177406172.png
+apps/web/src/components/skills/SkillsView.tsx
+apps/web/src/components/workspace/WorkspacesManagementView.tsx
+
+08dbeee 2026-02-03 21:05:11 +0800 feat: implement Skills management with routing and frontmatter extraction
+apps/web/src/app/[locale]/skills/[scope]/[name]/page.tsx
+apps/web/src/app/[locale]/skills/page.tsx
+apps/web/src/components/skills/SkillCard.tsx
+apps/web/src/components/skills/SkillDetail.tsx
+apps/web/src/components/skills/SkillsModal.tsx
+apps/web/src/components/skills/constants.ts
+apps/web/src/components/skills/index.ts
+crates/core-service/src/service/skill.rs
+docs/plans/2026-02-03-skills-management-design.md
+packages/ui/src/components/ui/preview-card.tsx
+
+6d56c7b 2026-02-03 13:20:39 +0800 feat: Group and display tasks by status in collapsible sections within the OverviewTab.
+.atmos/context/requirement.md
+.superset/config.json
+
+7e0dbbd 2026-02-02 23:44:09 +0800 feat: add workspace overview tab and requirements definition
+apps/web/src/components/workspace/OverviewTab.tsx
+apps/web/src/hooks/use-workspace-context.ts
+docs/plans/2026-02-02-workspace-context-feature-design.md
+
+f4e74e7 2026-02-02 14:50:46 +0800 feat: add Skeleton UI component and export it from the UI package.
+packages/ui/src/components/ui/skeleton.tsx
+
+2511dce 2026-02-02 13:32:51 +0800 feat: Implement an expandable workspace section, recent workspaces view, and a new archived workspaces component.
+apps/web/src/components/workspace/ArchivedWorkspacesView.tsx
+
+b2b5cb5 2026-02-02 11:52:29 +0800 feat: Implement a file viewer component with a new API route for serving files and backend support for base64 encoding binary content.
+apps/web/src/app/api/file/route.ts
+apps/web/src/components/editor/FileViewer.tsx
+apps/web/src/types/react-file-viewer.d.ts
+
+80af7fb 2026-02-01 20:32:17 +0800 feat: introduce Recent Workspaces view with search, time grouping, and git status display.
+apps/web/src/components/workspace/RecentWorkspacesView.tsx
+
+7e71698 2026-02-01 19:05:42 +0800 feat: Implement an animated "Add Project" button within the LeftSidebar's Projects tab and add new logo assets.
+apps/landing/public/logo.png
+packages/ui/src/assets/img/logo_1.png
+packages/ui/src/assets/img/logo_2.png
+
+3a0ae8d 2026-02-01 15:11:40 +0800 feat(web): move dev mode label to footer and add cursor-pointer to all buttons
+apps/web/src/components/dialogs/ArchivedWorkspacesModal.tsx
+apps/web/src/components/dialogs/DeleteProjectDialog.tsx
+apps/web/src/components/dialogs/DeleteWorkspaceDialog.tsx
+
+c79ef9f 2026-01-31 18:11:43 +0800 feat: Add hard stop functionality for script sessions and implement UI tooltips.
+packages/ui/src/components/ui/tooltip.tsx
+
+f87e86e 2026-01-31 12:46:03 +0800 feat: Introduce custom project color selection with a color picker and add new run preview components.
+apps/web/src/components/run-preview/Preview.tsx
+apps/web/src/components/run-preview/RunPreviewPanel.tsx
+apps/web/src/components/run-preview/RunScript.tsx
+packages/ui/src/components/ui/popover.tsx
+
+2260e35 2026-01-31 00:40:35 +0800 feat: Add real-time workspace setup progress view with terminal output, status updates, and retry functionality.
+.atmos/scripts/atmos.json
+apps/web/src/components/workspace/WorkspaceSetupProgress.tsx
+
+db5a041 2026-01-30 18:48:56 +0800 feat: command search
+apps/web/src/components/layout/GlobalSearch.tsx
+crates/core-engine/src/search.rs
+packages/ui/src/components/ui/command.tsx
+
+b1b7e7d 2026-01-30 16:10:32 +0800 feat: Add workspace script management functionality with a new dialog and WebSocket API endpoints.
+apps/web/src/components/dialogs/WorkspaceScriptDialog.tsx
+packages/ui/src/components/ui/textarea.tsx
+
+b5eef61 2026-01-30 11:49:29 +0800 feat: quick open
+crates/core-engine/src/app/mod.rs
+
+44e0025 2026-01-30 10:24:17 +0800 docs: map existing codebase
+.planning/codebase/ARCHITECTURE.md
+.planning/codebase/CONCERNS.md
+.planning/codebase/CONVENTIONS.md
+.planning/codebase/INTEGRATIONS.md
+.planning/codebase/STACK.md
+.planning/codebase/STRUCTURE.md
+.planning/codebase/TESTING.md
+
+2590d2f 2026-01-29 21:12:53 +0800 feat: quick open
+apps/web/src/components/layout/QuickOpen.tsx
+
+97a2abb 2026-01-29 17:26:58 +0800 feat: Implement Git staging, unstaging, discarding, pulling, fetching, and syncing functionality with a new collapsible UI for changed files.
+packages/ui/src/components/ui/collapsible.tsx
+
+26d7325 2026-01-29 16:23:30 +0800 refactor: centralize core services into a dedicated `service` module and migrate workspace name generator to backend.
+crates/core-service/src/service/mod.rs
+crates/core-service/src/service/workspace.rs
+crates/core-service/src/utils/mod.rs
+crates/core-service/src/utils/workspace_name_generator.rs
+
+a379fa1 2026-01-29 12:05:54 +0800 feat: Implement terminal maximization with persistence and UI controls.
+crates/infra/src/db/migration/m20260129_000006_add_maximized_terminal_id.rs
+
+2597a1a 2026-01-28 20:25:28 +0800 feat: Refine terminal workspace initialization with dedicated loading states and enhance Tmux session management with consistent naming and grouped sessions.
+specs/tech/Terminal-Multiplexing-System.md

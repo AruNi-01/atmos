@@ -10,6 +10,16 @@ The Wiki follows a **two-part structure**: Getting Started (for newcomers) and D
 .atmos/wiki/
 ├── _catalog.json                    # Catalog metadata (required)
 ├── _mindmap.md                      # Project architecture mindmap (optional)
+├── _todo.md                         # Generation checklist (required during generation)
+├── _metadata/                       # Git metadata (from collect_metadata.sh)
+│   ├── commit_graph.txt             # git log --oneline --graph
+│   ├── commit_details.txt           # Full commit log with file stats
+│   ├── contributors.txt             # git shortlog
+│   ├── prs.json                     # PR list (if gh CLI available)
+│   └── issues.json                  # Issue list (if gh CLI available)
+├── _concepts.json                   # Extracted core concepts (Step 4)
+├── _briefings/                      # Research briefings for Deep Dive articles
+│   └── {path}.md                    # e.g. deep-dive/infra/websocket.md
 ├── getting-started/                 # Part 1: Getting Started
 │   ├── index.md                     # Overview & welcome
 │   ├── quick-start.md               # Install & run in 5 minutes
@@ -38,6 +48,12 @@ The Wiki follows a **two-part structure**: Getting Started (for newcomers) and D
     └── design-decisions/            # Architecture decisions
         └── index.md
 ```
+
+### Auxiliary Artifacts (Generation-Time)
+
+- **`_metadata/`**: Produced by `collect_metadata.sh`. Contains Git commit history, file change stats, PR/Issue lists. Used by the Agent to understand design intent and evolution.
+- **`_concepts.json`**: Extracted core concepts (Step 4). Maps concepts to files, commits, and each other. Drives catalog design and research briefings.
+- **`_briefings/`**: One Markdown file per Deep Dive article. Each briefing includes involved concepts, research questions, and required source files. Subagents use these to produce research-grade content. See `references/briefing_template.md` and `examples/sample_briefing.md`.
 
 ---
 

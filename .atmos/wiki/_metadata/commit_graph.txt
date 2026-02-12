@@ -1,0 +1,209 @@
+* 007edae feat(web): improve mermaid diagram modal - fill space, drag pan, custom zoom input
+* e1ee52e feat(wiki): add specify-wiki section and enhance validation
+* 4bcf4f3 chore(wiki): update catalog and enhance wiki components
+* d27f631 refactor(wiki): update project wiki structure and enhance functionality
+* 113e211 feat(wiki): enhance project-wiki skill synchronization and update handling
+* e4ede06 feat(wiki): add Project Wiki Terminal tab as temporary tab
+* e2bf6ab feat(wiki): add Project Wiki Terminal tab as temporary tab
+* 8e1112c chore: update dependencies and enhance wiki structure
+* 261e81e feat(web): add code block expand/collapse, unified markdown TOC, and skill detail save button improvement
+* 5db863d style: improve resize handle button visibility and remove wiki sidebar icons
+* c0e8fe9 fix: resolve layout overflow and moon icon misalignment in dark mode
+* fa53473 feat(web): integrate code-blocks with Shiki syntax highlighting
+* c722af9 feat(wiki): enhance WikiSidebar with project info dialog and repository icons
+* 8249773 feat(wiki): improve Mermaid modal, TOC scroll, and hash anchor on refresh
+* 8eaf278 feat(web): enhance Markdown rendering and terminal functionality
+* 6f9cf49 feat(web): add global tmux install guide modal
+* 3c21e50 style(terminal): scroll-to-bottom button hover expand to `$ cd bottom` with smooth animation
+* bda1776 feat(terminal): enhance scrollback behavior and wheel event handling
+* f26d6c1 refactor(web): remove overview tab text and add 3s debounce for locked terminal toast
+* c911ae7 feat(terminal): update cursor style and width in terminal options
+* 3394e4e feat(terminal): strip tmux mouse-enable sequences from PTY output
+* 6ebb47c feat(terminal): add tmux copy-mode management
+* 4cf134c feat: add terminal scroll to down
+* 70e18cb fix agentation dependency
+* 156acd1 fix: move agentation dependency to apps/web
+* 964e240 chore: update code
+* 0a6589a feat(terminal): implement dynamic title updates for terminal sessions
+* 4fb9914 fix: deduplicate workspace name against both git branches and DB records
+* c6dab76 fix: list_branches now checks both local and remote branches to prevent worktree name conflicts
+* 6ffc690 feat(web): enhance markdown code blocks and tables with better dark/light theme support
+* 4f202e9 fix: move Kill All button outside CollapsibleTrigger to prevent nested button hydration error
+*   541862c Merge branch 'main' of https://github.com/AruNi-01/atmos
+|\  
+| *   3d50609 Merge pull request #2 from AruNi-01/feat/tailscale-network-support
+| |\  
+| | * ad85af1 feat: add Tailscale network support with env-based config
+| |/  
+* | dcede2d fix: implement smooth scrolling and tmux integration for terminal
+* | 5d5caee fix: enhance workspace session management to prevent race conditions
+* | bbdd899 fix: improve terminal resize handling and session management
+|/  
+* 341d63a Remove navigation data prop from landing page header and implement terminal resize logging with scrollback clearing.
+* 2608a38 fix: resolve terminal garbled display and duplicate content on initial load
+* 5ec2b85 fix: resolve terminal [exited] / can't find session errors during workspace switching
+* 7c1e548 fix: suppress dead_code warnings for intentionally unused API items
+* 8b86dfe feat: Add new SVG icons for landing and web apps, and centralize the `LogoSvg` component.
+* f8035b3 Remove multiple landing page sections and refactor the footer component.
+* ca53326 feat: Introduce a `BlinkingGrid` component and integrate it into the hero, services, and FAQ sections.
+* 106d522 feat: Add `overflow-hidden` to the footer component and `overscroll-behavior-y: none` to global html styles.
+* 0bd6ec8 feat: Redesign the footer component to display a large, animated brand logo, removing social media links and the contact section.
+* f552fc8 feat: Add scroll-driven vertical progress bars to the header's content edges on wider screens.
+* b7d5ca1 feat: Implement global scrollbar hiding, add a scroll progress bar to the header, and wrap the feature showcase in an animation preset.
+* 831bed7 feat: Add `FeatureShowcase` component to the landing page, replacing `Portfolio`, and refine `HeroSection` and `Logo` styling.
+* e9348da feat: Introduce `TextScramble` component and animate the logo with a text scramble effect.
+* ace8ba4 feat: Integrate Geist fonts, add Radix Accordion dependency, and adjust logo font weight to medium.
+* cee7c3f feat: Migrate local UI components from landing app to shared `@workspace/ui` package and add a new preview image.
+* f9a2ebc feat: Add Accordion and FlowButton UI components and integrate them into the landing page with new Benefits and FAQ sections.
+* 021e586 feat: Introduce new UI components including NavigationMenu, Separator, and Avatar, refactor logo assets, and update dependencies.
+* 4546a3e feat: Add new landing page sections and a collection of UI components, including services, hero, portfolio, and various UI elements.
+* b73da95 fix: 修复了两个根因： 1. 内容重复：resize() 同时调用了 tmux resize-pane 和 PTY master.resize()，导致 tmux 双重    reflow。PTY resize 已经会通过 SIGWINCH 通知 tmux client，tmux server 会自动调整。已删除    多余的 tmux resize-pane 调用，并在前端加了 50ms debounce 防止连续 resize 风暴。 2. ��� 乱码：PTY 输出按 4096 字节读取，String::from_utf8_lossy 会在 chunk 边界截断多字节    UTF-8 字符（emoji/CJK），将不完整的字节替换为 �。已改为流式 UTF-8 解码器，保留跨 chunk 的不完整字节到下次拼    接。
+* ce70a8f feat: add unicode11 to terminal
+* 5e42934 feat(api): add endpoint to kill orphaned processes and enhance PTY device summary
+* 5059197 fix(tmux): ensure atmos_ prefix is always added to session names
+* cad1dba Improve workspace setup UI and target branch picker
+* 776a6d8 Initiallzing workspace text intl
+* 310ad56 Refine terminal UI and remove FD limits
+* 919e11d Add management center links to global search
+* e686ab9 feat(terminal): add Terminal Manager with kill server/session controls
+* 3403ecd fix(api): add graceful shutdown to prevent PTY leaks during hot-reload
+* c25f5bd feat(web): integrate selection popover in MonacoEditor for code copying
+* ab450dc feat(web): add selection popover animation and rotating tips in diff viewer
+* 30ed844 fix(web): use git store stats for diff viewer header instead of calculating
+* 28b8f8f feat(diff): add wrapping toggle with smooth text animation
+* 9abb3eb feat(web): add preview mode for file tabs with italic styling
+* 096d474 style: unify tabs UI to square corners and full-height design
+* d14719a feat(web): improve skills page with filters and fix sidebar delete project
+* 7ed30ab refactor(web): extract and reuse BaseMonacoEditor
+* af80c8a refactor(web): improve skill detail layout and UI
+* e896ab8 refactor: restructure Management Center with Workspaces and Skills views
+* 1f0033a fix: resolve frontend lint errors and infra doctest
+* d798426 feat: label unified agent skills
+* 08dbeee feat: implement Skills management with routing and frontmatter extraction
+* f94eec1 refactor(web): redesign OverviewTab color scheme and UI improvements
+* 6d56c7b feat: Group and display tasks by status in collapsible sections within the OverviewTab.
+* cdc95b8 refactor: overhaul OverviewTab UI with Card components and update RightSidebar button styling.
+* 7e0dbbd feat: add workspace overview tab and requirements definition
+* d4dcc69 fix(web): git status not fetching after router.push navigation
+* e6a9cc1 feat(git): delete remote branch when removing workspace/project
+* fa71747 feat: Display toast notifications for websocket request failures and errors.
+* 80232a8 feat: Add tooltips to open file tabs to display the full file path and wrap tooltip content in a portal.
+* f4e74e7 feat: add Skeleton UI component and export it from the UI package.
+* c09f263 feat: Implement lazy loading for the file tree and display ignored files with a new `is_ignored` property.
+* 873fa2b feat: Add symlink detection and display with target tooltips in the file tree.
+* 1c9dcc5 feat: initialize `isWorkspacesExpanded` state conditionally based on the `view` prop.
+* d942bd7 feat: Add `no-scrollbar` utility and apply it to the tab list component, preventing tab shrinking.
+* 2511dce feat: Implement an expandable workspace section, recent workspaces view, and a new archived workspaces component.
+* 3843929 feat: Improve Git path handling, add confirmation dialogs for destructive Git actions, enhance file change display, and update the project icon.
+* b2b5cb5 feat: Implement a file viewer component with a new API route for serving files and backend support for base64 encoding binary content.
+* 80af7fb feat: introduce Recent Workspaces view with search, time grouping, and git status display.
+* 7e71698 feat: Implement an animated "Add Project" button within the LeftSidebar's Projects tab and add new logo assets.
+* f3b5843 fix(web): correct footer status display logic to check workspaceId and projectId
+* abb1b11 style: update project icon hover effect in left sidebar
+* 0d7e1da feat: Improve worktree creation robustness by verifying existing worktree directories and enhance Git branch listing and parsing.
+* da1df3d refactor: update terminal loading indicator styling and text, and remove the notifications button.
+* 3a0ae8d feat(web): move dev mode label to footer and add cursor-pointer to all buttons
+* 5fa8395 refactor: adjust layout and spacing of run preview toolbar components.
+* d77d470 refactor: Separate color picker's immediate state update from final project color setting using `onChange` and `onChangeComplete`.
+* d5acbc1 feat: Add dark mode styling to the SketchPicker component using dynamic inline styles and global CSS overrides.
+* 848f4b2 feat: introduce "main" development mode by supporting `projectId` as a context alongside `workspaceId` across the application.
+* 7ccc181 feat: Introduce workspace setup progress and prevent UI components from fetching data or setting context during workspace initialization.
+* 423a430 feat: Provide workspace local path from backend, use it in frontend for file tree and quick open, and fix terminal thread join and color picker alpha handling.
+* b24a9ae feat: Introduce fullscreen mode, `Cmd+O` quick open shortcut, and create PR button, alongside improved changed file path rendering.
+* ec7653d feat: preview max
+* c79ef9f feat: Add hard stop functionality for script sessions and implement UI tooltips.
+* a86a1dc feat: Automatically detect and populate the preview URL from terminal output.
+* 6081f5d feat: Add script execution, run/stop controls, terminal locking, and script configuration to the run preview panel.
+* b0bf352 feat: Enhance terminal with current working directory support and introduce a resizable, collapsible run preview panel.
+* 37b691d feat: Separate URL input from active URL, add URL normalization, and enhance preview empty state handling.
+* 61d4460 feat: implement multi-terminal tabs using `@workspace/ui` Tabs components with sequential naming for new tabs.
+* 301cbc6 feat: Introduce simple terminal sessions that do not rely on tmux and refine UI for run preview and right sidebar.
+* a3806ee feat: improve worktree creation robustness by checking for existing directories, handling empty worktrees, and adding post-creation verification.
+* f87e86e feat: Introduce custom project color selection with a color picker and add new run preview components.
+* 94e24bd chore: Remove `onRehydrateStorage` callback from editor store configuration.
+* a359ef1 refactor: Decouple workspace name reservation from worktree creation, deferring worktree setup to an asynchronous background task.
+* 2260e35 feat: Add real-time workspace setup progress view with terminal output, status updates, and retry functionality.
+*   073f00e Merge pull request #1 from AruNi-01/atmos/paras
+|\  
+| * 472e03e feat: upgrade global search with refined UI, keyboard navigation, and code search results now include context lines.
+| * 5885fca style: Enhance empty state message layout and centering in global search and command components.
+| * a02d7b4 feat: Add Antigravity app integration and enhance global search UI with a detailed button and improved command palette layout.
+| *   fb3eec2 Merge branch 'main' into atmos/paras
+| |\  
+| |/  
+|/|   
+* | b1b7e7d feat: Add workspace script management functionality with a new dialog and WebSocket API endpoints.
+* | b5eef61 feat: quick open
+* | 44e0025 docs: map existing codebase
+* | 2590d2f feat: quick open
+* | 47b972c fix: git change
+* | 27206fd fix: topbar git status sync
+* | 97a2abb feat: Implement Git staging, unstaging, discarding, pulling, fetching, and syncing functionality with a new collapsible UI for changed files.
+* | 26d7325 refactor: centralize core services into a dedicated `service` module and migrate workspace name generator to backend.
+| * db5a041 feat: command search
+|/  
+* a379fa1 feat: Implement terminal maximization with persistence and UI controls.
+* 51019cf feat: Add support for specifying a current working directory for new terminal sessions and windows, derived from the workspace.
+* ecd6389 feat: Implement `isNewPane` flag to conditionally create new tmux windows or attach to existing ones, and add a tmux session readiness check.
+* c874f06 feat: Implement terminal destruction when closing a pane and improve unique naming for agent terminals.
+* 9be51b5 style: Add dark mode styling for terminal grid drag and drop elements.
+* 2597a1a feat: Refine terminal workspace initialization with dedicated loading states and enhance Tmux session management with consistent naming and grouped sessions.
+* 5e18cb6 fix: doby 100%
+* 729d094 fix: css
+* e4d52ab fix: terminal toolbar border fix
+* 7268dd1 fix: theme fix
+* 225904c feat: tabs file icon
+* 48d7729 feat: Implement toggle for showing hidden files in the file tree and improve file icons in the Git changes list.
+* 797a5c1 fix: 修复 git diff 视图的滚动和样式问题
+* 4e6e78c feat: Introduce human-readable tmux session and window naming, supporting reconnection by name or ID.
+* 9ace9b2 feat: Improve terminal scrolling with unified 10000-line scrollback, custom xterm.js scrollbar, and disabled tmux mouse mode.
+* eb2c009 feat: Enhance terminal grid UI with redesigned toolbar and session fallback on attachment failure, while suppressing React 19 ref warnings.
+* 00e3bb7 feat: Add terminal grid component with dynamic mosaic layout, state management, and backend persistence for terminal sessions.
+* df296f3 feat: Migrate terminal tmux window identification from index to name for improved session management.
+* 8da3b5e feat: Implement dynamic terminal theming, enhance loading states, and refine terminal scrolling behavior.
+* 7891dcd feat: tmux impl
+* 290d1a5 feat: Introduce workspace-aware terminal, new state management hooks, and a welcome page.
+* 921d548 feat: Introduce a new resizable terminal grid component with integrated agent management and dynamic imports.
+* e01d19b feat: Implement interactive terminal with WebSocket communication across web, API, and core services.
+* 4e79c8a feat: Add Git changed files, diff viewer, commit, and push functionality.
+* 9bbc7b8 feat: Customize Monaco Editor scrollbar appearance with new styles and sizes, and improve content synchronization on file path changes.
+* a954105 feat: Implement markdown preview in Monaco editor with debouncing, typography styling, and disabled validation.
+* 60d641b feat: Implement dirty file close confirmation dialog and enhance tab UI/UX with improved styling and close button behavior.
+* c1948b1 refactor: Replace custom tab rendering in CenterStage with the new Tabs component from @workspace/ui.
+* a0a56dd style: refine hover effects in Header and apply underline variant to LeftSidebar TabsList.
+* c7160b1 chore: Add `bun run`, `bun tsc`, and `npx tsc` to allowed bash actions in Claude settings.
+* 46121cf feat: Add VSCode-style file icons to FileTree component
+* 24d1d02 feat: Add Git status tracking and project target branch management
+* 98e0e32 feat: Migrate project and workspace data fetching to WebSocket API, removing old HTTP API files and adding migration notes.
+* 1596329 feat: Implement file explorer and Monaco editor with integrated file system operations via websocket.
+* 752e4c0 chore: gitignore
+* 0f489f8 Update .gitignore
+* 41042a7 feat: 支持工作区的 pin 和 archive 功能
+* 198a1d0 chore: rename project
+* 5ce21f6 Update Header.tsx
+* ca5eb7d Update AGENTS.md
+* 6f834b2 feat: adjust light theme
+* e4453df feat: Implement LeftSidebar for project and workspace management, and introduce a new reusable Tabs UI component.
+* 4f27c7f feat: Introduce `CenterStage` component with tabbed terminal, editor, and diff views, and establish a new `@workspace/ui` package.
+* dc9a456 feat: add application footer displaying WebSocket connection status and other metadata.
+* 4f9b091 feat: Implement WebSocket-based communication and file browser
+* be29683 feat: Add 'Skill(superdesign)' to settings.local.json for enhanced functionality.
+* bf6c292 feat: Implement full-stack project management with UI, API, database entities, and drag-and-drop functionality.
+* 0c70159 refactor: Adjust panel minimum and maximum sizes in PanelLayout for improved layout flexibility.
+* 32b2504 feat: Enhance panel resizing with smoother dragging transitions and an expanded handle hit area.
+* 9fa5c30 feat: Implement resizable panel layout with `react-resizable-panels` and centralize icon imports through the UI package.
+* fe16e13 refactor: standardize icon sizing, enhance transitions, improve accessibility, and optimize class management across UI components.
+* ee38b05 style: Replace `h-screen` with `h-dvh` for the main page layout height.
+* 7cf3243 style: Standardize UI component border-radius to `rounded-sm` and refine branch indicator colors and text.
+* 7ec905a feat: Establish core application layout including sidebars, header, footer, and a central stage with terminal, editor, and diff views, along with new data types.
+* c99be37 chore: update docs and skills
+* 3faab65 Update TechPlan-V1.1.md
+* d6927ff Update README.md
+* 0645c0e feat: backend setup
+* 97a9ec0 chore: init directory
+* 2df36d2 docs: optimize the document system
+* 79978cc docs: del chat docs
+* 9f9cbe5 chore: translate catalog comment in package.json to English.
+* a0676cc feat: introduce a new SVG overlay component to the docs page and add a logo asset.
+* 191b650 refactor: Reorganize UI components by moving Frame to a new Coss namespace, introduce Animate component configuration, and update React peer dependency to v19.
+* aecd5f4 feat: Introduce new UI components (Dialog, Card, Frame, Label, Input, Select) and refactor UI package structure with updated imports and configuration across applications.
