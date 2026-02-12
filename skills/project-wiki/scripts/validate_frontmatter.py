@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 REQUIRED_KEYS = ("title", "section", "level", "reading_time", "path", "sources", "updated_at")
-VALID_SECTIONS = {"getting-started", "deep-dive"}
+VALID_SECTIONS = {"getting-started", "deep-dive", "specify-wiki"}
 VALID_LEVELS = {"beginner", "intermediate", "advanced"}
 
 # Patterns that indicate incorrect metadata in body (forbidden)
@@ -118,7 +118,7 @@ def validate_frontmatter(fm: dict, body: str, path: str) -> list[str]:
             errors.append(f"Empty value for required key: '{key}'")
 
     if "section" in fm and fm["section"] not in VALID_SECTIONS:
-        errors.append(f"Invalid section: '{fm['section']}' (expected: getting-started, deep-dive)")
+        errors.append(f"Invalid section: '{fm['section']}' (expected: getting-started, deep-dive, specify-wiki)")
 
     if "level" in fm and fm["level"] not in VALID_LEVELS:
         errors.append(

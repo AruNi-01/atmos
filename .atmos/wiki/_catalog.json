@@ -300,6 +300,29 @@
           "children": []
         }
       ]
+    },
+    {
+      "id": "specify-wiki",
+      "title": "Specify Wiki",
+      "path": "specify-wiki",
+      "order": 2,
+      "file": "specify-wiki/index.md",
+      "section": "specify-wiki",
+      "level": "intermediate",
+      "reading_time": 2,
+      "children": [
+        {
+          "id": "specify-wiki.wiki-implementation",
+          "title": "Explore how project wiki is implemented",
+          "path": "specify-wiki/wiki-implementation",
+          "order": 0,
+          "file": "specify-wiki/wiki-implementation.md",
+          "section": "specify-wiki",
+          "level": "advanced",
+          "reading_time": 10,
+          "children": []
+        }
+      ]
     }
   ]
 }

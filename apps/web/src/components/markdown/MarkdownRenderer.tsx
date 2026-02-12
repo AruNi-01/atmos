@@ -146,9 +146,8 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
         }).catch((err: Error) => {
           if (!cancelled) setError(err.message || 'Mermaid render failed');
         }).finally(() => {
-          // Clean up mermaid's error/temp elements appended to document.body
-          document.getElementById(id)?.remove();
-          document.getElementById(`d${id}`)?.remove();
+          // Clean up mermaid's temp elements appended to document.body (not inside our container)
+          document.querySelectorAll(`body > #${CSS.escape(id)}, body > #d${CSS.escape(id)}`).forEach(el => el.remove());
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Mermaid failed');
