@@ -80,9 +80,11 @@ For each affected page:
 
 ### Step 6: Validate
 
-Run the validation scripts:
-- `scripts/validate_frontmatter.py .atmos/wiki/`
-- `scripts/validate_catalog.py .atmos/wiki/_catalog.json`
+Run validation scripts **from this skill's own directory** (do NOT modify scripts in other skill directories):
+```bash
+python3 ~/.atmos/skills/.system/project-wiki-update/scripts/validate_frontmatter.py .atmos/wiki/
+python3 ~/.atmos/skills/.system/project-wiki-update/scripts/validate_catalog.py .atmos/wiki/_catalog.json
+```
 
 ## Edge Cases
 

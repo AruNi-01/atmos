@@ -53,8 +53,11 @@ The user prompt will provide:
 ### Step 4: Update Catalog and Validate
 
 1. Update `_catalog.json` with the new catalog entry.
-2. Run `scripts/validate_frontmatter.py .atmos/wiki/`
-3. Run `scripts/validate_catalog.py .atmos/wiki/_catalog.json`
+2. Run validation scripts **from this skill's own directory** (do NOT modify scripts in other skill directories):
+   ```bash
+   python3 ~/.atmos/skills/.system/project-wiki-specify/scripts/validate_frontmatter.py .atmos/wiki/
+   python3 ~/.atmos/skills/.system/project-wiki-specify/scripts/validate_catalog.py .atmos/wiki/_catalog.json
+   ```
 
 ## Alignment with project-wiki
 
