@@ -19,12 +19,16 @@ import sys
 from pathlib import Path
 
 REQUIRED_ITEMS = [
+    "Git metadata collected",
     "Deep codebase research done",
+    "Core concepts extracted",
     "_catalog.json created (schema-compliant)",
     "validate_catalog passes",
     "_mindmap.md created",
+    "Research briefings generated",
     "All Markdown articles generated",
     "validate_frontmatter passes",
+    "validate_content passes",
     "validate_todo passes",
     "Final verification complete",
 ]

@@ -39,10 +39,10 @@ if [[ "${UNCHECKED:-0}" -gt 0 ]]; then
   ERRORS+=("Found $UNCHECKED unchecked item(s). All must be [x] before completion.")
 fi
 
-# Must have at least 7 checked items (full checklist has 8)
+# Must have at least 11 checked items (full checklist has 12)
 CHECKED=$(grep -c "^- \[[xX]\]" "$TODO_FILE" 2>/dev/null || true)
-if [[ "${CHECKED:-0}" -lt 7 ]]; then
-  ERRORS+=("Too few items checked (found $CHECKED). Expected at least 7 for a complete wiki.")
+if [[ "${CHECKED:-0}" -lt 11 ]]; then
+  ERRORS+=("Too few items checked (found $CHECKED). Expected at least 11 for a complete wiki.")
 fi
 
 # Report

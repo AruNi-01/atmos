@@ -10,10 +10,13 @@ This skill guides a Code Agent to **add a specified topic** to an existing Proje
 ## Prerequisites
 
 1. An existing wiki must exist at `./.atmos/wiki/` with a valid `_catalog.json`.
-2. Read these shared references in this skill directory before making any changes:
-   - **Content & formatting guidelines**: `references/content-guidelines.md` (if it exists; otherwise follow project-wiki conventions)
-   - **Catalog schema**: `references/catalog.schema.json`
-   - **Output structure**: `references/output_structure.md`
+2. Read these shared references from **project-wiki** (installed at `~/.atmos/skills/.system/project-wiki/`) before making any changes:
+   - **Content & formatting**: `~/.atmos/skills/.system/project-wiki/references/output_structure.md`
+   - **Research briefing template**: `~/.atmos/skills/.system/project-wiki/references/briefing_template.md`
+   - **Sample briefing**: `~/.atmos/skills/.system/project-wiki/examples/sample_briefing.md`
+   - **Catalog schema**: `~/.atmos/skills/.system/project-wiki/references/catalog.schema.json`
+
+The generated article MUST meet **specify-wiki** content depth requirements: 1500+ words, 3+ Mermaid diagrams, 6+ H2 sections, 5+ source files, 4+ cross-references. Run `~/.atmos/skills/.system/project-wiki/scripts/validate_content.py` to verify.
 
 ## Input Context
 
@@ -37,38 +40,54 @@ The user prompt will provide:
 
 ### Step 2: Research the Topic
 
-1. Deep-dive into the codebase to answer the user's topic/question.
-2. Identify the relevant source files (modules, types, functions).
-3. Understand the implementation, design decisions, and data flow.
+1. **Read metadata** (if available): `_metadata/commit_details.txt`, `_concepts.json` — use these to understand evolution and existing concepts.
+2. Deep-dive into the codebase to answer the user's topic/question.
+3. Identify the relevant source files (at least 5 for specify-wiki).
+4. Understand the implementation, design decisions, and data flow.
+5. Extract relevant Git history and PR/Issue context for "why" and "how it evolved".
 
-### Step 3: Generate the Article
+### Step 3: Create Research Briefing
 
-1. Create a new Markdown file under `./.atmos/wiki/specify-wiki/` using kebab-case (e.g., `websocket-lifecycle.md`, `why-rust-backend.md`).
-2. Follow the same content conventions as project-wiki:
-   - YAML frontmatter: `title`, `section: "specify-wiki"`, `level`, `reading_time`, `path`, `sources` (array), `updated_at`
-   - Prose-first, minimal code, prefer Mermaid diagrams
-   - Required sections: Introduction, Overview, Architecture (with diagrams), Content sections, Key Source Files, Next Steps
-3. Add the new article to `_catalog.json` under the `specify-wiki` section with correct `order`.
+Before writing the article, create a research briefing at `./.atmos/wiki/_briefings/specify-wiki/{topic-slug}.md` (e.g. `_briefings/specify-wiki/wiki-implementation.md`). Use `~/.atmos/skills/.system/project-wiki/references/briefing_template.md` as template. Include:
+- Involved concepts (from `_concepts.json` or newly identified)
+- Must-answer research questions (e.g. "Why was this approach chosen?", "How does it integrate with X?")
+- Required source files and why each matters
 
-### Step 4: Update Catalog and Validate
+### Step 4: Generate the Article (Research-Type)
+
+1. Act as a **technical researcher**, not a document summarizer. Answer every research question from the briefing.
+2. Create a new Markdown file under `./.atmos/wiki/specify-wiki/` using kebab-case (e.g., `websocket-lifecycle.md`, `why-rust-backend.md`).
+3. Follow project-wiki conventions:
+   - YAML frontmatter: `title`, `section: "specify-wiki"`, `level`, `reading_time`, `path`, `sources` (array, 5+), `updated_at`
+   - **Minimum 1500 words** — expand by covering design decisions, evolution, and edge cases
+   - 3+ Mermaid diagrams, 6+ H2 sections
+   - Required sections: Introduction, Overview, Architecture, Design Decisions / Error Handling / Evolution (as relevant), Key Source Files, Next Steps (4+ cross-reference links)
+4. Add the new article to `_catalog.json` under the `specify-wiki` section with correct `order`.
+
+### Step 5: Update Catalog and Validate
 
 1. Update `_catalog.json` with the new catalog entry.
-2. Run validation scripts **from this skill's own directory** (do NOT modify scripts in other skill directories):
+2. Run all validation scripts from **project-wiki**. All must pass:
    ```bash
-   python3 ~/.atmos/skills/.system/project-wiki-specify/scripts/validate_frontmatter.py .atmos/wiki/
-   python3 ~/.atmos/skills/.system/project-wiki-specify/scripts/validate_catalog.py .atmos/wiki/_catalog.json
+   python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py .atmos/wiki/_catalog.json
+   python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py .atmos/wiki/
+   python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_content.py .atmos/wiki/
    ```
+3. If `validate_content` fails for the new article, expand the content until it passes.
 
 ## Alignment with project-wiki
 
 All generated content MUST follow the same conventions as the full project-wiki skill:
 - Same frontmatter schema (with `section: "specify-wiki"`)
 - Same content style (prose-first, minimal code, prefer Mermaid)
+- **Same content depth** — specify-wiki uses Deep Dive thresholds: 1500+ words, 3+ diagrams, 6+ H2s, 5+ sources, 4+ cross-refs; must pass `validate_content`
 - Same file naming (kebab-case under `.atmos/wiki/specify-wiki/`)
 - Same catalog item structure (id, title, path, order, file, section, level, reading_time, children)
+- Research-type Agent role — explain *why* and *how it evolved*, not just *what*
 
 ## Edge Cases
 
 - **Topic too broad**: Suggest a more focused topic or split into multiple articles.
 - **Topic not applicable**: If the codebase has no relevant code, explain that to the user and suggest an alternative.
 - **Duplicate content**: If a similar article already exists, consider updating it instead of creating a duplicate.
+- **Shallow output**: If the first draft is under 1500 words, expand by adding Design Decisions, Error Handling, Evolution, or Configuration sections — do not consider the article complete until `validate_content` passes.
