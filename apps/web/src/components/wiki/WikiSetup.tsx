@@ -19,32 +19,18 @@ import {
   DialogFooter,
 } from "@workspace/ui";
 import { BookOpen, Copy, Loader2, Download, AlertTriangle } from "lucide-react";
-import { shellQuote } from "@/lib/shell-quote";
+import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
 import { systemApi } from "@/api/rest-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import { skillsApi } from "@/api/ws-api";
 
 const PROJECT_WIKI_SKILL_PATH = "~/.atmos/skills/.system/project-wiki";
 
-/** Agents with their CLI commands and YOLO/auto-approve flags */
-const AGENT_OPTIONS = [
-  { id: "claude", label: "Claude Code", cmd: "claude", yoloFlag: "--dangerously-skip-permissions" },
-  { id: "codex", label: "Codex", cmd: "codex", yoloFlag: "--dangerously-bypass-approvals-and-sandbox" },
-  { id: "gemini", label: "Gemini", cmd: "gemini", yoloFlag: "-y" },
-  { id: "amp", label: "Amp", cmd: "amp", yoloFlag: "-x" },
-  { id: "droid", label: "Droid", cmd: "droid", yoloFlag: "" },
-  { id: "opencode", label: "OpenCode", cmd: "opencode", yoloFlag: "--yolo" },
-  { id: "kimi", label: "Kimi", cmd: "kimi", yoloFlag: "" },
-  { id: "cursor", label: "Cursor Agent", cmd: "agent", yoloFlag: "--force" },
-  { id: "kilocode", label: "Kilo Code", cmd: "kilocode", yoloFlag: "" },
-  { id: "kiro", label: "Kiro", cmd: "kiro", yoloFlag: "" },
-] as const;
-
 const COMMON_LANGUAGES = [
   { value: "en", label: "English" },
-  { value: "zh", label: "中文" },
-  { value: "ja", label: "日本語" },
-  { value: "ko", label: "한국어" },
+  { value: "zh", label: "Chinese" },
+  { value: "ja", label: "Japanese" },
+  { value: "ko", label: "Korean" },
   { value: "es", label: "Español" },
   { value: "fr", label: "Français" },
   { value: "de", label: "Deutsch" },
@@ -54,33 +40,6 @@ const COMMON_LANGUAGES = [
   { value: "hi", label: "हिन्दी" },
   { value: "other", label: "Other (custom)" },
 ];
-
-function buildCommand(
-  agentId: (typeof AGENT_OPTIONS)[number]["id"],
-  prompt: string,
-  useYolo: boolean
-): string {
-  const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
-  if (!agent) return "";
-
-  const quoted = shellQuote(prompt);
-  const parts = [agent.cmd];
-
-  if (useYolo && agent.yoloFlag) {
-    parts.push(agent.yoloFlag);
-  }
-
-  switch (agent.id) {
-    case "amp":
-      // Amp: -x runs in execute/headless mode
-      parts.push(quoted);
-      break;
-    default:
-      parts.push(quoted);
-  }
-
-  return parts.join(" ");
-}
 
 function buildPrompt(language: string, customLanguage: string): string {
   const lang = language === "other" ? customLanguage : language;
@@ -119,7 +78,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
   onProjectWikiReplaceAndRun,
   onRetryCheck,
 }) => {
-  const [agentId, setAgentId] = useState<(typeof AGENT_OPTIONS)[number]["id"]>("claude");
+  const [agentId, setAgentId] = useState<AgentId>("claude");
   const [isGenerating, setIsGenerating] = useState(false);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
@@ -338,23 +297,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         {skillLoading && <Skeleton className="h-4 w-3/4" />}
 
         {/* Code Agent */}
-        <div>
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-            Code Agent
-          </label>
-          <Select value={agentId} onValueChange={(v) => setAgentId(v as typeof agentId)}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {AGENT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.id} value={opt.id}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <AgentSelect value={agentId} onValueChange={setAgentId} />
 
         {/* Language */}
         <div>

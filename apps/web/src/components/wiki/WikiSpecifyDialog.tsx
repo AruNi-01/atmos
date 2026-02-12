@@ -1,13 +1,8 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -17,25 +12,13 @@ import {
   toastManager,
   Textarea,
 } from "@workspace/ui";
-import { Loader2, FilePlus } from "lucide-react";
-import { shellQuote } from "@/lib/shell-quote";
+import { Download, Loader2, FilePlus } from "lucide-react";
+import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
 import { systemApi } from "@/api/rest-api";
+import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 
 const PROJECT_WIKI_SPECIFY_SKILL_PATH = "~/.atmos/skills/.system/project-wiki-specify";
-
-const AGENT_OPTIONS = [
-  { id: "claude", label: "Claude Code", cmd: "claude", yoloFlag: "--dangerously-skip-permissions" },
-  { id: "codex", label: "Codex", cmd: "codex", yoloFlag: "--dangerously-bypass-approvals-and-sandbox" },
-  { id: "gemini", label: "Gemini", cmd: "gemini", yoloFlag: "-y" },
-  { id: "amp", label: "Amp", cmd: "amp", yoloFlag: "-x" },
-  { id: "droid", label: "Droid", cmd: "droid", yoloFlag: "" },
-  { id: "opencode", label: "OpenCode", cmd: "opencode", yoloFlag: "--yolo" },
-  { id: "kimi", label: "Kimi", cmd: "kimi", yoloFlag: "" },
-  { id: "cursor", label: "Cursor Agent", cmd: "cursor", yoloFlag: "" },
-  { id: "kilocode", label: "Kilo Code", cmd: "kilocode", yoloFlag: "" },
-  { id: "kiro", label: "Kiro", cmd: "kiro", yoloFlag: "" },
-] as const;
 
 /** Generic topic templates — user replaces [xxx] with their project-specific terms */
 const TOPIC_EXAMPLES = [
@@ -45,32 +28,6 @@ const TOPIC_EXAMPLES = [
   "Document the [mechanism/flow] design",
   "Explain the design decision behind [architecture choice]",
 ];
-
-function buildCommand(
-  agentId: (typeof AGENT_OPTIONS)[number]["id"],
-  prompt: string,
-  useYolo: boolean
-): string {
-  const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
-  if (!agent) return "";
-
-  const quoted = shellQuote(prompt);
-  const parts = [agent.cmd];
-
-  if (useYolo && agent.yoloFlag) {
-    parts.push(agent.yoloFlag);
-  }
-
-  switch (agent.id) {
-    case "amp":
-      parts.push(quoted);
-      break;
-    default:
-      parts.push(quoted);
-  }
-
-  return parts.join(" ");
-}
 
 function buildSpecifyPrompt(topic: string): string {
   const skillRef = `${PROJECT_WIKI_SPECIFY_SKILL_PATH}/SKILL.md`;
@@ -100,10 +57,55 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
   onComplete,
 }) => {
   const [topic, setTopic] = useState("");
-  const [agentId, setAgentId] = useState<(typeof AGENT_OPTIONS)[number]["id"]>("claude");
+  const [agentId, setAgentId] = useState<AgentId>("claude");
   const [isRunning, setIsRunning] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingCommand, setPendingCommand] = useState<string | null>(null);
+  const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
+  const [skillLoading, setSkillLoading] = useState(true);
+  const [isInstalling, setIsInstalling] = useState(false);
+
+  const checkSystemSkill = useCallback(async () => {
+    setSkillLoading(true);
+    setSystemHasSkill(null);
+    try {
+      const installed = await skillsApi.isProjectWikiInstalledInSystem();
+      setSystemHasSkill(installed);
+    } catch {
+      setSystemHasSkill(false);
+    } finally {
+      setSkillLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) checkSystemSkill();
+  }, [open, checkSystemSkill]);
+
+  const handleInstallSkill = useCallback(async () => {
+    setIsInstalling(true);
+    try {
+      const result = await skillsApi.installProjectWiki();
+      if (result.success) {
+        toastManager.add({
+          title: "Skill installed",
+          description: result.message,
+          type: "success",
+        });
+        await checkSystemSkill();
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err) {
+      toastManager.add({
+        title: "Install failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        type: "error",
+      });
+    } finally {
+      setIsInstalling(false);
+    }
+  }, [checkSystemSkill]);
 
   const doRunSpecify = useCallback(
     (command: string) => {
@@ -222,6 +224,36 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {(skillLoading || systemHasSkill !== true) && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {skillLoading
+                    ? "Checking wiki skills..."
+                    : "Wiki skills (project-wiki, project-wiki-specify) are not installed."}
+                </p>
+                {!skillLoading && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleInstallSkill}
+                    disabled={isInstalling}
+                    className="cursor-pointer"
+                  >
+                    {isInstalling ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin mr-2" />
+                        Installing...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="size-4 mr-2" />
+                        Install wiki skills
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
                 Topic
@@ -247,29 +279,17 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                 ))}
               </div>
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-                Code Agent
-              </label>
-              <Select value={agentId} onValueChange={(v) => setAgentId(v as typeof agentId)}>
-                <SelectTrigger className="w-full cursor-pointer">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {AGENT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <AgentSelect value={agentId} onValueChange={setAgentId} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRunning} className="cursor-pointer">
               Cancel
             </Button>
-            <Button onClick={handleRunSpecify} disabled={isRunning || !topic.trim()} className="cursor-pointer">
+            <Button
+              onClick={handleRunSpecify}
+              disabled={isRunning || !topic.trim() || systemHasSkill !== true}
+              className="cursor-pointer"
+            >
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />

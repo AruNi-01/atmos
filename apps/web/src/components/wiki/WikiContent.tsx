@@ -11,6 +11,7 @@ import {
   toastManager,
 } from "@workspace/ui";
 import { AlertTriangle, ChevronRight, Clock, Eye, Loader2, Pencil, Save } from "lucide-react";
+import { format } from "date-fns";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
 import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
@@ -168,6 +169,16 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const readingTime = frontmatter.reading_time
     ? Number(frontmatter.reading_time)
     : undefined;
+  const updatedAt = frontmatter.updated_at as string | undefined;
+  const formattedUpdatedAt = (() => {
+    if (!updatedAt) return null;
+    try {
+      const d = new Date(updatedAt);
+      return Number.isNaN(d.getTime()) ? null : format(d, "yyyy-MM-dd HH:mm");
+    } catch {
+      return null;
+    }
+  })();
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
@@ -178,7 +189,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
           {levelConfig && (
             <span
               className={cn(
-                "text-[10px] font-medium px-1.5 py-0.5 rounded-full leading-none shrink-0",
+                "text-[10px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none shrink-0",
                 levelConfig.className
               )}
             >
@@ -255,6 +266,13 @@ export const WikiContent: React.FC<WikiContentProps> = ({
                 </Collapsible>
               )}
               <MarkdownRenderer>{body}</MarkdownRenderer>
+              {formattedUpdatedAt && (
+                <div className="flex justify-end pt-6">
+                  <span className="text-[11px] text-muted-foreground">
+                    updated_at: {formattedUpdatedAt}
+                  </span>
+                </div>
+              )}
             </div>
           </ScrollArea>
         ) : (

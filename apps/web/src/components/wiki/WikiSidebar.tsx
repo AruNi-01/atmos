@@ -155,7 +155,7 @@ const WikiSidebarSection: React.FC<{
         {levelLabel && (
           <span
             className={cn(
-              "text-[9px] font-medium px-1.5 py-0.5 rounded-full leading-none",
+              "text-[9px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none",
               getLevelStyle(item.level)
             )}
           >
@@ -254,19 +254,24 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
           </h3>
         </button>
         <div className="flex-[1] flex shrink-0 min-w-0">
-          {/* 左按钮位：Update | Regeneration 提示 | Checking 动画 */}
+          {/* 左按钮位：Update | Regeneration 提示 | Checking 动画 | Up to date */}
           <div className="flex-1 flex items-center justify-center min-w-0">
-            {hasUpdate && onTriggerUpdate && (
+            {checking ? (
+              <span className="w-full h-full flex items-center justify-center text-muted-foreground animate-spin">
+                <RefreshCw className="size-4" />
+              </span>
+            ) : hasUpdate && onTriggerUpdate ? (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       onClick={onTriggerUpdate}
-                      className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 animate-pulse cursor-pointer"
+                      className="relative w-full h-full flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
                       aria-label="Wiki is outdated. Click to update."
                     >
                       <RefreshCw className="size-4" />
+                      <span className="absolute top-1 right-1 size-1.5 rounded-full bg-amber-500" aria-hidden />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[200px]">
@@ -274,8 +279,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            )}
-            {needsRegeneration && !hasUpdate && (
+            ) : needsRegeneration ? (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -288,11 +292,19 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            )}
-            {checking && !hasUpdate && !needsRegeneration && (
-              <span className="w-full h-full flex items-center justify-center text-muted-foreground animate-spin">
-                <RefreshCw className="size-4" />
-              </span>
+            ) : (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="w-full h-full flex items-center justify-center text-muted-foreground cursor-default">
+                      <RefreshCw className="size-4" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px]">
+                    <p>Wiki is up to date</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
           {/* 右按钮位：Info */}
