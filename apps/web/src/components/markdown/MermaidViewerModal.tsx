@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle, cn } from "@workspace/ui";
 import { Minus, Plus, X } from "lucide-react";
 
@@ -15,6 +15,24 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.25;
 
+function makeScalableSvg(svg: string): string {
+  const widthMatch = svg.match(/<svg[^>]*\swidth="([\d.]+)"/);
+  const heightMatch = svg.match(/<svg[^>]*\sheight="([\d.]+)"/);
+  if (!widthMatch || !heightMatch) return svg;
+
+  const w = widthMatch[1];
+  const h = heightMatch[1];
+
+  let result = svg;
+  if (!/<svg[^>]*\sviewBox=/.test(result)) {
+    result = result.replace("<svg", `<svg viewBox="0 0 ${w} ${h}"`);
+  }
+  result = result.replace(/(<svg[^>]*)\swidth="[\d.]+"/, "$1");
+  result = result.replace(/(<svg[^>]*)\sheight="[\d.]+"/, "$1");
+  result = result.replace("<svg", '<svg width="100%" height="100%"');
+  return result;
+}
+
 export function MermaidViewerModal({
   open,
   onOpenChange,
@@ -22,38 +40,59 @@ export function MermaidViewerModal({
   isDark,
 }: MermaidViewerModalProps) {
   const [zoom, setZoom] = useState(1);
+  const [zoomInput, setZoomInput] = useState("100");
+  const [isEditingZoom, setIsEditingZoom] = useState(false);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const scalableSvg = useMemo(() => makeScalableSvg(svgContent), [svgContent]);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef({ x: 0, y: 0, translateX: 0, translateY: 0 });
+  const zoomInputRef = useRef<HTMLInputElement>(null);
+
+  const applyZoom = useCallback((value: number) => {
+    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+    setZoom(clamped);
+    setZoomInput(String(Math.round(clamped * 100)));
+  }, []);
 
   const handleZoomIn = useCallback(() => {
-    setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP));
-  }, []);
+    applyZoom(zoom + ZOOM_STEP);
+  }, [zoom, applyZoom]);
 
   const handleZoomOut = useCallback(() => {
-    setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP));
-  }, []);
+    applyZoom(zoom - ZOOM_STEP);
+  }, [zoom, applyZoom]);
+
+  const handleZoomInputCommit = useCallback(() => {
+    const parsed = parseInt(zoomInput, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      applyZoom(parsed / 100);
+    } else {
+      setZoomInput(String(Math.round(zoom * 100)));
+    }
+    setIsEditingZoom(false);
+  }, [zoomInput, zoom, applyZoom]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    e.preventDefault();
     setIsDragging(true);
     dragStartRef.current = {
       x: e.clientX,
       y: e.clientY,
-      scrollLeft: scrollContainerRef.current?.scrollLeft ?? 0,
-      scrollTop: scrollContainerRef.current?.scrollTop ?? 0,
+      translateX: translate.x,
+      translateY: translate.y,
     };
-  }, []);
+  }, [translate]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!isDragging || !scrollContainerRef.current) return;
+      if (!isDragging) return;
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
-      scrollContainerRef.current.scrollLeft =
-        dragStartRef.current.scrollLeft - dx;
-      scrollContainerRef.current.scrollTop =
-        dragStartRef.current.scrollTop - dy;
+      setTranslate({
+        x: dragStartRef.current.translateX + dx,
+        y: dragStartRef.current.translateY + dy,
+      });
     },
     [isDragging]
   );
@@ -67,7 +106,12 @@ export function MermaidViewerModal({
   }, []);
 
   useEffect(() => {
-    if (!open) setZoom(1);
+    if (!open) {
+      setZoom(1);
+      setZoomInput("100");
+      setIsEditingZoom(false);
+      setTranslate({ x: 0, y: 0 });
+    }
   }, [open]);
 
   return (
@@ -87,9 +131,39 @@ export function MermaidViewerModal({
           >
             <Minus className="size-4" />
           </button>
-          <span className="text-xs text-muted-foreground min-w-[3ch] text-center tabular-nums">
-            {Math.round(zoom * 100)}%
-          </span>
+          {isEditingZoom ? (
+            <div className="flex items-center">
+              <input
+                ref={zoomInputRef}
+                type="text"
+                inputMode="numeric"
+                value={zoomInput}
+                onChange={(e) => setZoomInput(e.target.value.replace(/[^\d]/g, ""))}
+                onBlur={handleZoomInputCommit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleZoomInputCommit();
+                  if (e.key === "Escape") {
+                    setZoomInput(String(Math.round(zoom * 100)));
+                    setIsEditingZoom(false);
+                  }
+                }}
+                className="w-10 text-xs text-center tabular-nums bg-transparent border border-border rounded px-1 py-0.5 text-foreground outline-none focus:border-ring"
+                autoFocus
+              />
+              <span className="text-xs text-muted-foreground ml-0.5">%</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setIsEditingZoom(true);
+                setZoomInput(String(Math.round(zoom * 100)));
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground min-w-[3ch] text-center tabular-nums cursor-pointer"
+              title="Click to edit zoom"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+          )}
           <button
             onClick={handleZoomIn}
             disabled={zoom >= MAX_ZOOM}
@@ -107,11 +181,10 @@ export function MermaidViewerModal({
           </button>
         </div>
 
-        {/* Canvas area - scrollable when zoomed */}
+        {/* Canvas area - drag to pan */}
         <div
-          ref={scrollContainerRef}
           className={cn(
-            "flex-1 overflow-auto",
+            "flex-1 overflow-hidden relative",
             isDragging ? "cursor-grabbing" : "cursor-grab"
           )}
           onMouseDown={handleMouseDown}
@@ -120,31 +193,17 @@ export function MermaidViewerModal({
           onMouseLeave={handleMouseLeave}
         >
           <div
-            className="flex items-center justify-center p-8"
             style={{
-              width: 1100 * zoom,
-              height: 850 * zoom,
-              minWidth: 1100 * zoom,
-              minHeight: 850 * zoom,
+              width: "100%",
+              height: "100%",
+              padding: 16,
+              boxSizing: "border-box",
+              transform: `translate(${translate.x}px, ${translate.y}px) scale(${zoom})`,
+              transformOrigin: "center center",
             }}
-          >
-            <div
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: "center center",
-                width: 1100,
-                height: 850,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div
-                className="inline-block bg-background"
-                dangerouslySetInnerHTML={{ __html: svgContent }}
-              />
-            </div>
-          </div>
+            className="bg-background"
+            dangerouslySetInnerHTML={{ __html: scalableSvg }}
+          />
         </div>
       </DialogContent>
     </Dialog>

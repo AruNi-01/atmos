@@ -6,13 +6,14 @@ import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
+import { Images, ArrowRightLeft } from 'lucide-react';
 import { MermaidViewerModal } from './MermaidViewerModal';
 import {
   CodeBlock,
   CodeBlockHeader,
-  CodeBlockIcon,
   CodeBlockGroup,
   CodeBlockContent,
+  CodeBlockIcon,
 } from '@/components/code-block/code-block';
 import { CopyButton } from '@/components/code-block/copy-button';
 import { ExpandButton } from '@/components/code-block/expand-button';
@@ -118,14 +119,19 @@ function ShikiCode({
   );
 }
 
+type MermaidOutputMode = 'svg' | 'ascii';
+
 function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
-  const containerRef = React.useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [renderedSvg, setRenderedSvg] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [outputMode, setOutputMode] = useState<MermaidOutputMode>('svg');
+  const [asciiText, setAsciiText] = useState<string | null>(null);
+  const [asciiError, setAsciiError] = useState<string | null>(null);
+  const [asciiLoading, setAsciiLoading] = useState(false);
 
   useEffect(() => {
-    if (!code?.trim() || !containerRef.current) return;
+    if (!code?.trim()) return;
     setError(null);
     setRenderedSvg(null);
     let cancelled = false;
@@ -140,13 +146,11 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
         });
         const id = `mermaid-${Math.random().toString(36).slice(2)}`;
         mermaid.default.render(id, code).then(({ svg }) => {
-          if (cancelled || !containerRef.current) return;
-          containerRef.current.innerHTML = svg;
+          if (cancelled) return;
           setRenderedSvg(svg);
         }).catch((err: Error) => {
           if (!cancelled) setError(err.message || 'Mermaid render failed');
         }).finally(() => {
-          // Clean up mermaid's temp elements appended to document.body (not inside our container)
           document.querySelectorAll(`body > #${CSS.escape(id)}, body > #d${CSS.escape(id)}`).forEach(el => el.remove());
         });
       } catch (err) {
@@ -156,6 +160,31 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
 
     return () => { cancelled = true; };
   }, [code, isDark]);
+
+  const handleToggleMode = useCallback(() => {
+    if (outputMode === 'ascii') {
+      setOutputMode('svg');
+      return;
+    }
+    setOutputMode('ascii');
+    if (asciiText !== null) return;
+
+    setAsciiLoading(true);
+    setAsciiError(null);
+    import('beautiful-mermaid').then(({ renderMermaidAscii }) => {
+      try {
+        const result = renderMermaidAscii(code);
+        setAsciiText(result);
+      } catch (err) {
+        setAsciiError(err instanceof Error ? err.message : 'ASCII render failed');
+      } finally {
+        setAsciiLoading(false);
+      }
+    }).catch(() => {
+      setAsciiError('Failed to load beautiful-mermaid');
+      setAsciiLoading(false);
+    });
+  }, [outputMode, asciiText, code]);
 
   if (error) {
     return (
@@ -167,20 +196,71 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
 
   return (
     <>
-      <div
-        ref={containerRef}
-        role="button"
-        tabIndex={0}
-        onClick={() => renderedSvg && setModalOpen(true)}
-        onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && renderedSvg) {
-            e.preventDefault();
-            setModalOpen(true);
-          }
-        }}
-        className="mermaid-container my-4 flex justify-center cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg overflow-hidden"
-        aria-label="Click to enlarge diagram"
-      />
+      <CodeBlock className="my-4">
+        <CodeBlockHeader>
+          <CodeBlockGroup>
+            <Images className="size-4" />
+            <span className="text-xs uppercase tracking-wider">Mermaid</span>
+          </CodeBlockGroup>
+          <CodeBlockGroup>
+            <button
+              onClick={handleToggleMode}
+              title={outputMode === 'svg' ? 'Switch to ASCII' : 'Switch to SVG'}
+              className={cn(
+                "flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md border cursor-pointer",
+                "transition-all duration-200 ease-in-out",
+                "border-neutral-300 dark:border-neutral-600",
+                "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100",
+                "hover:bg-neutral-100 dark:hover:bg-neutral-800",
+                "active:scale-95"
+              )}
+            >
+              <ArrowRightLeft key={`icon-${outputMode}`} className="size-3 animate-in fade-in-0 duration-200" />
+              <span key={outputMode} className="animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
+                {outputMode === 'svg' ? 'ASCII' : 'SVG'}
+              </span>
+            </button>
+            <CopyButton content={outputMode === 'ascii' && asciiText ? asciiText : code} />
+          </CodeBlockGroup>
+        </CodeBlockHeader>
+
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => renderedSvg && outputMode === 'svg' && setModalOpen(true)}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && renderedSvg && outputMode === 'svg') {
+              e.preventDefault();
+              setModalOpen(true);
+            }
+          }}
+          className={cn(
+            "mermaid-container flex justify-center overflow-hidden rounded-lg bg-background p-4",
+            outputMode === 'svg'
+              ? "cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              : "hidden"
+          )}
+          aria-label="Click to enlarge diagram"
+          dangerouslySetInnerHTML={renderedSvg ? { __html: renderedSvg } : undefined}
+        />
+
+        {outputMode === 'ascii' && (
+          <CodeBlockContent className="bg-background">
+            {asciiLoading ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+                Rendering ASCII...
+              </div>
+            ) : asciiError ? (
+              <div className="p-4 text-destructive text-sm">{asciiError}</div>
+            ) : asciiText ? (
+              <pre className="p-4 text-[13px] leading-relaxed overflow-x-auto font-mono whitespace-pre">
+                {asciiText}
+              </pre>
+            ) : null}
+          </CodeBlockContent>
+        )}
+      </CodeBlock>
+
       {renderedSvg && (
         <MermaidViewerModal
           open={modalOpen}
