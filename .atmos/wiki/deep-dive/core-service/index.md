@@ -1,89 +1,52 @@
 ---
-title: 业务服务层
+title: 业务逻辑 (Core Service)
 section: deep-dive
 level: intermediate
-reading_time: 8
+reading_time: 5
 path: deep-dive/core-service
 sources:
   - crates/core-service/src/lib.rs
-  - crates/core-service/AGENTS.md
-  - crates/core-service/src/service/mod.rs
 updated_at: 2026-02-12T12:00:00Z
 ---
 
-# 业务服务层
+# 业务逻辑 (Core Service)
 
-业务服务层（L3）实现 ATMOS 的核心业务逻辑，编排 L2 引擎与 L1 仓库。本文概述各服务职责、依赖关系以及与 API 层的协作方式。
+`core-service` 是 Atmos 的核心业务层。它不直接处理 HTTP 请求，也不直接操作底层 PTY，而是作为“指挥官”，协调 `infra` 和 `core-engine` 来实现复杂的业务流程。
 
-## Overview
+## 模块目标
 
-L3 对应 `crates/core-service`，包含 `ProjectService`、`WorkspaceService`、`TerminalService`、`WsMessageService`、`TestService`、`MessagePushService` 等。服务通过构造函数注入 DB、引擎等依赖，在 `main.rs` 中装配后传入 AppState。
+- **业务建模**: 定义项目、工作区、终端等核心业务实体的行为。
+- **流程编排**: 组合多个底层操作（如：创建目录 -> 克隆代码 -> 启动 PTY）来完成一个业务目标。
+- **状态管理**: 维护业务实体的生命周期状态。
 
-## Architecture
+## 核心组件
 
-```mermaid
-graph TB
-    subgraph L3
-        Project[ProjectService]
-        Workspace[WorkspaceService]
-        Terminal[TerminalService]
-        WsMsg[WsMessageService]
-    end
+本章节包含以下深度解析：
 
-    subgraph L2
-        Git[GitEngine]
-        Tmux[TmuxEngine]
-        Fs[FsEngine]
-    end
+- **[工作区生命周期](./workspace.md)**: 探索工作区从创建到归档的完整状态机实现。
+- **[终端服务实现](./terminal.md)**: 了解终端会话的管理、流调度以及异常处理。
 
-    subgraph L1
-        ProjectRepo[ProjectRepo]
-        WorkspaceRepo[WorkspaceRepo]
-        WsManager[WsManager]
-    end
-
-    Project --> ProjectRepo
-    Workspace --> WorkspaceRepo
-    Workspace --> Git
-    Terminal --> Tmux
-    WsMsg --> Project
-    WsMsg --> Workspace
-    WsMsg --> WsManager
-```
+## 架构位置
 
 ```mermaid
-flowchart LR
-    subgraph 编排模式
-        Service[Service]
-        Engine[Engine]
-        Repo[Repo]
-    end
-
-    Service --> Engine
-    Service --> Repo
+graph BT
+    API[API Layer] --> Service[Core Service]
+    Service --> Engine[Core Engine]
+    Service --> Infra[Infrastructure]
 ```
 
-## 服务职责
+## 核心服务类
 
-| 服务 | 职责 |
-|------|------|
-| ProjectService | 项目 CRUD、仓库路径管理 |
-| WorkspaceService | 工作区创建/删除/列表、worktree 协调 |
-| TerminalService | PTY 会话、Tmux 窗口、WebSocket 输出 |
-| WsMessageService | 处理 WebSocket 业务消息，调用 Project/Workspace/Git/Fs |
-| TestService | 演示用服务 |
-| MessagePushService | 消息状态管理 |
+1. **WorkspaceService**: 处理所有与工作区相关的逻辑。
+2. **ProjectService**: 管理项目元数据和 Git 仓库关联。
+3. **TerminalService**: 调度终端资源和数据流。
 
-## Key Source Files
+## 设计原则
 
-| File | Purpose |
-|------|---------|
-| `crates/core-service/src/lib.rs` | 服务导出 |
-| `crates/core-service/src/service/mod.rs` | 服务模块 |
-| `apps/api/src/main.rs` | 服务装配与注入 |
+- **解耦**: 通过 Trait 和依赖注入（在 API 层完成），确保业务逻辑不依赖于具体的数据库或 PTY 实现。
+- **健壮性**: 每一个业务操作都包含详尽的参数校验和错误回滚逻辑。
 
-## Next Steps
+## 下一步
 
-- **[工作区服务](workspace.md)** — 工作区完整生命周期
-- **[终端服务](terminal.md)** — PTY 与 Tmux 协作
-- **[项目服务](project.md)** — 项目 CRUD 与元数据
+- 深入了解工作区管理：**[工作区生命周期](./workspace.md)**。
+- 了解终端如何运作：**[终端服务实现](./terminal.md)**。

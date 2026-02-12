@@ -30,8 +30,14 @@ dev-docs:
 dev-desktop:
     cd apps/desktop && bun tauri dev
 
-# 启动 API 服务器 (热重载)
+# 启动 API 服务器
+# 直接 cargo run，Ctrl+C 信号能正确传播，避免 shell 先于 api 退出导致输出乱序
+# 需要热重载时用 dev-api-watch
 dev-api:
+    cargo run --bin api
+
+# 启动 API 服务器 (热重载，Ctrl+C 时 cargo watch 可能先退出导致输出乱序)
+dev-api-watch:
     cargo watch -x 'run --bin api' -w apps/api -w crates
 
 # 运行 CLI 帮助

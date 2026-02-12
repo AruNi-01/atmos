@@ -1,86 +1,46 @@
 ---
-title: 前端应用
+title: 前端架构 (Web App)
 section: deep-dive
 level: intermediate
-reading_time: 8
+reading_time: 5
 path: deep-dive/frontend
 sources:
-  - apps/web/AGENTS.md
-  - apps/web/src/app/[locale]/layout.tsx
-  - apps/web/src/api/rest-api.ts
-  - apps/web/src/api/ws-api.ts
-  - apps/web/src/components/wiki/WikiSidebar.tsx
-  - apps/web/src/components/wiki/WikiSpecifyDialog.tsx
-  - apps/web/src/components/wiki/WikiUpdateDialog.tsx
-updated_at: 2026-02-12T14:30:00Z
+  - apps/web/package.json
+updated_at: 2026-02-12T12:00:00Z
 ---
 
-# 前端应用
+# 前端架构 (Web App)
 
-前端应用是 ATMOS 的 Web UI，基于 Next.js 16 与 React 19，提供项目、工作区、终端、文件编辑、Wiki 等功能。本文概述应用结构、API 层、组件组织与状态管理。
+Atmos 的前端是一个复杂的 IDE 级 Web 应用，旨在提供极致的开发体验。它不仅需要处理复杂的 UI 布局，还需要管理高频的实时数据流。
 
-## Overview
+## 模块目标
 
-`apps/web` 使用 App Router，按 `[locale]` 支持国际化。API 调用集中在 `api/rest-api.ts` 与 `api/ws-api.ts`，类型定义与后端 DTO 对齐。组件分为布局（Header、Sidebar、CenterStage）、业务（Workspace、Terminal、Wiki）和通用 UI（来自 `@workspace/ui`）。
+- **IDE 体验**: 提供多面板、可拖拽、响应迅速的用户界面。
+- **实时性**: 确保终端输出和系统状态变更能毫秒级呈现。
+- **可维护性**: 通过模块化组件和清晰的状态管理应对日益增长的业务复杂度。
 
-## Architecture
+## 核心组件
 
-```mermaid
-graph TB
-    subgraph 应用
-        Layout[layout]
-        Page[page]
-    end
+本章节将详细解析前端的实现细节：
 
-    subgraph 组件
-        Sidebar[LeftSidebar]
-        Center[CenterStage]
-        Terminal[TerminalGrid]
-        Wiki[WikiTab]
-    end
+- **[Web 应用结构与状态管理](./web-app.md)**: 探索 Next.js 架构、Zustand 状态流以及 Xterm.js 的深度集成。
 
-    subgraph API
-        Rest[rest-api]
-        Ws[ws-api]
-    end
-
-    Layout --> Sidebar
-    Layout --> Center
-    Center --> Terminal
-    Center --> Wiki
-    Sidebar --> Rest
-    Terminal --> Ws
-```
+## 技术栈概览
 
 ```mermaid
-flowchart LR
-    subgraph 数据流
-        Store[useProjectStore etc]
-        Api[api client]
-        Backend[API Server]
-    end
-
-    Store --> Api --> Backend
+graph TD
+    UI[UI 层 - React / Tailwind] --> Store[状态层 - Zustand]
+    Store --> API[通信层 - WebSocket / Fetch]
+    UI --> Editor[编辑器 - Monaco / Xterm.js]
 ```
 
-## 模块划分
+## 核心挑战
 
-| 目录 | 职责 |
-|------|------|
-| `app/` | 页面与布局 |
-| `components/` | Web 专属组件 |
-| `api/` | REST 与 WS 客户端 |
-| `hooks/` | 自定义 hooks |
-| `types/` | 类型定义 |
+1. **高频渲染**: 终端每秒可能产生数千行输出，如何保证 UI 不卡顿？
+2. **复杂布局**: 多面板拖拽和缩放的实现。
+3. **状态同步**: 确保前端状态与后端数据库状态始终一致。
 
-## Key Source Files
+## 下一步
 
-| File | Purpose |
-|------|---------|
-| `apps/web/src/app/[locale]/layout.tsx` | 根布局 |
-| `apps/web/src/api/rest-api.ts` | REST 封装 |
-| `apps/web/src/api/ws-api.ts` | WebSocket 封装 |
-
-## Next Steps
-
-- **[Web 应用架构](web-app.md)** — 页面结构、路由与组件树
+- 深入了解前端实现：**[Web 应用结构与状态管理](./web-app.md)**。
+- 了解后端如何支撑前端：**[架构概览](../../getting-started/architecture.md)**。

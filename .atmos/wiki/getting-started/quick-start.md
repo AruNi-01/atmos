@@ -2,78 +2,122 @@
 title: 快速开始
 section: getting-started
 level: beginner
-reading_time: 6
+reading_time: 15
 path: getting-started/quick-start
 sources:
-  - README.md
   - justfile
-  - apps/api/.env.example
+  - README.md
+  - apps/api/src/main.rs
+  - package.json
+  - Cargo.toml
 updated_at: 2026-02-12T12:00:00Z
 ---
 
 # 快速开始
 
-本文帮助你在约 5 分钟内将 ATMOS 运行起来。你将完成环境检查、依赖安装和开发服务启动，并验证 Web 与 API 是否正常工作。
+本指南将带领你完成 Atmos 的基础安装，并在 5 分钟内启动你的第一个交互式开发工作区。无论你是想在本地管理项目，还是在为团队搭建远程开发环境，这都是最佳的起点。
 
-## Overview
+## 核心流程预览
 
-快速开始流程分为三步：安装前提依赖、安装项目依赖、启动开发服务。项目使用 Bun 管理前端、Cargo 管理 Rust 后端、Just 作为统一任务入口。默认情况下，Web 运行在 3000 端口，API 运行在 8080 端口。
-
-## Architecture
+启动 Atmos 仅需四个核心步骤：环境检查、依赖安装、服务启动、工作区创建。
 
 ```mermaid
-flowchart LR
-    A[安装 Bun/Rust/Just] --> B[bun install]
-    B --> C[cargo fetch]
-    C --> D[just dev-web]
-    C --> E[just dev-api]
-    D --> F[浏览器访问 :3000]
-    E --> G[API 可用 :8080]
+graph LR
+    A[环境检查] --> B[安装依赖]
+    B --> C[启动服务]
+    C --> D[创建工作区]
+    D --> E[开始开发!]
 ```
+
+## 第一步：环境检查
+
+在开始之前，请确保你的开发机已具备以下基础工具：
+
+- **Rust 工具链**: 需要 `cargo` 1.75+。
+- **Node.js 运行环境**: 推荐 v18 或 v20。
+- **Bun**: Atmos 的前端包管理工具，极速安装体验。
+- **Tmux**: 强烈推荐安装，用于实现终端会话的持久化。
+- **Just**: 一个现代化的命令运行器（类似于 make），用于简化开发指令。
+
+## 第二步：获取源码与安装依赖
+
+克隆 Atmos 仓库并安装前端所需的 Node 模块：
+
+```bash
+# 克隆仓库
+git clone https://github.com/lurunrun/atmos.git
+cd atmos
+
+# 安装前端依赖
+bun install
+```
+
+## 第三步：启动 Atmos 服务
+
+Atmos 采用前后端分离架构，你需要分别启动两个核心服务。
+
+### 1. 启动后端 API 服务
+在一个新的终端窗口中运行：
+```bash
+just dev-api
+```
+**它会做什么？**
+- 自动编译 Rust 后端代码。
+- 初始化本地 SQLite 数据库 (`atmos.db`)。
+- 执行数据库迁移，准备好基础表结构。
+- 在 `http://127.0.0.1:8080` 开启 API 服务。
+
+### 2. 启动前端 Web 应用
+在另一个终端窗口中运行：
+```bash
+just dev-web
+```
+**它会做什么？**
+- 启动 Next.js 开发服务器。
+- 在 `http://localhost:3000` 开启用户界面。
+
+## 第四步：开启你的第一个工作区
+
+现在，打开浏览器访问 `http://localhost:3000`。
+
+1. **进入管理界面**: 你会看到一个简洁的欢迎页面。
+2. **创建项目**: 点击“Create Project”，输入你的项目名称和本地代码路径。
+3. **启动工作区**: 在项目详情页点击“New Workspace”。
+4. **进入终端**: 工作区启动后，点击进入。你会看到一个全功能的 Web 终端，它已经自动定位到了你的项目目录。
+
+## 交互流程示意图
 
 ```mermaid
 sequenceDiagram
-    participant U as 开发者
-    participant J as Just
-    participant W as Web
-    participant A as API
+    participant User as 开发者
+    participant Web as 前端 (Next.js)
+    participant API as 后端 (Axum)
+    participant PTY as 终端进程 (Shell)
 
-    U->>J: just dev-web
-    J->>W: bun --filter web dev
-    W->>U: http://localhost:3000
-
-    U->>J: just dev-api
-    J->>A: cargo watch -x run --bin api
-    A->>U: http://localhost:8080
+    User->>Web: 点击 "Create Workspace"
+    Web->>API: POST /api/workspaces
+    API-->>Web: 返回 Workspace ID
+    Web->>API: 建立 WebSocket 连接
+    API->>PTY: 启动 PTY 进程
+    PTY-->>API: 输出 Shell 提示符
+    API-->>Web: 通过 WS 推送字符流
+    Web-->>User: 在浏览器显示终端界面
 ```
 
-## 前置条件
+## 常见问题排查 (FAQ)
 
-- **Bun**：前端包管理与运行
-- **Rust**：后端编译与运行
-- **Just**：跨语言任务编排（如 `brew install just`）
+### 1. 数据库连接失败？
+检查项目根目录是否有写入权限。Atmos 默认在根目录创建 `atmos.db` 文件。
 
-## 安装步骤
+### 2. 终端显示“Tmux not found”？
+虽然 Atmos 支持纯 PTY 模式，但为了最佳体验，建议安装 Tmux。你可以通过 `brew install tmux` (macOS) 或 `sudo apt install tmux` (Ubuntu) 进行安装。
 
-1. **克隆仓库**（若尚未完成）
-2. **安装前端依赖**：`bun install`
-3. **配置 API 环境**：复制 `apps/api/.env.example` 为 `apps/api/.env`，按需修改数据库等配置
-4. **启动 Web**：`just dev-web` 或 `bun --filter web dev`
-5. **启动 API**：`just dev-api` 或 `cargo watch -x 'run --bin api' -w apps/api -w crates`
+### 3. 端口冲突？
+如果 8080 或 3000 端口已被占用，你可以在 `.env` 文件中修改 `PORT` 变量。
 
-## 并行启动
+## 下一步行动
 
-`just dev-all` 会同时启动 Web 和 API，适合日常开发。
-
-## Key Source Files
-
-| File | Purpose |
-|------|---------|
-| `justfile` | 任务定义（dev-web、dev-api、build 等） |
-| `README.md` | 快速开始说明 |
-| `apps/api/.env.example` | API 环境变量模板 |
-
-## Next Steps
-
-- **[安装与配置](installation.md)** — 详细安装与环境排查
-- **[架构概览](architecture.md)** — 理解整体架构
+- **[项目概览](./overview.md)**: 了解 Atmos 的完整功能版图。
+- **[架构概览](./architecture.md)**: 探索 Atmos 的内部设计。
+- **[核心概念](./key-concepts.md)**: 掌握工作区、项目等核心术语。
+- **[安装与配置](./installation.md)**: 了解如何进行生产环境部署。

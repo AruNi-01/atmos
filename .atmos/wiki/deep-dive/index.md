@@ -1,71 +1,54 @@
 ---
-title: 深入探索
+title: 深入探索 (Deep Dive)
 section: deep-dive
 level: intermediate
 reading_time: 5
 path: deep-dive
 sources:
-  - crates/infra/AGENTS.md
-  - crates/core-engine/AGENTS.md
-  - crates/core-service/AGENTS.md
-  - apps/api/AGENTS.md
+  - crates/core-engine/src/lib.rs
+  - crates/core-service/src/lib.rs
+  - crates/infra/src/lib.rs
 updated_at: 2026-02-12T12:00:00Z
 ---
 
-# 深入探索
+# 深入探索 (Deep Dive)
 
-本章节面向贡献者与维护者，深入介绍 ATMOS 各层的实现细节、数据流、API 设计与设计决策。阅读本章节前，建议先完成入门指南中的架构概览与核心概念。
+本章节为开发者和贡献者准备，深入探讨 Atmos 的内部实现细节、核心算法以及架构决策。
 
-## Overview
+## 章节概览
 
-深入探索按层级组织：基础设施层（DB、WebSocket）、核心引擎层（Tmux、Git、FS）、业务服务层（Workspace、Terminal、Project）、API 层（HTTP、WebSocket 处理器）、前端架构，以及构建系统与设计决策。
+如果你想了解 Atmos 是如何从底层构建起来的，或者打算为项目贡献代码，请阅读以下详细指南：
 
-## Architecture
+### 1. 核心引擎 (Core Engine)
+探讨 Atmos 如何与底层操作系统交互。
+- **[PTY, Git 与文件系统](./core-engine/fs-git.md)**: 深入了解伪终端管理、自动化 Git 操作和安全的文件系统访问实现。
+- **[Tmux 会话管理](./core-engine/tmux.md)**: 了解我们如何利用 Tmux 实现终端会话的持久化。
+
+### 2. 业务逻辑 (Core Service)
+分析 Atmos 的核心业务建模。
+- **[工作区生命周期](./core-service/workspace.md)**: 探索工作区从创建到归档的完整状态机实现。
+- **[终端服务实现](./core-service/terminal.md)**: 了解终端会话的管理、流调度以及异常处理。
+
+### 3. 基础设施 (Infrastructure)
+底层支撑系统的设计。
+- **[WebSocket 系统设计](./infra/websocket.md)**: 深入分析基于主题的消息路由、连接管理和性能优化。
+- **[数据库设计与迁移](./infra/database.md)**: 了解数据模型设计、SeaORM 集成以及模式演进策略。
+
+### 4. 前端架构 (Web App)
+IDE 级前端应用的构建。
+- **[Web 应用结构与状态管理](./frontend/web-app.md)**: 探索 Next.js 架构、Zustand 状态流以及 Xterm.js 的深度集成。
+
+## 核心模块依赖图
 
 ```mermaid
-mindmap
-  root((深入探索))
-    基础设施
-      数据库与 ORM
-      WebSocket 服务
-    核心引擎
-      Tmux
-      Git
-      文件系统
-    业务服务
-      工作区
-      终端
-      项目
-    API
-      路由
-      WebSocket 处理器
-    前端
-      Web 应用架构
-    构建系统
-    设计决策
+graph LR
+    API[apps/api] --> Service[crates/core-service]
+    Service --> Engine[crates/core-engine]
+    Service --> Infra[crates/infra]
+    Engine --> OS[OS Resources]
+    Infra --> DB[(Database)]
 ```
 
-## 文档导航
+## 研究建议
 
-| 模块 | 文档 |
-|------|------|
-| 基础设施 | [数据库与 ORM](infra/database.md)、[WebSocket 服务](infra/websocket.md) |
-| 核心引擎 | [Tmux 引擎](core-engine/tmux.md)、[Git 引擎](core-engine/git.md)、[文件系统引擎](core-engine/fs.md) |
-| 业务服务 | [工作区服务](core-service/workspace.md)、[终端服务](core-service/terminal.md)、[项目服务](core-service/project.md) |
-| API | [HTTP 路由](api/routes.md)、[WebSocket 处理器](api/websocket-handlers.md) |
-| 前端 | [Web 应用架构](frontend/web-app.md) |
-| 其他 | [构建系统](build-system/index.md)、[设计决策](design-decisions/index.md) |
-
-## Key Source Files
-
-| File | Purpose |
-|------|---------|
-| `crates/infra/AGENTS.md` | L1 工作模式 |
-| `crates/core-engine/AGENTS.md` | L2 模块说明 |
-| `crates/core-service/AGENTS.md` | L3 服务说明 |
-| `apps/api/AGENTS.md` | API 入口规范 |
-
-## Next Steps
-
-- **[基础设施层](infra/index.md)** — 从 L1 开始深入
-- **[业务服务层](core-service/index.md)** — 理解业务编排
+在深入代码之前，建议先阅读每个模块对应的 **Research Briefing**（位于 `.atmos/wiki/_briefings/`），这些简报记录了我们在开发过程中的核心关注点和研究问题。

@@ -1019,7 +1019,7 @@ impl TerminalService {
             // 1. Process the Close command
             // 2. Wait for the reader thread to see EOF
             // 3. Exit cleanly)
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
             info!("Terminal service shutdown complete: cleaned up {} sessions", count);
         }

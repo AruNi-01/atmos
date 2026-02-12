@@ -1,112 +1,111 @@
 ---
-title: 数据库与 ORM
+title: 数据库设计与迁移
 section: deep-dive
 level: advanced
-reading_time: 12
+reading_time: 20
 path: deep-dive/infra/database
 sources:
-  - crates/infra/src/db/connection.rs
   - crates/infra/src/db/mod.rs
-  - crates/infra/src/db/entities/base.rs
-  - crates/infra/src/db/repo/workspace_repo.rs
+  - crates/infra/src/db/entities/mod.rs
   - crates/infra/src/db/migration/mod.rs
+  - crates/infra/src/db/repo/mod.rs
+  - crates/infra/src/db/connection.rs
+  - crates/infra/src/db/entities/project.rs
+  - crates/infra/src/db/entities/workspace.rs
 updated_at: 2026-02-12T12:00:00Z
 ---
 
-# 数据库与 ORM
+# 数据库设计与迁移
 
-本文深入介绍 ATMOS 的数据持久化架构，包括 SeaORM 的使用、实体设计、仓库模式以及迁移流程。理解本模块对于扩展新表或修改查询逻辑至关重要。
+数据库模块是 Atmos 的“记忆”，负责持久化存储项目配置、工作区状态、用户偏好以及系统元数据。Atmos 采用了 Rust 生态中领先的异步 ORM 框架 **SeaORM**，构建了一套类型安全、易于扩展且支持多数据库后端的存储层。本章将深入解析 Atmos 的数据建模思路、迁移管理机制以及 Repository 模式的实践。
 
-## Overview
+## 数据建模：实体与关系
 
-L1 的 `db` 模块使用 SeaORM 进行数据库访问，支持 SQLite（默认）和 PostgreSQL。连接通过 `DbConnection` 建立，实体定义在 `entities/`，业务层通过 `repo/` 中的仓库类访问数据， migrations 管理表结构变更。
+Atmos 的核心业务逻辑围绕着“项目”与“工作区”展开。我们的数据库设计旨在反映这种层级关系，同时保持查询的高效性。
 
-## Architecture
-
-```mermaid
-graph TB
-    subgraph 业务层
-        WorkspaceService[WorkspaceService]
-        ProjectService[ProjectService]
-    end
-
-    subgraph Repo
-        WorkspaceRepo[WorkspaceRepo]
-        ProjectRepo[ProjectRepo]
-    end
-
-    subgraph 实体
-        Workspace[workspace::Model]
-        Project[project::Model]
-    end
-
-    subgraph DB
-        DB[(SeaORM)]
-    end
-
-    WorkspaceService --> WorkspaceRepo
-    ProjectService --> ProjectRepo
-    WorkspaceRepo --> Workspace
-    ProjectRepo --> Project
-    Workspace --> DB
-    Project --> DB
-```
+### 核心实体关系图 (ERD)
 
 ```mermaid
-flowchart LR
-    subgraph 目录结构
-        Connection[connection.rs]
-        Entities[entities/]
-        Repo[repo/]
-        Migration[migration/]
-    end
-
-    Connection --> Entities
-    Entities --> Repo
-    Migration --> Entities
+erDiagram
+    PROJECT ||--o{ WORKSPACE : "1:N"
+    PROJECT {
+        uuid id PK
+        string name "项目显示名称"
+        string repository_url "Git 仓库地址"
+        string target_branch "目标分支"
+        datetime created_at
+    }
+    WORKSPACE ||--o{ TERMINAL_CONFIG : "1:N"
+    WORKSPACE {
+        uuid id PK
+        uuid project_id FK "所属项目"
+        string name "工作区名称"
+        string path "物理磁盘路径"
+        string status "当前状态 (Running/Stopped/etc)"
+        boolean is_pinned "是否置顶"
+        datetime updated_at
+    }
 ```
 
-```mermaid
-sequenceDiagram
-    participant S as Service
-    participant R as Repo
-    participant E as Entity
-    participant DB as Database
+### 关键设计决策
+1. **UUID 作为主键**: 确保了在分布式环境或未来可能的数据库迁移中，主键的全局唯一性。
+2. **状态枚举存储**: 工作区状态以字符串形式存储，兼顾了可读性和未来的可扩展性。
+3. **软归档机制**: 通过 `is_archived` 字段实现逻辑删除，确保用户数据在误操作后仍可恢复。
 
-    S->>R: find_by_guid(guid)
-    R->>E: Entity::find()
-    E->>DB: SELECT ...
-    DB->>E: Model
-    E->>R: Option<Model>
-    R->>S: Option<Model>
+## 技术选型：SeaORM 的深度集成
+
+SeaORM 为 Atmos 提供了以下核心能力：
+
+- **异步优先**: 基于 `sqlx`，完美适配 Atmos 的异步架构，不会阻塞 Tokio 线程池。
+- **类型安全**: 实体定义即 Schema，编译期即可发现 SQL 逻辑错误。
+- **自动迁移**: 强大的迁移工具链，确保开发环境与生产环境的数据库模式始终同步。
+
+### 数据库连接池管理
+Atmos 在 `crates/infra/src/db/connection.rs` 中管理连接池。我们针对 SQLite 进行了特殊优化（如开启 WAL 模式），以提升并发读写性能。
+
+## 迁移管理 (Migrations)
+
+Atmos 的数据库模式演进是版本化的。所有的变更都记录在 `crates/infra/src/db/migration/` 中。
+
+### 迁移执行流程
+1. **启动检测**: 服务启动时，`MigrationExecutor` 会自动检查 `sea_ini_migration` 表。
+2. **顺序执行**: 按照时间戳顺序执行尚未应用的迁移脚本。
+3. **原子性**: 每个迁移都在事务中运行，确保模式变更要么全部成功，要么全部回滚。
+
+## Repository 模式：解耦数据访问
+
+为了防止业务逻辑（Core Service）直接依赖于具体的 ORM 代码，我们引入了 Repository 模式。
+
+### 接口与实现分离
+- **Trait 定义**: 在 `core-service` 或 `infra` 中定义数据访问接口（如 `WorkspaceRepo`）。
+- **具体实现**: 在 `infra/src/db/repo/` 中使用 SeaORM 实现这些接口。
+
+```rust
+// 示例：Repository 接口
+#[async_trait]
+pub trait WorkspaceRepo: Send + Sync {
+    async fn get_by_id(&self, id: Uuid) -> Result<Option<WorkspaceModel>, Error>;
+    async fn list_by_project(&self, project_id: Uuid) -> Result<Vec<WorkspaceModel>, Error>;
+}
 ```
 
-## 连接管理
+## 关键源码分析
 
-`DbConnection` 在 `main.rs` 启动时创建，默认使用 `~/.atmos/db/atmos.db` 作为 SQLite 路径。连接串格式为 `sqlite://{path}?mode=rwc`，若父目录不存在会自动创建。连接以 `Arc<DatabaseConnection>` 形式注入到各服务中共享使用。
+| 文件路径 | 核心职责 |
+|:---|:---|
+| `crates/infra/src/db/entities/` | 定义 SeaORM 实体类，对应数据库表结构。 |
+| `crates/infra/src/db/migration/` | 存储所有数据库迁移脚本，定义模式演进历史。 |
+| `crates/infra/src/db/repo/` | 实现具体的 Repository，封装 SeaORM 的查询逻辑。 |
+| `crates/infra/src/db/connection.rs` | 负责数据库连接池的初始化与配置。 |
+| `crates/infra/src/db/mod.rs` | 数据库模块的入口，提供初始化接口。 |
 
-## 实体与基类
+## 总结
 
-实体继承 `base.rs` 中定义的公共字段（如 `guid`、`created_at`、`updated_at`、`is_deleted`）。`impl_base_entity!` 宏为实体生成通用行为。当前核心实体包括 `project`、`workspace`、`test_message`。
+Atmos 的数据库层设计不仅关注当前的存储需求，更前瞻性地考虑了系统的可扩展性和可维护性。通过 SeaORM 的强类型保障和 Repository 模式的解耦，我们构建了一个既稳固又灵活的数据基石，支撑起 Atmos 复杂的业务逻辑。
 
-## 仓库模式
+## 下一步建议
 
-仓库封装 SeaORM 的查询逻辑，对外提供 `find_by_guid`、`list_by_project` 等方法。业务服务只调用仓库 API，不直接使用 `Entity::find()`。这种设计便于单元测试（可 mock 仓库）和切换 ORM。
-
-## 迁移
-
-迁移文件位于 `db/migration/`，通过 `Migrator::up()` 在启动时自动执行。迁移顺序由文件名前缀（如 `m20260117_000001`）保证。
-
-## Key Source Files
-
-| File | Purpose |
-|------|---------|
-| `crates/infra/src/db/connection.rs` | 数据库连接与路径解析 |
-| `crates/infra/src/db/entities/base.rs` | 公共实体字段与宏 |
-| `crates/infra/src/db/repo/workspace_repo.rs` | Workspace 仓库实现 |
-| `crates/infra/src/db/migration/mod.rs` | 迁移注册与执行 |
-
-## Next Steps
-
-- **[WebSocket 服务](websocket.md)** — 实时通信基础
-- **[工作区服务](../core-service/workspace.md)** — Workspace 的业务逻辑与数据流
+- **[工作区生命周期](../../deep-dive/core-service/workspace.md)**: 了解业务层如何通过数据库管理状态。
+- **[WebSocket 系统设计](../websocket.md)**: 探索数据库变更如何触发实时推送。
+- **[架构概览](../../getting-started/architecture.md)**: 查看基础设施层在整体系统中的位置。
+- **[安装与配置](../../getting-started/installation.md)**: 了解如何配置数据库连接。

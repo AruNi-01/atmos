@@ -1,3 +1,17 @@
+f5182af 2026-02-12 15:41:20 +0800 feat(wiki): enhance project wiki structure and validation processes
+.atmos/wiki/_metadata/commit_details.txt
+.atmos/wiki/_metadata/commit_graph.txt
+.atmos/wiki/_metadata/contributors.txt
+.atmos/wiki/_metadata/file_creation.txt
+.atmos/wiki/_metadata/issues.json
+.atmos/wiki/_metadata/prs.json
+"docs/optimization/DeepWiki \346\234\272\345\210\266\347\240\224\347\251\266\344\270\216 Project Wiki Skill \346\224\271\350\277\233\346\226\271\346\241\210.md"
+skills/project-wiki/examples/sample_briefing.md
+skills/project-wiki/references/briefing_template.md
+skills/project-wiki/scripts/collect_metadata.sh
+skills/project-wiki/scripts/validate_content.py
+skills/project-wiki/scripts/validate_content.sh
+
 e1ee52e 2026-02-12 13:50:27 +0800 feat(wiki): add specify-wiki section and enhance validation
 .atmos/wiki/specify-wiki/index.md
 .atmos/wiki/specify-wiki/wiki-implementation.md
@@ -354,6 +368,3 @@ crates/core-service/src/utils/workspace_name_generator.rs
 
 a379fa1 2026-01-29 12:05:54 +0800 feat: Implement terminal maximization with persistence and UI controls.
 crates/infra/src/db/migration/m20260129_000006_add_maximized_terminal_id.rs
-
-2597a1a 2026-01-28 20:25:28 +0800 feat: Refine terminal workspace initialization with dedicated loading states and enhance Tmux session management with consistent naming and grouped sessions.
-specs/tech/Terminal-Multiplexing-System.md

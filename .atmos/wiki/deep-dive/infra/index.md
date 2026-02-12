@@ -1,81 +1,48 @@
 ---
-title: 基础设施层
+title: 基础设施与 WebSocket
 section: deep-dive
 level: intermediate
-reading_time: 8
+reading_time: 5
 path: deep-dive/infra
 sources:
   - crates/infra/src/lib.rs
-  - crates/infra/src/db/mod.rs
-  - crates/infra/src/websocket/mod.rs
-  - crates/infra/AGENTS.md
 updated_at: 2026-02-12T12:00:00Z
 ---
 
-# 基础设施层
+# 基础设施与 WebSocket
 
-基础设施层（L1）是 ATMOS 的数据与通信基石，负责数据库访问、WebSocket 连接管理、缓存与队列预留。本文概述 L1 的职责、模块划分及与上层的协作方式。
+`infra` 层为整个 Atmos 项目提供底层的技术支撑，包括数据持久化、实时通信和异步任务调度。
 
-## Overview
+## 模块目标
 
-L1 对应 `crates/infra`，包含 `db`（SeaORM 实体与仓库）、`websocket`（连接管理、心跳、消息路由）、`cache`、`jobs`、`queue` 等模块。L3 通过 Repo 调用 DB，通过 `WsManager`/`WsService` 进行实时通信，不直接操作底层资源。
+- **能力支撑**: 提供高性能的 WebSocket 管理和数据库访问能力。
+- **技术屏蔽**: 隐藏底层库（如 SeaORM, Tungstenite）的复杂性，为上层提供简单的接口。
+- **全局共享**: 维护全局单例资源（如数据库连接池、消息总线）。
 
-## Architecture
+## 核心组件
 
-```mermaid
-graph TB
-    subgraph Infra
-        DB[db]
-        WS[websocket]
-        Cache[cache]
-        Jobs[jobs]
-        Queue[queue]
-    end
+本章节将深入探讨以下基础设施实现：
 
-    subgraph 上层
-        L3[Core Service]
-    end
+- **[WebSocket 系统设计](./websocket.md)**: 深入分析基于主题的消息路由、连接管理和性能优化。
+- **[数据库设计与迁移](./database.md)**: 了解数据模型设计、SeaORM 集成以及模式演进策略。
 
-    L3 --> DB
-    L3 --> WS
-```
+## 架构位置
 
 ```mermaid
-flowchart LR
-    subgraph db
-        Entities[entities]
-        Repo[repo]
-        Migration[migration]
-    end
-
-    subgraph websocket
-        Manager[manager]
-        Service[service]
-        Heartbeat[heartbeat]
-    end
-
-    Entities --> Repo
-    Manager --> Service
+graph BT
+    Service[Core Service] --> Infra[Infrastructure]
+    Infra --> DB[(Database)]
+    Infra --> WS[WebSocket Clients]
+    Infra --> Cache[Redis / In-memory]
 ```
 
-## 模块职责
+## 关键特性
 
-| 模块 | 职责 |
-|------|------|
-| `db` | SeaORM 连接、实体、仓库、迁移 |
-| `websocket` | WsManager 连接注册、消息投递、心跳检测 |
-| `cache` | 预留缓存接口 |
-| `jobs`/`queue` | 预留异步任务与队列 |
+1. **异步数据库访问**: 基于 SeaORM 构建，支持复杂的查询和自动化的迁移管理。
+2. **实时消息总线**: 内部消息分发机制，支持业务层轻松推送数据到前端。
+3. **可扩展性**: 接口设计考虑了未来从 SQLite 迁移到 PostgreSQL 等更强大数据库的可能性。
 
-## Key Source Files
+## 下一步
 
-| File | Purpose |
-|------|---------|
-| `crates/infra/src/lib.rs` | 模块导出与公共 API |
-| `crates/infra/src/db/mod.rs` | DB 子模块 |
-| `crates/infra/src/websocket/mod.rs` | WebSocket 子模块 |
-
-## Next Steps
-
-- **[数据库与 ORM](database.md)** — SeaORM 与仓库模式
-- **[WebSocket 服务](websocket.md)** — 连接管理与消息路由
+- 深入分析实时通信：**[WebSocket 系统设计](./websocket.md)**。
+- 了解数据存储方案：**[数据库设计与迁移](./database.md)**。
