@@ -98,7 +98,8 @@ const WikiSidebarGroup: React.FC<{
   onSelectPage: (file: string) => void;
 }> = ({ item, depth, activePage, onSelectPage }) => {
   const [open, setOpen] = useState(depth < 2);
-  const sorted = [...item.children].sort((a, b) => a.order - b.order);
+  const children = item.children ?? [];
+  const sorted = [...children].sort((a, b) => a.order - b.order);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -138,7 +139,8 @@ const WikiSidebarSection: React.FC<{
   activePage: string | null;
   onSelectPage: (file: string) => void;
 }> = ({ item, activePage, onSelectPage }) => {
-  const sorted = [...item.children].sort((a, b) => a.order - b.order);
+  const children = item.children ?? [];
+  const sorted = [...children].sort((a, b) => a.order - b.order);
   const levelLabel = item.level
     ? item.level.charAt(0).toUpperCase() + item.level.slice(1)
     : null;
@@ -239,73 +241,82 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="shrink-0 border-b border-border">
-        <button
-          type="button"
-          onClick={onTriggerSpecify}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 transition-colors"
-        >
-          <FilePlus className="size-4 shrink-0" />
-          Specify Wiki
-        </button>
-      </div>
-      <div className="h-10 px-4 border-b border-border shrink-0 w-full flex items-center gap-2 bg-muted/20">
+      {/* 项目名称区域：左侧 2/3 名称，右侧 1/3 按钮平分，无间距 */}
+      <div className="h-10 shrink-0 w-full flex items-stretch border-b border-border bg-muted/20">
         <button
           type="button"
           onClick={() => setInfoOpen(true)}
           title="Project info"
-          className="flex-1 min-w-0 flex items-center gap-2 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none -m-1 p-1"
+          className="flex-[2] min-w-0 flex items-center px-3 text-left cursor-pointer hover:bg-accent/30 transition-colors rounded-none"
         >
           <h3 className="text-base font-semibold text-foreground truncate">
             {project?.name ?? "Project Wiki"}
           </h3>
         </button>
-        <div className="flex items-center gap-1 shrink-0">
-          {hasUpdate && onTriggerUpdate && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={onTriggerUpdate}
-                    className="p-1.5 rounded-md text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 animate-pulse"
-                    aria-label="Wiki is outdated. Click to update."
-                  >
-                    <RefreshCw className="size-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px]">
-                  <p>Wiki is outdated. Click to update.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {needsRegeneration && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="p-1.5 rounded-md text-muted-foreground cursor-help">
-                    <RefreshCw className="size-4" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[220px]">
-                  <p>Legacy wiki. Regenerate fully to enable incremental updates.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {checking && (
-            <RefreshCw className="size-4 shrink-0 text-muted-foreground animate-spin" />
-          )}
+        <div className="flex-[1] flex shrink-0 min-w-0">
+          {/* 左按钮位：Update | Regeneration 提示 | Checking 动画 */}
+          <div className="flex-1 flex items-center justify-center min-w-0">
+            {hasUpdate && onTriggerUpdate && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onTriggerUpdate}
+                      className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 animate-pulse cursor-pointer"
+                      aria-label="Wiki is outdated. Click to update."
+                    >
+                      <RefreshCw className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[200px]">
+                    <p>Wiki is outdated. Click to update.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {needsRegeneration && !hasUpdate && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="w-full h-full flex items-center justify-center text-muted-foreground cursor-help">
+                      <RefreshCw className="size-4" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px]">
+                    <p>Legacy wiki. Regenerate fully to enable incremental updates.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {checking && !hasUpdate && !needsRegeneration && (
+              <span className="w-full h-full flex items-center justify-center text-muted-foreground animate-spin">
+                <RefreshCw className="size-4" />
+              </span>
+            )}
+          </div>
+          {/* 右按钮位：Info */}
+          <button
+            type="button"
+            onClick={() => setInfoOpen(true)}
+            title="Project info"
+            className="flex-1 flex items-center justify-center min-w-0 hover:bg-accent/30 transition-colors cursor-pointer"
+            aria-label="Project info"
+          >
+            <Info className="size-4 shrink-0 text-muted-foreground" />
+          </button>
         </div>
+      </div>
+
+      {/* Specify Wiki 按钮：在 left 目录上方 */}
+      <div className="shrink-0 border-b border-border">
         <button
           type="button"
-          onClick={() => setInfoOpen(true)}
-          title="Project info"
-          className="p-1.5 rounded-md hover:bg-accent/30 transition-colors cursor-pointer"
-          aria-label="Project info"
+          onClick={onTriggerSpecify}
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors cursor-pointer"
         >
-          <Info className="size-4 shrink-0 text-muted-foreground" />
+          <FilePlus className="size-4 shrink-0" />
+          Specify Wiki
         </button>
       </div>
 

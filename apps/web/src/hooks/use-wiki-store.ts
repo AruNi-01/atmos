@@ -5,6 +5,7 @@ import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { fsApi, gitApi } from "@/api/ws-api";
 import type { CatalogData } from "@/components/wiki/wiki-utils";
+import { normalizeCatalog } from "@/components/wiki/wiki-utils";
 
 export interface WikiUpdateStatus {
   hasUpdate: boolean;
@@ -112,7 +113,8 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
 
       if (response.exists && response.content) {
         try {
-          catalog = JSON.parse(response.content) as CatalogData;
+          const raw = JSON.parse(response.content) as CatalogData;
+          catalog = normalizeCatalog(raw);
         } catch {
           catalogError = "Invalid _catalog.json format. Please regenerate the wiki.";
         }

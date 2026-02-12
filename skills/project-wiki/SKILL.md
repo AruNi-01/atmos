@@ -7,6 +7,18 @@ description: This skill should be used when the user asks to "generate project w
 
 This skill guides a Code Agent to generate a **deep, research-grade** Project Wiki from a given codebase. The Wiki is stored as Markdown files in `./.atmos/wiki/`, making it portable, version-controllable, and easy for a frontend to render.
 
+## Mandatory Checklist (Cannot Skip)
+
+Before considering the wiki complete, ALL of the following must be true:
+
+1. **Create/maintain `_todo.md`** — Run `bash ~/.atmos/skills/.system/project-wiki/scripts/init_wiki_todo.sh` from project root (or create manually), update checkboxes as you progress.
+2. **validate_catalog passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py` or `.sh` (use `.sh` if no Python).
+3. **validate_frontmatter passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py` (Python only).
+4. **validate_todo passes** — Run `~/.atmos/skills/.system/project-wiki/scripts/validate_todo.py` or `.sh` (use `.sh` if no Python).
+5. All `_todo.md` items checked `[x]` — Do not mark complete until every item is checked.
+
+**Validation scripts are dual-version**: `validate_catalog` and `validate_todo` each have `.py` and `.sh` variants. Use `.sh` on systems without Python.
+
 ## Core Philosophy
 
 - **Deep Research**: Every article is produced by thoroughly reading actual source code, not just skimming README files.
@@ -18,7 +30,34 @@ This skill guides a Code Agent to generate a **deep, research-grade** Project Wi
 
 ## Generation Workflow
 
-Follow this multi-step process sequentially to generate a complete and accurate Project Wiki.
+Follow this multi-step process sequentially to generate a complete and accurate Project Wiki. Use `_todo.md` to track progress and **validation gates** to ensure schema compliance before proceeding.
+
+---
+
+### Step 0: Create `_todo.md` (Mandatory First Step)
+
+Before any other work, ensure `./.atmos/wiki/_todo.md` exists. Preferred: run from project root (script is in the skill directory, not your project):
+
+```bash
+bash ~/.atmos/skills/.system/project-wiki/scripts/init_wiki_todo.sh
+```
+
+Or create manually with the following checklist. Update it as you complete each item. **Do not consider the wiki complete until all items are checked.**
+
+```markdown
+# Project Wiki Generation Checklist
+
+- [ ] Deep codebase research done
+- [ ] _catalog.json created (schema-compliant)
+- [ ] validate_catalog passes (~/.atmos/skills/.system/project-wiki/scripts/validate_catalog)
+- [ ] _mindmap.md created
+- [ ] All Markdown articles generated
+- [ ] validate_frontmatter passes (~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py)
+- [ ] validate_todo passes (~/.atmos/skills/.system/project-wiki/scripts/validate_todo)
+- [ ] Final verification complete
+```
+
+Use this file as your source of truth. After each major step, update the checkboxes. If validation fails, fix the issues and re-run validation — do not check the box until it passes.
 
 ---
 
@@ -61,7 +100,13 @@ For each module, build mental notes covering:
 
 ### Step 2: Design the Two-Part Catalog Structure
 
-Create the output directory: `mkdir -p ./.atmos/wiki/`
+Create the output directory and `_todo.md` if not already done:
+
+```bash
+mkdir -p ./.atmos/wiki/
+```
+
+Ensure `_todo.md` exists from Step 0.
 
 The Wiki MUST be organized into **two major sections**:
 
@@ -106,13 +151,56 @@ Required articles (adapt to the specific project):
 
 ### Step 3: Generate the Catalog (`_catalog.json`)
 
-1. **Action**: Create `_catalog.json` in `./.atmos/wiki/`.
-2. **Task**: Based on your deep research, create a hierarchical catalog conforming to the JSON Schema in `references/catalog.schema.json`.
-   - Include `level` (beginner/intermediate/advanced) and `reading_time` (estimated minutes) for each article.
-   - Include `section` (getting-started/deep-dive) to indicate which part the article belongs to.
-   - Refer to `examples/sample_catalog.json` for a concrete example.
-   - **Required for incremental updates**: Run `git rev-parse HEAD` and add the result as `commit_hash` at the root level of the catalog. This field is mandatory — without it, incremental wiki updates will not work.
-3. **Validation**: Validate `_catalog.json` against the JSON Schema. Use scripts in `scripts/` if available.
+**CRITICAL**: The frontend and validation scripts expect an exact schema. Deviations cause rendering failure or validation errors. Read `references/catalog.schema.json` and `examples/catalog.template.json` before writing.
+
+#### 3.1 Required Root-Level Structure
+
+| Field | Type | Example | Notes |
+|-------|------|---------|-------|
+| `version` | string | `"2.0"` | Must match pattern `^\d+\.\d+$` |
+| `generated_at` | string | `"2026-02-11T12:00:00Z"` | ISO 8601 |
+| `commit_hash` | string | `"abc1234"` | From `git rev-parse HEAD` — **required** |
+| `project` | **object** | See below | **NEVER a string** |
+| `catalog` | array | See below | Hierarchical tree |
+
+**`project` MUST be an object:**
+```json
+"project": {
+  "name": "Project Name",
+  "description": "Brief project description",
+  "repository": "https://github.com/org/repo"
+}
+```
+
+#### 3.2 Catalog Must Be Hierarchical
+
+- Top-level `catalog` array contains **section nodes** (getting-started, deep-dive), NOT flat articles.
+- Each section has `children: [...]` containing the articles for that section.
+- Every item (section or article) MUST have: `id`, `title`, `path`, `order` (integer), `file`, `children` (array; `[]` for leaf articles).
+- Use `examples/catalog.template.json` as the minimal skeleton — copy it, then populate `project` and expand `children` arrays with your articles.
+
+#### 3.3 COMMON MISTAKES — DO NOT
+
+| Mistake | Correct |
+|---------|---------|
+| `"project": "my-project"` (string) | `"project": { "name": "...", "description": "..." }` (object) |
+| Flat `catalog: [{id:"overview",...},{id:"quick-start",...}]` | Nested: `catalog: [{id:"getting-started", children:[...]}, {id:"deep-dive", children:[...]}]` |
+| Missing `order` or `children` on items | Every item: `"order": 0`, `"children": []` (or array of children) |
+| Missing `commit_hash` | Run `git rev-parse HEAD`, add to root |
+| `version`: `"1.0.0"` | Use `"2.0"` (pattern is X.Y) |
+| Adding `description` to catalog items | Not in schema — omit or use only schema fields |
+
+#### 3.4 Validation Gate (Blocking Loop)
+
+```bash
+# Scripts are in the skill dir; use .py if Python available, else .sh (no Python required)
+python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py .atmos/wiki/_catalog.json
+# OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.sh .atmos/wiki/_catalog.json
+```
+
+- If it fails: read the error output, fix `_catalog.json`, run again.
+- Repeat until the script exits with success (✅).
+- **Do NOT proceed to Step 4 until validation passes.** Update `_todo.md` to check `[x] validate_catalog passes` only after success.
 
 ---
 
@@ -257,10 +345,10 @@ First paragraph of content...
 After all Markdown files are generated, validate metadata format. Use the validation script:
 
 ```bash
-python3 scripts/validate_frontmatter.py .atmos/wiki/
+python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py .atmos/wiki/
 ```
 
-**Validation rules** (see `scripts/validate_frontmatter.py` for full logic):
+**Validation rules** (see skill script for full logic):
 
 1. File MUST start with `---` on the first line.
 2. A complete YAML block must exist between the first `---` and the second `---`.
@@ -274,22 +362,46 @@ python3 scripts/validate_frontmatter.py .atmos/wiki/
 2. Regenerate that file — spawn a subagent with the failed file path, the validation error message, and this instruction: "Fix the metadata format. Use strict YAML frontmatter only. The file must start with `---` and valid YAML. See examples/sample_document.md."
 3. Re-run validation until all files pass.
 4. Do NOT consider the Wiki complete until `validate_frontmatter.py` exits with success.
+5. Update `_todo.md` to mark frontmatter validation as complete only after it passes.
 
 ---
 
 ## Final Verification
 
-Before finishing, perform a comprehensive check:
+Before finishing, you MUST run all validation scripts and fix any errors. The wiki is NOT complete until all pass. **Use `.sh` versions if Python is not available.**
 
-1. Does `./.atmos/wiki/_catalog.json` exist and validate against the JSON Schema?
-2. Does `scripts/validate_frontmatter.py .atmos/wiki/` pass for all Markdown files?
-3. Does every catalog entry have a corresponding Markdown file on disk?
-4. Does every Markdown file have proper YAML frontmatter with `section`, `level`, `reading_time`?
-5. Does every article meet the minimum depth requirements (word count, source references, diagrams)?
-6. Are diagrams used liberally and code blocks kept minimal?
-7. Do all cross-document links use relative paths?
-8. Does the Wiki have both "Getting Started" and "Deep Dive" sections with appropriate articles?
-9. Do all "Next Steps" sections link to valid articles?
+1. **Catalog validation** (required):
+   ```bash
+   python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.py .atmos/wiki/_catalog.json
+   # OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_catalog.sh .atmos/wiki/_catalog.json
+   ```
+   Must exit with success. Fix catalog structure (hierarchy, `order`, `children`) if it fails.
+
+2. **Frontmatter validation** (required):
+   ```bash
+   python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py .atmos/wiki/
+   ```
+   Must exit with success. Regenerate any failing Markdown files. (Python required; no .sh variant.)
+
+3. **Todo checklist validation** (required):
+   ```bash
+   python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_todo.py .atmos/wiki/_todo.md
+   # OR: bash ~/.atmos/skills/.system/project-wiki/scripts/validate_todo.sh .atmos/wiki/_todo.md
+   ```
+   Must exit with success. Ensure all checklist items are checked `[x]`.
+
+4. All `_todo.md` items checked? If any validation was skipped, go back and fix.
+
+5. Additional checks:
+   - Does every catalog entry have a corresponding Markdown file on disk?
+   - Does every Markdown file have proper YAML frontmatter with `section`, `level`, `reading_time`?
+   - Does every article meet the minimum depth requirements (word count, source references, diagrams)?
+   - Are diagrams used liberally and code blocks kept minimal?
+   - Do all cross-document links use relative paths?
+   - Does the Wiki have both "Getting Started" and "Deep Dive" sections with appropriate articles?
+   - Do all "Next Steps" sections link to valid articles?
+
+6. Update `_todo.md` to mark "Final verification complete".
 
 ---
 
@@ -303,13 +415,17 @@ Before finishing, perform a comprehensive check:
 
 ### Examples
 
-- **`examples/sample_catalog.json`** - Two-part catalog structure example
+- **`examples/catalog.template.json`** - Minimal catalog skeleton; copy and populate (project, children)
+- **`examples/sample_catalog.json`** - Full two-part catalog structure example
 - **`examples/sample_document.md`** - A deep, well-researched wiki document example
 
-### Scripts
+### Scripts (all in `~/.atmos/skills/.system/project-wiki/scripts/`)
 
-- **`scripts/validate_catalog.sh`** - Bash + jq validation for `_catalog.json`
-- **`scripts/validate_catalog.py`** - Python3 stdlib validation for `_catalog.json`
-- **`scripts/validate_frontmatter.py`** - Validate YAML frontmatter format of all Markdown files (required before completion)
+- **`init_wiki_todo.sh`** - Pre-create `_todo.md` (run from project root)
+- **`validate_catalog.sh`** - Bash + jq validation for `_catalog.json` (no Python)
+- **`validate_catalog.py`** - Python3 validation for `_catalog.json`
+- **`validate_frontmatter.py`** - Validate YAML frontmatter format of all Markdown files
+- **`validate_todo.sh`** - Bash validation for `_todo.md` (no Python)
+- **`validate_todo.py`** - Python3 validation for `_todo.md`
 
 By following this skill, a **deep, research-grade, truly useful** Project Wiki will be produced -- one that readers will actually want to read and learn from.

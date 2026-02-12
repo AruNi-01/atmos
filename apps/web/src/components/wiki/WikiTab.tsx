@@ -11,6 +11,8 @@ interface WikiTabProps {
   contextId: string;
   effectivePath: string;
   projectName?: string;
+  /** Increment to trigger full reload (check exists + load catalog + reload current page) */
+  refreshTrigger?: number;
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal: () => void;
   /** Switch to Project Wiki tab and run the given command in its terminal */
@@ -27,6 +29,7 @@ export const WikiTab: React.FC<WikiTabProps> = ({
   contextId,
   effectivePath,
   projectName,
+  refreshTrigger = 0,
   terminalGridRef,
   onSwitchToTerminal,
   onSwitchToProjectWikiAndRun,
@@ -36,8 +39,10 @@ export const WikiTab: React.FC<WikiTabProps> = ({
 }) => {
   const {
     wikiExists,
+    activePage,
     checkWikiExists,
     loadCatalog,
+    loadPage,
   } = useWikiContext(contextId);
 
   useEffect(() => {
@@ -50,6 +55,17 @@ export const WikiTab: React.FC<WikiTabProps> = ({
       loadCatalog(effectivePath);
     }
   }, [wikiExists, effectivePath, loadCatalog]);
+
+  useEffect(() => {
+    if (refreshTrigger > 0 && effectivePath) {
+      checkWikiExists(effectivePath);
+      loadCatalog(effectivePath);
+      if (activePage) {
+        const filePath = activePage.endsWith(".md") ? activePage : `${activePage}.md`;
+        loadPage(effectivePath, filePath);
+      }
+    }
+  }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRetryCheck = () => {
     checkWikiExists(effectivePath);

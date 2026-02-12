@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
 import { useGitStore } from "@/hooks/use-git-store";
 import { DiffViewer } from "@/components/diff/DiffViewer";
-import { Plus, Bot, Sparkles, Cpu, Zap, Brain, BookOpen } from "lucide-react";
+import { Plus, Bot, Sparkles, Cpu, Zap, Brain, BookOpen, RefreshCw } from "lucide-react";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -107,6 +107,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
   const [projectWikiTabVisible, setProjectWikiTabVisible] = React.useState(false);
   const [projectWikiTerminalKey, setProjectWikiTerminalKey] = React.useState(0);
+  const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
 
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
@@ -155,12 +156,15 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     [updateUrlParams]
   );
 
-  // 刷新时若有 Project Wiki tmux 窗口在运行，恢复显示 Tab（生成中刷新后可继续查看进度）
+  // 刷新时若有 Project Wiki tmux 窗口在运行，恢复显示 Tab；切换 Project/Workspace 时按当前上下文隔离
   React.useEffect(() => {
-    if (!effectiveContextId) return;
+    if (!effectiveContextId) {
+      setProjectWikiTabVisible(false);
+      return;
+    }
     systemApi.checkProjectWikiWindow(effectiveContextId).then(
-      ({ exists }) => exists && setProjectWikiTabVisible(true),
-      () => {}
+      ({ exists }) => setProjectWikiTabVisible(exists),
+      () => setProjectWikiTabVisible(false)
     );
   }, [effectiveContextId]);
 
@@ -349,12 +353,33 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               <TooltipTrigger asChild>
                 <TabsTab
                   value="wiki"
-                  className="!h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                  className="group/wiki relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
                 >
-                  <BookOpen className="size-3.5" />
+                  <BookOpen
+                    className={cn(
+                      "size-3.5",
+                      activeValue === "wiki" && "group-hover/wiki:opacity-0 transition-opacity"
+                    )}
+                  />
+                  {activeValue === "wiki" && (
+                    <span
+                      role="button"
+                      aria-label="Refresh Wiki"
+                      className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/wiki:opacity-100 pointer-events-none group-hover/wiki:pointer-events-auto transition-opacity cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setWikiRefreshTrigger((k) => k + 1);
+                      }}
+                    >
+                      <RefreshCw className="size-3.5" />
+                    </span>
+                  )}
                 </TabsTab>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Project Wiki</TooltipContent>
+              <TooltipContent side="bottom">
+                {activeValue === "wiki" ? "Refresh Wiki" : "Project Wiki"}
+              </TooltipContent>
             </Tooltip>
           )}
 
@@ -614,6 +639,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               contextId={effectiveContextId}
               effectivePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
               projectName={currentProject?.name}
+              refreshTrigger={wikiRefreshTrigger}
               terminalGridRef={terminalGridRef}
               onSwitchToTerminal={() => setFixedTab("terminal")}
               onSwitchToProjectWikiAndRun={(command) => {

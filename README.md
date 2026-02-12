@@ -1,4 +1,4 @@
-# Vibe Habitat
+# ATMOS
 
 **Deepmind-style AI-first Workspace Ecosystem** | Next.js 16 + React 19 + Rust + Tauri
 

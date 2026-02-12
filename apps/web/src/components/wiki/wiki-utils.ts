@@ -49,6 +49,123 @@ export function isTopLevelSection(item: CatalogItem): boolean {
   return TOP_LEVEL_SECTION_IDS.has(item.id) || item.section === item.id;
 }
 
+/** Raw item from JSON — may lack order/children (agent-generated flat catalogs) */
+type RawCatalogItem = Partial<CatalogItem> & {
+  id: string;
+  title: string;
+  path: string;
+  file: string;
+  section?: string;
+  children?: RawCatalogItem[];
+};
+
+/** Detect if catalog is flat (agent didn't follow hierarchy). */
+function isFlatCatalog(items: RawCatalogItem[]): boolean {
+  if (items.length === 0) return false;
+  const first = items[0];
+  return !first.children && (first.section === "getting-started" || first.section === "deep-dive");
+}
+
+/** Normalize catalog: fix project-as-string, flat structure, missing order/children. */
+export function normalizeCatalog(data: CatalogData): CatalogData {
+  let d = data;
+
+  // Agent sometimes writes project as string — convert to object
+  const proj = d.project;
+  if (typeof proj === "string") {
+    d = { ...d, project: { name: proj, description: proj } };
+  } else if (proj && typeof proj === "object" && (!proj.name || !proj.description)) {
+    d = {
+      ...d,
+      project: {
+        name: proj.name ?? "Project",
+        description: proj.description ?? "Project documentation",
+        repository: proj.repository,
+      },
+    };
+  }
+
+  const raw = d.catalog as unknown as RawCatalogItem[];
+  if (!Array.isArray(raw) || raw.length === 0) return d;
+
+  if (!isFlatCatalog(raw)) {
+    // Already hierarchical — ensure order/children exist
+    const ensure = (item: RawCatalogItem, idx: number): CatalogItem => ({
+      id: item.id,
+      title: item.title,
+      path: item.path,
+      order: typeof item.order === "number" ? item.order : idx,
+      file: item.file,
+      children: Array.isArray(item.children)
+        ? item.children.map((c, i) => ensure(c, i))
+        : [],
+      section: item.section as CatalogItem["section"],
+      level: item.level as CatalogItem["level"],
+      reading_time: item.reading_time,
+    });
+    return {
+      ...d,
+      catalog: raw.map((item, i) => ensure(item, i)),
+    };
+  }
+
+  // Flat → build tree by section
+  const bySection = new Map<string, RawCatalogItem[]>();
+  for (let i = 0; i < raw.length; i++) {
+    const item = raw[i];
+    const sec = item.section ?? "getting-started";
+    if (!bySection.has(sec)) bySection.set(sec, []);
+    bySection.get(sec)!.push({ ...item, order: typeof item.order === "number" ? item.order : i });
+  }
+
+  const sectionOrder = ["getting-started", "deep-dive", "specify-wiki"];
+  const catalog: CatalogItem[] = [];
+  for (let si = 0; si < sectionOrder.length; si++) {
+    const sec = sectionOrder[si];
+    const items = bySection.get(sec);
+    if (!items || items.length === 0) continue;
+
+    const sectionTitle =
+      sec === "getting-started"
+        ? "Getting Started"
+        : sec === "deep-dive"
+          ? "Deep Dive"
+          : "Specify Wiki";
+    const sectionPath = sec === "getting-started" ? "getting-started" : sec;
+    const indexFile = `${sectionPath}/index.md`;
+    const hasIndex = items.some((i) => i.file === indexFile || i.path === sectionPath);
+
+    const children: CatalogItem[] = items
+      .filter((i) => i.file !== indexFile && i.path !== sectionPath)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((item, idx) => ({
+        id: item.id,
+        title: item.title,
+        path: item.path,
+        order: idx,
+        file: item.file,
+        children: [] as CatalogItem[],
+        section: item.section as CatalogItem["section"],
+        level: item.level as CatalogItem["level"],
+        reading_time: item.reading_time,
+      }));
+
+    catalog.push({
+      id: sec,
+      title: sectionTitle,
+      path: sectionPath,
+      order: si,
+      file: hasIndex ? indexFile : children[0]?.file ?? indexFile,
+      children,
+      section: sec as CatalogItem["section"],
+      level: "beginner",
+      reading_time: 5,
+    });
+  }
+
+  return { ...d, catalog };
+}
+
 /** Flatten catalog into a list of leaf items (pages) with file paths, sorted by order */
 export function flattenCatalog(catalog: CatalogItem[]): { id: string; title: string; file: string }[] {
   const result: { id: string; title: string; file: string }[] = [];
@@ -56,10 +173,11 @@ export function flattenCatalog(catalog: CatalogItem[]): { id: string; title: str
   function visit(items: CatalogItem[]) {
     const sorted = [...items].sort((a, b) => a.order - b.order);
     for (const item of sorted) {
-      if (item.children.length === 0) {
+      const kids = item.children ?? [];
+      if (kids.length === 0) {
         result.push({ id: item.id, title: item.title, file: item.file });
       } else {
-        visit(item.children);
+        visit(kids);
       }
     }
   }
