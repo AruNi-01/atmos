@@ -1,0 +1,60 @@
+{
+  "concepts": [
+    {
+      "id": "layered-architecture",
+      "name": "分层架构 (Layered Architecture)",
+      "description": "项目采用清晰的四层架构：Infra (基础设施), Core Engine (核心引擎), Core Service (业务逻辑), API (接口层)。",
+      "importance": "high",
+      "related_files": ["crates/infra/src/lib.rs", "crates/core-engine/src/lib.rs", "crates/core-service/src/lib.rs", "apps/api/src/main.rs"],
+      "related_concepts": ["core-engine", "core-service"]
+    },
+    {
+      "id": "core-engine",
+      "name": "核心引擎 (Core Engine)",
+      "description": "封装了底层技术能力，如 PTY (终端), Git 操作, 文件系统访问和 Tmux 管理。",
+      "importance": "high",
+      "related_files": ["crates/core-engine/src/pty/mod.rs", "crates/core-engine/src/git/mod.rs", "crates/core-engine/src/tmux/mod.rs"],
+      "related_concepts": ["layered-architecture"]
+    },
+    {
+      "id": "core-service",
+      "name": "核心服务 (Core Service)",
+      "description": "实现核心业务逻辑，包括项目管理、工作区生命周期、终端会话管理等。",
+      "importance": "high",
+      "related_files": ["crates/core-service/src/service/project.rs", "crates/core-service/src/service/workspace.rs", "crates/core-service/src/service/terminal.rs"],
+      "related_concepts": ["layered-architecture", "workspace-lifecycle"]
+    },
+    {
+      "id": "workspace-lifecycle",
+      "name": "工作区生命周期 (Workspace Lifecycle)",
+      "description": "管理工作区的创建、启动、停止、归档及关联的终端和资源。",
+      "importance": "high",
+      "related_files": ["crates/core-service/src/service/workspace.rs", "crates/infra/src/db/repo/workspace_repo.rs"],
+      "related_concepts": ["core-service"]
+    },
+    {
+      "id": "websocket-communication",
+      "name": "WebSocket 实时通信",
+      "description": "基于 Axum 和 Tokio 实现的实时双向通信，用于终端流数据传输和状态同步。",
+      "importance": "high",
+      "related_files": ["crates/infra/src/websocket/mod.rs", "apps/api/src/api/ws/mod.rs"],
+      "related_concepts": ["terminal-streaming"]
+    },
+    {
+      "id": "terminal-streaming",
+      "name": "终端流处理 (Terminal Streaming)",
+      "description": "将 PTY 输出实时通过 WebSocket 推送到前端，并处理前端输入的指令流。",
+      "importance": "high",
+      "related_files": ["crates/core-service/src/service/terminal.rs", "apps/api/src/api/ws/terminal_handler.rs"],
+      "related_concepts": ["websocket-communication", "core-engine"]
+    },
+    {
+      "id": "monorepo-structure",
+      "name": "Monorepo 结构",
+      "description": "使用 Rust (Cargo workspaces) 和 JS/TS (Bun workspaces) 混合管理的单仓结构。",
+      "importance": "medium",
+      "related_files": ["Cargo.toml", "package.json", "justfile"],
+      "related_concepts": []
+    }
+  ]
+}

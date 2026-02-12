@@ -1,3 +1,4 @@
+* f5182af feat(wiki): enhance project wiki structure and validation processes
 * 007edae feat(web): improve mermaid diagram modal - fill space, drag pan, custom zoom input
 * e1ee52e feat(wiki): add specify-wiki section and enhance validation
 * 4bcf4f3 chore(wiki): update catalog and enhance wiki components
@@ -206,4 +207,3 @@
 * 9f9cbe5 chore: translate catalog comment in package.json to English.
 * a0676cc feat: introduce a new SVG overlay component to the docs page and add a logo asset.
 * 191b650 refactor: Reorganize UI components by moving Frame to a new Coss namespace, introduce Animate component configuration, and update React peer dependency to v19.
-* aecd5f4 feat: Introduce new UI components (Dialog, Card, Frame, Label, Input, Select) and refactor UI package structure with updated imports and configuration across applications.

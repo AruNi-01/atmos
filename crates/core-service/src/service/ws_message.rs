@@ -1180,22 +1180,29 @@ set -x
         Ok(json!({ "installed": installed }))
     }
 
-    /// Recursively copy directory, following symlinks (equivalent to cp -rL).
-    /// project-wiki-update and project-wiki-specify contain symlinks to ../project-wiki/;
-    /// we must copy the resolved target content, not the symlink itself.
+    /// Recursively copy directory. Symlinks are preserved with their target path unchanged;
+    /// project-wiki is installed first, so relative symlinks (e.g. ../project-wiki/references) resolve correctly.
     fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
         std::fs::create_dir_all(dst)?;
         for entry in std::fs::read_dir(src)? {
             let entry = entry?;
+            let ty = entry.file_type()?;
             let src_path = entry.path();
             let dst_path = dst.join(entry.file_name());
-            let ty = entry.file_type()?;
-            let is_dir = if ty.is_symlink() {
-                std::fs::metadata(&src_path).map(|m| m.is_dir()).unwrap_or(false)
-            } else {
-                ty.is_dir()
-            };
-            if is_dir {
+            if ty.is_symlink() {
+                let target = std::fs::read_link(&src_path)?;
+                #[cfg(unix)]
+                std::os::unix::fs::symlink(&target, &dst_path)?;
+                #[cfg(windows)]
+                {
+                    let target_is_dir = std::fs::metadata(&src_path).map(|m| m.is_dir()).unwrap_or(false);
+                    if target_is_dir {
+                        std::os::windows::fs::symlink_dir(&target, &dst_path)?;
+                    } else {
+                        std::os::windows::fs::symlink_file(&target, &dst_path)?;
+                    }
+                }
+            } else if ty.is_dir() {
                 Self::copy_dir_all(&src_path, &dst_path)?;
             } else {
                 std::fs::copy(&src_path, &dst_path)?;

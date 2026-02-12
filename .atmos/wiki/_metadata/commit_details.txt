@@ -1,8 +1,30 @@
-007edae|AarynLu|70 minutes ago|feat(web): improve mermaid diagram modal - fill space, drag pan, custom zoom input
+f5182af|AarynLu|71 minutes ago|feat(wiki): enhance project wiki structure and validation processes
+4504	0	.atmos/wiki/_metadata/commit_details.txt
+209	0	.atmos/wiki/_metadata/commit_graph.txt
+0	0	.atmos/wiki/_metadata/contributors.txt
+359	0	.atmos/wiki/_metadata/file_creation.txt
+1	0	.atmos/wiki/_metadata/issues.json
+1	0	.atmos/wiki/_metadata/prs.json
+407	0	"docs/optimization/DeepWiki \346\234\272\345\210\266\347\240\224\347\251\266\344\270\216 Project Wiki Skill \346\224\271\350\277\233\346\226\271\346\241\210.md"
+37	18	skills/project-wiki-specify/SKILL.md
+31	14	skills/project-wiki-update/SKILL.md
+138	51	skills/project-wiki/SKILL.md
+51	0	skills/project-wiki/examples/sample_briefing.md
+30	1	skills/project-wiki/examples/sample_document.md
+60	0	skills/project-wiki/references/briefing_template.md
+16	0	skills/project-wiki/references/output_structure.md
+62	0	skills/project-wiki/scripts/collect_metadata.sh
+7	3	skills/project-wiki/scripts/init_wiki_todo.sh
+209	0	skills/project-wiki/scripts/validate_content.py
+86	0	skills/project-wiki/scripts/validate_content.sh
+4	0	skills/project-wiki/scripts/validate_todo.py
+3	3	skills/project-wiki/scripts/validate_todo.sh
+
+007edae|AarynLu|3 hours ago|feat(web): improve mermaid diagram modal - fill space, drag pan, custom zoom input
 100	20	apps/web/src/components/markdown/MarkdownRenderer.tsx
 104	45	apps/web/src/components/markdown/MermaidViewerModal.tsx
 
-e1ee52e|AarynLu|2 hours ago|feat(wiki): add specify-wiki section and enhance validation
+e1ee52e|AarynLu|3 hours ago|feat(wiki): add specify-wiki section and enhance validation
 23	0	.atmos/wiki/_catalog.json
 15	0	.atmos/wiki/specify-wiki/index.md
 89	0	.atmos/wiki/specify-wiki/wiki-implementation.md
@@ -13,7 +35,7 @@ e1ee52e|AarynLu|2 hours ago|feat(wiki): add specify-wiki section and enhance val
 5	3	skills/project-wiki-update/SKILL.md
 2	2	skills/project-wiki/scripts/validate_frontmatter.py
 
-4bcf4f3|AarynLu|4 hours ago|chore(wiki): update catalog and enhance wiki components
+4bcf4f3|AarynLu|5 hours ago|chore(wiki): update catalog and enhance wiki components
 2	2	.atmos/wiki/_catalog.json
 1	1	.atmos/wiki/deep-dive/api/websocket-handlers.md
 4	1	.atmos/wiki/deep-dive/frontend/index.md
@@ -26,7 +48,7 @@ e1ee52e|AarynLu|2 hours ago|feat(wiki): add specify-wiki section and enhance val
 85	66	apps/web/src/components/wiki/WikiUpdateDialog.tsx
 98	12	crates/core-service/src/service/ws_message.rs
 
-d27f631|AarynLu|4 hours ago|refactor(wiki): update project wiki structure and enhance functionality
+d27f631|AarynLu|6 hours ago|refactor(wiki): update project wiki structure and enhance functionality
 305	0	.atmos/wiki/_catalog.json
 32	0	.atmos/wiki/_mindmap.md
 21	0	.atmos/wiki/_todo.md
@@ -71,7 +93,7 @@ d27f631|AarynLu|4 hours ago|refactor(wiki): update project wiki structure and en
 94	0	skills/project-wiki/scripts/validate_todo.py
 58	0	skills/project-wiki/scripts/validate_todo.sh
 
-113e211|AarynLu|18 hours ago|feat(wiki): enhance project-wiki skill synchronization and update handling
+113e211|AarynLu|20 hours ago|feat(wiki): enhance project-wiki skill synchronization and update handling
 56	30	apps/api/src/utils/wiki_skill_sync.rs
 7	0	apps/web/src/api/ws-api.ts
 14	11	apps/web/src/components/terminal/terminal-grid.css
@@ -100,7 +122,7 @@ d27f631|AarynLu|4 hours ago|refactor(wiki): update project wiki structure and en
 15	4	skills/project-wiki/scripts/validate_catalog.py
 397	0	specs/tech/wiki_incremental_update.md
 
-e4ede06|AarynLu|21 hours ago|feat(wiki): add Project Wiki Terminal tab as temporary tab
+e4ede06|AarynLu|22 hours ago|feat(wiki): add Project Wiki Terminal tab as temporary tab
 0	304	.atmos/wiki/_catalog.json
 0	117	.atmos/wiki/_mindmap.md
 0	336	.atmos/wiki/deep-dive/api/index.md
@@ -142,7 +164,7 @@ e4ede06|AarynLu|21 hours ago|feat(wiki): add Project Wiki Terminal tab as tempor
 11	0	crates/core-service/src/service/ws_message.rs
 2	0	crates/infra/src/websocket/message.rs
 
-e2bf6ab|AarynLu|21 hours ago|feat(wiki): add Project Wiki Terminal tab as temporary tab
+e2bf6ab|AarynLu|22 hours ago|feat(wiki): add Project Wiki Terminal tab as temporary tab
 64	0	apps/api/src/api/system/handlers.rs
 146	6	apps/web/src/components/layout/CenterStage.tsx
 115	0	apps/web/src/components/terminal/ProjectWikiTerminal.tsx
@@ -151,7 +173,7 @@ e2bf6ab|AarynLu|21 hours ago|feat(wiki): add Project Wiki Terminal tab as tempor
 8	0	apps/web/src/hooks/use-terminal-store.ts
 14	0	crates/core-service/src/service/terminal.rs
 
-8e1112c|AarynLu|23 hours ago|chore: update dependencies and enhance wiki structure
+8e1112c|AarynLu|24 hours ago|chore: update dependencies and enhance wiki structure
 252	117	.atmos/wiki/_catalog.json
 111	43	.atmos/wiki/_mindmap.md
 0	93	.atmos/wiki/api/index.md
@@ -233,7 +255,7 @@ e2bf6ab|AarynLu|21 hours ago|feat(wiki): add Project Wiki Terminal tab as tempor
 75	8	skills/project-wiki/scripts/validate_catalog.py
 207	0	skills/project-wiki/scripts/validate_frontmatter.py
 
-261e81e|AarynLu|24 hours ago|feat(web): add code block expand/collapse, unified markdown TOC, and skill detail save button improvement
+261e81e|AarynLu|26 hours ago|feat(web): add code block expand/collapse, unified markdown TOC, and skill detail save button improvement
 24	20	apps/web/src/components/code-block/code-block.tsx
 48	0	apps/web/src/components/code-block/expand-button.tsx
 9	5	apps/web/src/components/editor/MonacoEditor.tsx
@@ -242,18 +264,18 @@ e2bf6ab|AarynLu|21 hours ago|feat(wiki): add Project Wiki Terminal tab as tempor
 23	22	apps/web/src/components/skills/SkillDetail.tsx
 7	141	apps/web/src/components/wiki/WikiToc.tsx
 
-5db863d|AarynLu|25 hours ago|style: improve resize handle button visibility and remove wiki sidebar icons
+5db863d|AarynLu|27 hours ago|style: improve resize handle button visibility and remove wiki sidebar icons
 1	1	apps/web/src/components/layout/PanelLayout.tsx
 1	1	apps/web/src/components/skills/SkillDetail.tsx
 1	3	apps/web/src/components/wiki/WikiSidebar.tsx
 1	1	apps/web/src/components/wiki/WikiViewer.tsx
 
-c0e8fe9|AarynLu|26 hours ago|fix: resolve layout overflow and moon icon misalignment in dark mode
+c0e8fe9|AarynLu|27 hours ago|fix: resolve layout overflow and moon icon misalignment in dark mode
 0	4	.superset/config.json
 5	1	apps/web/src/app/[locale]/layout.tsx
 2	1	packages/ui/src/components/theme-toggle.tsx
 
-fa53473|AarynLu|26 hours ago|feat(web): integrate code-blocks with Shiki syntax highlighting
+fa53473|AarynLu|27 hours ago|feat(web): integrate code-blocks with Shiki syntax highlighting
 2	0	apps/web/package.json
 38	1	apps/web/src/app/globals.css
 112	0	apps/web/src/components/code-block/code-block.tsx
@@ -265,10 +287,10 @@ fa53473|AarynLu|26 hours ago|feat(web): integrate code-blocks with Shiki syntax 
 112	0	apps/web/src/utils/shiki.ts
 61	7	bun.lock
 
-c722af9|AarynLu|26 hours ago|feat(wiki): enhance WikiSidebar with project info dialog and repository icons
+c722af9|AarynLu|28 hours ago|feat(wiki): enhance WikiSidebar with project info dialog and repository icons
 87	10	apps/web/src/components/wiki/WikiSidebar.tsx
 
-8249773|AarynLu|28 hours ago|feat(wiki): improve Mermaid modal, TOC scroll, and hash anchor on refresh
+8249773|AarynLu|30 hours ago|feat(wiki): improve Mermaid modal, TOC scroll, and hash anchor on refresh
 56	9	apps/web/src/components/layout/CenterStage.tsx
 31	1	apps/web/src/components/markdown/MarkdownRenderer.tsx
 152	0	apps/web/src/components/markdown/MermaidViewerModal.tsx
@@ -3908,304 +3930,6 @@ e3329d2|Checkpointer|4 weeks ago|checkpoint:session-84155c3d-b851-4a16-b40c-e9a6
 861	0	specs/tech/TechPlan-V1.1md
 
 624d072|Checkpointer|4 weeks ago|checkpoint:session-84155c3d-b851-4a16-b40c-e9a6e86ee10a-turn-c1876eb3-1500-4cf6-bcf3-44753ea3e173-start head 97a9ec01f0a7e5bbe0098ba3d80b21c2f3c1c27b index-tree a51b1e5a40ff7bb1a810ced3c1d3fddb3631442b worktree-tree c0954afb3953c56cf9f4f98500a3320d03afe5c4 created 2026-01-17T13:51:28Z
-267	0	.agent/workflows/ui-ux-pro-max.md
-18	0	.claude/settings.local.json
-351	0	.claude/skills/ui-ux-pro-max/SKILL.md
-26	0	.claude/skills/ui-ux-pro-max/data/charts.csv
-97	0	.claude/skills/ui-ux-pro-max/data/colors.csv
-101	0	.claude/skills/ui-ux-pro-max/data/icons.csv
-31	0	.claude/skills/ui-ux-pro-max/data/landing.csv
-97	0	.claude/skills/ui-ux-pro-max/data/products.csv
-24	0	.claude/skills/ui-ux-pro-max/data/prompts.csv
-45	0	.claude/skills/ui-ux-pro-max/data/react-performance.csv
-53	0	.claude/skills/ui-ux-pro-max/data/stacks/flutter.csv
-56	0	.claude/skills/ui-ux-pro-max/data/stacks/html-tailwind.csv
-53	0	.claude/skills/ui-ux-pro-max/data/stacks/nextjs.csv
-51	0	.claude/skills/ui-ux-pro-max/data/stacks/nuxt-ui.csv
-59	0	.claude/skills/ui-ux-pro-max/data/stacks/nuxtjs.csv
-52	0	.claude/skills/ui-ux-pro-max/data/stacks/react-native.csv
-54	0	.claude/skills/ui-ux-pro-max/data/stacks/react.csv
-61	0	.claude/skills/ui-ux-pro-max/data/stacks/shadcn.csv
-54	0	.claude/skills/ui-ux-pro-max/data/stacks/svelte.csv
-51	0	.claude/skills/ui-ux-pro-max/data/stacks/swiftui.csv
-50	0	.claude/skills/ui-ux-pro-max/data/stacks/vue.csv
-59	0	.claude/skills/ui-ux-pro-max/data/styles.csv
-58	0	.claude/skills/ui-ux-pro-max/data/typography.csv
-101	0	.claude/skills/ui-ux-pro-max/data/ui-reasoning.csv
-100	0	.claude/skills/ui-ux-pro-max/data/ux-guidelines.csv
-31	0	.claude/skills/ui-ux-pro-max/data/web-interface.csv
-257	0	.claude/skills/ui-ux-pro-max/scripts/core.py
-487	0	.claude/skills/ui-ux-pro-max/scripts/design_system.py
-76	0	.claude/skills/ui-ux-pro-max/scripts/search.py
-351	0	.codex/skills/ui-ux-pro-max/SKILL.md
-26	0	.codex/skills/ui-ux-pro-max/data/charts.csv
-97	0	.codex/skills/ui-ux-pro-max/data/colors.csv
-101	0	.codex/skills/ui-ux-pro-max/data/icons.csv
-31	0	.codex/skills/ui-ux-pro-max/data/landing.csv
-97	0	.codex/skills/ui-ux-pro-max/data/products.csv
-24	0	.codex/skills/ui-ux-pro-max/data/prompts.csv
-53	0	.codex/skills/ui-ux-pro-max/data/stacks/flutter.csv
-56	0	.codex/skills/ui-ux-pro-max/data/stacks/html-tailwind.csv
-53	0	.codex/skills/ui-ux-pro-max/data/stacks/nextjs.csv
-51	0	.codex/skills/ui-ux-pro-max/data/stacks/nuxt-ui.csv
-59	0	.codex/skills/ui-ux-pro-max/data/stacks/nuxtjs.csv
-52	0	.codex/skills/ui-ux-pro-max/data/stacks/react-native.csv
-54	0	.codex/skills/ui-ux-pro-max/data/stacks/react.csv
-61	0	.codex/skills/ui-ux-pro-max/data/stacks/shadcn.csv
-54	0	.codex/skills/ui-ux-pro-max/data/stacks/svelte.csv
-51	0	.codex/skills/ui-ux-pro-max/data/stacks/swiftui.csv
-50	0	.codex/skills/ui-ux-pro-max/data/stacks/vue.csv
-59	0	.codex/skills/ui-ux-pro-max/data/styles.csv
-58	0	.codex/skills/ui-ux-pro-max/data/typography.csv
-41	0	.codex/skills/ui-ux-pro-max/data/ui-reasoning.csv
-100	0	.codex/skills/ui-ux-pro-max/data/ux-guidelines.csv
-245	0	.codex/skills/ui-ux-pro-max/scripts/core.py
-461	0	.codex/skills/ui-ux-pro-max/scripts/design_system.py
-76	0	.codex/skills/ui-ux-pro-max/scripts/search.py
-262	0	.cursor/commands/ui-ux-pro-max.md
-99	0	.gitignore
-26	0	.shared/ui-ux-pro-max/data/charts.csv
-97	0	.shared/ui-ux-pro-max/data/colors.csv
-101	0	.shared/ui-ux-pro-max/data/icons.csv
-31	0	.shared/ui-ux-pro-max/data/landing.csv
-97	0	.shared/ui-ux-pro-max/data/products.csv
-24	0	.shared/ui-ux-pro-max/data/prompts.csv
-45	0	.shared/ui-ux-pro-max/data/react-performance.csv
-53	0	.shared/ui-ux-pro-max/data/stacks/flutter.csv
-56	0	.shared/ui-ux-pro-max/data/stacks/html-tailwind.csv
-53	0	.shared/ui-ux-pro-max/data/stacks/nextjs.csv
-51	0	.shared/ui-ux-pro-max/data/stacks/nuxt-ui.csv
-59	0	.shared/ui-ux-pro-max/data/stacks/nuxtjs.csv
-52	0	.shared/ui-ux-pro-max/data/stacks/react-native.csv
-54	0	.shared/ui-ux-pro-max/data/stacks/react.csv
-61	0	.shared/ui-ux-pro-max/data/stacks/shadcn.csv
-54	0	.shared/ui-ux-pro-max/data/stacks/svelte.csv
-51	0	.shared/ui-ux-pro-max/data/stacks/swiftui.csv
-50	0	.shared/ui-ux-pro-max/data/stacks/vue.csv
-59	0	.shared/ui-ux-pro-max/data/styles.csv
-58	0	.shared/ui-ux-pro-max/data/typography.csv
-101	0	.shared/ui-ux-pro-max/data/ui-reasoning.csv
-100	0	.shared/ui-ux-pro-max/data/ux-guidelines.csv
-31	0	.shared/ui-ux-pro-max/data/web-interface.csv
--	-	.shared/ui-ux-pro-max/scripts/__pycache__/core.cpython-314.pyc
--	-	.shared/ui-ux-pro-max/scripts/__pycache__/design_system.cpython-314.pyc
-257	0	.shared/ui-ux-pro-max/scripts/core.py
-487	0	.shared/ui-ux-pro-max/scripts/design_system.py
-76	0	.shared/ui-ux-pro-max/scripts/search.py
-1	0	.vscode/settings.json
-84	0	AGENTS.md
-12	0	CHANGELOG.md
-1	0	CLAUDE.md
-35	0	CONTRIBUTING.md
-2066	0	Cargo.lock
-32	0	Cargo.toml
-301	0	DOCUMENTATION.md
-54	0	README.md
-1	0	WARP.md
-31	0	apps/AGENTS.md
-12	0	apps/api/AGENT.md
-50	0	apps/api/AGENTS.md
-36	0	apps/api/Cargo.toml
-56	0	apps/api/src/api/mod.rs
-130	0	apps/api/src/api/ws.rs
-34	0	apps/api/src/app_state.rs
-39	0	apps/api/src/config/mod.rs
-36	0	apps/api/src/error.rs
-14	0	apps/api/src/lib.rs
-55	0	apps/api/src/main.rs
-27	0	apps/api/src/middleware/mod.rs
-7	0	apps/api/src/utils/mod.rs
-11	0	apps/cli/AGENTS.md
-10	0	apps/cli/Cargo.toml
-3	0	apps/cli/src/main.rs
-12	0	apps/desktop/AGENTS.md
-6	0	apps/desktop/src-tauri/Cargo.toml
-1	0	apps/desktop/src-tauri/src/main.rs
-26	0	apps/docs/.gitignore
-33	0	apps/docs/AGENTS.md
-148	0	apps/docs/README.md
-21	0	apps/docs/components.json
-55	0	apps/docs/content/docs/index.mdx
-13	0	apps/docs/content/docs/index.zh.mdx
-3	0	apps/docs/content/docs/meta.json
-3	0	apps/docs/content/docs/meta.zh.json
-17	0	apps/docs/content/docs/test.mdx
-3	0	apps/docs/debug-source.ts
-15	0	apps/docs/eslint.config.mjs
-18	0	apps/docs/next.config.mjs
-36	0	apps/docs/package.json
-4	0	apps/docs/postcss.config.mjs
-1	0	apps/docs/public/logo.svg
-22	0	apps/docs/source.config.ts
-6	0	apps/docs/src/app/[lang]/(home)/layout.tsx
-16	0	apps/docs/src/app/[lang]/(home)/page.tsx
-74	0	apps/docs/src/app/[lang]/docs/[[...slug]]/page.tsx
-18	0	apps/docs/src/app/[lang]/docs/layout.tsx
-30	0	apps/docs/src/app/[lang]/layout.tsx
-7	0	apps/docs/src/app/api/search/route.ts
-11	0	apps/docs/src/app/global.css
-24	0	apps/docs/src/app/layout.tsx
-10	0	apps/docs/src/app/llms-full.txt/route.ts
-20	0	apps/docs/src/app/llms.mdx/docs/[[...slug]]/route.ts
-27	0	apps/docs/src/app/og/docs/[...slug]/route.tsx
-230	0	apps/docs/src/components/ai/page-actions.tsx
-89	0	apps/docs/src/components/overlay.tsx
-1	0	apps/docs/src/lib/cn.ts
-12	0	apps/docs/src/lib/i18n.ts
-10	0	apps/docs/src/lib/layout.shared.tsx
-29	0	apps/docs/src/lib/source.ts
-9	0	apps/docs/src/mdx-components.tsx
-9	0	apps/docs/src/proxy.ts
-49	0	apps/docs/tsconfig.json
-31	0	apps/landing/.gitignore
-73	0	apps/landing/AGENTS.md
-165	0	apps/landing/README.md
-21	0	apps/landing/components.json
-18	0	apps/landing/eslint.config.mjs
-88	0	apps/landing/messages/en.json
-88	0	apps/landing/messages/zh.json
-10	0	apps/landing/next.config.ts
-37	0	apps/landing/package.json
-4	0	apps/landing/postcss.config.mjs
-1	0	apps/landing/public/file.svg
-1	0	apps/landing/public/globe.svg
-1	0	apps/landing/public/next.svg
-1	0	apps/landing/public/vercel.svg
-1	0	apps/landing/public/window.svg
-66	0	apps/landing/src/app/[locale]/layout.tsx
-68	0	apps/landing/src/app/[locale]/page.tsx
--	-	apps/landing/src/app/favicon.ico
-11	0	apps/landing/src/app/globals.css
-22	0	apps/landing/src/components/locale-switcher.tsx
-11	0	apps/landing/src/components/providers/theme-provider.tsx
-36	0	apps/landing/src/components/sections/cta-section.tsx
-70	0	apps/landing/src/components/sections/features-section.tsx
-55	0	apps/landing/src/components/sections/footer.tsx
-93	0	apps/landing/src/components/sections/hero-section.tsx
-53	0	apps/landing/src/components/sections/tech-stack-section.tsx
-18	0	apps/landing/src/i18n/request.ts
-3	0	apps/landing/src/lib/utils.ts
-17	0	apps/landing/src/proxy.ts
-35	0	apps/landing/tsconfig.json
-41	0	apps/web/.gitignore
-54	0	apps/web/AGENTS.md
-46	0	apps/web/README.md
-24	0	apps/web/components.json
-18	0	apps/web/eslint.config.mjs
-20	0	apps/web/messages/en.json
-20	0	apps/web/messages/zh.json
-10	0	apps/web/next.config.ts
-37	0	apps/web/package.json
-4	0	apps/web/postcss.config.mjs
-1	0	apps/web/public/file.svg
-1	0	apps/web/public/globe.svg
-1	0	apps/web/public/next.svg
-1	0	apps/web/public/vercel.svg
-1	0	apps/web/public/window.svg
-66	0	apps/web/src/app/[locale]/layout.tsx
-75	0	apps/web/src/app/[locale]/page.tsx
--	-	apps/web/src/app/favicon.ico
-11	0	apps/web/src/app/globals.css
-22	0	apps/web/src/components/locale-switcher.tsx
-11	0	apps/web/src/components/providers/theme-provider.tsx
-18	0	apps/web/src/i18n/request.ts
-2	0	apps/web/src/lib/utils.ts
-18	0	apps/web/src/proxy.ts
-35	0	apps/web/tsconfig.json
-1682	0	bun.lock
-13	0	crates/core-engine/AGENTS.md
-20	0	crates/core-engine/Cargo.toml
-23	0	crates/core-engine/src/engine_ext.rs
-16	0	crates/core-engine/src/error.rs
-17	0	crates/core-engine/src/fs/mod.rs
-22	0	crates/core-engine/src/git/mod.rs
-17	0	crates/core-engine/src/lib.rs
-24	0	crates/core-engine/src/pty/mod.rs
-22	0	crates/core-engine/src/tmux/mod.rs
-12	0	crates/core-service/AGENTS.md
-26	0	crates/core-service/Cargo.toml
-14	0	crates/core-service/src/auth/mod.rs
-16	0	crates/core-service/src/error.rs
-17	0	crates/core-service/src/lib.rs
-26	0	crates/core-service/src/project/mod.rs
-23	0	crates/core-service/src/service_ext.rs
-25	0	crates/core-service/src/terminal/mod.rs
-27	0	crates/core-service/src/workspace/mod.rs
-13	0	crates/infra/AGENTS.md
-33	0	crates/infra/Cargo.toml
-42	0	crates/infra/src/config.rs
-8	0	crates/infra/src/db/mod.rs
-46	0	crates/infra/src/db/pool.rs
-35	0	"crates/infra/src/db/pool.rs sqlx::SqlitePool;\nuse"
-14	0	crates/infra/src/db/repo/mod.rs
-25	0	crates/infra/src/error.rs
-62	0	crates/infra/src/infra_ext.rs
-32	0	crates/infra/src/lib.rs
-68	0	crates/infra/src/websocket/connection.rs
-65	0	crates/infra/src/websocket/manager.rs
-52	0	crates/infra/src/websocket/message.rs
-9	0	crates/infra/src/websocket/mod.rs
-180	0	docs/README.md
-295	0	docs/adr/001-monorepo.md
-236	0	docs/adr/README.md
-131	0	docs/adr/template.md
-20	0	docs/api-design.md
-43	0	docs/architecture.md
-15	0	docs/deployment.md
-59	0	docs/development.md
-249	0	docs/justfile
-184	0	justfile
-39	0	package.json
-36	0	packages/AGENTS.md
-69	0	packages/config/AGENTS.md
-336	0	packages/config/README.md
-13	0	packages/config/package.json
-24	0	packages/config/typescript/nextjs.json
-18	0	packages/config/typescript/react.json
-62	0	packages/i18n/AGENTS.md
-436	0	packages/i18n/README.md
-30	0	packages/i18n/package.json
-9	0	packages/i18n/src/config.ts
-4	0	packages/i18n/src/index.ts
-4	0	packages/i18n/src/middleware.ts
-5	0	packages/i18n/src/navigation.ts
-14	0	packages/i18n/src/routing.ts
-15	0	packages/i18n/tsconfig.json
-12	0	packages/shared/AGENTS.md
-309	0	packages/shared/README.md
-21	0	packages/shared/package.json
-4	0	packages/shared/src/hooks/index.ts
-8	0	packages/shared/src/index.ts
-26	0	packages/shared/src/utils/index.ts
-14	0	packages/shared/tsconfig.json
-12	0	packages/ui/AGENTS.md
-329	0	packages/ui/README.md
-21	0	packages/ui/components.animate.json
-24	0	packages/ui/components.coss.json
-21	0	packages/ui/components.json
-47	0	packages/ui/package.json
-7	0	packages/ui/postcss.config.mjs
-82	0	packages/ui/src/components/coss/frame.tsx
-57	0	packages/ui/src/components/language-selector.tsx
-45	0	packages/ui/src/components/theme-toggle.tsx
-57	0	packages/ui/src/components/ui/button.tsx
-76	0	packages/ui/src/components/ui/card.tsx
-143	0	packages/ui/src/components/ui/dialog.tsx
-201	0	packages/ui/src/components/ui/dropdown-menu.tsx
-22	0	packages/ui/src/components/ui/input.tsx
-26	0	packages/ui/src/components/ui/label.tsx
-190	0	packages/ui/src/components/ui/select.tsx
-13	0	packages/ui/src/index.ts
-6	0	packages/ui/src/lib/utils.ts
-124	0	packages/ui/src/styles/globals.css
-19	0	packages/ui/tsconfig.json
-252	0	specs/README.md
-59	0	specs/prd/PRD-V1.0.md
-18	0	specs/prd/mvp-scope.md
-605	0	specs/tech/TechPlan-V1.0.md
-861	0	specs/tech/TechPlan-V1.1md
-
-85c7ba4|Checkpointer|4 weeks ago|checkpoint:session-84155c3d-b851-4a16-b40c-e9a6e86ee10a-turn-658581a4-eb90-4a33-9ff4-d868122d9438-end head 97a9ec01f0a7e5bbe0098ba3d80b21c2f3c1c27b index-tree a51b1e5a40ff7bb1a810ced3c1d3fddb3631442b worktree-tree c0954afb3953c56cf9f4f98500a3320d03afe5c4 created 2026-01-17T13:49:38Z
 267	0	.agent/workflows/ui-ux-pro-max.md
 18	0	.claude/settings.local.json
 351	0	.claude/skills/ui-ux-pro-max/SKILL.md
