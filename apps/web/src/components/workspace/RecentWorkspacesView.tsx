@@ -231,7 +231,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
       });
       return;
     }
-    router.push(`/?workspaceId=${ws.id}`);
+    router.push(`/workspace/${ws.id}`);
   };
 
   const truncatePath = (path: string | undefined) => {

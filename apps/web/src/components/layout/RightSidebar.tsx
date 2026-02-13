@@ -42,7 +42,7 @@ import {
 } from "@workspace/ui";
 import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSearchParams } from 'next/navigation';
+import { useContextParams } from "@/hooks/use-context-params";
 import { GitChangedFile } from '@/api/ws-api';
 import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 
@@ -220,9 +220,7 @@ const ChangeSection: React.FC<ChangeSectionProps> = ({
 };
 
 const RightSidebar: React.FC<RightSidebarProps> = () => {
-  const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspaceId');
-  const projectIdFromUrl = searchParams.get('projectId');
+  const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const { currentProjectPath } = useEditorStore();
   const { projects } = useProjectStore();
 

@@ -44,7 +44,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
       className="flex-col h-full w-full overflow-hidden"
     >
       {/* Top: Preview */}
-      <Panel className="min-h-0">
+      <Panel defaultSize={70} className="min-h-0">
         <Preview
           url={previewUrl}
           setUrl={setPreviewUrl}

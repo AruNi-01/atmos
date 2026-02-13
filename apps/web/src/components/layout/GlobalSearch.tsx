@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useContextParams } from "@/hooks/use-context-params";
 import { useTheme } from 'next-themes';
 import Fuse from 'fuse.js';
 import {
@@ -91,7 +92,7 @@ interface AppSearchItem {
 
 export function GlobalSearch() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { setTheme, theme } = useTheme();
 
   const {
@@ -106,7 +107,6 @@ export function GlobalSearch() {
 
   const { projects, quickAddWorkspace, setupProgress } = useProjectStore();
   const { openFile, currentProjectPath } = useEditorStore();
-  const currentWorkspaceId = searchParams.get('workspaceId');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [fileTreeCache, setFileTreeCache] = useState<FileTreeNode[]>([]);
@@ -145,7 +145,6 @@ export function GlobalSearch() {
   };
 
   // Find current project and workspace
-  const currentProjectIdFromUrl = searchParams.get('projectId');
   const currentProject = useMemo(() => {
     return projects.find(p =>
       (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
@@ -284,7 +283,7 @@ export function GlobalSearch() {
           ].filter(Boolean),
           icon: <Layers className="size-4 text-muted-foreground" />,
           action: () => {
-            router.push(`?workspaceId=${workspace.id}`);
+            router.push(`/workspace/${workspace.id}`);
             setGlobalSearchOpen(false);
           },
         });
@@ -350,7 +349,7 @@ export function GlobalSearch() {
       keywords: ['management', 'center', 'workspaces', 'workspace', 'admin', 'overview'],
       icon: <Layers className="size-4 text-muted-foreground" />,
       action: () => {
-        router.push('/?view=workspaces');
+        router.push('/workspaces');
         setGlobalSearchOpen(false);
       },
     });
@@ -363,7 +362,7 @@ export function GlobalSearch() {
       keywords: ['management', 'center', 'skills', 'skill', 'catalog', 'library'],
       icon: <Blocks className="size-4 text-muted-foreground" />,
       action: () => {
-        router.push('/?view=skills');
+        router.push('/skills');
         setGlobalSearchOpen(false);
       },
     });
@@ -376,7 +375,7 @@ export function GlobalSearch() {
       keywords: ['management', 'center', 'terminals', 'terminal', 'sessions'],
       icon: <Terminal className="size-4 text-muted-foreground" />,
       action: () => {
-        router.push('/?view=terminals');
+        router.push('/terminals');
         setGlobalSearchOpen(false);
       },
     });
@@ -406,7 +405,7 @@ export function GlobalSearch() {
         action: async () => {
           const workspaceId = await quickAddWorkspace(project.id);
           if (workspaceId) {
-            router.push(`?workspaceId=${workspaceId}`);
+            router.push(`/workspace/${workspaceId}`);
           }
           setGlobalSearchOpen(false);
         },

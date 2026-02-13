@@ -16,14 +16,14 @@ import { skillsApi, SkillInfo } from '@/api/ws-api';
 import { SkillCard } from '@/components/skills/SkillCard';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SkillDetail } from './SkillDetail';
+import { useContextParams } from "@/hooks/use-context-params";
 
 type ScopeFilter = 'all' | 'global' | 'project';
 
 export const SkillsView: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const skillId = searchParams.get('skillId');
-  const skillScope = searchParams.get('skillScope');
+  const { skillScope, skillId } = useContextParams();
 
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +54,8 @@ export const SkillsView: React.FC = () => {
         params.delete('projects');
       }
     }
-    router.push(`/?${params.toString()}`);
+    const qs = params.toString();
+    router.push(qs ? `/skills?${qs}` : '/skills');
   }, [router, searchParams]);
 
   const projects = useMemo(() => {
@@ -117,8 +118,7 @@ export const SkillsView: React.FC = () => {
 
       setIsLoadingDetail(true);
       try {
-        const identifier = decodeURIComponent(skillId);
-        const result = await skillsApi.get(skillScope, identifier);
+        const result = await skillsApi.get(skillScope, skillId);
         setSelectedSkill(result);
       } catch (error) {
         console.error('Failed to load skill details:', error);
@@ -131,10 +131,7 @@ export const SkillsView: React.FC = () => {
   }, [skillId, skillScope]);
 
   const handleBack = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('skillId');
-    params.delete('skillScope');
-    router.push(`/?${params.toString()}`);
+    router.push('/skills');
     setSelectedSkill(null);
   };
 

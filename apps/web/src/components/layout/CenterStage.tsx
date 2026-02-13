@@ -39,7 +39,8 @@ import { DiffViewer } from "@/components/diff/DiffViewer";
 import { Plus, Bot, Sparkles, Cpu, Zap, Brain, BookOpen, RefreshCw } from "lucide-react";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useContextParams } from "@/hooks/use-context-params";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
@@ -116,10 +117,9 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   useEditorStoreHydration();
 
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get("workspaceId");
-  const projectId = searchParams.get("projectId");
-  const effectiveContextId = workspaceId || projectId;
+  const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
 
   // --- URL-synced tab state ---
   const tabFromUrl = searchParams.get("tab");
@@ -135,13 +135,25 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           params.set(key, value);
         }
       }
-      router.push(`/?${params.toString()}`, { scroll: false });
+      const qs = params.toString();
+      const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+      const currentQs = searchParams.toString();
+      const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
+      if (nextUrl !== currentUrl) {
+        router.push(nextUrl, { scroll: false });
+      }
     },
-    [router, searchParams]
+    [router, pathname, searchParams]
   );
+
+  const fixedTab: FixedTab = React.useMemo(() => {
+    if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return "terminal";
+    return (tabFromUrl && FIXED_TABS.has(tabFromUrl) ? tabFromUrl : "terminal") as FixedTab;
+  }, [tabFromUrl, projectWikiTabVisible]);
 
   const setFixedTab = React.useCallback(
     (tab: FixedTab) => {
+      if (tab === fixedTab) return;
       const updates: Record<string, string | null> = { tab };
       // Clear wikiPage when leaving wiki tab
       if (tab !== "wiki") {
@@ -149,7 +161,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       }
       updateUrlParams(updates);
     },
-    [updateUrlParams]
+    [fixedTab, updateUrlParams]
   );
 
   const setWikiPage = React.useCallback(
@@ -184,11 +196,6 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       }
     );
   }, [effectiveContextId]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/updateUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
-
-  const fixedTab: FixedTab = React.useMemo(() => {
-    if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return "terminal";
-    return (tabFromUrl && FIXED_TABS.has(tabFromUrl) ? tabFromUrl : "terminal") as FixedTab;
-  }, [tabFromUrl, projectWikiTabVisible]);
 
   const handleCloseFile = (file: OpenFile) => {
     if (file.isDirty) {
@@ -283,28 +290,22 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     return { currentProject: project, currentWorkspace: undefined };
   })();
 
-  const isRecentView = searchParams.get('view') === 'recent';
-  const isArchivedView = searchParams.get('view') === 'archived';
-  const isWorkspacesView = searchParams.get('view') === 'workspaces';
-  const isSkillsView = searchParams.get('view') === 'skills';
-  const isTerminalsView = searchParams.get('view') === 'terminals';
-
   if (!effectiveContextId) {
-    if (isRecentView || isArchivedView || isWorkspacesView) {
+    if (currentView === "workspaces") {
       return (
         <main className="h-full overflow-hidden">
           <WorkspacesManagementView />
         </main>
       );
     }
-    if (isSkillsView) {
+    if (currentView === "skills") {
       return (
         <main className="h-full overflow-hidden">
           <SkillsView />
         </main>
       );
     }
-    if (isTerminalsView) {
+    if (currentView === "terminals") {
       return (
         <main className="h-full overflow-hidden">
           <TerminalManagerView />
