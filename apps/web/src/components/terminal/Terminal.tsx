@@ -574,7 +574,8 @@ const Terminal = ({
       style={{
         width: "100%",
         height: "100%",
-        padding: "8px 12px", /* Spacing around xterm — must be on wrapper, not xterm mount, so FitAddon measures correctly */
+        /* Left = scrollbar width; right = 0 (scrollbar occupies right, overlay) */
+        padding: "8px 0 8px 14px",
         backgroundColor: "transparent",
         position: "relative",
         boxSizing: "border-box",

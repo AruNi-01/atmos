@@ -12,7 +12,11 @@ sources:
   - apps/web/src/components/layout/PanelLayout.tsx
   - apps/web/src/hooks/use-websocket.ts
   - apps/web/src/hooks/use-project-store.ts
-updated_at: 2026-02-12T12:00:00Z
+  - apps/web/src/hooks/use-wiki-store.ts
+  - apps/web/src/components/wiki/WikiSidebar.tsx
+  - apps/web/src/components/wiki/WikiSpecifyDialog.tsx
+  - apps/web/src/components/markdown/MarkdownRenderer.tsx
+updated_at: 2026-02-13T12:00:00Z
 ---
 
 # Web 应用结构与状态管理
@@ -102,15 +106,93 @@ sequenceDiagram
 - **多标签页**: 在主编辑区或终端区支持多标签切换。
 - **持久化**: 用户的布局偏好（如侧边栏宽度）会本地存储，下次打开时自动恢复。
 
+## Wiki 系统功能
+
+Atmos 的前端集成了强大的 Wiki 系统，支持增量更新、多语言生成和增强的导航体验。
+
+### 1. Wiki 增量更新机制
+
+Wiki 系统能够智能检测版本变化并仅更新受影响的页面，大幅提升更新效率。
+
+```mermaid
+stateDiagram-v2
+    [*] --> 检测版本: 用户打开 Wiki
+    检测版本 --> 比较提交: catalog_commit vs current_commit
+    比较提交 --> 无更新: commits 相同
+    比较提交 --> 有更新: commits 不同
+    有更新 --> 获取提交数: git_get_commit_count
+    获取提交数 --> 显示提示: "X commits behind"
+    显示提示 --> 用户选择: 触发更新或忽略
+    用户选择 --> 增量更新: 仅更新受影响页面
+    无更新 --> [*]: 显示最新状态
+    增量更新 --> [*]: 更新完成
+```
+
+**关键实现**:
+- `use-wiki-store.ts` 维护 Wiki 更新状态，包括 `commitCount` 字段
+- `gitApi.getCommitCount()` 调用后端获取提交数量
+- `WikiSidebar` 显示刷新状态指示器（旋转动画、更新提示）
+
+### 2. 多语言 Wiki 生成
+
+Atmos 支持 12 种主要语言的 Wiki 文档生成，满足国际化团队需求。
+
+```mermaid
+graph TD
+    User[用户指定主题] --> Dialog[WikiSpecifyDialog]
+    Dialog --> LangSelect{选择语言}
+    LangSelect -->|预设语言| Preset[12种预设选项]
+    LangSelect -->|自定义| Custom[输入自定义语言]
+    Preset --> Build[生成文章指令]
+    Custom --> Build
+    Build --> Agent[Claude Agent]
+    Agent --> Output[指定 Wiki 文章]
+```
+
+**支持的语言**:
+- 英语、中文、日语、韩语
+- 西班牙语、法语、德语、葡萄牙语
+- 俄语、阿拉伯语、印地语
+- 自定义语言选项
+
+### 3. 增强的 Markdown 渲染与导航
+
+Wiki 的 Markdown 阅读体验经过多项增强：
+
+#### Mermaid 图表模态框
+- 点击 Mermaid 图表可在全屏模态框中查看
+- 支持自定义缩放级别（0.5x - 3x）
+- 拖拽平移功能，方便浏览大型图表
+- 填充可用空间，充分利用屏幕
+
+#### 自动头部导航
+- 从 Markdown 内容中提取 H2/H3 标题
+- 生成自动目录和锚点跳转
+- 快速导航到文章任意章节
+
+### 4. Wiki 目录结构
+
+Wiki 系统支持三种文档类型：
+
+| 类型 | 路径 | 用途 |
+|-----|------|------|
+| **入门指南** | `getting-started/` | 面向新用户的基础文档 |
+| **深入探索** | `deep-dive/` | 面向贡献者的技术细节 |
+| **指定 Wiki** | `specify-wiki/` | 用户按需生成的特定主题文章 |
+
 ## 关键源码分析
 
 | 文件路径 | 核心职责 |
 |:---|:---|
-| `apps/web/src/hooks/use-terminal-store.ts` | 终端状态管理的“大脑”，处理所有终端逻辑。 |
+| `apps/web/src/hooks/use-terminal-store.ts` | 终端状态管理的"大脑"，处理所有终端逻辑。 |
 | `apps/web/src/components/terminal/Terminal.tsx` | `Xterm.js` 的 React 封装组件，负责 DOM 挂载和插件初始化。 |
-| `apps/web/src/api/ws-api.ts` | 封装底层的 WebSocket 消息发送与接收协议。 |
+| `apps/web/src/api/ws-api.ts` | 封装底层的 WebSocket 消息发送与接收协议，包括 Git API。 |
 | `apps/web/src/components/layout/PanelLayout.tsx` | 定义应用的主布局框架，管理侧边栏和主视图的比例。 |
 | `apps/web/src/hooks/use-project-store.ts` | 管理项目列表的获取、创建和删除状态。 |
+| `apps/web/src/hooks/use-wiki-store.ts` | Wiki 状态管理，包括目录加载、版本检测和更新触发。 |
+| `apps/web/src/components/wiki/WikiSidebar.tsx` | Wiki 侧边栏，显示目录结构、更新状态和导航功能。 |
+| `apps/web/src/components/wiki/WikiSpecifyDialog.tsx` | Wiki 文章生成对话框，支持主题输入、语言选择和 Agent 选择。 |
+| `apps/web/src/components/markdown/MarkdownRenderer.tsx` | 增强的 Markdown 渲染器，支持代码高亮、Mermaid 图表和自动导航。 |
 
 ## 总结
 

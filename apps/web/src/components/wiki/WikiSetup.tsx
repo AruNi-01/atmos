@@ -145,7 +145,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         onSwitchToTerminal();
         toastManager.add({
           title: "Wiki generation started",
-          description: "Switched to Terminal. Check progress there.",
+          description: "Switched to Project Wiki tab. Check progress there.",
           type: "info",
         });
       } else {

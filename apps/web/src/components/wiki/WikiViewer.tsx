@@ -28,6 +28,8 @@ interface WikiViewerProps {
   wikiPage?: string;
   /** Called when wiki page changes — syncs to URL */
   onWikiPageChange: (page: string) => void;
+  /** Whether Wiki tab is active (prevents auto-switching tab when loading first page) */
+  isWikiTabActive?: boolean;
   terminalGridRef?: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal?: () => void;
   onSwitchToProjectWikiAndRun?: (command: string) => void;
@@ -40,6 +42,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   projectName,
   wikiPage,
   onWikiPageChange,
+  isWikiTabActive = false,
   terminalGridRef,
   onSwitchToTerminal,
   onSwitchToProjectWikiAndRun,
@@ -110,15 +113,17 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
         loadPage(effectivePath, file);
       }
     } else {
-      // No page in URL — load first page and update URL
+      // No page in URL — load first page; only update URL when Wiki tab is active (avoids switching tab on refresh)
       const first = getFirstPage(catalog.catalog);
       if (first && !activePage) {
         const slug = first.file.replace(/\.md$/, "");
         loadPage(effectivePath, first.file);
-        onWikiPageChange(slug);
+        if (isWikiTabActive) {
+          onWikiPageChange(slug);
+        }
       }
     }
-  }, [effectivePath, catalog]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectivePath, catalog, isWikiTabActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Loading state
   if (catalogLoading) {

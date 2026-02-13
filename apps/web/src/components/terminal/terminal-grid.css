@@ -288,6 +288,21 @@
   padding: 0 !important;
 }
 
+/* xterm-scrollable-element: scrollbar overlays but FitAddon reserves space — compensate with left padding */
+.atmos-terminal .xterm-scrollable-element {
+  position: relative;
+}
+.atmos-terminal .xterm-scrollable-element > .scrollbar.vertical,
+.atmos-terminal .xterm-scrollable-element > .visible.scrollbar.vertical,
+.atmos-terminal .xterm-scrollable-element > .invisible.scrollbar.vertical {
+  position: absolute !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: auto !important;
+}
+
+
 /* xterm.js Custom Scrollbar - Slim & Modern Design */
 /* Target the xterm.js overlay scrollbar */
 .atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div,

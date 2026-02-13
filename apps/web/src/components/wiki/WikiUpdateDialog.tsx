@@ -121,7 +121,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
         onSwitchToTerminal?.();
         toastManager.add({
           title: "Wiki update started",
-          description: "Switched to Terminal. Check progress there.",
+          description: "Switched to Project Wiki tab. Check progress there.",
           type: "info",
         });
       } else {
@@ -201,16 +201,18 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
               <RefreshCw className="size-5 text-amber-500" />
               Update Project Wiki
             </DialogTitle>
-            <DialogDescription className="space-y-2">
-              <p className="block">
-                Code has changed since the wiki was generated. Run an incremental update to regenerate
-                only the affected pages.
-              </p>
-              {typeof commitCount === "number" && commitCount > 0 && (
-                <p className="block text-muted-foreground">
-                  Current Wiki is {commitCount} commit{commitCount === 1 ? "" : "s"} behind the latest code repository.
+            <DialogDescription asChild>
+              <div className="space-y-2 text-muted-foreground text-sm">
+                <p>
+                  Code has changed since the wiki was generated. Run an incremental update to regenerate
+                  only the affected pages.
                 </p>
-              )}
+                {typeof commitCount === "number" && commitCount > 0 && (
+                  <p className="text-muted-foreground">
+                    Current Wiki is {commitCount} commit{commitCount === 1 ? "" : "s"} behind the latest code repository.
+                  </p>
+                )}
+              </div>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">

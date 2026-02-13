@@ -135,7 +135,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
         onSwitchToTerminal?.();
         toastManager.add({
           title: "Specify Wiki started",
-          description: "Switched to Terminal. Check progress there.",
+          description: "Switched to Project Wiki tab. Check progress there.",
           type: "info",
         });
       } else {

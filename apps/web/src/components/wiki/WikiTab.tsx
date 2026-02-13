@@ -23,6 +23,8 @@ interface WikiTabProps {
   wikiPage?: string;
   /** Called when wiki page changes — syncs to URL */
   onWikiPageChange: (page: string) => void;
+  /** Whether the Wiki tab is currently active (avoids switching tab on auto-load first page) */
+  isWikiTabActive?: boolean;
 }
 
 export const WikiTab: React.FC<WikiTabProps> = ({
@@ -36,6 +38,7 @@ export const WikiTab: React.FC<WikiTabProps> = ({
   onProjectWikiReplaceAndRun,
   wikiPage,
   onWikiPageChange,
+  isWikiTabActive = false,
 }) => {
   const {
     wikiExists,
@@ -103,6 +106,7 @@ export const WikiTab: React.FC<WikiTabProps> = ({
       projectName={projectName}
       wikiPage={wikiPage}
       onWikiPageChange={onWikiPageChange}
+      isWikiTabActive={isWikiTabActive}
       terminalGridRef={terminalGridRef}
       onSwitchToTerminal={onSwitchToTerminal}
       onSwitchToProjectWikiAndRun={onSwitchToProjectWikiAndRun}
