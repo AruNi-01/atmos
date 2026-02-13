@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { DraggableAttributes, DraggableSyntheticListeners, DragStartEvent } from '@dnd-kit/core';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useContextParams } from '@/hooks/use-context-params';
 import {
     Ellipsis,
     Plus,
@@ -483,8 +484,8 @@ const WorkspaceContent: React.FC<{
     onDelete?: (workspaceId: string) => void;
 }> = ({ workspace, projectId, projectPath, isDragging, isPlaceholder, attributes, listeners, onPin, onUnpin, onArchive, onDelete }) => {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const isActive = searchParams.get('workspaceId') === workspace.id;
+    const { workspaceId } = useContextParams();
+    const isActive = workspaceId === workspace.id;
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showGitWarningDialog, setShowGitWarningDialog] = useState(false);
     const [gitWarningMessage, setGitWarningMessage] = useState('');
@@ -492,7 +493,7 @@ const WorkspaceContent: React.FC<{
     const [isCheckingGit, setIsCheckingGit] = useState(false);
 
     const handleClick = () => {
-        router.push(`?workspaceId=${workspace.id}`);
+        router.push(`/workspace/${workspace.id}`);
     };
 
     const handlePinClick = (e: React.MouseEvent) => {
@@ -731,8 +732,7 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
+    const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, currentView } = useContextParams();
     const {
         projects,
         fetchProjects,
@@ -750,11 +750,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     const { setCurrentProjectPath } = useEditorStore();
     const { setCurrentContext } = useGitInfoStore();
-    const view = searchParams.get('view');
 
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
-    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(view === 'workspaces' || view === 'recent' || view === 'archived' || view === 'skills' || view === 'terminals');
+    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals');
     const [activeId, setActiveId] = useState<string | null>(null);
 
     // File tree state
@@ -799,8 +798,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         canDelete: boolean;
     } | null>(null);
 
-    const currentWorkspaceId = searchParams.get('workspaceId');
-    const currentProjectIdFromUrl = searchParams.get('projectId');
     // Find current project based on workspaceId OR projectId
     const currentProject = projects.find(p =>
         (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
@@ -986,7 +983,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const handleQuickAddWorkspace = async (projectId: string) => {
         const workspaceId = await quickAddWorkspace(projectId);
         if (workspaceId) {
-            router.push(`?workspaceId=${workspaceId}`);
+            router.push(`/workspace/${workspaceId}`);
         }
     };
 
@@ -1050,10 +1047,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                     )}>
                         <div className="overflow-hidden flex flex-col">
                             <button
-                                onClick={() => router.push('/?view=workspaces')}
+                                onClick={() => router.push('/workspaces')}
                                 className={cn(
                                     "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    view === 'workspaces' || view === 'recent' || view === 'archived'
+                                    currentView === 'workspaces'
                                         ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
                                         : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
                                 )}
@@ -1067,10 +1064,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 </div>
                             </button>
                             <button
-                                onClick={() => router.push('/?view=skills')}
+                                onClick={() => router.push('/skills')}
                                 className={cn(
                                     "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    view === 'skills'
+                                    currentView === 'skills'
                                         ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
                                         : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
                                 )}
@@ -1084,10 +1081,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 </div>
                             </button>
                             <button
-                                onClick={() => router.push('/?view=terminals')}
+                                onClick={() => router.push('/terminals')}
                                 className={cn(
                                     "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    view === 'terminals'
+                                    currentView === 'terminals'
                                         ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
                                         : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
                                 )}
@@ -1195,7 +1192,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                             onArchiveWorkspace={archiveWorkspace}
                                             onDeleteWorkspace={deleteWorkspace}
                                             onConfigureScripts={handleConfigureScripts}
-                                            onSelectMain={(id) => router.push(`/?projectId=${id}`)}
+                                            onSelectMain={(id) => router.push(`/project/${id}`)}
                                             isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
                                         />
                                     ))}

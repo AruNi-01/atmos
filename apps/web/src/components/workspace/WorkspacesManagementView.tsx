@@ -22,9 +22,9 @@ export const WorkspacesManagementView: React.FC = () => {
 
   const handleTabChange = (value: string) => {
     // Keep all other search params, but update 'view'
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams();
     params.set('view', value);
-    router.push(`/?${params.toString()}`);
+    router.push(`/workspaces?${params.toString()}`);
   };
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useContextParams } from "@/hooks/use-context-params";
 import {
   ArrowRight,
   Archive,
@@ -37,10 +38,9 @@ import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 
 const Header: React.FC = () => {
-  const searchParams = useSearchParams();
   const params = useParams();
   const locale = params?.locale as string || 'en';
-  const currentWorkspaceId = searchParams.get('workspaceId');
+  const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
 
   const { projects, updateWorkspaceBranch, setupProgress } = useProjectStore();
   const { setGlobalSearchOpen } = useDialogStore();
@@ -60,7 +60,6 @@ const Header: React.FC = () => {
 
   const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
 
-  const currentProjectIdFromUrl = searchParams.get('projectId');
   // Find current project based on workspaceId OR projectId
   const currentProject = projects.find(p =>
     (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||

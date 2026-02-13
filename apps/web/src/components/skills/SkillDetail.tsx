@@ -489,7 +489,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
         />
 
         {/* File content area */}
-        <Panel className="flex flex-col overflow-hidden min-w-0">
+        <Panel defaultSize={80} className="flex flex-col overflow-hidden min-w-0">
           {selectedFile ? (
             <>
               {/* File toolbar */}

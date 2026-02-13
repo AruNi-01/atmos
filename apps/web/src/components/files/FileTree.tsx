@@ -17,7 +17,7 @@ import {
 } from '@workspace/ui';
 import { FileTreeNode, fsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
-import { useSearchParams } from 'next/navigation';
+import { useContextParams } from "@/hooks/use-context-params";
 
 // ===== Types =====
 
@@ -73,8 +73,7 @@ function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boo
 // ===== FileTree Component =====
 
 export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
-  const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspaceId');
+  const { workspaceId } = useContextParams();
   const { openFile, getActiveFilePath, pinFile } = useEditorStore();
   const activeFilePath = getActiveFilePath(workspaceId || undefined);
 

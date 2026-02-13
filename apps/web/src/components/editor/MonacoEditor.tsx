@@ -5,7 +5,6 @@ import { OnMount, OnChange } from '@monaco-editor/react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { cn, toastManager } from '@workspace/ui';
 import { Loader2, Eye, FileText } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
 import { useEditorStore, OpenFile } from '@/hooks/use-editor-store';
 import type { editor } from 'monaco-editor';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -13,6 +12,7 @@ import { MarkdownToc } from '@/components/markdown/MarkdownToc';
 import { BaseMonacoEditor } from './BaseMonacoEditor';
 import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
+import { useContextParams } from "@/hooks/use-context-params";
 
 interface MonacoEditorProps {
   file: OpenFile;
@@ -20,8 +20,7 @@ interface MonacoEditorProps {
 }
 
 export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) => {
-  const searchParams = useSearchParams();
-  const workspaceId = searchParams.get('workspaceId');
+  const { workspaceId } = useContextParams();
   const { updateFileContent, saveFile } = useEditorStore();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);

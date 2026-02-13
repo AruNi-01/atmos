@@ -3,14 +3,12 @@ import React from 'react';
 import { Activity } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { useSearchParams } from 'next/navigation';
+import { useContextParams } from "@/hooks/use-context-params";
 import { useProjectStore } from '@/hooks/use-project-store';
 
 const Footer: React.FC = () => {
   const { connectionState } = useWebSocketStore();
-  const searchParams = useSearchParams();
-  const currentWorkspaceId = searchParams.get('workspaceId');
-  const currentProjectId = searchParams.get('projectId');
+  const { workspaceId: currentWorkspaceId, projectId: currentProjectId } = useContextParams();
 
   const statusColors: Record<typeof connectionState, string> = {
     connected: 'bg-emerald-500',

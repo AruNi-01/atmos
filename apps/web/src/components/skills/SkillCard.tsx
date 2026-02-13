@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   cn,
   Puzzle,
@@ -23,8 +23,6 @@ interface SkillCardProps {
 
 export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
   const router = useRouter();
-  const params = useParams();
-  const locale = params?.locale as string || 'en';
   const fileCount = skill.files?.length || 0;
 
   const handleClick = () => {
@@ -32,11 +30,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
       onClick();
     } else {
       const identifier = encodeURIComponent(skill.title || skill.name);
-      // Use query params to open skill detail within the current view
-      const params = new URLSearchParams(window.location.search);
-      params.set('skillId', identifier);
-      params.set('skillScope', skill.scope);
-      router.push(`/?${params.toString()}`);
+      router.push(`/skills/${skill.scope}/${identifier}`);
     }
   };
 
