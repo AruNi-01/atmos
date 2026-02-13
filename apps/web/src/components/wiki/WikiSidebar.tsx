@@ -46,19 +46,6 @@ function isLeaf(item: CatalogItem): boolean {
   return !item.children || item.children.length === 0;
 }
 
-/** Level badge colors */
-function getLevelStyle(level?: string): string {
-  switch (level) {
-    case "beginner":
-      return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
-    case "intermediate":
-      return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
-    case "advanced":
-      return "bg-rose-500/15 text-rose-600 dark:text-rose-400";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
-}
 
 /** Leaf item: a clickable page link */
 const WikiSidebarLeaf: React.FC<{
@@ -90,7 +77,7 @@ const WikiSidebarLeaf: React.FC<{
   );
 };
 
-/** Collapsible group: has children, can expand/collapse */
+/** Collapsible group: has children, can expand/collapse. Title is clickable when it has an index file. */
 const WikiSidebarGroup: React.FC<{
   item: CatalogItem;
   depth: number;
@@ -100,21 +87,47 @@ const WikiSidebarGroup: React.FC<{
   const [open, setOpen] = useState(depth < 2);
   const children = item.children ?? [];
   const sorted = [...children].sort((a, b) => a.order - b.order);
+  const hasFile = !!item.file;
+  const isActive = activePage === item.path || activePage === item.file?.replace(/\.md$/, "");
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger
+      <div
         className={cn(
-          "flex items-center gap-2 w-full py-1.5 px-3 text-left text-sm rounded-none transition-colors cursor-pointer",
-          "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+          "flex items-center w-full text-sm rounded-none transition-colors",
+          "hover:bg-accent/50",
+          isActive && "bg-accent"
         )}
         style={{ paddingLeft: `${depth * 12 + 12}px` }}
       >
-        <ChevronRight
-          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
-        />
-        <span className="truncate font-medium">{item.title}</span>
-      </CollapsibleTrigger>
+        {/* Chevron toggle — only controls expand/collapse */}
+        <CollapsibleTrigger
+          className="shrink-0 size-6 flex items-center justify-center rounded-sm cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          <ChevronRight
+            className={cn("size-3.5 transition-transform", open && "rotate-90")}
+          />
+        </CollapsibleTrigger>
+        {/* Title — clickable to navigate when group has an index file, otherwise toggles collapse */}
+        {hasFile ? (
+          <button
+            type="button"
+            onClick={() => onSelectPage(item.file)}
+            className={cn(
+              "flex-1 min-w-0 py-1.5 pr-3 text-left cursor-pointer truncate font-medium transition-colors",
+              isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {item.title}
+          </button>
+        ) : (
+          <CollapsibleTrigger
+            className="flex-1 min-w-0 py-1.5 pr-3 text-left cursor-pointer truncate font-medium text-muted-foreground hover:text-foreground"
+          >
+            {item.title}
+          </CollapsibleTrigger>
+        )}
+      </div>
       <CollapsibleContent>
         {sorted.map((child) => (
           <WikiSidebarItem
@@ -132,7 +145,7 @@ const WikiSidebarGroup: React.FC<{
 
 /**
  * Top-level section header (e.g. "Getting Started", "Deep Dive").
- * Always expanded, non-clickable, rendered as a fixed label.
+ * Always expanded. Clickable when the section has an index.md file.
  */
 const WikiSidebarSection: React.FC<{
   item: CatalogItem;
@@ -141,28 +154,38 @@ const WikiSidebarSection: React.FC<{
 }> = ({ item, activePage, onSelectPage }) => {
   const children = item.children ?? [];
   const sorted = [...children].sort((a, b) => a.order - b.order);
-  const levelLabel = item.level
-    ? item.level.charAt(0).toUpperCase() + item.level.slice(1)
-    : null;
+  const hasFile = !!item.file;
+  const isActive = activePage === item.path || activePage === item.file?.replace(/\.md$/, "");
 
   return (
     <div>
-      {/* Section header — fixed, not clickable, not collapsible */}
-      <div className="flex items-center gap-2 px-4 pt-4 pb-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {item.title}
-        </span>
-        {levelLabel && (
+      {/* Section header — clickable when it has an index file */}
+      {hasFile ? (
+        <button
+          type="button"
+          onClick={() => onSelectPage(item.file)}
+          className={cn(
+            "flex items-center gap-2 px-4 h-8 w-full text-left cursor-pointer transition-colors rounded-none group/section",
+            "hover:bg-accent/50",
+            isActive && "bg-accent"
+          )}
+        >
           <span
             className={cn(
-              "text-[9px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none",
-              getLevelStyle(item.level)
+              "text-xs font-semibold uppercase tracking-wider leading-none",
+              isActive ? "text-accent-foreground" : "text-muted-foreground group-hover/section:text-foreground"
             )}
           >
-            {levelLabel}
+            {item.title}
           </span>
-        )}
-      </div>
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 px-4 h-8">
+          <span className="text-xs font-semibold uppercase tracking-wider leading-none text-muted-foreground">
+            {item.title}
+          </span>
+        </div>
+      )}
       {/* Children rendered directly, always visible */}
       {sorted.map((child) => (
         <WikiSidebarItem
@@ -254,70 +277,79 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
           </h3>
           <Info className="size-4 shrink-0 text-muted-foreground" />
         </button>
-        <div className="shrink-0 w-10 flex items-center justify-center border-l border-border">
-          {checking ? (
-            <span className="flex items-center justify-center text-muted-foreground animate-spin">
-              <RefreshCw className="size-4" />
-            </span>
-          ) : hasUpdate && onTriggerUpdate ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={onTriggerUpdate}
-                    className="relative size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
-                    aria-label="Wiki is outdated. Click to update."
-                  >
-                    <RefreshCw className="size-4" />
-                    <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-amber-500" aria-hidden />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px]">
-                  <p>Wiki is outdated. Click to update.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : needsRegeneration ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center justify-center text-muted-foreground cursor-help size-10">
-                    <RefreshCw className="size-4" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[220px]">
-                  <p>Legacy wiki. Regenerate fully to enable incremental updates.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center justify-center text-muted-foreground cursor-default size-10">
-                    <RefreshCw className="size-4" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[220px]">
-                  <p>Wiki is up to date</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+        <div className="shrink-0 flex items-center border-l border-border">
+          {/* Refresh / Update button */}
+          <div className="w-10 flex items-center justify-center">
+            {checking ? (
+              <span className="flex items-center justify-center text-muted-foreground animate-spin">
+                <RefreshCw className="size-4" />
+              </span>
+            ) : hasUpdate && onTriggerUpdate ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={onTriggerUpdate}
+                      className="relative size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
+                      aria-label="Wiki is outdated. Click to update."
+                    >
+                      <RefreshCw className="size-4" />
+                      <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[200px]">
+                    <p>Wiki is outdated. Click to update.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : needsRegeneration ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center justify-center text-muted-foreground cursor-help size-10">
+                      <RefreshCw className="size-4" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px]">
+                    <p>Legacy wiki. Regenerate fully to enable incremental updates.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center justify-center text-muted-foreground cursor-default size-10">
+                      <RefreshCw className="size-4" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px]">
+                    <p>Wiki is up to date</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+          {/* Specify Wiki icon button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={onTriggerSpecify}
+                  className="size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer transition-colors border-l border-border"
+                  aria-label="Specify Wiki"
+                >
+                  <FilePlus className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Specify Wiki</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
-      </div>
-
-      {/* Specify Wiki 按钮：在 left 目录上方 */}
-      <div className="shrink-0 border-b border-border">
-        <button
-          type="button"
-          onClick={onTriggerSpecify}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors cursor-pointer"
-        >
-          <FilePlus className="size-4 shrink-0" />
-          Specify Wiki
-        </button>
       </div>
 
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
@@ -367,7 +399,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
         </DialogContent>
       </Dialog>
       <ScrollArea className="flex-1">
-        <div className="pb-4">
+        <div>
           {sorted.map((item) => (
             <WikiSidebarItem
               key={item.id}

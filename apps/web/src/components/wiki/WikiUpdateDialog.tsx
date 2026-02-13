@@ -198,7 +198,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <RefreshCw className="size-5 text-amber-500" />
+              <RefreshCw className="size-5 text-foreground" />
               Update Project Wiki
             </DialogTitle>
             <DialogDescription asChild>
@@ -208,8 +208,8 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
                   only the affected pages.
                 </p>
                 {typeof commitCount === "number" && commitCount > 0 && (
-                  <p className="text-muted-foreground">
-                    Current Wiki is {commitCount} commit{commitCount === 1 ? "" : "s"} behind the latest code repository.
+                  <p className="rounded-md bg-muted/60 px-3 py-2 text-muted-foreground">
+                    Current Wiki is <span className="font-semibold text-foreground">{commitCount}</span> commit{commitCount === 1 ? "" : "s"} behind the latest code repository.
                   </p>
                 )}
               </div>

@@ -110,6 +110,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const projectWikiUserTriggeredRef = React.useRef(false);
   const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
   const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
+  const [wikiRefreshing, setWikiRefreshing] = React.useState(false);
 
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
@@ -378,25 +379,39 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                   value="wiki"
                   className="group/wiki relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
                 >
-                  <BookOpen
-                    className={cn(
-                      "size-3.5",
-                      activeValue === "wiki" && "group-hover/wiki:opacity-0 transition-opacity"
+                  <span className="relative size-3.5">
+                    <BookOpen
+                      className={cn(
+                        "size-3.5 absolute inset-0 transition-all duration-200",
+                        activeValue === "wiki"
+                          ? "group-hover/wiki:opacity-0 group-hover/wiki:scale-50 group-hover/wiki:rotate-[-30deg]"
+                          : ""
+                      )}
+                    />
+                    {activeValue === "wiki" && (
+                      <RefreshCw
+                        className={cn(
+                          "size-3.5 absolute inset-0 transition-all duration-200",
+                          "opacity-0 scale-50 rotate-[60deg]",
+                          "group-hover/wiki:opacity-100 group-hover/wiki:scale-100 group-hover/wiki:rotate-0",
+                          wikiRefreshing && "animate-spin"
+                        )}
+                      />
                     )}
-                  />
+                  </span>
                   {activeValue === "wiki" && (
                     <span
                       role="button"
                       aria-label="Refresh Wiki"
-                      className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/wiki:opacity-100 pointer-events-none group-hover/wiki:pointer-events-auto transition-opacity cursor-pointer"
+                      className="absolute inset-0 opacity-0 group-hover/wiki:opacity-100 pointer-events-none group-hover/wiki:pointer-events-auto cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
+                        setWikiRefreshing(true);
                         setWikiRefreshTrigger((k) => k + 1);
+                        setTimeout(() => setWikiRefreshing(false), 600);
                       }}
-                    >
-                      <RefreshCw className="size-3.5" />
-                    </span>
+                    />
                   )}
                 </TabsTab>
               </TooltipTrigger>
