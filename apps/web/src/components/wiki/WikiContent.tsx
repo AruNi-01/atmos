@@ -10,7 +10,7 @@ import {
   cn,
   toastManager,
 } from "@workspace/ui";
-import { AlertTriangle, ChevronRight, Clock, Eye, Loader2, Pencil, Save } from "lucide-react";
+import { AlertTriangle, ChevronRight, Clock, Eye, Frown, Loader2, Meh, Pencil, Save, Smile } from "lucide-react";
 import { format } from "date-fns";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
@@ -30,15 +30,15 @@ const MonacoEditor = dynamic(
   }
 );
 
-/** Level badge styles */
-function getLevelConfig(level?: WikiLevel | string): { label: string; className: string } | null {
+/** Level badge config */
+function getLevelConfig(level?: WikiLevel | string): { label: string; icon: React.ComponentType<{ className?: string }> } | null {
   switch (level) {
     case "beginner":
-      return { label: "Beginner", className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" };
+      return { label: "Beginner", icon: Smile };
     case "intermediate":
-      return { label: "Intermediate", className: "bg-amber-500/15 text-amber-600 dark:text-amber-400" };
+      return { label: "Intermediate", icon: Meh };
     case "advanced":
-      return { label: "Advanced", className: "bg-rose-500/15 text-rose-600 dark:text-rose-400" };
+      return { label: "Advanced", icon: Frown };
     default:
       return null;
   }
@@ -190,12 +190,8 @@ export const WikiContent: React.FC<WikiContentProps> = ({
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <h2 className="text-base font-semibold text-foreground truncate">{title}</h2>
           {levelConfig && (
-            <span
-              className={cn(
-                "text-[10px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none shrink-0",
-                levelConfig.className
-              )}
-            >
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none shrink-0 bg-muted text-muted-foreground">
+              <levelConfig.icon className="size-2.5" />
               {levelConfig.label}
             </span>
           )}

@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { fsApi, gitApi } from "@/api/ws-api";
-import type { CatalogData, CatalogItem } from "@/components/wiki/wiki-utils";
+import type { CatalogData } from "@/components/wiki/wiki-utils";
 import { normalizeCatalog } from "@/components/wiki/wiki-utils";
 
 export interface WikiUpdateStatus {
@@ -117,21 +117,6 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
         try {
           const raw = JSON.parse(response.content) as CatalogData;
           catalog = normalizeCatalog(raw);
-
-          // Prepend Wiki Mindmap above 入门指南 if _mindmap.md exists
-          const mindmapPath = `${effectivePath}/.atmos/wiki/_mindmap.md`;
-          const mindmapRes = await fsApi.readFile(mindmapPath);
-          if (mindmapRes.exists && mindmapRes.content) {
-            const mindmapItem: CatalogItem = {
-              id: "mindmap",
-              title: "Wiki Mindmap",
-              path: "_mindmap",
-              order: 0,
-              file: "_mindmap.md",
-              children: [],
-            };
-            catalog.catalog = [mindmapItem, ...catalog.catalog];
-          }
         } catch {
           catalogError = "Invalid _catalog.json format. Please regenerate the wiki.";
         }
