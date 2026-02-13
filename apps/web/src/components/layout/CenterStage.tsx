@@ -51,8 +51,8 @@ import { SkillsView } from "@/components/skills/SkillsView";
 import { TerminalManagerView } from "@/components/terminal/TerminalManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
 import { WikiTab } from "@/components/wiki";
-import { ProjectWikiTerminal } from "@/components/terminal/ProjectWikiTerminal";
 import { systemApi } from "@/api/rest-api";
+import { PROJECT_WIKI_WINDOW_NAME } from "@/hooks/use-terminal-store";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const FileViewer = dynamic(
@@ -103,10 +103,12 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
-  const [projectWikiPendingCommand, setProjectWikiPendingCommand] = React.useState<string | null>(null);
-  const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
+  const projectWikiTerminalGridRef = React.useRef<TerminalGridHandle>(null);
   const [projectWikiTabVisible, setProjectWikiTabVisible] = React.useState(false);
-  const [projectWikiTerminalKey, setProjectWikiTerminalKey] = React.useState(0);
+  const [projectWikiPendingCommand, setProjectWikiPendingCommand] = React.useState<string | null>(null);
+  /** When user triggers wiki gen from Wiki tab, skip check overwriting projectWikiTabVisible (avoids race) */
+  const projectWikiUserTriggeredRef = React.useRef(false);
+  const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
   const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
 
   // Wait for editor store hydration to avoid SSR mismatch
@@ -156,32 +158,36 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     [updateUrlParams]
   );
 
-  // 刷新时若有 Project Wiki tmux 窗口在运行，恢复显示 Tab；切换 Project/Workspace 时按当前上下文隔离
+  // Check Project Wiki window on mount and when workspace changes. Redirect to terminal only when window doesn't exist.
+  // Intentionally NOT depending on tabFromUrl: when user triggers wiki gen from Wiki tab, we switch to project-wiki
+  // and the window doesn't exist yet — re-running the check would overwrite projectWikiTabVisible and redirect away.
   React.useEffect(() => {
     if (!effectiveContextId) {
       setProjectWikiTabVisible(false);
       return;
     }
     systemApi.checkProjectWikiWindow(effectiveContextId).then(
-      ({ exists }) => setProjectWikiTabVisible(exists),
-      () => setProjectWikiTabVisible(false)
+      ({ exists }) => {
+        if (projectWikiUserTriggeredRef.current) return; // User just triggered wiki gen, don't overwrite
+        setProjectWikiTabVisible(exists);
+        if (tabFromUrl === "project-wiki" && !exists) {
+          updateUrlParams({ tab: "terminal" });
+        }
+      },
+      () => {
+        if (projectWikiUserTriggeredRef.current) return;
+        setProjectWikiTabVisible(false);
+        if (tabFromUrl === "project-wiki") {
+          updateUrlParams({ tab: "terminal" });
+        }
+      }
     );
-  }, [effectiveContextId]);
+  }, [effectiveContextId]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/updateUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
 
-  // Project Wiki Tab 为临时 Tab；手动关闭后不再显示；若 URL 指向 project-wiki 但 tab 已关闭，切回 terminal
   const fixedTab: FixedTab = React.useMemo(() => {
-    if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) {
-      return "terminal";
-    }
+    if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return "terminal";
     return (tabFromUrl && FIXED_TABS.has(tabFromUrl) ? tabFromUrl : "terminal") as FixedTab;
   }, [tabFromUrl, projectWikiTabVisible]);
-
-  // 当 project-wiki 已关闭但 URL 仍指向它时，同步 URL
-  React.useEffect(() => {
-    if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) {
-      updateUrlParams({ tab: "terminal" });
-    }
-  }, [tabFromUrl, projectWikiTabVisible, updateUrlParams]);
 
   const handleCloseFile = (file: OpenFile) => {
     if (file.isDirty) {
@@ -229,6 +235,23 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   // activeValue 优先使用打开的文件路径，否则使用 fixedTab
   const activeValue = activeFilePath || fixedTab;
+
+  // Run pending wiki command when Project Wiki tab is active and grid is ready
+  React.useEffect(() => {
+    if (!projectWikiPendingCommand || !effectiveContextId || !projectWikiTabVisible || activeValue !== "project-wiki")
+      return;
+    const cmd = projectWikiPendingCommand;
+    setProjectWikiPendingCommand(null);
+    projectWikiTerminalGridRef.current?.createOrFocusAndRunTerminal({
+      title: PROJECT_WIKI_WINDOW_NAME,
+      command: cmd,
+    });
+    // Clear user-triggered ref after delay so check result can apply for future navigations
+    const t = setTimeout(() => {
+      projectWikiUserTriggeredRef.current = false;
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [projectWikiPendingCommand, effectiveContextId, projectWikiTabVisible, activeValue]);
 
   const handleAddAgent = (name: string) => {
     if (terminalGridRef.current) {
@@ -428,18 +451,16 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             </DropdownMenu>
           </TabsTab>
 
-          {/* Project Wiki Tab - 仅在有生成时或 tmux 窗口存在时显示 */}
+          {/* Project Wiki Tab - shown when wiki gen runs or tmux window exists */}
           {effectiveContextId && projectWikiTabVisible && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <TabsTab
                   value="project-wiki"
-                  className="group/projectwiki !h-full pl-4 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                  className="group/pw !h-full pl-4 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
                 >
                   <TerminalIcon className="size-3.5 shrink-0" />
-                  <span className="text-[13px] font-medium text-pretty">
-                    Project Wiki
-                  </span>
+                  <span className="text-[13px] font-medium text-pretty">Project Wiki</span>
                   <span
                     role="button"
                     aria-label="Close Project Wiki tab"
@@ -447,7 +468,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                       e.stopPropagation();
                       setProjectWikiCloseConfirmOpen(true);
                     }}
-                    className="size-4 flex items-center justify-center shrink-0 ml-0 rounded-sm opacity-0 group-hover/projectwiki:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
+                    className="size-4 flex items-center justify-center shrink-0 ml-0 rounded-sm opacity-0 group-hover/pw:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
                   >
                     <X className="size-3" />
                   </span>
@@ -589,7 +610,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           )}
         </div>
 
-        {/* Project Wiki Tab Content */}
+        {/* Project Wiki Tab Content - Same TerminalGrid/Mosaic UI, separate panes from main Terminal */}
         {effectiveContextId && projectWikiTabVisible && (
           <div
             className={cn(
@@ -597,11 +618,12 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               activeValue !== "project-wiki" && "hidden"
             )}
           >
-            <ProjectWikiTerminal
-              key={projectWikiTerminalKey}
+            <TerminalGrid
+              ref={projectWikiTerminalGridRef}
               workspaceId={effectiveContextId}
-              pendingCommand={projectWikiPendingCommand}
-              onCommandSent={() => setProjectWikiPendingCommand(null)}
+              scope="project-wiki"
+              toolbarActions={{ split: false, maximize: false, close: false }}
+              className="h-full"
             />
           </div>
         )}
@@ -643,6 +665,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               terminalGridRef={terminalGridRef}
               onSwitchToTerminal={() => setFixedTab("terminal")}
               onSwitchToProjectWikiAndRun={(command) => {
+                projectWikiUserTriggeredRef.current = true;
                 setProjectWikiPendingCommand(command);
                 setProjectWikiTabVisible(true);
                 setFixedTab("project-wiki");
@@ -651,7 +674,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 if (!effectiveContextId) return;
                 try {
                   await systemApi.killProjectWikiWindow(effectiveContextId);
-                  setProjectWikiTerminalKey((k) => k + 1);
+                  projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(PROJECT_WIKI_WINDOW_NAME);
+                  projectWikiUserTriggeredRef.current = true;
                   setProjectWikiPendingCommand(command);
                   setProjectWikiTabVisible(true);
                   setFixedTab("project-wiki");
@@ -661,6 +685,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                     type: "info",
                   });
                 } catch (err) {
+                  setProjectWikiPendingCommand(null);
                   toastManager.add({
                     title: "Failed to close previous terminal",
                     description: err instanceof Error ? err.message : "Unknown error",
@@ -670,6 +695,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               }}
               wikiPage={wikiPageFromUrl}
               onWikiPageChange={setWikiPage}
+              isWikiTabActive={activeValue === "wiki"}
             />
           </div>
         )}
@@ -702,11 +728,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-4">
-            <Button
-              variant="outline"
-              className="cursor-pointer"
-              onClick={() => setProjectWikiCloseConfirmOpen(false)}
-            >
+            <Button variant="outline" className="cursor-pointer" onClick={() => setProjectWikiCloseConfirmOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -716,6 +738,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                 if (effectiveContextId) {
                   try {
                     await systemApi.killProjectWikiWindow(effectiveContextId);
+                    projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(PROJECT_WIKI_WINDOW_NAME);
                     setProjectWikiTabVisible(false);
                     setFixedTab("terminal");
                   } catch (err) {

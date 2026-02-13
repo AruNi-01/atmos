@@ -11,12 +11,14 @@ sources:
   - crates/core-engine/src/lib.rs
   - crates/core-engine/src/error.rs
   - crates/core-engine/src/search.rs
-updated_at: 2026-02-12T12:00:00Z
+  - crates/infra/src/websocket/message.rs
+  - crates/core-service/src/service/ws_message.rs
+updated_at: 2026-02-13T12:00:00Z
 ---
 
 # PTY, Git 与文件系统
 
-`core-engine` 是 Atmos 的“肌肉”，负责执行所有与操作系统直接相关的繁重任务。它封装了伪终端 (PTY) 的底层操作、Git 仓库的自动化管理以及安全的文件系统访问。本章将深入探讨这些核心技术模块的实现原理及其在 Atmos 中的协作方式。
+`core-engine` 是 Atmos 的"肌肉"，负责执行所有与操作系统直接相关的繁重任务。它封装了伪终端 (PTY) 的底层操作、Git 仓库的自动化管理以及安全的文件系统访问。本章将深入探讨这些核心技术模块的实现原理及其在 Atmos 中的协作方式。
 
 ## 伪终端 (PTY) 管理
 
@@ -53,7 +55,31 @@ Atmos 的 Git 模块旨在为开发者提供无感的版本控制体验。
 - **状态解析**: 通过解析 `git status --porcelain` 或调用库接口，获取当前分支、脏文件列表等元数据。
 - **认证管理**: 自动处理 SSH Agent 和环境变量，确保私有仓库的访问安全。
 
-### 2. 性能与并发
+### 2. 提交计数与版本追踪
+Atmos 提供了精确的版本差异追踪功能，帮助用户了解代码库的演进状态。
+
+#### Git Rev-List 计数原理
+`get_commit_count` 函数使用 `git rev-list --count base..head` 命令来统计两个提交之间的提交数量。这个命令高效地遍历 Git 图，返回可访问的提交计数。
+
+```mermaid
+graph LR
+    Base[基础提交<br/>catalog_commit] -->|"git rev-list<br/>--count"| RevList[Git Rev-List]
+    Head[当前提交<br/>HEAD] --> RevList
+    RevList -->|"返回 u32"| Count[提交数量]
+```
+
+**关键实现细节**:
+- 使用 `..` 范围语法（不包括基础提交本身）
+- 将输出字符串解析为 `u32` 整数
+- 处理无效的提交哈希和非可达引用的错误
+
+#### HEAD 提交哈希获取
+`get_head_commit` 函数使用 `git rev-parse HEAD` 获取当前工作区的完整 SHA-1 哈希值。这个哈希值用于:
+- Wiki 增量更新的版本比较
+- 工作区状态追踪
+- 与远程仓库的同步状态判断
+
+### 3. 性能与并发
 为了避免 Git 操作（尤其是大型仓库的克隆）阻塞 Rust 的异步运行时，所有的 Git 指令都在专用的阻塞任务池中执行。
 
 ## 安全文件系统 (FsGuard)

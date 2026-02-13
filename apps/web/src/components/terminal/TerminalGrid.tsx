@@ -26,28 +26,57 @@ import {
 
 import { cn } from "@/lib/utils";
 import { Terminal, TerminalRef } from "./Terminal";
-import { useTerminalStore } from "@/hooks/use-terminal-store";
+import { useTerminalStore, PROJECT_WIKI_WINDOW_NAME } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
 
+type TerminalGridScope = "default" | "project-wiki";
+
+/** Control which toolbar action buttons to show. Omitted or true = show, false = hide. */
+export interface TerminalToolbarActions {
+  /** Split horizontal/vertical buttons */
+  split?: boolean;
+  /** Maximize/restore button */
+  maximize?: boolean;
+  /** Close pane button */
+  close?: boolean;
+}
+
 interface TerminalGridProps {
   workspaceId: string;
   className?: string;
+  /** When "project-wiki", uses separate panes/layout (does not affect main Terminal tab) */
+  scope?: TerminalGridScope;
+  /** Which toolbar action buttons to show. Default: all true. Use e.g. { split: false, maximize: false, close: false } for Project Wiki. */
+  toolbarActions?: TerminalToolbarActions;
 }
 
 export interface TerminalGridHandle {
   addTerminal: (title?: string) => void;
   /** Create a new terminal tab and run command after session is ready */
   createAndRunTerminal: (options: { title: string; command: string }) => Promise<void>;
+  /** Create or focus terminal by title (e.g. "Generate Project Wiki") and run command. Reuses existing pane if found. */
+  createOrFocusAndRunTerminal: (options: { title: string; command: string }) => Promise<void>;
+  /** Remove terminal pane by tmux window name. Used when killing backend tmux window before replace. */
+  removeTerminalByTmuxWindowName: (tmuxWindowName: string) => void;
 }
 
-export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className }, ref) => {
+const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
+  split: true,
+  maximize: true,
+  close: true,
+};
+
+export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, scope = "default", toolbarActions }, ref) => {
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
   const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
+
+  const isProjectWiki = scope === "project-wiki";
+  const actions = { ...DEFAULT_TOOLBAR_ACTIONS, ...toolbarActions };
 
   const {
     getPanes,
@@ -57,11 +86,29 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     isWorkspaceReady,
     addTerminal: addTerminalToStore,
     removeTerminal: removeTerminalFromStore,
+    getPaneIdByTmuxWindowName,
     splitTerminal: splitTerminalInStore,
     toggleMaximize,
     workspaceMaximizedIds,
     setDynamicTitle,
+    getProjectWikiPanes,
+    getProjectWikiLayout,
+    setProjectWikiLayout,
+    addProjectWikiTerminal,
+    removeProjectWikiTerminal,
+    splitProjectWikiTerminal,
+    initProjectWikiWorkspace,
+    getProjectWikiPaneIdByTmuxWindowName,
+    setProjectWikiDynamicTitle,
+    toggleProjectWikiMaximize,
+    isProjectWikiReady,
+    projectWikiMaximizedIds,
   } = useTerminalStore();
+
+  const panes = isProjectWiki ? getProjectWikiPanes(workspaceId) : getPanes(workspaceId);
+  const layout = isProjectWiki ? getProjectWikiLayout(workspaceId) : getLayout(workspaceId);
+  const workspaceReady = isProjectWiki ? isProjectWikiReady(workspaceId) : isWorkspaceReady(workspaceId);
+  const maximizedIds = isProjectWiki ? projectWikiMaximizedIds : workspaceMaximizedIds;
 
   const { projects, isLoading: isProjectsLoading } = useProjectStore();
 
@@ -91,48 +138,82 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   useEffect(() => {
     if (workspaceExists) {
-      initWorkspace(workspaceId);
+      if (isProjectWiki) {
+        initProjectWikiWorkspace(workspaceId);
+      } else {
+        initWorkspace(workspaceId);
+      }
     }
-  }, [workspaceId, workspaceExists, initWorkspace]);
+  }, [workspaceId, workspaceExists, initWorkspace, initProjectWikiWorkspace, isProjectWiki]);
 
-  const panes = getPanes(workspaceId);
-  const layout = getLayout(workspaceId);
-  const workspaceReady = isWorkspaceReady(workspaceId);
   const hasPanes = Object.keys(panes).length > 0;
 
+  const getPaneId = isProjectWiki ? getProjectWikiPaneIdByTmuxWindowName : getPaneIdByTmuxWindowName;
+  const addTerminal = isProjectWiki
+    ? (title?: string) => addProjectWikiTerminal(workspaceId, title)
+    : (title?: string) => addTerminalToStore(workspaceId, title);
+  const removeTerminalFromScope = isProjectWiki
+    ? (id: string) => removeProjectWikiTerminal(workspaceId, id)
+    : (id: string) => removeTerminalFromStore(workspaceId, id);
+
   React.useImperativeHandle(ref, () => ({
-    addTerminal: (title?: string) => {
-      addTerminalToStore(workspaceId, title);
-    },
+    addTerminal: (title?: string) => addTerminal(title),
     createAndRunTerminal: async ({ title, command }) => {
-      const paneId = addTerminalToStore(workspaceId, title);
+      const paneId = addTerminal(title);
       pendingCommandsRef.current.set(paneId, command + "\r");
-      // Command will be sent when Terminal fires onSessionReady
     },
-  }), [workspaceId, addTerminalToStore]);
+    createOrFocusAndRunTerminal: async ({ title, command }) => {
+      const existingPaneId = getPaneId(workspaceId, title);
+      const cmd = command.trim() + "\r";
+      if (existingPaneId) {
+        const termRef = terminalRefsMap.current.get(existingPaneId);
+        if (termRef) {
+          termRef.sendText(cmd);
+        } else {
+          pendingCommandsRef.current.set(existingPaneId, cmd);
+        }
+        return;
+      }
+      const paneId = addTerminal(title);
+      pendingCommandsRef.current.set(paneId, cmd);
+    },
+    removeTerminalByTmuxWindowName: (tmuxWindowName: string) => {
+      const paneId = getPaneId(workspaceId, tmuxWindowName);
+      if (!paneId) return;
+      const terminalRef = terminalRefsMap.current.get(paneId);
+      if (terminalRef) {
+        terminalRef.destroy();
+        terminalRefsMap.current.delete(paneId);
+      }
+      removeTerminalFromScope(paneId);
+    },
+  }), [workspaceId, addTerminal, getPaneId, removeTerminalFromScope]);
+
+  const setLayoutForScope = isProjectWiki ? setProjectWikiLayout : setLayout;
+  const splitTerminalForScope = isProjectWiki ? splitProjectWikiTerminal : splitTerminalInStore;
+  const toggleMaximizeForScope = isProjectWiki ? toggleProjectWikiMaximize : toggleMaximize;
+  const setDynamicTitleForScope = isProjectWiki ? setProjectWikiDynamicTitle : setDynamicTitle;
 
   const onChange = useCallback((newLayout: MosaicNode<string> | null) => {
-    setLayout(workspaceId, newLayout);
-  }, [workspaceId, setLayout]);
+    setLayoutForScope(workspaceId, newLayout);
+  }, [workspaceId, setLayoutForScope]);
 
   const removeTerminal = useCallback((id: string) => {
-    // First, destroy the terminal session (kills tmux window)
     const terminalRef = terminalRefsMap.current.get(id);
     if (terminalRef) {
       terminalRef.destroy();
       terminalRefsMap.current.delete(id);
     }
-    // Then remove from store
-    removeTerminalFromStore(workspaceId, id);
-  }, [workspaceId, removeTerminalFromStore]);
+    removeTerminalFromScope(id);
+  }, [workspaceId, removeTerminalFromScope]);
 
   const splitTerminal = useCallback((id: string, direction: "row" | "column") => {
-    splitTerminalInStore(workspaceId, id, direction);
-  }, [workspaceId, splitTerminalInStore]);
+    splitTerminalForScope(workspaceId, id, direction);
+  }, [workspaceId, splitTerminalForScope]);
 
   const onToggleMaximize = useCallback((id: string) => {
-    toggleMaximize(workspaceId, id);
-  }, [workspaceId, toggleMaximize]);
+    toggleMaximizeForScope(workspaceId, id);
+  }, [workspaceId, toggleMaximizeForScope]);
 
   const renderTile = useCallback((id: string, path: MosaicPath) => {
     const pane = panes[id];
@@ -145,7 +226,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       <MosaicWindow<string>
         path={path}
         title={displayTitle}
-        className={workspaceMaximizedIds[workspaceId] === id ? "is-maximized" : ""}
+        className={maximizedIds[workspaceId] === id ? "is-maximized" : ""}
         renderToolbar={() => {
           const isClaude = pane.title.toLowerCase().includes("claude");
           const statusColor = isClaude ? "bg-yellow-500" : "bg-emerald-500";
@@ -162,49 +243,58 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                 </span>
               </div>
 
+              {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-mosaic-toolbar-right">
-
-                <div className="flex items-center gap-0.5 opacity-0 group-hover/toolbar:opacity-100 transition-opacity">
-                  <button
-                    className="terminal-mosaic-btn"
-                    onClick={() => splitTerminal(id, "row")}
-                    title="Split Horizontal"
-                  >
-                    <Columns size={12} />
-                  </button>
-                  <button
-                    className="terminal-mosaic-btn"
-                    onClick={() => splitTerminal(id, "column")}
-                    title="Split Vertical"
-                  >
-                    <Rows size={12} />
-                  </button>
-                  <button
-                    className={cn(
-                      "terminal-mosaic-btn",
-                      workspaceMaximizedIds[workspaceId] === id && "text-primary"
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover/toolbar:opacity-100 transition-opacity">
+                    {actions.split && (
+                      <>
+                        <button
+                          className="terminal-mosaic-btn"
+                          onClick={() => splitTerminal(id, "row")}
+                          title="Split Horizontal"
+                        >
+                          <Columns size={12} />
+                        </button>
+                        <button
+                          className="terminal-mosaic-btn"
+                          onClick={() => splitTerminal(id, "column")}
+                          title="Split Vertical"
+                        >
+                          <Rows size={12} />
+                        </button>
+                      </>
                     )}
-                    onClick={() => onToggleMaximize(id)}
-                    title={workspaceMaximizedIds[workspaceId] === id ? "Restore" : "Maximize"}
-                  >
-                    {workspaceMaximizedIds[workspaceId] === id ? (
-                      <div className="relative size-3 flex items-center justify-center">
-                        <Maximize2 size={11} className="scale-75 opacity-70" />
-                        <div className="absolute inset-0 border-[1.5px] border-current rounded-[1px] scale-50 translate-x-0.5 -translate-y-0.5" />
-                      </div>
-                    ) : (
-                      <Maximize2 size={11} />
+                    {actions.maximize && (
+                      <button
+                        className={cn(
+                          "terminal-mosaic-btn",
+                          maximizedIds[workspaceId] === id && "text-primary"
+                        )}
+                        onClick={() => onToggleMaximize(id)}
+                        title={maximizedIds[workspaceId] === id ? "Restore" : "Maximize"}
+                      >
+                        {maximizedIds[workspaceId] === id ? (
+                          <div className="relative size-3 flex items-center justify-center">
+                            <Maximize2 size={11} className="scale-75 opacity-70" />
+                            <div className="absolute inset-0 border-[1.5px] border-current rounded-[1px] scale-50 translate-x-0.5 -translate-y-0.5" />
+                          </div>
+                        ) : (
+                          <Maximize2 size={11} />
+                        )}
+                      </button>
                     )}
-                  </button>
-                  <button
-                    className="terminal-mosaic-btn terminal-mosaic-btn-close ml-1"
-                    onClick={() => removeTerminal(id)}
-                    title="Close"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
+                    {actions.close && (
+                      <button
+                        className="terminal-mosaic-btn terminal-mosaic-btn-close ml-1"
+                        onClick={() => removeTerminal(id)}
+                        title="Close"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
               </div>
+              )}
             </div>
           );
         }}
@@ -225,7 +315,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             workspaceName={workspaceInfo?.workspaceName}
             isNewPane={pane.isNewPane}
             cwd={workspaceInfo?.localPath}
-            onTitleChange={(title) => setDynamicTitle(workspaceId, id, title)}
+            onTitleChange={(title) => setDynamicTitleForScope(workspaceId, id, title)}
             onSessionReady={() => {
               const cmd = pendingCommandsRef.current.get(id);
               if (cmd) {
@@ -237,7 +327,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         </div>
       </MosaicWindow>
     );
-  }, [panes, splitTerminal, removeTerminal, workspaceInfo, workspaceMaximizedIds, workspaceId, onToggleMaximize, setDynamicTitle]);
+  }, [panes, splitTerminal, removeTerminal, workspaceInfo, maximizedIds, workspaceId, onToggleMaximize, setDynamicTitleForScope, actions]);
 
   // Wait for workspace to be ready before rendering any Terminal components
   // This prevents duplicate tmux window creation during initialization
@@ -253,11 +343,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }
 
   if (!hasPanes || !layout) {
+    const emptyTitle = isProjectWiki ? "Generate Project Wiki" : undefined;
+    const emptyLabel = isProjectWiki ? "Add Project Wiki Terminal" : "Initialize Workspace";
+    const emptyHint = isProjectWiki ? "Run wiki generation from the Wiki tab" : "Click to add your first terminal session";
     return (
       <div className={cn("terminal-grid-container flex items-center justify-center", className)}>
         <button
           className="flex flex-col items-center gap-4 hover:text-foreground transition-all duration-300 group"
-          onClick={() => addTerminalToStore(workspaceId)}
+          onClick={() => addTerminal(emptyTitle)}
         >
           <div className="relative">
             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-0 group-hover:scale-150 transition-transform duration-500" />
@@ -267,10 +360,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           </div>
           <div className="flex flex-col items-center gap-1">
             <span className="text-sm font-semibold tracking-tight text-muted-foreground group-hover:text-foreground transition-colors">
-              Initialize Workspace
+              {emptyLabel}
             </span>
             <span className="text-[11px] text-muted-foreground/60">
-              Click to add your first terminal session
+              {emptyHint}
             </span>
           </div>
         </button>
@@ -278,7 +371,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     );
   }
 
-  const maximizedId = workspaceMaximizedIds[workspaceId];
+  const maximizedId = maximizedIds[workspaceId];
 
   return (
     <div

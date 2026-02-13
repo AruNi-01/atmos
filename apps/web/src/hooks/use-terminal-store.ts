@@ -22,10 +22,18 @@ interface TerminalStore {
   isHydrated: boolean;
   /** Cache of existing tmux windows per workspace */
   tmuxWindowsCache: Record<string, TmuxWindow[]>;
+
+  /** Project Wiki tab: separate panes/layout, does not affect main Terminal (Code workspace) */
+  projectWikiPanes: Record<string, Record<string, TerminalPaneProps>>;
+  projectWikiLayouts: Record<string, MosaicNode<string> | null>;
+  projectWikiMaximizedIds: Record<string, string | null>;
+  projectWikiLoadedWorkspaces: Set<string>;
+  projectWikiInitializingWorkspaces: Set<string>;
   
   // Actions
   getPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
   getLayout: (workspaceId: string) => MosaicNode<string> | null;
+  getPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
   /** Check if workspace has been fully loaded and is ready for rendering */
   isWorkspaceReady: (workspaceId: string) => boolean;
   setLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
@@ -47,6 +55,20 @@ interface TerminalStore {
   
   // Dynamic title (from shell shim OSC sequences)
   setDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
+
+  // Project Wiki scope (separate from main Terminal)
+  getProjectWikiPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
+  getProjectWikiLayout: (workspaceId: string) => MosaicNode<string> | null;
+  isProjectWikiReady: (workspaceId: string) => boolean;
+  setProjectWikiLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
+  addProjectWikiTerminal: (workspaceId: string, title?: string) => string;
+  removeProjectWikiTerminal: (workspaceId: string, id: string) => void;
+  splitProjectWikiTerminal: (workspaceId: string, id: string, direction: MosaicDirection) => void;
+  initProjectWikiWorkspace: (workspaceId: string) => void;
+  loadProjectWikiFromTmux: (workspaceId: string) => Promise<void>;
+  getProjectWikiPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
+  setProjectWikiDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
+  toggleProjectWikiMaximize: (workspaceId: string, id: string) => void;
 }
 
 /** Generate next available window name (1, 2, 3, ...) for numeric names */
@@ -64,8 +86,8 @@ function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): st
   return String(num);
 }
 
-/** Fixed tmux window name for Project Wiki - never gets -1/-2 suffix */
-const PROJECT_WIKI_WINDOW_NAME = "Generate Project Wiki";
+/** Fixed tmux window name for Project Wiki - never gets -1/-2 suffix. Export for reuse. */
+export const PROJECT_WIKI_WINDOW_NAME = "Generate Project Wiki";
 
 /** Generate unique window name with suffix for agent windows (e.g., "Claude Code", "Claude Code-2") */
 function getUniqueAgentName(baseName: string, existingPanes: Record<string, TerminalPaneProps>): string {
@@ -123,10 +145,22 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   saveTimeouts: {},
   isHydrated: false,
   tmuxWindowsCache: {},
+  projectWikiPanes: {},
+  projectWikiLayouts: {},
+  projectWikiMaximizedIds: {},
+  projectWikiLoadedWorkspaces: new Set(),
+  projectWikiInitializingWorkspaces: new Set(),
 
   getPanes: (workspaceId) => {
     const state = get();
     return state.workspacePanes[workspaceId] || {};
+  },
+
+  /** Find pane ID by tmux window name. Returns null if not found. */
+  getPaneIdByTmuxWindowName: (workspaceId, tmuxWindowName) => {
+    const panes = get().workspacePanes[workspaceId] || {};
+    const entry = Object.entries(panes).find(([, p]) => p.tmuxWindowName === tmuxWindowName);
+    return entry ? entry[0] : null;
   },
 
   getLayout: (workspaceId) => {
@@ -601,5 +635,200 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       },
     }));
     // NOTE: Do NOT call saveToBackend — dynamicTitle is transient display-only
+  },
+
+  // --- Project Wiki scope (in-memory, does not affect main Terminal) ---
+  getProjectWikiPanes: (workspaceId) => {
+    return get().projectWikiPanes[workspaceId] || {};
+  },
+  getProjectWikiLayout: (workspaceId) => {
+    return get().projectWikiLayouts[workspaceId] || null;
+  },
+  isProjectWikiReady: (workspaceId) => {
+    const state = get();
+    return state.projectWikiLoadedWorkspaces.has(workspaceId) && !state.projectWikiInitializingWorkspaces.has(workspaceId);
+  },
+  setProjectWikiLayout: (workspaceId, layout) => {
+    set((state) => ({
+      projectWikiLayouts: {
+        ...state.projectWikiLayouts,
+        [workspaceId]: layout,
+      },
+    }));
+    const currentPanes = get().projectWikiPanes[workspaceId] || {};
+    const leaves = layout ? getLeaves(layout) : [];
+    const leafSet = new Set(leaves);
+    const nextPanes: Record<string, TerminalPaneProps> = {};
+    Object.keys(currentPanes).forEach(id => {
+      if (leafSet.has(id)) nextPanes[id] = currentPanes[id];
+    });
+    set((state) => ({
+      projectWikiPanes: {
+        ...state.projectWikiPanes,
+        [workspaceId]: nextPanes,
+      },
+    }));
+  },
+  addProjectWikiTerminal: (workspaceId, title = PROJECT_WIKI_WINDOW_NAME) => {
+    const panes = get().projectWikiPanes[workspaceId] || {};
+    const layout = get().projectWikiLayouts[workspaceId];
+    const newId = uuidv4();
+    const newPane: TerminalPaneProps = {
+      id: newId,
+      title,
+      sessionId: uuidv4(),
+      workspaceId,
+      tmuxWindowName: title,
+      isNewPane: true,
+    };
+    const nextPanes = { ...panes, [newId]: newPane };
+    let nextLayout: MosaicNode<string>;
+    if (!layout) {
+      nextLayout = newId;
+    } else {
+      nextLayout = { direction: 'row', first: layout, second: newId };
+    }
+    set((state) => ({
+      projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: nextPanes },
+      projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: nextLayout },
+      projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
+    }));
+    return newId;
+  },
+  splitProjectWikiTerminal: (workspaceId, id, direction) => {
+    const layout = get().projectWikiLayouts[workspaceId];
+    const panes = get().projectWikiPanes[workspaceId] || {};
+    if (!layout) return;
+    const newId = uuidv4();
+    const newPane: TerminalPaneProps = {
+      id: newId,
+      title: PROJECT_WIKI_WINDOW_NAME + "-2",
+      sessionId: uuidv4(),
+      workspaceId,
+      tmuxWindowName: PROJECT_WIKI_WINDOW_NAME + "-2",
+      isNewPane: true,
+    };
+    const nextPanes = { ...panes, [newId]: newPane };
+    const splitById = (node: MosaicNode<string>, targetId: string): MosaicNode<string> => {
+      if (typeof node === 'string') {
+        if (node === targetId) return { direction, first: node, second: newId };
+        return node;
+      }
+      return {
+        ...node,
+        first: splitById(node.first, targetId),
+        second: splitById(node.second, targetId),
+      };
+    };
+    const nextLayout = splitById(layout, id);
+    set((state) => ({
+      projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: nextPanes },
+      projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: nextLayout },
+    }));
+  },
+  removeProjectWikiTerminal: (workspaceId, id) => {
+    const layout = get().projectWikiLayouts[workspaceId];
+    if (!layout) return;
+    const removeById = (node: MosaicNode<string> | null, targetId: string): MosaicNode<string> | null => {
+      if (!node) return null;
+      if (typeof node === 'string') return node === targetId ? null : node;
+      const first = removeById(node.first, targetId);
+      const second = removeById(node.second, targetId);
+      if (!first) return second;
+      if (!second) return first;
+      return { ...node, first, second };
+    };
+    const updatedLayout = removeById(layout, id);
+    const panes = get().projectWikiPanes[workspaceId] || {};
+    const nextPanes: Record<string, TerminalPaneProps> = {};
+    if (updatedLayout) {
+      const leafSet = new Set(getLeaves(updatedLayout));
+      Object.entries(panes).forEach(([k, v]) => {
+        if (leafSet.has(k)) nextPanes[k] = v;
+      });
+    }
+    set((state) => ({
+      projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: nextPanes },
+      projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: updatedLayout },
+    }));
+  },
+  initProjectWikiWorkspace: (workspaceId) => {
+    const state = get();
+    if (state.projectWikiLoadedWorkspaces.has(workspaceId)) return;
+    if (state.projectWikiInitializingWorkspaces.has(workspaceId)) return;
+    set((state) => ({
+      projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces, workspaceId]),
+    }));
+    get().loadProjectWikiFromTmux(workspaceId);
+  },
+  loadProjectWikiFromTmux: async (workspaceId) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
+      const state = get();
+      if (!state.projectWikiInitializingWorkspaces.has(workspaceId)) return; // init was reset
+      if (exists) {
+        const panes = state.projectWikiPanes[workspaceId] || {};
+        const hasWikiPane = Object.values(panes).some(p => p.tmuxWindowName === PROJECT_WIKI_WINDOW_NAME);
+        if (!hasWikiPane) {
+          const newId = uuidv4();
+          const newPane: TerminalPaneProps = {
+            id: newId,
+            title: PROJECT_WIKI_WINDOW_NAME,
+            sessionId: uuidv4(),
+            workspaceId,
+            tmuxWindowName: PROJECT_WIKI_WINDOW_NAME,
+            isNewPane: false, // Attach to existing tmux window
+          };
+          set((state) => ({
+            projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: { ...panes, [newId]: newPane } },
+            projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: newId },
+            projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
+            projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
+          }));
+          return;
+        }
+      }
+      set((state) => ({
+        projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
+        projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
+      }));
+    } catch (err) {
+      console.debug('Failed to load Project Wiki from tmux:', err);
+      set((state) => ({
+        projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
+        projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
+      }));
+    }
+  },
+  getProjectWikiPaneIdByTmuxWindowName: (workspaceId, tmuxWindowName) => {
+    const panes = get().projectWikiPanes[workspaceId] || {};
+    const entry = Object.entries(panes).find(([, p]) => p.tmuxWindowName === tmuxWindowName);
+    return entry ? entry[0] : null;
+  },
+  setProjectWikiDynamicTitle: (workspaceId, paneId, dynamicTitle) => {
+    const panes = get().projectWikiPanes[workspaceId];
+    if (!panes?.[paneId] || panes[paneId].dynamicTitle === dynamicTitle) return;
+    set((state) => ({
+      projectWikiPanes: {
+        ...state.projectWikiPanes,
+        [workspaceId]: {
+          ...panes,
+          [paneId]: { ...panes[paneId], dynamicTitle },
+        },
+      },
+    }));
+  },
+  toggleProjectWikiMaximize: (workspaceId, id) => {
+    set((state) => {
+      const current = state.projectWikiMaximizedIds[workspaceId];
+      const next = current === id ? null : id;
+      return {
+        projectWikiMaximizedIds: {
+          ...state.projectWikiMaximizedIds,
+          [workspaceId]: next,
+        },
+      };
+    });
   },
 }));
