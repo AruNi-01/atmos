@@ -11,7 +11,7 @@ use std::sync::Arc;
 use app_state::AppState;
 use config::ServerConfig;
 use core_engine::TestEngine;
-use core_service::{MessagePushService, ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService};
+use core_service::{AgentService, MessagePushService, ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService};
 use infra::{DbConnection, Migrator, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
 use tower_http::trace::TraceLayer;
@@ -55,11 +55,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
+    let agent_service = Arc::new(AgentService::new());
+    tokio::spawn({
+        let agent = Arc::clone(&agent_service);
+        async move {
+            if let Err(e) = agent.refresh_acp_registry_cache().await {
+                warn!("Failed to refresh ACP registry cache: {}", e);
+            } else {
+                info!("ACP registry cache refreshed");
+            }
+        }
+    });
 
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
         Arc::clone(&project_service),
         Arc::clone(&workspace_service),
+        Arc::clone(&agent_service),
     ));
 
     // Terminal service for PTY management

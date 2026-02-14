@@ -36,5 +36,7 @@ pub use message::{
     ScriptGetRequest, ScriptSaveRequest,
     WsEvent, WorkspaceSetupProgressNotification,
     SkillInfo, SkillFile, SkillsListResponse, SkillsGetRequest,
+    AgentInstallRequest, AgentConfigGetRequest, AgentConfigSetRequest, AgentRegistryInstallRequest,
+    AgentRegistryRemoveRequest,
 };
 pub use service::{WsService, WsServiceConfig};

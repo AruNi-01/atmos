@@ -2,7 +2,7 @@
 
 import { useParams, usePathname } from "next/navigation";
 
-export type CurrentView = "welcome" | "workspace" | "project" | "workspaces" | "skills" | "terminals";
+export type CurrentView = "welcome" | "workspace" | "project" | "workspaces" | "skills" | "terminals" | "agents";
 
 interface ContextParams {
   /** Workspace ID from route segment /workspace/[workspaceId] */
@@ -39,6 +39,7 @@ const EMPTY: Omit<ContextParams, "currentView"> = {
  *   /skills                        → skills list
  *   /skills/[scope]/[skillId]      → skill detail
  *   /terminals                     → terminals
+ *   /agents                        → agents management
  */
 export function useContextParams(): ContextParams {
   const params = useParams();
@@ -68,6 +69,7 @@ export function useContextParams(): ContextParams {
   if (path.startsWith("/workspaces")) return { ...EMPTY, currentView: "workspaces" };
   if (path.startsWith("/skills")) return { ...EMPTY, currentView: "skills" };
   if (path.startsWith("/terminals")) return { ...EMPTY, currentView: "terminals" };
+  if (path.startsWith("/agents")) return { ...EMPTY, currentView: "agents" };
 
   return { ...EMPTY, currentView: "welcome" };
 }

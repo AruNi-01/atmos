@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use agent::AgentId;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
     AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, 
@@ -23,7 +24,8 @@ use infra::{
     WsAction, WsMessage, WsMessageHandler, WsRequest,
     ScriptGetRequest, ScriptSaveRequest,
     WsEvent, WorkspaceSetupProgressNotification,
-    SkillsGetRequest,
+    SkillsGetRequest, AgentInstallRequest, AgentConfigGetRequest, AgentConfigSetRequest,
+    AgentRegistryInstallRequest, AgentRegistryRemoveRequest,
 };
 use tokio::sync::OnceCell;
 use serde_json::{json, Value};
@@ -31,7 +33,7 @@ use portable_pty::{native_pty_system, PtySize, CommandBuilder};
 use std::io::Read;
 
 use crate::error::{Result, ServiceError};
-use crate::{ProjectService, WorkspaceService};
+use crate::{AgentService, ProjectService, WorkspaceService};
 
 /// WebSocket message service for handling all business logic via WebSocket.
 pub struct WsMessageService {
@@ -40,6 +42,7 @@ pub struct WsMessageService {
     app_engine: core_engine::AppEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
+    agent_service: Arc<AgentService>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
 }
 
@@ -47,6 +50,7 @@ impl WsMessageService {
     pub fn new(
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
+        agent_service: Arc<AgentService>,
     ) -> Self {
         Self {
             fs_engine: FsEngine::new(),
@@ -54,6 +58,7 @@ impl WsMessageService {
             app_engine: core_engine::AppEngine::new(),
             project_service,
             workspace_service,
+            agent_service,
             ws_manager: OnceCell::new(),
         }
     }
@@ -178,6 +183,13 @@ impl WsMessageService {
             WsAction::SkillsGet => self.handle_skills_get(parse_request(request.data)?).await,
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
+            WsAction::AgentList => self.handle_agent_list().await,
+            WsAction::AgentInstall => self.handle_agent_install(parse_request(request.data)?).await,
+            WsAction::AgentConfigGet => self.handle_agent_config_get(parse_request(request.data)?).await,
+            WsAction::AgentConfigSet => self.handle_agent_config_set(parse_request(request.data)?).await,
+            WsAction::AgentRegistryList => self.handle_agent_registry_list().await,
+            WsAction::AgentRegistryInstall => self.handle_agent_registry_install(parse_request(request.data)?).await,
+            WsAction::AgentRegistryRemove => self.handle_agent_registry_remove(parse_request(request.data)?).await,
         }
     }
 
@@ -1189,6 +1201,50 @@ set -x
         Ok(json!({ "installed": installed }))
     }
 
+    // ===== Agent Handlers =====
+
+    async fn handle_agent_list(&self) -> Result<Value> {
+        let agents = self.agent_service.list_agents();
+        Ok(json!({ "agents": agents }))
+    }
+
+    async fn handle_agent_install(&self, req: AgentInstallRequest) -> Result<Value> {
+        let id = parse_agent_id(&req.id)?;
+
+        let result = self.agent_service.install_agent(id).await?;
+        Ok(json!(result))
+    }
+
+    async fn handle_agent_config_get(&self, req: AgentConfigGetRequest) -> Result<Value> {
+        let id = parse_agent_id(&req.id)?;
+        let state = self.agent_service.get_agent_config(id)?;
+        Ok(json!(state))
+    }
+
+    async fn handle_agent_config_set(&self, req: AgentConfigSetRequest) -> Result<Value> {
+        let id = parse_agent_id(&req.id)?;
+        self.agent_service.set_agent_api_key(id, &req.api_key)?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_agent_registry_list(&self) -> Result<Value> {
+        let agents = self.agent_service.list_registry_agents().await?;
+        Ok(json!({ "agents": agents }))
+    }
+
+    async fn handle_agent_registry_install(&self, req: AgentRegistryInstallRequest) -> Result<Value> {
+        let result = self
+            .agent_service
+            .install_registry_agent(&req.registry_id, req.force_overwrite)
+            .await?;
+        Ok(json!(result))
+    }
+
+    async fn handle_agent_registry_remove(&self, req: AgentRegistryRemoveRequest) -> Result<Value> {
+        let result = self.agent_service.remove_registry_agent(&req.registry_id).await?;
+        Ok(json!(result))
+    }
+
     /// Recursively copy directory. Symlinks are preserved with their target path unchanged;
     /// project-wiki is installed first, so relative symlinks (e.g. ../project-wiki/references) resolve correctly.
     fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
@@ -1224,6 +1280,18 @@ set -x
 /// Parse request data from JSON Value.
 fn parse_request<T: serde::de::DeserializeOwned>(data: Value) -> Result<T> {
     serde_json::from_value(data).map_err(|e| ServiceError::Validation(format!("Invalid request: {}", e)))
+}
+
+fn parse_agent_id(raw: &str) -> Result<AgentId> {
+    match raw {
+        "claude_code" => Ok(AgentId::ClaudeCode),
+        "codex" => Ok(AgentId::Codex),
+        "gemini_cli" => Ok(AgentId::GeminiCli),
+        other => Err(ServiceError::Validation(format!(
+            "Unsupported agent id: {}",
+            other
+        ))),
+    }
 }
 
 /// Implement WsMessageHandler trait for dependency inversion.

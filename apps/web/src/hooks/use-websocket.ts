@@ -64,7 +64,15 @@ export type WsAction =
   | 'skills_list'
   | 'skills_get'
   | 'wiki_skill_install'
-  | 'wiki_skill_system_status';
+  | 'wiki_skill_system_status'
+  // Agent 操作
+  | 'agent_list'
+  | 'agent_install'
+  | 'agent_config_get'
+  | 'agent_config_set'
+  | 'agent_registry_list'
+  | 'agent_registry_install'
+  | 'agent_registry_remove';
 
 export interface WsRequest {
   type: 'request';

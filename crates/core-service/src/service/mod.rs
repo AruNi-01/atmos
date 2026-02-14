@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod message_push;
 pub mod project;
 pub mod skill;

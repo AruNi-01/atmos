@@ -633,6 +633,57 @@ export interface SkillInfo {
   title: string | null;
 }
 
+export type AgentId = 'claude_code' | 'codex' | 'gemini_cli';
+
+export interface AgentStatus {
+  id: AgentId;
+  registry_id: string;
+  name: string;
+  description: string;
+  npm_package: string;
+  executable: string;
+  installed: boolean;
+  executable_path: string | null;
+  auth_detected: boolean;
+  auth_source: string | null;
+}
+
+export interface AgentInstallResponse {
+  id: AgentId;
+  installed: boolean;
+  install_method: string;
+  message: string;
+}
+
+export interface AgentConfigState {
+  id: AgentId;
+  has_stored_api_key: boolean;
+  auth_detected: boolean;
+  auth_source: string | null;
+}
+
+export interface RegistryAgent {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  repository: string | null;
+  icon: string | null;
+  cli_command: string;
+  install_method: string;
+  package: string | null;
+  installed: boolean;
+}
+
+export interface RegistryInstallResponse {
+  registry_id: string;
+  installed: boolean;
+  install_method: string;
+  message: string;
+  needs_confirmation?: boolean;
+  overwrite_message?: string;
+}
+
 export const skillsApi = {
   /**
    * 获取已安装的 Skills 列表
@@ -662,5 +713,45 @@ export const skillsApi = {
   isProjectWikiInstalledInSystem: async (): Promise<boolean> => {
     const res = await wsRequest<{ installed: boolean }>('wiki_skill_system_status');
     return res.installed;
+  },
+};
+
+// ===== Agent API =====
+
+export const agentApi = {
+  list: async (): Promise<{ agents: AgentStatus[] }> => {
+    return wsRequest<{ agents: AgentStatus[] }>('agent_list');
+  },
+
+  install: async (id: AgentId): Promise<AgentInstallResponse> => {
+    return wsRequest<AgentInstallResponse>('agent_install', { id });
+  },
+
+  getConfig: async (id: AgentId): Promise<AgentConfigState> => {
+    return wsRequest<AgentConfigState>('agent_config_get', { id });
+  },
+
+  setConfig: async (id: AgentId, apiKey: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('agent_config_set', { id, api_key: apiKey });
+  },
+
+  listRegistry: async (): Promise<{ agents: RegistryAgent[] }> => {
+    return wsRequest<{ agents: RegistryAgent[] }>('agent_registry_list');
+  },
+
+  installRegistry: async (
+    registryId: string,
+    forceOverwrite = false
+  ): Promise<RegistryInstallResponse> => {
+    return wsRequest<RegistryInstallResponse>('agent_registry_install', {
+      registry_id: registryId,
+      force_overwrite: forceOverwrite,
+    });
+  },
+
+  removeRegistry: async (registryId: string): Promise<RegistryInstallResponse> => {
+    return wsRequest<RegistryInstallResponse>('agent_registry_remove', {
+      registry_id: registryId,
+    });
   },
 };

@@ -89,6 +89,7 @@ import { useGitStatusCheck, useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useTheme } from 'next-themes';
 import { SketchPicker } from 'react-color';
+import { Bot } from "lucide-react";
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -753,7 +754,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
-    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals');
+    const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
+        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents'
+    );
     const [activeId, setActiveId] = useState<string | null>(null);
 
     // File tree state
@@ -1092,6 +1095,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 <div className="flex items-center gap-2">
                                     <SquareTerminal className="size-3.5" />
                                     <span>Terminals</span>
+                                </div>
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
+                                    <ArrowRight className="size-3.5" />
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => router.push('/agents')}
+                                className={cn(
+                                    "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
+                                    currentView === 'agents'
+                                        ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
+                                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
+                                )}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Bot className="size-3.5" />
+                                    <span>Agents</span>
                                 </div>
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
                                     <ArrowRight className="size-3.5" />

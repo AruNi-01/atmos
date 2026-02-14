@@ -50,6 +50,7 @@ import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { WorkspacesManagementView } from "@/components/workspace/WorkspacesManagementView";
 import { SkillsView } from "@/components/skills/SkillsView";
 import { TerminalManagerView } from "@/components/terminal/TerminalManagerView";
+import { AgentManagerView } from "@/components/agent/AgentManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
 import { WikiTab } from "@/components/wiki";
 import { systemApi } from "@/api/rest-api";
@@ -309,6 +310,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
       return (
         <main className="h-full overflow-hidden">
           <TerminalManagerView />
+        </main>
+      );
+    }
+    if (currentView === "agents") {
+      return (
+        <main className="h-full overflow-hidden">
+          <AgentManagerView />
         </main>
       );
     }

@@ -36,7 +36,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="py-4 space-y-4 overflow-y-auto min-h-0">
+        <div className="py-4 pr-3 space-y-4 overflow-y-auto min-h-0">
           <p className="text-sm text-muted-foreground">
             tmux is a terminal multiplexer that allows Atmos to keep your terminal sessions running 
             even when you disconnect. This enables seamless reconnection to your work.
