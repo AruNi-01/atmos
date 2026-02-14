@@ -4,7 +4,7 @@ import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { StarIcon, type LucideProps } from 'lucide-react'
 
-import { cn } from '@/lib/utils'
+import { cn } from "../../lib/utils"
 
 // Variants
 const ratingVariants = cva('transition-colors', {

@@ -5,6 +5,7 @@ export * from "./components/ui/button";
 export * from "./components/ui/card";
 export * from "./components/ui/checkbox";
 export * from "./components/ui/input";
+export * from "./components/ui/input-group";
 export * from "./components/ui/label";
 export * from "./components/ui/dialog";
 export * from "./components/ui/scroll-area";
@@ -42,6 +43,16 @@ export * from "./components/ui/rating";
 export * from "./components/ui/separator";
 export * from "./components/ui/accordion";
 export * from "./components/ui/flow-button";
+
+// AI Elements
+export * from "./components/ai-elements/message";
+export * from "./components/ai-elements/conversation";
+export * from "./components/ai-elements/reasoning";
+export * from "./components/ai-elements/confirmation";
+export * from "./components/ai-elements/attachments";
+export * from "./components/ai-elements/shimmer";
+export * from "./components/ai-elements/prompt-input";
+export * from "./components/ai-elements/tool";
 
 // Utilities
 export { cn } from "./lib/utils";

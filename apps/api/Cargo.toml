@@ -8,6 +8,7 @@ name = "api"
 path = "src/main.rs"
 
 [dependencies]
+agent = { path = "../../crates/agent" }
 infra = { path = "../../crates/infra" }
 core-engine = { path = "../../crates/core-engine" }
 core-service = { path = "../../crates/core-service" }

@@ -23,6 +23,7 @@ import {
   Maximize,
   Minimize,
   Puzzle,
+  Bot,
 } from '@workspace/ui';
 import LogoSvg from '@workspace/ui/components/logo-svg';
 import { QuickOpen } from './QuickOpen';
@@ -43,7 +44,7 @@ const Header: React.FC = () => {
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
 
   const { projects, updateWorkspaceBranch, setupProgress } = useProjectStore();
-  const { setGlobalSearchOpen } = useDialogStore();
+  const { setGlobalSearchOpen, setAgentChatOpen } = useDialogStore();
   const { setCurrentProjectPath } = useEditorStore();
   const {
     currentBranch,
@@ -452,6 +453,14 @@ const Header: React.FC = () => {
           <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
             <span className="text-xs">⌘</span>K
           </kbd>
+        </button>
+
+        <button
+          aria-label="Agent Chat"
+          className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+          onClick={() => setAgentChatOpen(true)}
+        >
+          <Bot className="size-4" />
         </button>
 
         <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />

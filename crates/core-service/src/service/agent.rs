@@ -1,6 +1,6 @@
 use agent::{
-    AgentConfigState, AgentId, AgentInstallResult, AgentManager, AgentStatus, RegistryAgent,
-    RegistryInstallResult,
+    AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentManager, AgentStatus,
+    RegistryAgent, RegistryInstallResult,
 };
 
 use crate::error::Result;
@@ -71,5 +71,24 @@ impl AgentService {
             .refresh_acp_registry_cache()
             .await
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    /// Get launch spec for an installed registry agent (for spawning ACP session).
+    pub async fn get_registry_agent_launch_spec(
+        &self,
+        registry_id: &str,
+    ) -> Result<AgentLaunchSpec> {
+        self.manager
+            .get_registry_agent_launch_spec(registry_id)
+            .await
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    /// Get env overrides (API key from keyring) for spawning a registry agent.
+    pub fn get_registry_agent_env_overrides(
+        &self,
+        registry_id: &str,
+    ) -> Option<std::collections::HashMap<String, String>> {
+        self.manager.get_registry_agent_env_overrides(registry_id)
     }
 }
