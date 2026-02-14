@@ -16,6 +16,9 @@ interface DialogStore {
   setGlobalSearchOpen: (open: boolean) => void;
   globalSearchTab: 'app' | 'files' | 'code';
   setGlobalSearchTab: (tab: 'app' | 'files' | 'code') => void;
+
+  isAgentChatOpen: boolean;
+  setAgentChatOpen: (open: boolean) => void;
 }
 
 export const useDialogStore = create<DialogStore>((set) => ({
@@ -32,4 +35,7 @@ export const useDialogStore = create<DialogStore>((set) => ({
   setGlobalSearchOpen: (open) => set({ isGlobalSearchOpen: open }),
   globalSearchTab: 'app',
   setGlobalSearchTab: (tab) => set({ globalSearchTab: tab }),
+
+  isAgentChatOpen: false,
+  setAgentChatOpen: (open) => set({ isAgentChatOpen: open }),
 }));

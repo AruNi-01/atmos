@@ -6,7 +6,7 @@ import type { VariantProps } from 'class-variance-authority'
 
 import { Button, type buttonVariants } from '@workspace/ui/components/ui/button'
 
-import { cn } from '@/lib/utils'
+import { cn } from "../../lib/utils"
 
 const CraftButtonContext = React.createContext<{
   size?: VariantProps<typeof buttonVariants>['size']

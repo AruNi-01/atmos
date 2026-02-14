@@ -5,6 +5,7 @@ pub mod utils;
 
 pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
+pub use service::agent_session::AgentSessionService;
 pub use service::message_push::MessagePushService;
 pub use service::project::ProjectService;
 pub use service::terminal::{SessionDetail, SessionType, TerminalMessage, TerminalResponse, TerminalService};

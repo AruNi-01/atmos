@@ -11,7 +11,10 @@ use std::sync::Arc;
 use app_state::AppState;
 use config::ServerConfig;
 use core_engine::TestEngine;
-use core_service::{AgentService, MessagePushService, ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService};
+use core_service::{
+    AgentService, MessagePushService, ProjectService, TerminalService, TestService,
+    WorkspaceService, WsMessageService,
+};
 use infra::{DbConnection, Migrator, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
 use tower_http::trace::TraceLayer;
@@ -99,6 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         test_service,
         project_service,
         workspace_service,
+        agent_service,
         ws_message_service.clone(),
         message_push_service,
         terminal_service,

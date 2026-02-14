@@ -448,6 +448,27 @@ impl AgentManager {
         keyring_set_api_key(id, api_key).map_err(|e| AgentError::Command(e.to_string()))
     }
 
+    /// Get env overrides (API key) for spawning a registry agent. Injects keyring-stored API key into env.
+    /// Returns None if no key is stored for this registry agent.
+    pub fn get_registry_agent_env_overrides(
+        &self,
+        registry_id: &str,
+    ) -> Option<std::collections::HashMap<String, String>> {
+        let (agent_id, env_var) = match registry_id {
+            "claude-code-acp" => (AgentId::ClaudeCode, "ANTHROPIC_API_KEY"),
+            "codex-acp" => (AgentId::Codex, "OPENAI_API_KEY"),
+            "gemini" => (AgentId::GeminiCli, "GEMINI_API_KEY"),
+            _ => return None,
+        };
+        let key = keyring_get_api_key(agent_id).ok()?;
+        if key.is_empty() {
+            return None;
+        }
+        let mut map = std::collections::HashMap::new();
+        map.insert(env_var.to_string(), key);
+        Some(map)
+    }
+
     async fn try_install_from_registry_index(
         &self,
         agent: &KnownAgent,
@@ -663,6 +684,11 @@ fn keyring_has_api_key(id: AgentId) -> std::result::Result<bool, keyring::Error>
         Err(keyring::Error::NoEntry) => Ok(false),
         Err(e) => Err(e),
     }
+}
+
+fn keyring_get_api_key(id: AgentId) -> std::result::Result<String, keyring::Error> {
+    let entry = keyring_entry(id)?;
+    entry.get_password()
 }
 
 fn keyring_set_api_key(id: AgentId, api_key: &str) -> std::result::Result<(), keyring::Error> {

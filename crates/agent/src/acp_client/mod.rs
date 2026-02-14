@@ -1,12 +1,16 @@
-//! ACP client module placeholder for M1.
-//!
-//! This module will host the real ACP runtime integration in follow-up tasks.
+//! ACP client module - ACP protocol implementation and Agent process management.
 
-#[derive(Debug, Default)]
-pub struct AcpClient;
+pub mod client;
+pub mod process;
+pub mod runner;
+pub mod tools;
+pub mod types;
 
-impl AcpClient {
-    pub fn new() -> Self {
-        Self
-    }
-}
+pub use client::{AcpSessionEvent, AtmosAcpClient};
+pub use process::spawn_agent;
+pub use runner::{run_acp_session, AcpSessionHandle};
+pub use tools::AcpToolHandler;
+pub use types::{
+    PermissionRequest, PermissionResponse, RiskLevel, StreamDelta, StreamUsage, ToolCallStatus,
+    ToolCallUpdate,
+};

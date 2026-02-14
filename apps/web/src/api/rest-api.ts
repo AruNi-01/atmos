@@ -20,6 +20,12 @@ const getApiBase = (): string => {
 
 const API_BASE = getApiBase();
 
+/** WebSocket base URL for agent chat (ws/wss derived from API base) */
+export const getAgentWsBase = (): string => {
+  const base = getApiBase();
+  return base.replace(/^http/, 'ws');
+};
+
 // ===== Types =====
 
 export interface TmuxStatusResponse {
@@ -267,6 +273,34 @@ export const systemApi = {
     return fetchApi<{ killed: number; total: number; failed_pids: number[] }>('/api/system/kill-orphaned-processes', {
       method: 'POST',
       body: JSON.stringify({ pids }),
+    });
+  },
+};
+
+// ===== Workspace Terminal Layout API =====
+
+// ===== Agent API =====
+
+export interface CreateAgentSessionResponse {
+  session_id: string;
+}
+
+export const agentApi = {
+  /**
+   * Create a new Agent chat session.
+   * - With workspaceId: Agent has file access to the workspace
+   * - Without workspaceId: General AI assistant, no file access
+   */
+  createSession: async (
+    workspaceId: string | null | undefined,
+    registryId: string
+  ): Promise<CreateAgentSessionResponse> => {
+    return fetchApi<CreateAgentSessionResponse>('/api/agent/session', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspace_id: workspaceId || null,
+        registry_id: registryId,
+      }),
     });
   },
 };

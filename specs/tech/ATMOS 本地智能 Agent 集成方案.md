@@ -417,6 +417,129 @@ crates/agent/
 | **M3: 智能 Commit** | 集成 Git 工具、Commit Message 生成工作流 | 一键生成语义化 Commit Message | 1 周 |
 | **M4: 通用 AI 助手** | 可悬浮聊天窗口、多会话管理、上下文感知 | 随处可用的全局 AI 助手 | 2 周 |
 
+### 5.1. M1 核心框架 - 详细实施计划
+
+#### 5.1.1. 实施状态
+
+| 模块 | 任务 | 状态 | 说明 |
+| :--- | :--- | :--- | :--- |
+| **crates/agent** | 基础结构 | ✅ 已实现 | `lib.rs`, `models.rs`, `manager.rs` |
+| | ACP Registry 缓存 | ✅ 已实现 | `acp_registry.json`, `refresh_acp_registry_cache` |
+| | Install Manifest | ✅ 已实现 | `acp_servers.json`, npx/binary 安装 |
+| | 凭证管理 (keyring) | ✅ 已实现 | `get_agent_config`, `set_agent_api_key` |
+| | `get_registry_agent_launch_spec` | ✅ 已实现 | 用于 spawn Agent 进程 |
+| | **AcpClient（ACP 协议）** | ⬜ 待实现 | `acp_client/` 目前为占位，需接入 `agent-client-protocol` SDK |
+| **crates/core-service** | AgentService（列表/安装/配置） | ✅ 已实现 | `service/agent.rs` |
+| | **AgentSessionService（会话管理）** | ⬜ 待实现 | 会话生命周期、工具调用路由 |
+| **apps/api** | Agent WebSocket 消息（agent_list 等） | ✅ 已实现 | 通过 WsMessageService 处理 |
+| | **`/ws/agent/{session_id}`** | ⬜ 待实现 | 独立的 Agent 对话 WebSocket 端点 |
+| **apps/web** | Agent 管理页 | ✅ 已实现 | `AgentManagerView`, `/agents` |
+| | **Agent Chat UI** | ⬜ 待实现 | 聊天界面、流式输出、权限确认卡片 |
+
+#### 5.1.2. 剩余任务清单（按依赖顺序）
+
+**Phase A: ACP Client 与进程管理**
+
+1. **接入 agent-client-protocol SDK**
+   - 在 `crates/agent/Cargo.toml` 中添加 `agent-client-protocol = "0.9"` 依赖
+   - 实现 `acp_client/client.rs`：封装 SDK 的 Client，建立 stdio 双向 JSON-RPC 通信
+   - 实现 `acp_client/process.rs`：`AgentProcessManager` 根据 `AgentLaunchSpec` spawn 子进程，注入环境变量（API Key 等）
+
+2. **工具调用路由 Trait**
+   - 定义 `acp_client/tools.rs`：`AcpToolHandler` trait，包含 `handle_read`、`handle_edit`、`handle_execute` 等
+   - `core-service::AgentService` 实现该 trait，将工具调用转发到 `core-engine`（FsEngine、TerminalService 等）
+
+3. **权限请求处理**
+   - 在 ACP Client 收到 `session/request_permission` 时，不立即执行，而是通过回调/通道将请求转发给会话管理层
+   - 会话管理层将权限请求通过 WebSocket 推送给前端
+
+**Phase B: Agent 会话 WebSocket**
+
+4. **`/ws/agent/{session_id}` 端点**
+   - 在 `apps/api/src/api/ws/` 中新增 `agent.rs`，注册路由 `ws/agent/:session_id`
+   - 握手时校验 `session_id`，绑定到 `AgentSessionService` 的会话
+   - 消息类型：`prompt`、`permission_response`、`control`（见 4.6 节协议定义）
+
+5. **AgentSessionService 扩展**
+   - 在 `core-service` 中新增 `AgentSessionService`（或扩展 `AgentService`）：
+     - `create_session(workspace_id, registry_id) -> session_id`
+     - `send_prompt(session_id, message, context)`
+     - `respond_permission(session_id, request_id, allowed, remember)`
+     - `cancel_session(session_id)`
+   - 内部持有 `HashMap<session_id, AcpSessionState>`，每个 state 包含 `AcpClient` 实例、Agent 子进程、权限白名单
+
+6. **流式输出与工具调用转发**
+   - ACP Client 收到的 `session/update`（流式文本）→ 封装为 `{ type: "stream", payload: { delta, done } }` 推送到前端
+   - 工具调用 `session/update`（tool 状态）→ 封装为 `{ type: "tool_call", payload: {...} }`
+   - 权限请求 → `{ type: "permission_request", payload: {...} }`
+
+**Phase C: 前端 Chat UI**
+
+7. **Agent Chat 组件**
+   - 新建 `apps/web/src/components/agent/AgentChat.tsx`：
+     - 消息列表（用户消息 + Agent 流式回复）
+     - 输入框，支持发送 prompt
+     - 连接 `/ws/agent/{session_id}`，处理 `stream`、`tool_call`、`permission_request`、`error`
+   - 集成到 CenterStage：在添加 Agent 终端时，可切换到「Chat 模式」或作为独立 Tab
+
+8. **权限确认卡片**
+   - 新建 `apps/web/src/components/agent/PermissionConfirmCard.tsx`：
+     - 展示 `tool`、`description`、`risk_level`
+     - 复选框「本次会话自动允许此类操作」
+     - [拒绝] [允许] 按钮，点击后发送 `permission_response`
+
+9. **会话创建入口**
+   - 在 Agent 管理页或工作区上下文菜单中，新增「启动 Chat」：选择已安装的 Agent → 调用后端创建会话 → 跳转/打开 Chat UI 并连接对应 `session_id`
+
+#### 5.1.3. 新建与修改文件清单
+
+**新建文件**
+
+```
+crates/agent/src/acp_client/
+├── client.rs          # AcpClient 封装 agent-client-protocol
+├── process.rs         # AgentProcessManager spawn 子进程
+├── tools.rs           # AcpToolHandler trait 与工具类型
+└── types.rs           # 会话状态、权限请求等类型
+
+crates/core-service/src/service/
+└── agent_session.rs   # AgentSessionService（或合并到 agent.rs）
+
+apps/api/src/api/ws/
+└── agent.rs           # /ws/agent/:session_id handler
+
+apps/web/src/components/agent/
+├── AgentChat.tsx           # 主聊天界面
+├── AgentChatMessage.tsx    # 单条消息渲染
+├── PermissionConfirmCard.tsx  # 权限确认
+└── use-agent-session.ts    # 会话状态与 WebSocket hook
+```
+
+**修改文件**
+
+| 文件 | 修改内容 |
+| :--- | :--- |
+| `crates/agent/Cargo.toml` | 添加 `agent-client-protocol` 依赖 |
+| `crates/agent/src/lib.rs` | 导出 `acp_client` 子模块 |
+| `crates/agent/src/acp_client/mod.rs` | 替换占位实现，导出 client、process、tools |
+| `crates/core-service/src/service/mod.rs` | 注册 `AgentSessionService` |
+| `crates/core-service/Cargo.toml` | 如需 agent 的 acp_client，添加依赖 |
+| `apps/api/src/api/ws/mod.rs` | 挂载 `agent::routes()` |
+| `apps/api/src/api/mod.rs` | 若 ws 路由需拆分，调整 |
+| `apps/web/src/app/[locale]/(app)/` | 新增或扩展 Agent Chat 路由/布局 |
+| `apps/web/src/api/ws-api.ts` | 新增 Agent 会话 WebSocket 连接与消息类型 |
+
+#### 5.1.4. 验收标准
+
+| 验收项 | 标准 |
+| :--- | :--- |
+| **Agent 进程启动** | 选择已安装 Agent，点击「启动 Chat」后，后端能成功 spawn 对应 CLI 进程，建立 stdio JSON-RPC 连接 |
+| **基础对话** | 用户输入 prompt，能收到 Agent 的流式文本回复，前端正确展示 |
+| **工具调用展示** | Agent 执行 read/edit/execute 时，前端能收到 `tool_call` 通知并展示（如 "正在编辑 src/lib.rs"） |
+| **权限请求** | 对 edit/delete/execute，前端弹出权限确认卡片，用户允许/拒绝后，后端能正确响应 ACP 的 `session/request_permission` |
+| **会话恢复** | WebSocket 断连后重连，能恢复到同一会话（Agent 进程仍在则继续；已退出则提示「会话已结束」） |
+| **错误处理** | Agent 进程崩溃时，前端收到 `error` 消息并展示「重新启动」入口 |
+
 ## 6. 结论
 
 采用 ACP Client (Rust) 方案，ATMOS 可以用极低的开发成本，快速、安全、可靠地集成一个功能强大且可扩展的本地智能 Agent。该方案的核心优势：
