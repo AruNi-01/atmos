@@ -29,4 +29,6 @@ pub use websocket::{
     ScriptGetRequest, ScriptSaveRequest,
     WsEvent, WorkspaceSetupProgressNotification,
     SkillInfo, SkillFile, SkillsListResponse, SkillsGetRequest,
+    AgentInstallRequest, AgentConfigGetRequest, AgentConfigSetRequest, AgentRegistryInstallRequest,
+    AgentRegistryRemoveRequest,
 };

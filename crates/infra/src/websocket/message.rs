@@ -194,6 +194,22 @@ pub enum WsAction {
     WikiSkillInstall,
     /// 检查 system 目录是否有 project-wiki skill
     WikiSkillSystemStatus,
+
+    // ===== Agent 操作 =====
+    /// 获取 Agent 管理状态
+    AgentList,
+    /// 安装指定 Agent
+    AgentInstall,
+    /// 获取 Agent 配置状态
+    AgentConfigGet,
+    /// 设置 Agent API Key
+    AgentConfigSet,
+    /// 列出 ACP Registry agents
+    AgentRegistryList,
+    /// 从 ACP Registry 安装 agent
+    AgentRegistryInstall,
+    /// 从 ACP Registry 卸载 agent
+    AgentRegistryRemove,
 }
 
 /// 服务端主动推送的事件类型
@@ -758,6 +774,36 @@ pub struct SkillsListResponse {
 pub struct SkillsGetRequest {
     pub scope: String,
     pub id: String,
+}
+
+// ===== Agent 操作数据结构 =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentInstallRequest {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentConfigGetRequest {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentConfigSetRequest {
+    pub id: String,
+    pub api_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRegistryInstallRequest {
+    pub registry_id: String,
+    #[serde(default)]
+    pub force_overwrite: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRegistryRemoveRequest {
+    pub registry_id: String,
 }
 
 // ===== WsMessage 工厂方法 =====
