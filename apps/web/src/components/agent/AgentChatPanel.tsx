@@ -53,6 +53,7 @@ import { useDialogStore } from "@/hooks/use-dialog-store";
 import { AgentIcon } from "./AgentIcon";
 import { useAgentSession, type AgentServerMessage } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
+import { agentApi as agentRestApi } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
 
 type ChatMessage =
@@ -362,6 +363,7 @@ export function AgentChatPanel() {
     sendPermissionResponse,
     startSession,
     disconnect,
+    sessionCwd,
   } = useAgentSession({
     workspaceId,
     registryId,
@@ -465,7 +467,7 @@ export function AgentChatPanel() {
   }, [userMessageIndices, messageNavIndex, scrollToMessage]);
 
   const handleSubmit = useCallback(
-    (message: { text: string; files?: import("ai").FileUIPart[] }) => {
+    async (message: { text: string; files?: import("ai").FileUIPart[] }) => {
       const text = message.text.trim();
       if (!text || !isConnected) return;
       lastDeltaRef.current = "";
@@ -479,9 +481,32 @@ export function AgentChatPanel() {
           files: message.files?.map((f, i) => ({ ...f, id: `f-${Date.now()}-${i}` })),
         },
       ]);
-      sendPrompt(text);
+
+      let finalPrompt = text;
+
+      const uploadPath = localPath ?? sessionCwd;
+      if (message.files && message.files.length > 0 && uploadPath) {
+        try {
+          const { paths } = await agentRestApi.uploadAttachments(
+            uploadPath,
+            message.files.map((f) => ({
+              url: f.url,
+              filename: f.filename,
+              mediaType: f.mediaType,
+            }))
+          );
+          if (paths.length > 0) {
+            const attachmentInfo = paths.map((p) => `- ${p}`).join("\n");
+            finalPrompt = `${text}\n\n[Attached files have been saved to the following paths, please read them to understand the content:]\n${attachmentInfo}`;
+          }
+        } catch (err) {
+          console.error("Failed to upload attachments:", err);
+        }
+      }
+
+      sendPrompt(finalPrompt);
     },
-    [isConnected, sendPrompt]
+    [isConnected, sendPrompt, localPath, sessionCwd]
   );
 
   const handleClose = useCallback(() => {
@@ -514,7 +539,7 @@ export function AgentChatPanel() {
             <span className="text-sm font-medium">Agent Chat</span>
           </div>
 
-          {localPath && (
+          {(localPath ?? sessionCwd) && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -524,12 +549,15 @@ export function AgentChatPanel() {
                       className="text-[10px] text-muted-foreground/80 truncate select-none leading-none"
                       style={{ direction: "rtl", textAlign: "left" }}
                     >
-                      {localPath}
+                      {localPath ?? sessionCwd}
                     </span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs break-all">
-                  <p className="text-[11px]">{localPath}</p>
+                  {!localPath && sessionCwd && (
+                    <p className="text-[11px] text-muted-foreground mb-0.5">Temp directory</p>
+                  )}
+                  <p className="text-[11px]">{localPath ?? sessionCwd}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

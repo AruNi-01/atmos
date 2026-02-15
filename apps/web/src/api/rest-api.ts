@@ -283,6 +283,7 @@ export const systemApi = {
 
 export interface CreateAgentSessionResponse {
   session_id: string;
+  cwd: string;
 }
 
 export const agentApi = {
@@ -302,6 +303,40 @@ export const agentApi = {
         registry_id: registryId,
       }),
     });
+  },
+
+  /**
+   * Upload attachment files to workspace .atmos/attachments/ directory.
+   * Returns the saved file paths that can be referenced in agent prompts.
+   */
+  uploadAttachments: async (
+    localPath: string,
+    files: { url: string; filename?: string; mediaType?: string }[]
+  ): Promise<{ paths: string[] }> => {
+    const formData = new FormData();
+    formData.append('local_path', localPath);
+
+    for (const file of files) {
+      const response = await fetch(file.url);
+      const blob = await response.blob();
+      const name = file.filename || 'attachment';
+      formData.append('files', new File([blob], name, { type: file.mediaType || blob.type }));
+    }
+
+    const res = await fetch(`${API_BASE}/api/agent/upload-attachments`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Upload failed: ${res.statusText}`);
+    }
+
+    const json: ApiResponse<{ paths: string[] }> = await res.json();
+    if (!json.success) {
+      throw new Error(json.message || 'Upload failed');
+    }
+    return json.data;
   },
 };
 
