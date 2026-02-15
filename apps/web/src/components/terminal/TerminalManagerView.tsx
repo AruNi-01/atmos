@@ -317,8 +317,8 @@ const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
                   className={cn(
                     "h-full rounded-full transition-all duration-500",
                     pty.health === 'critical' ? 'bg-red-500' :
-                    pty.health === 'warning' ? 'bg-amber-500' :
-                    'bg-emerald-500'
+                      pty.health === 'warning' ? 'bg-amber-500' :
+                        'bg-emerald-500'
                   )}
                   style={{ width: `${barPercent}%` }}
                 />
@@ -385,8 +385,8 @@ const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
 
 // --- Orphaned Processes Section ---
 
-const OrphanedProcessesSection: React.FC<{ 
-  orphans: OrphanedProcess[]; 
+const OrphanedProcessesSection: React.FC<{
+  orphans: OrphanedProcess[];
   count: number;
   onKillAll: (pids: number[]) => Promise<void>;
 }> = ({ orphans, count, onKillAll }) => {
@@ -905,42 +905,42 @@ export const TerminalManagerView: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-      {/* Header */}
-      <div className="px-6 py-4 shrink-0 border-b border-border bg-background/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-xl bg-primary/10 text-primary">
-              <SquareTerminal className="size-5" />
+      <div className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-6 max-w-5xl mx-auto w-full">
+          <div className="flex items-center gap-4">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+              <SquareTerminal className="size-6" />
             </div>
             <div>
-              <h1 className="text-base font-semibold text-foreground">Terminal Manager</h1>
-              <p className="text-sm text-muted-foreground">
-                Monitor and manage terminal sessions
+              <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">Terminal Manager</h2>
+              <p className="text-sm text-muted-foreground text-pretty max-w-sm">
+                Monitor and manage active terminal sessions and system health.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className="flex items-center gap-3">
             {hasStaleClients && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleCleanup}
                 disabled={isCleaning}
-                className="gap-2 cursor-pointer text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                className="h-10 px-4 rounded-xl bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10 transition-all cursor-pointer font-medium text-xs shadow-sm"
               >
-                <Trash2 className={cn("size-4", isCleaning && "animate-spin")} />
+                <Trash2 className={cn("mr-2 size-3.5", isCleaning && "animate-spin")} />
                 Clean Up ({data?.tmux.stale_client_sessions})
               </Button>
             )}
             <Button
-              variant="ghost"
-              size="sm"
+              variant="outline"
+              size="icon"
               onClick={loadData}
               disabled={isLoading}
-              className="gap-2 cursor-pointer"
+              className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
+              title="Refresh Stats"
             >
               <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
-              Refresh
             </Button>
           </div>
         </div>
@@ -962,8 +962,8 @@ export const TerminalManagerView: React.FC = () => {
             </Button>
           </div>
         ) : data ? (
-          <ScrollArea className="flex-1">
-            <div className="p-6 space-y-6">
+          <ScrollArea className="flex-1 scrollbar-on-hover">
+            <div className="p-8 pt-4 space-y-8 max-w-5xl mx-auto w-full">
               {/* Health Status Bar */}
               <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background flex-wrap">
                 <div className="flex items-center gap-2">

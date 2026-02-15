@@ -11,12 +11,16 @@ import {
   FolderOpen,
   Filter,
   cn,
+  Input,
 } from '@workspace/ui';
 import { skillsApi, SkillInfo } from '@/api/ws-api';
 import { SkillCard } from '@/components/skills/SkillCard';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SkillDetail } from './SkillDetail';
 import { useContextParams } from "@/hooks/use-context-params";
+import { motion, AnimatePresence } from "motion/react";
+import { Search } from "lucide-react";
+import { Skeleton } from "@workspace/ui";
 
 type ScopeFilter = 'all' | 'global' | 'project';
 
@@ -29,6 +33,7 @@ export const SkillsView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [query, setQuery] = useState("");
 
   // Read filter state from URL
   const scopeFilter = (searchParams.get('filter') as ScopeFilter) || 'all';
@@ -69,7 +74,13 @@ export const SkillsView: React.FC = () => {
   }, [skills]);
 
   const filteredSkills = useMemo(() => {
+    const q = query.trim().toLowerCase();
     return skills.filter(skill => {
+      // Name search
+      if (q && !skill.name.toLowerCase().includes(q) && !skill.description.toLowerCase().includes(q)) {
+        return false;
+      }
+
       if (scopeFilter === 'all') return true;
       if (scopeFilter === 'global') return skill.scope === 'global';
       if (scopeFilter === 'project') {
@@ -78,7 +89,7 @@ export const SkillsView: React.FC = () => {
       }
       return true;
     });
-  }, [skills, scopeFilter, selectedProjectIds]);
+  }, [skills, scopeFilter, selectedProjectIds, query]);
 
   const handleScopeFilterChange = (filter: ScopeFilter) => {
     updateFilterParams(filter, []);
@@ -156,50 +167,65 @@ export const SkillsView: React.FC = () => {
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
       {/* Header */}
-      <div className="px-6 py-4 shrink-0 border-b border-border bg-background/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-xl bg-primary/10 text-primary">
-              <Puzzle className="size-5" />
+      <div className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10 w-full">
+        <div className="flex items-center justify-between gap-6 w-full">
+          <div className="flex items-center gap-4">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+              <Puzzle className="size-6" />
             </div>
             <div>
-              <h1 className="text-base font-semibold text-foreground">My Skills</h1>
-              <p className="text-sm text-muted-foreground">
-                {filteredSkills.length > 0 
-                  ? `${filteredSkills.length} skill${filteredSkills.length > 1 ? 's' : ''}${scopeFilter !== 'all' ? ' filtered' : ' installed'}` 
-                  : 'Manage your installed skills'}
+              <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">Skill Registry</h2>
+              <p className="text-sm text-muted-foreground text-pretty max-w-xs">
+                Browse and manage available agent skills
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant={showFilter || isFilterActive ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setShowFilter(!showFilter)}
-              className={cn("gap-2 cursor-pointer", isFilterActive && "text-primary")}
-            >
-              <Filter className="size-4" />
-              Filter
-              {isFilterActive && (
-                <span className="size-1.5 rounded-full bg-primary" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={loadSkills}
-              disabled={isLoading}
-              className="gap-2 cursor-pointer"
-            >
-              <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+
+          <div className="flex items-center gap-3 flex-1 max-w-md">
+            <div className="relative w-full group">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search skills..."
+                className="h-10 pl-10 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showFilter || isFilterActive ? 'secondary' : 'outline'}
+                size="icon"
+                onClick={() => setShowFilter(!showFilter)}
+                className={cn(
+                  "size-10 shrink-0 rounded-xl transition-all shadow-sm cursor-pointer relative",
+                  !showFilter && !isFilterActive && "bg-muted/20 border-border/50 hover:bg-background",
+                  isFilterActive && "ring-1 ring-primary/30"
+                )}
+                title="Toggle Filters"
+              >
+                <Filter className="size-4" />
+                {isFilterActive && (
+                  <span className="absolute top-2.5 right-2.5 size-1.5 rounded-full bg-primary border-2 border-background" />
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={loadSkills}
+                disabled={isLoading}
+                className="size-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
+                title="Refresh Skills"
+              >
+                <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
+
       {/* Filter Bar */}
-      <div 
+      <div
         className={cn(
           "overflow-hidden transition-all duration-300 ease-in-out",
           showFilter ? "max-h-20 opacity-100" : "max-h-0 opacity-0"
@@ -259,35 +285,79 @@ export const SkillsView: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {isLoading ? (
-          <div className="flex items-center justify-center flex-1">
-            <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : filteredSkills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground">
-            <Puzzle className="size-16 mb-4 opacity-30" />
-            <p className="text-base font-medium">
-              {skills.length === 0 ? 'No skills installed' : 'No skills match the filter'}
-            </p>
-            <p className="text-sm mt-1">
-              {skills.length === 0 
-                ? 'Install skills to extend your workspace capabilities'
-                : 'Try adjusting your filter settings'}
-            </p>
-          </div>
-        ) : (
-          <ScrollArea className="flex-1">
-            <div className="grid gap-4 p-6 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
-              {filteredSkills.map((skill, index) => (
-                <SkillCard 
-                  key={`${skill.scope}-${skill.name}-${index}`} 
-                  skill={skill} 
-                />
+      <div className="flex-1 overflow-auto scrollbar-on-hover">
+        <div className="p-8 space-y-8 w-full">
+          {isLoading ? (
+            <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="rounded-xl border border-border bg-card p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="size-10 rounded-lg" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-16" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                </div>
               ))}
             </div>
-          </ScrollArea>
-        )}
+          ) : filteredSkills.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center py-24 text-center"
+            >
+              <div className="size-20 rounded-3xl bg-muted/20 flex items-center justify-center mb-6">
+                <Puzzle className="size-10 text-muted-foreground/30" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">
+                {skills.length === 0 ? "No skills installed" : "No results found"}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto text-pretty">
+                {skills.length === 0
+                  ? "Extend Atmos core capabilities with community-built skills or create your own."
+                  : `We couldn't find any skills matching "${query}". Try a different search term or adjust filters.`}
+              </p>
+              {(query || isFilterActive) && (
+                <Button
+                  variant="link"
+                  onClick={() => {
+                    setQuery("");
+                    handleScopeFilterChange("all");
+                  }}
+                  className="mt-6 font-medium"
+                >
+                  Reset all filters
+                </Button>
+              )}
+            </motion.div>
+          ) : (
+            <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
+              <AnimatePresence mode="popLayout">
+                {filteredSkills.map((skill, index) => (
+                  <motion.div
+                    key={skill.path}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
+                    transition={{
+                      duration: 0.2,
+                      delay: Math.min(index * 0.03, 0.3),
+                      ease: "easeOut"
+                    }}
+                  >
+                    <SkillCard skill={skill} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
