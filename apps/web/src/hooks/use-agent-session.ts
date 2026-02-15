@@ -36,6 +36,7 @@ export interface UseAgentSessionOptions {
 
 export interface UseAgentSessionReturn {
   sessionId: string | null;
+  sessionCwd: string | null;
   isConnecting: boolean;
   isConnected: boolean;
   error: string | null;
@@ -58,6 +59,7 @@ export function useAgentSession({
   onError,
 }: UseAgentSessionOptions): UseAgentSessionReturn {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionCwd, setSessionCwd] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +104,7 @@ export function useAgentSession({
       wsRef.current = null;
     }
     setSessionId(null);
+    setSessionCwd(null);
     setIsConnected(false);
     setError(null);
   }, []);
@@ -113,6 +116,7 @@ export function useAgentSession({
       const res = await agentApi.createSession(workspaceId ?? null, registryId);
       const sid = res.session_id;
       setSessionId(sid);
+      setSessionCwd(res.cwd);
 
       const wsBase = getAgentWsBase();
       const wsUrl = `${wsBase}/ws/agent/${sid}`;
@@ -162,6 +166,7 @@ export function useAgentSession({
 
   return {
     sessionId,
+    sessionCwd,
     isConnecting,
     isConnected,
     error,

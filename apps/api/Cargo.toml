@@ -13,7 +13,7 @@ infra = { path = "../../crates/infra" }
 core-engine = { path = "../../crates/core-engine" }
 core-service = { path = "../../crates/core-service" }
 
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
 tokio = { version = "1.0", features = ["full"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace"] }
