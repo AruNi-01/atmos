@@ -42,8 +42,13 @@ import {
   ToolOutput,
   type ToolState,
   usePromptInputAttachments,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from "@workspace/ui";
-import { Bot, ChevronDown, ChevronUp, Loader2, MessageSquare, Plus, Square, X } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, Folder, Loader2, MessageSquare, Plus, Square, X } from "lucide-react";
+import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { AgentIcon } from "./AgentIcon";
 import { useAgentSession, type AgentServerMessage } from "@/hooks/use-agent-session";
@@ -54,14 +59,14 @@ type ChatMessage =
   | { role: "user"; content: string; files?: (import("ai").FileUIPart & { id: string })[] }
   | { role: "assistant"; content: string; isStreaming?: boolean }
   | {
-      role: "tool";
-      tool_call_id: string;
-      tool: string;
-      description: string;
-      status: string;
-      raw_input?: unknown;
-      raw_output?: unknown;
-    };
+    role: "tool";
+    tool_call_id: string;
+    tool: string;
+    description: string;
+    status: string;
+    raw_input?: unknown;
+    raw_output?: unknown;
+  };
 
 interface PendingPermission {
   request_id: string;
@@ -123,8 +128,8 @@ function ToolOrSkillMessage({
   // For tools: prefer description; avoid generic/status text
   const toolDisplayName =
     description &&
-    description !== tool &&
-    !/^(Processing|Executing|Running|Tool)\b/i.test(description)
+      description !== tool &&
+      !/^(Processing|Executing|Running|Tool)\b/i.test(description)
       ? description
       : tool || "Tool";
 
@@ -184,7 +189,7 @@ function PromptInputAttachmentsSection() {
 
 export function AgentChatPanel() {
   const router = useRouter();
-  const { workspaceId } = useContextParams();
+  const { workspaceId, projectId, effectiveContextId } = useContextParams();
   const { isAgentChatOpen, setAgentChatOpen } = useDialogStore();
   const [agentSelectOpen, setAgentSelectOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -198,6 +203,23 @@ export function AgentChatPanel() {
   const lastStreamRef = useRef<string>("");
   const lastDeltaRef = useRef<string>("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
+  const { projects, fetchProjects } = useProjectStore();
+
+  useEffect(() => {
+    if (isAgentChatOpen && projects.length === 0) {
+      fetchProjects();
+    }
+  }, [isAgentChatOpen, projects.length, fetchProjects]);
+
+  const localPath = React.useMemo(() => {
+    if (!effectiveContextId) return null;
+    for (const p of projects) {
+      const found = p.workspaces.find((w) => w.id === effectiveContextId);
+      if (found) return found.localPath;
+      if (p.id === effectiveContextId) return p.mainFilePath;
+    }
+    return null;
+  }, [projects, effectiveContextId]);
 
   const handleMessage = useCallback((msg: AgentServerMessage) => {
     switch (msg.type) {
@@ -283,13 +305,13 @@ export function AgentChatPanel() {
             return next.map((m, i) =>
               i === idx && m.role === "tool"
                 ? {
-                    ...m,
-                    tool: msg.tool || m.tool,
-                    description: msg.description || m.description,
-                    status: msg.status,
-                    raw_input: msg.raw_input ?? m.raw_input,
-                    raw_output: msg.raw_output ?? m.raw_output,
-                  }
+                  ...m,
+                  tool: msg.tool || m.tool,
+                  description: msg.description || m.description,
+                  status: msg.status,
+                  raw_input: msg.raw_input ?? m.raw_input,
+                  raw_output: msg.raw_output ?? m.raw_output,
+                }
                 : m
             );
           }
@@ -486,9 +508,32 @@ export function AgentChatPanel() {
       style={{ height: "min(560px, 70dvh)" }}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Bot className="size-4 text-foreground" />
-          <span className="text-sm font-medium">Agent Chat</span>
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="flex items-center gap-2 shrink-0">
+            <Bot className="size-4 text-foreground" />
+            <span className="text-sm font-medium">Agent Chat</span>
+          </div>
+
+          {localPath && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="ml-3 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/40 border border-border/50 max-w-[180px] min-w-0 overflow-hidden cursor-help">
+                    <Folder className="size-3 text-muted-foreground/70 shrink-0" />
+                    <span
+                      className="text-[10px] text-muted-foreground/80 truncate select-none leading-none"
+                      style={{ direction: "rtl", textAlign: "left" }}
+                    >
+                      {localPath}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs break-all">
+                  <p className="text-[11px]">{localPath}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
         <button
           type="button"
@@ -502,118 +547,118 @@ export function AgentChatPanel() {
 
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
         <Conversation className="min-h-0 h-full overflow-hidden">
-          <ConversationContent className="gap-3 !p-4">
-          {!isConnected && !isConnecting && (
-            <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
-              <p className="mb-2 text-pretty">
-                {workspaceId
-                  ? "File access enabled for this workspace."
-                  : "General AI assistant (no file access). Open a workspace to grant file access."}
-              </p>
-              <p className="text-xs text-muted-foreground/80">
-                Select an Agent in the dropdown to connect. Claude Code uses ~/.claude/settings.json or ANTHROPIC_API_KEY.
-              </p>
-            </div>
-          )}
-          {isConnecting && (
-            <div className="flex items-center justify-center py-6">
-              <Shimmer duration={1.5}>Connecting...</Shimmer>
-            </div>
-          )}
-          {error && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-          {isConnected && messages.length === 0 && !isConnecting && !error && (
-            <ConversationEmptyState
-              icon={<MessageSquare className="size-12" />}
-              title="Start a conversation"
-              description="Type a message below to begin chatting"
-            />
-          )}
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              data-message-index={i}
-              className={m.role === "tool" ? "w-full min-w-0" : undefined}
-            >
-              <Message from={m.role === "tool" ? "assistant" : m.role}>
-                <MessageContent>
-                  {m.role === "user" && (
-                    <>
-                      {m.files && m.files.length > 0 && (
-                        <Attachments variant="inline" className="mb-2">
-                          {m.files.map((f) => (
-                            <Attachment key={f.id} data={f}>
-                              <AttachmentPreview />
-                              <AttachmentRemove />
-                            </Attachment>
-                          ))}
-                        </Attachments>
-                      )}
-                      {m.content}
-                    </>
-                  )}
-                  {m.role === "assistant" && (
-                    <MessageResponse
-                      parseIncompleteMarkdown
-                      animated={m.isStreaming}
-                      caret={m.isStreaming ? "block" : undefined}
-                    >
-                      {m.content}
-                    </MessageResponse>
-                  )}
-                  {m.role === "tool" && (
-                    <ToolOrSkillMessage
-                      tool={m.tool}
-                      description={m.description}
-                      status={m.status}
-                      raw_input={m.raw_input}
-                      raw_output={m.raw_output}
-                    />
-                  )}
-                </MessageContent>
-              </Message>
-            </div>
-          ))}
-          {waitingForResponse && (
-            <div className="flex items-center gap-2 py-2">
-              <Shimmer duration={1.5}>Generating response...</Shimmer>
-            </div>
-          )}
-          <div ref={bottomRef} />
+          <ConversationContent className="gap-3 p-4!">
+            {!isConnected && !isConnecting && (
+              <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
+                <p className="mb-2 text-pretty">
+                  {workspaceId
+                    ? "File access enabled for this workspace."
+                    : "General AI assistant (no file access). Open a workspace to grant file access."}
+                </p>
+                <p className="text-xs text-muted-foreground/80">
+                  Select an Agent in the dropdown to connect. Claude Code uses ~/.claude/settings.json or ANTHROPIC_API_KEY.
+                </p>
+              </div>
+            )}
+            {isConnecting && (
+              <div className="flex items-center justify-center py-6">
+                <Shimmer duration={1.5}>Connecting...</Shimmer>
+              </div>
+            )}
+            {error && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            {isConnected && messages.length === 0 && !isConnecting && !error && (
+              <ConversationEmptyState
+                icon={<MessageSquare className="size-12" />}
+                title="Start a conversation"
+                description="Type a message below to begin chatting"
+              />
+            )}
+            {messages.map((m, i) => (
+              <div
+                key={i}
+                data-message-index={i}
+                className={m.role === "tool" ? "w-full min-w-0" : undefined}
+              >
+                <Message from={m.role === "tool" ? "assistant" : m.role}>
+                  <MessageContent>
+                    {m.role === "user" && (
+                      <>
+                        {m.files && m.files.length > 0 && (
+                          <Attachments variant="inline" className="mb-2">
+                            {m.files.map((f) => (
+                              <Attachment key={f.id} data={f}>
+                                <AttachmentPreview />
+                                <AttachmentRemove />
+                              </Attachment>
+                            ))}
+                          </Attachments>
+                        )}
+                        {m.content}
+                      </>
+                    )}
+                    {m.role === "assistant" && (
+                      <MessageResponse
+                        parseIncompleteMarkdown
+                        animated={m.isStreaming}
+                        caret={m.isStreaming ? "block" : undefined}
+                      >
+                        {m.content}
+                      </MessageResponse>
+                    )}
+                    {m.role === "tool" && (
+                      <ToolOrSkillMessage
+                        tool={m.tool}
+                        description={m.description}
+                        status={m.status}
+                        raw_input={m.raw_input}
+                        raw_output={m.raw_output}
+                      />
+                    )}
+                  </MessageContent>
+                </Message>
+              </div>
+            ))}
+            {waitingForResponse && (
+              <div className="flex items-center gap-2 py-2">
+                <Shimmer duration={1.5}>Generating response...</Shimmer>
+              </div>
+            )}
+            <div ref={bottomRef} />
           </ConversationContent>
           <ConversationScrollButton className="absolute bottom-4 right-4" />
-        {userMessageIndices.length >= 2 && (
-          <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-0.5 rounded-sm border border-border/50 bg-background/80 py-1 shadow-sm backdrop-blur-sm dark:bg-background/60">
-            <button
-              type="button"
-              onClick={handlePrevMessage}
-              disabled={
-                userMessageIndices.length > 0 &&
-                userMessageIndices.indexOf(messageNavIndex) === 0
-              }
-              className="flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-              aria-label="Previous message"
-            >
-              <ChevronUp className="size-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNextMessage}
-              disabled={
-                userMessageIndices.length > 0 &&
-                userMessageIndices.indexOf(messageNavIndex) >=
+          {userMessageIndices.length >= 2 && (
+            <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-0.5 rounded-sm border border-border/50 bg-background/80 py-1 shadow-sm backdrop-blur-sm dark:bg-background/60">
+              <button
+                type="button"
+                onClick={handlePrevMessage}
+                disabled={
+                  userMessageIndices.length > 0 &&
+                  userMessageIndices.indexOf(messageNavIndex) === 0
+                }
+                className="flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                aria-label="Previous message"
+              >
+                <ChevronUp className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextMessage}
+                disabled={
+                  userMessageIndices.length > 0 &&
+                  userMessageIndices.indexOf(messageNavIndex) >=
                   userMessageIndices.length - 1
-              }
-              className="flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-              aria-label="Next message"
-            >
-              <ChevronDown className="size-4" />
-            </button>
-          </div>
-        )}
+                }
+                className="flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                aria-label="Next message"
+              >
+                <ChevronDown className="size-4" />
+              </button>
+            </div>
+          )}
         </Conversation>
       </div>
 
@@ -709,9 +754,9 @@ export function AgentChatPanel() {
               onStop={
                 waitingForResponse
                   ? () => {
-                      disconnect();
-                      setWaitingForResponse(false);
-                    }
+                    disconnect();
+                    setWaitingForResponse(false);
+                  }
                   : undefined
               }
               disabled={!isConnected}
