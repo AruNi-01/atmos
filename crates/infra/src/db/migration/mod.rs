@@ -6,7 +6,7 @@ mod m20260120_000003_add_workspace_pin_archive;
 mod m20260121_000004_add_project_target_branch;
 mod m20260126_000005_add_workspace_terminal_layout;
 mod m20260129_000006_add_maximized_terminal_id;
-mod m20260216_000008_create_agent_chat_session_table;
+mod m20260215_000007_create_agent_chat_tables;
 
 pub struct Migrator;
 
@@ -20,7 +20,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260121_000004_add_project_target_branch::Migration),
             Box::new(m20260126_000005_add_workspace_terminal_layout::Migration),
             Box::new(m20260129_000006_add_maximized_terminal_id::Migration),
-            Box::new(m20260216_000008_create_agent_chat_session_table::Migration),
+            Box::new(m20260215_000007_create_agent_chat_tables::Migration),
         ]
     }
 }

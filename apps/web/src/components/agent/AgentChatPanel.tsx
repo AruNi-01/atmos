@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import "streamdown/styles.css";
 import { useContextParams } from "@/hooks/use-context-params";
 import {
@@ -28,11 +27,6 @@ import {
   PromptInputBody,
   PromptInputFooter,
   PromptInputHeader,
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -50,8 +44,15 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Button,
 } from "@workspace/ui";
-import { Bot, ChevronDown, ChevronUp, Folder, History, Loader2, MessageSquare, Plus, Square, X } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, Folder, History, Loader2, MessageSquare, Plus, Square, SquareCheck, X } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { AgentIcon } from "./AgentIcon";
@@ -81,6 +82,7 @@ interface PendingPermission {
 }
 
 const LAST_SESSION_STORAGE_KEY = "atmos.agent.last_session_by_context";
+const DEFAULT_AGENT_STORAGE_KEY = "atmos.agent.default_registry_id";
 
 function getSessionContextKey(workspaceId: string | null, projectId: string | null): string {
   if (workspaceId) return `workspace:${workspaceId}`;
@@ -119,6 +121,24 @@ function clearLastSessionIdForContext(contextKey: string): void {
   if (!(contextKey in map)) return;
   delete map[contextKey];
   localStorage.setItem(LAST_SESSION_STORAGE_KEY, JSON.stringify(map));
+}
+
+function readDefaultAgentRegistryId(): string | null {
+  try {
+    const raw = localStorage.getItem(DEFAULT_AGENT_STORAGE_KEY);
+    return raw && raw.trim() ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDefaultAgentRegistryId(registryId: string): void {
+  try {
+    if (!registryId) return;
+    localStorage.setItem(DEFAULT_AGENT_STORAGE_KEY, registryId);
+  } catch {
+    // Ignore storage failure
+  }
 }
 
 function toolStatusToState(status: string): ToolState {
@@ -187,7 +207,7 @@ function ToolOrSkillMessage({
     raw_output !== undefined && raw_output !== null
       ? typeof raw_output === "string"
         ? raw_output
-        : raw_output
+        : JSON.stringify(raw_output, null, 2)
       : !isError
         ? description || "Processing..."
         : undefined;
@@ -198,7 +218,6 @@ function ToolOrSkillMessage({
     <Wrapper defaultOpen={false} className="w-full">
       <ToolHeader
         variant={asSkill ? "skill" : "tool"}
-        type={asSkill ? `Skill: ${skillName}` : toolDisplayName}
         state={state}
         title={asSkill ? `Skill: ${skillName}` : toolDisplayName}
       />
@@ -234,13 +253,13 @@ function PromptInputAttachmentsSection() {
 }
 
 export function AgentChatPanel() {
-  const router = useRouter();
   const { workspaceId, projectId, effectiveContextId } = useContextParams();
   const { isAgentChatOpen, setAgentChatOpen } = useDialogStore();
-  const [agentSelectOpen, setAgentSelectOpen] = useState(false);
+  const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
   const [registryId, setRegistryId] = useState<string>("");
+  const [defaultRegistryId, setDefaultRegistryId] = useState<string>("");
   const [loadingAgents, setLoadingAgents] = useState(false);
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -257,8 +276,11 @@ export function AgentChatPanel() {
   const [isResumingHistory, setIsResumingHistory] = useState(false);
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [headerHovered, setHeaderHovered] = useState(false);
+  const [selectedAuthMethodId, setSelectedAuthMethodId] = useState<string>("");
   const { projects, fetchProjects } = useProjectStore();
   const restoreAttemptedRef = useRef(false);
+  const autoResumeTriedRef = useRef<string | null>(null);
+  const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isAgentChatOpen && projects.length === 0) {
@@ -432,11 +454,14 @@ export function AgentChatPanel() {
     sessionId,
     isConnecting,
     isConnected,
+    connectionPhase,
     error,
+    authRequest,
     sendPrompt,
     sendPermissionResponse,
     startSession,
     resumeSession,
+    clearAuthRequest,
     disconnect,
     sessionCwd,
     sessionTitle: activeSessionTitle,
@@ -504,6 +529,7 @@ export function AgentChatPanel() {
       setRegistryId(s.registry_id);
       setSessionTitle(s.title || null);
       setIsResumingHistory(true);
+      autoResumeTriedRef.current = null;
       try {
         const resumed = await resumeSession(s.guid);
         if (!resumed) {
@@ -522,28 +548,41 @@ export function AgentChatPanel() {
     [disconnect, isConnected, isConnecting, resumeSession, sessionId, startSession]
   );
 
-  const handleCreateNewSession = useCallback(async () => {
+  const handleCreateNewSession = useCallback(async (targetRegistryId?: string) => {
     if (isConnecting) return;
+    const nextRegistryId = targetRegistryId || defaultRegistryId || registryId;
+    if (!nextRegistryId) return;
     skipNextAutoConnectRef.current = true;
     disconnect();
     setMessages([]);
     setPendingPermission(null);
     setSessionTitle(null);
+    setRegistryId(nextRegistryId);
     restoreAttemptedRef.current = true;
+    autoResumeTriedRef.current = null;
     clearLastSessionIdForContext(contextKey);
     try {
-      await startSession();
+      await startSession({ registryId: nextRegistryId });
     } finally {
       // Avoid stale skip flag causing blank panel on next open
       skipNextAutoConnectRef.current = false;
     }
-  }, [contextKey, disconnect, isConnecting, startSession]);
+  }, [contextKey, defaultRegistryId, disconnect, isConnecting, registryId, startSession]);
+
+  useEffect(() => {
+    if (authRequest?.methods?.length) {
+      setSelectedAuthMethodId(authRequest.methods[0].id);
+    } else {
+      setSelectedAuthMethodId("");
+    }
+  }, [authRequest]);
 
   useEffect(() => {
     if (!isAgentChatOpen) {
       restoreAttemptedRef.current = false;
       skipNextAutoConnectRef.current = false;
       setIsResumingHistory(false);
+      autoResumeTriedRef.current = null;
       return;
     }
     if (isConnected || isConnecting) return;
@@ -556,27 +595,27 @@ export function AgentChatPanel() {
         const installed = agents.filter((a) => a.installed);
         setInstalledAgents(installed);
         if (installed.length > 0) {
+          const storedDefault = readDefaultAgentRegistryId();
+          const hasStoredDefault = !!storedDefault && installed.some((a) => a.id === storedDefault);
+          const resolvedDefault = hasStoredDefault ? (storedDefault as string) : installed[0].id;
+          setDefaultRegistryId(resolvedDefault);
+          if (resolvedDefault !== storedDefault) {
+            writeDefaultAgentRegistryId(resolvedDefault);
+          }
           const currentIsInstalled = installed.some((a) => a.id === registryId);
-          if (!currentIsInstalled) setRegistryId(installed[0].id);
+          if (!currentIsInstalled) setRegistryId(resolvedDefault);
         } else {
+          setDefaultRegistryId("");
           setRegistryId("");
         }
       })
       .catch(() => {
         setInstalledAgents([]);
+        setDefaultRegistryId("");
         setRegistryId("");
       })
       .finally(() => setLoadingAgents(false));
   }, [isAgentChatOpen, isConnected, isConnecting, installedAgents.length, registryId]);
-
-  // Disconnect when user switches agent while connected
-  const prevRegistryIdRef = useRef(registryId);
-  useEffect(() => {
-    if (prevRegistryIdRef.current !== registryId && isConnected) {
-      disconnect();
-    }
-    prevRegistryIdRef.current = registryId;
-  }, [registryId, isConnected, disconnect]);
 
   // Auto-connect when registryId is set, panel is open, and we have installed agents
   useEffect(() => {
@@ -591,6 +630,14 @@ export function AgentChatPanel() {
         skipNextAutoConnectRef.current = false;
         return;
       }
+      // If we still have an in-memory session id (e.g. API hot-reload dropped WS),
+      // always try to resume it first, and never auto-create a new session here.
+      if (sessionId) {
+        if (autoResumeTriedRef.current === sessionId) return;
+        autoResumeTriedRef.current = sessionId;
+        void resumeSession(sessionId);
+        return;
+      }
       if (!restoreAttemptedRef.current) {
         restoreAttemptedRef.current = true;
         const lastSessionId = getLastSessionIdForContext(contextKey);
@@ -599,12 +646,14 @@ export function AgentChatPanel() {
             const resumed = await resumeSession(lastSessionId);
             if (!resumed) {
               clearLastSessionIdForContext(contextKey);
-              await startSession();
+              // Do not auto-create a new session when resume fails.
+              // This avoids duplicate "New chat" sessions during service restart/hot-reload.
             }
           })();
           return;
         }
       }
+      autoResumeTriedRef.current = null;
       startSession();
     }
   }, [
@@ -614,6 +663,7 @@ export function AgentChatPanel() {
     installedAgents.length,
     isConnected,
     isConnecting,
+    sessionId,
     resumeSession,
     startSession,
   ]);
@@ -744,7 +794,78 @@ export function AgentChatPanel() {
     [pendingPermission, sendPermissionResponse]
   );
 
+  const clearCloseAgentsMenuTimer = useCallback(() => {
+    if (closeAgentsMenuTimerRef.current) {
+      clearTimeout(closeAgentsMenuTimerRef.current);
+      closeAgentsMenuTimerRef.current = null;
+    }
+  }, []);
+
+  const handleOpenNewSessionAgentsMenu = useCallback(() => {
+    clearCloseAgentsMenuTimer();
+    setNewSessionAgentsOpen(true);
+  }, [clearCloseAgentsMenuTimer]);
+
+  const handleScheduleCloseNewSessionAgentsMenu = useCallback(() => {
+    clearCloseAgentsMenuTimer();
+    closeAgentsMenuTimerRef.current = setTimeout(() => {
+      setNewSessionAgentsOpen(false);
+    }, 120);
+  }, [clearCloseAgentsMenuTimer]);
+
+  const handleSetDefaultAgent = useCallback((agentId: string) => {
+    setDefaultRegistryId(agentId);
+    writeDefaultAgentRegistryId(agentId);
+  }, []);
+
+  useEffect(() => {
+    return () => clearCloseAgentsMenuTimer();
+  }, [clearCloseAgentsMenuTimer]);
+
   if (!isAgentChatOpen) return null;
+
+  const connectionPhaseLabel = (() => {
+    switch (connectionPhase) {
+      case "initializing":
+        return "Initializing ACP connection...";
+      case "authenticating":
+        return "Authenticating with agent...";
+      case "resuming_session":
+        return "Restoring ACP session...";
+      case "creating_session":
+        return "Creating ACP session...";
+      case "connecting_ws":
+        return "Connecting to chat stream...";
+      case "connected":
+        return "Connected";
+      default:
+        return "Ready to connect";
+    }
+  })();
+
+  const currentPhase = (() => {
+    if (authRequest) {
+      return {
+        label: "Authenticate",
+        detail: "Authentication required. Please choose an auth method to continue.",
+      };
+    }
+    switch (connectionPhase) {
+      case "initializing":
+        return { label: "Initialize", detail: "Negotiating ACP protocol and capabilities." };
+      case "authenticating":
+        return { label: "Authenticate", detail: "Authenticating with the selected agent." };
+      case "resuming_session":
+        return { label: "Session load", detail: "Restoring the previous session context." };
+      case "creating_session":
+        return { label: "Session new", detail: "Creating a new ACP chat session." };
+      case "connecting_ws":
+        return { label: "Connect stream", detail: "Opening WebSocket for updates and prompts." };
+      default:
+        return { label: "Idle", detail: "Waiting to start ACP connection." };
+    }
+  })();
+  const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
 
   return (
     <div
@@ -759,19 +880,96 @@ export function AgentChatPanel() {
         <div className="flex items-center justify-between">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <div className="flex items-center gap-2 shrink-0">
-              {headerHovered ? (
-                <button
-                  type="button"
-                  onClick={handleCreateNewSession}
-                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  aria-label="New chat session"
-                  title="New session"
+              <div className="relative size-5">
+                <div
+                  className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out ${
+                    headerHovered
+                      ? "translate-y-[-2px] scale-90 opacity-0"
+                      : "translate-y-0 scale-100 opacity-100"
+                  }`}
                 >
-                  <Plus className="size-4 shrink-0" />
-                </button>
-              ) : (
-                <Bot className="size-4 shrink-0 text-foreground" />
-              )}
+                  <Bot className="size-4 shrink-0 text-foreground" />
+                </div>
+                <Popover open={newSessionAgentsOpen} onOpenChange={setNewSessionAgentsOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateNewSession()}
+                      onMouseEnter={handleOpenNewSessionAgentsMenu}
+                      onMouseLeave={handleScheduleCloseNewSessionAgentsMenu}
+                      className={`absolute inset-0 flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-all duration-200 ease-out hover:bg-muted hover:text-foreground ${
+                        headerHovered
+                          ? "translate-y-0 scale-100 opacity-100"
+                          : "translate-y-[2px] scale-90 opacity-0 pointer-events-none"
+                      }`}
+                      aria-label="New chat session"
+                      title="New session (default agent)"
+                    >
+                      <Plus className="size-4 shrink-0" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-72 p-1"
+                    align="start"
+                    onMouseEnter={handleOpenNewSessionAgentsMenu}
+                    onMouseLeave={handleScheduleCloseNewSessionAgentsMenu}
+                  >
+                    <div className="px-2 py-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">Create session with agent</p>
+                    </div>
+                    <div className="max-h-56 overflow-auto">
+                      {installedAgents.length === 0 && (
+                        <div className="px-2 py-3 text-xs text-muted-foreground">No installed agent</div>
+                      )}
+                      {installedAgents.map((agent) => {
+                        const isDefault = agent.id === defaultRegistryId;
+                        return (
+                          <div
+                            key={agent.id}
+                            className="flex items-center justify-between gap-1 rounded-sm px-1 py-0.5 hover:bg-muted"
+                          >
+                            <button
+                              type="button"
+                              className="flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm"
+                              onClick={() => {
+                                setNewSessionAgentsOpen(false);
+                                void handleCreateNewSession(agent.id);
+                              }}
+                            >
+                              <AgentIcon registryId={agent.id} name={agent.name} size={14} />
+                              <span className="truncate">{agent.name}</span>
+                            </button>
+                            {isDefault ? (
+                              <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                Default
+                              </span>
+                            ) : (
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleSetDefaultAgent(agent.id);
+                                      }}
+                                      aria-label={`Set ${agent.name} as default agent`}
+                                    >
+                                      <SquareCheck className="size-3.5" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">Set as default agent</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <span className="text-sm font-medium shrink-0">Agent Chat</span>
             </div>
 
@@ -883,22 +1081,22 @@ export function AgentChatPanel() {
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
         <Conversation className="min-h-0 h-full overflow-hidden">
           <ConversationContent className="gap-3 p-4!">
-            {!isConnected && !isConnecting && (
-              <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
-                <p className="mb-2 text-pretty">
-                  {workspaceId
-                    ? "File access enabled for this workspace."
-                    : "General AI assistant (no file access). Open a workspace to grant file access."}
+            {!isConnected && (
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Current ACP stage
                 </p>
-                <p className="text-xs text-muted-foreground/80">
-                  Select an Agent in the dropdown to connect. Claude Code uses ~/.claude/settings.json or ANTHROPIC_API_KEY.
+                <p className="text-sm font-medium text-foreground">{currentPhase.label}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{currentPhase.detail}</p>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {isConnecting || isResumingHistory ? connectionPhaseLabel : "Waiting to start..."}
                 </p>
               </div>
             )}
             {(isConnecting || isResumingHistory) && (
               <div className="flex items-center justify-center py-6">
                 <Shimmer duration={1.5}>
-                  {isResumingHistory ? "Restoring session..." : "Connecting..."}
+                  {isResumingHistory ? "Restoring session..." : connectionPhaseLabel}
                 </Shimmer>
               </div>
             )}
@@ -1051,39 +1249,16 @@ export function AgentChatPanel() {
               ) : installedAgents.length === 0 ? (
                 <span className="px-2 text-xs text-muted-foreground">No agent</span>
               ) : (
-                <PromptInputSelect
-                  value={registryId}
-                  onValueChange={setRegistryId}
-                  open={agentSelectOpen}
-                  onOpenChange={setAgentSelectOpen}
-                >
-                  <PromptInputSelectTrigger className="h-8 min-w-[100px] gap-1.5">
-                    <PromptInputSelectValue placeholder="Agent" />
-                  </PromptInputSelectTrigger>
-                  <PromptInputSelectContent className="p-0">
-                    {installedAgents.map((agent) => (
-                      <PromptInputSelectItem key={agent.id} value={agent.id}>
-                        <span className="flex items-center gap-2">
-                          <AgentIcon registryId={agent.id} name={agent.name} size={14} />
-                          {agent.name}
-                        </span>
-                      </PromptInputSelectItem>
-                    ))}
-                    <div className="sticky bottom-0 border-t border-border bg-popover p-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAgentSelectOpen(false);
-                          router.push("/agents");
-                        }}
-                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      >
-                        <Plus className="size-4" />
-                        Add More Agent
-                      </button>
-                    </div>
-                  </PromptInputSelectContent>
-                </PromptInputSelect>
+                <div className="flex h-8 items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 text-xs text-muted-foreground">
+                  {activeAgent ? (
+                    <>
+                      <AgentIcon registryId={activeAgent.id} name={activeAgent.name} size={14} />
+                      <span className="max-w-[120px] truncate">{activeAgent.name}</span>
+                    </>
+                  ) : (
+                    <span className="max-w-[120px] truncate">Agent</span>
+                  )}
+                </div>
               )}
             </PromptInputTools>
             <PromptInputSubmit
@@ -1108,6 +1283,47 @@ export function AgentChatPanel() {
           </PromptInputFooter>
         </PromptInput>
       </div>
+      <Dialog open={!!authRequest} onOpenChange={(open) => !open && clearAuthRequest()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agent authentication required</DialogTitle>
+            <DialogDescription>
+              {authRequest?.message || "This agent requires authentication before creating a session."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {authRequest?.methods.map((method) => {
+              const checked = selectedAuthMethodId === method.id;
+              return (
+                <button
+                  key={method.id}
+                  type="button"
+                  onClick={() => setSelectedAuthMethodId(method.id)}
+                  className={`w-full rounded-md border p-3 text-left transition-colors ${checked ? "border-primary bg-primary/5" : "border-border hover:bg-muted"}`}
+                >
+                  <p className="text-sm font-medium">{method.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{method.description || method.id}</p>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => clearAuthRequest()}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedAuthMethodId) return;
+                clearAuthRequest();
+                void startSession({ authMethodId: selectedAuthMethodId });
+              }}
+              disabled={!selectedAuthMethodId || isConnecting}
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
