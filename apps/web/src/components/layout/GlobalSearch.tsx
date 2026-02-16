@@ -20,7 +20,6 @@ import {
   cn,
   Layers,
   File,
-  FileText,
   Code,
   Sun,
   Moon,
@@ -34,20 +33,8 @@ import {
   getFileIconProps,
   Maximize,
   Minimize,
-  FolderOpen,
   Terminal,
-  Code2,
-  Copy,
-  MousePointer2,
-  Hammer,
-  Cpu,
-  Ghost,
   Blocks,
-  FileCode,
-  Database,
-  AppWindow,
-  Braces,
-  Orbit,
   toastManager,
 } from '@workspace/ui';
 import { useDialogStore } from '@/hooks/use-dialog-store';
@@ -57,24 +44,37 @@ import { fsApi, appApi, SearchMatch, FileTreeNode } from '@/api/ws-api';
 
 
 
+const AppIcon = ({ name, className, themed }: { name: string; className?: string; themed?: boolean }) => {
+  const { resolvedTheme } = useTheme();
+  const themeSuffix = themed ? `_${resolvedTheme === 'dark' ? 'dark' : 'light'}` : '';
+  const iconPath = useMemo(() => `/quick_open_app/${name}${themeSuffix}.svg`, [name, themeSuffix]);
+  return <img src={iconPath} alt="" className={className} />;
+};
+
+
 // App Map for Icons and labels
 const APP_MAP: Record<string, { icon: React.ReactNode; label: string }> = {
-  'Finder': { icon: <FolderOpen className="size-4 text-blue-500" />, label: 'Finder' },
-  'Terminal': { icon: <Terminal className="size-4" />, label: 'Terminal' },
-  'Cursor': { icon: <MousePointer2 className="size-4 text-foreground/80" />, label: 'Cursor' },
-  'Zed': { icon: <Zap className="size-4 text-yellow-500" />, label: 'Zed' },
-  'Sublime Text': { icon: <FileText className="size-4 text-orange-500" />, label: 'Sublime Text' },
-  'Xcode': { icon: <Hammer className="size-4 text-blue-600" />, label: 'Xcode' },
-  'iTerm': { icon: <Terminal className="size-4 text-foreground/80" />, label: 'iTerm' },
-  'Warp': { icon: <Cpu className="size-4 text-cyan-500" />, label: 'Warp' },
-  'Ghostty': { icon: <Ghost className="size-4 text-purple-500" />, label: 'Ghostty' },
-  'VS Code': { icon: <Code2 className="size-4 text-blue-500" />, label: 'VS Code' },
-  'VS Code Insiders': { icon: <Code2 className="size-4 text-green-600" />, label: 'VS Code Insiders' },
-  'IntelliJ IDEA': { icon: <Braces className="size-4 text-pink-500" />, label: 'IntelliJ IDEA' },
-  'WebStorm': { icon: <AppWindow className="size-4 text-blue-400" />, label: 'WebStorm' },
-  'PyCharm': { icon: <FileCode className="size-4 text-yellow-400" />, label: 'PyCharm' },
-  'DataGrip': { icon: <Database className="size-4 text-purple-400" />, label: 'DataGrip' },
-  'Antigravity': { icon: <Orbit className="size-4 text-blue-400" />, label: 'Antigravity' },
+  'Finder': { icon: <AppIcon name="finder" className="size-4" />, label: 'Finder' },
+  'Terminal': { icon: <AppIcon name="terminal" className="size-4" />, label: 'Terminal' },
+  'Cursor': { icon: <AppIcon name="Cursor" className="size-4" themed />, label: 'Cursor' },
+
+  'Zed': { icon: <AppIcon name="zed" className="size-4" themed />, label: 'Zed' },
+
+  'Sublime Text': { icon: <AppIcon name="sublime-text" className="size-4" />, label: 'Sublime Text' },
+  'Xcode': { icon: <AppIcon name="xcode" className="size-4" />, label: 'Xcode' },
+  'iTerm': { icon: <AppIcon name="iterm2" className="size-4" themed />, label: 'iTerm' },
+  'Warp': { icon: <AppIcon name="warp" className="size-4" />, label: 'Warp' },
+  'Ghostty': { icon: <AppIcon name="ghostty" className="size-4" />, label: 'Ghostty' },
+  'VS Code': { icon: <AppIcon name="vscode" className="size-4" />, label: 'VS Code' },
+  'VS Code Insiders': { icon: <AppIcon name="vscode-insiders" className="size-4" />, label: 'VS Code Insiders' },
+  'IntelliJ IDEA': { icon: <AppIcon name="intellij-idea" className="size-4" />, label: 'IntelliJ IDEA' },
+  'WebStorm': { icon: <AppIcon name="webstorm" className="size-4" />, label: 'WebStorm' },
+  'PyCharm': { icon: <AppIcon name="pycharm" className="size-4" />, label: 'PyCharm' },
+  'GoLand': { icon: <AppIcon name="goland" className="size-4" />, label: 'GoLand' },
+  'CLion': { icon: <AppIcon name="clion" className="size-4" />, label: 'CLion' },
+  'Rider': { icon: <AppIcon name="rider" className="size-4" />, label: 'Rider' },
+  'RustRover': { icon: <AppIcon name="rustrover" className="size-4" />, label: 'RustRover' },
+  'Antigravity': { icon: <AppIcon name="antigravity" className="size-4" />, label: 'Antigravity' },
 };
 
 type SearchTab = 'app' | 'files' | 'code';

@@ -197,10 +197,31 @@ impl AppEngine {
                     .arg(path)
                     .status()
             }
-            "DataGrip" => {
+            "GoLand" => {
                 Command::new("open")
                     .arg("-a")
-                    .arg("DataGrip")
+                    .arg("GoLand")
+                    .arg(path)
+                    .status()
+            }
+            "CLion" => {
+                Command::new("open")
+                    .arg("-a")
+                    .arg("CLion")
+                    .arg(path)
+                    .status()
+            }
+            "Rider" => {
+                Command::new("open")
+                    .arg("-a")
+                    .arg("Rider")
+                    .arg(path)
+                    .status()
+            }
+            "RustRover" => {
+                Command::new("open")
+                    .arg("-a")
+                    .arg("RustRover")
                     .arg(path)
                     .status()
             }
@@ -443,8 +464,23 @@ impl AppEngine {
                     .arg(path)
                     .status()
             }
-            "DataGrip" => {
-                Command::new("datagrip")
+            "GoLand" => {
+                Command::new("goland")
+                    .arg(path)
+                    .status()
+            }
+            "CLion" => {
+                Command::new("clion")
+                    .arg(path)
+                    .status()
+            }
+            "Rider" => {
+                Command::new("rider")
+                    .arg(path)
+                    .status()
+            }
+            "RustRover" => {
+                Command::new("rustrover")
                     .arg(path)
                     .status()
             }

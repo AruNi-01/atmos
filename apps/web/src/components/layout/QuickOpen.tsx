@@ -8,27 +8,15 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
-  FolderOpen,
-  Terminal,
-  Code2,
   Copy,
   ChevronDown,
-  MousePointer2,
-  Zap,
-  FileText,
-  Hammer,
-  Cpu,
-  Ghost,
   Blocks,
-  FileCode,
-  Database,
-  AppWindow,
-  Braces,
-  Orbit,
   toastManager
 } from '@workspace/ui';
-import { cn } from '@workspace/ui';
-import { useEffect, useState } from 'react';
+
+import { useEffect, useState, useMemo } from 'react';
+import { useTheme } from 'next-themes';
+
 import { fsApi, appApi } from '@/api/ws-api';
 import { Workspace } from '@/types/types';
 
@@ -39,24 +27,37 @@ interface QuickOpenProps {
 
 const STORAGE_KEY = 'atmos_quick_open_last_used';
 
+const AppIcon = ({ name, className, themed }: { name: string; className?: string; themed?: boolean }) => {
+  const { resolvedTheme } = useTheme();
+  const themeSuffix = themed ? `_${resolvedTheme === 'dark' ? 'dark' : 'light'}` : '';
+  const iconPath = useMemo(() => `/quick_open_app/${name}${themeSuffix}.svg`, [name, themeSuffix]);
+  return <img src={iconPath} alt="" className={className} />;
+};
+
+
 // App Map for Icons and labels
 const APP_MAP: Record<string, { icon: React.ReactNode; label: string }> = {
-  'Finder': { icon: <FolderOpen className="size-3.5 text-blue-500" />, label: 'Finder' },
-  'Terminal': { icon: <Terminal className="size-3.5" />, label: 'Terminal' },
-  'Cursor': { icon: <MousePointer2 className="size-3.5 text-foreground/80" />, label: 'Cursor' },
-  'Zed': { icon: <Zap className="size-3.5 text-yellow-500" />, label: 'Zed' },
-  'Sublime Text': { icon: <FileText className="size-3.5 text-orange-500" />, label: 'Sublime Text' },
-  'Xcode': { icon: <Hammer className="size-3.5 text-blue-600" />, label: 'Xcode' },
-  'iTerm': { icon: <Terminal className="size-3.5 text-foreground/80" />, label: 'iTerm' },
-  'Warp': { icon: <Cpu className="size-3.5 text-cyan-500" />, label: 'Warp' },
-  'Ghostty': { icon: <Ghost className="size-3.5 text-purple-500" />, label: 'Ghostty' },
-  'VS Code': { icon: <Code2 className="size-3.5 text-blue-500" />, label: 'VS Code' },
-  'VS Code Insiders': { icon: <Code2 className="size-3.5 text-green-600" />, label: 'VS Code Insiders' },
-  'IntelliJ IDEA': { icon: <Braces className="size-3.5 text-pink-500" />, label: 'IntelliJ IDEA' },
-  'WebStorm': { icon: <AppWindow className="size-3.5 text-blue-400" />, label: 'WebStorm' },
-  'PyCharm': { icon: <FileCode className="size-3.5 text-yellow-400" />, label: 'PyCharm' },
-  'DataGrip': { icon: <Database className="size-3.5 text-purple-400" />, label: 'DataGrip' },
-  'Antigravity': { icon: <Orbit className="size-3.5 text-blue-400" />, label: 'Antigravity' },
+  'Finder': { icon: <AppIcon name="finder" className="size-3.5" />, label: 'Finder' },
+  'Terminal': { icon: <AppIcon name="terminal" className="size-3.5" />, label: 'Terminal' },
+  'Cursor': { icon: <AppIcon name="Cursor" className="size-3.5" themed />, label: 'Cursor' },
+  'Zed': { icon: <AppIcon name="zed" className="size-3.5" themed />, label: 'Zed' },
+
+  'Sublime Text': { icon: <AppIcon name="sublime-text" className="size-3.5" />, label: 'Sublime Text' },
+  'Xcode': { icon: <AppIcon name="xcode" className="size-3.5" />, label: 'Xcode' },
+  'iTerm': { icon: <AppIcon name="iterm2" className="size-3.5" themed />, label: 'iTerm' },
+
+  'Warp': { icon: <AppIcon name="warp" className="size-3.5" />, label: 'Warp' },
+  'Ghostty': { icon: <AppIcon name="ghostty" className="size-3.5" />, label: 'Ghostty' },
+  'VS Code': { icon: <AppIcon name="vscode" className="size-3.5" />, label: 'VS Code' },
+  'VS Code Insiders': { icon: <AppIcon name="vscode-insiders" className="size-3.5" />, label: 'VS Code Insiders' },
+  'IntelliJ IDEA': { icon: <AppIcon name="intellij-idea" className="size-3.5" />, label: 'IntelliJ IDEA' },
+  'WebStorm': { icon: <AppIcon name="webstorm" className="size-3.5" />, label: 'WebStorm' },
+  'PyCharm': { icon: <AppIcon name="pycharm" className="size-3.5" />, label: 'PyCharm' },
+  'GoLand': { icon: <AppIcon name="goland" className="size-3.5" />, label: 'GoLand' },
+  'CLion': { icon: <AppIcon name="clion" className="size-3.5" />, label: 'CLion' },
+  'Rider': { icon: <AppIcon name="rider" className="size-3.5" />, label: 'Rider' },
+  'RustRover': { icon: <AppIcon name="rustrover" className="size-3.5" />, label: 'RustRover' },
+  'Antigravity': { icon: <AppIcon name="antigravity" className="size-3.5" />, label: 'Antigravity' },
 };
 
 export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
@@ -168,50 +169,53 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Finder')}>
-            <FolderOpen className="mr-2 size-4 text-blue-500" />
+            <AppIcon name="finder" className="mr-2 size-4" />
             <span>Finder</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Terminal')}>
-            <Terminal className="mr-2 size-4" />
+            <AppIcon name="terminal" className="mr-2 size-4" />
             <span>Terminal</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Cursor')}>
-            <MousePointer2 className="mr-2 size-4 text-foreground/80" />
+            <AppIcon name="Cursor" className="mr-2 size-4" themed />
             <span>Cursor</span>
           </DropdownMenuItem>
+
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Antigravity')}>
-            <Orbit className="mr-2 size-4 text-blue-400" />
+            <AppIcon name="antigravity" className="mr-2 size-4" />
             <span>Antigravity</span>
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Zed')}>
-            <Zap className="mr-2 size-4 text-yellow-500" />
+            <AppIcon name="zed" className="mr-2 size-4" themed />
             <span>Zed</span>
           </DropdownMenuItem>
+
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Sublime Text')}>
-            <FileText className="mr-2 size-4 text-orange-500" />
+            <AppIcon name="sublime-text" className="mr-2 size-4" />
             <span>Sublime Text</span>
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Xcode')}>
-            <Hammer className="mr-2 size-4 text-blue-600" />
+            <AppIcon name="xcode" className="mr-2 size-4" />
             <span>Xcode</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />
 
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('iTerm')}>
-            <Terminal className="mr-2 size-4 text-foreground/80" />
+            <AppIcon name="iterm2" className="mr-2 size-4" themed />
             <span>iTerm</span>
           </DropdownMenuItem>
+
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Warp')}>
-            <Cpu className="mr-2 size-4 text-cyan-500" />
+            <AppIcon name="warp" className="mr-2 size-4" />
             <span>Warp</span>
           </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Ghostty')}>
-            <Ghost className="mr-2 size-4 text-purple-500" />
+            <AppIcon name="ghostty" className="mr-2 size-4" />
             <span>Ghostty</span>
           </DropdownMenuItem>
 
@@ -219,16 +223,16 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="cursor-pointer">
-              <Code2 className="mr-2 size-4 text-blue-500" />
+              <AppIcon name="vscode" className="mr-2 size-4" />
               <span>VS Code</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('VS Code')}>
-                <Code2 className="mr-2 size-4 text-blue-500" />
+                <AppIcon name="vscode" className="mr-2 size-4" />
                 <span>VS Code</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('VS Code Insiders')}>
-                <Code2 className="mr-2 size-4 text-green-600" />
+                <AppIcon name="vscode-insiders" className="mr-2 size-4" />
                 <span>VS Code Insiders</span>
               </DropdownMenuItem>
             </DropdownMenuSubContent>
@@ -236,25 +240,38 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="cursor-pointer">
-              <Blocks className="mr-2 size-4 text-red-500" />
+              <AppIcon name="jet_brains" className="mr-2 size-4" />
               <span>JetBrains</span>
             </DropdownMenuSubTrigger>
+
             <DropdownMenuSubContent>
               <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('IntelliJ IDEA')}>
-                <Braces className="mr-2 size-4 text-pink-500" />
+                <AppIcon name="intellij-idea" className="mr-2 size-4" />
                 <span>IntelliJ IDEA</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('WebStorm')}>
-                <AppWindow className="mr-2 size-4 text-blue-400" />
+                <AppIcon name="webstorm" className="mr-2 size-4" />
                 <span>WebStorm</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('PyCharm')}>
-                <FileCode className="mr-2 size-4 text-yellow-400" />
+                <AppIcon name="pycharm" className="mr-2 size-4" />
                 <span>PyCharm</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('DataGrip')}>
-                <Database className="mr-2 size-4 text-purple-400" />
-                <span>DataGrip</span>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('GoLand')}>
+                <AppIcon name="goland" className="mr-2 size-4" />
+                <span>GoLand</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('CLion')}>
+                <AppIcon name="clion" className="mr-2 size-4" />
+                <span>CLion</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('Rider')}>
+                <AppIcon name="rider" className="mr-2 size-4" />
+                <span>Rider</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => handleOpenApp('RustRover')}>
+                <AppIcon name="rustrover" className="mr-2 size-4" />
+                <span>RustRover</span>
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>
