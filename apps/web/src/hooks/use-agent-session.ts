@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { agentApi, getAgentWsBase } from "@/api/rest-api";
+import { agentApi, getAgentWsBase, type AgentAuthMethod, type AgentAuthRequiredPayload } from "@/api/rest-api";
+
+const AUTH_REQUIRED_ERROR_PREFIX = "ACP_AUTH_REQUIRED::";
+
+export type AgentConnectionPhase =
+  | "idle"
+  | "initializing"
+  | "authenticating"
+  | "resuming_session"
+  | "creating_session"
+  | "connecting_ws"
+  | "connected";
 
 export type AgentServerMessage =
   | {
@@ -46,6 +57,7 @@ export interface StartSessionOverride {
   workspaceId?: string | null;
   projectId?: string | null;
   registryId?: string;
+  authMethodId?: string | null;
 }
 
 export interface UseAgentSessionReturn {
@@ -54,7 +66,9 @@ export interface UseAgentSessionReturn {
   sessionTitle: string | null;
   isConnecting: boolean;
   isConnected: boolean;
+  connectionPhase: AgentConnectionPhase;
   error: string | null;
+  authRequest: AgentAuthRequiredPayload | null;
   sendPrompt: (message: string) => void;
   sendPermissionResponse: (
     requestId: string,
@@ -63,7 +77,38 @@ export interface UseAgentSessionReturn {
   ) => void;
   startSession: (override?: StartSessionOverride) => Promise<void>;
   resumeSession: (sessionId: string) => Promise<boolean>;
+  clearAuthRequest: () => void;
   disconnect: () => void;
+}
+
+function parseAuthRequiredError(err: unknown): AgentAuthRequiredPayload | null {
+  const raw = err instanceof Error ? err.message : String(err ?? "");
+  const idx = raw.indexOf(AUTH_REQUIRED_ERROR_PREFIX);
+  if (idx < 0) return null;
+  const jsonPart = raw.slice(idx + AUTH_REQUIRED_ERROR_PREFIX.length).trim();
+  if (!jsonPart) return null;
+  try {
+    const parsed = JSON.parse(jsonPart) as Partial<AgentAuthRequiredPayload>;
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      typeof parsed.request_id !== "string" ||
+      !Array.isArray(parsed.methods) ||
+      typeof parsed.message !== "string"
+    ) {
+      return null;
+    }
+    const methods: AgentAuthMethod[] = parsed.methods
+      .filter((m): m is AgentAuthMethod => !!m && typeof m.id === "string" && typeof m.name === "string")
+      .map((m) => ({ id: m.id, name: m.name, description: m.description }));
+    return {
+      request_id: parsed.request_id,
+      methods,
+      message: parsed.message,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function useAgentSession({
@@ -80,7 +125,9 @@ export function useAgentSession({
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionPhase, setConnectionPhase] = useState<AgentConnectionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [authRequest, setAuthRequest] = useState<AgentAuthRequiredPayload | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const onMessageRef = useRef(onMessage);
 
@@ -128,18 +175,23 @@ export function useAgentSession({
     setSessionCwd(null);
     setSessionTitle(null);
     setIsConnected(false);
+    setConnectionPhase("idle");
     setError(null);
+    setAuthRequest(null);
   }, []);
 
   const startSession = useCallback(
     async (override?: StartSessionOverride) => {
       setIsConnecting(true);
+      setConnectionPhase(override?.authMethodId ? "authenticating" : "initializing");
       setError(null);
+      setAuthRequest(null);
       const w = override?.workspaceId ?? workspaceId;
       const p = override?.projectId ?? projectId;
       const r = override?.registryId ?? registryId;
       try {
-        const res = await agentApi.createSession(w ?? null, p ?? null, r);
+        setConnectionPhase("creating_session");
+        const res = await agentApi.createSession(w ?? null, p ?? null, r, override?.authMethodId);
         const sid = res.session_id;
         setSessionId(sid);
         setSessionCwd(res.cwd);
@@ -147,13 +199,16 @@ export function useAgentSession({
 
         const wsBase = getAgentWsBase();
         const wsUrl = `${wsBase}/ws/agent/${sid}`;
+        setConnectionPhase("connecting_ws");
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
           setIsConnecting(false);
           setIsConnected(true);
+          setConnectionPhase("connected");
           setError(null);
+          setAuthRequest(null);
           onConnected?.();
         };
 
@@ -170,6 +225,7 @@ export function useAgentSession({
           wsRef.current = null;
           setIsConnecting(false);
           setIsConnected(false);
+          setConnectionPhase("idle");
           onDisconnected?.();
         };
 
@@ -179,6 +235,13 @@ export function useAgentSession({
         };
       } catch (err) {
         setIsConnecting(false);
+        setConnectionPhase("idle");
+        const authRequired = parseAuthRequiredError(err);
+        if (authRequired) {
+          setAuthRequest(authRequired);
+          setError(null);
+          return;
+        }
         const msg = err instanceof Error ? err.message : "Failed to create session";
         setError(msg);
         onError?.(msg);
@@ -190,7 +253,9 @@ export function useAgentSession({
   const resumeSession = useCallback(
     async (sessionIdToResume: string) => {
       setIsConnecting(true);
+      setConnectionPhase("resuming_session");
       setError(null);
+      setAuthRequest(null);
       try {
         const res = await agentApi.resumeSession(sessionIdToResume);
         const sid = res.session_id;
@@ -200,12 +265,14 @@ export function useAgentSession({
 
         const wsBase = getAgentWsBase();
         const wsUrl = `${wsBase}/ws/agent/${sid}`;
+        setConnectionPhase("connecting_ws");
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
           setIsConnecting(false);
           setIsConnected(true);
+          setConnectionPhase("connected");
           setError(null);
           onConnected?.();
         };
@@ -223,6 +290,7 @@ export function useAgentSession({
           wsRef.current = null;
           setIsConnecting(false);
           setIsConnected(false);
+          setConnectionPhase("idle");
           onDisconnected?.();
         };
 
@@ -233,6 +301,7 @@ export function useAgentSession({
         return true;
       } catch (err) {
         setIsConnecting(false);
+        setConnectionPhase("idle");
         const msg = err instanceof Error ? err.message : "Failed to resume session";
         setError(msg);
         onError?.(msg);
@@ -254,11 +323,14 @@ export function useAgentSession({
     sessionTitle,
     isConnecting,
     isConnected,
+    connectionPhase,
     error,
+    authRequest,
     sendPrompt,
     sendPermissionResponse,
     startSession,
     resumeSession,
+    clearAuthRequest: () => setAuthRequest(null),
     disconnect,
   };
 }

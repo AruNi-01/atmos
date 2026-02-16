@@ -10,7 +10,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
-use crate::acp_client::types::PermissionRequest;
+use crate::acp_client::types::{AuthMethodSummary, AuthRequiredPayload, PermissionRequest};
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
 use crate::acp_client::tools::AcpToolHandler;
 use crate::models::AgentLaunchSpec;
@@ -24,6 +24,8 @@ pub struct AcpSessionHandle {
     event_rx: mpsc::UnboundedReceiver<AcpSessionEvent>,
     permission_rx: mpsc::UnboundedReceiver<(PermissionRequest, oneshot::Sender<bool>)>,
 }
+
+pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
 
 impl AcpSessionHandle {
     pub fn send_prompt(&self, message: String) {
@@ -54,6 +56,7 @@ pub async fn run_acp_session(
     handler: Arc<dyn AcpToolHandler>,
     env_overrides: Option<std::collections::HashMap<String, String>>,
     resume_session_id: Option<String>,
+    auth_method_id: Option<String>,
 ) -> Result<AcpSessionHandle, String> {
     let session_id_for_thread = session_id_hint.clone();
     let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<String>();
@@ -78,6 +81,7 @@ pub async fn run_acp_session(
                     handler,
                     env_overrides,
                     resume_session_id,
+                    auth_method_id,
                     &mut prompt_rx,
                     event_tx.clone(),
                     permission_tx,
@@ -119,6 +123,7 @@ async fn run_session_inner(
     handler: Arc<dyn AcpToolHandler>,
     env_overrides: Option<std::collections::HashMap<String, String>>,
     resume_session_id: Option<String>,
+    auth_method_id: Option<String>,
     prompt_rx: &mut mpsc::UnboundedReceiver<String>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
@@ -150,46 +155,79 @@ async fn run_session_inner(
 
             tokio::task::spawn_local(handle_io);
 
-            conn.initialize(
+            let init_response = conn
+                .initialize(
                 acp::InitializeRequest::new(acp::ProtocolVersion::V1)
                     .client_info(acp::Implementation::new("atmos", "0.1.0").title("ATMOS")),
             )
-            .await
-            .map_err(|e| format!("Initialize failed: {}", e))?;
+                .await
+                .map_err(|e| format!("Initialize failed: {}", e))?;
 
-            let session_id_acp = if let Some(resume_id) = resume_session_id {
-                let requested = acp::SessionId::new(resume_id.clone());
-                match conn
-                    .load_session(acp::LoadSessionRequest::new(
-                        requested.clone(),
-                        cwd.clone(),
-                    ))
+            let auth_methods: Vec<AuthMethodSummary> = init_response
+                .auth_methods
+                .iter()
+                .map(|m| AuthMethodSummary {
+                    id: m.id.to_string(),
+                    name: m.name.clone(),
+                    description: m.description.clone(),
+                })
+                .collect();
+
+            if let Some(method_id) = auth_method_id {
+                conn.authenticate(acp::AuthenticateRequest::new(method_id))
                     .await
-                {
-                    Ok(_) => {
-                        info!("Loaded ACP session: {}", resume_id);
-                        requested
+                    .map_err(|e| format!("Authenticate failed: {}", e))?;
+            }
+
+            let create_or_load_result: acp::Result<acp::SessionId> =
+                if let Some(resume_id) = resume_session_id.clone() {
+                    let requested = acp::SessionId::new(resume_id.clone());
+                    match conn
+                        .load_session(acp::LoadSessionRequest::new(
+                            requested.clone(),
+                            cwd.clone(),
+                        ))
+                        .await
+                    {
+                        Ok(_) => {
+                            info!("Loaded ACP session: {}", resume_id);
+                            Ok(requested)
+                        }
+                        Err(e) => {
+                            warn!(
+                                "load_session failed for {}, fallback new_session: {}",
+                                resume_id, e
+                            );
+                            conn.new_session(acp::NewSessionRequest::new(cwd))
+                                .await
+                                .map(|response| response.session_id)
+                        }
                     }
-                    Err(e) => {
-                        warn!(
-                            "load_session failed for {}, fallback new_session: {}",
-                            resume_id, e
+                } else {
+                    conn.new_session(acp::NewSessionRequest::new(cwd))
+                        .await
+                        .map(|response| response.session_id)
+                };
+
+            let session_id_acp = match create_or_load_result {
+                Ok(session_id) => session_id,
+                Err(err) if err.code == acp::ErrorCode::AuthRequired => {
+                    if auth_methods.is_empty() {
+                        return Err(
+                            "Agent requires authentication, but no auth methods were advertised"
+                                .to_string(),
                         );
-                        let response = conn
-                            .new_session(acp::NewSessionRequest::new(cwd))
-                            .await
-                            .map_err(|ne| {
-                                format!("New session failed after load fallback: {}", ne)
-                            })?;
-                        response.session_id
                     }
+                    let auth_payload = AuthRequiredPayload {
+                        request_id: uuid::Uuid::new_v4().to_string(),
+                        methods: auth_methods,
+                        message: "Authentication required by agent".to_string(),
+                    };
+                    let payload = serde_json::to_string(&auth_payload)
+                        .map_err(|e| format!("Serialize auth payload failed: {}", e))?;
+                    return Err(format!("{}{}", AUTH_REQUIRED_ERROR_PREFIX, payload));
                 }
-            } else {
-                let response = conn
-                    .new_session(acp::NewSessionRequest::new(cwd))
-                    .await
-                    .map_err(|e| format!("New session failed: {}", e))?;
-                response.session_id
+                Err(err) => return Err(err.to_string()),
             };
 
             if let Some(tx) = ready_tx.take() {

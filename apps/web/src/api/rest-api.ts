@@ -287,6 +287,18 @@ export interface CreateAgentSessionResponse {
   title: string | null;
 }
 
+export interface AgentAuthMethod {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface AgentAuthRequiredPayload {
+  request_id: string;
+  methods: AgentAuthMethod[];
+  message: string;
+}
+
 export interface AgentChatSessionItem {
   guid: string;
   title: string | null;
@@ -316,7 +328,8 @@ export const agentApi = {
   createSession: async (
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
-    registryId: string
+    registryId: string,
+    authMethodId?: string | null
   ): Promise<CreateAgentSessionResponse> => {
     return fetchApi<CreateAgentSessionResponse>('/api/agent/session', {
       method: 'POST',
@@ -324,6 +337,7 @@ export const agentApi = {
         workspace_id: workspaceId || null,
         project_id: projectId || null,
         registry_id: registryId,
+        auth_method_id: authMethodId || null,
       }),
     });
   },

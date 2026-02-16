@@ -16,6 +16,7 @@ pub struct CreateAgentSessionPayload {
     /// Optional. When provided (and no workspace_id), context is project. When both omitted, context is temp.
     pub project_id: Option<String>,
     pub registry_id: String,
+    pub auth_method_id: Option<String>,
 }
 
 /// POST /api/agent/session - Create a new Agent chat session
@@ -67,6 +68,7 @@ pub async fn create_agent_session(
             project_id_opt,
             &payload.registry_id,
             cwd,
+            payload.auth_method_id.clone(),
         )
         .await?;
     let title = state

@@ -104,6 +104,7 @@ impl AgentSessionService {
         project_id: Option<&str>,
         registry_id: &str,
         cwd: PathBuf,
+        auth_method_id: Option<String>,
     ) -> Result<String> {
         let launch_spec = self
             .agent_service
@@ -130,6 +131,7 @@ impl AgentSessionService {
             handler,
             env_overrides,
             None,
+            auth_method_id,
         )
         .await
         .map_err(|e| crate::ServiceError::Processing(e))?;
@@ -200,6 +202,7 @@ impl AgentSessionService {
             handler,
             env_overrides,
             Some(model.guid.clone()),
+            None,
         )
         .await
         .map_err(|e| crate::ServiceError::Processing(e))?;

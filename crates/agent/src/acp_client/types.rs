@@ -28,6 +28,22 @@ pub struct PermissionResponse {
     pub remember_for_session: bool,
 }
 
+/// Auth method metadata from ACP initialize response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthMethodSummary {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+}
+
+/// Authentication required payload for frontend popup
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthRequiredPayload {
+    pub request_id: String,
+    pub methods: Vec<AuthMethodSummary>,
+    pub message: String,
+}
+
 /// Streaming text delta from agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamDelta {

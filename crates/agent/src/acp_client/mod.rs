@@ -11,6 +11,6 @@ pub use process::spawn_agent;
 pub use runner::{run_acp_session, AcpSessionHandle};
 pub use tools::AcpToolHandler;
 pub use types::{
-    PermissionRequest, PermissionResponse, RiskLevel, StreamDelta, StreamUsage, ToolCallStatus,
-    ToolCallUpdate,
+    AuthMethodSummary, AuthRequiredPayload, PermissionRequest, PermissionResponse, RiskLevel,
+    StreamDelta, StreamUsage, ToolCallStatus, ToolCallUpdate,
 };
