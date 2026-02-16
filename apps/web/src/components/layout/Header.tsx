@@ -301,7 +301,7 @@ const Header: React.FC = () => {
         </div>
         <span className="text-muted-foreground/30 text-lg font-light">/</span>
         <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">
-          {currentProject?.name || 'Visual Vibe Space'}
+          {currentProject?.name || 'Atmosphere for Agentic Builders'}
         </span>
 
         <div className="pl-2">

@@ -16,6 +16,10 @@ ATMOS 项目旨在构建一个“可视化终端工作空间”（Visual Termina
 
 本项目不仅是对现有工具链的整合，更是对编程环境“栖息地化”的哲学实践，强调环境的沉浸感与掌控力。
 
+## Slogan
+
+Atmosphere for Agentic Builders
+
 ## 技术选型
 
 **Web 前端**：
