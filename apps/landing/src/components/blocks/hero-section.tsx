@@ -52,10 +52,10 @@ const HeroSection = () => {
                   delay={0.8}
                   motionProps={{
                     initial: { rotate: -5, opacity: 0.7 },
-                    animate: { rotate: 0, opacity: 0.7 }
+                    animate: { rotate: 0, opacity: 1 }
                   }}
                 >
-                  <span className='text-muted-foreground'>Your</span>
+                  <span>Atmosphere</span>
                 </MotionPreset>
                 <MotionPreset
                   zoom={{ initialScale: 0.3, scale: 1 }}
@@ -84,7 +84,7 @@ const HeroSection = () => {
                     animate: { rotate: 0 }
                   }}
                 >
-                  <span>Personal</span>
+                  <span className='text-muted-foreground'>for</span>
                 </MotionPreset>
               </div>
               <div className='flex items-center gap-2.25'>
@@ -98,10 +98,8 @@ const HeroSection = () => {
                     animate: { rotate: 0 }
                   }}
                 >
-                  <span>Productivity</span>
+                  <span>Agentic</span>
                 </MotionPreset>
-              </div>
-              <div className='flex items-center gap-2.25'>
                 <MotionPreset
                   slide={{ direction: 'right', offset: 40 }}
                   blur='6px'
@@ -112,7 +110,7 @@ const HeroSection = () => {
                     animate: { rotate: 0 }
                   }}
                 >
-                  <span>Habitat</span>
+                  <span>Builders</span>
                 </MotionPreset>
 
                 <MotionPreset
@@ -226,31 +224,31 @@ const HeroSection = () => {
             <div className='from-background pointer-events-none absolute inset-y-0 right-0 z-1 w-10 bg-linear-to-l via-85% to-transparent' />
             <Marquee pauseOnHover duration={30} gap={5} className='*:items-center'>
               <div className='flex items-center gap-2'>
-                <span className="text-xl">🤖</span>
+                <img src="/agents/claude.svg" alt="Claude Code" className="size-6" />
                 <span className='text-lg font-semibold opacity-70'>Claude Code</span>
               </div>
               <div className='flex items-center gap-2'>
-                <span className="text-xl">👾</span>
+                <img src="/agents/codex.svg" alt="Codex" className="size-6" />
                 <span className='text-lg font-semibold opacity-70'>Codex</span>
               </div>
               <div className='flex items-center gap-2'>
-                <span className="text-xl">⚡</span>
+                <img src="/agents/amp.svg" alt="Amp" className="size-6" />
                 <span className='text-lg font-semibold opacity-70'>Amp</span>
               </div>
               <div className='flex items-center gap-2'>
-                <span className="text-xl">🔋</span>
+                <img src="/agents/droid.svg" alt="Droid" className="size-6" />
                 <span className='text-lg font-semibold opacity-70'>Droid</span>
               </div>
               <div className='flex items-center gap-2'>
-                <span className="text-xl">⚖️</span>
+                <img src="/agents/kilo.svg" alt="Kilo" className="size-6" />
                 <span className='text-lg font-semibold opacity-70'>Kilo</span>
               </div>
               <div className='flex items-center gap-2'>
-                <span className="text-xl">🧠</span>
+                <img src="/agents/opencode.svg" alt="OpenCode" className="size-6" />
                 <span className='text-lg font-semibold opacity-70'>OpenCode</span>
               </div>
               <div className='flex items-center gap-2'>
-                <span className="text-xl">💎</span>
+                <img src="/agents/gemini.svg" alt="Gemini" className="size-6" />
                 <span className='text-lg font-semibold opacity-70'>Gemini</span>
               </div>
             </Marquee>
