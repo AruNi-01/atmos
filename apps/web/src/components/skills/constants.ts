@@ -5,7 +5,7 @@ export const AGENT_CONFIG: Record<string, { name: string; color: string }> = {
   antigravity: { name: 'Antigravity', color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
   augment: { name: 'Augment', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
   claude: { name: 'Claude', color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400' },
-  openclaw: { name: 'OpenClaw', color: 'bg-red-500/20 text-red-600 dark:text-red-400' },
+  'in-project': { name: 'InsideTheProject', color: 'bg-red-500/20 text-red-600 dark:text-red-400' },
   cline: { name: 'Cline', color: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400' },
   codebuddy: { name: 'CodeBuddy', color: 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' },
   codex: { name: 'Codex', color: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },

@@ -114,6 +114,22 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
             );
           }
 
+          if (agent === 'in-project') {
+            const relativePath = skill.path && skill.project_name
+              ? `skills/${skill.name}`
+              : `skills/${skill.name}`;
+            return (
+              <TooltipProvider key={agent} delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>{label}</TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">{relativePath}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
+
           return label;
         })}
       </div>
