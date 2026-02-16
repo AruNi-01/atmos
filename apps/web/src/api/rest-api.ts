@@ -284,25 +284,98 @@ export const systemApi = {
 export interface CreateAgentSessionResponse {
   session_id: string;
   cwd: string;
+  title: string | null;
 }
+
+export interface AgentChatSessionItem {
+  guid: string;
+  title: string | null;
+  title_source: string | null;
+  context_type: string;
+  context_guid: string | null;
+  registry_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListAgentSessionsResponse {
+  items: AgentChatSessionItem[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
 
 export const agentApi = {
   /**
    * Create a new Agent chat session.
    * - With workspaceId: Agent has file access to the workspace
-   * - Without workspaceId: General AI assistant, no file access
+   * - With projectId (no workspace): context is project
+   * - Without both: General AI assistant, temp context
    */
   createSession: async (
     workspaceId: string | null | undefined,
+    projectId: string | null | undefined,
     registryId: string
   ): Promise<CreateAgentSessionResponse> => {
     return fetchApi<CreateAgentSessionResponse>('/api/agent/session', {
       method: 'POST',
       body: JSON.stringify({
         workspace_id: workspaceId || null,
+        project_id: projectId || null,
         registry_id: registryId,
       }),
     });
+  },
+
+  /**
+   * Resume an existing session by session id (no new DB row).
+   */
+  resumeSession: async (
+    sessionId: string
+  ): Promise<CreateAgentSessionResponse> => {
+    return fetchApi<CreateAgentSessionResponse>(
+      `/api/agent/sessions/${sessionId}/resume`,
+      {
+        method: 'POST',
+      }
+    );
+  },
+
+  /**
+   * List agent chat sessions with cursor pagination.
+   */
+  listSessions: async (params?: {
+    context_type?: string;
+    context_guid?: string;
+    limit?: number;
+    cursor?: string;
+  }): Promise<ListAgentSessionsResponse> => {
+    const search = new URLSearchParams();
+    if (params?.context_type) search.set('context_type', params.context_type);
+    if (params?.context_guid) search.set('context_guid', params.context_guid);
+    if (params?.limit) search.set('limit', String(params.limit));
+    if (params?.cursor) search.set('cursor', params.cursor);
+    const qs = search.toString();
+    return fetchApi<ListAgentSessionsResponse>(
+      `/api/agent/sessions${qs ? `?${qs}` : ''}`
+    );
+  },
+
+  /**
+   * Update session title (user-edited).
+   */
+  updateSessionTitle: async (
+    sessionId: string,
+    title: string
+  ): Promise<{ ok: boolean }> => {
+    return fetchApi<{ ok: boolean }>(
+      `/api/agent/sessions/${sessionId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+      }
+    );
   },
 
   /**

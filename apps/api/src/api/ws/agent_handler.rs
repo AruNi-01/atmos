@@ -37,6 +37,7 @@ enum AgentCommand {
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AgentServerMessage {
     Stream {
+        role: String,
         delta: String,
         done: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -63,6 +64,7 @@ enum AgentServerMessage {
 fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
     match ev {
         AcpSessionEvent::Stream(s) => Some(AgentServerMessage::Stream {
+            role: s.role,
             delta: s.delta,
             done: s.done,
             usage: s.usage,
@@ -107,10 +109,15 @@ pub async fn agent_ws_handler(
 
     info!("Agent WebSocket connected for session: {}", session_id);
 
-    ws.on_upgrade(move |socket| handle_agent_socket(socket, session_id, handle))
+    ws.on_upgrade(move |socket| handle_agent_socket(socket, session_id, handle, state))
 }
 
-async fn handle_agent_socket(socket: axum::extract::ws::WebSocket, session_id: String, mut handle: AcpSessionHandle) {
+async fn handle_agent_socket(
+    socket: axum::extract::ws::WebSocket,
+    session_id: String,
+    mut handle: AcpSessionHandle,
+    state: AppState,
+) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
 
     let (ws_tx, mut ws_rx) = mpsc::unbounded_channel::<String>();
@@ -174,6 +181,9 @@ async fn handle_agent_socket(socket: axum::extract::ws::WebSocket, session_id: S
                 };
                 match msg {
                     AgentClientMessage::Prompt { message } => {
+                        state
+                            .agent_session_service
+                            .spawn_title_generation(session_id.clone(), message.clone());
                         let _ = cmd_tx_clone.send(AgentCommand::Prompt(message));
                     }
                     AgentClientMessage::PermissionResponse {
@@ -200,5 +210,6 @@ async fn handle_agent_socket(socket: axum::extract::ws::WebSocket, session_id: S
     drop(cmd_tx);
     send_task.abort();
     bridge_task.abort();
+    state.agent_session_service.mark_session_closed(&session_id).await;
     info!("Agent WebSocket closed for session: {}", session_id);
 }

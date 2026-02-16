@@ -20,6 +20,9 @@ import {
   Message,
   MessageContent,
   MessageResponse,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   PromptInput,
   PromptInputAddAttachmentsButton,
   PromptInputBody,
@@ -33,6 +36,7 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  ScrollArea,
   Shimmer,
   Skill,
   Tool,
@@ -47,13 +51,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@workspace/ui";
-import { Bot, ChevronDown, ChevronUp, Folder, Loader2, MessageSquare, Plus, Square, X } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp, Folder, History, Loader2, MessageSquare, Plus, Square, X } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { AgentIcon } from "./AgentIcon";
 import { useAgentSession, type AgentServerMessage } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
-import { agentApi as agentRestApi } from "@/api/rest-api";
+import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
 
 type ChatMessage =
@@ -74,6 +78,47 @@ interface PendingPermission {
   tool: string;
   description: string;
   risk_level: string;
+}
+
+const LAST_SESSION_STORAGE_KEY = "atmos.agent.last_session_by_context";
+
+function getSessionContextKey(workspaceId: string | null, projectId: string | null): string {
+  if (workspaceId) return `workspace:${workspaceId}`;
+  if (projectId) return `project:${projectId}`;
+  return "temp";
+}
+
+function readLastSessionMap(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(LAST_SESSION_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === "string" && v) out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function getLastSessionIdForContext(contextKey: string): string | null {
+  const map = readLastSessionMap();
+  return map[contextKey] ?? null;
+}
+
+function setLastSessionIdForContext(contextKey: string, sessionId: string): void {
+  const map = readLastSessionMap();
+  map[contextKey] = sessionId;
+  localStorage.setItem(LAST_SESSION_STORAGE_KEY, JSON.stringify(map));
+}
+
+function clearLastSessionIdForContext(contextKey: string): void {
+  const map = readLastSessionMap();
+  if (!(contextKey in map)) return;
+  delete map[contextKey];
+  localStorage.setItem(LAST_SESSION_STORAGE_KEY, JSON.stringify(map));
 }
 
 function toolStatusToState(status: string): ToolState {
@@ -204,7 +249,16 @@ export function AgentChatPanel() {
   const lastStreamRef = useRef<string>("");
   const lastDeltaRef = useRef<string>("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySessions, setHistorySessions] = useState<AgentChatSessionItem[]>([]);
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [isResumingHistory, setIsResumingHistory] = useState(false);
+  const [sessionTitle, setSessionTitle] = useState<string | null>(null);
+  const [headerHovered, setHeaderHovered] = useState(false);
   const { projects, fetchProjects } = useProjectStore();
+  const restoreAttemptedRef = useRef(false);
 
   useEffect(() => {
     if (isAgentChatOpen && projects.length === 0) {
@@ -226,6 +280,25 @@ export function AgentChatPanel() {
     switch (msg.type) {
       case "stream":
         setWaitingForResponse(false);
+        if (msg.role === "user") {
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "user") {
+              return [
+                ...prev.slice(0, -1),
+                { ...last, content: `${last.content}${msg.delta}` },
+              ];
+            }
+            return [
+              ...prev,
+              {
+                role: "user" as const,
+                content: msg.delta,
+              },
+            ];
+          });
+          break;
+        }
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last?.role === "assistant" && last.isStreaming) {
@@ -356,42 +429,145 @@ export function AgentChatPanel() {
   }, []);
 
   const {
+    sessionId,
     isConnecting,
     isConnected,
     error,
     sendPrompt,
     sendPermissionResponse,
     startSession,
+    resumeSession,
     disconnect,
     sessionCwd,
+    sessionTitle: activeSessionTitle,
   } = useAgentSession({
     workspaceId,
+    projectId,
     registryId,
     onMessage: handleMessage,
   });
 
+  const loadHistorySessions = useCallback(
+    async (cursor?: string) => {
+      setHistoryLoading(true);
+      try {
+        const contextType =
+          workspaceId != null ? "workspace" : projectId != null ? "project" : "temp";
+        const contextGuid = workspaceId ?? projectId ?? undefined;
+        const res = await agentRestApi.listSessions({
+          context_type: contextType,
+          context_guid: contextGuid,
+          limit: 20,
+          cursor,
+        });
+        if (cursor) {
+          setHistorySessions((prev) => [...prev, ...res.items]);
+        } else {
+          setHistorySessions(res.items);
+        }
+        setHistoryCursor(res.next_cursor);
+        setHistoryHasMore(res.has_more);
+      } catch {
+        setHistorySessions([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    [workspaceId, projectId]
+  );
+
   useEffect(() => {
-    if (isAgentChatOpen && !isConnected && !isConnecting) {
-      setLoadingAgents(true);
-      agentApi
-        .listRegistry()
-        .then(({ agents }) => {
-          const installed = agents.filter((a) => a.installed);
-          setInstalledAgents(installed);
-          if (installed.length > 0) {
-            const currentIsInstalled = installed.some((a) => a.id === registryId);
-            if (!currentIsInstalled) setRegistryId(installed[0].id);
-          } else {
-            setRegistryId("");
-          }
-        })
-        .catch(() => {
-          setInstalledAgents([]);
-          setRegistryId("");
-        })
-        .finally(() => setLoadingAgents(false));
+    if (!historyOpen) return;
+    setHistorySessions([]);
+    setHistoryCursor(null);
+    loadHistorySessions();
+  }, [historyOpen, loadHistorySessions]);
+
+  const skipNextAutoConnectRef = useRef(false);
+  const contextKey = React.useMemo(
+    () => getSessionContextKey(workspaceId, projectId),
+    [workspaceId, projectId]
+  );
+
+  const handleSelectHistorySession = useCallback(
+    async (s: AgentChatSessionItem) => {
+      if (isConnecting) return;
+      if (sessionId === s.guid && isConnected) {
+        setHistoryOpen(false);
+        return;
+      }
+      setHistoryOpen(false);
+      skipNextAutoConnectRef.current = true;
+      disconnect();
+      setMessages([]);
+      setPendingPermission(null);
+      setRegistryId(s.registry_id);
+      setSessionTitle(s.title || null);
+      setIsResumingHistory(true);
+      try {
+        const resumed = await resumeSession(s.guid);
+        if (!resumed) {
+          await startSession({
+            workspaceId: s.context_type === "workspace" ? s.context_guid : null,
+            projectId: s.context_type === "project" ? s.context_guid : null,
+            registryId: s.registry_id,
+          });
+        }
+      } finally {
+        setIsResumingHistory(false);
+        // Ensure auto-connect is not accidentally blocked afterwards
+        skipNextAutoConnectRef.current = false;
+      }
+    },
+    [disconnect, isConnected, isConnecting, resumeSession, sessionId, startSession]
+  );
+
+  const handleCreateNewSession = useCallback(async () => {
+    if (isConnecting) return;
+    skipNextAutoConnectRef.current = true;
+    disconnect();
+    setMessages([]);
+    setPendingPermission(null);
+    setSessionTitle(null);
+    restoreAttemptedRef.current = true;
+    clearLastSessionIdForContext(contextKey);
+    try {
+      await startSession();
+    } finally {
+      // Avoid stale skip flag causing blank panel on next open
+      skipNextAutoConnectRef.current = false;
     }
-  }, [isAgentChatOpen, isConnected, isConnecting]);
+  }, [contextKey, disconnect, isConnecting, startSession]);
+
+  useEffect(() => {
+    if (!isAgentChatOpen) {
+      restoreAttemptedRef.current = false;
+      skipNextAutoConnectRef.current = false;
+      setIsResumingHistory(false);
+      return;
+    }
+    if (isConnected || isConnecting) return;
+    // Registry already loaded for this page lifetime; avoid repeated REST calls.
+    if (installedAgents.length > 0 && registryId) return;
+    setLoadingAgents(true);
+    agentApi
+      .listRegistry()
+      .then(({ agents }) => {
+        const installed = agents.filter((a) => a.installed);
+        setInstalledAgents(installed);
+        if (installed.length > 0) {
+          const currentIsInstalled = installed.some((a) => a.id === registryId);
+          if (!currentIsInstalled) setRegistryId(installed[0].id);
+        } else {
+          setRegistryId("");
+        }
+      })
+      .catch(() => {
+        setInstalledAgents([]);
+        setRegistryId("");
+      })
+      .finally(() => setLoadingAgents(false));
+  }, [isAgentChatOpen, isConnected, isConnecting, installedAgents.length, registryId]);
 
   // Disconnect when user switches agent while connected
   const prevRegistryIdRef = useRef(registryId);
@@ -411,16 +587,51 @@ export function AgentChatPanel() {
       !isConnected &&
       !isConnecting
     ) {
+      if (skipNextAutoConnectRef.current) {
+        skipNextAutoConnectRef.current = false;
+        return;
+      }
+      if (!restoreAttemptedRef.current) {
+        restoreAttemptedRef.current = true;
+        const lastSessionId = getLastSessionIdForContext(contextKey);
+        if (lastSessionId) {
+          void (async () => {
+            const resumed = await resumeSession(lastSessionId);
+            if (!resumed) {
+              clearLastSessionIdForContext(contextKey);
+              await startSession();
+            }
+          })();
+          return;
+        }
+      }
       startSession();
     }
   }, [
+    contextKey,
     isAgentChatOpen,
     registryId,
     installedAgents.length,
     isConnected,
     isConnecting,
+    resumeSession,
     startSession,
   ]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    setLastSessionIdForContext(contextKey, sessionId);
+  }, [contextKey, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setSessionTitle(null);
+      return;
+    }
+    if (activeSessionTitle != null) {
+      setSessionTitle(activeSessionTitle);
+    }
+  }, [sessionId, activeSessionTitle]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -470,6 +681,15 @@ export function AgentChatPanel() {
     async (message: { text: string; files?: import("ai").FileUIPart[] }) => {
       const text = message.text.trim();
       if (!text || !isConnected) return;
+      if (messages.length === 0) {
+        const title = text.slice(0, 512).trim() || "新会话";
+        setSessionTitle(title);
+        if (sessionId) {
+          void agentRestApi.updateSessionTitle(sessionId, title).catch(() => {
+            // Ignore title update failure; chat should continue.
+          });
+        }
+      }
       lastDeltaRef.current = "";
       lastStreamRef.current = "";
       setWaitingForResponse(true);
@@ -506,15 +726,14 @@ export function AgentChatPanel() {
 
       sendPrompt(finalPrompt);
     },
-    [isConnected, sendPrompt, localPath, sessionCwd]
+    [isConnected, sendPrompt, localPath, sessionCwd, messages.length, sessionId]
   );
 
   const handleClose = useCallback(() => {
-    disconnect();
-    setMessages([]);
-    setPendingPermission(null);
+    // Keep in-memory session/messages for fast reopen within the same page lifetime.
+    // Only hide the panel here; actual disconnect happens on unmount/refresh.
     setAgentChatOpen(false);
-  }, [disconnect, setAgentChatOpen]);
+  }, [setAgentChatOpen]);
 
   const handlePermission = useCallback(
     (allowed: boolean) => {
@@ -532,45 +751,133 @@ export function AgentChatPanel() {
       className="fixed bottom-6 right-6 z-50 flex w-[400px] flex-col rounded-xl border border-border bg-background shadow-lg"
       style={{ height: "min(560px, 70dvh)" }}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="flex items-center gap-2 shrink-0">
-            <Bot className="size-4 text-foreground" />
-            <span className="text-sm font-medium">Agent Chat</span>
-          </div>
+      <div
+        className="flex shrink-0 flex-col gap-1 border-b border-border px-4 py-3"
+        onMouseEnter={() => setHeaderHovered(true)}
+        onMouseLeave={() => setHeaderHovered(false)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
+              {headerHovered ? (
+                <button
+                  type="button"
+                  onClick={handleCreateNewSession}
+                  className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="New chat session"
+                  title="New session"
+                >
+                  <Plus className="size-4 shrink-0" />
+                </button>
+              ) : (
+                <Bot className="size-4 shrink-0 text-foreground" />
+              )}
+              <span className="text-sm font-medium shrink-0">Agent Chat</span>
+            </div>
 
-          {(localPath ?? sessionCwd) && (
+            {(localPath ?? sessionCwd) && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="ml-2 flex min-w-0 max-w-[180px] cursor-help items-center gap-1.5 overflow-hidden rounded-md border border-border/50 bg-muted/40 px-2 py-0.5">
+                      <Folder className="size-3 shrink-0 text-muted-foreground/70" />
+                      <span
+                        className="truncate select-none text-[10px] leading-none text-muted-foreground/80"
+                        style={{ direction: "rtl", textAlign: "left" }}
+                      >
+                        {localPath ?? sessionCwd}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs break-all">
+                    {!localPath && sessionCwd && (
+                      <p className="mb-0.5 text-[11px] text-muted-foreground">Temp directory</p>
+                    )}
+                    <p className="text-[11px]">{localPath ?? sessionCwd}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+          <div className="flex items-center gap-0.5">
+          <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="ml-3 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/40 border border-border/50 max-w-[180px] min-w-0 overflow-hidden cursor-help">
-                    <Folder className="size-3 text-muted-foreground/70 shrink-0" />
-                    <span
-                      className="text-[10px] text-muted-foreground/80 truncate select-none leading-none"
-                      style={{ direction: "rtl", textAlign: "left" }}
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      aria-label="Chat history"
                     >
-                      {localPath ?? sessionCwd}
-                    </span>
-                  </div>
+                      <History className="size-4" />
+                    </button>
+                  </PopoverTrigger>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs break-all">
-                  {!localPath && sessionCwd && (
-                    <p className="text-[11px] text-muted-foreground mb-0.5">Temp directory</p>
-                  )}
-                  <p className="text-[11px]">{localPath ?? sessionCwd}</p>
-                </TooltipContent>
+                <TooltipContent side="bottom">Chat history</TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          )}
+            <PopoverContent className="w-80 p-0" align="end">
+              <div className="border-b border-border px-3 py-2">
+                <p className="text-sm font-medium">Chat history</p>
+              </div>
+              <ScrollArea className="h-[280px]">
+                {historyLoading && historySessions.length === 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : historySessions.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    No history yet
+                  </div>
+                ) : (
+                  <div className="p-1">
+                    {historySessions.map((s) => (
+                      <button
+                        key={s.guid}
+                        type="button"
+                        className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                        onClick={() => handleSelectHistorySession(s)}
+                        disabled={isConnecting}
+                      >
+                        <span className="w-full truncate font-medium">
+                          {s.title || "New chat"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(s.created_at).toLocaleString()}
+                        </span>
+                      </button>
+                    ))}
+                    {historyHasMore && historyCursor && (
+                      <button
+                        type="button"
+                        className="w-full rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
+                        onClick={() => loadHistorySessions(historyCursor)}
+                        disabled={historyLoading}
+                      >
+                        {historyLoading ? "Loading..." : "Load more"}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Close chat"
+          >
+            <X className="size-4" />
+          </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={handleClose}
-          className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Close chat"
-        >
-          <X className="size-4" />
-        </button>
+        {sessionTitle && (
+          <div className="truncate text-xs text-muted-foreground" title={sessionTitle}>
+            {sessionTitle}
+          </div>
+        )}
       </div>
 
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
@@ -588,9 +895,11 @@ export function AgentChatPanel() {
                 </p>
               </div>
             )}
-            {isConnecting && (
+            {(isConnecting || isResumingHistory) && (
               <div className="flex items-center justify-center py-6">
-                <Shimmer duration={1.5}>Connecting...</Shimmer>
+                <Shimmer duration={1.5}>
+                  {isResumingHistory ? "Restoring session..." : "Connecting..."}
+                </Shimmer>
               </div>
             )}
             {error && (
@@ -718,7 +1027,7 @@ export function AgentChatPanel() {
         </div>
       )}
 
-      <div className="shrink-0 border-t border-border p-3">
+      <div className="shrink-0 p-3">
         <PromptInput
           onSubmit={(msg) => handleSubmit({ text: msg.text, files: msg.files })}
           className="w-full"

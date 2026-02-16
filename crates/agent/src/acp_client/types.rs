@@ -31,6 +31,8 @@ pub struct PermissionResponse {
 /// Streaming text delta from agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamDelta {
+    /// "assistant" or "user" (history replay from load_session may include user chunks)
+    pub role: String,
     pub delta: String,
     pub done: bool,
     pub usage: Option<StreamUsage>,

@@ -1,3 +1,4 @@
+pub mod agent_chat_session;
 pub mod base;
 pub mod project;
 pub mod test_message;

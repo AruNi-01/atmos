@@ -225,6 +225,22 @@ impl AcpClientTrait for AtmosAcpClient {
 
     async fn session_notification(&self, args: acp::SessionNotification) -> acp::Result<()> {
         match args.update {
+            acp::SessionUpdate::UserMessageChunk(acp::ContentChunk { content, .. }) => {
+                let text = match content {
+                    acp::ContentBlock::Text(t) => t.text,
+                    acp::ContentBlock::Image(_) => " ".into(),
+                    acp::ContentBlock::Audio(_) => " ".into(),
+                    acp::ContentBlock::ResourceLink(r) => r.uri,
+                    acp::ContentBlock::Resource(_) => " ".into(),
+                    _ => " ".into(),
+                };
+                let _ = self.event_tx.send(AcpSessionEvent::Stream(StreamDelta {
+                    role: "user".to_string(),
+                    delta: text,
+                    done: false,
+                    usage: None,
+                }));
+            }
             acp::SessionUpdate::AgentMessageChunk(acp::ContentChunk { content, .. }) => {
                 let text = match content {
                     acp::ContentBlock::Text(t) => t.text,
@@ -235,6 +251,7 @@ impl AcpClientTrait for AtmosAcpClient {
                     _ => " ".into(),
                 };
                 let _ = self.event_tx.send(AcpSessionEvent::Stream(StreamDelta {
+                    role: "assistant".to_string(),
                     delta: text,
                     done: false,
                     usage: None,
