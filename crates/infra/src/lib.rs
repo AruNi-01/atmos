@@ -5,7 +5,7 @@ pub mod jobs;
 pub mod queue;
 pub mod websocket;
 
-pub use db::{DbConnection, Migrator, TestMessageRepo};
+pub use db::{DatabaseConnection, DbConnection, Migrator, TestMessageRepo};
 pub use error::{InfraError, Result};
 pub use websocket::{
     is_control_message, AppOpenRequest, ClientType, FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse,

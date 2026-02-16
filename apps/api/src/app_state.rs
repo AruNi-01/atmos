@@ -28,8 +28,10 @@ impl AppState {
         message_push_service: Arc<MessagePushService>,
         terminal_service: Arc<TerminalService>,
         ws_service_config: WsServiceConfig,
+        db: Arc<infra::DatabaseConnection>,
     ) -> Self {
-        let agent_session_service = Arc::new(AgentSessionService::new(Arc::clone(&agent_service)));
+        let agent_session_service =
+            Arc::new(AgentSessionService::new(Arc::clone(&agent_service), db));
 
         // Create WsService with injected message handler (dependency inversion)
         let ws_service =

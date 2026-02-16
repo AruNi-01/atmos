@@ -107,6 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         message_push_service,
         terminal_service,
         ws_config,
+        db,
     );
 
     // Inject WsManager into WsMessageService for server-to-client notifications

@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { agentApi, getAgentWsBase } from "@/api/rest-api";
 
 export type AgentServerMessage =
-  | { type: "stream"; delta: string; done: boolean; usage?: unknown }
+  | {
+      type: "stream";
+      role?: "assistant" | "user";
+      delta: string;
+      done: boolean;
+      usage?: unknown;
+    }
   | {
       type: "tool_call";
       tool_call_id: string;
@@ -27,6 +33,7 @@ export type AgentServerMessage =
 
 export interface UseAgentSessionOptions {
   workspaceId: string | null;
+  projectId: string | null;
   registryId: string;
   onMessage?: (msg: AgentServerMessage) => void;
   onConnected?: () => void;
@@ -34,9 +41,17 @@ export interface UseAgentSessionOptions {
   onError?: (err: string) => void;
 }
 
+/** Override context when starting from history selection */
+export interface StartSessionOverride {
+  workspaceId?: string | null;
+  projectId?: string | null;
+  registryId?: string;
+}
+
 export interface UseAgentSessionReturn {
   sessionId: string | null;
   sessionCwd: string | null;
+  sessionTitle: string | null;
   isConnecting: boolean;
   isConnected: boolean;
   error: string | null;
@@ -46,12 +61,14 @@ export interface UseAgentSessionReturn {
     allowed: boolean,
     rememberForSession?: boolean
   ) => void;
-  startSession: () => Promise<void>;
+  startSession: (override?: StartSessionOverride) => Promise<void>;
+  resumeSession: (sessionId: string) => Promise<boolean>;
   disconnect: () => void;
 }
 
 export function useAgentSession({
   workspaceId,
+  projectId,
   registryId,
   onMessage,
   onConnected,
@@ -60,12 +77,16 @@ export function useAgentSession({
 }: UseAgentSessionOptions): UseAgentSessionReturn {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionCwd, setSessionCwd] = useState<string | null>(null);
+  const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const onMessageRef = useRef(onMessage);
-  onMessageRef.current = onMessage;
+
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
 
   const sendPrompt = useCallback(
     (message: string) => {
@@ -105,58 +126,121 @@ export function useAgentSession({
     }
     setSessionId(null);
     setSessionCwd(null);
+    setSessionTitle(null);
     setIsConnected(false);
     setError(null);
   }, []);
 
-  const startSession = useCallback(async () => {
-    setIsConnecting(true);
-    setError(null);
-    try {
-      const res = await agentApi.createSession(workspaceId ?? null, registryId);
-      const sid = res.session_id;
-      setSessionId(sid);
-      setSessionCwd(res.cwd);
+  const startSession = useCallback(
+    async (override?: StartSessionOverride) => {
+      setIsConnecting(true);
+      setError(null);
+      const w = override?.workspaceId ?? workspaceId;
+      const p = override?.projectId ?? projectId;
+      const r = override?.registryId ?? registryId;
+      try {
+        const res = await agentApi.createSession(w ?? null, p ?? null, r);
+        const sid = res.session_id;
+        setSessionId(sid);
+        setSessionCwd(res.cwd);
+        setSessionTitle(res.title ?? null);
 
-      const wsBase = getAgentWsBase();
-      const wsUrl = `${wsBase}/ws/agent/${sid}`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+        const wsBase = getAgentWsBase();
+        const wsUrl = `${wsBase}/ws/agent/${sid}`;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
-      ws.onopen = () => {
+        ws.onopen = () => {
+          setIsConnecting(false);
+          setIsConnected(true);
+          setError(null);
+          onConnected?.();
+        };
+
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data) as AgentServerMessage;
+            onMessageRef.current?.(msg);
+          } catch {
+            // ignore parse errors
+          }
+        };
+
+        ws.onclose = () => {
+          wsRef.current = null;
+          setIsConnecting(false);
+          setIsConnected(false);
+          onDisconnected?.();
+        };
+
+        ws.onerror = () => {
+          setError("WebSocket error");
+          onError?.("WebSocket error");
+        };
+      } catch (err) {
         setIsConnecting(false);
-        setIsConnected(true);
-        setError(null);
-        onConnected?.();
-      };
+        const msg = err instanceof Error ? err.message : "Failed to create session";
+        setError(msg);
+        onError?.(msg);
+      }
+    },
+    [workspaceId, projectId, registryId, onConnected, onDisconnected, onError]
+  );
 
-      ws.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data) as AgentServerMessage;
-          onMessageRef.current?.(msg);
-        } catch {
-          // ignore parse errors
-        }
-      };
+  const resumeSession = useCallback(
+    async (sessionIdToResume: string) => {
+      setIsConnecting(true);
+      setError(null);
+      try {
+        const res = await agentApi.resumeSession(sessionIdToResume);
+        const sid = res.session_id;
+        setSessionId(sid);
+        setSessionCwd(res.cwd);
+        setSessionTitle(res.title ?? null);
 
-      ws.onclose = () => {
-        wsRef.current = null;
+        const wsBase = getAgentWsBase();
+        const wsUrl = `${wsBase}/ws/agent/${sid}`;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          setIsConnecting(false);
+          setIsConnected(true);
+          setError(null);
+          onConnected?.();
+        };
+
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data) as AgentServerMessage;
+            onMessageRef.current?.(msg);
+          } catch {
+            // ignore parse errors
+          }
+        };
+
+        ws.onclose = () => {
+          wsRef.current = null;
+          setIsConnecting(false);
+          setIsConnected(false);
+          onDisconnected?.();
+        };
+
+        ws.onerror = () => {
+          setError("WebSocket error");
+          onError?.("WebSocket error");
+        };
+        return true;
+      } catch (err) {
         setIsConnecting(false);
-        setIsConnected(false);
-        onDisconnected?.();
-      };
-
-      ws.onerror = () => {
-        setError("WebSocket error");
-        onError?.("WebSocket error");
-      };
-    } catch (err) {
-      setIsConnecting(false);
-      const msg = err instanceof Error ? err.message : "Failed to create session";
-      setError(msg);
-      onError?.(msg);
-    }
-  }, [workspaceId, registryId, onConnected, onDisconnected, onError]);
+        const msg = err instanceof Error ? err.message : "Failed to resume session";
+        setError(msg);
+        onError?.(msg);
+        return false;
+      }
+    },
+    [onConnected, onDisconnected, onError]
+  );
 
   useEffect(() => {
     return () => {
@@ -167,12 +251,14 @@ export function useAgentSession({
   return {
     sessionId,
     sessionCwd,
+    sessionTitle,
     isConnecting,
     isConnected,
     error,
     sendPrompt,
     sendPermissionResponse,
     startSession,
+    resumeSession,
     disconnect,
   };
 }

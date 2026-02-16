@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use axum::extract::{Multipart, State};
+use axum::extract::{Multipart, Path, Query, State};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -13,6 +13,8 @@ use axum::Json;
 pub struct CreateAgentSessionPayload {
     /// Optional. When provided, Agent gets file access to the workspace. When omitted, runs as general AI assistant (no file access).
     pub workspace_id: Option<String>,
+    /// Optional. When provided (and no workspace_id), context is project. When both omitted, context is temp.
+    pub project_id: Option<String>,
     pub registry_id: String,
 }
 
@@ -23,17 +25,38 @@ pub async fn create_agent_session(
     State(state): State<AppState>,
     Json(payload): Json<CreateAgentSessionPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let (workspace_id_opt, cwd) = if let Some(ref wid) = payload.workspace_id {
+    let (workspace_id_opt, project_id_opt, cwd) = if let Some(ref wid) = payload.workspace_id {
         let workspace = state
             .workspace_service
             .get_workspace(wid.clone())
             .await?
             .ok_or_else(|| crate::error::ApiError::NotFound("Workspace not found".to_string()))?;
-        (Some(wid.as_str()), PathBuf::from(workspace.local_path))
+        (Some(wid.as_str()), None, PathBuf::from(workspace.local_path))
+    } else if let Some(ref pid) = payload.project_id {
+        let project = state
+            .project_service
+            .get_project(pid.clone())
+            .await?
+            .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".to_string()))?;
+        let cwd = std::path::Path::new(&project.main_file_path)
+            .parent()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(&project.main_file_path));
+        (None, Some(pid.as_str()), cwd)
     } else {
-        let temp_dir = std::env::temp_dir().join("atmos-agent");
+        let home_dir = std::env::var("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| std::env::temp_dir());
+        let sessions_root = home_dir.join(".atmos").join("agent").join("sessions");
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let temp_session_dir =
+            format!("temp_session_{}_{}", uuid::Uuid::new_v4(), ts);
+        let temp_dir = sessions_root.join(temp_session_dir);
         let _ = std::fs::create_dir_all(&temp_dir);
-        (None, temp_dir)
+        (None, None, temp_dir)
     };
 
     let cwd_str = cwd.to_string_lossy().to_string();
@@ -41,14 +64,42 @@ pub async fn create_agent_session(
         .agent_session_service
         .create_session(
             workspace_id_opt,
+            project_id_opt,
             &payload.registry_id,
             cwd,
         )
         .await?;
+    let title = state
+        .agent_session_service
+        .get_session(&session_id)
+        .await?
+        .and_then(|s| s.title);
 
     Ok(Json(ApiResponse::success(json!({
         "session_id": session_id,
-        "cwd": cwd_str
+        "cwd": cwd_str,
+        "title": title,
+    }))))
+}
+
+/// POST /api/agent/sessions/{session_id}/resume - Re-create runtime for an existing session
+pub async fn resume_agent_session(
+    Path(session_id): Path<String>,
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let (runtime_session_id, cwd) = state
+        .agent_session_service
+        .resume_session(&session_id)
+        .await?;
+    let title = state
+        .agent_session_service
+        .get_session(&runtime_session_id)
+        .await?
+        .and_then(|s| s.title);
+    Ok(Json(ApiResponse::success(json!({
+        "session_id": runtime_session_id,
+        "cwd": cwd,
+        "title": title,
     }))))
 }
 
@@ -121,3 +172,99 @@ pub async fn upload_attachments(
         "paths": saved_paths
     }))))
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ListAgentSessionsQuery {
+    pub context_type: Option<String>,
+    pub context_guid: Option<String>,
+    #[serde(default = "default_limit")]
+    pub limit: u64,
+    pub cursor: Option<String>,
+}
+
+fn default_limit() -> u64 {
+    20
+}
+
+/// GET /api/agent/sessions - List agent chat sessions with cursor pagination
+pub async fn list_agent_sessions(
+    State(state): State<AppState>,
+    Query(q): Query<ListAgentSessionsQuery>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let (items, next_cursor, has_more) = state
+        .agent_session_service
+        .list_sessions(
+            q.context_type.as_deref(),
+            q.context_guid.as_deref(),
+            q.limit,
+            q.cursor.as_deref(),
+        )
+        .await?;
+
+    let sessions: Vec<Value> = items
+        .into_iter()
+        .map(|s| {
+            json!({
+                "guid": s.guid,
+                "title": s.title,
+                "title_source": s.title_source,
+                "context_type": s.context_type,
+                "context_guid": s.context_guid,
+                "registry_id": s.registry_id,
+                "status": s.status,
+                "created_at": s.created_at,
+                "updated_at": s.updated_at,
+            })
+        })
+        .collect();
+
+    Ok(Json(ApiResponse::success(json!({
+        "items": sessions,
+        "next_cursor": next_cursor,
+        "has_more": has_more,
+    }))))
+}
+
+/// GET /api/agent/sessions/{session_id} - Get one session metadata
+pub async fn get_agent_session(
+    Path(session_id): Path<String>,
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let maybe = state
+        .agent_session_service
+        .get_session(&session_id)
+        .await?;
+    let s = maybe.ok_or_else(|| {
+        crate::error::ApiError::NotFound(format!("Session {} not found", session_id))
+    })?;
+    Ok(Json(ApiResponse::success(json!({
+        "guid": s.guid,
+        "title": s.title,
+        "title_source": s.title_source,
+        "context_type": s.context_type,
+        "context_guid": s.context_guid,
+        "registry_id": s.registry_id,
+        "status": s.status,
+        "created_at": s.created_at,
+        "updated_at": s.updated_at,
+    }))))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAgentSessionPayload {
+    pub title: String,
+}
+
+/// PATCH /api/agent/sessions/:session_id - Update session title
+pub async fn update_agent_session(
+    Path(session_id): Path<String>,
+    State(state): State<AppState>,
+    Json(payload): Json<UpdateAgentSessionPayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    state
+        .agent_session_service
+        .update_session_title(&session_id, payload.title.trim())
+        .await?;
+    Ok(Json(ApiResponse::success(json!({ "ok": true }))))
+}
+

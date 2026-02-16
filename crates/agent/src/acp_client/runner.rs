@@ -47,17 +47,19 @@ impl AcpSessionHandle {
 
 /// Run an ACP session in a dedicated thread with current_thread runtime.
 /// Returns a handle for sending prompts and receiving events.
-pub fn run_acp_session(
-    session_id: String,
+pub async fn run_acp_session(
+    session_id_hint: String,
     launch_spec: AgentLaunchSpec,
     cwd: PathBuf,
     handler: Arc<dyn AcpToolHandler>,
     env_overrides: Option<std::collections::HashMap<String, String>>,
+    resume_session_id: Option<String>,
 ) -> Result<AcpSessionHandle, String> {
-    let session_id_for_thread = session_id.clone();
+    let session_id_for_thread = session_id_hint.clone();
     let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<String>();
     let (event_tx, event_rx) = mpsc::unbounded_channel::<AcpSessionEvent>();
     let (permission_tx, permission_rx) = mpsc::unbounded_channel();
+    let (ready_tx, ready_rx) = oneshot::channel::<Result<String, String>>();
     let event_tx_end = event_tx.clone();
 
     thread::Builder::new()
@@ -75,9 +77,11 @@ pub fn run_acp_session(
                     &cwd,
                     handler,
                     env_overrides,
+                    resume_session_id,
                     &mut prompt_rx,
                     event_tx.clone(),
                     permission_tx,
+                    Some(ready_tx),
                 )
                 .await
                 {
@@ -96,6 +100,10 @@ pub fn run_acp_session(
         })
         .map_err(|e| format!("Failed to spawn ACP thread: {}", e))?;
 
+    let session_id = ready_rx
+        .await
+        .map_err(|_| "ACP session setup channel closed".to_string())??;
+
     Ok(AcpSessionHandle {
         session_id,
         prompt_tx,
@@ -110,9 +118,11 @@ async fn run_session_inner(
     cwd: &PathBuf,
     handler: Arc<dyn AcpToolHandler>,
     env_overrides: Option<std::collections::HashMap<String, String>>,
+    resume_session_id: Option<String>,
     prompt_rx: &mut mpsc::UnboundedReceiver<String>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
+    mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
 ) -> Result<(), String> {
     let (stdin, stdout, mut _child) = spawn_agent(&launch_spec, Some(cwd.clone()), env_overrides)
         .map_err(|e| format!("Failed to spawn agent: {}", e))?;
@@ -147,12 +157,44 @@ async fn run_session_inner(
             .await
             .map_err(|e| format!("Initialize failed: {}", e))?;
 
-            let response = conn
-                .new_session(acp::NewSessionRequest::new(cwd))
-                .await
-                .map_err(|e| format!("New session failed: {}", e))?;
+            let session_id_acp = if let Some(resume_id) = resume_session_id {
+                let requested = acp::SessionId::new(resume_id.clone());
+                match conn
+                    .load_session(acp::LoadSessionRequest::new(
+                        requested.clone(),
+                        cwd.clone(),
+                    ))
+                    .await
+                {
+                    Ok(_) => {
+                        info!("Loaded ACP session: {}", resume_id);
+                        requested
+                    }
+                    Err(e) => {
+                        warn!(
+                            "load_session failed for {}, fallback new_session: {}",
+                            resume_id, e
+                        );
+                        let response = conn
+                            .new_session(acp::NewSessionRequest::new(cwd))
+                            .await
+                            .map_err(|ne| {
+                                format!("New session failed after load fallback: {}", ne)
+                            })?;
+                        response.session_id
+                    }
+                }
+            } else {
+                let response = conn
+                    .new_session(acp::NewSessionRequest::new(cwd))
+                    .await
+                    .map_err(|e| format!("New session failed: {}", e))?;
+                response.session_id
+            };
 
-            let session_id_acp = response.session_id;
+            if let Some(tx) = ready_tx.take() {
+                let _ = tx.send(Ok(session_id_acp.to_string()));
+            }
 
             while let Some(msg) = prompt_rx.recv().await {
                 if msg.is_empty() {

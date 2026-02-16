@@ -148,7 +148,9 @@ impl AgentManager {
 
     pub async fn list_registry_agents(&self) -> Result<Vec<RegistryAgent>> {
         let registry = fetch_acp_registry().await?;
-        let installed_npm = list_global_npm_packages().await.unwrap_or_default();
+        let installed_npm_result = list_global_npm_packages().await;
+        let npm_scan_available = installed_npm_result.is_ok();
+        let installed_npm = installed_npm_result.unwrap_or_default();
         let mut manifest = load_install_manifest().unwrap_or_default();
 
         // Remove entries that no longer exist: binary file deleted, or npx package uninstalled
@@ -160,6 +162,10 @@ impl AgentManager {
                     .map(|p| Path::new(p).exists())
                     .unwrap_or(false)
             } else if e.install_method == "npx" {
+                // If npm scan failed, do NOT prune npx entries to avoid accidental manifest wipe.
+                if !npm_scan_available {
+                    return true;
+                }
                 registry
                     .agents
                     .iter()

@@ -5,12 +5,29 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use agent::{run_acp_session, AcpSessionHandle, AcpToolHandler};
+use infra::db::repo::AgentChatSessionRepo;
+use infra::DatabaseConnection;
+use serde::Serialize;
 use async_trait::async_trait;
 use core_engine::FsEngine;
 use parking_lot::RwLock;
 use tracing::info;
 
 use crate::error::Result;
+
+/// DTO for session list - decouples API from infra entity
+#[derive(Debug, Serialize)]
+pub struct AgentSessionSummary {
+    pub guid: String,
+    pub title: Option<String>,
+    pub title_source: Option<String>,
+    pub context_type: String,
+    pub context_guid: Option<String>,
+    pub registry_id: String,
+    pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
 
 /// Tool handler that routes ACP tool calls to FsEngine.
 /// When allow_file_access is false (general assistant mode, no workspace), rejects file operations.
@@ -60,14 +77,19 @@ impl AcpToolHandler for AgentToolHandler {
 /// Manages active Agent chat sessions
 pub struct AgentSessionService {
     agent_service: Arc<crate::service::agent::AgentService>,
+    db: Arc<DatabaseConnection>,
     sessions: RwLock<HashMap<String, AcpSessionHandle>>,
     pending_permissions: RwLock<HashMap<String, tokio::sync::oneshot::Sender<bool>>>,
 }
 
 impl AgentSessionService {
-    pub fn new(agent_service: Arc<crate::service::agent::AgentService>) -> Self {
+    pub fn new(
+        agent_service: Arc<crate::service::agent::AgentService>,
+        db: Arc<DatabaseConnection>,
+    ) -> Self {
         Self {
             agent_service,
+            db,
             sessions: RwLock::new(HashMap::new()),
             pending_permissions: RwLock::new(HashMap::new()),
         }
@@ -75,9 +97,11 @@ impl AgentSessionService {
 
     /// Create a new Agent session. Returns session_id for WebSocket connection.
     /// - workspace_path: When Some(workspace), Agent has file access. When None (general assistant), use temp dir and deny file ops.
+    /// - project_id: Optional project context when not in workspace.
     pub async fn create_session(
         &self,
         workspace_id: Option<&str>,
+        project_id: Option<&str>,
         registry_id: &str,
         cwd: PathBuf,
     ) -> Result<String> {
@@ -91,23 +115,51 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_env_overrides(registry_id);
 
-        let session_id = uuid::Uuid::new_v4().to_string();
+        let session_id_hint = uuid::Uuid::new_v4().to_string();
         let allow_file_access = workspace_id.is_some();
         let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
             fs_engine: FsEngine::new(),
             allow_file_access,
         });
 
+        let cwd_str = cwd.to_string_lossy().to_string();
         let handle = run_acp_session(
-            session_id.clone(),
+            session_id_hint,
             launch_spec,
             cwd,
             handler,
             env_overrides,
+            None,
         )
+        .await
         .map_err(|e| crate::ServiceError::Processing(e))?;
+        let session_id = handle.session_id.clone();
 
         self.sessions.write().insert(session_id.clone(), handle);
+
+        let (context_type, context_guid) = if workspace_id.is_some() {
+            ("workspace", workspace_id.map(String::from))
+        } else if project_id.is_some() {
+            ("project", project_id.map(String::from))
+        } else {
+            ("temp", None)
+        };
+
+        let repo = AgentChatSessionRepo::new(&self.db);
+        if let Err(e) = repo
+            .create(
+                &session_id,
+                context_type,
+                context_guid.as_deref(),
+                registry_id,
+                &cwd_str,
+                allow_file_access,
+            )
+            .await
+        {
+            tracing::warn!("Failed to persist agent session {}: {}", session_id, e);
+        }
+
         info!(
             "Created Agent session {} (workspace: {}, file_access: {})",
             session_id,
@@ -115,6 +167,65 @@ impl AgentSessionService {
             allow_file_access
         );
         Ok(session_id)
+    }
+
+    /// Re-create a runtime for an existing persisted session.
+    /// Returns cwd for client display and upload base path.
+    pub async fn resume_session(&self, session_id: &str) -> Result<(String, String)> {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        let model = repo
+            .find_by_guid(session_id)
+            .await
+            .map_err(crate::ServiceError::Infra)?
+            .ok_or_else(|| crate::ServiceError::NotFound(format!("Session {} not found", session_id)))?;
+
+        let launch_spec = self
+            .agent_service
+            .get_registry_agent_launch_spec(&model.registry_id)
+            .await
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
+        let env_overrides = self
+            .agent_service
+            .get_registry_agent_env_overrides(&model.registry_id);
+
+        let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
+            fs_engine: FsEngine::new(),
+            allow_file_access: model.allow_file_access,
+        });
+        let cwd = PathBuf::from(model.cwd.clone());
+        let handle = run_acp_session(
+            model.guid.clone(),
+            launch_spec,
+            cwd,
+            handler,
+            env_overrides,
+            Some(model.guid.clone()),
+        )
+        .await
+        .map_err(|e| crate::ServiceError::Processing(e))?;
+        let runtime_session_id = handle.session_id.clone();
+        self.sessions.write().insert(runtime_session_id.clone(), handle);
+
+        if runtime_session_id != model.guid {
+            tracing::warn!(
+                "Resume fallback created new ACP session id {}, requested {}",
+                runtime_session_id,
+                model.guid
+            );
+        }
+        if let Err(e) = repo.mark_active(&runtime_session_id).await {
+            tracing::warn!(
+                "Failed to mark resumed session {} active: {}",
+                runtime_session_id,
+                e
+            );
+        }
+
+        info!(
+            "Resumed Agent session {} (requested {})",
+            runtime_session_id, model.guid
+        );
+        Ok((runtime_session_id, model.cwd))
     }
 
     /// Get session handle (removes from map - caller owns it for the WebSocket lifetime)
@@ -143,6 +254,95 @@ impl AgentSessionService {
         tx: tokio::sync::oneshot::Sender<bool>,
     ) {
         self.pending_permissions.write().insert(request_id, tx);
+    }
+
+    /// Generate and set title from the first user message prefix (max 512 chars).
+    /// Only runs when title is still auto-settable (not user-edited).
+    pub fn spawn_title_generation(&self, session_id: String, first_message: String) {
+        let db = Arc::clone(&self.db);
+        tokio::spawn(async move {
+            let session_repo = AgentChatSessionRepo::new(&*db);
+            if session_repo.can_auto_set_title(&session_id).await.ok() != Some(true) {
+                return;
+            }
+            let title = first_message.chars().take(512).collect::<String>().trim().to_string();
+            let title = if title.is_empty() {
+                "新会话".to_string()
+            } else {
+                title
+            };
+            if let Err(e) = session_repo.update_title(&session_id, &title, "auto").await {
+                tracing::warn!("Failed to auto-set title for session {}: {}", session_id, e);
+            } else {
+                tracing::info!("Auto-set title for session {}: {}", session_id, title);
+            }
+        });
+    }
+
+    /// Get one session summary by id.
+    pub async fn get_session(&self, session_id: &str) -> Result<Option<AgentSessionSummary>> {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        let model = repo
+            .find_by_guid(session_id)
+            .await
+            .map_err(crate::ServiceError::Infra)?;
+        Ok(model.map(|m| AgentSessionSummary {
+            guid: m.guid,
+            title: m.title,
+            title_source: m.title_source,
+            context_type: m.context_type,
+            context_guid: m.context_guid,
+            registry_id: m.registry_id,
+            status: m.status,
+            created_at: m.created_at.to_string(),
+            updated_at: m.updated_at.to_string(),
+        }))
+    }
+
+    /// List sessions with cursor pagination
+    pub async fn list_sessions(
+        &self,
+        context_type: Option<&str>,
+        context_guid: Option<&str>,
+        limit: u64,
+        cursor: Option<&str>,
+    ) -> Result<(Vec<AgentSessionSummary>, Option<String>, bool)> {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        let (items, next_cursor, has_more) = repo
+            .list_with_cursor(context_type, context_guid, limit, cursor)
+            .await
+            .map_err(crate::ServiceError::Infra)?;
+        let summaries: Vec<AgentSessionSummary> = items
+            .into_iter()
+            .map(|m| AgentSessionSummary {
+                guid: m.guid,
+                title: m.title,
+                title_source: m.title_source,
+                context_type: m.context_type,
+                context_guid: m.context_guid,
+                registry_id: m.registry_id,
+                status: m.status,
+                created_at: m.created_at.to_string(),
+                updated_at: m.updated_at.to_string(),
+            })
+            .collect();
+        Ok((summaries, next_cursor, has_more))
+    }
+
+    /// Update session title (user-edited)
+    pub async fn update_session_title(&self, session_id: &str, title: &str) -> Result<()> {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        repo.update_title(session_id, title, "user")
+            .await
+            .map_err(crate::ServiceError::Infra)
+    }
+
+    /// Mark session as closed in DB (call when WebSocket disconnects)
+    pub async fn mark_session_closed(&self, session_id: &str) {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        if let Err(e) = repo.mark_closed(session_id).await {
+            tracing::warn!("Failed to mark agent session {} closed: {}", session_id, e);
+        }
     }
 
     /// Respond to a permission request
