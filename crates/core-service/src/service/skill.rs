@@ -11,7 +11,7 @@ const AGENT_SKILL_DIRS: &[(&str, &str)] = &[
     ("antigravity", ".agent/skills"),
     ("augment", ".augment/rules"),
     ("claude", ".claude/skills"),
-    ("openclaw", "skills"),
+    ("in-project", "skills"),
     ("cline", ".cline/skills"),
     ("codebuddy", ".codebuddy/skills"),
     ("codex", ".codex/skills"),
@@ -82,20 +82,28 @@ impl SkillScanner {
         Self::merge_skills(raw_skills)
     }
 
-    /// Merge skills that have the same path and scope but different agents
+    /// Merge skills that have the same name, scope, and project
     fn merge_skills(raw_skills: Vec<SkillInfo>) -> Vec<SkillInfo> {
         let mut merged: HashMap<String, SkillInfo> = HashMap::new();
 
         for skill in raw_skills {
-            // Revert to grouping by physical path + scope
-            let key = format!("{}:{}", skill.scope, skill.path);
+            // Group by scope + project_id (if any) + skill name
+            let project_key = skill.project_id.as_deref().unwrap_or("");
+            let key = format!("{}:{}:{}", skill.scope, project_key, skill.name);
             
             if let Some(existing) = merged.get_mut(&key) {
                 // Add agent if not already present
-                for agent in skill.agents {
-                    if !existing.agents.contains(&agent) {
-                        existing.agents.push(agent);
+                for agent in &skill.agents {
+                    if !existing.agents.contains(agent) {
+                        existing.agents.push(agent.clone());
                     }
+                }
+                // Keep the version with more files (richer content)
+                if skill.files.len() > existing.files.len() {
+                    existing.files = skill.files;
+                    existing.path = skill.path;
+                    existing.description = skill.description;
+                    existing.title = skill.title;
                 }
                 Self::normalize_agent_order(existing);
             } else {
@@ -361,7 +369,9 @@ impl SkillScanner {
     }
 
     fn apply_unified_label(skill: &mut SkillInfo, skill_dir: &str) {
-        if skill_dir == ".agents/skills" {
+        if skill_dir == "skills" {
+            skill.agents = vec!["in-project".to_string()];
+        } else if skill_dir == ".agents/skills" {
             let unified = "unified".to_string();
             if !skill.agents.contains(&unified) {
                 skill.agents.insert(0, unified);
