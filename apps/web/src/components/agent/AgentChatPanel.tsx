@@ -30,8 +30,10 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
   ScrollArea,
-  Shimmer,
   Skill,
   Tool,
   ToolContent,
@@ -82,7 +84,12 @@ interface TextBlock {
   content: string;
 }
 
-type AssistantBlock = TextBlock | ToolCallBlock;
+interface ThinkingBlock {
+  type: "thinking";
+  content: string;
+}
+
+type AssistantBlock = TextBlock | ThinkingBlock | ToolCallBlock;
 
 interface UserEntry {
   role: "user";
@@ -210,7 +217,9 @@ function reduceEntries(
   prev: ThreadEntry[],
   msg: AgentServerMessage,
   streamAccRef: React.MutableRefObject<string>,
-  lastDeltaRef: React.MutableRefObject<string>,
+  thinkingAccRef: React.MutableRefObject<string>,
+  lastTextDeltaRef: React.MutableRefObject<string>,
+  lastThinkingDeltaRef: React.MutableRefObject<string>,
 ): ThreadEntry[] {
   if (msg.type === "stream") {
     if (msg.role === "user") {
@@ -221,36 +230,42 @@ function reduceEntries(
       return [...prev, { role: "user", content: msg.delta }];
     }
 
-    // Deduplicate identical consecutive deltas (backend may resend)
+    const isThinking = msg.kind === "thinking";
+    const lastDeltaRef = isThinking ? lastThinkingDeltaRef : lastTextDeltaRef;
+    const activeAccRef = isThinking ? thinkingAccRef : streamAccRef;
+
     if (msg.delta === lastDeltaRef.current) return prev;
     lastDeltaRef.current = msg.delta;
 
-    // Assistant text chunk -> append to current assistant turn's last text block
     const last = prev[prev.length - 1];
     if (last?.role === "assistant" && last.isStreaming) {
       const blocks = [...last.blocks];
       const lastBlock = blocks[blocks.length - 1];
-      if (lastBlock?.type === "text") {
-        // Append to existing text block
-        if (msg.delta) streamAccRef.current += msg.delta;
-        blocks[blocks.length - 1] = { type: "text", content: streamAccRef.current };
+      const expectedType: AssistantBlock["type"] = isThinking ? "thinking" : "text";
+
+      if (lastBlock?.type === expectedType) {
+        if (msg.delta) activeAccRef.current += msg.delta;
+        blocks[blocks.length - 1] = {
+          type: expectedType,
+          content: activeAccRef.current,
+        } as TextBlock | ThinkingBlock;
       } else {
-        // After a tool call, start a new text block with fresh accumulator
-        streamAccRef.current = msg.delta;
-        blocks.push({ type: "text", content: msg.delta });
+        activeAccRef.current = msg.delta;
+        blocks.push({ type: expectedType, content: msg.delta } as TextBlock | ThinkingBlock);
       }
+
       return [
         ...prev.slice(0, -1),
         { ...last, blocks, isStreaming: !msg.done },
       ];
     }
-    // New assistant turn
-    streamAccRef.current = msg.delta;
+
+    activeAccRef.current = msg.delta;
     return [
       ...prev,
       {
         role: "assistant",
-        blocks: [{ type: "text", content: msg.delta }],
+        blocks: [{ type: isThinking ? "thinking" : "text", content: msg.delta } as TextBlock | ThinkingBlock],
         isStreaming: !msg.done,
       },
     ];
@@ -270,7 +285,7 @@ function reduceEntries(
     };
 
     // Finalize any streaming assistant text accumulator on tool event
-    let entries = [...prev];
+    const entries = [...prev];
     const lastEntry = entries[entries.length - 1];
     if (lastEntry?.role === "assistant" && lastEntry.isStreaming) {
       entries[entries.length - 1] = { ...lastEntry, isStreaming: false };
@@ -332,6 +347,7 @@ function reduceEntries(
       } else {
         // Reset stream accumulator for new text after this tool call
         streamAccRef.current = "";
+        thinkingAccRef.current = "";
         blocks.push(newBlock);
       }
 
@@ -341,6 +357,7 @@ function reduceEntries(
 
     // No assistant entry yet - create one with the tool call
     streamAccRef.current = "";
+    thinkingAccRef.current = "";
     return [
       ...entries,
       {
@@ -471,6 +488,18 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
             </MessageResponse>
           );
         }
+        if (block.type === "thinking") {
+          if (!block.content) return null;
+          const isLastThinkingBlock =
+            entry.isStreaming &&
+            !entry.blocks.slice(i + 1).some((b) => b.type === "thinking");
+          return (
+            <Reasoning key={`thinking-${i}`} isStreaming={isLastThinkingBlock} defaultOpen={isLastThinkingBlock}>
+              <ReasoningTrigger />
+              <ReasoningContent>{block.content}</ReasoningContent>
+            </Reasoning>
+          );
+        }
         return (
           <ToolOrSkillBlock key={block.tool_call_id || i} {...block} />
         );
@@ -515,7 +544,14 @@ function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): Age
     }
   }
 
-  if (assistant.isStreaming) return { busy: true, label: "Streaming" };
+  if (assistant.isStreaming) {
+    for (let i = assistant.blocks.length - 1; i >= 0; i--) {
+      const block = assistant.blocks[i];
+      if (block.type === "thinking") return { busy: true, label: "Thinking" };
+      if (block.type === "text") return { busy: true, label: "Streaming" };
+    }
+    return { busy: true, label: "Streaming" };
+  }
 
   return { busy: false };
 }
@@ -605,7 +641,9 @@ export function AgentChatPanel() {
   const conversationRef = useRef<HTMLDivElement>(null);
   const [messageNavIndex, setMessageNavIndex] = useState(-1);
   const streamAccRef = useRef<string>("");
-  const lastDeltaRef = useRef<string>("");
+  const thinkingAccRef = useRef<string>("");
+  const lastTextDeltaRef = useRef<string>("");
+  const lastThinkingDeltaRef = useRef<string>("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historySessions, setHistorySessions] = useState<AgentChatSessionItem[]>([]);
@@ -613,6 +651,8 @@ export function AgentChatPanel() {
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isResumingHistory, setIsResumingHistory] = useState(false);
+  const [isManualLoadingMessages, setIsManualLoadingMessages] = useState(false);
+  const [isResumedSession, setIsResumedSession] = useState(false);
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [headerHovered, setHeaderHovered] = useState(false);
   const [selectedAuthMethodId, setSelectedAuthMethodId] = useState<string>("");
@@ -640,10 +680,12 @@ export function AgentChatPanel() {
   const handleMessage = useCallback((msg: AgentServerMessage) => {
     switch (msg.type) {
       case "stream":
-        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
+        setWaitingForResponse(false);
+        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, thinkingAccRef, lastTextDeltaRef, lastThinkingDeltaRef));
         break;
       case "tool_call":
-        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
+        setWaitingForResponse(false);
+        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, thinkingAccRef, lastTextDeltaRef, lastThinkingDeltaRef));
         break;
       case "permission_request":
         setPendingPermission({
@@ -655,7 +697,7 @@ export function AgentChatPanel() {
         break;
       case "error":
         setWaitingForResponse(false);
-        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
+        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, thinkingAccRef, lastTextDeltaRef, lastThinkingDeltaRef));
         break;
       case "turn_end":
         setWaitingForResponse(false);
@@ -751,23 +793,17 @@ export function AgentChatPanel() {
       setPendingPermission(null);
       setRegistryId(s.registry_id);
       setSessionTitle(s.title || null);
+      setIsResumedSession(true);
       setIsResumingHistory(true);
       autoResumeTriedRef.current = null;
       try {
-        const resumed = await resumeSession(s.guid);
-        if (!resumed) {
-          await startSession({
-            workspaceId: s.context_type === "workspace" ? s.context_guid : null,
-            projectId: s.context_type === "project" ? s.context_guid : null,
-            registryId: s.registry_id,
-          });
-        }
+        await resumeSession(s.guid);
       } finally {
         setIsResumingHistory(false);
         skipNextAutoConnectRef.current = false;
       }
     },
-    [disconnect, isConnected, isConnecting, resumeSession, sessionId, startSession]
+    [disconnect, isConnected, isConnecting, resumeSession, sessionId]
   );
 
   const handleCreateNewSession = useCallback(async (targetRegistryId?: string) => {
@@ -779,6 +815,7 @@ export function AgentChatPanel() {
     setEntries([]);
     setPendingPermission(null);
     setSessionTitle(null);
+    setIsResumedSession(false);
     setRegistryId(nextRegistryId);
     restoreAttemptedRef.current = true;
     autoResumeTriedRef.current = null;
@@ -789,6 +826,26 @@ export function AgentChatPanel() {
       skipNextAutoConnectRef.current = false;
     }
   }, [contextKey, defaultRegistryId, disconnect, isConnecting, registryId, startSession]);
+
+  const handleManualLoadMessages = useCallback(async () => {
+    const targetSessionId = sessionId;
+    if (!targetSessionId || isConnecting || isResumingHistory) return;
+
+    setIsManualLoadingMessages(true);
+    try {
+      setIsResumingHistory(true);
+      setIsResumedSession(true);
+      skipNextAutoConnectRef.current = true;
+      disconnect();
+      setEntries([]);
+      setPendingPermission(null);
+      await resumeSession(targetSessionId);
+    } finally {
+      setIsResumingHistory(false);
+      skipNextAutoConnectRef.current = false;
+      setIsManualLoadingMessages(false);
+    }
+  }, [disconnect, isConnecting, isResumingHistory, resumeSession, sessionId]);
 
   useEffect(() => {
     if (authRequest?.methods?.length) {
@@ -852,6 +909,7 @@ export function AgentChatPanel() {
       if (sessionId) {
         if (autoResumeTriedRef.current === sessionId) return;
         autoResumeTriedRef.current = sessionId;
+        setIsResumedSession(true);
         void resumeSession(sessionId);
         return;
       }
@@ -859,16 +917,17 @@ export function AgentChatPanel() {
         restoreAttemptedRef.current = true;
         const lastSessionId = getLastSessionIdForContext(contextKey);
         if (lastSessionId) {
+          if (autoResumeTriedRef.current === lastSessionId) return;
+          autoResumeTriedRef.current = lastSessionId;
+          setIsResumedSession(true);
           void (async () => {
-            const resumed = await resumeSession(lastSessionId);
-            if (!resumed) {
-              clearLastSessionIdForContext(contextKey);
-            }
+            await resumeSession(lastSessionId);
           })();
           return;
         }
       }
       autoResumeTriedRef.current = null;
+      setIsResumedSession(false);
       startSession();
     }
   }, [
@@ -956,7 +1015,9 @@ export function AgentChatPanel() {
         }
       }
       streamAccRef.current = "";
-      lastDeltaRef.current = "";
+      thinkingAccRef.current = "";
+      lastTextDeltaRef.current = "";
+      lastThinkingDeltaRef.current = "";
       setWaitingForResponse(true);
       setEntries((prev) => [
         ...prev,
@@ -1056,28 +1117,6 @@ export function AgentChatPanel() {
     }
   })();
 
-  const currentPhase = (() => {
-    if (authRequest) {
-      return {
-        label: "Authenticate",
-        detail: "Authentication required. Please choose an auth method to continue.",
-      };
-    }
-    switch (connectionPhase) {
-      case "initializing":
-        return { label: "Initialize", detail: "Negotiating ACP protocol and capabilities." };
-      case "authenticating":
-        return { label: "Authenticate", detail: "Authenticating with the selected agent." };
-      case "resuming_session":
-        return { label: "Session load", detail: "Restoring the previous session context." };
-      case "creating_session":
-        return { label: "Session new", detail: "Creating a new ACP chat session." };
-      case "connecting_ws":
-        return { label: "Connect stream", detail: "Opening WebSocket for updates and prompts." };
-      default:
-        return { label: "Idle", detail: "Waiting to start ACP connection." };
-    }
-  })();
   const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
 
   return (
@@ -1294,28 +1333,31 @@ export function AgentChatPanel() {
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
         <Conversation className="min-h-0 h-full overflow-hidden">
           <ConversationContent className="gap-3 p-4!">
-            {!isConnected && (
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Current ACP stage
-                </p>
-                <p className="text-sm font-medium text-foreground">{currentPhase.label}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{currentPhase.detail}</p>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {isConnecting || isResumingHistory ? connectionPhaseLabel : "Waiting to start..."}
-                </p>
-              </div>
-            )}
             {(isConnecting || isResumingHistory) && (
               <div className="flex items-center justify-center py-6">
-                <Shimmer duration={1.5}>
+                <TextShimmer duration={1.5}>
                   {isResumingHistory ? "Restoring session..." : connectionPhaseLabel}
-                </Shimmer>
+                </TextShimmer>
               </div>
             )}
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
+              </div>
+            )}
+            {isConnected && entries.length === 0 && !isConnecting && !error && sessionId && isResumedSession && (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleManualLoadMessages}
+                  disabled={isManualLoadingMessages || isResumingHistory}
+                  className="h-8 text-xs text-muted-foreground"
+                >
+                  {(isManualLoadingMessages || isResumingHistory) && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                  {isManualLoadingMessages || isResumingHistory ? "Loading messages..." : "Load messages"}
+                </Button>
               </div>
             )}
             {isConnected && entries.length === 0 && !isConnecting && !error && (

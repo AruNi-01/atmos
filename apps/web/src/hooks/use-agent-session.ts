@@ -18,6 +18,7 @@ export type AgentServerMessage =
   | {
       type: "stream";
       role?: "assistant" | "user";
+      kind?: "message" | "thinking";
       delta: string;
       done: boolean;
       usage?: unknown;
