@@ -18,9 +18,17 @@ default:
 dev-web:
     bun --filter web dev
 
+# 启动 Web 开发服务器 (使用 portless)
+dev-web-portless:
+    bun --filter web dev:portless
+
 # 启动 landing 开发服务器
 dev-landing:
     bun --filter landing dev
+
+# 启动 landing 开发服务器 (使用 portless)
+dev-landing-portless:
+    bun --filter landing dev:portless
 
 # 启动 docs 开发服务器
 dev-docs:
@@ -204,8 +212,10 @@ fresh: clean install-deps
 # ============================================
 
 alias dw := dev-web
+alias dwp := dev-web-portless
 alias dd := dev-desktop
 alias dl := dev-landing
+alias dlp := dev-landing-portless
 alias d-d := dev-docs
 alias da := dev-api
 alias t := test
