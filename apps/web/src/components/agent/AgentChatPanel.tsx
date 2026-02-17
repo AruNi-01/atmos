@@ -55,7 +55,7 @@ import {
   Button,
   TextShimmer,
 } from "@workspace/ui";
-import { Bot, ChevronDown, ChevronUp, Folder, History, Loader2, MessageSquare, Plus, Square, SquareCheck, X } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronUp, Folder, FolderInput, Globe, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, SquareCheck, Terminal, Trash2, Wrench, X, FileText } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { AgentIcon } from "./AgentIcon";
@@ -77,6 +77,36 @@ interface ToolCallBlock {
   status: string;
   raw_input?: unknown;
   raw_output?: unknown;
+}
+
+function getToolIcon(tool: string): React.ReactNode {
+  switch ((tool || "").toLowerCase()) {
+    case "read":
+      return <FileText />;
+    case "edit":
+      return <Pencil />;
+    case "delete":
+      return <Trash2 />;
+    case "move":
+      return <FolderInput />;
+    case "search":
+      return <Search />;
+    case "execute":
+      return <Terminal />;
+    case "think":
+      return <Brain />;
+    case "fetch":
+      return <Globe />;
+    case "other":
+    case "tool":
+    default:
+      return <Wrench />;
+  }
+}
+
+function isGenericToolName(name?: string): boolean {
+  const v = (name || "").trim().toLowerCase();
+  return !v || v === "tool" || v === "other";
 }
 
 interface TextBlock {
@@ -216,10 +246,6 @@ function getSkillName(raw_input: Record<string, unknown>): string {
 function reduceEntries(
   prev: ThreadEntry[],
   msg: AgentServerMessage,
-  streamAccRef: React.MutableRefObject<string>,
-  thinkingAccRef: React.MutableRefObject<string>,
-  lastTextDeltaRef: React.MutableRefObject<string>,
-  lastThinkingDeltaRef: React.MutableRefObject<string>,
 ): ThreadEntry[] {
   if (msg.type === "stream") {
     if (msg.role === "user") {
@@ -231,26 +257,19 @@ function reduceEntries(
     }
 
     const isThinking = msg.kind === "thinking";
-    const lastDeltaRef = isThinking ? lastThinkingDeltaRef : lastTextDeltaRef;
-    const activeAccRef = isThinking ? thinkingAccRef : streamAccRef;
-
-    if (msg.delta === lastDeltaRef.current) return prev;
-    lastDeltaRef.current = msg.delta;
-
     const last = prev[prev.length - 1];
+
     if (last?.role === "assistant" && last.isStreaming) {
       const blocks = [...last.blocks];
       const lastBlock = blocks[blocks.length - 1];
       const expectedType: AssistantBlock["type"] = isThinking ? "thinking" : "text";
 
       if (lastBlock?.type === expectedType) {
-        if (msg.delta) activeAccRef.current += msg.delta;
         blocks[blocks.length - 1] = {
-          type: expectedType,
-          content: activeAccRef.current,
+          ...lastBlock,
+          content: (lastBlock as TextBlock | ThinkingBlock).content + msg.delta,
         } as TextBlock | ThinkingBlock;
       } else {
-        activeAccRef.current = msg.delta;
         blocks.push({ type: expectedType, content: msg.delta } as TextBlock | ThinkingBlock);
       }
 
@@ -260,7 +279,6 @@ function reduceEntries(
       ];
     }
 
-    activeAccRef.current = msg.delta;
     return [
       ...prev,
       {
@@ -336,18 +354,16 @@ function reduceEntries(
       }
 
       if (toolIdx >= 0) {
+        const prevBlock = blocks[toolIdx] as ToolCallBlock;
         blocks[toolIdx] = {
-          ...blocks[toolIdx] as ToolCallBlock,
-          tool: msg.tool || (blocks[toolIdx] as ToolCallBlock).tool,
-          description: msg.description || (blocks[toolIdx] as ToolCallBlock).description,
+          ...prevBlock,
+          tool: isGenericToolName(msg.tool) ? prevBlock.tool : msg.tool,
+          description: msg.description || prevBlock.description,
           status: msg.status,
-          raw_input: msg.raw_input ?? (blocks[toolIdx] as ToolCallBlock).raw_input,
-          raw_output: msg.raw_output ?? (blocks[toolIdx] as ToolCallBlock).raw_output,
+          raw_input: msg.raw_input ?? prevBlock.raw_input,
+          raw_output: msg.raw_output ?? prevBlock.raw_output,
         };
       } else {
-        // Reset stream accumulator for new text after this tool call
-        streamAccRef.current = "";
-        thinkingAccRef.current = "";
         blocks.push(newBlock);
       }
 
@@ -356,8 +372,6 @@ function reduceEntries(
     }
 
     // No assistant entry yet - create one with the tool call
-    streamAccRef.current = "";
-    thinkingAccRef.current = "";
     return [
       ...entries,
       {
@@ -453,6 +467,7 @@ function ToolOrSkillBlock({
         variant={asSkill ? "skill" : "tool"}
         state={state}
         title={asSkill ? `Skill: ${skillName}` : toolDisplayName}
+        icon={asSkill ? undefined : getToolIcon(tool)}
       />
       <ToolContent>
         <ToolInput
@@ -517,10 +532,11 @@ type AgentActivity =
   | { busy: true; label: string };
 
 function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): AgentActivity {
-  if (waitingFirst) return { busy: true, label: "Thinking" };
-
   const last = entries[entries.length - 1];
-  if (!last || last.role !== "assistant") return { busy: false };
+  if (!last || last.role !== "assistant") {
+    if (waitingFirst) return { busy: true, label: "Generating" };
+    return { busy: false };
+  }
 
   const assistant = last;
   // Find the last meaningful block
@@ -553,6 +569,7 @@ function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): Age
     return { busy: true, label: "Streaming" };
   }
 
+  if (waitingFirst) return { busy: true, label: "Generating" };
   return { busy: false };
 }
 
@@ -596,10 +613,14 @@ function AgentActivityIndicator({ activity }: { activity: AgentActivity & { busy
 
   return (
     <div className="flex items-center gap-2 px-1 py-1.5 text-sm">
-      <span className="font-mono text-sm leading-none text-muted-foreground/80 dark:text-muted-foreground">
+      <span className="inline-flex items-center font-mono text-sm leading-none text-muted-foreground/80 dark:text-muted-foreground">
         {spinnerChar}
       </span>
-      <TextShimmer className="text-sm font-medium leading-none" duration={1.5}>
+      <TextShimmer
+        as="span"
+        className="translate-y-px text-sm"
+        duration={1.5}
+      >
         {activity.label}...
       </TextShimmer>
     </div>
@@ -640,10 +661,6 @@ export function AgentChatPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
   const [messageNavIndex, setMessageNavIndex] = useState(-1);
-  const streamAccRef = useRef<string>("");
-  const thinkingAccRef = useRef<string>("");
-  const lastTextDeltaRef = useRef<string>("");
-  const lastThinkingDeltaRef = useRef<string>("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historySessions, setHistorySessions] = useState<AgentChatSessionItem[]>([]);
@@ -681,11 +698,10 @@ export function AgentChatPanel() {
     switch (msg.type) {
       case "stream":
         setWaitingForResponse(false);
-        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, thinkingAccRef, lastTextDeltaRef, lastThinkingDeltaRef));
+        setEntries((prev) => reduceEntries(prev, msg));
         break;
       case "tool_call":
-        setWaitingForResponse(false);
-        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, thinkingAccRef, lastTextDeltaRef, lastThinkingDeltaRef));
+        setEntries((prev) => reduceEntries(prev, msg));
         break;
       case "permission_request":
         setPendingPermission({
@@ -697,7 +713,7 @@ export function AgentChatPanel() {
         break;
       case "error":
         setWaitingForResponse(false);
-        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, thinkingAccRef, lastTextDeltaRef, lastThinkingDeltaRef));
+        setEntries((prev) => reduceEntries(prev, msg));
         break;
       case "turn_end":
         setWaitingForResponse(false);
@@ -1014,10 +1030,6 @@ export function AgentChatPanel() {
           void agentRestApi.updateSessionTitle(sessionId, title).catch(() => {});
         }
       }
-      streamAccRef.current = "";
-      thinkingAccRef.current = "";
-      lastTextDeltaRef.current = "";
-      lastThinkingDeltaRef.current = "";
       setWaitingForResponse(true);
       setEntries((prev) => [
         ...prev,
