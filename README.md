@@ -12,6 +12,7 @@ Following the **L1 -> L2 -> L3 -> App** layered design:
 *   **[L1: Infrastructure](crates/infra/)**: Database (SeaORM), WebSocket Engine, Cache, Jobs.
 *   **[L2: Core Engine](crates/core-engine/)**: Technical capabilities (PTY, Git, FS Watcher, Tmux).
 *   **[L3: Core Service](crates/core-service/)**: Business logic and domain rules.
+*   **[Agent Integration](crates/agent/)**: ACP client, agent management, external service integration (independent vertical module).
 *   **[App: API](apps/api/)**: Axum HTTP/WS entry point.
 
 ### 🚀 Frontend & Shared

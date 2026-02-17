@@ -21,6 +21,7 @@ An Architecture Decision Record (ADR) is a document that captures an important a
 | ADR | Title | Status | Date | Decision Makers |
 |-----|-------|--------|------|-----------------|
 | [001](./001-monorepo.md) | Adopt Monorepo Architecture | ✅ Accepted | 2024-01-10 | @alice (Architect), @bob (Tech Lead) |
+| [002](./002-agent-crate-positioning.md) | Agent Crate as Independent Vertical Module | ✅ Accepted | 2025-02-18 | - |
 
 ---
 

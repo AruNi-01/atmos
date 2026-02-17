@@ -77,6 +77,7 @@ interface ToolCallBlock {
   status: string;
   raw_input?: unknown;
   raw_output?: unknown;
+  detail?: unknown;
 }
 
 function getToolIcon(tool: string): React.ReactNode {
@@ -300,6 +301,7 @@ function reduceEntries(
       status: msg.status,
       raw_input: msg.raw_input,
       raw_output: msg.raw_output,
+      detail: msg.detail,
     };
 
     // Finalize any streaming assistant text accumulator on tool event
@@ -309,13 +311,12 @@ function reduceEntries(
       entries[entries.length - 1] = { ...lastEntry, isStreaming: false };
     }
 
-    // Find existing tool call block in the last assistant entry, or create assistant entry
+    // Only bind tool updates to the current turn's assistant entry (must be last entry).
+    // If latest entry is a user prompt, create a new assistant entry right after it.
     let assistantIdx = -1;
-    for (let i = entries.length - 1; i >= 0; i--) {
-      if (entries[i].role === "assistant") {
-        assistantIdx = i;
-        break;
-      }
+    const lastIdx = entries.length - 1;
+    if (lastIdx >= 0 && entries[lastIdx].role === "assistant") {
+      assistantIdx = lastIdx;
     }
 
     if (assistantIdx >= 0) {
@@ -362,6 +363,7 @@ function reduceEntries(
           status: msg.status,
           raw_input: msg.raw_input ?? prevBlock.raw_input,
           raw_output: msg.raw_output ?? prevBlock.raw_output,
+          detail: msg.detail ?? prevBlock.detail,
         };
       } else {
         blocks.push(newBlock);
@@ -439,6 +441,7 @@ function ToolOrSkillBlock({
   status,
   raw_input,
   raw_output,
+  detail,
 }: ToolCallBlock) {
   const state = toolStatusToState(status);
   const isError = state === "output-error";
@@ -459,6 +462,26 @@ function ToolOrSkillBlock({
         ? description || "Processing..."
         : undefined;
 
+  const errorText = isError
+    ? (() => {
+        if (typeof raw_output === "string" && raw_output.trim()) return raw_output;
+        if (raw_output && typeof raw_output === "object") {
+          const obj = raw_output as Record<string, unknown>;
+          const msg = obj.message ?? obj.error ?? obj.reason;
+          if (typeof msg === "string" && msg.trim()) return msg;
+          return JSON.stringify(raw_output, null, 2);
+        }
+        if (detail && typeof detail === "object") {
+          const obj = detail as Record<string, unknown>;
+          const msg = obj.message ?? obj.error ?? obj.reason;
+          if (typeof msg === "string" && msg.trim()) return msg;
+        }
+        if (typeof detail === "string" && detail.trim()) return detail;
+        if (description && description.trim() && description.trim().toLowerCase() !== "tool") return description;
+        return "Execution failed";
+      })()
+    : null;
+
   const Wrapper = asSkill ? Skill : Tool;
 
   return (
@@ -476,7 +499,7 @@ function ToolOrSkillBlock({
         />
         <ToolOutput
           output={output}
-          errorText={isError ? (description || "Execution failed") : null}
+          errorText={errorText}
         />
       </ToolContent>
     </Wrapper>
