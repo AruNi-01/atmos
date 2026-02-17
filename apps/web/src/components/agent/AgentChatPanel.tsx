@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "streamdown/styles.css";
 import { useContextParams } from "@/hooks/use-context-params";
 import {
@@ -478,6 +478,95 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Agent activity status
+// ---------------------------------------------------------------------------
+
+type AgentActivity =
+  | { busy: false }
+  | { busy: true; label: string };
+
+function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): AgentActivity {
+  if (waitingFirst) return { busy: true, label: "Thinking" };
+
+  const last = entries[entries.length - 1];
+  if (!last || last.role !== "assistant") return { busy: false };
+
+  const assistant = last;
+  // Find the last meaningful block
+  for (let i = assistant.blocks.length - 1; i >= 0; i--) {
+    const block = assistant.blocks[i];
+    if (block.type === "tool_call") {
+      if (block.status === "running") {
+        const tool = block.tool;
+        const label =
+          tool === "Read" ? "Reading" :
+          tool === "Edit" ? "Writing" :
+          tool === "Search" ? "Searching" :
+          tool === "Execute" ? "Running command" :
+          tool === "Fetch" ? "Fetching" :
+          tool === "Delete" ? "Deleting" :
+          tool === "Think" ? "Thinking" :
+          tool === "Tool" ? (block.description || "Working") :
+          tool;
+        return { busy: true, label };
+      }
+    }
+  }
+
+  if (assistant.isStreaming) return { busy: true, label: "Streaming" };
+
+  return { busy: false };
+}
+
+const SPINNER_NAMES = [
+  "braille", "helix", "scan", "cascade", "orbit",
+  "snake", "breathe", "pulse", "dna", "rain",
+] as const;
+
+function useUnicodeSpinner() {
+  const [frame, setFrame] = useState(0);
+  const [spinner, setSpinner] = useState<{ frames: readonly string[]; interval: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const name = SPINNER_NAMES[Math.floor(Math.random() * SPINNER_NAMES.length)];
+
+    import("unicode-animations").then((mod) => {
+      if (cancelled) return;
+      const spinners = mod.default ?? mod;
+      const s = spinners[name as keyof typeof spinners];
+      if (s) setSpinner(s);
+    });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!spinner) return;
+    const timer = setInterval(() => {
+      setFrame((f) => f + 1);
+    }, spinner.interval);
+    return () => clearInterval(timer);
+  }, [spinner]);
+
+  if (!spinner) return "⠋";
+  return spinner.frames[frame % spinner.frames.length];
+}
+
+function AgentActivityIndicator({ activity }: { activity: AgentActivity & { busy: true } }) {
+  const spinnerChar = useUnicodeSpinner();
+
+  return (
+    <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-muted-foreground">
+      <span className="font-mono text-sm leading-none dark:text-muted-foreground text-muted-foreground/80">
+        {spinnerChar}
+      </span>
+      <span className="truncate">{activity.label}</span>
+    </div>
+  );
+}
+
 function PromptInputAttachmentsSection() {
   const attachments = usePromptInputAttachments();
   if (attachments.files.length === 0) return null;
@@ -548,11 +637,9 @@ export function AgentChatPanel() {
   const handleMessage = useCallback((msg: AgentServerMessage) => {
     switch (msg.type) {
       case "stream":
-        setWaitingForResponse(false);
         setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
         break;
       case "tool_call":
-        setWaitingForResponse(false);
         setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
         break;
       case "permission_request":
@@ -568,6 +655,7 @@ export function AgentChatPanel() {
         setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
         break;
       case "session_ended":
+        setWaitingForResponse(false);
         break;
     }
   }, []);
@@ -804,6 +892,11 @@ export function AgentChatPanel() {
   const userEntryIndices = React.useMemo(
     () => entries.map((e, i) => (e.role === "user" ? i : -1)).filter((i) => i >= 0),
     [entries]
+  );
+
+  const agentActivity = useMemo(
+    () => deriveAgentActivity(entries, waitingForResponse),
+    [entries, waitingForResponse]
   );
 
   const scrollToMessage = useCallback((messageIndex: number) => {
@@ -1246,10 +1339,8 @@ export function AgentChatPanel() {
                 )}
               </div>
             ))}
-            {waitingForResponse && (
-              <div className="flex items-center gap-2 py-2">
-                <Shimmer duration={1.5}>Generating response...</Shimmer>
-              </div>
+            {agentActivity.busy && (
+              <AgentActivityIndicator activity={agentActivity} />
             )}
             <div ref={bottomRef} />
           </ConversationContent>
@@ -1351,9 +1442,9 @@ export function AgentChatPanel() {
               )}
             </PromptInputTools>
             <PromptInputSubmit
-              status={waitingForResponse ? "streaming" : undefined}
+              status={agentActivity.busy ? "streaming" : undefined}
               onStop={
-                waitingForResponse
+                agentActivity.busy
                   ? () => {
                     disconnect();
                     setWaitingForResponse(false);
@@ -1361,9 +1452,9 @@ export function AgentChatPanel() {
                   : undefined
               }
               disabled={!isConnected}
-              size={waitingForResponse ? "sm" : "icon-sm"}
+              size={agentActivity.busy ? "sm" : "icon-sm"}
             >
-              {waitingForResponse ? (
+              {agentActivity.busy ? (
                 <span className="flex items-center gap-1.5">
                   <Square className="size-4 shrink-0" />
                 </span>
