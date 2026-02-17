@@ -5,32 +5,29 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use agent::AgentId;
+use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
-    AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, 
-    FsSearchContentRequest, FsValidateGitPathRequest, FsWriteFileRequest,
-    GitChangedFilesRequest, GitCommitRequest, GitFileDiffRequest,     GitGetHeadCommitRequest, GitGetCommitCountRequest,
-    GitGetStatusRequest, GitListBranchesRequest, GitPushRequest, GitRenameBranchRequest, 
-    GitStageRequest, GitUnstageRequest, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest,
-    GitPullRequest, GitFetchRequest, GitSyncRequest,
-    ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateRequest, 
-    ProjectUpdateTargetBranchRequest, ProjectUpdateOrderRequest, ProjectCheckCanDeleteRequest,
-    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, 
-    WorkspaceListRequest, WorkspacePinRequest, WorkspaceUnpinRequest, 
-    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, 
-    WorkspaceRetrySetupRequest, WorkspaceUnarchiveRequest,
-    WsAction, WsMessage, WsMessageHandler, WsRequest,
-    ScriptGetRequest, ScriptSaveRequest,
-    WsEvent, WorkspaceSetupProgressNotification,
-    SkillsGetRequest, AgentInstallRequest, AgentConfigGetRequest, AgentConfigSetRequest,
-    AgentRegistryInstallRequest, AgentRegistryRemoveRequest,
+    AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
+    AgentRegistryRemoveRequest, AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest,
+    FsReadFileRequest, FsSearchContentRequest, FsValidateGitPathRequest, FsWriteFileRequest,
+    GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
+    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitGetCommitCountRequest,
+    GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitPullRequest,
+    GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
+    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
+    ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
+    ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest, WorkspaceArchiveRequest,
+    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
+    WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
+    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
 };
-use tokio::sync::OnceCell;
+use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
-use portable_pty::{native_pty_system, PtySize, CommandBuilder};
 use std::io::Read;
+use tokio::sync::OnceCell;
 
 use crate::error::{Result, ServiceError};
 use crate::{AgentService, ProjectService, WorkspaceService};
@@ -64,7 +61,9 @@ impl WsMessageService {
     }
 
     pub fn set_ws_manager(&self, manager: Arc<infra::WsManager>) -> Result<()> {
-        self.ws_manager.set(manager).map_err(|_| ServiceError::Processing("WS Manager already set".to_string()))?;
+        self.ws_manager
+            .set(manager)
+            .map_err(|_| ServiceError::Processing("WS Manager already set".to_string()))?;
         Ok(())
     }
 
@@ -104,33 +103,58 @@ impl WsMessageService {
 
             // Git
             WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
-            WsAction::GitGetHeadCommit => self.handle_git_get_head_commit(parse_request(request.data)?),
-            WsAction::GitGetCommitCount => self.handle_git_get_commit_count(parse_request(request.data)?),
-            WsAction::GitListBranches => self.handle_git_list_branches(parse_request(request.data)?),
-            WsAction::GitRenameBranch => self.handle_git_rename_branch(parse_request(request.data)?),
-            WsAction::GitChangedFiles => self.handle_git_changed_files(parse_request(request.data)?),
+            WsAction::GitGetHeadCommit => {
+                self.handle_git_get_head_commit(parse_request(request.data)?)
+            }
+            WsAction::GitGetCommitCount => {
+                self.handle_git_get_commit_count(parse_request(request.data)?)
+            }
+            WsAction::GitListBranches => {
+                self.handle_git_list_branches(parse_request(request.data)?)
+            }
+            WsAction::GitRenameBranch => {
+                self.handle_git_rename_branch(parse_request(request.data)?)
+            }
+            WsAction::GitChangedFiles => {
+                self.handle_git_changed_files(parse_request(request.data)?)
+            }
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
             WsAction::GitCommit => self.handle_git_commit(parse_request(request.data)?),
             WsAction::GitPush => self.handle_git_push(parse_request(request.data)?),
             WsAction::GitStage => self.handle_git_stage(parse_request(request.data)?),
             WsAction::GitUnstage => self.handle_git_unstage(parse_request(request.data)?),
-            WsAction::GitDiscardUnstaged => self.handle_git_discard_unstaged(parse_request(request.data)?),
-            WsAction::GitDiscardUntracked => self.handle_git_discard_untracked(parse_request(request.data)?),
+            WsAction::GitDiscardUnstaged => {
+                self.handle_git_discard_unstaged(parse_request(request.data)?)
+            }
+            WsAction::GitDiscardUntracked => {
+                self.handle_git_discard_untracked(parse_request(request.data)?)
+            }
             WsAction::GitPull => self.handle_git_pull(parse_request(request.data)?),
             WsAction::GitFetch => self.handle_git_fetch(parse_request(request.data)?),
             WsAction::GitSync => self.handle_git_sync(parse_request(request.data)?),
 
             // Project
             WsAction::ProjectList => self.handle_project_list().await,
-            WsAction::ProjectCreate => self.handle_project_create(parse_request(request.data)?).await,
-            WsAction::ProjectUpdate => self.handle_project_update(parse_request(request.data)?).await,
+            WsAction::ProjectCreate => {
+                self.handle_project_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ProjectUpdate => {
+                self.handle_project_update(parse_request(request.data)?)
+                    .await
+            }
             WsAction::ProjectUpdateTargetBranch => {
-                self.handle_project_update_target_branch(parse_request(request.data)?).await
+                self.handle_project_update_target_branch(parse_request(request.data)?)
+                    .await
             }
             WsAction::ProjectUpdateOrder => {
-                self.handle_project_update_order(parse_request(request.data)?).await
+                self.handle_project_update_order(parse_request(request.data)?)
+                    .await
             }
-            WsAction::ProjectDelete => self.handle_project_delete(parse_request(request.data)?).await,
+            WsAction::ProjectDelete => {
+                self.handle_project_delete(parse_request(request.data)?)
+                    .await
+            }
             WsAction::ProjectValidatePath => {
                 self.handle_fs_validate_git_path(parse_request(request.data)?)
             }
@@ -140,42 +164,54 @@ impl WsMessageService {
             WsAction::ScriptSave => self.handle_script_save(parse_request(request.data)?).await,
 
             // Workspace
-            WsAction::WorkspaceList => self.handle_workspace_list(parse_request(request.data)?).await,
+            WsAction::WorkspaceList => {
+                self.handle_workspace_list(parse_request(request.data)?)
+                    .await
+            }
             WsAction::WorkspaceCreate => {
-                self.handle_workspace_create(conn_id, parse_request(request.data)?).await
+                self.handle_workspace_create(conn_id, parse_request(request.data)?)
+                    .await
             }
             WsAction::WorkspaceUpdateName => {
-                self.handle_workspace_update_name(parse_request(request.data)?).await
+                self.handle_workspace_update_name(parse_request(request.data)?)
+                    .await
             }
             WsAction::WorkspaceUpdateBranch => {
-                self.handle_workspace_update_branch(parse_request(request.data)?).await
+                self.handle_workspace_update_branch(parse_request(request.data)?)
+                    .await
             }
             WsAction::WorkspaceUpdateOrder => {
-                self.handle_workspace_update_order(parse_request(request.data)?).await
+                self.handle_workspace_update_order(parse_request(request.data)?)
+                    .await
             }
             WsAction::WorkspaceDelete => {
-                self.handle_workspace_delete(parse_request(request.data)?).await
+                self.handle_workspace_delete(parse_request(request.data)?)
+                    .await
             }
             WsAction::WorkspacePin => {
-                self.handle_workspace_pin(parse_request(request.data)?).await
+                self.handle_workspace_pin(parse_request(request.data)?)
+                    .await
             }
             WsAction::WorkspaceUnpin => {
-                self.handle_workspace_unpin(parse_request(request.data)?).await
+                self.handle_workspace_unpin(parse_request(request.data)?)
+                    .await
             }
             WsAction::WorkspaceArchive => {
-                self.handle_workspace_archive(parse_request(request.data)?).await
+                self.handle_workspace_archive(parse_request(request.data)?)
+                    .await
             }
             WsAction::WorkspaceUnarchive => {
-                self.handle_workspace_unarchive(parse_request(request.data)?).await
+                self.handle_workspace_unarchive(parse_request(request.data)?)
+                    .await
             }
-            WsAction::WorkspaceListArchived => {
-                self.handle_workspace_list_archived().await
-            }
+            WsAction::WorkspaceListArchived => self.handle_workspace_list_archived().await,
             WsAction::WorkspaceRetrySetup => {
-                self.handle_workspace_retry_setup(conn_id, parse_request(request.data)?).await
+                self.handle_workspace_retry_setup(conn_id, parse_request(request.data)?)
+                    .await
             }
             WsAction::ProjectCheckCanDelete => {
-                self.handle_project_check_can_delete(parse_request(request.data)?).await
+                self.handle_project_check_can_delete(parse_request(request.data)?)
+                    .await
             }
 
             // Skills
@@ -184,12 +220,27 @@ impl WsMessageService {
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
             WsAction::AgentList => self.handle_agent_list().await,
-            WsAction::AgentInstall => self.handle_agent_install(parse_request(request.data)?).await,
-            WsAction::AgentConfigGet => self.handle_agent_config_get(parse_request(request.data)?).await,
-            WsAction::AgentConfigSet => self.handle_agent_config_set(parse_request(request.data)?).await,
+            WsAction::AgentInstall => {
+                self.handle_agent_install(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentConfigGet => {
+                self.handle_agent_config_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentConfigSet => {
+                self.handle_agent_config_set(parse_request(request.data)?)
+                    .await
+            }
             WsAction::AgentRegistryList => self.handle_agent_registry_list().await,
-            WsAction::AgentRegistryInstall => self.handle_agent_registry_install(parse_request(request.data)?).await,
-            WsAction::AgentRegistryRemove => self.handle_agent_registry_remove(parse_request(request.data)?).await,
+            WsAction::AgentRegistryInstall => {
+                self.handle_agent_registry_install(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentRegistryRemove => {
+                self.handle_agent_registry_remove(parse_request(request.data)?)
+                    .await
+            }
         }
     }
 
@@ -244,7 +295,7 @@ impl WsMessageService {
 
     fn handle_fs_read_file(&self, req: FsReadFileRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        
+
         // 检查文件是否存在，不存在时返回正常响应而非错误
         if !path.exists() {
             return Ok(json!({
@@ -254,7 +305,7 @@ impl WsMessageService {
                 "size": 0,
             }));
         }
-        
+
         let (content, size) = self.fs_engine.read_file(&path)?;
 
         Ok(json!({
@@ -277,7 +328,9 @@ impl WsMessageService {
 
     fn handle_fs_list_project_files(&self, req: FsListProjectFilesRequest) -> Result<Value> {
         let root_path = self.fs_engine.expand_path(&req.root_path)?;
-        let tree = self.fs_engine.list_project_files(&root_path, req.show_hidden)?;
+        let tree = self
+            .fs_engine
+            .list_project_files(&root_path, req.show_hidden)?;
 
         fn convert_tree(items: Vec<core_engine::FileTreeItem>) -> Vec<Value> {
             items
@@ -309,19 +362,24 @@ impl WsMessageService {
             &req.query,
             req.max_results,
             req.case_sensitive,
-        ).map_err(|e| ServiceError::Validation(format!("Search failed: {}", e)))?;
+        )
+        .map_err(|e| ServiceError::Validation(format!("Search failed: {}", e)))?;
 
-        let matches: Vec<Value> = result.matches.into_iter().map(|m| {
-            json!({
-                "file_path": m.file_path,
-                "line_number": m.line_number,
-                "line_content": m.line_content,
-                "match_start": m.match_start,
-                "match_end": m.match_end,
-                "context_before": m.context_before,
-                "context_after": m.context_after,
+        let matches: Vec<Value> = result
+            .matches
+            .into_iter()
+            .map(|m| {
+                json!({
+                    "file_path": m.file_path,
+                    "line_number": m.line_number,
+                    "line_content": m.line_content,
+                    "match_start": m.match_start,
+                    "match_end": m.match_end,
+                    "context_before": m.context_before,
+                    "context_after": m.context_after,
+                })
             })
-        }).collect();
+            .collect();
 
         Ok(json!({
             "matches": matches,
@@ -348,9 +406,10 @@ impl WsMessageService {
 
     fn handle_git_get_status(&self, req: GitGetStatusRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let status = self.git_engine.get_git_status(&path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to get git status: {}", e))
-        })?;
+        let status = self
+            .git_engine
+            .get_git_status(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get git status: {}", e)))?;
 
         let current_branch = self.git_engine.get_current_branch(&path).ok();
         Ok(json!({
@@ -364,15 +423,17 @@ impl WsMessageService {
 
     fn handle_git_get_head_commit(&self, req: GitGetHeadCommitRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let commit_hash = self.git_engine.get_head_commit(&path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to get HEAD commit: {}", e))
-        })?;
+        let commit_hash = self
+            .git_engine
+            .get_head_commit(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get HEAD commit: {}", e)))?;
         Ok(json!({ "commit_hash": commit_hash }))
     }
 
     fn handle_git_get_commit_count(&self, req: GitGetCommitCountRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let count = self.git_engine
+        let count = self
+            .git_engine
             .get_commit_count(&path, &req.base_commit, &req.head_commit)
             .map_err(|e| ServiceError::Validation(format!("Failed to get commit count: {}", e)))?;
         Ok(json!({ "count": count }))
@@ -380,9 +441,10 @@ impl WsMessageService {
 
     fn handle_git_list_branches(&self, req: GitListBranchesRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let branches = self.git_engine.list_branches(&path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to list branches: {}", e))
-        })?;
+        let branches = self
+            .git_engine
+            .list_branches(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to list branches: {}", e)))?;
 
         Ok(json!({ "branches": branches }))
     }
@@ -398,9 +460,10 @@ impl WsMessageService {
 
     fn handle_git_changed_files(&self, req: GitChangedFilesRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let info = self.git_engine.get_changed_files(&path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to get changed files: {}", e))
-        })?;
+        let info = self
+            .git_engine
+            .get_changed_files(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
 
         let convert_file = |f: core_engine::ChangedFileInfo| -> Value {
             json!({
@@ -413,8 +476,10 @@ impl WsMessageService {
         };
 
         let staged_files: Vec<Value> = info.staged_files.into_iter().map(convert_file).collect();
-        let unstaged_files: Vec<Value> = info.unstaged_files.into_iter().map(convert_file).collect();
-        let untracked_files: Vec<Value> = info.untracked_files.into_iter().map(convert_file).collect();
+        let unstaged_files: Vec<Value> =
+            info.unstaged_files.into_iter().map(convert_file).collect();
+        let untracked_files: Vec<Value> =
+            info.untracked_files.into_iter().map(convert_file).collect();
 
         // Also check if branch is published
         let is_branch_published = self.git_engine.is_branch_published(&path).unwrap_or(true);
@@ -431,9 +496,10 @@ impl WsMessageService {
 
     fn handle_git_file_diff(&self, req: GitFileDiffRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let diff = self.git_engine.get_file_diff(&path, &req.file_path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to get file diff: {}", e))
-        })?;
+        let diff = self
+            .git_engine
+            .get_file_diff(&path, &req.file_path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?;
 
         Ok(json!({
             "file_path": diff.file_path,
@@ -445,9 +511,10 @@ impl WsMessageService {
 
     fn handle_git_commit(&self, req: GitCommitRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let hash = self.git_engine.commit_all(&path, &req.message).map_err(|e| {
-            ServiceError::Validation(format!("Failed to commit: {}", e))
-        })?;
+        let hash = self
+            .git_engine
+            .commit_all(&path, &req.message)
+            .map_err(|e| ServiceError::Validation(format!("Failed to commit: {}", e)))?;
 
         Ok(json!({
             "success": true,
@@ -457,72 +524,76 @@ impl WsMessageService {
 
     fn handle_git_push(&self, req: GitPushRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        self.git_engine.push(&path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to push: {}", e))
-        })?;
+        self.git_engine
+            .push(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to push: {}", e)))?;
 
         Ok(json!({ "success": true }))
     }
 
     fn handle_git_stage(&self, req: GitStageRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        self.git_engine.stage_files(&path, &req.files).map_err(|e| {
-            ServiceError::Validation(format!("Failed to stage files: {}", e))
-        })?;
+        self.git_engine
+            .stage_files(&path, &req.files)
+            .map_err(|e| ServiceError::Validation(format!("Failed to stage files: {}", e)))?;
 
         Ok(json!({ "success": true }))
     }
 
     fn handle_git_unstage(&self, req: GitUnstageRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        self.git_engine.unstage_files(&path, &req.files).map_err(|e| {
-            ServiceError::Validation(format!("Failed to unstage files: {}", e))
-        })?;
+        self.git_engine
+            .unstage_files(&path, &req.files)
+            .map_err(|e| ServiceError::Validation(format!("Failed to unstage files: {}", e)))?;
 
         Ok(json!({ "success": true }))
     }
 
     fn handle_git_discard_unstaged(&self, req: GitDiscardUnstagedRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        self.git_engine.discard_unstaged(&path, &req.files).map_err(|e| {
-            ServiceError::Validation(format!("Failed to discard unstaged changes: {}", e))
-        })?;
+        self.git_engine
+            .discard_unstaged(&path, &req.files)
+            .map_err(|e| {
+                ServiceError::Validation(format!("Failed to discard unstaged changes: {}", e))
+            })?;
 
         Ok(json!({ "success": true }))
     }
 
     fn handle_git_discard_untracked(&self, req: GitDiscardUntrackedRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        self.git_engine.discard_untracked(&path, &req.files).map_err(|e| {
-            ServiceError::Validation(format!("Failed to discard untracked files: {}", e))
-        })?;
+        self.git_engine
+            .discard_untracked(&path, &req.files)
+            .map_err(|e| {
+                ServiceError::Validation(format!("Failed to discard untracked files: {}", e))
+            })?;
 
         Ok(json!({ "success": true }))
     }
 
     fn handle_git_pull(&self, req: GitPullRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        self.git_engine.pull(&path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to pull: {}", e))
-        })?;
+        self.git_engine
+            .pull(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to pull: {}", e)))?;
 
         Ok(json!({ "success": true }))
     }
 
     fn handle_git_fetch(&self, req: GitFetchRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        self.git_engine.fetch(&path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to fetch: {}", e))
-        })?;
+        self.git_engine
+            .fetch(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to fetch: {}", e)))?;
 
         Ok(json!({ "success": true }))
     }
 
     fn handle_git_sync(&self, req: GitSyncRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        self.git_engine.sync(&path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to sync: {}", e))
-        })?;
+        self.git_engine
+            .sync(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to sync: {}", e)))?;
 
         Ok(json!({ "success": true }))
     }
@@ -537,7 +608,12 @@ impl WsMessageService {
     async fn handle_project_create(&self, req: ProjectCreateRequest) -> Result<Value> {
         let project = self
             .project_service
-            .create_project(req.name, req.main_file_path, req.sidebar_order, req.border_color)
+            .create_project(
+                req.name,
+                req.main_file_path,
+                req.sidebar_order,
+                req.border_color,
+            )
             .await?;
         Ok(json!(project))
     }
@@ -579,9 +655,9 @@ impl WsMessageService {
     async fn handle_script_get(&self, req: ScriptGetRequest) -> Result<Value> {
         let project = self.project_service.get_project(req.project_guid).await?;
         if let Some(project) = project {
-            let scripts_path = std::path::Path::new(&project.main_file_path)
-                .join(".atmos/scripts/atmos.json");
-            
+            let scripts_path =
+                std::path::Path::new(&project.main_file_path).join(".atmos/scripts/atmos.json");
+
             if scripts_path.exists() {
                 let (content, _) = self.fs_engine.read_file(&scripts_path)?;
                 let json: Value = serde_json::from_str(&content).unwrap_or(json!({}));
@@ -590,26 +666,29 @@ impl WsMessageService {
                 Ok(json!({}))
             }
         } else {
-             Err(ServiceError::Validation("Project not found".to_string()))
+            Err(ServiceError::Validation("Project not found".to_string()))
         }
     }
 
     async fn handle_script_save(&self, req: ScriptSaveRequest) -> Result<Value> {
         let project = self.project_service.get_project(req.project_guid).await?;
         if let Some(project) = project {
-            let scripts_path = std::path::Path::new(&project.main_file_path)
-                .join(".atmos/scripts/atmos.json");
-            
+            let scripts_path =
+                std::path::Path::new(&project.main_file_path).join(".atmos/scripts/atmos.json");
+
             // Ensure directory exists
             if let Some(parent) = scripts_path.parent() {
-                std::fs::create_dir_all(parent).map_err(|e| ServiceError::Validation(format!("Failed to create script directory: {}", e)))?;
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    ServiceError::Validation(format!("Failed to create script directory: {}", e))
+                })?;
             }
 
-            let content = serde_json::to_string_pretty(&req.scripts).map_err(|e| ServiceError::Validation(format!("Invalid script JSON: {}", e)))?;
+            let content = serde_json::to_string_pretty(&req.scripts)
+                .map_err(|e| ServiceError::Validation(format!("Invalid script JSON: {}", e)))?;
             self.fs_engine.write_file(&scripts_path, &content)?;
             Ok(json!({ "success": true }))
         } else {
-             Err(ServiceError::Validation("Project not found".to_string()))
+            Err(ServiceError::Validation("Project not found".to_string()))
         }
     }
 
@@ -623,12 +702,21 @@ impl WsMessageService {
         Ok(json!(workspaces))
     }
 
-    async fn handle_workspace_create(&self, conn_id: &str, req: WorkspaceCreateRequest) -> Result<Value> {
+    async fn handle_workspace_create(
+        &self,
+        conn_id: &str,
+        req: WorkspaceCreateRequest,
+    ) -> Result<Value> {
         let workspace = self
             .workspace_service
-            .create_workspace(req.project_guid.clone(), req.name, req.branch, req.sidebar_order)
+            .create_workspace(
+                req.project_guid.clone(),
+                req.name,
+                req.branch,
+                req.sidebar_order,
+            )
             .await?;
-        
+
         // Spawn setup in background
         if let Some(manager) = self.ws_manager.get().cloned() {
             let project_service = self.project_service.clone();
@@ -639,7 +727,17 @@ impl WsMessageService {
 
             let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {
-                Self::run_setup_process(manager, project_service, workspace_service, conn_id, project_guid, workspace_id, workspace_name, false).await;
+                Self::run_setup_process(
+                    manager,
+                    project_service,
+                    workspace_service,
+                    conn_id,
+                    project_guid,
+                    workspace_id,
+                    workspace_name,
+                    false,
+                )
+                .await;
             });
         }
 
@@ -663,7 +761,10 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
-    async fn handle_workspace_update_order(&self, req: WorkspaceUpdateOrderRequest) -> Result<Value> {
+    async fn handle_workspace_update_order(
+        &self,
+        req: WorkspaceUpdateOrderRequest,
+    ) -> Result<Value> {
         self.workspace_service
             .update_order(req.guid, req.sidebar_order)
             .await?;
@@ -697,15 +798,18 @@ impl WsMessageService {
 
     async fn handle_workspace_list_archived(&self) -> Result<Value> {
         let workspaces = self.workspace_service.list_archived_workspaces().await?;
-        
+
         let mut workspace_entries = Vec::new();
         for ws in workspaces {
             // Skip workspaces whose project has been deleted
-            let project = self.project_service.get_project(ws.model.project_guid.clone()).await?;
+            let project = self
+                .project_service
+                .get_project(ws.model.project_guid.clone())
+                .await?;
             let Some(project) = project else {
                 continue;
             };
-            
+
             workspace_entries.push(json!({
                 "guid": ws.model.guid,
                 "name": ws.model.name,
@@ -715,19 +819,32 @@ impl WsMessageService {
                 "archived_at": ws.model.archived_at,
             }));
         }
-        
+
         Ok(json!({ "workspaces": workspace_entries }))
     }
 
-    async fn handle_project_check_can_delete(&self, req: ProjectCheckCanDeleteRequest) -> Result<Value> {
-        let response = self.project_service.check_can_delete_from_archive_modal(req.guid).await?;
+    async fn handle_project_check_can_delete(
+        &self,
+        req: ProjectCheckCanDeleteRequest,
+    ) -> Result<Value> {
+        let response = self
+            .project_service
+            .check_can_delete_from_archive_modal(req.guid)
+            .await?;
         Ok(json!(response))
     }
 
-    async fn handle_workspace_retry_setup(&self, conn_id: &str, req: WorkspaceRetrySetupRequest) -> Result<Value> {
-        let workspace = self.workspace_service.get_workspace(req.guid.clone()).await?
+    async fn handle_workspace_retry_setup(
+        &self,
+        conn_id: &str,
+        req: WorkspaceRetrySetupRequest,
+    ) -> Result<Value> {
+        let workspace = self
+            .workspace_service
+            .get_workspace(req.guid.clone())
+            .await?
             .ok_or_else(|| ServiceError::Validation("Workspace not found".to_string()))?;
-        
+
         if let Some(manager) = self.ws_manager.get().cloned() {
             let project_service = self.project_service.clone();
             let workspace_id = workspace.model.guid.clone();
@@ -737,10 +854,20 @@ impl WsMessageService {
 
             let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {
-                Self::run_setup_process(manager, project_service, workspace_service, conn_id, project_guid, workspace_id, workspace_name, true).await;
+                Self::run_setup_process(
+                    manager,
+                    project_service,
+                    workspace_service,
+                    conn_id,
+                    project_guid,
+                    workspace_id,
+                    workspace_name,
+                    true,
+                )
+                .await;
             });
         }
-        
+
         Ok(json!({ "success": true }))
     }
 
@@ -757,31 +884,47 @@ impl WsMessageService {
         _skip_creation: bool, // We pretty much always run creation check now, but keep param for compatibility
     ) {
         // 1. Initial notification: Creating
-        let _ = manager.send_to(&conn_id, &WsMessage::notification(
-            WsEvent::WorkspaceSetupProgress,
-            json!(WorkspaceSetupProgressNotification {
-                workspace_id: workspace_id.clone(),
-                status: "creating".to_string(),
-                step_title: "Creating Workspace".to_string(),
-                output: None,
-                success: true,
-                countdown: None,
-            })
-        )).await;
-        
+        let _ = manager
+            .send_to(
+                &conn_id,
+                &WsMessage::notification(
+                    WsEvent::WorkspaceSetupProgress,
+                    json!(WorkspaceSetupProgressNotification {
+                        workspace_id: workspace_id.clone(),
+                        status: "creating".to_string(),
+                        step_title: "Creating Workspace".to_string(),
+                        output: None,
+                        success: true,
+                        countdown: None,
+                    }),
+                ),
+            )
+            .await;
+
         // Asynchronously ensure worktree is ready (this was previously blocking in create_workspace)
-        if let Err(e) = workspace_service.ensure_worktree_ready(workspace_id.clone()).await {
-             let _ = manager.send_to(&conn_id, &WsMessage::notification(
-                WsEvent::WorkspaceSetupProgress,
-                json!(WorkspaceSetupProgressNotification {
-                    workspace_id: workspace_id.clone(),
-                    status: "error".to_string(),
-                    step_title: "Workspace Creation Failed".to_string(),
-                    output: Some(format!("\r\n\x1b[31mError creating worktree: {}\x1b[0m\r\n", e)),
-                    success: false,
-                    countdown: None,
-                })
-            )).await;
+        if let Err(e) = workspace_service
+            .ensure_worktree_ready(workspace_id.clone())
+            .await
+        {
+            let _ = manager
+                .send_to(
+                    &conn_id,
+                    &WsMessage::notification(
+                        WsEvent::WorkspaceSetupProgress,
+                        json!(WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id.clone(),
+                            status: "error".to_string(),
+                            step_title: "Workspace Creation Failed".to_string(),
+                            output: Some(format!(
+                                "\r\n\x1b[31mError creating worktree: {}\x1b[0m\r\n",
+                                e
+                            )),
+                            success: false,
+                            countdown: None,
+                        }),
+                    ),
+                )
+                .await;
             return;
         }
 
@@ -795,7 +938,7 @@ impl WsMessageService {
 
         let project_root = std::path::Path::new(&project.main_file_path);
         let scripts_path = project_root.join(".atmos/scripts/atmos.json");
-        
+
         let setup_script = if scripts_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&scripts_path) {
                 let json: Value = serde_json::from_str(&content).unwrap_or(json!({}));
@@ -807,53 +950,78 @@ impl WsMessageService {
             None
         };
 
-        let workspace_path = GitEngine::new().get_worktree_path(&workspace_name).unwrap_or_default();
+        let workspace_path = GitEngine::new()
+            .get_worktree_path(&workspace_name)
+            .unwrap_or_default();
 
         if let Some(script) = setup_script {
             // 3. Status: Setting Up
-             let _ = manager.send_to(&conn_id, &WsMessage::notification(
-                WsEvent::WorkspaceSetupProgress,
-                json!(WorkspaceSetupProgressNotification {
-                    workspace_id: workspace_id.clone(),
-                    status: "setting_up".to_string(),
-                    step_title: "Running Setup Script".to_string(),
-                    output: Some(format!("\r\n$ Running setup script: {}\r\n", script)),
-                    success: true,
-                    countdown: None,
-                })
-            )).await;
+            let _ = manager
+                .send_to(
+                    &conn_id,
+                    &WsMessage::notification(
+                        WsEvent::WorkspaceSetupProgress,
+                        json!(WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id.clone(),
+                            status: "setting_up".to_string(),
+                            step_title: "Running Setup Script".to_string(),
+                            output: Some(format!("\r\n$ Running setup script: {}\r\n", script)),
+                            success: true,
+                            countdown: None,
+                        }),
+                    ),
+                )
+                .await;
 
             // Run in PTY
-            let result = Self::execute_script_in_pty(&manager, &conn_id, &workspace_id, &script, &workspace_path, &project.main_file_path).await;
-            
+            let result = Self::execute_script_in_pty(
+                &manager,
+                &conn_id,
+                &workspace_id,
+                &script,
+                &workspace_path,
+                &project.main_file_path,
+            )
+            .await;
+
             if let Err(e) = result {
-                 let _ = manager.send_to(&conn_id, &WsMessage::notification(
-                    WsEvent::WorkspaceSetupProgress,
-                    json!(WorkspaceSetupProgressNotification {
-                        workspace_id: workspace_id.clone(),
-                        status: "error".to_string(),
-                        step_title: "Setup Failed".to_string(),
-                        output: Some(format!("\r\n\x1b[31mError: {}\x1b[0m\r\n", e)),
-                        success: false,
-                        countdown: None,
-                    })
-                )).await;
+                let _ = manager
+                    .send_to(
+                        &conn_id,
+                        &WsMessage::notification(
+                            WsEvent::WorkspaceSetupProgress,
+                            json!(WorkspaceSetupProgressNotification {
+                                workspace_id: workspace_id.clone(),
+                                status: "error".to_string(),
+                                step_title: "Setup Failed".to_string(),
+                                output: Some(format!("\r\n\x1b[31mError: {}\x1b[0m\r\n", e)),
+                                success: false,
+                                countdown: None,
+                            }),
+                        ),
+                    )
+                    .await;
                 return;
             }
         }
 
         // 4. Status: Completed
-        let _ = manager.send_to(&conn_id, &WsMessage::notification(
-            WsEvent::WorkspaceSetupProgress,
-            json!(WorkspaceSetupProgressNotification {
-                workspace_id: workspace_id.clone(),
-                status: "completed".to_string(),
-                step_title: "Ready to Build".to_string(),
-                output: None,
-                success: true,
-                countdown: None,
-            })
-        )).await;
+        let _ = manager
+            .send_to(
+                &conn_id,
+                &WsMessage::notification(
+                    WsEvent::WorkspaceSetupProgress,
+                    json!(WorkspaceSetupProgressNotification {
+                        workspace_id: workspace_id.clone(),
+                        status: "completed".to_string(),
+                        step_title: "Ready to Build".to_string(),
+                        output: None,
+                        success: true,
+                        countdown: None,
+                    }),
+                ),
+            )
+            .await;
     }
 
     async fn execute_script_in_pty(
@@ -873,7 +1041,7 @@ impl WsMessageService {
         })?;
 
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-        
+
         let mut cmd = CommandBuilder::new(&shell);
         // Run as login shell to load user environment (~/.zprofile, ~/.zshrc, etc.)
         // Note: some shells need -l or --login
@@ -894,7 +1062,7 @@ set -x
         let script_with_wrapper = format!("{}{}", wrapper, script);
         cmd.arg(script_with_wrapper);
         cmd.cwd(cwd.to_path_buf());
-        
+
         // Inject env vars
         cmd.env("ATMOS_ROOT_PROJECT_PATH", project_root.to_string());
         cmd.env("ATMOS_WORKSPACE_PATH", cwd.to_string_lossy().to_string());
@@ -917,26 +1085,35 @@ set -x
         std::thread::spawn(move || {
             let mut buf = [0u8; 4096];
             while let Ok(n) = reader.read(&mut buf) {
-                if n == 0 { break; }
+                if n == 0 {
+                    break;
+                }
                 let s = String::from_utf8_lossy(&buf[..n]).to_string();
-                if tx.send(s).is_err() { break; }
+                if tx.send(s).is_err() {
+                    break;
+                }
             }
         });
 
         while let Some(output) = rx.recv().await {
-             let _ = manager_clone.send_to(&conn_id_clone, &WsMessage::notification(
-                WsEvent::WorkspaceSetupProgress,
-                json!(WorkspaceSetupProgressNotification {
-                    workspace_id: workspace_id_clone.clone(),
-                    status: "setting_up".to_string(),
-                    step_title: "Running Setup Script".to_string(),
-                    output: Some(output),
-                    success: true,
-                    countdown: None,
-                })
-            )).await;
+            let _ = manager_clone
+                .send_to(
+                    &conn_id_clone,
+                    &WsMessage::notification(
+                        WsEvent::WorkspaceSetupProgress,
+                        json!(WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id_clone.clone(),
+                            status: "setting_up".to_string(),
+                            step_title: "Running Setup Script".to_string(),
+                            output: Some(output),
+                            success: true,
+                            countdown: None,
+                        }),
+                    ),
+                )
+                .await;
         }
-        
+
         // Wait, I didn't define WsEvent correctly if I use WsEvent::WorkspaceSetupProgress directly
         // Let me re-check my previous edit of message.rs
 
@@ -984,21 +1161,23 @@ set -x
         if let Some(skill) = skill {
             Ok(json!(skill))
         } else {
-             Err(ServiceError::Validation("Skill not found".to_string()))
+            Err(ServiceError::Validation("Skill not found".to_string()))
         }
     }
 
     /// Install project-wiki and project-wiki-update skills to ~/.atmos/skills/.system/.
     /// Tries to copy from project root first; falls back to git clone from GitHub for project-wiki.
     async fn handle_wiki_skill_install(&self) -> Result<Value> {
-        let home = dirs::home_dir()
-            .ok_or_else(|| ServiceError::Validation("Cannot determine home directory".to_string()))?;
+        let home = dirs::home_dir().ok_or_else(|| {
+            ServiceError::Validation("Cannot determine home directory".to_string())
+        })?;
         let system_dir = home.join(".atmos").join("skills").join(".system");
         let target_dir = system_dir.join("project-wiki");
 
         if target_dir.exists() {
             // Still try to install project-wiki-update and project-wiki-specify if missing
-            let temp_to_clean = Self::install_missing_wiki_skills_from_project_then_github(&system_dir).await?;
+            let temp_to_clean =
+                Self::install_missing_wiki_skills_from_project_then_github(&system_dir).await?;
             if let Some(temp) = temp_to_clean {
                 let _ = std::fs::remove_dir_all(temp);
             }
@@ -1011,8 +1190,9 @@ set -x
 
         // Ensure parent directory exists
         if let Some(parent) = target_dir.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| ServiceError::Validation(format!("Failed to create directory: {}", e)))?;
+            std::fs::create_dir_all(parent).map_err(|e| {
+                ServiceError::Validation(format!("Failed to create directory: {}", e))
+            })?;
         }
 
         // Try copy from project root (when running from ATMOS source)
@@ -1031,7 +1211,8 @@ set -x
         }
 
         // Fallback: clone from GitHub
-        let temp_dir = std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&temp_dir);
         let clone_path = temp_dir.join("atmos");
 
@@ -1108,7 +1289,8 @@ set -x
         }
 
         // Clone from GitHub and install missing skills
-        let temp_dir = std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&temp_dir);
         let clone_path = temp_dir.join("atmos");
 
@@ -1137,8 +1319,9 @@ set -x
             if update_src.exists() && update_src.is_dir() {
                 let update_dst = system_dir.join("project-wiki-update");
                 let _ = std::fs::create_dir_all(system_dir);
-                Self::copy_dir_all(&update_src, &update_dst)
-                    .map_err(|e| ServiceError::Validation(format!("Failed to copy project-wiki-update: {}", e)))?;
+                Self::copy_dir_all(&update_src, &update_dst).map_err(|e| {
+                    ServiceError::Validation(format!("Failed to copy project-wiki-update: {}", e))
+                })?;
             }
         }
         if !specify_ok {
@@ -1146,8 +1329,9 @@ set -x
             if specify_src.exists() && specify_src.is_dir() {
                 let specify_dst = system_dir.join("project-wiki-specify");
                 let _ = std::fs::create_dir_all(system_dir);
-                Self::copy_dir_all(&specify_src, &specify_dst)
-                    .map_err(|e| ServiceError::Validation(format!("Failed to copy project-wiki-specify: {}", e)))?;
+                Self::copy_dir_all(&specify_src, &specify_dst).map_err(|e| {
+                    ServiceError::Validation(format!("Failed to copy project-wiki-specify: {}", e))
+                })?;
             }
         }
 
@@ -1163,8 +1347,9 @@ set -x
         let project_root = std::env::current_dir().unwrap_or_default();
         let source = project_root.join("skills").join("project-wiki-update");
         if source.exists() && source.is_dir() {
-            Self::copy_dir_all(&source, &target)
-                .map_err(|e| ServiceError::Validation(format!("Failed to copy project-wiki-update: {}", e)))?;
+            Self::copy_dir_all(&source, &target).map_err(|e| {
+                ServiceError::Validation(format!("Failed to copy project-wiki-update: {}", e))
+            })?;
         }
         Ok(())
     }
@@ -1178,24 +1363,29 @@ set -x
         let project_root = std::env::current_dir().unwrap_or_default();
         let source = project_root.join("skills").join("project-wiki-specify");
         if source.exists() && source.is_dir() {
-            Self::copy_dir_all(&source, &target)
-                .map_err(|e| ServiceError::Validation(format!("Failed to copy project-wiki-specify: {}", e)))?;
+            Self::copy_dir_all(&source, &target).map_err(|e| {
+                ServiceError::Validation(format!("Failed to copy project-wiki-specify: {}", e))
+            })?;
         }
         Ok(())
     }
 
     /// Check if project-wiki, project-wiki-update, and project-wiki-specify all exist with SKILL.md in ~/.atmos/skills/.system/
     async fn handle_wiki_skill_system_status(&self) -> Result<Value> {
-        let system_dir = dirs::home_dir()
-            .map(|h| h.join(".atmos").join("skills").join(".system"));
+        let system_dir = dirs::home_dir().map(|h| h.join(".atmos").join("skills").join(".system"));
         let installed = system_dir
             .map(|d| {
                 let skill_ok = |name: &str| {
                     let skill_path = d.join(name);
                     let skill_md = skill_path.join("SKILL.md");
-                    skill_path.exists() && skill_path.is_dir() && skill_md.exists() && skill_md.is_file()
+                    skill_path.exists()
+                        && skill_path.is_dir()
+                        && skill_md.exists()
+                        && skill_md.is_file()
                 };
-                skill_ok("project-wiki") && skill_ok("project-wiki-update") && skill_ok("project-wiki-specify")
+                skill_ok("project-wiki")
+                    && skill_ok("project-wiki-update")
+                    && skill_ok("project-wiki-specify")
             })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))
@@ -1232,7 +1422,10 @@ set -x
         Ok(json!({ "agents": agents }))
     }
 
-    async fn handle_agent_registry_install(&self, req: AgentRegistryInstallRequest) -> Result<Value> {
+    async fn handle_agent_registry_install(
+        &self,
+        req: AgentRegistryInstallRequest,
+    ) -> Result<Value> {
         let result = self
             .agent_service
             .install_registry_agent(&req.registry_id, req.force_overwrite)
@@ -1241,7 +1434,10 @@ set -x
     }
 
     async fn handle_agent_registry_remove(&self, req: AgentRegistryRemoveRequest) -> Result<Value> {
-        let result = self.agent_service.remove_registry_agent(&req.registry_id).await?;
+        let result = self
+            .agent_service
+            .remove_registry_agent(&req.registry_id)
+            .await?;
         Ok(json!(result))
     }
 
@@ -1260,7 +1456,9 @@ set -x
                 std::os::unix::fs::symlink(&target, &dst_path)?;
                 #[cfg(windows)]
                 {
-                    let target_is_dir = std::fs::metadata(&src_path).map(|m| m.is_dir()).unwrap_or(false);
+                    let target_is_dir = std::fs::metadata(&src_path)
+                        .map(|m| m.is_dir())
+                        .unwrap_or(false);
                     if target_is_dir {
                         std::os::windows::fs::symlink_dir(&target, &dst_path)?;
                     } else {
@@ -1279,7 +1477,8 @@ set -x
 
 /// Parse request data from JSON Value.
 fn parse_request<T: serde::de::DeserializeOwned>(data: Value) -> Result<T> {
-    serde_json::from_value(data).map_err(|e| ServiceError::Validation(format!("Invalid request: {}", e)))
+    serde_json::from_value(data)
+        .map_err(|e| ServiceError::Validation(format!("Invalid request: {}", e)))
 }
 
 fn parse_agent_id(raw: &str) -> Result<AgentId> {
@@ -1302,11 +1501,7 @@ impl WsMessageHandler for WsMessageService {
         let ws_msg = match WsMessage::from_json(message) {
             Ok(msg) => msg,
             Err(e) => {
-                tracing::warn!(
-                    "[WsMessageService] Invalid message from {}: {}",
-                    conn_id,
-                    e
-                );
+                tracing::warn!("[WsMessageService] Invalid message from {}: {}", conn_id, e);
                 return None;
             }
         };
@@ -1315,7 +1510,7 @@ impl WsMessageHandler for WsMessageService {
             WsMessage::Request(request) => {
                 tracing::debug!(
                     "[WsMessageService] Processing request from {}: {:?}",
-                     conn_id,
+                    conn_id,
                     request.action
                 );
                 let response = self.process_request(conn_id, request).await;

@@ -6,35 +6,34 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Add terminal_layout column to store JSON layout data
         manager
             .alter_table(
                 Table::alter()
-                    .table(Workspace::Table)
-                    .add_column(ColumnDef::new(Workspace::TerminalLayout).text().null())
+                    .table(AgentChatSession::Table)
+                    .add_column(
+                        ColumnDef::new(AgentChatSession::AcpSessionId)
+                            .string()
+                            .null(),
+                    )
                     .to_owned(),
             )
-            .await?;
-
-        Ok(())
+            .await
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .alter_table(
                 Table::alter()
-                    .table(Workspace::Table)
-                    .drop_column(Workspace::TerminalLayout)
+                    .table(AgentChatSession::Table)
+                    .drop_column(AgentChatSession::AcpSessionId)
                     .to_owned(),
             )
-            .await?;
-
-        Ok(())
+            .await
     }
 }
 
 #[derive(DeriveIden)]
-enum Workspace {
+enum AgentChatSession {
     Table,
-    TerminalLayout,
+    AcpSessionId,
 }

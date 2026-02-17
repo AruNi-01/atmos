@@ -112,11 +112,7 @@ impl GitEngine {
     /// # Arguments
     /// * `repo_path` - Path to the main git repository
     /// * `workspace_name` - Name of the workspace to remove (e.g., "aruni/pikachu")
-    pub fn remove_worktree(
-        &self,
-        repo_path: &Path,
-        workspace_name: &str,
-    ) -> Result<()> {
+    pub fn remove_worktree(&self, repo_path: &Path, workspace_name: &str) -> Result<()> {
         let worktree_path = self.get_worktree_path(workspace_name)?;
 
         if !worktree_path.exists() {
@@ -127,7 +123,12 @@ impl GitEngine {
         // Remove the worktree using git
         let output = Command::new("git")
             .current_dir(repo_path)
-            .args(["worktree", "remove", "--force", worktree_path.to_str().unwrap()])
+            .args([
+                "worktree",
+                "remove",
+                "--force",
+                worktree_path.to_str().unwrap(),
+            ])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to remove worktree: {}", e)))?;
 
@@ -144,7 +145,7 @@ impl GitEngine {
             .current_dir(repo_path)
             .args(["branch", "-D", workspace_name])
             .output();
-        
+
         if local_result.is_ok() {
             tracing::info!("Deleted local branch: {}", workspace_name);
         }
@@ -154,7 +155,7 @@ impl GitEngine {
             .current_dir(repo_path)
             .args(["push", "origin", "--delete", workspace_name])
             .output();
-        
+
         if let Ok(output) = remote_result {
             if output.status.success() {
                 tracing::info!("Deleted remote branch: origin/{}", workspace_name);
@@ -235,7 +236,10 @@ impl GitEngine {
 
         if !status_output.status.success() {
             let stderr = String::from_utf8_lossy(&status_output.stderr);
-            return Err(EngineError::Git(format!("Failed to get git status: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "Failed to get git status: {}",
+                stderr
+            )));
         }
 
         let status_stdout = String::from_utf8_lossy(&status_output.stdout);
@@ -286,20 +290,33 @@ impl GitEngine {
     }
 
     /// Count commits between base and head (exclusive of base): git rev-list --count base..head
-    pub fn get_commit_count(&self, repo_path: &Path, base_commit: &str, head_commit: &str) -> Result<u32> {
+    pub fn get_commit_count(
+        &self,
+        repo_path: &Path,
+        base_commit: &str,
+        head_commit: &str,
+    ) -> Result<u32> {
         let output = Command::new("git")
             .current_dir(repo_path)
-            .args(["rev-list", "--count", &format!("{}..{}", base_commit, head_commit)])
+            .args([
+                "rev-list",
+                "--count",
+                &format!("{}..{}", base_commit, head_commit),
+            ])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get commit count: {}", e)))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(EngineError::Git(format!("Failed to get commit count: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "Failed to get commit count: {}",
+                stderr
+            )));
         }
 
         let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        s.parse::<u32>().map_err(|_| EngineError::Git("Invalid commit count".to_string()))
+        s.parse::<u32>()
+            .map_err(|_| EngineError::Git("Invalid commit count".to_string()))
     }
 
     /// Get the current HEAD commit hash (full SHA)
@@ -371,7 +388,10 @@ impl GitEngine {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(EngineError::Git(format!("Failed to rename branch: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "Failed to rename branch: {}",
+                stderr
+            )));
         }
 
         Ok(())
@@ -383,13 +403,22 @@ impl GitEngine {
         // Get list of changed files with status
         let status_output = Command::new("git")
             .current_dir(repo_path)
-            .args(["-c", "core.quotePath=false", "status", "--porcelain", "-uall"])
+            .args([
+                "-c",
+                "core.quotePath=false",
+                "status",
+                "--porcelain",
+                "-uall",
+            ])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get git status: {}", e)))?;
 
         if !status_output.status.success() {
             let stderr = String::from_utf8_lossy(&status_output.stderr);
-            return Err(EngineError::Git(format!("Failed to get git status: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "Failed to get git status: {}",
+                stderr
+            )));
         }
 
         let status_stdout = String::from_utf8_lossy(&status_output.stdout);
@@ -416,7 +445,7 @@ impl GitEngine {
             // Parse based on XY format:
             // X shows the status of the index (staged area)
             // Y shows the status of the work tree (unstaged/working directory)
-            
+
             if x == '?' && y == '?' {
                 // Untracked file
                 untracked_files.push(ChangedFileInfo {
@@ -437,8 +466,9 @@ impl GitEngine {
                         'C' => "C",
                         'U' => "U",
                         _ => "M",
-                    }.to_string();
-                    
+                    }
+                    .to_string();
+
                     staged_files.push(ChangedFileInfo {
                         path: file_path.clone(),
                         status,
@@ -447,7 +477,7 @@ impl GitEngine {
                         staged: true,
                     });
                 }
-                
+
                 // Check for unstaged changes (Y is not space)
                 if y != ' ' {
                     let status = match y {
@@ -455,8 +485,9 @@ impl GitEngine {
                         'D' => "D",
                         'U' => "U",
                         _ => "M",
-                    }.to_string();
-                    
+                    }
+                    .to_string();
+
                     unstaged_files.push(ChangedFileInfo {
                         path: file_path,
                         status,
@@ -480,7 +511,7 @@ impl GitEngine {
     /// Helper to unquote path from git output
     fn unquote_path(path: &str) -> String {
         if path.starts_with('"') && path.ends_with('"') {
-            path[1..path.len()-1]
+            path[1..path.len() - 1]
                 .replace("\\\"", "\"")
                 .replace("\\\\", "\\")
         } else {
@@ -493,7 +524,14 @@ impl GitEngine {
         // Try to get diff numstat for tracked files
         let output = Command::new("git")
             .current_dir(repo_path)
-            .args(["-c", "core.quotePath=false", "diff", "--numstat", "--", file_path])
+            .args([
+                "-c",
+                "core.quotePath=false",
+                "diff",
+                "--numstat",
+                "--",
+                file_path,
+            ])
             .output();
 
         if let Ok(output) = output {
@@ -527,7 +565,14 @@ impl GitEngine {
         // Determine file status first
         let status_output = Command::new("git")
             .current_dir(repo_path)
-            .args(["-c", "core.quotePath=false", "status", "--porcelain", "--", file_path])
+            .args([
+                "-c",
+                "core.quotePath=false",
+                "status",
+                "--porcelain",
+                "--",
+                file_path,
+            ])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get file status: {}", e)))?;
 
@@ -540,7 +585,8 @@ impl GitEngine {
                 "D" | " D" => "D",
                 "??" => "A",
                 _ => "M",
-            }.to_string()
+            }
+            .to_string()
         } else {
             "M".to_string()
         };
@@ -591,7 +637,10 @@ impl GitEngine {
 
         if !add_output.status.success() {
             let stderr = String::from_utf8_lossy(&add_output.stderr);
-            return Err(EngineError::Git(format!("Failed to stage changes: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "Failed to stage changes: {}",
+                stderr
+            )));
         }
 
         // Commit
@@ -613,7 +662,9 @@ impl GitEngine {
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to get commit hash: {}", e)))?;
 
-        let hash = String::from_utf8_lossy(&hash_output.stdout).trim().to_string();
+        let hash = String::from_utf8_lossy(&hash_output.stdout)
+            .trim()
+            .to_string();
         tracing::info!("Committed changes with hash: {}", hash);
         Ok(hash)
     }
@@ -628,7 +679,7 @@ impl GitEngine {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            
+
             // Try push with set-upstream for new branches
             if stderr.contains("no upstream") || stderr.contains("set-upstream") {
                 let branch = self.get_current_branch(repo_path)?;
@@ -636,7 +687,9 @@ impl GitEngine {
                     .current_dir(repo_path)
                     .args(["push", "--set-upstream", "origin", &branch])
                     .output()
-                    .map_err(|e| EngineError::Git(format!("Failed to push with upstream: {}", e)))?;
+                    .map_err(|e| {
+                        EngineError::Git(format!("Failed to push with upstream: {}", e))
+                    })?;
 
                 if !upstream_output.status.success() {
                     let stderr = String::from_utf8_lossy(&upstream_output.stderr);
@@ -669,7 +722,10 @@ impl GitEngine {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(EngineError::Git(format!("Failed to stage files: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "Failed to stage files: {}",
+                stderr
+            )));
         }
 
         tracing::info!("Staged {} files", paths.len());
@@ -694,7 +750,10 @@ impl GitEngine {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(EngineError::Git(format!("Failed to unstage files: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "Failed to unstage files: {}",
+                stderr
+            )));
         }
 
         tracing::info!("Unstaged {} files", paths.len());
@@ -719,7 +778,10 @@ impl GitEngine {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(EngineError::Git(format!("Failed to discard changes: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "Failed to discard changes: {}",
+                stderr
+            )));
         }
 
         tracing::info!("Discarded changes to {} files", paths.len());
@@ -754,7 +816,7 @@ impl GitEngine {
     /// Check if the current branch has been published to remote
     pub fn is_branch_published(&self, repo_path: &Path) -> Result<bool> {
         let branch = self.get_current_branch(repo_path)?;
-        
+
         // Check if remote tracking branch exists
         let output = Command::new("git")
             .current_dir(repo_path)
@@ -884,9 +946,9 @@ fn parse_worktree_list(output: &str) -> Vec<WorktreeInfo> {
         } else if line.starts_with("HEAD ") {
             current_head = Some(line.strip_prefix("HEAD ").unwrap().to_string());
         } else if line.starts_with("branch ") {
-            let branch = line.strip_prefix("branch refs/heads/").unwrap_or(
-                line.strip_prefix("branch ").unwrap(),
-            );
+            let branch = line
+                .strip_prefix("branch refs/heads/")
+                .unwrap_or(line.strip_prefix("branch ").unwrap());
             current_branch = Some(branch.to_string());
         }
     }

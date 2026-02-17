@@ -1,9 +1,12 @@
-use axum::{extract::{Path, State}, Json};
+use axum::{
+    extract::{Path, State},
+    Json,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::{app_state::AppState, error::ApiResult};
 use crate::api::dto::ApiResponse;
+use crate::{app_state::AppState, error::ApiResult};
 
 #[derive(Deserialize)]
 pub struct CreateWorkspacePayload {
@@ -43,7 +46,10 @@ pub async fn list_workspaces_by_project(
     State(state): State<AppState>,
     Path(project_guid): Path<String>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let workspaces = state.workspace_service.list_by_project(project_guid).await?;
+    let workspaces = state
+        .workspace_service
+        .list_by_project(project_guid)
+        .await?;
     Ok(Json(ApiResponse::success(json!(workspaces))))
 }
 
@@ -64,12 +70,15 @@ pub async fn create_workspace(
     State(state): State<AppState>,
     Json(payload): Json<CreateWorkspacePayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let workspace = state.workspace_service.create_workspace(
-        payload.project_guid,
-        payload.name,
-        payload.branch,
-        payload.sidebar_order,
-    ).await?;
+    let workspace = state
+        .workspace_service
+        .create_workspace(
+            payload.project_guid,
+            payload.name,
+            payload.branch,
+            payload.sidebar_order,
+        )
+        .await?;
     Ok(Json(ApiResponse::success(json!(workspace))))
 }
 
@@ -79,8 +88,13 @@ pub async fn update_name(
     Path(guid): Path<String>,
     Json(payload): Json<UpdateNamePayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    state.workspace_service.update_name(guid, payload.name).await?;
-    Ok(Json(ApiResponse::success(json!({ "message": "Workspace name updated" }))))
+    state
+        .workspace_service
+        .update_name(guid, payload.name)
+        .await?;
+    Ok(Json(ApiResponse::success(
+        json!({ "message": "Workspace name updated" }),
+    )))
 }
 
 /// PUT /api/workspace/:guid/branch - 更新工作区分支
@@ -89,8 +103,13 @@ pub async fn update_branch(
     Path(guid): Path<String>,
     Json(payload): Json<UpdateBranchPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    state.workspace_service.update_branch(guid, payload.branch).await?;
-    Ok(Json(ApiResponse::success(json!({ "message": "Workspace branch updated" }))))
+    state
+        .workspace_service
+        .update_branch(guid, payload.branch)
+        .await?;
+    Ok(Json(ApiResponse::success(
+        json!({ "message": "Workspace branch updated" }),
+    )))
 }
 
 /// PUT /api/workspace/:guid/order - 更新工作区排序
@@ -99,8 +118,13 @@ pub async fn update_order(
     Path(guid): Path<String>,
     Json(payload): Json<UpdateOrderPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    state.workspace_service.update_order(guid, payload.sidebar_order).await?;
-    Ok(Json(ApiResponse::success(json!({ "message": "Workspace order updated" }))))
+    state
+        .workspace_service
+        .update_order(guid, payload.sidebar_order)
+        .await?;
+    Ok(Json(ApiResponse::success(
+        json!({ "message": "Workspace order updated" }),
+    )))
 }
 
 /// DELETE /api/workspace/:guid - 删除工作区
@@ -109,7 +133,9 @@ pub async fn delete_workspace(
     Path(guid): Path<String>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     state.workspace_service.delete_workspace(guid).await?;
-    Ok(Json(ApiResponse::success(json!({ "message": "Workspace deleted" }))))
+    Ok(Json(ApiResponse::success(
+        json!({ "message": "Workspace deleted" }),
+    )))
 }
 
 /// GET /api/workspace/:guid/terminal-layout - 获取终端布局
@@ -123,7 +149,9 @@ pub async fn get_terminal_layout(
             "layout": ws.model.terminal_layout,
             "maximized_terminal_id": ws.model.maximized_terminal_id
         })))),
-        None => Ok(Json(ApiResponse::success(json!({ "layout": null, "maximized_terminal_id": null })))),
+        None => Ok(Json(ApiResponse::success(
+            json!({ "layout": null, "maximized_terminal_id": null }),
+        ))),
     }
 }
 
@@ -133,8 +161,13 @@ pub async fn update_terminal_layout(
     Path(guid): Path<String>,
     Json(payload): Json<UpdateTerminalLayoutPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    state.workspace_service.update_terminal_layout(guid, payload.layout).await?;
-    Ok(Json(ApiResponse::success(json!({ "message": "Terminal layout updated" }))))
+    state
+        .workspace_service
+        .update_terminal_layout(guid, payload.layout)
+        .await?;
+    Ok(Json(ApiResponse::success(
+        json!({ "message": "Terminal layout updated" }),
+    )))
 }
 
 /// PUT /api/workspace/:guid/maximized-terminal-id - 更新最大化终端 ID
@@ -143,6 +176,11 @@ pub async fn update_maximized_terminal_id(
     Path(guid): Path<String>,
     Json(payload): Json<UpdateMaximizedTerminalIdPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    state.workspace_service.update_maximized_terminal_id(guid, payload.terminal_id).await?;
-    Ok(Json(ApiResponse::success(json!({ "message": "Maximized terminal ID updated" }))))
+    state
+        .workspace_service
+        .update_maximized_terminal_id(guid, payload.terminal_id)
+        .await?;
+    Ok(Json(ApiResponse::success(
+        json!({ "message": "Maximized terminal ID updated" }),
+    )))
 }

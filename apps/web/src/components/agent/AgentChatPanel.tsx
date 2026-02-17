@@ -595,12 +595,12 @@ function AgentActivityIndicator({ activity }: { activity: AgentActivity & { busy
   const spinnerChar = useUnicodeSpinner();
 
   return (
-    <div className="flex items-center gap-2 px-1 py-1.5 text-xs">
+    <div className="flex items-center gap-2 px-1 py-1.5 text-sm">
       <span className="font-mono text-sm leading-none text-muted-foreground/80 dark:text-muted-foreground">
         {spinnerChar}
       </span>
-      <TextShimmer className="text-xs font-medium" duration={1.5}>
-        {activity.label}
+      <TextShimmer className="text-sm font-medium leading-none" duration={1.5}>
+        {activity.label}...
       </TextShimmer>
     </div>
   );

@@ -33,9 +33,26 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(AgentChatSession::ContextType).string().not_null())
-                    .col(ColumnDef::new(AgentChatSession::ContextGuid).string().null())
-                    .col(ColumnDef::new(AgentChatSession::RegistryId).string().not_null())
+                    .col(
+                        ColumnDef::new(AgentChatSession::ContextType)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(AgentChatSession::ContextGuid)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(AgentChatSession::RegistryId)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(AgentChatSession::AcpSessionId)
+                            .string()
+                            .null(),
+                    )
                     .col(ColumnDef::new(AgentChatSession::Cwd).string().not_null())
                     .col(
                         ColumnDef::new(AgentChatSession::AllowFileAccess)
@@ -45,7 +62,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(AgentChatSession::Status).string().not_null())
                     .col(ColumnDef::new(AgentChatSession::Title).string().null())
-                    .col(ColumnDef::new(AgentChatSession::TitleSource).string().null())
+                    .col(
+                        ColumnDef::new(AgentChatSession::TitleSource)
+                            .string()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -84,6 +105,7 @@ enum AgentChatSession {
     ContextType,
     ContextGuid,
     RegistryId,
+    AcpSessionId,
     Cwd,
     AllowFileAccess,
     Status,

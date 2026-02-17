@@ -68,7 +68,7 @@ impl TmuxEngine {
         let socket_dir = dirs::home_dir()
             .map(|h| h.join(".atmos"))
             .unwrap_or_else(|| PathBuf::from("/tmp/.atmos"));
-        
+
         Self {
             socket_path: socket_dir,
         }
@@ -119,7 +119,7 @@ impl TmuxEngine {
     /// Execute a tmux command and return output
     fn run_tmux(&self, args: &[&str]) -> Result<String> {
         self.ensure_socket_dir()?;
-        
+
         let output = Command::new("tmux")
             .arg("-f")
             .arg("/dev/null") // Isolate from local ~/.tmux.conf
@@ -232,21 +232,24 @@ impl TmuxEngine {
             "-y".to_string(),
             "30".to_string(),
         ];
-        
+
         // Add working directory if provided
         if let Some(dir) = cwd {
             args.push("-c".to_string());
             args.push(dir.to_string());
         }
-        
+
         // Append shell command for first window (shim injection for dynamic titles)
         if let Some(cmd) = shell_command {
             for part in cmd {
                 args.push(part.clone());
             }
-            debug!("Tmux new-session with shim-injected shell for window 1: {:?}", cmd);
+            debug!(
+                "Tmux new-session with shim-injected shell for window 1: {:?}",
+                cmd
+            );
         }
-        
+
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         // Create new detached session with the first window named "1"
         self.run_tmux(&args_refs)?;
@@ -254,20 +257,20 @@ impl TmuxEngine {
         // Disable status bar globally for this Atmos tmux server to ensure a clean UI
         // and isolate from any local user preferences.
         self.run_tmux(&["set-option", "-g", "status", "off"])?;
-        
+
         // Enable passthrough so shell shim OSC sequences (wrapped in DCS) can reach
         // the PTY reader and ultimately xterm.js on the frontend.
         // Without this, tmux silently drops unrecognized escape sequences.
         // Requires tmux 3.3+ (we check gracefully — older versions ignore unknown options).
         let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
-        
+
         // Enable tmux mouse mode so wheel events are forwarded to tmux for scrollback.
         // The frontend sends SGR mouse sequences via a custom wheel handler, tmux enters
         // copy-mode on scroll-up and provides persistent scrollback that survives reconnections.
         // xterm.js scrollback is disabled (scrollback: 0) — tmux owns all scrollback.
         // Text selection: users hold Shift for local xterm.js selection (standard tmux behavior).
         self.run_tmux(&["set-option", "-g", "mouse", "on"])?;
-        
+
         // NOTE: We intentionally do NOT disable the alternate screen buffer
         // (smcup@:rmcup@). Keeping the alternate screen enabled is critical for
         // correct resize behavior. Without it, tmux's screen redraw after SIGWINCH
@@ -289,7 +292,7 @@ impl TmuxEngine {
         // This is important for grouped sessions where each terminal pane has
         // its own client session but they share windows.
         self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"])?;
-        
+
         // Prevent shell from renaming windows (critical for window name-based lookup)
         self.run_tmux(&["set-option", "-g", "allow-rename", "off"])?;
         self.run_tmux(&["set-option", "-g", "automatic-rename", "off"])?;
@@ -305,16 +308,12 @@ impl TmuxEngine {
             return Ok(());
         }
 
-        self.run_tmux(&[
-            "new-session",
-            "-d",
-            "-t",
-            target_session,
-            "-s",
-            new_session,
-        ])?;
+        self.run_tmux(&["new-session", "-d", "-t", target_session, "-s", new_session])?;
 
-        debug!("Created grouped tmux session '{}' linked to '{}'", new_session, target_session);
+        debug!(
+            "Created grouped tmux session '{}' linked to '{}'",
+            new_session, target_session
+        );
         Ok(())
     }
 
@@ -366,7 +365,7 @@ impl TmuxEngine {
             }
             let session_args_refs: Vec<&str> = session_args.iter().map(|s| s.as_str()).collect();
             self.run_tmux(&session_args_refs)?;
-            
+
             // Apply our standard configuration
             let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
             let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
@@ -415,13 +414,14 @@ impl TmuxEngine {
                 return Ok(last_window.index);
             }
             return Err(EngineError::Tmux(
-                "Failed to create window: no window index returned and no windows found".to_string()
+                "Failed to create window: no window index returned and no windows found"
+                    .to_string(),
             ));
         }
 
-        let index = output
-            .parse::<u32>()
-            .map_err(|e| EngineError::Tmux(format!("Failed to parse window index '{}': {}", output, e)))?;
+        let index = output.parse::<u32>().map_err(|e| {
+            EngineError::Tmux(format!("Failed to parse window index '{}': {}", output, e))
+        })?;
 
         info!(
             "Created tmux window: {}:{} (index: {})",
@@ -437,10 +437,7 @@ impl TmuxEngine {
         let tty = self.run_tmux(&["display-message", "-t", &target, "-p", "#{pane_tty}"])?;
 
         if tty.is_empty() {
-            return Err(EngineError::Tmux(format!(
-                "No TTY found for {}",
-                target
-            )));
+            return Err(EngineError::Tmux(format!("No TTY found for {}", target)));
         }
 
         debug!("Got PTY for {}: {}", target, tty);
@@ -451,9 +448,19 @@ impl TmuxEngine {
     ///
     /// Returns the process name (e.g., "vim", "python3", "zsh").
     /// When the shell is idle at a prompt, this returns the shell name itself.
-    pub fn get_pane_current_command(&self, session_name: &str, window_index: u32) -> Result<String> {
+    pub fn get_pane_current_command(
+        &self,
+        session_name: &str,
+        window_index: u32,
+    ) -> Result<String> {
         let target = format!("{}:{}.0", session_name, window_index);
-        let cmd = self.run_tmux(&["display-message", "-t", &target, "-p", "#{pane_current_command}"])?;
+        let cmd = self.run_tmux(&[
+            "display-message",
+            "-t",
+            &target,
+            "-p",
+            "#{pane_current_command}",
+        ])?;
         debug!("Pane current command for {}: {}", target, cmd);
         Ok(cmd.trim().to_string())
     }
@@ -463,7 +470,13 @@ impl TmuxEngine {
     /// tmux tracks this via OSC 7 sequences that modern shells emit automatically.
     pub fn get_pane_current_path(&self, session_name: &str, window_index: u32) -> Result<String> {
         let target = format!("{}:{}.0", session_name, window_index);
-        let path = self.run_tmux(&["display-message", "-t", &target, "-p", "#{pane_current_path}"])?;
+        let path = self.run_tmux(&[
+            "display-message",
+            "-t",
+            &target,
+            "-p",
+            "#{pane_current_path}",
+        ])?;
         debug!("Pane current path for {}: {}", target, path);
         Ok(path.trim().to_string())
     }
@@ -471,34 +484,40 @@ impl TmuxEngine {
     /// Send keys (input) to a specific window
     pub fn send_keys(&self, session_name: &str, window_index: u32, keys: &str) -> Result<()> {
         let target = format!("{}:{}", session_name, window_index);
-        
+
         // Use send-keys with literal flag to send raw text
         self.run_tmux(&["send-keys", "-t", &target, "-l", keys])?;
-        
+
         Ok(())
     }
 
     /// Capture pane content (for potential restore/display)
-    pub fn capture_pane(&self, session_name: &str, window_index: u32, lines: Option<i32>) -> Result<String> {
+    pub fn capture_pane(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        lines: Option<i32>,
+    ) -> Result<String> {
         let target = format!("{}:{}.0", session_name, window_index);
-        let start_line = lines.map(|l| format!("-{}", l)).unwrap_or_else(|| "-".to_string());
-        
-        let content = self.run_tmux(&[
-            "capture-pane",
-            "-t",
-            &target,
-            "-p",
-            "-S",
-            &start_line,
-        ])?;
+        let start_line = lines
+            .map(|l| format!("-{}", l))
+            .unwrap_or_else(|| "-".to_string());
+
+        let content = self.run_tmux(&["capture-pane", "-t", &target, "-p", "-S", &start_line])?;
 
         Ok(content)
     }
 
     /// Resize a window's pane
-    pub fn resize_pane(&self, session_name: &str, window_index: u32, cols: u16, rows: u16) -> Result<()> {
+    pub fn resize_pane(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        cols: u16,
+        rows: u16,
+    ) -> Result<()> {
         let target = format!("{}:{}.0", session_name, window_index);
-        
+
         self.run_tmux(&[
             "resize-pane",
             "-t",
@@ -509,17 +528,14 @@ impl TmuxEngine {
             &rows.to_string(),
         ])?;
 
-        debug!(
-            "Resized pane {} to {}x{}",
-            target, cols, rows
-        );
+        debug!("Resized pane {} to {}x{}", target, cols, rows);
         Ok(())
     }
 
     /// Kill a specific window
     pub fn kill_window(&self, session_name: &str, window_index: u32) -> Result<()> {
         let target = format!("{}:{}", session_name, window_index);
-        
+
         match self.run_tmux(&["kill-window", "-t", &target]) {
             Ok(_) => {
                 info!("Killed tmux window: {}", target);
@@ -645,7 +661,7 @@ impl TmuxEngine {
     /// Check if a session exists
     pub fn session_exists(&self, session_name: &str) -> Result<bool> {
         self.ensure_socket_dir()?;
-        
+
         let output = Command::new("tmux")
             .arg("-f")
             .arg("/dev/null")
@@ -683,25 +699,32 @@ impl TmuxEngine {
     pub fn session_name_from_names(&self, project_name: &str, workspace_name: &str) -> String {
         let sanitize = |s: &str| -> String {
             s.chars()
-                .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '-' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
                 .collect::<String>()
                 .trim_matches('_')
                 .to_string()
         };
-        
+
         let project = sanitize(project_name);
         let workspace = sanitize(workspace_name);
-        
+
         // Determine the body of the session name
-        let body = if workspace.starts_with(&project) && 
-                      (workspace.len() == project.len() || workspace.as_bytes()[project.len()] == b'_') {
+        let body = if workspace.starts_with(&project)
+            && (workspace.len() == project.len() || workspace.as_bytes()[project.len()] == b'_')
+        {
             // Workspace already starts with project name, use it as is
             workspace
         } else {
             // Concatenate project and workspace
             format!("{}_{}", project, workspace)
         };
-        
+
         // Always add atmos_ prefix
         format!("atmos_{}", body)
     }
@@ -720,9 +743,16 @@ impl TmuxEngine {
     }
 
     /// Find a window index by its name in a session
-    pub fn find_window_index_by_name(&self, session_name: &str, window_name: &str) -> Result<Option<u32>> {
+    pub fn find_window_index_by_name(
+        &self,
+        session_name: &str,
+        window_name: &str,
+    ) -> Result<Option<u32>> {
         let windows = self.list_windows(session_name)?;
-        Ok(windows.iter().find(|w| w.name == window_name).map(|w| w.index))
+        Ok(windows
+            .iter()
+            .find(|w| w.name == window_name)
+            .map(|w| w.index))
     }
 
     /// List all Atmos-managed sessions (those starting with "atmos_")
@@ -757,7 +787,12 @@ impl TmuxEngine {
     }
 
     /// Rename a window
-    pub fn rename_window(&self, session_name: &str, window_index: u32, new_name: &str) -> Result<()> {
+    pub fn rename_window(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        new_name: &str,
+    ) -> Result<()> {
         let target = format!("{}:{}", session_name, window_index);
         self.run_tmux(&["rename-window", "-t", &target, new_name])?;
         debug!("Renamed window {} to {}", target, new_name);
@@ -783,11 +818,8 @@ mod tests {
     fn test_session_name_generation() {
         let engine = TmuxEngine::new();
         // Standard ID based session
-        assert_eq!(
-            engine.session_name("abc-def-123"),
-            "atmos_abc_def_123"
-        );
-        
+        assert_eq!(engine.session_name("abc-def-123"), "atmos_abc_def_123");
+
         // Name based sessions - with prefix
         assert_eq!(
             engine.session_name_from_names("myproj", "myws"),
@@ -805,13 +837,13 @@ mod tests {
             engine.session_name_from_names("atmos", "atmos/logysk"),
             "atmos_atmos_logysk"
         );
-        
+
         // Name based sessions - atmos project with different workspace
         assert_eq!(
             engine.session_name_from_names("atmos", "other"),
             "atmos_atmos_other"
         );
-        
+
         // Name based sessions - simple workspace names
         assert_eq!(
             engine.session_name_from_names("atmos", "mankey"),

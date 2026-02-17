@@ -32,7 +32,11 @@ pub async fn create_agent_session(
             .get_workspace(wid.clone())
             .await?
             .ok_or_else(|| crate::error::ApiError::NotFound("Workspace not found".to_string()))?;
-        (Some(wid.as_str()), None, PathBuf::from(workspace.local_path))
+        (
+            Some(wid.as_str()),
+            None,
+            PathBuf::from(workspace.local_path),
+        )
     } else if let Some(ref pid) = payload.project_id {
         let project = state
             .project_service
@@ -55,8 +59,7 @@ pub async fn create_agent_session(
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        let temp_session_dir =
-            format!("temp_session_{}_{}", uuid::Uuid::new_v4(), ts);
+        let temp_session_dir = format!("temp_session_{}_{}", uuid::Uuid::new_v4(), ts);
         let temp_dir = sessions_root.join(temp_session_dir);
         let _ = std::fs::create_dir_all(&temp_dir);
         (None, None, temp_dir)
@@ -104,15 +107,15 @@ pub async fn resume_agent_session(
 }
 
 /// POST /api/agent/upload-attachments - Upload attachment files to .atmos/attachments/ under the given path
-pub async fn upload_attachments(
-    mut multipart: Multipart,
-) -> ApiResult<Json<ApiResponse<Value>>> {
+pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiResponse<Value>>> {
     let mut local_path: Option<String> = None;
     let mut saved_paths: Vec<String> = Vec::new();
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        crate::error::ApiError::BadRequest(format!("Multipart error: {}", e))
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| crate::error::ApiError::BadRequest(format!("Multipart error: {}", e)))?
+    {
         let name = field.name().unwrap_or("").to_string();
 
         if name == "local_path" {
@@ -130,9 +133,7 @@ pub async fn upload_attachments(
                 )
             })?;
 
-            let attachment_dir = PathBuf::from(&base_path)
-                .join(".atmos")
-                .join("attachments");
+            let attachment_dir = PathBuf::from(&base_path).join(".atmos").join("attachments");
             std::fs::create_dir_all(&attachment_dir).map_err(|e| {
                 crate::error::ApiError::InternalError(format!(
                     "Failed to create attachments directory: {}",
@@ -149,11 +150,7 @@ pub async fn upload_attachments(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis();
-            let safe_filename = format!(
-                "{}_{}",
-                ts,
-                filename.replace(['/', '\\', '\0'], "_")
-            );
+            let safe_filename = format!("{}_{}", ts, filename.replace(['/', '\\', '\0'], "_"));
 
             let file_path = attachment_dir.join(&safe_filename);
             let data = field.bytes().await.map_err(|e| {
@@ -230,10 +227,7 @@ pub async fn get_agent_session(
     Path(session_id): Path<String>,
     State(state): State<AppState>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let maybe = state
-        .agent_session_service
-        .get_session(&session_id)
-        .await?;
+    let maybe = state.agent_session_service.get_session(&session_id).await?;
     let s = maybe.ok_or_else(|| {
         crate::error::ApiError::NotFound(format!("Session {} not found", session_id))
     })?;
@@ -267,4 +261,3 @@ pub async fn update_agent_session(
         .await?;
     Ok(Json(ApiResponse::success(json!({ "ok": true }))))
 }
-

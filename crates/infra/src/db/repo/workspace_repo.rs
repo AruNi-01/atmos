@@ -1,5 +1,5 @@
-use sea_orm::*;
 use sea_orm::sea_query::Expr;
+use sea_orm::*;
 
 use crate::db::entities::base::BaseFields;
 use crate::db::entities::workspace;
@@ -10,7 +10,9 @@ pub struct WorkspaceRepo<'a> {
     db: &'a DatabaseConnection,
 }
 
-impl<'a> BaseRepo<workspace::Entity, workspace::Model, workspace::ActiveModel> for WorkspaceRepo<'a> {
+impl<'a> BaseRepo<workspace::Entity, workspace::Model, workspace::ActiveModel>
+    for WorkspaceRepo<'a>
+{
     fn db(&self) -> &DatabaseConnection {
         self.db
     }
@@ -128,7 +130,10 @@ impl<'a> WorkspaceRepo<'a> {
 
     /// 软删除工作区（将 is_deleted 设置为 true）
     pub async fn soft_delete(&self, guid: String) -> Result<()> {
-        tracing::info!("[soft_delete] Attempting to soft delete workspace: {}", guid);
+        tracing::info!(
+            "[soft_delete] Attempting to soft delete workspace: {}",
+            guid
+        );
         let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::IsDeleted, Expr::value(true))
             .col_expr(
@@ -138,13 +143,20 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::Guid.eq(guid.clone()))
             .exec(self.db)
             .await?;
-        tracing::info!("[soft_delete] Soft delete result for {}: {} rows affected", guid, result.rows_affected);
+        tracing::info!(
+            "[soft_delete] Soft delete result for {}: {} rows affected",
+            guid,
+            result.rows_affected
+        );
         Ok(())
     }
 
     /// 批量软删除项目下的所有工作区
     pub async fn soft_delete_by_project(&self, project_guid: String) -> Result<u64> {
-        tracing::info!("[soft_delete_by_project] Soft deleting all workspaces for project: {}", project_guid);
+        tracing::info!(
+            "[soft_delete_by_project] Soft deleting all workspaces for project: {}",
+            project_guid
+        );
         let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::IsDeleted, Expr::value(true))
             .col_expr(
@@ -155,7 +167,11 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
-        tracing::info!("[soft_delete_by_project] Soft deleted {} workspaces for project {}", result.rows_affected, project_guid);
+        tracing::info!(
+            "[soft_delete_by_project] Soft deleted {} workspaces for project {}",
+            result.rows_affected,
+            project_guid
+        );
         Ok(result.rows_affected)
     }
 
@@ -250,9 +266,16 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 更新工作区最大化终端 ID
-    pub async fn update_maximized_terminal_id(&self, guid: String, terminal_id: Option<String>) -> Result<()> {
+    pub async fn update_maximized_terminal_id(
+        &self,
+        guid: String,
+        terminal_id: Option<String>,
+    ) -> Result<()> {
         workspace::Entity::update_many()
-            .col_expr(workspace::Column::MaximizedTerminalId, Expr::value(terminal_id))
+            .col_expr(
+                workspace::Column::MaximizedTerminalId,
+                Expr::value(terminal_id),
+            )
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
@@ -307,4 +330,3 @@ impl<'a> WorkspaceRepo<'a> {
         Ok(count)
     }
 }
-

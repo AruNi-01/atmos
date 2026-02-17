@@ -52,10 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let message_push_service = Arc::new(MessagePushService::new());
 
     // Create services
-    let test_service = Arc::new(TestService::new(
-        Arc::clone(&test_engine),
-        (*db).clone()
-    ));
+    let test_service = Arc::new(TestService::new(Arc::clone(&test_engine), (*db).clone()));
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
@@ -111,7 +108,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Inject WsManager into WsMessageService for server-to-client notifications
-    ws_message_service.set_ws_manager(app_state.ws_service.manager()).map_err(|e| e.to_string())?;
+    ws_message_service
+        .set_ws_manager(app_state.ws_service.manager())
+        .map_err(|e| e.to_string())?;
 
     // Start heartbeat monitor
     let _heartbeat_task = app_state.ws_service.start_heartbeat();

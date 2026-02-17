@@ -563,7 +563,10 @@ async fn handle_terminal_message(
                     }
                     ClientTerminalMessage::TmuxCheckCopyMode => {
                         // Query tmux for copy-mode status and respond
-                        let in_copy_mode = terminal_service.tmux_check_copy_mode(session_id).await.unwrap_or(false);
+                        let in_copy_mode = terminal_service
+                            .tmux_check_copy_mode(session_id)
+                            .await
+                            .unwrap_or(false);
                         let response = TerminalResponse::TmuxCopyModeStatus {
                             session_id: session_id.to_string(),
                             in_copy_mode,

@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use sea_orm::DatabaseConnection;
-use infra::db::repo::{ProjectRepo, WorkspaceRepo};
-use infra::db::entities::project;
-use core_engine::GitEngine;
 use crate::error::{Result, ServiceError};
+use core_engine::GitEngine;
+use infra::db::entities::project;
+use infra::db::repo::{ProjectRepo, WorkspaceRepo};
+use sea_orm::DatabaseConnection;
+use std::sync::Arc;
 
 pub struct ProjectService {
     db: Arc<DatabaseConnection>,
@@ -18,7 +18,7 @@ pub struct ProjectCanDeleteResponse {
 
 impl ProjectService {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
-        Self { 
+        Self {
             db,
             git_engine: GitEngine::new(),
         }
@@ -29,15 +29,23 @@ impl ProjectService {
         Ok(repo.list().await?)
     }
 
-    pub async fn create_project(&self, name: String, main_file_path: String, sidebar_order: i32, border_color: Option<String>) -> Result<project::Model> {
+    pub async fn create_project(
+        &self,
+        name: String,
+        main_file_path: String,
+        sidebar_order: i32,
+        border_color: Option<String>,
+    ) -> Result<project::Model> {
         let repo = ProjectRepo::new(&self.db);
-        Ok(repo.create(name, main_file_path, sidebar_order, border_color).await?)
+        Ok(repo
+            .create(name, main_file_path, sidebar_order, border_color)
+            .await?)
     }
 
     pub async fn delete_project(&self, guid: String) -> Result<()> {
         let project_repo = ProjectRepo::new(&self.db);
         let workspace_repo = WorkspaceRepo::new(&self.db);
-        
+
         let project = project_repo
             .find_by_guid(&guid)
             .await?
@@ -45,12 +53,16 @@ impl ProjectService {
 
         // Get all workspaces to clean up their worktrees
         let workspaces = workspace_repo.list_all_by_project(guid.clone()).await?;
-        
+
         // Clean up git worktrees for all workspaces
         let repo_path = std::path::Path::new(&project.main_file_path);
         for workspace in workspaces {
             if let Err(e) = self.git_engine.remove_worktree(repo_path, &workspace.name) {
-                tracing::warn!("Failed to remove worktree for workspace {}: {}", workspace.name, e);
+                tracing::warn!(
+                    "Failed to remove worktree for workspace {}: {}",
+                    workspace.name,
+                    e
+                );
             }
         }
 
@@ -62,7 +74,10 @@ impl ProjectService {
         Ok(())
     }
 
-    pub async fn check_can_delete_from_archive_modal(&self, guid: String) -> Result<ProjectCanDeleteResponse> {
+    pub async fn check_can_delete_from_archive_modal(
+        &self,
+        guid: String,
+    ) -> Result<ProjectCanDeleteResponse> {
         let workspace_repo = WorkspaceRepo::new(&self.db);
         let active_count = workspace_repo.count_active_by_project(guid).await?;
         Ok(ProjectCanDeleteResponse {
@@ -70,13 +85,17 @@ impl ProjectService {
             active_workspace_count: active_count,
         })
     }
-    
+
     pub async fn update_color(&self, guid: String, color: Option<String>) -> Result<()> {
         let repo = ProjectRepo::new(&self.db);
         Ok(repo.update_color(guid, color).await?)
     }
 
-    pub async fn update_target_branch(&self, guid: String, target_branch: Option<String>) -> Result<()> {
+    pub async fn update_target_branch(
+        &self,
+        guid: String,
+        target_branch: Option<String>,
+    ) -> Result<()> {
         let repo = ProjectRepo::new(&self.db);
         Ok(repo.update_target_branch(guid, target_branch).await?)
     }

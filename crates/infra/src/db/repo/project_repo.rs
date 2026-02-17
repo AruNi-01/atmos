@@ -1,5 +1,5 @@
-use sea_orm::*;
 use sea_orm::sea_query::Expr;
+use sea_orm::*;
 
 use crate::db::entities::base::BaseFields;
 use crate::db::entities::project;
@@ -41,7 +41,13 @@ impl<'a> ProjectRepo<'a> {
     }
 
     /// 创建新项目
-    pub async fn create(&self, name: String, main_file_path: String, sidebar_order: i32, border_color: Option<String>) -> Result<project::Model> {
+    pub async fn create(
+        &self,
+        name: String,
+        main_file_path: String,
+        sidebar_order: i32,
+        border_color: Option<String>,
+    ) -> Result<project::Model> {
         let base = BaseFields::new();
 
         let model = project::ActiveModel {
@@ -108,7 +114,11 @@ impl<'a> ProjectRepo<'a> {
     }
 
     /// 更新项目目标分支
-    pub async fn update_target_branch(&self, guid: String, target_branch: Option<String>) -> Result<()> {
+    pub async fn update_target_branch(
+        &self,
+        guid: String,
+        target_branch: Option<String>,
+    ) -> Result<()> {
         project::Entity::update_many()
             .col_expr(project::Column::TargetBranch, Expr::value(target_branch))
             .filter(project::Column::Guid.eq(guid))
@@ -117,4 +127,3 @@ impl<'a> ProjectRepo<'a> {
         Ok(())
     }
 }
-

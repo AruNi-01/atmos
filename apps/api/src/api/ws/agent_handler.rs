@@ -18,7 +18,9 @@ use crate::app_state::AppState;
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AgentClientMessage {
-    Prompt { message: String },
+    Prompt {
+        message: String,
+    },
     PermissionResponse {
         request_id: String,
         allowed: bool,
@@ -109,7 +111,9 @@ pub async fn agent_ws_handler(
     // Check for already-connected session (legacy path)
     let handle = state.agent_session_service.take_session(&session_id);
     // Check for pending lazy session
-    let pending = state.agent_session_service.take_pending_session(&session_id);
+    let pending = state
+        .agent_session_service
+        .take_pending_session(&session_id);
 
     if handle.is_none() && pending.is_none() {
         return (
@@ -173,10 +177,7 @@ async fn handle_lazy_agent_socket(
 
     send_phase(&ws_tx, "spawning_agent");
 
-    let connect_result = state
-        .agent_session_service
-        .connect_session(spec)
-        .await;
+    let connect_result = state.agent_session_service.connect_session(spec).await;
 
     let session_id_close = session_id.clone();
     let state_close = state.clone();
@@ -187,7 +188,10 @@ async fn handle_lazy_agent_socket(
             run_bridge(session_id, handle, ws_tx, ws_receiver, state).await;
         }
         Err(e) => {
-            error!("ACP connection failed for session {}: {}", session_id_close, e);
+            error!(
+                "ACP connection failed for session {}: {}",
+                session_id_close, e
+            );
             if e.contains(agent::AUTH_REQUIRED_ERROR_PREFIX) {
                 let json_part = e
                     .strip_prefix(agent::AUTH_REQUIRED_ERROR_PREFIX)
@@ -206,9 +210,7 @@ async fn handle_lazy_agent_socket(
             }) {
                 let _ = ws_tx.send(json);
             }
-            if let Ok(json) =
-                serde_json::to_string(&AgentServerMessage::SessionEnded)
-            {
+            if let Ok(json) = serde_json::to_string(&AgentServerMessage::SessionEnded) {
                 let _ = ws_tx.send(json);
             }
             drop(ws_tx);
@@ -309,9 +311,8 @@ async fn run_bridge(
                 },
             }
         }
-        let _ = ws_tx_clone.send(
-            serde_json::to_string(&AgentServerMessage::SessionEnded).unwrap_or_default(),
-        );
+        let _ = ws_tx_clone
+            .send(serde_json::to_string(&AgentServerMessage::SessionEnded).unwrap_or_default());
     });
 
     let cmd_tx_clone = cmd_tx.clone();

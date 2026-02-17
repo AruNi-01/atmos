@@ -1,11 +1,11 @@
 use axum::{extract::State, Json};
 use serde_json::{json, Value};
-use tracing::{info, warn};
 use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::{info, warn};
 
-use crate::{app_state::AppState, error::ApiResult};
 use crate::api::dto::ApiResponse;
+use crate::{app_state::AppState, error::ApiResult};
 
 /// Gather system-level PTY usage information.
 /// Works on macOS (sysctl + /dev/ttys*) and Linux (/dev/pts/*).
@@ -30,18 +30,12 @@ fn get_system_pty_info() -> Value {
     // 2. Current PTY device count
     let pty_current: Option<u64> = if os == "macos" {
         // Count /dev/ttys* files
-        std::fs::read_dir("/dev")
-            .ok()
-            .map(|entries| {
-                entries
-                    .filter_map(|e| e.ok())
-                    .filter(|e| {
-                        e.file_name()
-                            .to_string_lossy()
-                            .starts_with("ttys")
-                    })
-                    .count() as u64
-            })
+        std::fs::read_dir("/dev").ok().map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_name().to_string_lossy().starts_with("ttys"))
+                .count() as u64
+        })
     } else {
         // Linux: /proc/sys/kernel/pty/nr or count /dev/pts/*
         std::fs::read_to_string("/proc/sys/kernel/pty/nr")
@@ -161,10 +155,10 @@ fn get_orphaned_processes() -> Vec<Value> {
                     let pid_str = parts.next()?;
                     let ppid_str = parts.next()?;
                     let elapsed = parts.next()?.to_string();
-                    
+
                     // Everything after elapsed time is the command
                     let command: String = parts.collect::<Vec<&str>>().join(" ");
-                    
+
                     let pid: u32 = pid_str.trim().parse().ok()?;
                     let ppid: u32 = ppid_str.trim().parse().ok()?;
 
@@ -185,7 +179,7 @@ fn get_orphaned_processes() -> Vec<Value> {
 
             // Sort by PID for consistency
             orphans.sort_by_key(|v| v["pid"].as_u64().unwrap_or(0));
-            
+
             // Return all orphans (no limit) - user needs to see the full picture
             orphans
         }
@@ -228,7 +222,6 @@ fn get_tmux_server_info(tmux_engine: &core_engine::TmuxEngine) -> Value {
     })
 }
 
-
 /// Gather shell environment information.
 fn get_shell_env_info() -> Value {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "unknown".to_string());
@@ -252,9 +245,14 @@ fn get_shell_env_info() -> Value {
         std::fs::read_to_string("/etc/os-release")
             .ok()
             .and_then(|content| {
-                content.lines()
+                content
+                    .lines()
                     .find(|l| l.starts_with("PRETTY_NAME="))
-                    .map(|l| l.trim_start_matches("PRETTY_NAME=").trim_matches('"').to_string())
+                    .map(|l| {
+                        l.trim_start_matches("PRETTY_NAME=")
+                            .trim_matches('"')
+                            .to_string()
+                    })
             })
     };
 
@@ -357,17 +355,19 @@ fn get_pty_device_details() -> Vec<Value> {
 }
 
 /// GET /api/system/tmux-status - Check tmux installation status
-pub async fn get_tmux_status(
-    State(state): State<AppState>,
-) -> ApiResult<Json<ApiResponse<Value>>> {
+pub async fn get_tmux_status(State(state): State<AppState>) -> ApiResult<Json<ApiResponse<Value>>> {
     let installed = state.terminal_service.is_tmux_available();
-    
+
     let version = if installed {
-        state.terminal_service.get_tmux_version().ok().map(|v| v.raw)
+        state
+            .terminal_service
+            .get_tmux_version()
+            .ok()
+            .map(|v| v.raw)
     } else {
         None
     };
-    
+
     Ok(Json(ApiResponse::success(json!({
         "installed": installed,
         "version": version,
@@ -379,18 +379,24 @@ pub async fn list_tmux_sessions(
     State(state): State<AppState>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let tmux_engine = state.terminal_service.tmux_engine();
-    
-    let sessions = tmux_engine.list_atmos_sessions()
+
+    let sessions = tmux_engine
+        .list_atmos_sessions()
         .map(|sessions| {
-            sessions.into_iter().map(|s| json!({
-                "name": s.name,
-                "windows": s.windows,
-                "created": s.created,
-                "attached": s.attached,
-            })).collect::<Vec<_>>()
+            sessions
+                .into_iter()
+                .map(|s| {
+                    json!({
+                        "name": s.name,
+                        "windows": s.windows,
+                        "created": s.created,
+                        "attached": s.attached,
+                    })
+                })
+                .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    
+
     Ok(Json(ApiResponse::success(json!({
         "sessions": sessions
     }))))
@@ -400,25 +406,46 @@ pub async fn list_tmux_sessions(
 /// then falls back to workspace_id-based session name.
 async fn resolve_session_name(state: &AppState, workspace_id: &str) -> Option<String> {
     // 1. Try workspace lookup for name-based session (atmos_{project}_{workspace})
-    if let Ok(Some(ws)) = state.workspace_service.get_workspace(workspace_id.to_string()).await {
-        if let Ok(Some(proj)) = state.project_service.get_project(ws.model.project_guid.clone()).await {
-            return Some(state.terminal_service.tmux_engine().get_session_name_from_names(
-                &proj.name,
-                &ws.model.name,
-            ));
+    if let Ok(Some(ws)) = state
+        .workspace_service
+        .get_workspace(workspace_id.to_string())
+        .await
+    {
+        if let Ok(Some(proj)) = state
+            .project_service
+            .get_project(ws.model.project_guid.clone())
+            .await
+        {
+            return Some(
+                state
+                    .terminal_service
+                    .tmux_engine()
+                    .get_session_name_from_names(&proj.name, &ws.model.name),
+            );
         }
     }
     // 2. Try as project (main dev: workspace_id = project_id)
     // Frontend uses workspaceName "Main" for project-only (ProjectWikiTerminal, TerminalGrid),
     // so we must use "Main" to match atmos_{project}_Main session.
-    if let Ok(Some(proj)) = state.project_service.get_project(workspace_id.to_string()).await {
-        return Some(state.terminal_service.tmux_engine().get_session_name_from_names(
-            &proj.name,
-            "Main",
-        ));
+    if let Ok(Some(proj)) = state
+        .project_service
+        .get_project(workspace_id.to_string())
+        .await
+    {
+        return Some(
+            state
+                .terminal_service
+                .tmux_engine()
+                .get_session_name_from_names(&proj.name, "Main"),
+        );
     }
     // 3. Fallback: workspace_id as session name base
-    Some(state.terminal_service.tmux_engine().get_session_name(workspace_id))
+    Some(
+        state
+            .terminal_service
+            .tmux_engine()
+            .get_session_name(workspace_id),
+    )
 }
 
 /// GET /api/system/project-wiki-window/:workspace_id - Check if Project Wiki tmux window exists
@@ -430,7 +457,8 @@ pub async fn check_project_wiki_window(
         Some(s) => s,
         None => return Ok(Json(ApiResponse::success(json!({ "exists": false })))),
     };
-    let exists = state.terminal_service
+    let exists = state
+        .terminal_service
         .has_project_wiki_window(&session_name)
         .unwrap_or(false);
     Ok(Json(ApiResponse::success(json!({ "exists": exists }))))
@@ -443,12 +471,17 @@ pub async fn kill_project_wiki_window(
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let session_name = match resolve_session_name(&state, &workspace_id).await {
         Some(s) => s,
-        None => return Ok(Json(ApiResponse::success(json!({
-            "killed": false,
-            "message": "Could not resolve workspace to tmux session"
-        })))),
+        None => {
+            return Ok(Json(ApiResponse::success(json!({
+                "killed": false,
+                "message": "Could not resolve workspace to tmux session"
+            }))))
+        }
     };
-    match state.terminal_service.kill_project_wiki_window(&session_name) {
+    match state
+        .terminal_service
+        .kill_project_wiki_window(&session_name)
+    {
         Ok(()) => Ok(Json(ApiResponse::success(json!({
             "killed": true,
             "message": "Project Wiki window closed"
@@ -465,15 +498,22 @@ pub async fn list_tmux_windows(
     State(state): State<AppState>,
     axum::extract::Path(workspace_id): axum::extract::Path<String>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let windows = state.terminal_service.list_workspace_windows(&workspace_id)
+    let windows = state
+        .terminal_service
+        .list_workspace_windows(&workspace_id)
         .map(|windows| {
-            windows.into_iter().map(|(index, name)| json!({
-                "index": index,
-                "name": name,
-            })).collect::<Vec<_>>()
+            windows
+                .into_iter()
+                .map(|(index, name)| {
+                    json!({
+                        "index": index,
+                        "name": name,
+                    })
+                })
+                .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    
+
     Ok(Json(ApiResponse::success(json!({
         "windows": windows
     }))))
@@ -671,9 +711,12 @@ pub async fn kill_tmux_server(
     state.terminal_service.shutdown().await;
 
     // Kill the tmux server
-    tmux_engine.kill_server().map_err(|e| {
-        warn!("Failed to kill tmux server: {}", e);
-    }).ok();
+    tmux_engine
+        .kill_server()
+        .map_err(|e| {
+            warn!("Failed to kill tmux server: {}", e);
+        })
+        .ok();
 
     info!("Tmux server killed via Terminal Manager");
 
@@ -687,10 +730,7 @@ pub async fn kill_tmux_session(
     State(state): State<AppState>,
     Json(body): Json<Value>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let session_name = body["session_name"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let session_name = body["session_name"].as_str().unwrap_or("").to_string();
 
     if session_name.is_empty() {
         return Ok(Json(ApiResponse::success(json!({
@@ -703,7 +743,10 @@ pub async fn kill_tmux_session(
 
     match tmux_engine.kill_session(&session_name) {
         Ok(_) => {
-            info!("Killed tmux session '{}' via Terminal Manager", session_name);
+            info!(
+                "Killed tmux session '{}' via Terminal Manager",
+                session_name
+            );
             Ok(Json(ApiResponse::success(json!({
                 "killed": true,
                 "session_name": session_name,
