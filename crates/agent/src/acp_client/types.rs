@@ -49,6 +49,8 @@ pub struct AuthRequiredPayload {
 pub struct StreamDelta {
     /// "assistant" or "user" (history replay from load_session may include user chunks)
     pub role: String,
+    /// "message" (normal assistant/user text) or "thinking" (agent thought stream)
+    pub kind: String,
     pub delta: String,
     pub done: bool,
     pub usage: Option<StreamUsage>,

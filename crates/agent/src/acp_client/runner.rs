@@ -194,14 +194,9 @@ async fn run_session_inner(
                             Ok(requested)
                         }
                         Err(e) => {
-                            warn!(
-                                "load_session failed for {}, fallback new_session: {}",
-                                resume_id, e
-                            );
-                            conn.new_session(acp::NewSessionRequest::new(cwd))
-                                .await
-                                .map(|response| response.session_id)
-                        }
+                            error!("ACP load_session failed for {}: {}", resume_id, e);
+                            Err(e)
+                        },
                     }
                 } else {
                     conn.new_session(acp::NewSessionRequest::new(cwd))
@@ -213,10 +208,13 @@ async fn run_session_inner(
                 Ok(session_id) => session_id,
                 Err(err) if err.code == acp::ErrorCode::AuthRequired => {
                     if auth_methods.is_empty() {
-                        return Err(
+                        let msg =
                             "Agent requires authentication, but no auth methods were advertised"
-                                .to_string(),
-                        );
+                                .to_string();
+                        if let Some(tx) = ready_tx.take() {
+                            let _ = tx.send(Err(msg.clone()));
+                        }
+                        return Err(msg);
                     }
                     let auth_payload = AuthRequiredPayload {
                         request_id: uuid::Uuid::new_v4().to_string(),
@@ -225,9 +223,19 @@ async fn run_session_inner(
                     };
                     let payload = serde_json::to_string(&auth_payload)
                         .map_err(|e| format!("Serialize auth payload failed: {}", e))?;
-                    return Err(format!("{}{}", AUTH_REQUIRED_ERROR_PREFIX, payload));
+                    let msg = format!("{}{}", AUTH_REQUIRED_ERROR_PREFIX, payload);
+                    if let Some(tx) = ready_tx.take() {
+                        let _ = tx.send(Err(msg.clone()));
+                    }
+                    return Err(msg);
                 }
-                Err(err) => return Err(err.to_string()),
+                Err(err) => {
+                    let msg = err.to_string();
+                    if let Some(tx) = ready_tx.take() {
+                        let _ = tx.send(Err(msg.clone()));
+                    }
+                    return Err(msg);
+                }
             };
 
             if let Some(tx) = ready_tx.take() {

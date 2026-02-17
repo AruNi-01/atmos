@@ -255,7 +255,10 @@ impl AgentSessionService {
             .find_by_guid(session_id)
             .await
             .map_err(crate::ServiceError::Infra)?
-            .ok_or_else(|| crate::ServiceError::NotFound(format!("Session {} not found", session_id)))?;
+            .ok_or_else(|| {
+                tracing::error!("resume_session_lazy failed: session {} not found in DB", session_id);
+                crate::ServiceError::NotFound(format!("Session {} not found", session_id))
+            })?;
 
         let launch_spec = self
             .agent_service

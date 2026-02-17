@@ -51,7 +51,6 @@ export * from "./components/ai-elements/conversation";
 export * from "./components/ai-elements/reasoning";
 export * from "./components/ai-elements/confirmation";
 export * from "./components/ai-elements/attachments";
-export * from "./components/ai-elements/shimmer";
 export * from "./components/ai-elements/prompt-input";
 export * from "./components/ai-elements/tool";
 

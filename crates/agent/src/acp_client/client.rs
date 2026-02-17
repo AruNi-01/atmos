@@ -246,6 +246,7 @@ impl AcpClientTrait for AtmosAcpClient {
                 };
                 let _ = self.event_tx.send(AcpSessionEvent::Stream(StreamDelta {
                     role: "user".to_string(),
+                    kind: "message".to_string(),
                     delta: text,
                     done: false,
                     usage: None,
@@ -262,6 +263,24 @@ impl AcpClientTrait for AtmosAcpClient {
                 };
                 let _ = self.event_tx.send(AcpSessionEvent::Stream(StreamDelta {
                     role: "assistant".to_string(),
+                    kind: "message".to_string(),
+                    delta: text,
+                    done: false,
+                    usage: None,
+                }));
+            }
+            acp::SessionUpdate::AgentThoughtChunk(acp::ContentChunk { content, .. }) => {
+                let text = match content {
+                    acp::ContentBlock::Text(t) => t.text,
+                    acp::ContentBlock::Image(_) => " ".into(),
+                    acp::ContentBlock::Audio(_) => " ".into(),
+                    acp::ContentBlock::ResourceLink(r) => r.uri,
+                    acp::ContentBlock::Resource(_) => " ".into(),
+                    _ => " ".into(),
+                };
+                let _ = self.event_tx.send(AcpSessionEvent::Stream(StreamDelta {
+                    role: "assistant".to_string(),
+                    kind: "thinking".to_string(),
                     delta: text,
                     done: false,
                     usage: None,

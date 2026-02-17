@@ -38,6 +38,7 @@ enum AgentCommand {
 enum AgentServerMessage {
     Stream {
         role: String,
+        kind: String,
         delta: String,
         done: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -70,6 +71,7 @@ fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
     match ev {
         AcpSessionEvent::Stream(s) => Some(AgentServerMessage::Stream {
             role: s.role,
+            kind: s.kind,
             delta: s.delta,
             done: s.done,
             usage: s.usage,
@@ -209,10 +211,11 @@ async fn handle_lazy_agent_socket(
             {
                 let _ = ws_tx.send(json);
             }
+            drop(ws_tx);
         }
     }
 
-    send_task.abort();
+    let _ = send_task.await;
     state_close
         .agent_session_service
         .mark_session_closed(&session_id_close)
@@ -254,7 +257,7 @@ async fn handle_agent_socket(
         run_bridge(sid, handle, ws_tx, ws_receiver, state_bridge).await;
     }
 
-    send_task.abort();
+    let _ = send_task.await;
     state
         .agent_session_service
         .mark_session_closed(&session_id)
