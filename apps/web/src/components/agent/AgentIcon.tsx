@@ -10,6 +10,10 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "github-copilot": ["copilot"],
   "factory-droid": ["droid"],
   "junie-acp": ["junie"],
+  "claude": ["claude-code"],
+  "kilocode": ["kilo"],
+  "kiro": ["kiro-cli"],
+  "agent": ["cursor"],
 };
 
 export function getAgentIconCandidates(registryId: string): string[] {

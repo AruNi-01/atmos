@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@workspace/ui";
 import { shellQuote } from "@/lib/shell-quote";
+import { AgentIcon } from "@/components/agent/AgentIcon";
 
 export const AGENT_OPTIONS = [
   { id: "claude", label: "Claude Code", cmd: "claude", yoloFlag: "--dangerously-skip-permissions" },
@@ -68,7 +69,10 @@ export const AgentSelect: React.FC<AgentSelectProps> = ({
         <SelectContent>
           {AGENT_OPTIONS.map((opt) => (
             <SelectItem key={opt.id} value={opt.id}>
-              {opt.label}
+              <div className="flex items-center gap-2">
+                <AgentIcon registryId={opt.id} name={opt.label} size={16} />
+                {opt.label}
+              </div>
             </SelectItem>
           ))}
         </SelectContent>

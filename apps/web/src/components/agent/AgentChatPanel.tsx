@@ -59,6 +59,7 @@ import { AgentIcon } from "./AgentIcon";
 import { useAgentSession, type AgentServerMessage } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
 import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-api";
+import { formatLocalDateTime } from "@atmos/shared";
 import type { RegistryAgent } from "@/api/ws-api";
 
 type ChatMessage =
@@ -1042,7 +1043,7 @@ export function AgentChatPanel() {
                           {s.title || "New chat"}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(s.created_at).toLocaleString()}
+                          {formatLocalDateTime(s.created_at)}
                         </span>
                       </button>
                     ))}
