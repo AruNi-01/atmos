@@ -232,6 +232,13 @@ async fn run_session_inner(
                 }
             };
 
+            // Some ACP agents replay history via chunk notifications during load_session
+            // without an explicit turn-end marker. Emit one synthetic TurnEnd so the UI
+            // can finalize any "isStreaming" assistant block after resume replay.
+            if resume_session_id.is_some() {
+                let _ = event_tx.send(AcpSessionEvent::TurnEnd);
+            }
+
             if let Some(tx) = ready_tx.take() {
                 let _ = tx.send(Ok(session_id_acp.to_string()));
             }
