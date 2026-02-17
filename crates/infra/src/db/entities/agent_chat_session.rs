@@ -15,6 +15,7 @@ pub struct Model {
     pub context_type: String,
     pub context_guid: Option<String>,
     pub registry_id: String,
+    pub acp_session_id: Option<String>,
     pub cwd: String,
     pub allow_file_access: bool,
     /// active | closed
@@ -27,7 +28,6 @@ pub struct Model {
 impl_base_entity!(Model);
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-}
+pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}

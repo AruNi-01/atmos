@@ -10,9 +10,9 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
+use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{AuthMethodSummary, AuthRequiredPayload, PermissionRequest};
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
-use crate::acp_client::tools::AcpToolHandler;
 use crate::models::AgentLaunchSpec;
 
 use super::process::spawn_agent;
@@ -44,7 +44,6 @@ impl AcpSessionHandle {
     pub fn try_recv_permission(&mut self) -> Option<(PermissionRequest, oneshot::Sender<bool>)> {
         self.permission_rx.try_recv().ok()
     }
-
 }
 
 /// Run an ACP session in a dedicated thread with current_thread runtime.
@@ -66,7 +65,10 @@ pub async fn run_acp_session(
     let event_tx_end = event_tx.clone();
 
     thread::Builder::new()
-        .name(format!("acp-session-{}", &session_id_for_thread[..session_id_for_thread.len().min(8)]))
+        .name(format!(
+            "acp-session-{}",
+            &session_id_for_thread[..session_id_for_thread.len().min(8)]
+        ))
         .spawn(move || {
             let rt = Builder::new_current_thread()
                 .enable_all()
@@ -132,12 +134,7 @@ async fn run_session_inner(
     let (stdin, stdout, mut _child) = spawn_agent(&launch_spec, Some(cwd.clone()), env_overrides)
         .map_err(|e| format!("Failed to spawn agent: {}", e))?;
 
-    let client = AtmosAcpClient::new(
-        handler,
-        cwd.clone(),
-        permission_tx,
-        event_tx.clone(),
-    );
+    let client = AtmosAcpClient::new(handler, cwd.clone(), permission_tx, event_tx.clone());
 
     let outgoing = stdin.compat_write();
     let incoming = stdout.compat();
@@ -157,9 +154,9 @@ async fn run_session_inner(
 
             let init_response = conn
                 .initialize(
-                acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-                    .client_info(acp::Implementation::new("atmos", "0.1.0").title("ATMOS")),
-            )
+                    acp::InitializeRequest::new(acp::ProtocolVersion::V1)
+                        .client_info(acp::Implementation::new("atmos", "0.1.0").title("ATMOS")),
+                )
                 .await
                 .map_err(|e| format!("Initialize failed: {}", e))?;
 
@@ -183,10 +180,7 @@ async fn run_session_inner(
                 if let Some(resume_id) = resume_session_id.clone() {
                     let requested = acp::SessionId::new(resume_id.clone());
                     match conn
-                        .load_session(acp::LoadSessionRequest::new(
-                            requested.clone(),
-                            cwd.clone(),
-                        ))
+                        .load_session(acp::LoadSessionRequest::new(requested.clone(), cwd.clone()))
                         .await
                     {
                         Ok(_) => {
@@ -196,7 +190,7 @@ async fn run_session_inner(
                         Err(e) => {
                             error!("ACP load_session failed for {}: {}", resume_id, e);
                             Err(e)
-                        },
+                        }
                     }
                 } else {
                     conn.new_session(acp::NewSessionRequest::new(cwd))
@@ -247,7 +241,10 @@ async fn run_session_inner(
                     break;
                 }
                 if let Err(e) = conn
-                    .prompt(acp::PromptRequest::new(session_id_acp.clone(), vec![msg.into()]))
+                    .prompt(acp::PromptRequest::new(
+                        session_id_acp.clone(),
+                        vec![msg.into()],
+                    ))
                     .await
                 {
                     warn!("Prompt failed: {}", e);

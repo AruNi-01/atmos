@@ -1,8 +1,8 @@
+use std::collections::HashSet;
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
-use std::collections::HashSet;
 
 use anyhow::Context;
 use keyring::Entry;
@@ -15,7 +15,8 @@ use crate::models::{
     RegistryAgent, RegistryInstallResult,
 };
 
-const ACP_REGISTRY_URL: &str = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
+const ACP_REGISTRY_URL: &str =
+    "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
 const INSTALL_MANIFEST_REL_PATH: &str = ".atmos/agent/acp_servers.json";
 const ACP_REGISTRY_CACHE_REL_PATH: &str = ".atmos/agent/acp_registry.json";
 
@@ -42,8 +43,9 @@ impl AgentManager {
         let registry = fetch_acp_registry_from_url().await?;
         let path = acp_registry_cache_path()?;
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| AgentError::Command(format!("failed to create registry cache dir: {}", e)))?;
+            fs::create_dir_all(parent).map_err(|e| {
+                AgentError::Command(format!("failed to create registry cache dir: {}", e))
+            })?;
         }
         let data = serde_json::to_string_pretty(&registry)
             .map_err(|e| AgentError::Command(format!("failed to encode registry: {}", e)))?;
@@ -191,7 +193,9 @@ impl AgentManager {
                         .iter()
                         .find(|a| a.id == e.registry_id)
                         .and_then(|a| a.distribution.npx.as_ref())
-                        .map(|npx| installed_npm.contains(&normalize_npm_package_name(&npx.package)))
+                        .map(|npx| {
+                            installed_npm.contains(&normalize_npm_package_name(&npx.package))
+                        })
                         .unwrap_or(false)
                 } else if e.install_method == "binary" {
                     e.binary_path
@@ -268,7 +272,10 @@ impl AgentManager {
         };
 
         if !force_overwrite {
-            if is_npm_package_installed_globally(&npx.package).await.unwrap_or(false) {
+            if is_npm_package_installed_globally(&npx.package)
+                .await
+                .unwrap_or(false)
+            {
                 return Ok(RegistryInstallResult {
                     registry_id: registry_id.to_string(),
                     installed: false,
@@ -334,7 +341,9 @@ impl AgentManager {
             let package = normalize_npm_package_name(&npx.package);
 
             let mut manifest = load_install_manifest().unwrap_or_default();
-            manifest.entries.retain(|e| !(e.registry_id == registry_id && e.install_method == "npx"));
+            manifest
+                .entries
+                .retain(|e| !(e.registry_id == registry_id && e.install_method == "npx"));
             let _ = save_install_manifest(&manifest);
 
             let output = Command::new("npm")
@@ -368,12 +377,18 @@ impl AgentManager {
             return self.remove_registry_binary_agent(&entry, registry_id);
         }
 
-        Err(AgentError::Command(format!("registry agent '{}' has no supported distribution", registry_id)))
+        Err(AgentError::Command(format!(
+            "registry agent '{}' has no supported distribution",
+            registry_id
+        )))
     }
 
     /// Returns the launch spec for an installed registry agent. Use when spawning the ACP agent process.
     /// Package, args, and env are read from the ACP registry (cached locally).
-    pub async fn get_registry_agent_launch_spec(&self, registry_id: &str) -> Result<AgentLaunchSpec> {
+    pub async fn get_registry_agent_launch_spec(
+        &self,
+        registry_id: &str,
+    ) -> Result<AgentLaunchSpec> {
         let manifest = load_install_manifest()?;
         let m_entry = manifest
             .entries
@@ -386,14 +401,14 @@ impl AgentManager {
             .agents
             .iter()
             .find(|a| a.id == registry_id)
-            .ok_or_else(|| AgentError::NotFound(format!("agent '{}' not in registry", registry_id)))?;
+            .ok_or_else(|| {
+                AgentError::NotFound(format!("agent '{}' not in registry", registry_id))
+            })?;
 
         if m_entry.install_method == "npx" {
-            let npx = r_entry
-                .distribution
-                .npx
-                .as_ref()
-                .ok_or_else(|| AgentError::Command("registry entry has no npx distribution".to_string()))?;
+            let npx = r_entry.distribution.npx.as_ref().ok_or_else(|| {
+                AgentError::Command("registry entry has no npx distribution".to_string())
+            })?;
             let mut args = vec![npx.package.clone()];
             args.extend(npx.args.clone().unwrap_or_default());
             return Ok(AgentLaunchSpec {
@@ -404,18 +419,16 @@ impl AgentManager {
         }
 
         if m_entry.install_method == "binary" {
-            let binary_path = m_entry
-                .binary_path
-                .as_deref()
-                .ok_or_else(|| AgentError::Command("binary entry missing binary_path".to_string()))?;
+            let binary_path = m_entry.binary_path.as_deref().ok_or_else(|| {
+                AgentError::Command("binary entry missing binary_path".to_string())
+            })?;
             if !Path::new(binary_path).exists() {
                 return Err(AgentError::Command(format!(
                     "binary not found: {}",
                     binary_path
                 )));
             }
-            let args = resolve_binary_args(&r_entry.distribution)
-                .unwrap_or_default();
+            let args = resolve_binary_args(&r_entry.distribution).unwrap_or_default();
             return Ok(AgentLaunchSpec {
                 program: binary_path.to_string(),
                 args,
@@ -437,7 +450,8 @@ impl AgentManager {
             .ok_or_else(|| AgentError::NotFound(id.as_str().to_string()))?;
 
         let (auth_detected, auth_source) = detect_auth_source(&agent.auth_paths);
-        let has_stored_api_key = keyring_has_api_key(id).map_err(|e| AgentError::Command(e.to_string()))?;
+        let has_stored_api_key =
+            keyring_has_api_key(id).map_err(|e| AgentError::Command(e.to_string()))?;
 
         Ok(AgentConfigState {
             id,
@@ -484,7 +498,11 @@ impl AgentManager {
             Err(_) => return Ok(None),
         };
 
-        let entry = match registry.agents.into_iter().find(|a| a.id == agent.registry_id) {
+        let entry = match registry
+            .agents
+            .into_iter()
+            .find(|a| a.id == agent.registry_id)
+        {
             Some(v) => v,
             None => return Ok(None),
         };
@@ -586,8 +604,9 @@ impl AgentManager {
                 .map_err(|e| AgentError::Command(format!("failed to read binary metadata: {}", e)))?
                 .permissions();
             perms.set_mode(0o755);
-            fs::set_permissions(&target_path, perms)
-                .map_err(|e| AgentError::Command(format!("failed to set binary permissions: {}", e)))?;
+            fs::set_permissions(&target_path, perms).map_err(|e| {
+                AgentError::Command(format!("failed to set binary permissions: {}", e))
+            })?;
         }
 
         let mut manifest = load_install_manifest().unwrap_or_default();
@@ -890,7 +909,9 @@ fn load_install_manifest() -> Result<InstallManifest> {
     let path = manifest_path()?;
     if !path.exists() {
         // Migrate from legacy installs.json
-        let legacy = path.parent().map(|agent_dir| agent_dir.join("installs.json"));
+        let legacy = path
+            .parent()
+            .map(|agent_dir| agent_dir.join("installs.json"));
         if let Some(legacy_path) = legacy {
             if legacy_path.exists() {
                 let _ = fs::rename(&legacy_path, &path);
@@ -962,11 +983,18 @@ fn resolve_binary_asset(binary: &Option<serde_json::Value>) -> Option<BinaryAsse
     let platform = current_platform_key();
     if let Some(platform_val) = root.get(&platform) {
         if let Some(url) = extract_url_recursive(platform_val) {
-            let cmd = platform_val.get("cmd").and_then(|v| v.as_str()).map(String::from);
+            let cmd = platform_val
+                .get("cmd")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             let args = platform_val
                 .get("args")
                 .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect());
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                });
             return Some(BinaryAsset { url, cmd, args });
         }
     }
@@ -981,18 +1009,33 @@ fn resolve_binary_asset(binary: &Option<serde_json::Value>) -> Option<BinaryAsse
     for os_key in current_os_keys {
         if let Some(candidate) = root.get(*os_key) {
             if let Some(url) = extract_url_recursive(candidate) {
-                let cmd = candidate.get("cmd").and_then(|v| v.as_str()).map(String::from);
-                return Some(BinaryAsset { url, cmd, args: None });
+                let cmd = candidate
+                    .get("cmd")
+                    .and_then(|v| v.as_str())
+                    .map(String::from);
+                return Some(BinaryAsset {
+                    url,
+                    cmd,
+                    args: None,
+                });
             }
         }
     }
-    extract_url_recursive(root).map(|url| BinaryAsset { url, cmd: None, args: None })
+    extract_url_recursive(root).map(|url| BinaryAsset {
+        url,
+        cmd: None,
+        args: None,
+    })
 }
 
 fn extract_url_recursive(value: &serde_json::Value) -> Option<String> {
     match value {
         serde_json::Value::Object(map) => {
-            if let Some(url) = map.get("archive").or_else(|| map.get("url")).and_then(|v| v.as_str()) {
+            if let Some(url) = map
+                .get("archive")
+                .or_else(|| map.get("url"))
+                .and_then(|v| v.as_str())
+            {
                 return Some(url.to_string());
             }
             for v in map.values() {

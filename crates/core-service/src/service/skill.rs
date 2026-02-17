@@ -1,9 +1,9 @@
 //! Skills scanning service for detecting installed Code Agent skills.
 
-use std::path::Path;
-use std::fs;
+use infra::{SkillFile, SkillInfo};
 use std::collections::HashMap;
-use infra::{SkillInfo, SkillFile};
+use std::fs;
+use std::path::Path;
 
 /// Agent skill directory configurations
 const AGENT_SKILL_DIRS: &[(&str, &str)] = &[
@@ -49,10 +49,13 @@ const AGENT_SKILL_DIRS: &[(&str, &str)] = &[
 ];
 
 /// Main file candidates (in priority order)
-const MAIN_FILE_CANDIDATES: &[&str] = &["SKILL.md", "README.md", "skill.md", "readme.md", "index.md"];
+const MAIN_FILE_CANDIDATES: &[&str] =
+    &["SKILL.md", "README.md", "skill.md", "readme.md", "index.md"];
 
 /// Text file extensions to read content
-const TEXT_EXTENSIONS: &[&str] = &["md", "txt", "json", "yaml", "yml", "toml", "sh", "bash", "zsh", "py", "js", "ts", "rs", "go"];
+const TEXT_EXTENSIONS: &[&str] = &[
+    "md", "txt", "json", "yaml", "yml", "toml", "sh", "bash", "zsh", "py", "js", "ts", "rs", "go",
+];
 
 pub struct SkillScanner;
 
@@ -90,7 +93,7 @@ impl SkillScanner {
             // Group by scope + project_id (if any) + skill name
             let project_key = skill.project_id.as_deref().unwrap_or("");
             let key = format!("{}:{}:{}", skill.scope, project_key, skill.name);
-            
+
             if let Some(existing) = merged.get_mut(&key) {
                 // Add agent if not already present
                 for agent in &skill.agents {
@@ -126,12 +129,12 @@ impl SkillScanner {
         identifier: &str,
     ) -> Option<SkillInfo> {
         let all_skills = Self::scan_all(project_paths);
-        
+
         all_skills.into_iter().find(|skill| {
             if skill.scope != scope {
                 return false;
             }
-            
+
             // Try matching name
             if skill.name == identifier {
                 return true;
@@ -143,7 +146,7 @@ impl SkillScanner {
                     return true;
                 }
             }
-            
+
             false
         })
     }
@@ -172,7 +175,7 @@ impl SkillScanner {
                         }
                         // Resolve symlinks to detect same skills
                         let canonical_path = fs::canonicalize(&path).unwrap_or(path.clone());
-                        
+
                         if path.is_dir() {
                             if let Some(skill) = Self::parse_skill_dir(
                                 &path,
@@ -224,14 +227,18 @@ impl SkillScanner {
         let files = Self::collect_skill_files(path);
 
         // Try to find description from main file
-        let main_file_content = files.iter()
+        let main_file_content = files
+            .iter()
             .find(|f| f.is_main)
             .and_then(|f| f.content.as_ref());
-            
+
         let (description, title) = if let Some(content) = main_file_content {
             let desc = Self::extract_description(content);
             let (_, frontmatter) = Self::strip_frontmatter(content);
-            let title = frontmatter.and_then(|fm| Self::extract_from_frontmatter(fm, "title").or_else(|| Self::extract_from_frontmatter(fm, "name")));
+            let title = frontmatter.and_then(|fm| {
+                Self::extract_from_frontmatter(fm, "title")
+                    .or_else(|| Self::extract_from_frontmatter(fm, "name"))
+            });
             (desc, title)
         } else {
             (String::new(), None)
@@ -267,7 +274,10 @@ impl SkillScanner {
         let (description, title) = if let Some(c) = content.as_ref() {
             let desc = Self::extract_description(c);
             let (_, frontmatter) = Self::strip_frontmatter(c);
-            let title = frontmatter.and_then(|fm| Self::extract_from_frontmatter(fm, "title").or_else(|| Self::extract_from_frontmatter(fm, "name")));
+            let title = frontmatter.and_then(|fm| {
+                Self::extract_from_frontmatter(fm, "title")
+                    .or_else(|| Self::extract_from_frontmatter(fm, "name"))
+            });
             (desc, title)
         } else {
             (String::new(), None)
@@ -298,16 +308,14 @@ impl SkillScanner {
     fn collect_skill_files(skill_dir: &Path) -> Vec<SkillFile> {
         let mut files = Vec::new();
         Self::collect_files_recursive(skill_dir, skill_dir, &mut files);
-        
+
         // Sort: main files first, then alphabetically
-        files.sort_by(|a, b| {
-            match (a.is_main, b.is_main) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.relative_path.cmp(&b.relative_path),
-            }
+        files.sort_by(|a, b| match (a.is_main, b.is_main) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.relative_path.cmp(&b.relative_path),
         });
-        
+
         files
     }
 
@@ -317,8 +325,14 @@ impl SkillScanner {
                 let path = entry.path();
                 if path.is_dir() {
                     // Skip hidden directories and common non-essential dirs
-                    let dir_name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-                    if !dir_name.starts_with('.') && dir_name != "node_modules" && dir_name != "__pycache__" {
+                    let dir_name = path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    if !dir_name.starts_with('.')
+                        && dir_name != "node_modules"
+                        && dir_name != "__pycache__"
+                    {
                         Self::collect_files_recursive(base, &path, files);
                     }
                 } else if path.is_file() {
@@ -332,7 +346,7 @@ impl SkillScanner {
 
     fn parse_file(path: &Path, base: &Path) -> Option<SkillFile> {
         let file_name = path.file_name()?.to_string_lossy().to_string();
-        
+
         // Skip hidden files
         if file_name.starts_with('.') {
             return None;
@@ -340,12 +354,15 @@ impl SkillScanner {
 
         let relative_path = path.strip_prefix(base).ok()?.to_string_lossy().to_string();
         let absolute_path = path.to_string_lossy().to_string();
-        
+
         // Check if it's a main file
-        let is_main = MAIN_FILE_CANDIDATES.iter().any(|&c| c.eq_ignore_ascii_case(&file_name));
+        let is_main = MAIN_FILE_CANDIDATES
+            .iter()
+            .any(|&c| c.eq_ignore_ascii_case(&file_name));
 
         // Read content for text files
-        let mut content = path.extension()
+        let mut content = path
+            .extension()
             .and_then(|ext| ext.to_str())
             .filter(|ext| TEXT_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
             .and_then(|_| fs::read_to_string(path).ok())
@@ -391,7 +408,7 @@ impl SkillScanner {
     /// Extract description from markdown content (first paragraph or first few lines)
     fn extract_description(content: &str) -> String {
         let (content_to_parse, frontmatter) = Self::strip_frontmatter(content);
-        
+
         // Try to get description from frontmatter first
         if let Some(fm) = frontmatter {
             if let Some(desc) = Self::extract_from_frontmatter(fm, "description") {

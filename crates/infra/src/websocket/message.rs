@@ -640,8 +640,6 @@ pub struct GitSyncRequest {
     pub path: String,
 }
 
-
-
 // ===== Script 操作数据结构 =====
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -847,7 +845,11 @@ impl WsMessage {
     }
 
     /// 创建失败响应
-    pub fn error(request_id: impl Into<String>, code: impl Into<String>, message: impl Into<String>) -> Self {
+    pub fn error(
+        request_id: impl Into<String>,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
         Self::Error(WsError {
             request_id: request_id.into(),
             code: code.into(),
@@ -857,10 +859,7 @@ impl WsMessage {
 
     /// 创建主动通知
     pub fn notification(event: WsEvent, data: Value) -> Self {
-        Self::Notification(WsNotification {
-            event,
-            data,
-        })
+        Self::Notification(WsNotification { event, data })
     }
 
     pub fn to_json(&self) -> Result<String, serde_json::Error> {

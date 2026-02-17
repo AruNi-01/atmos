@@ -3,31 +3,157 @@ use rand::Rng;
 
 /// List of Pokemon names for workspace naming
 const POKEMON_NAMES: &[&str] = &[
-    "bulbasaur", "ivysaur", "venusaur", "charmander", "charmeleon", "charizard",
-    "squirtle", "wartortle", "blastoise", "caterpie", "metapod", "butterfree",
-    "weedle", "kakuna", "beedrill", "pidgey", "pidgeotto", "pidgeot",
-    "rattata", "raticate", "spearow", "fearow", "ekans", "arbok",
-    "pikachu", "raichu", "sandshrew", "sandslash", "nidoran-f", "nidorina",
-    "nidoqueen", "nidoran-m", "nidorino", "nidoking", "clefairy", "clefable",
-    "vulpix", "ninetales", "jigglypuff", "wigglytuff", "zubat", "golbat",
-    "oddish", "gloom", "vileplume", "paras", "parasect", "venonat",
-    "venomoth", "diglett", "dugtrio", "meowth", "persian", "psyduck",
-    "golduck", "mankey", "primeape", "growlithe", "arcanine", "poliwag",
-    "poliwhirl", "poliwrath", "abra", "kadabra", "alakazam", "machop",
-    "machoke", "machamp", "bellsprout", "weepinbell", "victreebel", "tentacool",
-    "tentacruel", "geodude", "graveler", "golem", "ponyta", "rapidash",
-    "slowpoke", "slowbro", "magnemite", "magneton", "farfetchd", "doduo",
-    "dodrio", "seel", "dewgong", "grimer", "muk", "shellder",
-    "cloyster", "gastly", "haunter", "gengar", "onix", "drowzee",
-    "hypno", "krabby", "kingler", "voltorb", "electrode", "exeggcute",
-    "exeggutor", "cubone", "marowak", "hitmonlee", "hitmonchan", "lickitung",
-    "koffing", "weezing", "rhyhorn", "rhydon", "chansey", "tangela",
-    "kangaskhan", "horsea", "seadra", "goldeen", "seaking", "staryu",
-    "starmie", "mr-mime", "scyther", "jynx", "electabuzz", "magmar",
-    "pinsir", "tauros", "magikarp", "gyarados", "lapras", "ditto",
-    "eevee", "vaporeon", "jolteon", "flareon", "porygon", "omanyte",
-    "omastar", "kabuto", "kabutops", "aerodactyl", "snorlax", "articuno",
-    "zapdos", "moltres", "dratini", "dragonair", "dragonite", "mewtwo", "mew",
+    "bulbasaur",
+    "ivysaur",
+    "venusaur",
+    "charmander",
+    "charmeleon",
+    "charizard",
+    "squirtle",
+    "wartortle",
+    "blastoise",
+    "caterpie",
+    "metapod",
+    "butterfree",
+    "weedle",
+    "kakuna",
+    "beedrill",
+    "pidgey",
+    "pidgeotto",
+    "pidgeot",
+    "rattata",
+    "raticate",
+    "spearow",
+    "fearow",
+    "ekans",
+    "arbok",
+    "pikachu",
+    "raichu",
+    "sandshrew",
+    "sandslash",
+    "nidoran-f",
+    "nidorina",
+    "nidoqueen",
+    "nidoran-m",
+    "nidorino",
+    "nidoking",
+    "clefairy",
+    "clefable",
+    "vulpix",
+    "ninetales",
+    "jigglypuff",
+    "wigglytuff",
+    "zubat",
+    "golbat",
+    "oddish",
+    "gloom",
+    "vileplume",
+    "paras",
+    "parasect",
+    "venonat",
+    "venomoth",
+    "diglett",
+    "dugtrio",
+    "meowth",
+    "persian",
+    "psyduck",
+    "golduck",
+    "mankey",
+    "primeape",
+    "growlithe",
+    "arcanine",
+    "poliwag",
+    "poliwhirl",
+    "poliwrath",
+    "abra",
+    "kadabra",
+    "alakazam",
+    "machop",
+    "machoke",
+    "machamp",
+    "bellsprout",
+    "weepinbell",
+    "victreebel",
+    "tentacool",
+    "tentacruel",
+    "geodude",
+    "graveler",
+    "golem",
+    "ponyta",
+    "rapidash",
+    "slowpoke",
+    "slowbro",
+    "magnemite",
+    "magneton",
+    "farfetchd",
+    "doduo",
+    "dodrio",
+    "seel",
+    "dewgong",
+    "grimer",
+    "muk",
+    "shellder",
+    "cloyster",
+    "gastly",
+    "haunter",
+    "gengar",
+    "onix",
+    "drowzee",
+    "hypno",
+    "krabby",
+    "kingler",
+    "voltorb",
+    "electrode",
+    "exeggcute",
+    "exeggutor",
+    "cubone",
+    "marowak",
+    "hitmonlee",
+    "hitmonchan",
+    "lickitung",
+    "koffing",
+    "weezing",
+    "rhyhorn",
+    "rhydon",
+    "chansey",
+    "tangela",
+    "kangaskhan",
+    "horsea",
+    "seadra",
+    "goldeen",
+    "seaking",
+    "staryu",
+    "starmie",
+    "mr-mime",
+    "scyther",
+    "jynx",
+    "electabuzz",
+    "magmar",
+    "pinsir",
+    "tauros",
+    "magikarp",
+    "gyarados",
+    "lapras",
+    "ditto",
+    "eevee",
+    "vaporeon",
+    "jolteon",
+    "flareon",
+    "porygon",
+    "omanyte",
+    "omastar",
+    "kabuto",
+    "kabutops",
+    "aerodactyl",
+    "snorlax",
+    "articuno",
+    "zapdos",
+    "moltres",
+    "dratini",
+    "dragonair",
+    "dragonite",
+    "mewtwo",
+    "mew",
 ];
 
 fn get_random_pokemon() -> &'static str {
@@ -47,7 +173,7 @@ fn generate_random_suffix(length: usize) -> String {
 }
 
 /// Generate a unique workspace name using Pokemon names
-/// 
+///
 /// Strategy:
 /// 1. Try random Pokemon names with prefix (e.g., "atmos/pikachu")
 /// 2. Try Pokemon names with version suffix (e.g., "atmos/pikachu-v2")
@@ -55,24 +181,24 @@ fn generate_random_suffix(length: usize) -> String {
 /// 4. Fallback to Pokemon name with random suffix (e.g., "atmos/pikachu-a3f9")
 pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> String {
     let normalize = |name: &str| name.to_lowercase();
-    let existing_set: std::collections::HashSet<String> = 
+    let existing_set: std::collections::HashSet<String> =
         existing_names.iter().map(|n| normalize(n)).collect();
-    
+
     let is_available = |name: &str| !existing_set.contains(&normalize(name));
-    
+
     let mut rng = rand::thread_rng();
-    
+
     // Strategy 1: Try shuffled Pokemon names
     let mut shuffled_pokemon: Vec<&str> = POKEMON_NAMES.to_vec();
     shuffled_pokemon.shuffle(&mut rng);
-    
+
     for pokemon in &shuffled_pokemon {
         let candidate = format!("{}/{}", prefix, pokemon);
         if is_available(&candidate) {
             return candidate;
         }
     }
-    
+
     // Strategy 2: Try Pokemon names with version suffix (v2-v9)
     for pokemon in &shuffled_pokemon {
         for v in 2..=9 {
@@ -82,7 +208,7 @@ pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> Strin
             }
         }
     }
-    
+
     // Strategy 3: Try combinations of two different Pokemon names
     for _ in 0..50 {
         let pokemon1 = get_random_pokemon();
@@ -94,7 +220,7 @@ pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> Strin
             }
         }
     }
-    
+
     // Strategy 4: Fallback - Pokemon name with random suffix
     let base_pokemon = get_random_pokemon();
     let suffix = generate_random_suffix(4);
@@ -102,7 +228,7 @@ pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> Strin
 }
 
 /// Extract repository prefix from project name
-/// 
+///
 /// Examples:
 /// - "owner/repo" -> "owner"
 /// - "myproject" -> "myproject"
@@ -129,10 +255,10 @@ mod tests {
     fn test_generate_workspace_name_no_conflicts() {
         let existing: Vec<String> = vec![];
         let name = generate_workspace_name(&existing, "atmos");
-        
+
         // Should start with prefix
         assert!(name.starts_with("atmos/"));
-        
+
         // Should be one of the Pokemon names
         let pokemon_part = &name[6..]; // Skip "atmos/"
         let is_valid_pokemon = POKEMON_NAMES.iter().any(|p| pokemon_part == *p);
@@ -146,9 +272,9 @@ mod tests {
             .iter()
             .map(|p| format!("atmos/{}", p))
             .collect();
-        
+
         let name = generate_workspace_name(&existing, "atmos");
-        
+
         // Should have a version suffix or other strategy
         assert!(name.starts_with("atmos/"));
         assert!(name.len() > 6); // Should have more than just "atmos/"
@@ -158,11 +284,15 @@ mod tests {
     fn test_generate_unique_names() {
         let mut existing: Vec<String> = vec![];
         let mut generated_names = std::collections::HashSet::new();
-        
+
         // Generate 10 unique names
         for _ in 0..10 {
             let name = generate_workspace_name(&existing, "test");
-            assert!(!generated_names.contains(&name), "Duplicate name generated: {}", name);
+            assert!(
+                !generated_names.contains(&name),
+                "Duplicate name generated: {}",
+                name
+            );
             generated_names.insert(name.clone());
             existing.push(name);
         }

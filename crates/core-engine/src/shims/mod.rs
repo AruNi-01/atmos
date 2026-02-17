@@ -48,30 +48,29 @@ pub fn ensure_installed() -> Result<PathBuf> {
     // Create directories
     let zdotdir = dir.join("zdotdir");
     std::fs::create_dir_all(&zdotdir).map_err(|e| {
-        EngineError::Tmux(format!("Failed to create shims directory {:?}: {}", zdotdir, e))
+        EngineError::Tmux(format!(
+            "Failed to create shims directory {:?}: {}",
+            zdotdir, e
+        ))
     })?;
 
     // Write bash shim
     let bash_path = dir.join("atmos_shim.bash");
-    std::fs::write(&bash_path, BASH_SHIM).map_err(|e| {
-        EngineError::Tmux(format!("Failed to write bash shim: {}", e))
-    })?;
+    std::fs::write(&bash_path, BASH_SHIM)
+        .map_err(|e| EngineError::Tmux(format!("Failed to write bash shim: {}", e)))?;
 
     // Write zsh shims (ZDOTDIR approach)
     let zshenv_path = zdotdir.join(".zshenv");
-    std::fs::write(&zshenv_path, ZSH_SHIM_ZSHENV).map_err(|e| {
-        EngineError::Tmux(format!("Failed to write zsh .zshenv shim: {}", e))
-    })?;
+    std::fs::write(&zshenv_path, ZSH_SHIM_ZSHENV)
+        .map_err(|e| EngineError::Tmux(format!("Failed to write zsh .zshenv shim: {}", e)))?;
     let zshrc_path = zdotdir.join(".zshrc");
-    std::fs::write(&zshrc_path, ZSH_SHIM_ZSHRC).map_err(|e| {
-        EngineError::Tmux(format!("Failed to write zsh .zshrc shim: {}", e))
-    })?;
+    std::fs::write(&zshrc_path, ZSH_SHIM_ZSHRC)
+        .map_err(|e| EngineError::Tmux(format!("Failed to write zsh .zshrc shim: {}", e)))?;
 
     // Write fish shim
     let fish_path = dir.join("atmos_shim.fish");
-    std::fs::write(&fish_path, FISH_SHIM).map_err(|e| {
-        EngineError::Tmux(format!("Failed to write fish shim: {}", e))
-    })?;
+    std::fs::write(&fish_path, FISH_SHIM)
+        .map_err(|e| EngineError::Tmux(format!("Failed to write fish shim: {}", e)))?;
 
     info!("Shell shims installed at {:?}", dir);
     Ok(dir)
@@ -149,7 +148,10 @@ pub fn build_shell_command(shims_dir: &Path, shell: Option<&str>) -> Option<Vec<
             ])
         }
         _ => {
-            debug!("Unsupported shell '{}' for shim injection, starting without dynamic titles", shell_name);
+            debug!(
+                "Unsupported shell '{}' for shim injection, starting without dynamic titles",
+                shell_name
+            );
             None
         }
     }

@@ -10,11 +10,9 @@ pub struct AgentChatSessionRepo<'a> {
     db: &'a DatabaseConnection,
 }
 
-impl<'a> BaseRepo<
-    agent_chat_session::Entity,
-    agent_chat_session::Model,
-    agent_chat_session::ActiveModel,
-> for AgentChatSessionRepo<'a>
+impl<'a>
+    BaseRepo<agent_chat_session::Entity, agent_chat_session::Model, agent_chat_session::ActiveModel>
+    for AgentChatSessionRepo<'a>
 {
     fn db(&self) -> &DatabaseConnection {
         self.db
@@ -44,6 +42,7 @@ impl<'a> AgentChatSessionRepo<'a> {
             context_type: Set(context_type.to_string()),
             context_guid: Set(context_guid.map(String::from)),
             registry_id: Set(registry_id.to_string()),
+            acp_session_id: Set(None),
             cwd: Set(cwd.to_string()),
             allow_file_access: Set(allow_file_access),
             status: Set("active".to_string()),
@@ -86,11 +85,32 @@ impl<'a> AgentChatSessionRepo<'a> {
         Ok(())
     }
 
+    pub async fn set_acp_session_id(&self, guid: &str, acp_session_id: &str) -> Result<()> {
+        let now = chrono::Utc::now().naive_utc();
+        agent_chat_session::Entity::update_many()
+            .col_expr(
+                agent_chat_session::Column::AcpSessionId,
+                Expr::value(Some(acp_session_id.to_string())),
+            )
+            .col_expr(agent_chat_session::Column::UpdatedAt, Expr::value(now))
+            .filter(agent_chat_session::Column::Guid.eq(guid))
+            .filter(agent_chat_session::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_title(&self, guid: &str, title: &str, source: &str) -> Result<()> {
         let now = chrono::Utc::now().naive_utc();
         agent_chat_session::Entity::update_many()
-            .col_expr(agent_chat_session::Column::Title, Expr::value(Some(title.to_string())))
-            .col_expr(agent_chat_session::Column::TitleSource, Expr::value(Some(source.to_string())))
+            .col_expr(
+                agent_chat_session::Column::Title,
+                Expr::value(Some(title.to_string())),
+            )
+            .col_expr(
+                agent_chat_session::Column::TitleSource,
+                Expr::value(Some(source.to_string())),
+            )
             .col_expr(agent_chat_session::Column::UpdatedAt, Expr::value(now))
             .filter(agent_chat_session::Column::Guid.eq(guid))
             .filter(agent_chat_session::Column::IsDeleted.eq(false))

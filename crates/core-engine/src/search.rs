@@ -40,7 +40,8 @@ pub fn search_content(
 
     let mut cmd = Command::new("rg");
     cmd.arg("--json")
-        .arg("--context").arg("2")
+        .arg("--context")
+        .arg("2")
         .arg("--max-count")
         .arg(max_results.to_string())
         .arg("--max-columns")
@@ -52,19 +53,29 @@ pub fn search_content(
     }
 
     // Ignore common non-code directories
-    cmd.arg("--glob").arg("!.git")
-        .arg("--glob").arg("!node_modules")
-        .arg("--glob").arg("!target")
-        .arg("--glob").arg("!dist")
-        .arg("--glob").arg("!build")
-        .arg("--glob").arg("!.next")
-        .arg("--glob").arg("!*.lock");
+    cmd.arg("--glob")
+        .arg("!.git")
+        .arg("--glob")
+        .arg("!node_modules")
+        .arg("--glob")
+        .arg("!target")
+        .arg("--glob")
+        .arg("!dist")
+        .arg("--glob")
+        .arg("!build")
+        .arg("--glob")
+        .arg("!.next")
+        .arg("--glob")
+        .arg("!*.lock");
 
     cmd.arg("--").arg(query).arg(".");
     cmd.current_dir(root_path);
 
     let output = cmd.output().map_err(|e| {
-        EngineError::Search(format!("Failed to execute rg: {}. Is ripgrep installed?", e))
+        EngineError::Search(format!(
+            "Failed to execute rg: {}. Is ripgrep installed?",
+            e
+        ))
     })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -92,24 +103,26 @@ pub fn search_content(
                         .trim_end()
                         .to_string();
 
-                    all_lines.entry(file_path.clone())
+                    all_lines
+                        .entry(file_path.clone())
                         .or_default()
                         .insert(line_number, line_content.clone());
 
                     if msg_type == "match" && count < max_results {
                         // Get match position from submatches
-                        let (match_start, match_end) = if let Some(submatches) = data["submatches"].as_array() {
-                            if let Some(first) = submatches.first() {
-                                (
-                                    first["start"].as_u64().unwrap_or(0) as usize,
-                                    first["end"].as_u64().unwrap_or(0) as usize,
-                                )
+                        let (match_start, match_end) =
+                            if let Some(submatches) = data["submatches"].as_array() {
+                                if let Some(first) = submatches.first() {
+                                    (
+                                        first["start"].as_u64().unwrap_or(0) as usize,
+                                        first["end"].as_u64().unwrap_or(0) as usize,
+                                    )
+                                } else {
+                                    (0, 0)
+                                }
                             } else {
                                 (0, 0)
-                            }
-                        } else {
-                            (0, 0)
-                        };
+                            };
 
                         match_protos.push((file_path, line_number, match_start, match_end));
                         count += 1;

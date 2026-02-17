@@ -5,12 +5,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use agent::{run_acp_session, AcpSessionHandle, AcpToolHandler};
-use infra::db::repo::AgentChatSessionRepo;
-use infra::DatabaseConnection;
-use serde::Serialize;
 use async_trait::async_trait;
 use core_engine::FsEngine;
+use infra::db::repo::AgentChatSessionRepo;
+use infra::DatabaseConnection;
 use parking_lot::RwLock;
+use serde::Serialize;
 use tracing::info;
 
 use crate::error::Result;
@@ -62,7 +62,11 @@ impl AcpToolHandler for AgentToolHandler {
             .map_err(|e| e.to_string())
     }
 
-    async fn write_text_file(&self, path: &PathBuf, content: &str) -> std::result::Result<(), String> {
+    async fn write_text_file(
+        &self,
+        path: &PathBuf,
+        content: &str,
+    ) -> std::result::Result<(), String> {
         if !self.allow_file_access {
             return Err(
                 "File access disabled. Open a workspace to grant the Agent access to project files.".to_string(),
@@ -219,7 +223,9 @@ impl AgentSessionService {
             resume_session_id: None,
             auth_method_id,
         };
-        self.pending_sessions.write().insert(session_id.clone(), spec);
+        self.pending_sessions
+            .write()
+            .insert(session_id.clone(), spec);
 
         let (context_type, context_guid) = if workspace_id.is_some() {
             ("workspace", workspace_id.map(String::from))
@@ -244,7 +250,10 @@ impl AgentSessionService {
             tracing::warn!("Failed to persist agent session {}: {}", session_id, e);
         }
 
-        info!("Created lazy Agent session {} (pending ACP connect)", session_id);
+        info!(
+            "Created lazy Agent session {} (pending ACP connect)",
+            session_id
+        );
         Ok(session_id)
     }
 
@@ -256,7 +265,10 @@ impl AgentSessionService {
             .await
             .map_err(crate::ServiceError::Infra)?
             .ok_or_else(|| {
-                tracing::error!("resume_session_lazy failed: session {} not found in DB", session_id);
+                tracing::error!(
+                    "resume_session_lazy failed: session {} not found in DB",
+                    session_id
+                );
                 crate::ServiceError::NotFound(format!("Session {} not found", session_id))
             })?;
 
@@ -275,12 +287,22 @@ impl AgentSessionService {
             cwd: PathBuf::from(model.cwd.clone()),
             allow_file_access: model.allow_file_access,
             env_overrides,
-            resume_session_id: Some(model.guid.clone()),
+            resume_session_id: Some(
+                model
+                    .acp_session_id
+                    .clone()
+                    .unwrap_or_else(|| model.guid.clone()),
+            ),
             auth_method_id: None,
         };
-        self.pending_sessions.write().insert(model.guid.clone(), spec);
+        self.pending_sessions
+            .write()
+            .insert(model.guid.clone(), spec);
 
-        info!("Created lazy resume for session {} (pending ACP connect)", model.guid);
+        info!(
+            "Created lazy resume for session {} (pending ACP connect)",
+            model.guid
+        );
         Ok((model.guid.clone(), model.cwd))
     }
 
@@ -312,13 +334,14 @@ impl AgentSessionService {
         .await?;
 
         let runtime_id = handle.session_id.clone();
-        info!("ACP connected for session {} (runtime: {})", spec.session_id, runtime_id);
+        info!(
+            "ACP connected for session {} (runtime: {})",
+            spec.session_id, runtime_id
+        );
 
-        // Update DB if runtime id differs from original
-        if runtime_id != spec.session_id {
-            let repo = AgentChatSessionRepo::new(&self.db);
-            let _ = repo.mark_active(&runtime_id).await;
-        }
+        let repo = AgentChatSessionRepo::new(&self.db);
+        let _ = repo.mark_active(&spec.session_id).await;
+        let _ = repo.set_acp_session_id(&spec.session_id, &runtime_id).await;
 
         Ok(handle)
     }
@@ -331,7 +354,9 @@ impl AgentSessionService {
             .find_by_guid(session_id)
             .await
             .map_err(crate::ServiceError::Infra)?
-            .ok_or_else(|| crate::ServiceError::NotFound(format!("Session {} not found", session_id)))?;
+            .ok_or_else(|| {
+                crate::ServiceError::NotFound(format!("Session {} not found", session_id))
+            })?;
 
         let launch_spec = self
             .agent_service
@@ -353,13 +378,20 @@ impl AgentSessionService {
             cwd,
             handler,
             env_overrides,
-            Some(model.guid.clone()),
+            Some(
+                model
+                    .acp_session_id
+                    .clone()
+                    .unwrap_or_else(|| model.guid.clone()),
+            ),
             None,
         )
         .await
         .map_err(|e| crate::ServiceError::Processing(e))?;
         let runtime_session_id = handle.session_id.clone();
-        self.sessions.write().insert(runtime_session_id.clone(), handle);
+        self.sessions
+            .write()
+            .insert(runtime_session_id.clone(), handle);
 
         if runtime_session_id != model.guid {
             tracing::warn!(
@@ -368,10 +400,21 @@ impl AgentSessionService {
                 model.guid
             );
         }
-        if let Err(e) = repo.mark_active(&runtime_session_id).await {
+        if let Err(e) = repo.mark_active(&model.guid).await {
             tracing::warn!(
                 "Failed to mark resumed session {} active: {}",
+                model.guid,
+                e
+            );
+        }
+        if let Err(e) = repo
+            .set_acp_session_id(&model.guid, &runtime_session_id)
+            .await
+        {
+            tracing::warn!(
+                "Failed to persist ACP session id {} for {}: {}",
                 runtime_session_id,
+                model.guid,
                 e
             );
         }
@@ -420,7 +463,12 @@ impl AgentSessionService {
             if session_repo.can_auto_set_title(&session_id).await.ok() != Some(true) {
                 return;
             }
-            let title = first_message.chars().take(512).collect::<String>().trim().to_string();
+            let title = first_message
+                .chars()
+                .take(512)
+                .collect::<String>()
+                .trim()
+                .to_string();
             let title = if title.is_empty() {
                 "新会话".to_string()
             } else {

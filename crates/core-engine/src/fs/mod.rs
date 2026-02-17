@@ -1,10 +1,10 @@
 //! File system operations for project browsing and validation.
 
-use std::path::{Path, PathBuf};
-use std::fs;
-use std::collections::HashSet;
-use std::process::Command;
 use crate::error::EngineError;
+use std::collections::HashSet;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 pub type Result<T> = std::result::Result<T, EngineError>;
 
@@ -42,8 +42,9 @@ impl FsEngine {
 
     /// Get the user's home directory
     pub fn get_home_dir(&self) -> Result<PathBuf> {
-        dirs::home_dir()
-            .ok_or_else(|| EngineError::FileSystem("Unable to determine home directory".to_string()))
+        dirs::home_dir().ok_or_else(|| {
+            EngineError::FileSystem("Unable to determine home directory".to_string())
+        })
     }
 
     /// List directory contents
@@ -52,7 +53,12 @@ impl FsEngine {
     /// * `path` - The directory path to list
     /// * `dirs_only` - If true, only return directories
     /// * `show_hidden` - If true, include hidden files/directories
-    pub fn list_dir(&self, path: &Path, dirs_only: bool, show_hidden: bool) -> Result<Vec<FsEntry>> {
+    pub fn list_dir(
+        &self,
+        path: &Path,
+        dirs_only: bool,
+        show_hidden: bool,
+    ) -> Result<Vec<FsEntry>> {
         if !path.exists() {
             return Err(EngineError::FileSystem(format!(
                 "Path does not exist: {}",
@@ -70,7 +76,11 @@ impl FsEngine {
         let mut entries = Vec::new();
 
         let read_dir = fs::read_dir(path).map_err(|e| {
-            EngineError::FileSystem(format!("Failed to read directory {}: {}", path.display(), e))
+            EngineError::FileSystem(format!(
+                "Failed to read directory {}: {}",
+                path.display(),
+                e
+            ))
         })?;
 
         for entry in read_dir {
@@ -92,7 +102,9 @@ impl FsEngine {
             let is_symlink = file_type.map(|ft| ft.is_symlink()).unwrap_or(false);
 
             let symlink_target = if is_symlink {
-                fs::read_link(&path).ok().map(|p| p.to_string_lossy().to_string())
+                fs::read_link(&path)
+                    .ok()
+                    .map(|p| p.to_string_lossy().to_string())
             } else {
                 None
             };
@@ -124,12 +136,10 @@ impl FsEngine {
         }
 
         // Sort: directories first, then alphabetically
-        entries.sort_by(|a, b| {
-            match (a.is_dir, b.is_dir) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-            }
+        entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
         });
 
         Ok(entries)
@@ -163,9 +173,7 @@ impl FsEngine {
         }
 
         let is_git_repo = path.join(".git").exists();
-        let suggested_name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string());
+        let suggested_name = path.file_name().map(|n| n.to_string_lossy().to_string());
 
         let default_branch = if is_git_repo {
             self.get_default_branch(path).ok()
@@ -185,7 +193,7 @@ impl FsEngine {
     /// Get the default branch of a git repository
     fn get_default_branch(&self, path: &Path) -> Result<String> {
         let head_path = path.join(".git").join("HEAD");
-        
+
         if !head_path.exists() {
             return Err(EngineError::FileSystem("Not a git repository".to_string()));
         }
@@ -229,23 +237,33 @@ impl FsEngine {
             )));
         }
 
-        let metadata = fs::metadata(path).map_err(|e| {
-            EngineError::FileSystem(format!("Failed to get file metadata: {}", e))
-        })?;
+        let metadata = fs::metadata(path)
+            .map_err(|e| EngineError::FileSystem(format!("Failed to get file metadata: {}", e)))?;
 
         match fs::read_to_string(path) {
             Ok(content) => Ok((content, metadata.len())),
             Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
                 let bytes = fs::read(path).map_err(|e| {
-                    EngineError::FileSystem(format!("Failed to read binary file {}: {}", path.display(), e))
+                    EngineError::FileSystem(format!(
+                        "Failed to read binary file {}: {}",
+                        path.display(),
+                        e
+                    ))
                 })?;
                 use base64::Engine as _;
                 let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
                 // Return as base64 data URI
                 // We use application/octet-stream as generic type, frontend can refine based on extension
-                Ok((format!("data:application/octet-stream;base64,{}", encoded), metadata.len()))
+                Ok((
+                    format!("data:application/octet-stream;base64,{}", encoded),
+                    metadata.len(),
+                ))
             }
-            Err(e) => Err(EngineError::FileSystem(format!("Failed to read file {}: {}", path.display(), e))),
+            Err(e) => Err(EngineError::FileSystem(format!(
+                "Failed to read file {}: {}",
+                path.display(),
+                e
+            ))),
         }
     }
 
@@ -255,10 +273,7 @@ impl FsEngine {
         if let Some(parent) = path.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent).map_err(|e| {
-                    EngineError::FileSystem(format!(
-                        "Failed to create parent directory: {}",
-                        e
-                    ))
+                    EngineError::FileSystem(format!("Failed to create parent directory: {}", e))
                 })?;
             }
         }
@@ -271,7 +286,11 @@ impl FsEngine {
     }
 
     /// List project files recursively as a tree structure
-    pub fn list_project_files(&self, root_path: &Path, show_hidden: bool) -> Result<Vec<FileTreeItem>> {
+    pub fn list_project_files(
+        &self,
+        root_path: &Path,
+        show_hidden: bool,
+    ) -> Result<Vec<FileTreeItem>> {
         if !root_path.exists() {
             return Err(EngineError::FileSystem(format!(
                 "Path does not exist: {}",
@@ -325,7 +344,11 @@ impl FsEngine {
         let mut items = Vec::new();
 
         let read_dir = fs::read_dir(dir_path).map_err(|e| {
-            EngineError::FileSystem(format!("Failed to read directory {}: {}", dir_path.display(), e))
+            EngineError::FileSystem(format!(
+                "Failed to read directory {}: {}",
+                dir_path.display(),
+                e
+            ))
         })?;
 
         for entry in read_dir {
@@ -344,9 +367,10 @@ impl FsEngine {
             let path = entry.path();
             let rel_path = path.strip_prefix(root_path).unwrap_or(&path);
             let rel_path_str = rel_path.to_string_lossy().to_string();
-            
-            let is_ignored = ignored_paths.contains(&rel_path_str) 
-                || (rel_path_str.ends_with('/') && ignored_paths.contains(rel_path_str.trim_end_matches('/')))
+
+            let is_ignored = ignored_paths.contains(&rel_path_str)
+                || (rel_path_str.ends_with('/')
+                    && ignored_paths.contains(rel_path_str.trim_end_matches('/')))
                 || self.is_commonly_ignored(&name);
 
             let is_dir = path.is_dir();
@@ -354,7 +378,9 @@ impl FsEngine {
             let is_symlink = file_type.map(|ft| ft.is_symlink()).unwrap_or(false);
 
             let symlink_target = if is_symlink {
-                fs::read_link(&path).ok().map(|p| p.to_string_lossy().to_string())
+                fs::read_link(&path)
+                    .ok()
+                    .map(|p| p.to_string_lossy().to_string())
             } else {
                 None
             };
@@ -363,7 +389,13 @@ impl FsEngine {
             let should_recurse = is_dir && !self.should_skip_recursion(&name);
 
             let children = if should_recurse {
-                Some(self.build_file_tree(root_path, &path, show_hidden, depth + 1, ignored_paths)?)
+                Some(self.build_file_tree(
+                    root_path,
+                    &path,
+                    show_hidden,
+                    depth + 1,
+                    ignored_paths,
+                )?)
             } else {
                 None
             };
@@ -380,12 +412,10 @@ impl FsEngine {
         }
 
         // Sort: directories first, then alphabetically
-        items.sort_by(|a, b| {
-            match (a.is_dir, b.is_dir) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-            }
+        items.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
         });
 
         Ok(items)

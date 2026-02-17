@@ -22,7 +22,9 @@ fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
             std::os::unix::fs::symlink(&target, &dst_path)?;
             #[cfg(windows)]
             {
-                let target_is_dir = std::fs::metadata(&path).map(|m| m.is_dir()).unwrap_or(false);
+                let target_is_dir = std::fs::metadata(&path)
+                    .map(|m| m.is_dir())
+                    .unwrap_or(false);
                 if target_is_dir {
                     std::os::windows::fs::symlink_dir(&target, &dst_path)?;
                 } else {
@@ -41,10 +43,7 @@ fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
 /// Clone atmos repo from GitHub and copy wiki skills to ~/.atmos/skills/.system/.
 /// Copies project-wiki, project-wiki-update, and project-wiki-specify.
 /// Returns true if at least project-wiki was synced.
-fn clone_and_sync_all_wiki_skills(
-    system_dir: &Path,
-    skills_to_sync: &[&str],
-) -> bool {
+fn clone_and_sync_all_wiki_skills(system_dir: &Path, skills_to_sync: &[&str]) -> bool {
     let temp_dir = std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
     if std::fs::create_dir_all(&temp_dir).is_err() {
         return false;
@@ -98,7 +97,11 @@ fn clone_and_sync_all_wiki_skills(
     any_ok
 }
 
-const WIKI_SKILL_NAMES: &[&str] = &["project-wiki", "project-wiki-update", "project-wiki-specify"];
+const WIKI_SKILL_NAMES: &[&str] = &[
+    "project-wiki",
+    "project-wiki-update",
+    "project-wiki-specify",
+];
 
 /// Check if a skill directory is valid (has SKILL.md). Empty dirs are considered invalid.
 fn skill_dir_is_valid(skill_path: &Path) -> bool {
@@ -107,11 +110,7 @@ fn skill_dir_is_valid(skill_path: &Path) -> bool {
 
 /// Sync a single skill from project root. Returns true if synced successfully.
 /// Re-syncs if target exists but is empty (no SKILL.md).
-fn sync_skill_from_project(
-    skill_name: &str,
-    system_dir: &Path,
-    project_root: &Path,
-) -> bool {
+fn sync_skill_from_project(skill_name: &str, system_dir: &Path, project_root: &Path) -> bool {
     let target_dir = system_dir.join(skill_name);
     if target_dir.exists() && skill_dir_is_valid(&target_dir) {
         return false;

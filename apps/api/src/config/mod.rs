@@ -60,9 +60,7 @@ impl ServerConfig {
     }
 
     pub fn cors_layer(&self) -> CorsLayer {
-        let layer = CorsLayer::new()
-            .allow_methods(Any)
-            .allow_headers(Any);
+        let layer = CorsLayer::new().allow_methods(Any).allow_headers(Any);
 
         match &self.cors_origins {
             CorsOriginConfig::Any => layer.allow_origin(Any),

@@ -161,11 +161,18 @@ impl AcpClientTrait for AtmosAcpClient {
             risk_level,
         };
 
-        if self.permission_tx.send((request.clone(), response_tx)).is_err() {
+        if self
+            .permission_tx
+            .send((request.clone(), response_tx))
+            .is_err()
+        {
             return Err(acp::Error::internal_error());
         }
 
-        if let Err(e) = self.event_tx.send(AcpSessionEvent::PermissionRequest(request)) {
+        if let Err(e) = self
+            .event_tx
+            .send(AcpSessionEvent::PermissionRequest(request))
+        {
             warn!("Failed to forward permission request: {}", e);
         }
 
@@ -189,7 +196,10 @@ impl AcpClientTrait for AtmosAcpClient {
         ))
     }
 
-    async fn read_text_file(&self, args: acp::ReadTextFileRequest) -> acp::Result<acp::ReadTextFileResponse> {
+    async fn read_text_file(
+        &self,
+        args: acp::ReadTextFileRequest,
+    ) -> acp::Result<acp::ReadTextFileResponse> {
         let path_str = args.path.to_string_lossy();
         let path = self.handler.resolve_path(&self.cwd, path_str.as_ref());
         match self.handler.read_text_file(&path).await {
@@ -198,7 +208,10 @@ impl AcpClientTrait for AtmosAcpClient {
         }
     }
 
-    async fn write_text_file(&self, args: acp::WriteTextFileRequest) -> acp::Result<acp::WriteTextFileResponse> {
+    async fn write_text_file(
+        &self,
+        args: acp::WriteTextFileRequest,
+    ) -> acp::Result<acp::WriteTextFileResponse> {
         let path_str = args.path.to_string_lossy();
         let path = self.handler.resolve_path(&self.cwd, path_str.as_ref());
         match self.handler.write_text_file(&path, &args.content).await {
@@ -207,15 +220,24 @@ impl AcpClientTrait for AtmosAcpClient {
         }
     }
 
-    async fn create_terminal(&self, _args: acp::CreateTerminalRequest) -> acp::Result<acp::CreateTerminalResponse> {
+    async fn create_terminal(
+        &self,
+        _args: acp::CreateTerminalRequest,
+    ) -> acp::Result<acp::CreateTerminalResponse> {
         Err(acp::Error::method_not_found())
     }
 
-    async fn terminal_output(&self, _args: acp::TerminalOutputRequest) -> acp::Result<acp::TerminalOutputResponse> {
+    async fn terminal_output(
+        &self,
+        _args: acp::TerminalOutputRequest,
+    ) -> acp::Result<acp::TerminalOutputResponse> {
         Err(acp::Error::method_not_found())
     }
 
-    async fn release_terminal(&self, _args: acp::ReleaseTerminalRequest) -> acp::Result<acp::ReleaseTerminalResponse> {
+    async fn release_terminal(
+        &self,
+        _args: acp::ReleaseTerminalRequest,
+    ) -> acp::Result<acp::ReleaseTerminalResponse> {
         Err(acp::Error::method_not_found())
     }
 
@@ -301,19 +323,25 @@ impl AcpClientTrait for AtmosAcpClient {
                     Some(tool_call.locations.as_slice()),
                     tool_call.raw_input.as_ref(),
                 );
-                let _ = self.event_tx.send(AcpSessionEvent::ToolCall(ToolCallUpdate {
-                    tool_call_id,
-                    tool,
-                    description,
-                    status,
-                    raw_input: tool_call.raw_input.clone(),
-                    raw_output: tool_call.raw_output.clone(),
-                    detail: None,
-                }));
+                let _ = self
+                    .event_tx
+                    .send(AcpSessionEvent::ToolCall(ToolCallUpdate {
+                        tool_call_id,
+                        tool,
+                        description,
+                        status,
+                        raw_input: tool_call.raw_input.clone(),
+                        raw_output: tool_call.raw_output.clone(),
+                        detail: None,
+                    }));
             }
             acp::SessionUpdate::ToolCallUpdate(update) => {
                 let tool_call_id = update.tool_call_id.to_string();
-                let status = match update.fields.status.unwrap_or(acp::ToolCallStatus::default()) {
+                let status = match update
+                    .fields
+                    .status
+                    .unwrap_or(acp::ToolCallStatus::default())
+                {
                     acp::ToolCallStatus::InProgress => ToolCallStatus::Running,
                     acp::ToolCallStatus::Completed => ToolCallStatus::Completed,
                     acp::ToolCallStatus::Failed => ToolCallStatus::Failed,
@@ -326,15 +354,17 @@ impl AcpClientTrait for AtmosAcpClient {
                     update.fields.locations.as_deref(),
                     update.fields.raw_input.as_ref(),
                 );
-                let _ = self.event_tx.send(AcpSessionEvent::ToolCall(ToolCallUpdate {
-                    tool_call_id,
-                    tool,
-                    description,
-                    status,
-                    raw_input: update.fields.raw_input.clone(),
-                    raw_output: update.fields.raw_output.clone(),
-                    detail: None,
-                }));
+                let _ = self
+                    .event_tx
+                    .send(AcpSessionEvent::ToolCall(ToolCallUpdate {
+                        tool_call_id,
+                        tool,
+                        description,
+                        status,
+                        raw_input: update.fields.raw_input.clone(),
+                        raw_output: update.fields.raw_output.clone(),
+                        detail: None,
+                    }));
             }
             _ => {}
         }
