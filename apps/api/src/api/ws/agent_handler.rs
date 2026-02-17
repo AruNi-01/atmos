@@ -58,6 +58,7 @@ enum AgentServerMessage {
         message: String,
         recoverable: bool,
     },
+    TurnEnd,
     SessionEnded,
     /// Real-time ACP connection phase update
     PhaseUpdate {
@@ -92,6 +93,7 @@ fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
             message,
             recoverable,
         }),
+        AcpSessionEvent::TurnEnd => Some(AgentServerMessage::TurnEnd),
         AcpSessionEvent::SessionEnded => Some(AgentServerMessage::SessionEnded),
     }
 }

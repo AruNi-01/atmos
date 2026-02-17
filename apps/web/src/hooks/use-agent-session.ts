@@ -40,6 +40,7 @@ export type AgentServerMessage =
       risk_level: string;
     }
   | { type: "error"; code: string; message: string; recoverable: boolean }
+  | { type: "turn_end" }
   | { type: "session_ended" }
   | { type: "phase_update"; phase: string };
 

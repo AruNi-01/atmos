@@ -96,6 +96,7 @@ pub enum AcpSessionEvent {
         message: String,
         recoverable: bool,
     },
+    TurnEnd,
     SessionEnded,
 }
 
