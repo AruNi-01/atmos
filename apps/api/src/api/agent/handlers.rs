@@ -39,10 +39,12 @@ pub async fn create_agent_session(
             .get_project(pid.clone())
             .await?
             .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".to_string()))?;
-        let cwd = std::path::Path::new(&project.main_file_path)
-            .parent()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(&project.main_file_path));
+        let main_path = PathBuf::from(&project.main_file_path);
+        let cwd = if main_path.is_dir() {
+            main_path
+        } else {
+            main_path.parent().map(PathBuf::from).unwrap_or(main_path)
+        };
         (None, Some(pid.as_str()), cwd)
     } else {
         let home_dir = std::env::var("HOME")
@@ -63,7 +65,7 @@ pub async fn create_agent_session(
     let cwd_str = cwd.to_string_lossy().to_string();
     let session_id = state
         .agent_session_service
-        .create_session(
+        .create_session_lazy(
             workspace_id_opt,
             project_id_opt,
             &payload.registry_id,
@@ -71,11 +73,7 @@ pub async fn create_agent_session(
             payload.auth_method_id.clone(),
         )
         .await?;
-    let title = state
-        .agent_session_service
-        .get_session(&session_id)
-        .await?
-        .and_then(|s| s.title);
+    let title: Option<String> = None;
 
     Ok(Json(ApiResponse::success(json!({
         "session_id": session_id,
@@ -91,7 +89,7 @@ pub async fn resume_agent_session(
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let (runtime_session_id, cwd) = state
         .agent_session_service
-        .resume_session(&session_id)
+        .resume_session_lazy(&session_id)
         .await?;
     let title = state
         .agent_session_service

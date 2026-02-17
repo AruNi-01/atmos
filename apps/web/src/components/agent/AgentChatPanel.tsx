@@ -62,18 +62,40 @@ import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-
 import { formatLocalDateTime } from "@atmos/shared";
 import type { RegistryAgent } from "@/api/ws-api";
 
-type ChatMessage =
-  | { role: "user"; content: string; files?: (import("ai").FileUIPart & { id: string })[] }
-  | { role: "assistant"; content: string; isStreaming?: boolean }
-  | {
-    role: "tool";
-    tool_call_id: string;
-    tool: string;
-    description: string;
-    status: string;
-    raw_input?: unknown;
-    raw_output?: unknown;
-  };
+// ---------------------------------------------------------------------------
+// Zed-style ACP Entry Model
+// ---------------------------------------------------------------------------
+
+interface ToolCallBlock {
+  type: "tool_call";
+  tool_call_id: string;
+  tool: string;
+  description: string;
+  status: string;
+  raw_input?: unknown;
+  raw_output?: unknown;
+}
+
+interface TextBlock {
+  type: "text";
+  content: string;
+}
+
+type AssistantBlock = TextBlock | ToolCallBlock;
+
+interface UserEntry {
+  role: "user";
+  content: string;
+  files?: (import("ai").FileUIPart & { id: string })[];
+}
+
+interface AssistantEntry {
+  role: "assistant";
+  blocks: AssistantBlock[];
+  isStreaming?: boolean;
+}
+
+type ThreadEntry = UserEntry | AssistantEntry;
 
 interface PendingPermission {
   request_id: string;
@@ -81,6 +103,10 @@ interface PendingPermission {
   description: string;
   risk_level: string;
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 const LAST_SESSION_STORAGE_KEY = "atmos.agent.last_session_by_context";
 const DEFAULT_AGENT_STORAGE_KEY = "atmos.agent.default_registry_id";
@@ -175,30 +201,218 @@ function getSkillName(raw_input: Record<string, unknown>): string {
   return "Skill";
 }
 
-function ToolOrSkillMessage({
+// ---------------------------------------------------------------------------
+// Entry reducer: processes ACP server messages into Zed-style thread entries
+// ---------------------------------------------------------------------------
+
+function reduceEntries(
+  prev: ThreadEntry[],
+  msg: AgentServerMessage,
+  streamAccRef: React.MutableRefObject<string>,
+  lastDeltaRef: React.MutableRefObject<string>,
+): ThreadEntry[] {
+  if (msg.type === "stream") {
+    if (msg.role === "user") {
+      const last = prev[prev.length - 1];
+      if (last?.role === "user") {
+        return [...prev.slice(0, -1), { ...last, content: `${last.content}${msg.delta}` }];
+      }
+      return [...prev, { role: "user", content: msg.delta }];
+    }
+
+    // Deduplicate identical consecutive deltas (backend may resend)
+    if (msg.delta === lastDeltaRef.current) return prev;
+    lastDeltaRef.current = msg.delta;
+
+    // Assistant text chunk -> append to current assistant turn's last text block
+    const last = prev[prev.length - 1];
+    if (last?.role === "assistant" && last.isStreaming) {
+      const blocks = [...last.blocks];
+      const lastBlock = blocks[blocks.length - 1];
+      if (lastBlock?.type === "text") {
+        // Append to existing text block
+        if (msg.delta) streamAccRef.current += msg.delta;
+        blocks[blocks.length - 1] = { type: "text", content: streamAccRef.current };
+      } else {
+        // After a tool call, start a new text block with fresh accumulator
+        streamAccRef.current = msg.delta;
+        blocks.push({ type: "text", content: msg.delta });
+      }
+      return [
+        ...prev.slice(0, -1),
+        { ...last, blocks, isStreaming: !msg.done },
+      ];
+    }
+    // New assistant turn
+    streamAccRef.current = msg.delta;
+    return [
+      ...prev,
+      {
+        role: "assistant",
+        blocks: [{ type: "text", content: msg.delta }],
+        isStreaming: !msg.done,
+      },
+    ];
+  }
+
+  if (msg.type === "tool_call") {
+    const id = msg.tool_call_id ?? "";
+    const isTerminal = msg.status === "completed" || msg.status === "failed";
+    const newBlock: ToolCallBlock = {
+      type: "tool_call",
+      tool_call_id: id,
+      tool: msg.tool,
+      description: msg.description,
+      status: msg.status,
+      raw_input: msg.raw_input,
+      raw_output: msg.raw_output,
+    };
+
+    // Finalize any streaming assistant text accumulator on tool event
+    let entries = [...prev];
+    const lastEntry = entries[entries.length - 1];
+    if (lastEntry?.role === "assistant" && lastEntry.isStreaming) {
+      entries[entries.length - 1] = { ...lastEntry, isStreaming: false };
+    }
+
+    // Find existing tool call block in the last assistant entry, or create assistant entry
+    let assistantIdx = -1;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (entries[i].role === "assistant") {
+        assistantIdx = i;
+        break;
+      }
+    }
+
+    if (assistantIdx >= 0) {
+      const assistant = entries[assistantIdx] as AssistantEntry;
+      const blocks = [...assistant.blocks];
+
+      // Try to find existing tool call block to update
+      let toolIdx = -1;
+      if (id) {
+        toolIdx = blocks.findIndex(
+          (b) => b.type === "tool_call" && b.tool_call_id === id
+        );
+      }
+      // Fallback for terminal status: match by raw_input or last running
+      if (toolIdx < 0 && isTerminal) {
+        const incoming = msg.raw_input as Record<string, unknown> | undefined;
+        if (incoming && typeof incoming === "object") {
+          toolIdx = blocks.findIndex((b) => {
+            if (b.type !== "tool_call" || b.status?.toLowerCase() !== "running") return false;
+            const r = b.raw_input as Record<string, unknown> | undefined;
+            if (!r || typeof r !== "object") return false;
+            for (const k of ["file_path", "path", "url", "command"]) {
+              if (incoming[k] != null && r[k] != null && String(incoming[k]) === String(r[k])) return true;
+            }
+            return false;
+          });
+        }
+        if (toolIdx < 0) {
+          for (let i = blocks.length - 1; i >= 0; i--) {
+            if (blocks[i].type === "tool_call" && (blocks[i] as ToolCallBlock).status?.toLowerCase() === "running") {
+              toolIdx = i;
+              break;
+            }
+          }
+        }
+      }
+
+      if (toolIdx >= 0) {
+        blocks[toolIdx] = {
+          ...blocks[toolIdx] as ToolCallBlock,
+          tool: msg.tool || (blocks[toolIdx] as ToolCallBlock).tool,
+          description: msg.description || (blocks[toolIdx] as ToolCallBlock).description,
+          status: msg.status,
+          raw_input: msg.raw_input ?? (blocks[toolIdx] as ToolCallBlock).raw_input,
+          raw_output: msg.raw_output ?? (blocks[toolIdx] as ToolCallBlock).raw_output,
+        };
+      } else {
+        // Reset stream accumulator for new text after this tool call
+        streamAccRef.current = "";
+        blocks.push(newBlock);
+      }
+
+      entries[assistantIdx] = { ...assistant, blocks };
+      return entries;
+    }
+
+    // No assistant entry yet - create one with the tool call
+    streamAccRef.current = "";
+    return [
+      ...entries,
+      {
+        role: "assistant",
+        blocks: [newBlock],
+        isStreaming: false,
+      },
+    ];
+  }
+
+  if (msg.type === "error") {
+    return [
+      ...prev,
+      {
+        role: "assistant",
+        blocks: [{ type: "text", content: `Error: ${msg.message}` }],
+        isStreaming: false,
+      },
+    ];
+  }
+
+  return prev;
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function deriveToolDisplayName(tool: string, description: string, raw_input?: unknown): string {
+  // Prefer a meaningful description
+  if (
+    description &&
+    description !== tool &&
+    !/^(Processing|Executing|Running|Tool)\b/i.test(description)
+  ) {
+    return description;
+  }
+  // Extract from raw_input for common patterns
+  if (raw_input && typeof raw_input === "object") {
+    const input = raw_input as Record<string, unknown>;
+    const path = (input.file_path ?? input.path) as string | undefined;
+    const command = input.command as string | undefined;
+    const url = input.url as string | undefined;
+    const toolName = (input.tool ?? input.name) as string | undefined;
+
+    if (path) {
+      const shortPath = path.split("/").slice(-2).join("/");
+      const verb = tool === "Read" || tool === "read" ? "Read" : tool === "Edit" || tool === "edit" ? "Edit" : tool;
+      return verb && verb !== "Tool" && verb !== "Other" ? `${verb}: ${shortPath}` : shortPath;
+    }
+    if (command) {
+      const shortCmd = command.length > 60 ? `${command.slice(0, 57)}...` : command;
+      return `Execute: ${shortCmd}`;
+    }
+    if (url) return `Fetch: ${url.length > 50 ? `${url.slice(0, 47)}...` : url}`;
+    if (toolName) return String(toolName);
+  }
+  if (tool && tool !== "Tool" && tool !== "Other") return tool;
+  return description || "Tool";
+}
+
+function ToolOrSkillBlock({
   tool,
   description,
   status,
   raw_input,
   raw_output,
-}: {
-  tool: string;
-  description: string;
-  status: string;
-  raw_input?: unknown;
-  raw_output?: unknown;
-}) {
+}: ToolCallBlock) {
   const state = toolStatusToState(status);
   const isError = state === "output-error";
   const asSkill = isSkillInvocation(raw_input) || isSkillCommand(raw_input);
 
-  // For tools: prefer description; avoid generic/status text
-  const toolDisplayName =
-    description &&
-      description !== tool &&
-      !/^(Processing|Executing|Running|Tool)\b/i.test(description)
-      ? description
-      : tool || "Tool";
+  const toolDisplayName = deriveToolDisplayName(tool, description, raw_input);
 
   const skillName = asSkill && raw_input && typeof raw_input === "object"
     ? getSkillName(raw_input as Record<string, unknown>)
@@ -236,6 +450,34 @@ function ToolOrSkillMessage({
   );
 }
 
+function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
+  return (
+    <>
+      {entry.blocks.map((block, i) => {
+        if (block.type === "text") {
+          if (!block.content) return null;
+          const isLastTextBlock =
+            entry.isStreaming &&
+            !entry.blocks.slice(i + 1).some((b) => b.type === "text");
+          return (
+            <MessageResponse
+              key={i}
+              parseIncompleteMarkdown
+              animated={isLastTextBlock}
+              caret={isLastTextBlock ? "block" : undefined}
+            >
+              {block.content}
+            </MessageResponse>
+          );
+        }
+        return (
+          <ToolOrSkillBlock key={block.tool_call_id || i} {...block} />
+        );
+      })}
+    </>
+  );
+}
+
 function PromptInputAttachmentsSection() {
   const attachments = usePromptInputAttachments();
   if (attachments.files.length === 0) return null;
@@ -253,11 +495,15 @@ function PromptInputAttachmentsSection() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Main Panel
+// ---------------------------------------------------------------------------
+
 export function AgentChatPanel() {
   const { workspaceId, projectId, effectiveContextId } = useContextParams();
   const { isAgentChatOpen, setAgentChatOpen } = useDialogStore();
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
   const [registryId, setRegistryId] = useState<string>("");
   const [defaultRegistryId, setDefaultRegistryId] = useState<string>("");
@@ -266,7 +512,7 @@ export function AgentChatPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
   const [messageNavIndex, setMessageNavIndex] = useState(-1);
-  const lastStreamRef = useRef<string>("");
+  const streamAccRef = useRef<string>("");
   const lastDeltaRef = useRef<string>("");
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -303,130 +549,12 @@ export function AgentChatPanel() {
     switch (msg.type) {
       case "stream":
         setWaitingForResponse(false);
-        if (msg.role === "user") {
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last?.role === "user") {
-              return [
-                ...prev.slice(0, -1),
-                { ...last, content: `${last.content}${msg.delta}` },
-              ];
-            }
-            return [
-              ...prev,
-              {
-                role: "user" as const,
-                content: msg.delta,
-              },
-            ];
-          });
-          break;
-        }
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "assistant" && last.isStreaming) {
-            if (msg.delta === lastDeltaRef.current) return prev;
-            lastDeltaRef.current = msg.delta;
-            if (msg.delta) lastStreamRef.current += msg.delta;
-            return [
-              ...prev.slice(0, -1),
-              { ...last, content: lastStreamRef.current, isStreaming: !msg.done },
-            ];
-          }
-          lastDeltaRef.current = msg.delta;
-          lastStreamRef.current = msg.delta;
-          return [
-            ...prev,
-            {
-              role: "assistant" as const,
-              content: msg.delta,
-              isStreaming: !msg.done,
-            },
-          ];
-        });
+        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
         break;
-      case "tool_call": {
-        const id = msg.tool_call_id ?? "";
-        const isTerminal = msg.status === "completed" || msg.status === "failed";
-        setMessages((prev) => {
-          // Finalize streaming assistant when a tool event arrives (backend rarely sends done: true)
-          let next = prev;
-          const last = prev[prev.length - 1];
-          if (last?.role === "assistant" && last.isStreaming) {
-            next = prev.map((m, i) =>
-              i === prev.length - 1 && m.role === "assistant"
-                ? { ...m, isStreaming: false }
-                : m
-            );
-          }
-
-          let idx = -1;
-          if (id) {
-            idx = next.findIndex(
-              (m) => m.role === "tool" && m.tool_call_id === id
-            );
-          }
-          // Fallback: when Completed/Failed but no match, try raw_input match then last Running
-          if (idx < 0 && isTerminal) {
-            const incoming = msg.raw_input as Record<string, unknown> | undefined;
-            if (incoming && typeof incoming === "object") {
-              const matchesInput = (m: { raw_input?: unknown }) => {
-                const r = m.raw_input as Record<string, unknown> | undefined;
-                if (!r || typeof r !== "object") return false;
-                for (const k of ["file_path", "path", "url", "command"]) {
-                  const a = incoming[k];
-                  const b = r[k];
-                  if (a != null && b != null && String(a) === String(b))
-                    return true;
-                }
-                return false;
-              };
-              idx = next.findIndex(
-                (m) =>
-                  m.role === "tool" &&
-                  m.status?.toLowerCase() === "running" &&
-                  matchesInput(m)
-              );
-            }
-            if (idx < 0) {
-              for (let i = next.length - 1; i >= 0; i--) {
-                const m = next[i];
-                if (m.role === "tool" && m.status?.toLowerCase() === "running") {
-                  idx = i;
-                  break;
-                }
-              }
-            }
-          }
-          if (idx >= 0) {
-            return next.map((m, i) =>
-              i === idx && m.role === "tool"
-                ? {
-                  ...m,
-                  tool: msg.tool || m.tool,
-                  description: msg.description || m.description,
-                  status: msg.status,
-                  raw_input: msg.raw_input ?? m.raw_input,
-                  raw_output: msg.raw_output ?? m.raw_output,
-                }
-                : m
-            );
-          }
-          return [
-            ...next,
-            {
-              role: "tool" as const,
-              tool_call_id: id,
-              tool: msg.tool,
-              description: msg.description,
-              status: msg.status,
-              raw_input: msg.raw_input,
-              raw_output: msg.raw_output,
-            },
-          ];
-        });
+      case "tool_call":
+        setWaitingForResponse(false);
+        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
         break;
-      }
       case "permission_request":
         setPendingPermission({
           request_id: msg.request_id,
@@ -437,14 +565,7 @@ export function AgentChatPanel() {
         break;
       case "error":
         setWaitingForResponse(false);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant" as const,
-            content: `Error: ${msg.message}`,
-            isStreaming: false,
-          },
-        ]);
+        setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
         break;
       case "session_ended":
         break;
@@ -525,7 +646,7 @@ export function AgentChatPanel() {
       setHistoryOpen(false);
       skipNextAutoConnectRef.current = true;
       disconnect();
-      setMessages([]);
+      setEntries([]);
       setPendingPermission(null);
       setRegistryId(s.registry_id);
       setSessionTitle(s.title || null);
@@ -542,7 +663,6 @@ export function AgentChatPanel() {
         }
       } finally {
         setIsResumingHistory(false);
-        // Ensure auto-connect is not accidentally blocked afterwards
         skipNextAutoConnectRef.current = false;
       }
     },
@@ -555,7 +675,7 @@ export function AgentChatPanel() {
     if (!nextRegistryId) return;
     skipNextAutoConnectRef.current = true;
     disconnect();
-    setMessages([]);
+    setEntries([]);
     setPendingPermission(null);
     setSessionTitle(null);
     setRegistryId(nextRegistryId);
@@ -565,7 +685,6 @@ export function AgentChatPanel() {
     try {
       await startSession({ registryId: nextRegistryId });
     } finally {
-      // Avoid stale skip flag causing blank panel on next open
       skipNextAutoConnectRef.current = false;
     }
   }, [contextKey, defaultRegistryId, disconnect, isConnecting, registryId, startSession]);
@@ -587,7 +706,6 @@ export function AgentChatPanel() {
       return;
     }
     if (isConnected || isConnecting) return;
-    // Registry already loaded for this page lifetime; avoid repeated REST calls.
     if (installedAgents.length > 0 && registryId) return;
     setLoadingAgents(true);
     agentApi
@@ -618,7 +736,6 @@ export function AgentChatPanel() {
       .finally(() => setLoadingAgents(false));
   }, [isAgentChatOpen, isConnected, isConnecting, installedAgents.length, registryId]);
 
-  // Auto-connect when registryId is set, panel is open, and we have installed agents
   useEffect(() => {
     if (
       isAgentChatOpen &&
@@ -631,8 +748,6 @@ export function AgentChatPanel() {
         skipNextAutoConnectRef.current = false;
         return;
       }
-      // If we still have an in-memory session id (e.g. API hot-reload dropped WS),
-      // always try to resume it first, and never auto-create a new session here.
       if (sessionId) {
         if (autoResumeTriedRef.current === sessionId) return;
         autoResumeTriedRef.current = sessionId;
@@ -647,8 +762,6 @@ export function AgentChatPanel() {
             const resumed = await resumeSession(lastSessionId);
             if (!resumed) {
               clearLastSessionIdForContext(contextKey);
-              // Do not auto-create a new session when resume fails.
-              // This avoids duplicate "New chat" sessions during service restart/hot-reload.
             }
           })();
           return;
@@ -686,17 +799,16 @@ export function AgentChatPanel() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [entries]);
 
-  // Indices of user messages only (for prev/next navigation)
-  const userMessageIndices = React.useMemo(
-    () => messages.map((m, i) => (m.role === "user" ? i : -1)).filter((i) => i >= 0),
-    [messages]
+  const userEntryIndices = React.useMemo(
+    () => entries.map((e, i) => (e.role === "user" ? i : -1)).filter((i) => i >= 0),
+    [entries]
   );
 
   const scrollToMessage = useCallback((messageIndex: number) => {
     const el = conversationRef.current?.querySelector(
-      `[data-message-index="${messageIndex}"]`
+      `[data-entry-index="${messageIndex}"]`
     ) as HTMLElement | null;
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
@@ -705,46 +817,42 @@ export function AgentChatPanel() {
   }, []);
 
   const handlePrevMessage = useCallback(() => {
-    if (userMessageIndices.length === 0) return;
-    const currentIdx = userMessageIndices.indexOf(messageNavIndex);
-    // When not focused on any user message, prev goes to last
+    if (userEntryIndices.length === 0) return;
+    const currentIdx = userEntryIndices.indexOf(messageNavIndex);
     if (currentIdx < 0) {
-      scrollToMessage(userMessageIndices[userMessageIndices.length - 1]);
+      scrollToMessage(userEntryIndices[userEntryIndices.length - 1]);
       return;
     }
-    if (currentIdx <= 0) return; // no loop at top
-    scrollToMessage(userMessageIndices[currentIdx - 1]);
-  }, [userMessageIndices, messageNavIndex, scrollToMessage]);
+    if (currentIdx <= 0) return;
+    scrollToMessage(userEntryIndices[currentIdx - 1]);
+  }, [userEntryIndices, messageNavIndex, scrollToMessage]);
 
   const handleNextMessage = useCallback(() => {
-    if (userMessageIndices.length === 0) return;
-    const currentIdx = userMessageIndices.indexOf(messageNavIndex);
-    // When not focused on any user message, next goes to first
+    if (userEntryIndices.length === 0) return;
+    const currentIdx = userEntryIndices.indexOf(messageNavIndex);
     if (currentIdx < 0) {
-      scrollToMessage(userMessageIndices[0]);
+      scrollToMessage(userEntryIndices[0]);
       return;
     }
-    if (currentIdx >= userMessageIndices.length - 1) return; // no loop at bottom
-    scrollToMessage(userMessageIndices[currentIdx + 1]);
-  }, [userMessageIndices, messageNavIndex, scrollToMessage]);
+    if (currentIdx >= userEntryIndices.length - 1) return;
+    scrollToMessage(userEntryIndices[currentIdx + 1]);
+  }, [userEntryIndices, messageNavIndex, scrollToMessage]);
 
   const handleSubmit = useCallback(
     async (message: { text: string; files?: import("ai").FileUIPart[] }) => {
       const text = message.text.trim();
       if (!text || !isConnected) return;
-      if (messages.length === 0) {
+      if (entries.length === 0) {
         const title = text.slice(0, 512).trim() || "新会话";
         setSessionTitle(title);
         if (sessionId) {
-          void agentRestApi.updateSessionTitle(sessionId, title).catch(() => {
-            // Ignore title update failure; chat should continue.
-          });
+          void agentRestApi.updateSessionTitle(sessionId, title).catch(() => {});
         }
       }
+      streamAccRef.current = "";
       lastDeltaRef.current = "";
-      lastStreamRef.current = "";
       setWaitingForResponse(true);
-      setMessages((prev) => [
+      setEntries((prev) => [
         ...prev,
         {
           role: "user" as const,
@@ -777,12 +885,10 @@ export function AgentChatPanel() {
 
       sendPrompt(finalPrompt);
     },
-    [isConnected, sendPrompt, localPath, sessionCwd, messages.length, sessionId]
+    [isConnected, sendPrompt, localPath, sessionCwd, entries.length, sessionId]
   );
 
   const handleClose = useCallback(() => {
-    // Keep in-memory session/messages for fast reopen within the same page lifetime.
-    // Only hide the panel here; actual disconnect happens on unmount/refresh.
     setAgentChatOpen(false);
   }, [setAgentChatOpen]);
 
@@ -1106,56 +1212,38 @@ export function AgentChatPanel() {
                 {error}
               </div>
             )}
-            {isConnected && messages.length === 0 && !isConnecting && !error && (
+            {isConnected && entries.length === 0 && !isConnecting && !error && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
                 title="Start a conversation"
                 description="Type a message below to begin chatting"
               />
             )}
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                data-message-index={i}
-                className={m.role === "tool" ? "w-full min-w-0" : undefined}
-              >
-                <Message from={m.role === "tool" ? "assistant" : m.role}>
-                  <MessageContent>
-                    {m.role === "user" && (
-                      <>
-                        {m.files && m.files.length > 0 && (
-                          <Attachments variant="inline" className="mb-2">
-                            {m.files.map((f) => (
-                              <Attachment key={f.id} data={f}>
-                                <AttachmentPreview />
-                                <AttachmentRemove />
-                              </Attachment>
-                            ))}
-                          </Attachments>
-                        )}
-                        {m.content}
-                      </>
-                    )}
-                    {m.role === "assistant" && (
-                      <MessageResponse
-                        parseIncompleteMarkdown
-                        animated={m.isStreaming}
-                        caret={m.isStreaming ? "block" : undefined}
-                      >
-                        {m.content}
-                      </MessageResponse>
-                    )}
-                    {m.role === "tool" && (
-                      <ToolOrSkillMessage
-                        tool={m.tool}
-                        description={m.description}
-                        status={m.status}
-                        raw_input={m.raw_input}
-                        raw_output={m.raw_output}
-                      />
-                    )}
-                  </MessageContent>
-                </Message>
+            {entries.map((entry, i) => (
+              <div key={i} data-entry-index={i} className="w-full min-w-0">
+                {entry.role === "user" ? (
+                  <Message from="user">
+                    <MessageContent>
+                      {entry.files && entry.files.length > 0 && (
+                        <Attachments variant="inline" className="mb-2">
+                          {entry.files.map((f) => (
+                            <Attachment key={f.id} data={f}>
+                              <AttachmentPreview />
+                              <AttachmentRemove />
+                            </Attachment>
+                          ))}
+                        </Attachments>
+                      )}
+                      {entry.content}
+                    </MessageContent>
+                  </Message>
+                ) : (
+                  <Message from="assistant">
+                    <MessageContent>
+                      <AssistantTurnView entry={entry} />
+                    </MessageContent>
+                  </Message>
+                )}
               </div>
             ))}
             {waitingForResponse && (
@@ -1166,14 +1254,14 @@ export function AgentChatPanel() {
             <div ref={bottomRef} />
           </ConversationContent>
           <ConversationScrollButton className="absolute bottom-4 right-4" />
-          {userMessageIndices.length >= 2 && (
+          {userEntryIndices.length >= 2 && (
             <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-0.5 rounded-sm border border-border/50 bg-background/80 py-1 shadow-sm backdrop-blur-sm dark:bg-background/60">
               <button
                 type="button"
                 onClick={handlePrevMessage}
                 disabled={
-                  userMessageIndices.length > 0 &&
-                  userMessageIndices.indexOf(messageNavIndex) === 0
+                  userEntryIndices.length > 0 &&
+                  userEntryIndices.indexOf(messageNavIndex) === 0
                 }
                 className="flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                 aria-label="Previous message"
@@ -1184,9 +1272,9 @@ export function AgentChatPanel() {
                 type="button"
                 onClick={handleNextMessage}
                 disabled={
-                  userMessageIndices.length > 0 &&
-                  userMessageIndices.indexOf(messageNavIndex) >=
-                  userMessageIndices.length - 1
+                  userEntryIndices.length > 0 &&
+                  userEntryIndices.indexOf(messageNavIndex) >=
+                  userEntryIndices.length - 1
                 }
                 className="flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                 aria-label="Next message"

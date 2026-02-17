@@ -59,6 +59,10 @@ enum AgentServerMessage {
         recoverable: bool,
     },
     SessionEnded,
+    /// Real-time ACP connection phase update
+    PhaseUpdate {
+        phase: String,
+    },
 }
 
 fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
@@ -98,41 +102,175 @@ pub async fn agent_ws_handler(
     State(state): State<AppState>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
+    // Check for already-connected session (legacy path)
     let handle = state.agent_session_service.take_session(&session_id);
-    let Some(handle) = handle else {
+    // Check for pending lazy session
+    let pending = state.agent_session_service.take_pending_session(&session_id);
+
+    if handle.is_none() && pending.is_none() {
         return (
             axum::http::StatusCode::NOT_FOUND,
             format!("Agent session {} not found", session_id),
         )
             .into_response();
-    };
+    }
 
     info!("Agent WebSocket connected for session: {}", session_id);
 
-    ws.on_upgrade(move |socket| handle_agent_socket(socket, session_id, handle, state))
+    ws.on_upgrade(move |socket| async move {
+        if let Some(spec) = pending {
+            handle_lazy_agent_socket(socket, session_id, spec, state).await;
+        } else if let Some(handle) = handle {
+            handle_agent_socket(socket, session_id, handle, state).await;
+        }
+    })
 }
 
-async fn handle_agent_socket(
+/// Send a phase update message over the WebSocket send channel
+fn send_phase(ws_tx: &mpsc::UnboundedSender<String>, phase: &str) {
+    if let Ok(json) = serde_json::to_string(&AgentServerMessage::PhaseUpdate {
+        phase: phase.to_string(),
+    }) {
+        let _ = ws_tx.send(json);
+    }
+}
+
+/// Handle a lazy session: connect ACP first (reporting phases), then run normal bridge
+async fn handle_lazy_agent_socket(
     socket: axum::extract::ws::WebSocket,
     session_id: String,
-    mut handle: AcpSessionHandle,
+    spec: core_service::LazySessionSpec,
     state: AppState,
 ) {
-    let (mut ws_sender, mut ws_receiver) = socket.split();
+    let (mut ws_sender, ws_receiver) = socket.split();
 
     let (ws_tx, mut ws_rx) = mpsc::unbounded_channel::<String>();
-    let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<AgentCommand>();
-    let mut pending_permissions: HashMap<String, tokio::sync::oneshot::Sender<bool>> = HashMap::new();
 
+    // Spawn a task to forward messages from ws_tx to the actual WS sender
     let session_id_send = session_id.clone();
     let send_task = tokio::spawn(async move {
         while let Some(msg) = ws_rx.recv().await {
-            if ws_sender.send(axum::extract::ws::Message::Text(msg.into())).await.is_err() {
-                warn!("Failed to send to Agent WebSocket for session: {}", session_id_send);
+            if ws_sender
+                .send(axum::extract::ws::Message::Text(msg.into()))
+                .await
+                .is_err()
+            {
+                warn!(
+                    "Failed to send to Agent WebSocket for session: {}",
+                    session_id_send
+                );
                 break;
             }
         }
     });
+
+    // Report phases while connecting
+    send_phase(&ws_tx, "initializing");
+
+    send_phase(&ws_tx, "spawning_agent");
+
+    let connect_result = state
+        .agent_session_service
+        .connect_session(spec)
+        .await;
+
+    let session_id_close = session_id.clone();
+    let state_close = state.clone();
+
+    match connect_result {
+        Ok(handle) => {
+            send_phase(&ws_tx, "connected");
+            run_bridge(session_id, handle, ws_tx, ws_receiver, state).await;
+        }
+        Err(e) => {
+            error!("ACP connection failed for session {}: {}", session_id_close, e);
+            if e.contains(agent::AUTH_REQUIRED_ERROR_PREFIX) {
+                let json_part = e
+                    .strip_prefix(agent::AUTH_REQUIRED_ERROR_PREFIX)
+                    .unwrap_or(&e);
+                if let Ok(json) = serde_json::to_string(&AgentServerMessage::Error {
+                    code: "ACP_AUTH_REQUIRED".to_string(),
+                    message: json_part.to_string(),
+                    recoverable: true,
+                }) {
+                    let _ = ws_tx.send(json);
+                }
+            } else if let Ok(json) = serde_json::to_string(&AgentServerMessage::Error {
+                code: "ACP_CONNECT_FAILED".to_string(),
+                message: e,
+                recoverable: false,
+            }) {
+                let _ = ws_tx.send(json);
+            }
+            if let Ok(json) =
+                serde_json::to_string(&AgentServerMessage::SessionEnded)
+            {
+                let _ = ws_tx.send(json);
+            }
+        }
+    }
+
+    send_task.abort();
+    state_close
+        .agent_session_service
+        .mark_session_closed(&session_id_close)
+        .await;
+    info!("Agent WebSocket closed for session: {}", session_id_close);
+}
+
+/// Legacy path: session was already ACP-connected before WS
+async fn handle_agent_socket(
+    socket: axum::extract::ws::WebSocket,
+    session_id: String,
+    handle: AcpSessionHandle,
+    state: AppState,
+) {
+    let (mut ws_sender, ws_receiver) = socket.split();
+
+    let (ws_tx, mut ws_rx) = mpsc::unbounded_channel::<String>();
+
+    let session_id_send = session_id.clone();
+    let send_task = tokio::spawn(async move {
+        while let Some(msg) = ws_rx.recv().await {
+            if ws_sender
+                .send(axum::extract::ws::Message::Text(msg.into()))
+                .await
+                .is_err()
+            {
+                warn!(
+                    "Failed to send to Agent WebSocket for session: {}",
+                    session_id_send
+                );
+                break;
+            }
+        }
+    });
+
+    {
+        let state_bridge = state.clone();
+        let sid = session_id.clone();
+        run_bridge(sid, handle, ws_tx, ws_receiver, state_bridge).await;
+    }
+
+    send_task.abort();
+    state
+        .agent_session_service
+        .mark_session_closed(&session_id)
+        .await;
+    info!("Agent WebSocket closed for session: {}", session_id);
+}
+
+/// Common bridge loop between WS receiver and ACP session handle
+async fn run_bridge(
+    session_id: String,
+    mut handle: AcpSessionHandle,
+    ws_tx: mpsc::UnboundedSender<String>,
+    mut ws_receiver: futures_util::stream::SplitStream<axum::extract::ws::WebSocket>,
+    state: AppState,
+) {
+    let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<AgentCommand>();
+    let mut pending_permissions: HashMap<String, tokio::sync::oneshot::Sender<bool>> =
+        HashMap::new();
 
     let ws_tx_clone = ws_tx.clone();
     let bridge_task = tokio::spawn(async move {
@@ -208,8 +346,5 @@ async fn handle_agent_socket(
     }
 
     drop(cmd_tx);
-    send_task.abort();
     bridge_task.abort();
-    state.agent_session_service.mark_session_closed(&session_id).await;
-    info!("Agent WebSocket closed for session: {}", session_id);
 }
