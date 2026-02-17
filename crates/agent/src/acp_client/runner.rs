@@ -249,6 +249,7 @@ async fn run_session_inner(
                         recoverable: true,
                     });
                 }
+                let _ = event_tx.send(AcpSessionEvent::TurnEnd);
             }
 
             Ok(())

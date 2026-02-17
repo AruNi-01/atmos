@@ -654,6 +654,16 @@ export function AgentChatPanel() {
         setWaitingForResponse(false);
         setEntries((prev) => reduceEntries(prev, msg, streamAccRef, lastDeltaRef));
         break;
+      case "turn_end":
+        setWaitingForResponse(false);
+        setEntries((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant" && last.isStreaming) {
+            return [...prev.slice(0, -1), { ...last, isStreaming: false }];
+          }
+          return prev;
+        });
+        break;
       case "session_ended":
         setWaitingForResponse(false);
         break;
