@@ -40,7 +40,7 @@ import {
   CircleDashed,
   RotateCcw
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { useTheme } from 'next-themes';
 import { useWorkspaceContext, type TaskStatus } from '@/hooks/use-workspace-context';
@@ -68,9 +68,11 @@ function getToggleStatus(current: TaskStatus): TaskStatus {
 
 function formatDate(isoString?: string): string {
   if (!isoString) return '-';
-  const date = new Date(isoString);
-  if (isNaN(date.getTime())) return '-';
-  return format(date, 'MMM d, yyyy • HH:mm');
+  try {
+    return formatLocalDateTime(isoString);
+  } catch {
+    return '-';
+  }
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({

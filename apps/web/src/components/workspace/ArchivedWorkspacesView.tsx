@@ -19,7 +19,6 @@ import {
 import { ArchivedWorkspace, wsWorkspaceApi } from '@/api/ws-api';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { formatRelativeTime } from '@atmos/shared';
-import { format } from 'date-fns';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { motion, AnimatePresence } from "motion/react";

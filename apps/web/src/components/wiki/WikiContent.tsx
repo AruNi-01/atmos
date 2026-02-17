@@ -11,7 +11,7 @@ import {
   toastManager,
 } from "@workspace/ui";
 import { AlertTriangle, ChevronRight, Clock, Eye, Frown, Loader2, Meh, Pencil, Save, Smile } from "lucide-react";
-import { format } from "date-fns";
+import { formatLocalDateTime } from "@atmos/shared";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
 import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
@@ -176,8 +176,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const formattedUpdatedAt = (() => {
     if (!updatedAt) return null;
     try {
-      const d = new Date(updatedAt);
-      return Number.isNaN(d.getTime()) ? null : format(d, "yyyy-MM-dd HH:mm");
+      return formatLocalDateTime(updatedAt, "yyyy-MM-dd HH:mm:ss");
     } catch {
       return null;
     }

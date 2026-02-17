@@ -17,7 +17,7 @@ import {
   cn,
 } from "@workspace/ui";
 import { ChevronRight, Clock, ExternalLink, FilePlus, Github, Gitlab, Info, RefreshCw } from "lucide-react";
-import { format } from "date-fns";
+import { formatLocalDateTime } from "@atmos/shared";
 import type { CatalogData, CatalogItem } from "./wiki-utils";
 import type { WikiUpdateStatus } from "@/hooks/use-wiki-store";
 import { isTopLevelSection } from "./wiki-utils";
@@ -256,7 +256,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
 
   const formatGeneratedAt = (iso: string) => {
     try {
-      return format(new Date(iso), "yyyy-MM-dd HH:mm");
+      return formatLocalDateTime(iso, "yyyy-MM-dd HH:mm:ss");
     } catch {
       return iso;
     }

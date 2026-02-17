@@ -15,7 +15,7 @@ import {
 import { Project, Workspace } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
-import { format, isToday, isYesterday, subDays, subWeeks, subMonths, isAfter, subYears } from 'date-fns';
+import { parseUTCDate, format, isToday, isYesterday, subDays, subWeeks, subMonths, isAfter, subYears } from '@atmos/shared';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "motion/react";
 import { Skeleton } from "@workspace/ui";
@@ -201,7 +201,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
     const now = new Date();
 
     filteredWorkspaces.forEach(ws => {
-      const date = ws.createdAt ? new Date(ws.createdAt) : new Date();
+      const date = ws.createdAt ? parseUTCDate(ws.createdAt) : new Date();
       if (isNaN(date.getTime())) return;
 
       if (isToday(date)) {
@@ -391,7 +391,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                               </div>
 
                               <div className="w-[110px] text-right text-[11px] font-medium text-muted-foreground/70 shrink-0 pl-6 tabular-nums">
-                                {ws.createdAt && !isNaN(new Date(ws.createdAt).getTime()) ? format(new Date(ws.createdAt), 'MMM d, yyyy') : '-'}
+                                {ws.createdAt && !isNaN(parseUTCDate(ws.createdAt).getTime()) ? format(parseUTCDate(ws.createdAt), 'MMM d, yyyy') : '-'}
                               </div>
                             </motion.button>
                           );

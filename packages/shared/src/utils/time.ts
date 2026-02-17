@@ -1,30 +1,46 @@
 /**
  * Time utilities for handling UTC to local timezone conversion
+ * Uses date-fns v4 + @date-fns/tz for timezone-aware operations
  */
+import { TZDate } from '@date-fns/tz';
+import {
+  format,
+  isToday,
+  isYesterday,
+  isAfter,
+  subDays,
+  subWeeks,
+  subMonths,
+  subYears,
+  formatDistanceToNow,
+} from 'date-fns';
 
 /**
- * Parse a UTC date string from backend to local Date object
+ * Get user's local IANA timezone (e.g., "Asia/Shanghai", "America/New_York")
+ */
+export function getLocalTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/**
+ * Parse a UTC date string from backend into a TZDate in the user's local timezone.
  * Backend stores dates in UTC+0 format (e.g., "2026-01-20T10:00:00" or "2026-01-20 10:00:00")
  */
-export function parseUTCDate(utcDateString: string): Date {
+export function parseUTCDate(utcDateString: string, timeZone?: string): TZDate {
   if (!utcDateString) {
-    return new Date();
+    return TZDate.tz(timeZone ?? getLocalTimeZone());
   }
-  
-  // Check for timezone suffix: 'Z' or '+HH:MM' or '-HH:MM' at the end
-  // Note: the date part has '-' too, so we need to check the end of the string
+
   const hasTimezoneZ = utcDateString.endsWith('Z');
   const hasTimezoneOffset = /[+-]\d{2}:\d{2}$/.test(utcDateString) || /[+-]\d{4}$/.test(utcDateString);
-  
+
   let dateStr = utcDateString;
-  
-  // If no timezone info, treat as UTC by appending 'Z'
   if (!hasTimezoneZ && !hasTimezoneOffset) {
-    // Replace space with T if needed (SQLite format: "2026-01-20 10:00:00")
     dateStr = utcDateString.replace(' ', 'T') + 'Z';
   }
-  
-  return new Date(dateStr);
+
+  const tz = timeZone ?? getLocalTimeZone();
+  return new TZDate(dateStr, tz);
 }
 
 /**
@@ -39,58 +55,61 @@ export function formatRelativeTime(utcDateString: string): string {
   const target = parseUTCDate(utcDateString);
   const now = new Date();
   const diffMs = now.getTime() - target.getTime();
-  
+
   if (diffMs < 0) {
     return 'just now';
   }
-  
+
   const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffSeconds / 60);
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
-  
+
   if (diffSeconds < 60) {
     return diffSeconds <= 5 ? 'just now' : `${diffSeconds}s`;
   }
-  
+
   if (diffMinutes < 60) {
     return `${diffMinutes}m`;
   }
-  
+
   if (diffHours < 24) {
     return `${diffHours}h`;
   }
-  
+
   if (diffDays < 7) {
     return `${diffDays}d`;
   }
-  
-  // Format as "Jan 15" for dates older than 7 days (in local timezone)
-  return target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  return format(target, 'MMM d');
 }
 
 /**
- * Format a UTC date string to local date string
+ * Format a UTC date string to local date string (e.g., "Jan 15, 2026")
  */
-export function formatLocalDate(utcDateString: string, locale: string = 'en-US'): string {
+export function formatLocalDate(utcDateString: string, formatStr: string = 'MMM d, yyyy'): string {
   const date = parseUTCDate(utcDateString);
-  return date.toLocaleDateString(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return format(date, formatStr);
 }
 
 /**
- * Format a UTC date string to local datetime string
+ * Format a UTC date string to local datetime string (e.g., "Jan 15, 2026 • 14:30")
  */
-export function formatLocalDateTime(utcDateString: string, locale: string = 'en-US'): string {
+export function formatLocalDateTime(utcDateString: string, formatStr: string = 'MMM d, yyyy • HH:mm:ss'): string {
   const date = parseUTCDate(utcDateString);
-  return date.toLocaleString(locale, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return format(date, formatStr);
 }
+
+// Re-export date-fns utilities for convenient use in apps
+export {
+  format,
+  isToday,
+  isYesterday,
+  isAfter,
+  subDays,
+  subWeeks,
+  subMonths,
+  subYears,
+  formatDistanceToNow,
+} from 'date-fns';
+export { TZDate } from '@date-fns/tz';
