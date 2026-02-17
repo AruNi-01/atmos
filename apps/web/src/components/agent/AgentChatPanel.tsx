@@ -720,7 +720,6 @@ export function AgentChatPanel() {
   const handleMessage = useCallback((msg: AgentServerMessage) => {
     switch (msg.type) {
       case "stream":
-        setWaitingForResponse(false);
         setEntries((prev) => reduceEntries(prev, msg));
         break;
       case "tool_call":
