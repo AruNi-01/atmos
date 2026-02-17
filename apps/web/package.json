@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "portless web next dev --turbopack",
+    "dev": "next dev --turbopack",
+    "dev:portless": "portless web next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
