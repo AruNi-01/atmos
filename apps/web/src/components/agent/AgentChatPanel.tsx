@@ -51,6 +51,7 @@ import {
   DialogHeader,
   DialogTitle,
   Button,
+  TextShimmer,
 } from "@workspace/ui";
 import { Bot, ChevronDown, ChevronUp, Folder, History, Loader2, MessageSquare, Plus, Square, SquareCheck, X } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
@@ -558,11 +559,13 @@ function AgentActivityIndicator({ activity }: { activity: AgentActivity & { busy
   const spinnerChar = useUnicodeSpinner();
 
   return (
-    <div className="flex items-center gap-2 px-1 py-1.5 text-xs text-muted-foreground">
-      <span className="font-mono text-sm leading-none dark:text-muted-foreground text-muted-foreground/80">
+    <div className="flex items-center gap-2 px-1 py-1.5 text-xs">
+      <span className="font-mono text-sm leading-none text-muted-foreground/80 dark:text-muted-foreground">
         {spinnerChar}
       </span>
-      <span className="truncate">{activity.label}</span>
+      <TextShimmer className="text-xs font-medium" duration={1.5}>
+        {activity.label}
+      </TextShimmer>
     </div>
   );
 }
