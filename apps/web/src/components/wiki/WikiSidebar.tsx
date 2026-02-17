@@ -102,7 +102,7 @@ const WikiSidebarGroup: React.FC<{
       >
         {/* Chevron toggle — only controls expand/collapse */}
         <CollapsibleTrigger
-          className="shrink-0 size-6 flex items-center justify-center rounded-sm cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          className="shrink-0 mr-1 size-6 flex items-center justify-center rounded-sm cursor-pointer text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         >
           <ChevronRight
             className={cn("size-3.5 transition-transform", open && "rotate-90")}

@@ -35,7 +35,8 @@
       "Bash(do)",
       "Bash(echo:*)",
       "Bash(done)",
-      "Bash(for f in /Users/lurunrun/own_space/OpenSource/atmos/.atmos/wiki/deep-dive/core-service/*.md)"
+      "Bash(for f in /Users/lurunrun/own_space/OpenSource/atmos/.atmos/wiki/deep-dive/core-service/*.md)",
+      "mcp__acp__Bash"
     ]
   }
 }
