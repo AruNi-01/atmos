@@ -43,6 +43,7 @@ export * from "./components/ui/rating";
 export * from "./components/ui/separator";
 export * from "./components/ui/accordion";
 export * from "./components/ui/flow-button";
+export { TextShimmer } from "./components/ui/text-shimmer";
 
 // AI Elements
 export * from "./components/ai-elements/message";
