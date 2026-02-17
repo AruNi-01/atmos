@@ -6,15 +6,19 @@ use std::sync::Arc;
 use agent_client_protocol::{self as acp, Client as AcpClientTrait};
 
 fn format_tool_kind(kind: Option<&acp::ToolKind>) -> String {
-    kind.map(|k| {
-        let s = format!("{k:?}");
-        if s.is_empty() || s == "None" {
-            "Tool".to_string()
-        } else {
-            s
-        }
-    })
-    .unwrap_or_else(|| "Tool".to_string())
+    match kind {
+        Some(acp::ToolKind::Read) => "Read".to_string(),
+        Some(acp::ToolKind::Edit) => "Edit".to_string(),
+        Some(acp::ToolKind::Delete) => "Delete".to_string(),
+        Some(acp::ToolKind::Move) => "Move".to_string(),
+        Some(acp::ToolKind::Search) => "Search".to_string(),
+        Some(acp::ToolKind::Execute) => "Execute".to_string(),
+        Some(acp::ToolKind::Think) => "Think".to_string(),
+        Some(acp::ToolKind::Fetch) => "Fetch".to_string(),
+        Some(acp::ToolKind::SwitchMode) => "SwitchMode".to_string(),
+        Some(acp::ToolKind::Other) | None => "Tool".to_string(),
+        Some(_) => "Tool".to_string(),
+    }
 }
 
 fn format_description(
@@ -57,7 +61,12 @@ fn format_description(
                 return format!("Skill: {skill}");
             }
         }
-        // For custom tools (e.g. analyze_image): try tool/name/method
+        if let Some(cmd) = input.get("command").and_then(|v| v.as_str()) {
+            if !cmd.is_empty() {
+                let short = if cmd.len() > 80 { &cmd[..77] } else { cmd };
+                return format!("Execute: {short}");
+            }
+        }
         for key in ["tool", "name", "method", "action"] {
             if let Some(v) = input.get(key).and_then(|v| v.as_str()) {
                 if !v.is_empty() {

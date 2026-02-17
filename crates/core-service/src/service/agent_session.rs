@@ -74,11 +74,24 @@ impl AcpToolHandler for AgentToolHandler {
     }
 }
 
+/// Stored parameters for a session that hasn't been ACP-connected yet.
+#[derive(Clone)]
+pub struct LazySessionSpec {
+    pub session_id: String,
+    pub launch_spec: agent::AgentLaunchSpec,
+    pub cwd: PathBuf,
+    pub allow_file_access: bool,
+    pub env_overrides: Option<std::collections::HashMap<String, String>>,
+    pub resume_session_id: Option<String>,
+    pub auth_method_id: Option<String>,
+}
+
 /// Manages active Agent chat sessions
 pub struct AgentSessionService {
     agent_service: Arc<crate::service::agent::AgentService>,
     db: Arc<DatabaseConnection>,
     sessions: RwLock<HashMap<String, AcpSessionHandle>>,
+    pending_sessions: RwLock<HashMap<String, LazySessionSpec>>,
     pending_permissions: RwLock<HashMap<String, tokio::sync::oneshot::Sender<bool>>>,
 }
 
@@ -91,6 +104,7 @@ impl AgentSessionService {
             agent_service,
             db,
             sessions: RwLock::new(HashMap::new()),
+            pending_sessions: RwLock::new(HashMap::new()),
             pending_permissions: RwLock::new(HashMap::new()),
         }
     }
@@ -169,6 +183,141 @@ impl AgentSessionService {
             allow_file_access
         );
         Ok(session_id)
+    }
+
+    /// Create a session stub that returns immediately. The actual ACP connection
+    /// is deferred to `connect_session()` (called from the WebSocket handler).
+    /// This allows the frontend to show connection phases in real-time.
+    pub async fn create_session_lazy(
+        &self,
+        workspace_id: Option<&str>,
+        project_id: Option<&str>,
+        registry_id: &str,
+        cwd: PathBuf,
+        auth_method_id: Option<String>,
+    ) -> Result<String> {
+        let launch_spec = self
+            .agent_service
+            .get_registry_agent_launch_spec(registry_id)
+            .await
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
+
+        let env_overrides = self
+            .agent_service
+            .get_registry_agent_env_overrides(registry_id);
+
+        let session_id = uuid::Uuid::new_v4().to_string();
+        let allow_file_access = workspace_id.is_some();
+        let cwd_str = cwd.to_string_lossy().to_string();
+
+        let spec = LazySessionSpec {
+            session_id: session_id.clone(),
+            launch_spec,
+            cwd,
+            allow_file_access,
+            env_overrides,
+            resume_session_id: None,
+            auth_method_id,
+        };
+        self.pending_sessions.write().insert(session_id.clone(), spec);
+
+        let (context_type, context_guid) = if workspace_id.is_some() {
+            ("workspace", workspace_id.map(String::from))
+        } else if project_id.is_some() {
+            ("project", project_id.map(String::from))
+        } else {
+            ("temp", None)
+        };
+
+        let repo = AgentChatSessionRepo::new(&self.db);
+        if let Err(e) = repo
+            .create(
+                &session_id,
+                context_type,
+                context_guid.as_deref(),
+                registry_id,
+                &cwd_str,
+                allow_file_access,
+            )
+            .await
+        {
+            tracing::warn!("Failed to persist agent session {}: {}", session_id, e);
+        }
+
+        info!("Created lazy Agent session {} (pending ACP connect)", session_id);
+        Ok(session_id)
+    }
+
+    /// Prepare a lazy resume spec. Returns immediately.
+    pub async fn resume_session_lazy(&self, session_id: &str) -> Result<(String, String)> {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        let model = repo
+            .find_by_guid(session_id)
+            .await
+            .map_err(crate::ServiceError::Infra)?
+            .ok_or_else(|| crate::ServiceError::NotFound(format!("Session {} not found", session_id)))?;
+
+        let launch_spec = self
+            .agent_service
+            .get_registry_agent_launch_spec(&model.registry_id)
+            .await
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
+        let env_overrides = self
+            .agent_service
+            .get_registry_agent_env_overrides(&model.registry_id);
+
+        let spec = LazySessionSpec {
+            session_id: model.guid.clone(),
+            launch_spec,
+            cwd: PathBuf::from(model.cwd.clone()),
+            allow_file_access: model.allow_file_access,
+            env_overrides,
+            resume_session_id: Some(model.guid.clone()),
+            auth_method_id: None,
+        };
+        self.pending_sessions.write().insert(model.guid.clone(), spec);
+
+        info!("Created lazy resume for session {} (pending ACP connect)", model.guid);
+        Ok((model.guid.clone(), model.cwd))
+    }
+
+    /// Take a pending session spec (removes from pending map).
+    pub fn take_pending_session(&self, session_id: &str) -> Option<LazySessionSpec> {
+        self.pending_sessions.write().remove(session_id)
+    }
+
+    /// Actually connect an ACP session from a LazySessionSpec.
+    /// Called from the WebSocket handler so phases can be reported in real-time.
+    pub async fn connect_session(
+        &self,
+        spec: LazySessionSpec,
+    ) -> std::result::Result<AcpSessionHandle, String> {
+        let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
+            fs_engine: FsEngine::new(),
+            allow_file_access: spec.allow_file_access,
+        });
+
+        let handle = run_acp_session(
+            spec.session_id.clone(),
+            spec.launch_spec,
+            spec.cwd,
+            handler,
+            spec.env_overrides,
+            spec.resume_session_id,
+            spec.auth_method_id,
+        )
+        .await?;
+
+        let runtime_id = handle.session_id.clone();
+        info!("ACP connected for session {} (runtime: {})", spec.session_id, runtime_id);
+
+        // Update DB if runtime id differs from original
+        if runtime_id != spec.session_id {
+            let repo = AgentChatSessionRepo::new(&self.db);
+            let _ = repo.mark_active(&runtime_id).await;
+        }
+
+        Ok(handle)
     }
 
     /// Re-create a runtime for an existing persisted session.

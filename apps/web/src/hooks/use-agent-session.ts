@@ -40,7 +40,8 @@ export type AgentServerMessage =
       risk_level: string;
     }
   | { type: "error"; code: string; message: string; recoverable: boolean }
-  | { type: "session_ended" };
+  | { type: "session_ended" }
+  | { type: "phase_update"; phase: string };
 
 export interface UseAgentSessionOptions {
   workspaceId: string | null;
@@ -204,17 +205,45 @@ export function useAgentSession({
         wsRef.current = ws;
 
         ws.onopen = () => {
-          setIsConnecting(false);
-          setIsConnected(true);
-          setConnectionPhase("connected");
-          setError(null);
-          setAuthRequest(null);
-          onConnected?.();
+          // WS is open, but ACP connection may still be initializing.
+          // Wait for phase_update "connected" before marking as ready.
         };
 
         ws.onmessage = (e) => {
           try {
             const msg = JSON.parse(e.data) as AgentServerMessage;
+            if (msg.type === "phase_update") {
+              const phaseMap: Record<string, AgentConnectionPhase> = {
+                initializing: "initializing",
+                spawning_agent: "initializing",
+                creating_session: "creating_session",
+                connected: "connected",
+              };
+              const mapped = phaseMap[msg.phase] ?? "initializing";
+              setConnectionPhase(mapped);
+              if (mapped === "connected") {
+                setIsConnecting(false);
+                setIsConnected(true);
+                setError(null);
+                setAuthRequest(null);
+                onConnected?.();
+              }
+              return;
+            }
+            // Handle auth-required error from ACP connection phase
+            if (msg.type === "error" && msg.code === "ACP_AUTH_REQUIRED") {
+              setIsConnecting(false);
+              setConnectionPhase("idle");
+              try {
+                const parsed = JSON.parse(msg.message) as Partial<AgentAuthRequiredPayload>;
+                if (parsed && Array.isArray(parsed.methods)) {
+                  setAuthRequest(parsed as AgentAuthRequiredPayload);
+                  return;
+                }
+              } catch { /* fall through */ }
+              setError(msg.message);
+              return;
+            }
             onMessageRef.current?.(msg);
           } catch {
             // ignore parse errors
@@ -270,16 +299,42 @@ export function useAgentSession({
         wsRef.current = ws;
 
         ws.onopen = () => {
-          setIsConnecting(false);
-          setIsConnected(true);
-          setConnectionPhase("connected");
-          setError(null);
-          onConnected?.();
+          // WS open, wait for phase_update "connected"
         };
 
         ws.onmessage = (e) => {
           try {
             const msg = JSON.parse(e.data) as AgentServerMessage;
+            if (msg.type === "phase_update") {
+              const phaseMap: Record<string, AgentConnectionPhase> = {
+                initializing: "initializing",
+                spawning_agent: "resuming_session",
+                creating_session: "resuming_session",
+                connected: "connected",
+              };
+              const mapped = phaseMap[msg.phase] ?? "resuming_session";
+              setConnectionPhase(mapped);
+              if (mapped === "connected") {
+                setIsConnecting(false);
+                setIsConnected(true);
+                setError(null);
+                onConnected?.();
+              }
+              return;
+            }
+            if (msg.type === "error" && msg.code === "ACP_AUTH_REQUIRED") {
+              setIsConnecting(false);
+              setConnectionPhase("idle");
+              try {
+                const parsed = JSON.parse(msg.message) as Partial<AgentAuthRequiredPayload>;
+                if (parsed && Array.isArray(parsed.methods)) {
+                  setAuthRequest(parsed as AgentAuthRequiredPayload);
+                  return;
+                }
+              } catch { /* fall through */ }
+              setError(msg.message);
+              return;
+            }
             onMessageRef.current?.(msg);
           } catch {
             // ignore parse errors

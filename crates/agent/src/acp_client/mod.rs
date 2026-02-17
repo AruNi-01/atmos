@@ -8,7 +8,7 @@ pub mod types;
 
 pub use client::{AcpSessionEvent, AtmosAcpClient};
 pub use process::spawn_agent;
-pub use runner::{run_acp_session, AcpSessionHandle};
+pub use runner::{run_acp_session, AcpSessionHandle, AUTH_REQUIRED_ERROR_PREFIX};
 pub use tools::AcpToolHandler;
 pub use types::{
     AuthMethodSummary, AuthRequiredPayload, PermissionRequest, PermissionResponse, RiskLevel,
