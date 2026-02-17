@@ -13,6 +13,7 @@
 | **Backend: Infrastructure** (DB, WS, Redis) | [crates/infra/AGENTS.md](crates/infra/AGENTS.md) |
 | **Backend: Core Engine** (PTY, Git, FS) | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md) |
 | **Backend: Business Logic** (Auth, Project, Workspace) | [crates/core-service/AGENTS.md](crates/core-service/AGENTS.md) |
+| **Backend: Agent Integration** (ACP, Agent Manager) | [crates/agent/README.md](crates/agent/README.md) |
 | **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
@@ -27,7 +28,8 @@ atmos/
 ├── crates/                          # 🦀 Shared Rust Packages (Backbone)
 │   ├── infra/                       # L1: Infrastructure (DB, WebSocket, Jobs)
 │   ├── core-engine/                 # L2: Tech Capabilities (PTY, Git, FS)
-│   └── core-service/                # L3: Business Rules (Auth, Logic)
+│   ├── core-service/                # L3: Business Rules (Auth, Logic)
+│   └── agent/                       # Independent: ACP Client, Agent Management
 │
 ├── apps/                            # 🚀 Applications
 │   ├── api/                         # Rust/Axum API Entry
