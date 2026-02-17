@@ -284,7 +284,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
                   </TooltipTrigger>
                   <TooltipContent side="right" className="max-w-[300px] break-all">
                     <p className="text-[11px] leading-tight">
-                      <span className="text-muted-foreground mr-1">Points to:</span>
+                      <span className="mr-1">Points to:</span>
                       {itemData.symlinkTarget || 'Unknown'}
                     </p>
                   </TooltipContent>

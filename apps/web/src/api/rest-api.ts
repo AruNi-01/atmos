@@ -68,7 +68,16 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    let detail = '';
+    try {
+      const body = await response.json();
+      detail = body.error || body.message || JSON.stringify(body);
+    } catch {
+      // response body not JSON
+    }
+    throw new Error(
+      `API error: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`
+    );
   }
 
   const result: ApiResponse<T> = await response.json();
