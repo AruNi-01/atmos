@@ -53,6 +53,16 @@ export * from "./components/ai-elements/confirmation";
 export * from "./components/ai-elements/attachments";
 export * from "./components/ai-elements/prompt-input";
 export * from "./components/ai-elements/tool";
+export {
+  Terminal as AcpTerminal,
+  TerminalHeader as AcpTerminalHeader,
+  TerminalTitle as AcpTerminalTitle,
+  TerminalStatus as AcpTerminalStatus,
+  TerminalActions as AcpTerminalActions,
+  TerminalCopyButton as AcpTerminalCopyButton,
+  TerminalClearButton as AcpTerminalClearButton,
+  TerminalContent as AcpTerminalContent,
+} from "./components/ai-elements/terminal";
 
 // Utilities
 export { cn } from "./lib/utils";

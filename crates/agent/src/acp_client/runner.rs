@@ -17,10 +17,16 @@ use crate::models::AgentLaunchSpec;
 
 use super::process::spawn_agent;
 
+/// Command sent to the ACP session loop
+enum SessionCommand {
+    Prompt(String),
+    Cancel,
+}
+
 /// Handle to an active ACP session - used to send prompts, receive events, and handle permissions
 pub struct AcpSessionHandle {
     pub session_id: String,
-    prompt_tx: mpsc::UnboundedSender<String>,
+    cmd_tx: mpsc::UnboundedSender<SessionCommand>,
     event_rx: mpsc::UnboundedReceiver<AcpSessionEvent>,
     permission_rx: mpsc::UnboundedReceiver<(PermissionRequest, oneshot::Sender<bool>)>,
 }
@@ -29,7 +35,12 @@ pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
 
 impl AcpSessionHandle {
     pub fn send_prompt(&self, message: String) {
-        let _ = self.prompt_tx.send(message);
+        let _ = self.cmd_tx.send(SessionCommand::Prompt(message));
+    }
+
+    /// Send a session/cancel notification to interrupt the current turn
+    pub fn send_cancel(&self) {
+        let _ = self.cmd_tx.send(SessionCommand::Cancel);
     }
 
     pub async fn recv_event(&mut self) -> Option<AcpSessionEvent> {
@@ -58,7 +69,7 @@ pub async fn run_acp_session(
     auth_method_id: Option<String>,
 ) -> Result<AcpSessionHandle, String> {
     let session_id_for_thread = session_id_hint.clone();
-    let (prompt_tx, mut prompt_rx) = mpsc::unbounded_channel::<String>();
+    let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<SessionCommand>();
     let (event_tx, event_rx) = mpsc::unbounded_channel::<AcpSessionEvent>();
     let (permission_tx, permission_rx) = mpsc::unbounded_channel();
     let (ready_tx, ready_rx) = oneshot::channel::<Result<String, String>>();
@@ -84,7 +95,7 @@ pub async fn run_acp_session(
                     env_overrides,
                     resume_session_id,
                     auth_method_id,
-                    &mut prompt_rx,
+                    &mut cmd_rx,
                     event_tx.clone(),
                     permission_tx,
                     Some(ready_tx),
@@ -112,7 +123,7 @@ pub async fn run_acp_session(
 
     Ok(AcpSessionHandle {
         session_id,
-        prompt_tx,
+        cmd_tx,
         event_rx,
         permission_rx,
     })
@@ -126,7 +137,7 @@ async fn run_session_inner(
     env_overrides: Option<std::collections::HashMap<String, String>>,
     resume_session_id: Option<String>,
     auth_method_id: Option<String>,
-    prompt_rx: &mut mpsc::UnboundedReceiver<String>,
+    cmd_rx: &mut mpsc::UnboundedReceiver<SessionCommand>,
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
     mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
@@ -243,25 +254,37 @@ async fn run_session_inner(
                 let _ = tx.send(Ok(session_id_acp.to_string()));
             }
 
-            while let Some(msg) = prompt_rx.recv().await {
-                if msg.is_empty() {
-                    break;
+            while let Some(cmd) = cmd_rx.recv().await {
+                match cmd {
+                    SessionCommand::Prompt(msg) => {
+                        if msg.is_empty() {
+                            break;
+                        }
+                        if let Err(e) = conn
+                            .prompt(acp::PromptRequest::new(
+                                session_id_acp.clone(),
+                                vec![msg.into()],
+                            ))
+                            .await
+                        {
+                            warn!("Prompt failed: {}", e);
+                            let _ = event_tx.send(AcpSessionEvent::Error {
+                                code: "PROMPT_FAILED".to_string(),
+                                message: e.to_string(),
+                                recoverable: true,
+                            });
+                        }
+                        let _ = event_tx.send(AcpSessionEvent::TurnEnd);
+                    }
+                    SessionCommand::Cancel => {
+                        if let Err(e) = conn
+                            .cancel(acp::CancelNotification::new(session_id_acp.clone()))
+                            .await
+                        {
+                            warn!("Cancel failed: {}", e);
+                        }
+                    }
                 }
-                if let Err(e) = conn
-                    .prompt(acp::PromptRequest::new(
-                        session_id_acp.clone(),
-                        vec![msg.into()],
-                    ))
-                    .await
-                {
-                    warn!("Prompt failed: {}", e);
-                    let _ = event_tx.send(AcpSessionEvent::Error {
-                        code: "PROMPT_FAILED".to_string(),
-                        message: e.to_string(),
-                        recoverable: true,
-                    });
-                }
-                let _ = event_tx.send(AcpSessionEvent::TurnEnd);
             }
 
             Ok(())

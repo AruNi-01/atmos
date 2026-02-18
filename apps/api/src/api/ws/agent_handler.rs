@@ -26,12 +26,14 @@ enum AgentClientMessage {
         allowed: bool,
         remember_for_session: bool,
     },
+    Cancel,
 }
 
 /// Command from main loop to bridge task
 enum AgentCommand {
     Prompt(String),
     PermissionResponse { request_id: String, allowed: bool },
+    Cancel,
 }
 
 /// Server -> Client message
@@ -291,6 +293,7 @@ async fn run_bridge(
                             let _ = tx.send(allowed);
                         }
                     }
+                    Some(AgentCommand::Cancel) => handle.send_cancel(),
                     None => break,
                 },
                 ev = handle.recv_event() => match ev {
@@ -339,6 +342,9 @@ async fn run_bridge(
                             request_id,
                             allowed,
                         });
+                    }
+                    AgentClientMessage::Cancel => {
+                        let _ = cmd_tx_clone.send(AgentCommand::Cancel);
                     }
                 }
             }

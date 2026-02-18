@@ -38,7 +38,8 @@
       "Bash(for f in /Users/lurunrun/own_space/OpenSource/atmos/.atmos/wiki/deep-dive/core-service/*.md)",
       "mcp__acp__Bash",
       "Bash(cargo check:*)",
-      "Bash(bunx tsc:*)"
+      "Bash(bunx tsc:*)",
+      "Bash(la -al)"
     ]
   }
 }
