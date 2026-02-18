@@ -497,11 +497,23 @@ function TerminalBlock({
   const commandStr = getTerminalCommandString(raw_input);
 
   const terminalOutput = (() => {
-    if (raw_output !== undefined && raw_output !== null) {
-      if (typeof raw_output === "string") return raw_output;
+    if (raw_output === undefined || raw_output === null) return "";
+    if (typeof raw_output === "string") return raw_output;
+    if (typeof raw_output === "object") {
+      const o = raw_output as Record<string, unknown>;
+      // Extract text from common ACP execute output fields (preserves ANSI codes)
+      const parts: string[] = [];
+      for (const key of ["output", "stdout", "content", "result", "text"]) {
+        if (typeof o[key] === "string" && o[key]) parts.push(o[key] as string);
+      }
+      if (typeof o["stderr"] === "string" && o["stderr"]) {
+        parts.push(o["stderr"] as string);
+      }
+      if (parts.length > 0) return parts.join("\n");
+      // Fallback: stringify for unknown structures
       return JSON.stringify(raw_output, null, 2);
     }
-    return "";
+    return String(raw_output);
   })();
 
   return (
