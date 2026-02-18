@@ -673,6 +673,8 @@ export interface RegistryAgent {
   install_method: string;
   package: string | null;
   installed: boolean;
+  /** The version currently installed (if installed). May differ from `version` which is the latest. */
+  installed_version?: string;
 }
 
 export interface RegistryInstallResponse {
@@ -735,8 +737,10 @@ export const agentApi = {
     return wsRequest<{ success: boolean }>('agent_config_set', { id, api_key: apiKey });
   },
 
-  listRegistry: async (): Promise<{ agents: RegistryAgent[] }> => {
-    return wsRequest<{ agents: RegistryAgent[] }>('agent_registry_list');
+  listRegistry: async (forceRefresh = false): Promise<{ agents: RegistryAgent[] }> => {
+    return wsRequest<{ agents: RegistryAgent[] }>('agent_registry_list', {
+      force_refresh: forceRefresh,
+    });
   },
 
   installRegistry: async (

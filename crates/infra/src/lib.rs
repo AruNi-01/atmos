@@ -9,7 +9,7 @@ pub use db::{DatabaseConnection, DbConnection, Migrator, TestMessageRepo};
 pub use error::{InfraError, Result};
 pub use websocket::{
     is_control_message, AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest,
-    AgentRegistryInstallRequest, AgentRegistryRemoveRequest, AppOpenRequest, ClientType,
+    AgentRegistryInstallRequest, AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, ClientType,
     FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse, FsListProjectFilesRequest,
     FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse, FsSearchContentRequest,
     FsSearchContentResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,

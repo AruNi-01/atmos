@@ -11,6 +11,15 @@ pub enum RiskLevel {
     High,
 }
 
+/// A single permission option presented to the user.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionOption {
+    pub option_id: String,
+    pub name: String,
+    /// e.g. "allow_once", "allow_always", "reject_once", "reject_always"
+    pub kind: String,
+}
+
 /// Permission request from agent (forwarded to frontend)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PermissionRequest {
@@ -18,6 +27,8 @@ pub struct PermissionRequest {
     pub tool: String,
     pub description: String,
     pub risk_level: RiskLevel,
+    /// Permission options presented by the agent (may be empty for legacy agents)
+    pub options: Vec<PermissionOption>,
 }
 
 /// User response to permission request

@@ -55,6 +55,9 @@ pub struct RegistryAgent {
     pub install_method: String,
     pub package: Option<String>,
     pub installed: bool,
+    /// The version currently installed (if installed). May differ from `version` which is the latest.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub installed_version: Option<String>,
 }
 
 /// Launch spec for an installed ACP registry agent. Use when spawning the agent process.

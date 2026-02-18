@@ -17,10 +17,45 @@ import {
   agentApi,
   type RegistryAgent,
 } from "@/api/ws-api";
-import { Bot, Github, Loader2, Search, Trash2, ArrowDownToLine, AlertCircle, RefreshCw } from "lucide-react";
+import { Bot, Github, Loader2, Search, Trash2, ArrowDownToLine, AlertCircle, RefreshCw, CircleFadingArrowUp } from "lucide-react";
 import { AgentIcon } from "./AgentIcon";
 import { Skeleton } from "@workspace/ui";
 import { motion, AnimatePresence } from "motion/react";
+
+/**
+ * Compare two semantic version strings.
+ * Returns true if installedVersion < latestVersion (update available).
+ * Handles cases like "1.10.0" > "1.3.0", "1.0" vs "1.0.0", etc.
+ */
+function needsUpdate(installedVersion: string, latestVersion: string): boolean {
+  const parseVersion = (v: string): number[] => {
+    // Remove 'v' prefix if present and split by '.'
+    const clean = v.replace(/^v/i, '');
+    const parts = clean.split('.').map(p => {
+      const num = parseInt(p, 10);
+      return isNaN(num) ? 0 : num;
+    });
+    // Pad with zeros if version has fewer parts (e.g., "1.0" -> [1, 0, 0])
+    while (parts.length < 3) {
+      parts.push(0);
+    }
+    return parts;
+  };
+
+  const [installedMajor, installedMinor, installedPatch] = parseVersion(installedVersion);
+  const [latestMajor, latestMinor, latestPatch] = parseVersion(latestVersion);
+
+  // Compare major version
+  if (installedMajor !== latestMajor) {
+    return installedMajor < latestMajor;
+  }
+  // Compare minor version
+  if (installedMinor !== latestMinor) {
+    return installedMinor < latestMinor;
+  }
+  // Compare patch version
+  return installedPatch < latestPatch;
+}
 
 export const AgentManagerView: React.FC = () => {
   const [registryAgents, setRegistryAgents] = React.useState<RegistryAgent[]>([]);
@@ -38,9 +73,9 @@ export const AgentManagerView: React.FC = () => {
     name: string;
   } | null>(null);
 
-  const loadData = React.useCallback(async () => {
+  const loadData = React.useCallback(async (forceRefresh = false) => {
     try {
-      const registry = await agentApi.listRegistry();
+      const registry = await agentApi.listRegistry(forceRefresh);
       setRegistryAgents(registry.agents);
     } catch (error) {
       toastManager.add({
@@ -110,7 +145,7 @@ export const AgentManagerView: React.FC = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadData(true); // Force refresh from CDN
   };
 
   const handleRemoveRegistry = async (registryId: string) => {
@@ -229,18 +264,33 @@ export const AgentManagerView: React.FC = () => {
                           </div>
                           <div className="min-w-0">
                             <h3 className="truncate text-sm font-semibold text-foreground tracking-tight">{item.name}</h3>
-                            <p className="mt-0.5 text-xs text-muted-foreground/70 tabular-nums">v{item.version}</p>
+                            <div className="mt-0.5 flex items-center gap-2">
+                              <p className="text-xs text-muted-foreground/70 tabular-nums">
+                                v{item.version}
+                              </p>
+                              {item.installed && item.installed_version && needsUpdate(item.installed_version, item.version) && (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                  (v{item.installed_version} installed)
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <span
                           className={cn(
                             "rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-colors",
-                            item.installed
-                              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : "border-primary/20 bg-primary/10 text-primary"
+                            !item.installed
+                              ? "border-primary/20 bg-primary/10 text-primary"
+                              : item.installed_version && needsUpdate(item.installed_version, item.version)
+                                ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                           )}
                         >
-                          {item.installed ? "Installed" : "Available"}
+                          {!item.installed
+                            ? "Available"
+                            : item.installed_version && needsUpdate(item.installed_version, item.version)
+                              ? "Update Available"
+                              : "Installed"}
                         </span>
                       </div>
 
@@ -286,25 +336,48 @@ export const AgentManagerView: React.FC = () => {
                               )}
                             </Button>
                           ) : (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setRemoveConfirmDialog({ registryId: item.id, name: item.name })}
-                              disabled={removingRegistryId === item.id}
-                              className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent transition-all"
-                            >
-                              {removingRegistryId === item.id ? (
-                                <>
-                                  <Loader2 className="mr-1 size-3 animate-spin" />
-                                  Removing
-                                </>
-                              ) : (
-                                <>
-                                  <Trash2 className="mr-1 size-3.5" />
-                                  Remove
-                                </>
+                            <div className="flex items-center gap-2">
+                              {item.installed_version && needsUpdate(item.installed_version, item.version) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => void handleInstallRegistry(item.id, true)}
+                                  disabled={installingRegistryId === item.id}
+                                  className="h-8 rounded-lg px-3 text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all"
+                                >
+                                  {installingRegistryId === item.id ? (
+                                    <>
+                                      <Loader2 className="mr-1 size-3 animate-spin" />
+                                      Updating
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CircleFadingArrowUp className="mr-1 size-3" />
+                                      Upgrade
+                                    </>
+                                  )}
+                                </Button>
                               )}
-                            </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setRemoveConfirmDialog({ registryId: item.id, name: item.name })}
+                                disabled={removingRegistryId === item.id}
+                                className="h-8 rounded-lg px-4 text-xs bg-muted/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 border-transparent transition-all"
+                              >
+                                {removingRegistryId === item.id ? (
+                                  <>
+                                    <Loader2 className="mr-1 size-3 animate-spin" />
+                                    Removing
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="mr-1 size-3.5" />
+                                    Remove
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </div>
