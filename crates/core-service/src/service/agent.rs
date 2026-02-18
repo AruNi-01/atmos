@@ -40,9 +40,9 @@ impl AgentService {
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))
     }
 
-    pub async fn list_registry_agents(&self) -> Result<Vec<RegistryAgent>> {
+    pub async fn list_registry_agents(&self, force_refresh: bool) -> Result<Vec<RegistryAgent>> {
         self.manager
-            .list_registry_agents()
+            .list_registry_agents(force_refresh)
             .await
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))
     }

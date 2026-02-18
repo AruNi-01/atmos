@@ -2,6 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "streamdown/styles.css";
+import { PatchDiff, MultiFileDiff } from "@pierre/diffs/react";
+import type { FileContents } from "@pierre/diffs";
+import { useTheme } from "next-themes";
 import { useContextParams } from "@/hooks/use-context-params";
 import {
   Attachments,
@@ -59,7 +62,7 @@ import { Bot, Brain, ChevronDown, ChevronUp, Folder, FolderInput, Globe, History
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { AgentIcon } from "./AgentIcon";
-import { useAgentSession, type AgentServerMessage } from "@/hooks/use-agent-session";
+import { useAgentSession, type AgentServerMessage, type AcpPermissionOption } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
 import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-api";
 import { formatLocalDateTime } from "@atmos/shared";
@@ -141,6 +144,33 @@ interface PendingPermission {
   tool: string;
   description: string;
   risk_level: string;
+  options: AcpPermissionOption[];
+}
+
+// ---------------------------------------------------------------------------
+// Diff detection helpers
+// ---------------------------------------------------------------------------
+
+function isDiffString(s: string): boolean {
+  const t = s.trimStart();
+  return (
+    t.startsWith("--- ") ||
+    t.startsWith("diff --git ") ||
+    t.startsWith("*** ") ||
+    /^@@ /.test(t)
+  );
+}
+
+interface DiffFileOutput {
+  old_content: string;
+  new_content: string;
+  name?: string;
+}
+
+function isDiffObject(o: unknown): o is DiffFileOutput {
+  if (!o || typeof o !== "object") return false;
+  const obj = o as Record<string, unknown>;
+  return typeof obj.old_content === "string" && typeof obj.new_content === "string";
 }
 
 // ---------------------------------------------------------------------------
@@ -443,6 +473,7 @@ function ToolOrSkillBlock({
   raw_output,
   detail,
 }: ToolCallBlock) {
+  const { resolvedTheme } = useTheme();
   const state = toolStatusToState(status);
   const isError = state === "output-error";
   const asSkill = isSkillInvocation(raw_input) || isSkillCommand(raw_input);
@@ -452,6 +483,34 @@ function ToolOrSkillBlock({
   const skillName = asSkill && raw_input && typeof raw_input === "object"
     ? getSkillName(raw_input as Record<string, unknown>)
     : toolDisplayName;
+
+  // Detect diff output
+  const diffPatch: string | null = (() => {
+    if (!isError && typeof raw_output === "string" && isDiffString(raw_output)) {
+      return raw_output;
+    }
+    return null;
+  })();
+
+  const diffFiles: { oldFile: FileContents; newFile: FileContents } | null = (() => {
+    if (!isError && !diffPatch && isDiffObject(raw_output)) {
+      const name = raw_output.name ?? "file";
+      return {
+        oldFile: { name, contents: raw_output.old_content },
+        newFile: { name, contents: raw_output.new_content },
+      };
+    }
+    return null;
+  })();
+
+  const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
+  const diffOptions = useMemo(() => ({
+    theme: diffTheme,
+    diffStyle: "unified" as const,
+    overflow: "wrap" as const,
+    disableLineNumbers: false,
+    disableFileHeader: false,
+  }), [diffTheme]);
 
   const output =
     raw_output !== undefined && raw_output !== null
@@ -464,22 +523,22 @@ function ToolOrSkillBlock({
 
   const errorText = isError
     ? (() => {
-        if (typeof raw_output === "string" && raw_output.trim()) return raw_output;
-        if (raw_output && typeof raw_output === "object") {
-          const obj = raw_output as Record<string, unknown>;
-          const msg = obj.message ?? obj.error ?? obj.reason;
-          if (typeof msg === "string" && msg.trim()) return msg;
-          return JSON.stringify(raw_output, null, 2);
-        }
-        if (detail && typeof detail === "object") {
-          const obj = detail as Record<string, unknown>;
-          const msg = obj.message ?? obj.error ?? obj.reason;
-          if (typeof msg === "string" && msg.trim()) return msg;
-        }
-        if (typeof detail === "string" && detail.trim()) return detail;
-        if (description && description.trim() && description.trim().toLowerCase() !== "tool") return description;
-        return "Execution failed";
-      })()
+      if (typeof raw_output === "string" && raw_output.trim()) return raw_output;
+      if (raw_output && typeof raw_output === "object") {
+        const obj = raw_output as Record<string, unknown>;
+        const msg = obj.message ?? obj.error ?? obj.reason;
+        if (typeof msg === "string" && msg.trim()) return msg;
+        return JSON.stringify(raw_output, null, 2);
+      }
+      if (detail && typeof detail === "object") {
+        const obj = detail as Record<string, unknown>;
+        const msg = obj.message ?? obj.error ?? obj.reason;
+        if (typeof msg === "string" && msg.trim()) return msg;
+      }
+      if (typeof detail === "string" && detail.trim()) return detail;
+      if (description && description.trim() && description.trim().toLowerCase() !== "tool") return description;
+      return "Execution failed";
+    })()
     : null;
 
   const Wrapper = asSkill ? Skill : Tool;
@@ -497,10 +556,24 @@ function ToolOrSkillBlock({
           input={raw_input}
           label={asSkill ? "Args" : "Parameters"}
         />
-        <ToolOutput
-          output={output}
-          errorText={errorText}
-        />
+        {diffPatch ? (
+          <div className="mt-1 max-h-[360px] overflow-auto rounded-md border border-border/50">
+            <PatchDiff patch={diffPatch} options={diffOptions} />
+          </div>
+        ) : diffFiles ? (
+          <div className="mt-1 max-h-[360px] overflow-auto rounded-md border border-border/50">
+            <MultiFileDiff
+              oldFile={diffFiles.oldFile}
+              newFile={diffFiles.newFile}
+              options={diffOptions}
+            />
+          </div>
+        ) : (
+          <ToolOutput
+            output={output}
+            errorText={errorText}
+          />
+        )}
       </ToolContent>
     </Wrapper>
   );
@@ -526,15 +599,41 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
             </MessageResponse>
           );
         }
-        if (block.type === "thinking") {
-          if (!block.content) return null;
-          const isLastThinkingBlock =
-            entry.isStreaming &&
-            !entry.blocks.slice(i + 1).some((b) => b.type === "thinking");
+        if (
+          block.type === "thinking" ||
+          (block.type === "tool_call" &&
+            (block.tool.toLowerCase() === "think" ||
+              block.tool.toLowerCase() === "thought"))
+        ) {
+          const content =
+            block.type === "thinking"
+              ? block.content
+              : typeof block.raw_output === "string" && block.raw_output
+                ? block.raw_output
+                : typeof block.raw_input === "string" && block.raw_input
+                  ? block.raw_input
+                  : block.raw_input &&
+                    typeof block.raw_input === "object" &&
+                    (block.raw_input as any).thought
+                    ? (block.raw_input as any).thought
+                    : block.description;
+
+          if (!content && block.type === "thinking") return null;
+
+          const isCurrentlyThinking =
+            (block.type === "thinking" &&
+              entry.isStreaming &&
+              i === entry.blocks.length - 1) ||
+            (block.type === "tool_call" && block.status === "running");
+
           return (
-            <Reasoning key={`thinking-${i}`} isStreaming={isLastThinkingBlock} defaultOpen={isLastThinkingBlock}>
+            <Reasoning
+              key={block.type === "thinking" ? `thinking-${i}` : block.tool_call_id || i}
+              isStreaming={isCurrentlyThinking}
+              defaultOpen={isCurrentlyThinking}
+            >
               <ReasoningTrigger />
-              <ReasoningContent>{block.content}</ReasoningContent>
+              <ReasoningContent>{content || ""}</ReasoningContent>
             </Reasoning>
           );
         }
@@ -570,14 +669,14 @@ function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): Age
         const tool = block.tool;
         const label =
           tool === "Read" ? "Reading" :
-          tool === "Edit" ? "Writing" :
-          tool === "Search" ? "Searching" :
-          tool === "Execute" ? "Running command" :
-          tool === "Fetch" ? "Fetching" :
-          tool === "Delete" ? "Deleting" :
-          tool === "Think" ? "Thinking" :
-          tool === "Tool" ? (block.description || "Working") :
-          tool;
+            tool === "Edit" ? "Writing" :
+              tool === "Search" ? "Searching" :
+                tool === "Execute" ? "Running command" :
+                  tool === "Fetch" ? "Fetching" :
+                    tool === "Delete" ? "Deleting" :
+                      tool === "Think" || tool === "Thought" || tool === "Reasoning" || tool === "Reason" ? "Thinking" :
+                        tool === "Tool" ? (block.description || "Working") :
+                          tool;
         return { busy: true, label };
       }
     }
@@ -644,7 +743,7 @@ function AgentActivityIndicator({ activity }: { activity: AgentActivity & { busy
         className="translate-y-px text-sm"
         duration={1.5}
       >
-        {activity.label}...
+        {`${activity.label}...`}
       </TextShimmer>
     </div>
   );
@@ -731,6 +830,7 @@ export function AgentChatPanel() {
           tool: msg.tool,
           description: msg.description,
           risk_level: msg.risk_level,
+          options: msg.options ?? [],
         });
         break;
       case "error":
@@ -1049,7 +1149,7 @@ export function AgentChatPanel() {
         const title = text.slice(0, 512).trim() || "新会话";
         setSessionTitle(title);
         if (sessionId) {
-          void agentRestApi.updateSessionTitle(sessionId, title).catch(() => {});
+          void agentRestApi.updateSessionTitle(sessionId, title).catch(() => { });
         }
       }
       setWaitingForResponse(true);
@@ -1094,8 +1194,9 @@ export function AgentChatPanel() {
   }, [setAgentChatOpen]);
 
   const handlePermission = useCallback(
-    (allowed: boolean) => {
+    (optionKind: string) => {
       if (!pendingPermission) return;
+      const allowed = optionKind.startsWith("allow");
       sendPermissionResponse(pendingPermission.request_id, allowed);
       setPendingPermission(null);
     },
@@ -1168,11 +1269,10 @@ export function AgentChatPanel() {
             <div className="flex items-center gap-2 shrink-0">
               <div className="relative size-5">
                 <div
-                  className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out ${
-                    headerHovered
-                      ? "translate-y-[-2px] scale-90 opacity-0"
-                      : "translate-y-0 scale-100 opacity-100"
-                  }`}
+                  className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out ${headerHovered
+                    ? "translate-y-[-2px] scale-90 opacity-0"
+                    : "translate-y-0 scale-100 opacity-100"
+                    }`}
                 >
                   <Bot className="size-4 shrink-0 text-foreground" />
                 </div>
@@ -1183,11 +1283,10 @@ export function AgentChatPanel() {
                       onClick={() => void handleCreateNewSession()}
                       onMouseEnter={handleOpenNewSessionAgentsMenu}
                       onMouseLeave={handleScheduleCloseNewSessionAgentsMenu}
-                      className={`absolute inset-0 flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-all duration-200 ease-out hover:bg-muted hover:text-foreground ${
-                        headerHovered
-                          ? "translate-y-0 scale-100 opacity-100"
-                          : "translate-y-[2px] scale-90 opacity-0 pointer-events-none"
-                      }`}
+                      className={`absolute inset-0 flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-all duration-200 ease-out hover:bg-muted hover:text-foreground ${headerHovered
+                        ? "translate-y-0 scale-100 opacity-100"
+                        : "translate-y-[2px] scale-90 opacity-0 pointer-events-none"
+                        }`}
                       aria-label="New chat session"
                       title="New session (default agent)"
                     >
@@ -1284,77 +1383,77 @@ export function AgentChatPanel() {
             )}
           </div>
           <div className="flex items-center gap-0.5">
-          <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      aria-label="Chat history"
-                    >
-                      <History className="size-4" />
-                    </button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Chat history</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <PopoverContent className="w-80 p-0" align="end">
-              <div className="border-b border-border px-3 py-2">
-                <p className="text-sm font-medium">Chat history</p>
-              </div>
-              <ScrollArea className="h-[280px]">
-                {historyLoading && historySessions.length === 0 ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : historySessions.length === 0 ? (
-                  <div className="py-8 text-center text-sm text-muted-foreground">
-                    No history yet
-                  </div>
-                ) : (
-                  <div className="p-1">
-                    {historySessions.map((s) => (
-                      <button
-                        key={s.guid}
-                        type="button"
-                        className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                        onClick={() => handleSelectHistorySession(s)}
-                        disabled={isConnecting}
-                      >
-                        <span className="w-full truncate font-medium">
-                          {s.title || "New chat"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatLocalDateTime(s.created_at)}
-                        </span>
-                      </button>
-                    ))}
-                    {historyHasMore && historyCursor && (
+            <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className="w-full rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
-                        onClick={() => loadHistorySessions(historyCursor)}
-                        disabled={historyLoading}
+                        className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        aria-label="Chat history"
                       >
-                        {historyLoading ? "Loading..." : "Load more"}
+                        <History className="size-4" />
                       </button>
-                    )}
-                  </div>
-                )}
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Close chat"
-          >
-            <X className="size-4" />
-          </button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Chat history</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <PopoverContent className="w-80 p-0" align="end">
+                <div className="border-b border-border px-3 py-2">
+                  <p className="text-sm font-medium">Chat history</p>
+                </div>
+                <ScrollArea className="h-[280px]">
+                  {historyLoading && historySessions.length === 0 ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : historySessions.length === 0 ? (
+                    <div className="py-8 text-center text-sm text-muted-foreground">
+                      No history yet
+                    </div>
+                  ) : (
+                    <div className="p-1">
+                      {historySessions.map((s) => (
+                        <button
+                          key={s.guid}
+                          type="button"
+                          className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                          onClick={() => handleSelectHistorySession(s)}
+                          disabled={isConnecting}
+                        >
+                          <span className="w-full truncate font-medium">
+                            {s.title || "New chat"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatLocalDateTime(s.created_at)}
+                          </span>
+                        </button>
+                      ))}
+                      {historyHasMore && historyCursor && (
+                        <button
+                          type="button"
+                          className="w-full rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
+                          onClick={() => loadHistorySessions(historyCursor)}
+                          disabled={historyLoading}
+                        >
+                          {historyLoading ? "Loading..." : "Load more"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Close chat"
+            >
+              <X className="size-4" />
+            </button>
           </div>
         </div>
         {sessionTitle && (
@@ -1475,20 +1574,34 @@ export function AgentChatPanel() {
           >
             <ConfirmationRequest>
               <span className="font-medium">Permission requested</span>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-muted-foreground break-words max-w-full">
                 {pendingPermission.description}
               </p>
             </ConfirmationRequest>
             <ConfirmationActions>
-              <ConfirmationAction
-                variant="outline"
-                onClick={() => handlePermission(false)}
-              >
-                Deny
-              </ConfirmationAction>
-              <ConfirmationAction onClick={() => handlePermission(true)}>
-                Allow
-              </ConfirmationAction>
+              {pendingPermission.options.length > 0 ? (
+                pendingPermission.options.map((opt) => (
+                  <ConfirmationAction
+                    key={opt.option_id}
+                    variant={opt.kind.startsWith("allow") ? "default" : "outline"}
+                    onClick={() => handlePermission(opt.kind)}
+                  >
+                    {opt.name}
+                  </ConfirmationAction>
+                ))
+              ) : (
+                <>
+                  <ConfirmationAction
+                    variant="outline"
+                    onClick={() => handlePermission("reject_once")}
+                  >
+                    Deny
+                  </ConfirmationAction>
+                  <ConfirmationAction onClick={() => handlePermission("allow_once")}>
+                    Allow
+                  </ConfirmationAction>
+                </>
+              )}
             </ConfirmationActions>
           </Confirmation>
         </div>

@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
-    AgentRegistryRemoveRequest, AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest,
+    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest,
     FsReadFileRequest, FsSearchContentRequest, FsValidateGitPathRequest, FsWriteFileRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
     GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitGetCommitCountRequest,
@@ -232,7 +232,10 @@ impl WsMessageService {
                 self.handle_agent_config_set(parse_request(request.data)?)
                     .await
             }
-            WsAction::AgentRegistryList => self.handle_agent_registry_list().await,
+            WsAction::AgentRegistryList => {
+                self.handle_agent_registry_list(parse_request(request.data)?)
+                    .await
+            }
             WsAction::AgentRegistryInstall => {
                 self.handle_agent_registry_install(parse_request(request.data)?)
                     .await
@@ -1417,8 +1420,8 @@ set -x
         Ok(json!({ "success": true }))
     }
 
-    async fn handle_agent_registry_list(&self) -> Result<Value> {
-        let agents = self.agent_service.list_registry_agents().await?;
+    async fn handle_agent_registry_list(&self, req: AgentRegistryListRequest) -> Result<Value> {
+        let agents = self.agent_service.list_registry_agents(req.force_refresh).await?;
         Ok(json!({ "agents": agents }))
     }
 

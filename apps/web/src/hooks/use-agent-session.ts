@@ -14,6 +14,13 @@ export type AgentConnectionPhase =
   | "connecting_ws"
   | "connected";
 
+export interface AcpPermissionOption {
+  option_id: string;
+  name: string;
+  /** "allow_once" | "allow_always" | "reject_once" | "reject_always" | "other" */
+  kind: string;
+}
+
 export type AgentServerMessage =
   | {
       type: "stream";
@@ -39,6 +46,7 @@ export type AgentServerMessage =
       tool: string;
       description: string;
       risk_level: string;
+      options: AcpPermissionOption[];
     }
   | { type: "error"; code: string; message: string; recoverable: boolean }
   | { type: "turn_end" }

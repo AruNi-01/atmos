@@ -804,6 +804,12 @@ pub struct AgentRegistryRemoveRequest {
     pub registry_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRegistryListRequest {
+    #[serde(default)]
+    pub force_refresh: bool,
+}
+
 // ===== WsMessage 工厂方法 =====
 
 impl WsMessage {

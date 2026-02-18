@@ -82,7 +82,7 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
 use crate::acp_client::tools::AcpToolHandler;
-use crate::acp_client::types::{PermissionRequest, RiskLevel};
+use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
 use crate::acp_client::types::{StreamDelta, ToolCallStatus, ToolCallUpdate};
 
 /// Events sent from ACP session to the session manager (for WebSocket forwarding)
@@ -153,12 +153,29 @@ impl AcpClientTrait for AtmosAcpClient {
             .unwrap_or_else(|| tool_name.clone());
         let risk_level = RiskLevel::High;
 
+        let options: Vec<PermissionOption> = args
+            .options
+            .iter()
+            .map(|o| PermissionOption {
+                option_id: o.option_id.0.to_string(),
+                name: o.name.clone(),
+                kind: match o.kind {
+                    acp::PermissionOptionKind::AllowOnce => "allow_once".to_string(),
+                    acp::PermissionOptionKind::AllowAlways => "allow_always".to_string(),
+                    acp::PermissionOptionKind::RejectOnce => "reject_once".to_string(),
+                    acp::PermissionOptionKind::RejectAlways => "reject_always".to_string(),
+                    _ => "other".to_string(),
+                },
+            })
+            .collect();
+
         let (response_tx, response_rx) = oneshot::channel();
         let request = PermissionRequest {
             request_id: format!("perm_{}", uuid::Uuid::new_v4().simple()),
             tool: tool_name,
             description,
             risk_level,
+            options,
         };
 
         if self

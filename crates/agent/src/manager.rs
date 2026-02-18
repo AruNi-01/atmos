@@ -47,7 +47,12 @@ impl AgentManager {
                 AgentError::Command(format!("failed to create registry cache dir: {}", e))
             })?;
         }
-        let data = serde_json::to_string_pretty(&registry)
+        let now = chrono::Utc::now().timestamp();
+        let cache = RegistryCache {
+            registry,
+            cached_at: now,
+        };
+        let data = serde_json::to_string_pretty(&cache)
             .map_err(|e| AgentError::Command(format!("failed to encode registry: {}", e)))?;
         fs::write(&path, data)
             .map_err(|e| AgentError::Command(format!("failed to write registry cache: {}", e)))?;
@@ -148,8 +153,8 @@ impl AgentManager {
         )))
     }
 
-    pub async fn list_registry_agents(&self) -> Result<Vec<RegistryAgent>> {
-        let registry = fetch_acp_registry().await?;
+    pub async fn list_registry_agents(&self, force_refresh: bool) -> Result<Vec<RegistryAgent>> {
+        let registry = fetch_acp_registry(force_refresh).await?;
         let installed_npm_result = list_global_npm_packages().await;
         let npm_scan_available = installed_npm_result.is_ok();
         let installed_npm = installed_npm_result.unwrap_or_default();
@@ -168,12 +173,17 @@ impl AgentManager {
                 if !npm_scan_available {
                     return true;
                 }
+                // Prefer stored npm_package if available (handles registry package name changes)
+                if let Some(ref pkg) = e.npm_package {
+                    return installed_npm.contains_key(pkg);
+                }
+                // Fallback: look up by registry_id in the current registry (backward compatibility)
                 registry
                     .agents
                     .iter()
                     .find(|a| a.id == e.registry_id)
                     .and_then(|a| a.distribution.npx.as_ref())
-                    .map(|npx| installed_npm.contains(&normalize_npm_package_name(&npx.package)))
+                    .map(|npx| installed_npm.contains_key(&normalize_npm_package_name(&npx.package)))
                     .unwrap_or(false)
             } else {
                 true
@@ -188,13 +198,18 @@ impl AgentManager {
             .iter()
             .filter(|e| {
                 if e.install_method == "npx" {
+                    // Prefer stored npm_package if available (handles registry package name changes)
+                    if let Some(ref pkg) = e.npm_package {
+                        return installed_npm.contains_key(pkg);
+                    }
+                    // Fallback: look up by registry_id in the current registry (backward compatibility)
                     registry
                         .agents
                         .iter()
                         .find(|a| a.id == e.registry_id)
                         .and_then(|a| a.distribution.npx.as_ref())
                         .map(|npx| {
-                            installed_npm.contains(&normalize_npm_package_name(&npx.package))
+                            installed_npm.contains_key(&normalize_npm_package_name(&npx.package))
                         })
                         .unwrap_or(false)
                 } else if e.install_method == "binary" {
@@ -213,6 +228,14 @@ impl AgentManager {
         for agent in registry.agents {
             if let Some(npx) = &agent.distribution.npx {
                 let id = agent.id.clone();
+                let is_installed = installed_registry_ids.contains(&agent.id);
+                let installed_version = if is_installed {
+                    // Get the installed version from npm list
+                    let pkg_name = normalize_npm_package_name(&npx.package);
+                    installed_npm.get(&pkg_name).cloned()
+                } else {
+                    None
+                };
                 out.push(RegistryAgent {
                     id,
                     name: agent.name,
@@ -223,11 +246,22 @@ impl AgentManager {
                     cli_command: npx_command_preview(npx),
                     install_method: "npx".to_string(),
                     package: Some(npx.package.clone()),
-                    installed: installed_registry_ids.contains(&agent.id),
+                    installed: is_installed,
+                    installed_version,
                 });
             } else if agent.distribution.binary.is_some() {
                 let id = agent.id.clone();
                 let is_installed = installed_registry_ids.contains(&agent.id);
+                // Get installed version from manifest
+                let installed_version = if is_installed {
+                    manifest
+                        .entries
+                        .iter()
+                        .find(|e| e.registry_id == id && e.install_method == "binary")
+                        .and_then(|e| e.installed_version.clone())
+                } else {
+                    None
+                };
                 out.push(RegistryAgent {
                     id,
                     name: agent.name,
@@ -239,6 +273,7 @@ impl AgentManager {
                     install_method: "binary".to_string(),
                     package: None,
                     installed: is_installed,
+                    installed_version,
                 });
             }
         }
@@ -251,7 +286,7 @@ impl AgentManager {
         registry_id: &str,
         force_overwrite: bool,
     ) -> Result<RegistryInstallResult> {
-        let registry = fetch_acp_registry().await?;
+        let registry = fetch_acp_registry(false).await?;
         let entry = registry
             .agents
             .into_iter()
@@ -291,6 +326,31 @@ impl AgentManager {
             }
         }
 
+        // Check if there's an old package to uninstall (package name changed)
+        let mut uninstalled_old_package = None;
+        let manifest = load_install_manifest().unwrap_or_default();
+        let new_package_name = normalize_npm_package_name(&npx.package);
+        if let Some(old_entry) = manifest.entries.iter().find(|e| e.registry_id == registry_id && e.install_method == "npx") {
+            if let Some(ref old_package) = old_entry.npm_package {
+                if old_package != &new_package_name {
+                    // Package name changed, uninstall the old one first
+                    let output = Command::new("npm")
+                        .arg("uninstall")
+                        .arg("-g")
+                        .arg(old_package)
+                        .output()
+                        .await
+                        .with_context(|| "failed to run npm uninstall for old package")
+                        .map_err(|e| AgentError::Command(e.to_string()))?;
+
+                    if output.status.success() {
+                        uninstalled_old_package = Some(old_package.clone());
+                    }
+                    // Continue with installation even if uninstall failed
+                }
+            }
+        }
+
         let output = Command::new("npm")
             .arg("install")
             .arg("-g")
@@ -301,6 +361,11 @@ impl AgentManager {
             .map_err(|e| AgentError::Command(e.to_string()))?;
 
         if output.status.success() {
+            // Get the installed version from npm
+            let installed_version = list_global_npm_packages().await
+                .ok()
+                .and_then(|pkgs| pkgs.get(&new_package_name).cloned());
+
             let mut manifest = load_install_manifest().unwrap_or_default();
             upsert_manifest_entry(
                 &mut manifest,
@@ -308,15 +373,23 @@ impl AgentManager {
                     registry_id: registry_id.to_string(),
                     install_method: "npx".to_string(),
                     binary_path: None,
+                    npm_package: Some(new_package_name),
+                    installed_version,
                 },
             );
             let _ = save_install_manifest(&manifest);
+
+            let message = if let Some(old_package) = uninstalled_old_package {
+                format!("Upgraded from {} to {}", old_package, npx.package)
+            } else {
+                format!("Installed {} ({})", entry.name, npx.package)
+            };
 
             return Ok(RegistryInstallResult {
                 registry_id: registry_id.to_string(),
                 installed: true,
                 install_method: "acp_registry".to_string(),
-                message: format!("Installed {} ({})", entry.name, npx.package),
+                message,
                 needs_confirmation: None,
                 overwrite_message: None,
             });
@@ -330,56 +403,75 @@ impl AgentManager {
     }
 
     pub async fn remove_registry_agent(&self, registry_id: &str) -> Result<RegistryInstallResult> {
-        let registry = fetch_acp_registry().await?;
-        let entry = registry
-            .agents
-            .into_iter()
-            .find(|a| a.id == registry_id)
-            .ok_or_else(|| AgentError::NotFound(format!("registry agent: {}", registry_id)))?;
+        // Load manifest first to get the stored npm_package (handles registry package name changes)
+        let manifest = load_install_manifest().unwrap_or_default();
+        let manifest_entry = manifest
+            .entries
+            .iter()
+            .find(|e| e.registry_id == registry_id && e.install_method == "npx");
 
-        if let Some(npx) = entry.distribution.npx.as_ref() {
-            let package = normalize_npm_package_name(&npx.package);
-
-            let mut manifest = load_install_manifest().unwrap_or_default();
-            manifest
-                .entries
-                .retain(|e| !(e.registry_id == registry_id && e.install_method == "npx"));
-            let _ = save_install_manifest(&manifest);
-
-            let output = Command::new("npm")
-                .arg("uninstall")
-                .arg("-g")
-                .arg(&package)
-                .output()
-                .await
-                .with_context(|| "failed to run npm uninstall from registry package")
-                .map_err(|e| AgentError::Command(e.to_string()))?;
-
-            if output.status.success() {
-                return Ok(RegistryInstallResult {
-                    registry_id: registry_id.to_string(),
-                    installed: false,
-                    install_method: "acp_registry".to_string(),
-                    message: format!("Removed {} ({})", entry.name, package),
-                    needs_confirmation: None,
-                    overwrite_message: None,
-                });
+        let (package, registry_entry_for_message) = if let Some(entry) = manifest_entry {
+            // Prefer stored npm_package if available (handles registry package name changes)
+            if let Some(ref pkg) = entry.npm_package {
+                let registry = fetch_acp_registry(false).await?;
+                let registry_entry = registry.agents.iter().find(|a| a.id == registry_id);
+                (pkg.clone(), registry_entry.cloned())
+            } else {
+                // Fallback: look up by registry_id in the current registry (backward compatibility)
+                let registry = fetch_acp_registry(false).await?;
+                let r_entry = registry
+                    .agents
+                    .into_iter()
+                    .find(|a| a.id == registry_id)
+                    .ok_or_else(|| AgentError::NotFound(format!("registry agent: {}", registry_id)))?;
+                let npx = r_entry.distribution.npx.as_ref().ok_or_else(|| {
+                    AgentError::Command(format!("registry agent '{}' has no npx distribution", registry_id))
+                })?;
+                (normalize_npm_package_name(&npx.package), Some(r_entry))
             }
+        } else {
+            return Err(AgentError::NotFound(format!("no npx install found for: {}", registry_id)));
+        };
 
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            return Err(AgentError::Command(format!(
-                "registry remove failed for {}: {}",
-                entry.name, stderr
-            )));
+        let mut manifest = load_install_manifest().unwrap_or_default();
+        manifest
+            .entries
+            .retain(|e| !(e.registry_id == registry_id && e.install_method == "npx"));
+        let _ = save_install_manifest(&manifest);
+
+        let output = Command::new("npm")
+            .arg("uninstall")
+            .arg("-g")
+            .arg(&package)
+            .output()
+            .await
+            .with_context(|| "failed to run npm uninstall from registry package")
+            .map_err(|e| AgentError::Command(e.to_string()))?;
+
+        if output.status.success() {
+            // Use registry entry name if available for better messaging, otherwise fall back to registry_id
+            let name = registry_entry_for_message
+                .as_ref()
+                .map(|e| e.name.as_str())
+                .unwrap_or(registry_id);
+            return Ok(RegistryInstallResult {
+                registry_id: registry_id.to_string(),
+                installed: false,
+                install_method: "acp_registry".to_string(),
+                message: format!("Removed {} ({})", name, package),
+                needs_confirmation: None,
+                overwrite_message: None,
+            });
         }
 
-        if entry.distribution.binary.is_some() {
-            return self.remove_registry_binary_agent(&entry, registry_id);
-        }
-
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let name = registry_entry_for_message
+            .as_ref()
+            .map(|e| e.name.as_str())
+            .unwrap_or(registry_id);
         Err(AgentError::Command(format!(
-            "registry agent '{}' has no supported distribution",
-            registry_id
+            "registry remove failed for {}: {}",
+            name, stderr
         )))
     }
 
@@ -396,7 +488,7 @@ impl AgentManager {
             .find(|e| e.registry_id == registry_id)
             .ok_or_else(|| AgentError::NotFound(format!("installed agent: {}", registry_id)))?;
 
-        let registry = fetch_acp_registry().await?;
+        let registry = fetch_acp_registry(false).await?;
         let r_entry = registry
             .agents
             .iter()
@@ -493,7 +585,7 @@ impl AgentManager {
         &self,
         agent: &KnownAgent,
     ) -> Result<Option<AgentInstallResult>> {
-        let registry = match fetch_acp_registry().await {
+        let registry = match fetch_acp_registry(false).await {
             Ok(value) => value,
             Err(_) => return Ok(None),
         };
@@ -609,6 +701,9 @@ impl AgentManager {
             })?;
         }
 
+        // Try to detect the installed version
+        let installed_version = detect_binary_version(&target_path).await;
+
         let mut manifest = load_install_manifest().unwrap_or_default();
         let bin_path_str = target_path.to_string_lossy().to_string();
         upsert_manifest_entry(
@@ -617,6 +712,8 @@ impl AgentManager {
                 registry_id: registry_id.to_string(),
                 install_method: "binary".to_string(),
                 binary_path: Some(bin_path_str),
+                npm_package: None,
+                installed_version,
             },
         );
         save_install_manifest(&manifest)?;
@@ -721,7 +818,7 @@ fn keyring_set_api_key(id: AgentId, api_key: &str) -> std::result::Result<(), ke
     entry.set_password(api_key)
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct RegistryRoot {
     agents: Vec<RegistryEntry>,
 }
@@ -777,23 +874,55 @@ async fn fetch_acp_registry_from_url() -> Result<RegistryRoot> {
         .map_err(|e| AgentError::Command(format!("failed to parse ACP registry: {}", e)))
 }
 
-async fn fetch_acp_registry() -> Result<RegistryRoot> {
+/// Registry cache wrapper that includes timestamp for auto-refresh
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RegistryCache {
+    #[serde(flatten)]
+    registry: RegistryRoot,
+    /// Unix timestamp (seconds) when this cache was last updated
+    cached_at: i64,
+}
+
+const REGISTRY_CACHE_TTL_SECS: i64 = 12 * 60 * 60; // 12 hours
+
+async fn fetch_acp_registry(force_refresh: bool) -> Result<RegistryRoot> {
     let path = acp_registry_cache_path()?;
-    if path.exists() {
+    let now = chrono::Utc::now().timestamp();
+
+    // Try to load from cache first
+    if path.exists() && !force_refresh {
         if let Ok(data) = fs::read_to_string(&path) {
-            if let Ok(parsed) = serde_json::from_str::<RegistryRoot>(&data) {
-                return Ok(parsed);
+            // Try to parse as RegistryCache (new format with timestamp)
+            if let Ok(cache) = serde_json::from_str::<RegistryCache>(&data) {
+                let cache_age = now.saturating_sub(cache.cached_at);
+                if cache_age < REGISTRY_CACHE_TTL_SECS {
+                    // Cache is still valid
+                    return Ok(cache.registry);
+                }
+                // Cache is too old, fall through to refresh
+            } else if let Ok(registry) = serde_json::from_str::<RegistryRoot>(&data) {
+                // Legacy format without timestamp - use it but will refresh on next call
+                return Ok(registry);
             }
         }
     }
+
+    // Fetch from CDN
     let registry = fetch_acp_registry_from_url().await?;
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    if let Ok(data) = serde_json::to_string_pretty(&registry) {
+
+    // Save with timestamp
+    let cache = RegistryCache {
+        registry,
+        cached_at: now,
+    };
+    if let Ok(data) = serde_json::to_string_pretty(&cache) {
         let _ = fs::write(&path, data);
     }
-    Ok(registry)
+
+    Ok(cache.registry)
 }
 
 /// Check if a specific package is installed globally (as a direct top-level install).
@@ -826,7 +955,7 @@ async fn is_npm_package_installed_globally(package_spec: &str) -> Result<bool> {
     Ok(false)
 }
 
-async fn list_global_npm_packages() -> Result<HashSet<String>> {
+async fn list_global_npm_packages() -> Result<std::collections::HashMap<String, String>> {
     let output = Command::new("npm")
         .arg("list")
         .arg("-g")
@@ -837,18 +966,23 @@ async fn list_global_npm_packages() -> Result<HashSet<String>> {
         .map_err(|e| AgentError::Command(format!("failed to run npm list -g: {}", e)))?;
 
     if !output.status.success() {
-        return Ok(HashSet::new());
+        return Ok(std::collections::HashMap::new());
     }
 
     let value: serde_json::Value = serde_json::from_slice(&output.stdout)
         .map_err(|e| AgentError::Command(format!("failed to parse npm list output: {}", e)))?;
-    let mut set = HashSet::new();
-    if let Some(map) = value.get("dependencies").and_then(|v| v.as_object()) {
-        for key in map.keys() {
-            set.insert(key.to_string());
+    let mut map = std::collections::HashMap::new();
+    if let Some(deps) = value.get("dependencies").and_then(|v| v.as_object()) {
+        for (key, dep) in deps {
+            if let Some(version) = dep.get("version").and_then(|v| v.as_str()) {
+                map.insert(key.to_string(), version.to_string());
+            } else {
+                // Fallback: if no version field, still include the package name
+                map.insert(key.to_string(), "unknown".to_string());
+            }
         }
     }
-    Ok(set)
+    Ok(map)
 }
 
 fn normalize_npm_package_name(spec: &str) -> String {
@@ -883,6 +1017,14 @@ struct ManifestEntry {
     /// Absolute path to binary; only set when install_method is "binary".
     #[serde(default)]
     binary_path: Option<String>,
+    /// NPM package name (normalized); only set when install_method is "npx".
+    /// Storing this allows us to track version changes in the registry without
+    /// accidentally removing entries or leaving stale packages installed.
+    #[serde(default)]
+    npm_package: Option<String>,
+    /// The version currently installed (if detectable); used for upgrade detection.
+    #[serde(default)]
+    installed_version: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1063,4 +1205,48 @@ fn looks_like_archive_url(url: &str) -> bool {
         || lower.ends_with(".tar.gz")
         || lower.ends_with(".tgz")
         || lower.ends_with(".tar.xz")
+}
+
+/// Attempt to detect the version of an installed binary agent.
+/// Tries common version flags like --version and -v.
+/// Returns None if version detection fails or the binary doesn't support it.
+async fn detect_binary_version(binary_path: &Path) -> Option<String> {
+    let common_flags = ["--version", "-v", "version", "-V"];
+
+    for flag in common_flags {
+        let output = Command::new(binary_path)
+            .arg(flag)
+            .output()
+            .await;
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                let combined = format!("{} {}", stdout, stderr).trim().to_string();
+
+                // Try to extract version number from output
+                // Common patterns: "v1.2.3", "1.2.3", "version 1.2.3", etc.
+                if let Some(captures) = regex::Regex::new(r"(?i)v?(\d+\.\d+[\d.]*)")
+                    .ok()
+                    .and_then(|re| re.captures(&combined))
+                {
+                    if let Some(version) = captures.get(1) {
+                        return Some(version.as_str().to_string());
+                    }
+                }
+
+                // If no version pattern found, return first line of output (some tools output just the version)
+                let first_line = combined.lines().next();
+                if let Some(line) = first_line {
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty() && trimmed.len() < 50 {
+                        return Some(trimmed.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
