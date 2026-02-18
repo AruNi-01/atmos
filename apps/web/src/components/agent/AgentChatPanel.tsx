@@ -57,6 +57,13 @@ import {
   DialogTitle,
   Button,
   TextShimmer,
+  AcpTerminal,
+  AcpTerminalHeader,
+  AcpTerminalTitle,
+  AcpTerminalStatus,
+  AcpTerminalActions,
+  AcpTerminalCopyButton,
+  AcpTerminalContent,
 } from "@workspace/ui";
 import { Bot, Brain, ChevronDown, ChevronUp, Folder, FolderInput, Globe, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, SquareCheck, Terminal, Trash2, Wrench, X, FileText } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
@@ -270,6 +277,18 @@ function getSkillName(raw_input: Record<string, unknown>): string {
   return "Skill";
 }
 
+function isTerminalCommand(tool: string): boolean {
+  const t = (tool || "").toLowerCase();
+  return t === "execute" || t === "run_command" || t === "bash" || t === "shell" || t === "terminal";
+}
+
+function getTerminalCommandString(raw_input?: unknown): string {
+  if (!raw_input || typeof raw_input !== "object") return "";
+  const o = raw_input as Record<string, unknown>;
+  const cmd = o.command ?? o.cmd ?? o.input ?? o.script;
+  return typeof cmd === "string" ? cmd : "";
+}
+
 // ---------------------------------------------------------------------------
 // Entry reducer: processes ACP server messages into Zed-style thread entries
 // ---------------------------------------------------------------------------
@@ -465,14 +484,67 @@ function deriveToolDisplayName(tool: string, description: string, raw_input?: un
   return description || "Tool";
 }
 
-function ToolOrSkillBlock({
+function TerminalBlock({
   tool,
   description,
   status,
   raw_input,
   raw_output,
-  detail,
 }: ToolCallBlock) {
+  const state = toolStatusToState(status);
+  const isRunning = state === "input-available";
+  const isError = state === "output-error";
+  const commandStr = getTerminalCommandString(raw_input);
+
+  const terminalOutput = (() => {
+    if (raw_output !== undefined && raw_output !== null) {
+      if (typeof raw_output === "string") return raw_output;
+      return JSON.stringify(raw_output, null, 2);
+    }
+    return "";
+  })();
+
+  return (
+    <AcpTerminal
+      output={terminalOutput}
+      isStreaming={isRunning}
+      autoScroll
+      className={isError ? "border-red-500/50 w-full" : "w-full"}
+    >
+      <AcpTerminalHeader>
+        <AcpTerminalTitle>Run Script</AcpTerminalTitle>
+        <div className="flex items-center gap-1">
+          <AcpTerminalStatus />
+          <AcpTerminalActions>
+            <AcpTerminalCopyButton />
+          </AcpTerminalActions>
+        </div>
+      </AcpTerminalHeader>
+      {commandStr && (
+        <div className="border-b border-zinc-800 px-4 py-2 font-mono text-sm text-zinc-300">
+          <span className="text-green-400">$</span> {commandStr}
+        </div>
+      )}
+      <AcpTerminalContent className="max-h-60" />
+    </AcpTerminal>
+  );
+}
+
+function ToolOrSkillBlock(props: ToolCallBlock) {
+  const {
+    tool,
+    description,
+    status,
+    raw_input,
+    raw_output,
+    detail,
+  } = props;
+
+  // Render terminal for execute commands
+  if (isTerminalCommand(tool)) {
+    return <TerminalBlock {...props} />;
+  }
+
   const { resolvedTheme } = useTheme();
   const state = toolStatusToState(status);
   const isError = state === "output-error";
@@ -798,6 +870,7 @@ export function AgentChatPanel() {
   const { projects, fetchProjects } = useProjectStore();
   const restoreAttemptedRef = useRef(false);
   const autoResumeTriedRef = useRef<string | null>(null);
+  const stoppedRef = useRef(false);
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -819,9 +892,11 @@ export function AgentChatPanel() {
   const handleMessage = useCallback((msg: AgentServerMessage) => {
     switch (msg.type) {
       case "stream":
+        if (stoppedRef.current) return; // user stopped, discard
         setEntries((prev) => reduceEntries(prev, msg));
         break;
       case "tool_call":
+        if (stoppedRef.current) return; // user stopped, discard
         setEntries((prev) => reduceEntries(prev, msg));
         break;
       case "permission_request":
@@ -834,10 +909,12 @@ export function AgentChatPanel() {
         });
         break;
       case "error":
+        stoppedRef.current = false;
         setWaitingForResponse(false);
         setEntries((prev) => reduceEntries(prev, msg));
         break;
       case "turn_end":
+        stoppedRef.current = false;
         setWaitingForResponse(false);
         setEntries((prev) => {
           const last = prev[prev.length - 1];
@@ -848,6 +925,7 @@ export function AgentChatPanel() {
         });
         break;
       case "session_ended":
+        stoppedRef.current = false;
         setWaitingForResponse(false);
         break;
     }
@@ -861,6 +939,7 @@ export function AgentChatPanel() {
     error,
     authRequest,
     sendPrompt,
+    sendCancel,
     sendPermissionResponse,
     startSession,
     resumeSession,
@@ -1080,6 +1159,15 @@ export function AgentChatPanel() {
     startSession,
   ]);
 
+  // When we successfully connect to a session, mark it as "already tried" so
+  // the auto-connect effect won't attempt a spurious resumeSession on it if
+  // the connection briefly drops.
+  useEffect(() => {
+    if (isConnected && sessionId) {
+      autoResumeTriedRef.current = sessionId;
+    }
+  }, [isConnected, sessionId]);
+
   useEffect(() => {
     if (!sessionId) return;
     setLastSessionIdForContext(contextKey, sessionId);
@@ -1145,6 +1233,7 @@ export function AgentChatPanel() {
     async (message: { text: string; files?: import("ai").FileUIPart[] }) => {
       const text = message.text.trim();
       if (!text || !isConnected) return;
+      stoppedRef.current = false;
       if (entries.length === 0) {
         const title = text.slice(0, 512).trim() || "新会话";
         setSessionTitle(title);
@@ -1648,8 +1737,26 @@ export function AgentChatPanel() {
               onStop={
                 agentActivity.busy
                   ? () => {
-                    disconnect();
+                    // Stop receiving output and send cancel to agent
+                    stoppedRef.current = true;
+                    sendCancel();
                     setWaitingForResponse(false);
+                    // Mark streaming done and any running tool calls as completed
+                    setEntries((prev) => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant") {
+                        const updatedBlocks = last.blocks.map((block) =>
+                          block.type === "tool_call" && block.status === "running"
+                            ? { ...block, status: "completed" as const }
+                            : block
+                        );
+                        return [
+                          ...prev.slice(0, -1),
+                          { ...last, isStreaming: false, blocks: updatedBlocks },
+                        ];
+                      }
+                      return prev;
+                    });
                   }
                   : undefined
               }

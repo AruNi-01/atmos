@@ -86,6 +86,7 @@ export interface UseAgentSessionReturn {
     allowed: boolean,
     rememberForSession?: boolean
   ) => void;
+  sendCancel: () => void;
   startSession: (override?: StartSessionOverride) => Promise<void>;
   resumeSession: (sessionId: string) => Promise<boolean>;
   clearAuthRequest: () => void;
@@ -171,6 +172,17 @@ export function useAgentSession({
             allowed,
             remember_for_session: rememberForSession,
           })
+        );
+      }
+    },
+    []
+  );
+
+  const sendCancel = useCallback(
+    () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({ type: "cancel" })
         );
       }
     },
@@ -392,6 +404,7 @@ export function useAgentSession({
     error,
     authRequest,
     sendPrompt,
+    sendCancel,
     sendPermissionResponse,
     startSession,
     resumeSession,
