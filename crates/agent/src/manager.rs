@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fs;
+use std::io::{Cursor, Read as _};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -678,18 +679,16 @@ impl AgentManager {
             .await
             .map_err(|e| AgentError::Command(format!("failed to read binary bytes: {}", e)))?;
 
-        if looks_like_archive_url(&asset.url) {
-            return Err(AgentError::Command(format!(
-                "binary asset appears to be an archive for '{}'; archive extraction is not implemented yet",
-                registry_id
-            )));
-        }
-
         fs::create_dir_all(&bin_dir)
             .map_err(|e| AgentError::Command(format!("failed to create bin dir: {}", e)))?;
 
-        fs::write(&target_path, &bytes)
-            .map_err(|e| AgentError::Command(format!("failed to write binary: {}", e)))?;
+        if looks_like_archive_url(&asset.url) {
+            extract_archive(&asset.url, &bytes, &bin_dir, &file_name)?;
+        } else {
+            fs::write(&target_path, &bytes)
+                .map_err(|e| AgentError::Command(format!("failed to write binary: {}", e)))?;
+        }
+
         #[cfg(unix)]
         {
             let mut perms = fs::metadata(&target_path)
@@ -1205,6 +1204,140 @@ fn looks_like_archive_url(url: &str) -> bool {
         || lower.ends_with(".tar.gz")
         || lower.ends_with(".tgz")
         || lower.ends_with(".tar.xz")
+}
+
+/// Extract a binary from an archive (zip or tar.gz/tgz) into `dest_dir`.
+///
+/// The function looks for an executable whose name matches `binary_name` (with
+/// or without an extension) inside the archive and copies it to
+/// `dest_dir/binary_name`.  If no exact match is found it falls back to the
+/// first file that looks like an executable.
+fn extract_archive(
+    url: &str,
+    data: &[u8],
+    dest_dir: &Path,
+    binary_name: &str,
+) -> Result<()> {
+    let lower = url.to_ascii_lowercase();
+
+    if lower.ends_with(".zip") {
+        extract_zip(data, dest_dir, binary_name)
+    } else if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
+        extract_tar_gz(data, dest_dir, binary_name)
+    } else {
+        Err(AgentError::Command(format!(
+            "unsupported archive format for url: {}",
+            url
+        )))
+    }
+}
+
+fn is_target_binary(entry_name: &str, binary_name: &str) -> bool {
+    let base = Path::new(entry_name)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    base == binary_name
+        || base == format!("{}.exe", binary_name)
+        || base.strip_suffix(".exe").unwrap_or(base) == binary_name.strip_suffix(".exe").unwrap_or(binary_name)
+}
+
+fn extract_zip(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
+    let reader = Cursor::new(data);
+    let mut archive = zip::ZipArchive::new(reader)
+        .map_err(|e| AgentError::Command(format!("failed to open zip archive: {}", e)))?;
+
+    // First pass: find the target binary
+    let mut target_index: Option<usize> = None;
+    let mut fallback_index: Option<usize> = None;
+
+    for i in 0..archive.len() {
+        let file = archive
+            .by_index(i)
+            .map_err(|e| AgentError::Command(format!("failed to read zip entry: {}", e)))?;
+        let name = file.name().to_string();
+        if file.is_dir() {
+            continue;
+        }
+        if is_target_binary(&name, binary_name) {
+            target_index = Some(i);
+            break;
+        }
+        // Fallback: first non-directory entry that doesn't look like a metadata file
+        if fallback_index.is_none()
+            && !name.ends_with('/')
+            && !name.starts_with("._")
+            && !name.contains("__MACOSX")
+        {
+            fallback_index = Some(i);
+        }
+    }
+
+    let idx = target_index.or(fallback_index).ok_or_else(|| {
+        AgentError::Command("zip archive contains no extractable files".to_string())
+    })?;
+
+    let mut file = archive
+        .by_index(idx)
+        .map_err(|e| AgentError::Command(format!("failed to read zip entry: {}", e)))?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)
+        .map_err(|e| AgentError::Command(format!("failed to extract zip entry: {}", e)))?;
+
+    let out_path = dest_dir.join(binary_name);
+    fs::write(&out_path, &buf)
+        .map_err(|e| AgentError::Command(format!("failed to write extracted binary: {}", e)))?;
+
+    Ok(())
+}
+
+fn extract_tar_gz(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
+    let gz = flate2::read::GzDecoder::new(Cursor::new(data));
+    let mut archive = tar::Archive::new(gz);
+
+    let entries = archive
+        .entries()
+        .map_err(|e| AgentError::Command(format!("failed to read tar.gz archive: {}", e)))?;
+
+    let mut target_bytes: Option<Vec<u8>> = None;
+    let mut fallback_bytes: Option<Vec<u8>> = None;
+
+    for entry_result in entries {
+        let mut entry = entry_result
+            .map_err(|e| AgentError::Command(format!("failed to read tar entry: {}", e)))?;
+        let path_str = entry
+            .path()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        if entry.header().entry_type().is_dir() {
+            continue;
+        }
+
+        let mut buf = Vec::new();
+        entry
+            .read_to_end(&mut buf)
+            .map_err(|e| AgentError::Command(format!("failed to extract tar entry: {}", e)))?;
+
+        if is_target_binary(&path_str, binary_name) {
+            target_bytes = Some(buf);
+            break;
+        }
+
+        if fallback_bytes.is_none() && !path_str.ends_with('/') {
+            fallback_bytes = Some(buf);
+        }
+    }
+
+    let content = target_bytes.or(fallback_bytes).ok_or_else(|| {
+        AgentError::Command("tar.gz archive contains no extractable files".to_string())
+    })?;
+
+    let out_path = dest_dir.join(binary_name);
+    fs::write(&out_path, &content)
+        .map_err(|e| AgentError::Command(format!("failed to write extracted binary: {}", e)))?;
+
+    Ok(())
 }
 
 /// Attempt to detect the version of an installed binary agent.
