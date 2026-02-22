@@ -232,6 +232,8 @@ export function useAgentSession({
         };
 
         ws.onmessage = (e) => {
+          // Ignore events from a stale WebSocket that was already replaced
+          if (wsRef.current !== ws) return;
           try {
             const msg = JSON.parse(e.data) as AgentServerMessage;
             if (msg.type === "phase_update") {
@@ -273,6 +275,8 @@ export function useAgentSession({
         };
 
         ws.onclose = () => {
+          // Only reset state if this is still the active WebSocket
+          if (wsRef.current !== ws) return;
           wsRef.current = null;
           setIsConnecting(false);
           setIsConnected(false);
@@ -281,6 +285,7 @@ export function useAgentSession({
         };
 
         ws.onerror = () => {
+          if (wsRef.current !== ws) return;
           setError("WebSocket error");
           onError?.("WebSocket error");
         };
@@ -325,6 +330,7 @@ export function useAgentSession({
         };
 
         ws.onmessage = (e) => {
+          if (wsRef.current !== ws) return;
           try {
             const msg = JSON.parse(e.data) as AgentServerMessage;
             if (msg.type === "phase_update") {
@@ -364,6 +370,7 @@ export function useAgentSession({
         };
 
         ws.onclose = () => {
+          if (wsRef.current !== ws) return;
           wsRef.current = null;
           setIsConnecting(false);
           setIsConnected(false);
@@ -372,6 +379,7 @@ export function useAgentSession({
         };
 
         ws.onerror = () => {
+          if (wsRef.current !== ws) return;
           setError("WebSocket error");
           onError?.("WebSocket error");
         };
