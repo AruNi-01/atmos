@@ -225,6 +225,8 @@ export function useAgentSession({
         setConnectionPhase("connecting_ws");
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
+        // Track whether ACP connection ever succeeded for this WS instance.
+        let didConnect = false;
 
         ws.onopen = () => {
           // WS is open, but ACP connection may still be initializing.
@@ -246,6 +248,7 @@ export function useAgentSession({
               const mapped = phaseMap[msg.phase] ?? "initializing";
               setConnectionPhase(mapped);
               if (mapped === "connected") {
+                didConnect = true;
                 setIsConnecting(false);
                 setIsConnected(true);
                 setError(null);
@@ -281,6 +284,12 @@ export function useAgentSession({
           setIsConnecting(false);
           setIsConnected(false);
           setConnectionPhase("idle");
+          // If we never successfully connected (ACP setup failed), clear sessionId
+          // so the auto-reconnect effect doesn't spuriously try to resume this dead session.
+          if (!didConnect) {
+            setSessionId(null);
+            setSessionCwd(null);
+          }
           onDisconnected?.();
         };
 
@@ -324,6 +333,7 @@ export function useAgentSession({
         setConnectionPhase("connecting_ws");
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
+        let didConnect = false;
 
         ws.onopen = () => {
           // WS open, wait for phase_update "connected"
@@ -343,6 +353,7 @@ export function useAgentSession({
               const mapped = phaseMap[msg.phase] ?? "resuming_session";
               setConnectionPhase(mapped);
               if (mapped === "connected") {
+                didConnect = true;
                 setIsConnecting(false);
                 setIsConnected(true);
                 setError(null);
@@ -375,6 +386,11 @@ export function useAgentSession({
           setIsConnecting(false);
           setIsConnected(false);
           setConnectionPhase("idle");
+          // If ACP setup failed, clear sessionId to prevent spurious auto-resume loops.
+          if (!didConnect) {
+            setSessionId(null);
+            setSessionCwd(null);
+          }
           onDisconnected?.();
         };
 

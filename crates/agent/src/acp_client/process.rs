@@ -17,6 +17,7 @@ pub fn spawn_agent(
     (
         tokio::process::ChildStdin,
         tokio::process::ChildStdout,
+        tokio::process::ChildStderr,
         tokio::process::Child,
     ),
     AgentError,
@@ -25,7 +26,7 @@ pub fn spawn_agent(
     cmd.args(&spec.args)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
         .kill_on_drop(true);
 
     if let Some(path) = cwd {
@@ -57,6 +58,10 @@ pub fn spawn_agent(
         .stdout
         .take()
         .ok_or_else(|| AgentError::Command("agent stdout not available".to_string()))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| AgentError::Command("agent stderr not available".to_string()))?;
 
-    Ok((stdin, stdout, child))
+    Ok((stdin, stdout, stderr, child))
 }
