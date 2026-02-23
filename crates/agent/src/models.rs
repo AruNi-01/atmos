@@ -58,6 +58,8 @@ pub struct RegistryAgent {
     /// The version currently installed (if installed). May differ from `version` which is the latest.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub installed_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_config: Option<std::collections::HashMap<String, String>>,
 }
 
 /// Launch spec for an installed ACP registry agent. Use when spawning the agent process.
@@ -87,6 +89,8 @@ pub struct CustomAgent {
     /// Environment variables.
     #[serde(default)]
     pub env: std::collections::HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_config: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

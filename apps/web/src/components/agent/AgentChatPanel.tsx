@@ -64,8 +64,16 @@ import {
   AcpTerminalActions,
   AcpTerminalCopyButton,
   AcpTerminalContent,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
 } from "@workspace/ui";
-import { Bot, Brain, ChevronDown, ChevronUp, Folder, FolderInput, Globe, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, SquareCheck, Terminal, Trash2, Wrench, X, FileText } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronUp, Folder, FolderInput, Globe, Heart, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, SquareCheck, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { AgentIcon } from "./AgentIcon";
@@ -130,7 +138,12 @@ interface ThinkingBlock {
   content: string;
 }
 
-type AssistantBlock = TextBlock | ThinkingBlock | ToolCallBlock;
+interface PlanBlock {
+  type: "plan";
+  plan: import("@/hooks/use-agent-session").AgentPlan;
+}
+
+type AssistantBlock = TextBlock | ThinkingBlock | ToolCallBlock | PlanBlock;
 
 interface UserEntry {
   role: "user";
@@ -444,6 +457,41 @@ function reduceEntries(
     ];
   }
 
+  if (msg.type === "plan_update") {
+    const newBlock: PlanBlock = {
+      type: "plan",
+      plan: msg.plan,
+    };
+    const entries = [...prev];
+    let assistantIdx = -1;
+    const lastIdx = entries.length - 1;
+    if (lastIdx >= 0 && entries[lastIdx].role === "assistant") {
+      assistantIdx = lastIdx;
+    }
+
+    if (assistantIdx >= 0) {
+      const assistant = entries[assistantIdx] as AssistantEntry;
+      const blocks = [...assistant.blocks];
+      const planIdx = blocks.findIndex((b) => b.type === "plan");
+      if (planIdx >= 0) {
+        blocks[planIdx] = newBlock;
+      } else {
+        blocks.push(newBlock);
+      }
+      entries[assistantIdx] = { ...assistant, blocks };
+      return entries;
+    }
+
+    return [
+      ...entries,
+      {
+        role: "assistant",
+        blocks: [newBlock],
+        isStreaming: false,
+      },
+    ];
+  }
+
   return prev;
 }
 
@@ -663,6 +711,90 @@ function ToolOrSkillBlock(props: ToolCallBlock) {
   );
 }
 
+function PlanBlockView({ plan }: { plan: import("@/hooks/use-agent-session").AgentPlan }) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  if (!plan || !plan.entries || plan.entries.length === 0) return null;
+
+  const completedCount = plan.entries.filter((e) => e.status === "completed").length;
+  const totalCount = plan.entries.length;
+  const currentIndex = plan.entries.findIndex(
+    (e) => e.status === "in_progress" || e.status === "running"
+  );
+
+  const currentRunningEntry = plan.entries[currentIndex];
+
+  return (
+    <div className="w-full flex-col border border-border/40 bg-[#0d0d0d]/40 rounded-md mt-2 mb-2 flex overflow-hidden shadow-sm">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center gap-2 p-3 hover:bg-muted/10 cursor-pointer transition-colors group">
+            <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+              {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </span>
+            <span className="text-sm font-medium text-foreground/90">Plan</span>
+            <div className="flex-1" />
+            <span className="text-sm text-muted-foreground mr-1">
+              {completedCount}/{totalCount}
+            </span>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="flex flex-col border-t border-border/40">
+            {plan.entries.map((entry, idx) => {
+              const isCompleted = entry.status === "completed";
+              const isRunning = entry.status === "in_progress" || entry.status === "running";
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center gap-3 p-3 px-4 border-b border-border/20 last:border-b-0"
+                >
+                  <div className="shrink-0 flex items-center justify-center w-4 h-4">
+                    {isCompleted ? (
+                      <CircleCheck className="w-4 h-4 text-green-500" />
+                    ) : isRunning ? (
+                      <div className="relative flex items-center justify-center">
+                        <CircleDashed className="w-4 h-4 text-[#3b82f6] animate-[spin_3s_linear_infinite]" />
+                        <div className="absolute w-1.5 h-1.5 bg-[#3b82f6] rounded-full" />
+                      </div>
+                    ) : (
+                      <CircleDashed className="w-4 h-4 text-muted-foreground/40" />
+                    )}
+                  </div>
+                  <span
+                    className={`text-sm flex-1 ${isCompleted
+                      ? "line-through text-muted-foreground/60"
+                      : isRunning
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground/80"
+                      }`}
+                  >
+                    {entry.content}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {!isOpen && currentRunningEntry && (
+        <div className="flex items-center gap-3 p-3 px-4 border-t border-border/40 bg-muted/5 rounded-b-md">
+          <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
+          <span className="text-sm font-medium text-foreground truncate flex-1">
+            <span className="text-muted-foreground mr-1 font-normal">Current:</span>
+            {currentRunningEntry.content}
+          </span>
+          <span className="text-sm text-muted-foreground ml-2 shrink-0">
+            {totalCount - currentIndex} left
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
   return (
     <>
@@ -721,8 +853,12 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
             </Reasoning>
           );
         }
+        if (block.type === "plan") {
+          return <PlanBlockView key={`plan-${i}`} plan={block.plan} />;
+        }
+
         return (
-          <ToolOrSkillBlock key={block.tool_call_id || i} {...block} />
+          <ToolOrSkillBlock key={block.tool_call_id || i} {...block as ToolCallBlock} />
         );
       })}
     </>
@@ -960,6 +1096,9 @@ export function AgentChatPanel() {
     disconnect,
     sessionCwd,
     sessionTitle: activeSessionTitle,
+    configOptions,
+    setConfigOption,
+    setAgentDefaultConfig,
   } = useAgentSession({
     workspaceId,
     projectId,
@@ -1085,6 +1224,51 @@ export function AgentChatPanel() {
     }
   }, [authRequest]);
 
+  const refreshAgents = useCallback(async () => {
+    setLoadingAgents(true);
+    try {
+      const [{ agents }, { agents: customAgents }] = await Promise.all([
+        agentApi.listRegistry(),
+        agentApi.listCustomAgents(),
+      ]);
+      const installed = agents.filter((a) => a.installed);
+      const customAsRegistry: RegistryAgent[] = customAgents.map((c) => ({
+        id: c.name,
+        name: c.name,
+        version: "",
+        description: `${c.command} ${c.args.join(" ")}`,
+        repository: null,
+        icon: null,
+        cli_command: `${c.command} ${c.args.join(" ")}`,
+        install_method: "custom",
+        package: null,
+        installed: true,
+        default_config: c.default_config,
+      }));
+      const allInstalled = [...installed, ...customAsRegistry];
+      setInstalledAgents(allInstalled);
+      if (allInstalled.length > 0) {
+        const storedDefault = readDefaultAgentRegistryId();
+        const hasStoredDefault =
+          !!storedDefault && allInstalled.some((a) => a.id === storedDefault);
+        const resolvedDefault = hasStoredDefault
+          ? (storedDefault as string)
+          : allInstalled[0].id;
+        setDefaultRegistryId(resolvedDefault);
+        if (resolvedDefault !== storedDefault) {
+          writeDefaultAgentRegistryId(resolvedDefault);
+        }
+        const currentIsInstalled = allInstalled.some((a) => a.id === registryId);
+        if (!currentIsInstalled) setRegistryId(resolvedDefault);
+      } else {
+        setDefaultRegistryId("");
+        setRegistryId("");
+      }
+    } finally {
+      setLoadingAgents(false);
+    }
+  }, [registryId]);
+
   useEffect(() => {
     if (!isAgentChatOpen) {
       restoreAttemptedRef.current = false;
@@ -1096,46 +1280,8 @@ export function AgentChatPanel() {
     }
     if (isConnected || isConnecting) return;
     if (installedAgents.length > 0 && registryId) return;
-    setLoadingAgents(true);
-    Promise.all([agentApi.listRegistry(), agentApi.listCustomAgents()])
-      .then(([{ agents }, { agents: customAgents }]) => {
-        const installed = agents.filter((a) => a.installed);
-        const customAsRegistry: RegistryAgent[] = customAgents.map((c) => ({
-          id: c.name,
-          name: c.name,
-          version: "",
-          description: `${c.command} ${c.args.join(" ")}`,
-          repository: null,
-          icon: null,
-          cli_command: `${c.command} ${c.args.join(" ")}`,
-          install_method: "custom",
-          package: null,
-          installed: true,
-        }));
-        const allInstalled = [...installed, ...customAsRegistry];
-        setInstalledAgents(allInstalled);
-        if (allInstalled.length > 0) {
-          const storedDefault = readDefaultAgentRegistryId();
-          const hasStoredDefault = !!storedDefault && allInstalled.some((a) => a.id === storedDefault);
-          const resolvedDefault = hasStoredDefault ? (storedDefault as string) : allInstalled[0].id;
-          setDefaultRegistryId(resolvedDefault);
-          if (resolvedDefault !== storedDefault) {
-            writeDefaultAgentRegistryId(resolvedDefault);
-          }
-          const currentIsInstalled = allInstalled.some((a) => a.id === registryId);
-          if (!currentIsInstalled) setRegistryId(resolvedDefault);
-        } else {
-          setDefaultRegistryId("");
-          setRegistryId("");
-        }
-      })
-      .catch(() => {
-        setInstalledAgents([]);
-        setDefaultRegistryId("");
-        setRegistryId("");
-      })
-      .finally(() => setLoadingAgents(false));
-  }, [isAgentChatOpen, isConnected, isConnecting, installedAgents.length, registryId]);
+    void refreshAgents();
+  }, [isAgentChatOpen, isConnected, isConnecting, installedAgents.length, registryId, refreshAgents]);
 
   useEffect(() => {
     if (
@@ -1398,7 +1544,16 @@ export function AgentChatPanel() {
                     : "translate-y-0 scale-100 opacity-100"
                     }`}
                 >
-                  <Bot className="size-4 shrink-0 text-foreground" />
+                  {isConnected && activeAgent ? (
+                    <AgentIcon
+                      registryId={activeAgent.id}
+                      name={activeAgent.name}
+                      size={16}
+                      isCustom={activeAgent.install_method === "custom"}
+                    />
+                  ) : (
+                    <Bot className="size-4 shrink-0 text-foreground" />
+                  )}
                 </div>
                 <Popover open={newSessionAgentsOpen} onOpenChange={setNewSessionAgentsOpen}>
                   <PopoverTrigger asChild>
@@ -1435,7 +1590,7 @@ export function AgentChatPanel() {
                         return (
                           <div
                             key={agent.id}
-                            className="flex items-center justify-between gap-1 rounded-sm px-1 py-0.5 hover:bg-muted"
+                            className="group flex items-center justify-between gap-1 rounded-sm px-1 py-0.5 hover:bg-muted"
                           >
                             <button
                               type="button"
@@ -1445,33 +1600,37 @@ export function AgentChatPanel() {
                                 void handleCreateNewSession(agent.id);
                               }}
                             >
-                              <AgentIcon registryId={agent.id} name={agent.name} size={14} />
+                              <AgentIcon
+                                registryId={agent.id}
+                                name={agent.name}
+                                size={14}
+                                isCustom={agent.install_method === "custom"}
+                              />
                               <span className="truncate">{agent.name}</span>
                             </button>
-                            {isDefault ? (
-                              <span className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                Default
-                              </span>
-                            ) : (
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSetDefaultAgent(agent.id);
-                                      }}
-                                      aria-label={`Set ${agent.name} as default agent`}
-                                    >
-                                      <SquareCheck className="size-3.5" />
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">Set as default agent</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className={`rounded-sm p-1.5 transition-all ${isDefault
+                                      ? "text-primary opacity-100"
+                                      : "text-muted-foreground/60 opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/5"
+                                      }`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSetDefaultAgent(agent.id);
+                                    }}
+                                    aria-label={isDefault ? "Current default agent" : `Set ${agent.name} as default`}
+                                  >
+                                    <Heart className={`size-3.5 ${isDefault ? "fill-primary" : ""}`} />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="z-100 text-[10px] py-1 px-2">
+                                  {isDefault ? "Default agent" : "Set as default"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         );
                       })}
@@ -1479,7 +1638,11 @@ export function AgentChatPanel() {
                   </PopoverContent>
                 </Popover>
               </div>
-              <span className="text-sm font-medium shrink-0">Agent Chat</span>
+              {isConnected && activeAgent ? (
+                <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
+              ) : (
+                <span className="text-sm font-medium shrink-0">Agent Chat</span>
+              )}
             </div>
 
             {(localPath ?? sessionCwd) && (
@@ -1757,56 +1920,123 @@ export function AgentChatPanel() {
                 </div>
               ) : installedAgents.length === 0 ? (
                 <span className="px-2 text-xs text-muted-foreground">No agent</span>
-              ) : (
-                <div className="flex h-8 items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-2 text-xs text-muted-foreground">
-                  {activeAgent ? (
-                    <>
-                      <AgentIcon registryId={activeAgent.id} name={activeAgent.name} size={14} />
-                      <span className="max-w-[120px] truncate">{activeAgent.name}</span>
-                    </>
-                  ) : (
-                    <span className="max-w-[120px] truncate">Agent</span>
-                  )}
+              ) : null}
+            </PromptInputTools>
+            <div className="flex items-center gap-2">
+              {configOptions?.length > 0 && isConnected && (
+                <div className="flex items-center gap-2">
+                  {['mode', 'model', 'thought_level']
+                    .map(id => configOptions.find(o => o.id === id))
+                    .filter((opt): opt is NonNullable<typeof opt> => Boolean(opt))
+                    .map(opt => (
+                      <div key={opt.id} className="flex items-center gap-1">
+                        <Select value={opt.currentValue || ''} onValueChange={(val) => setConfigOption(opt.id, val)}>
+                          <SelectTrigger className="h-8 text-xs min-w-[100px] border-border/50 bg-muted/20">
+                            <SelectValue placeholder={opt.name || opt.id} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {opt.options.map(o => {
+                              const isDefault = activeAgent?.default_config?.[opt.id] === o.value;
+                              const item = (
+                                <SelectItem key={o.value} value={o.value} className="text-xs group/item pr-14 relative">
+                                  <span className="truncate">{o.name || o.value}</span>
+                                  <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                                    <TooltipProvider delayDuration={0}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div
+                                            className={`cursor-pointer p-1 rounded-sm hover:bg-primary/10 transition-all ${isDefault ? "opacity-100" : "opacity-0 group-hover/item:opacity-100"
+                                              }`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              e.preventDefault();
+                                              setAgentDefaultConfig(opt.id, o.value);
+
+                                              // Optimistically update the UI
+                                              setInstalledAgents(prev => prev.map(a => {
+                                                if (a.id === registryId) {
+                                                  const newDefaults = { ...(a.default_config || {}), [opt.id]: o.value };
+                                                  return { ...a, default_config: newDefaults };
+                                                }
+                                                return a;
+                                              }));
+
+                                              // Still refresh to stay in sync with server
+                                              void refreshAgents();
+                                            }}
+                                          >
+                                            <Heart
+                                              className={`size-3 ${isDefault ? "fill-primary text-primary" : "text-muted-foreground/60"
+                                                }`}
+                                            />
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right" className="z-100 text-[10px] py-1 px-2">
+                                          {isDefault ? "Saved as default" : "Set as default"}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                </SelectItem>
+                              );
+                              if (!o.description) return item;
+                              return (
+                                <TooltipProvider key={o.value} delayDuration={0}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      {item}
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" align="center" className="max-w-[250px] z-100">
+                                      {o.description}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
                 </div>
               )}
-            </PromptInputTools>
-            <PromptInputSubmit
-              status={agentActivity.busy ? "streaming" : undefined}
-              onStop={
-                agentActivity.busy
-                  ? () => {
-                    // Stop receiving output and send cancel to agent
-                    stoppedRef.current = true;
-                    sendCancel();
-                    setWaitingForResponse(false);
-                    // Mark streaming done and any running tool calls as completed
-                    setEntries((prev) => {
-                      const last = prev[prev.length - 1];
-                      if (last?.role === "assistant") {
-                        const updatedBlocks = last.blocks.map((block) =>
-                          block.type === "tool_call" && block.status === "running"
-                            ? { ...block, status: "completed" as const }
-                            : block
-                        );
-                        return [
-                          ...prev.slice(0, -1),
-                          { ...last, isStreaming: false, blocks: updatedBlocks },
-                        ];
-                      }
-                      return prev;
-                    });
-                  }
-                  : undefined
-              }
-              disabled={!isConnected}
-              size={agentActivity.busy ? "sm" : "icon-sm"}
-            >
-              {agentActivity.busy ? (
-                <span className="flex items-center gap-1.5">
-                  <Square className="size-4 shrink-0" />
-                </span>
-              ) : undefined}
-            </PromptInputSubmit>
+              <PromptInputSubmit
+                status={agentActivity.busy ? "streaming" : undefined}
+                onStop={
+                  agentActivity.busy
+                    ? () => {
+                      // Stop receiving output and send cancel to agent
+                      stoppedRef.current = true;
+                      sendCancel();
+                      setWaitingForResponse(false);
+                      // Mark streaming done and any running tool calls as completed
+                      setEntries((prev) => {
+                        const last = prev[prev.length - 1];
+                        if (last?.role === "assistant") {
+                          const updatedBlocks = last.blocks.map((block) =>
+                            block.type === "tool_call" && block.status === "running"
+                              ? { ...block, status: "completed" as const }
+                              : block
+                          );
+                          return [
+                            ...prev.slice(0, -1),
+                            { ...last, isStreaming: false, blocks: updatedBlocks },
+                          ];
+                        }
+                        return prev;
+                      });
+                    }
+                    : undefined
+                }
+                disabled={!isConnected}
+                size={agentActivity.busy ? "sm" : "icon-sm"}
+              >
+                {agentActivity.busy ? (
+                  <span className="flex items-center gap-1.5">
+                    <Square className="size-4 shrink-0" />
+                  </span>
+                ) : undefined}
+              </PromptInputSubmit>
+            </div>
           </PromptInputFooter>
         </PromptInput>
       </div>

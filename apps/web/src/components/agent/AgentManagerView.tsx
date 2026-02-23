@@ -338,7 +338,11 @@ export const AgentManagerView: React.FC = () => {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex items-center gap-3">
           <div className="size-10 rounded-xl border border-border/50 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 group-hover:bg-primary/5 transition-colors">
-            <AgentIcon registryId={item.id} name={item.name} />
+            <AgentIcon
+              registryId={item.id}
+              name={item.name}
+              isCustom={item.install_method === "custom"}
+            />
           </div>
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold text-foreground tracking-tight">{item.name}</h3>
@@ -752,298 +756,298 @@ export const AgentManagerView: React.FC = () => {
         </div>
       </Tabs>
 
-        <Dialog
-          open={!!overwriteDialog}
-          onOpenChange={(open) => {
-            if (!open) {
-              setOverwriteDialog(null);
-              setInstallingRegistryId(null);
-            }
-          }}
-        >
-          <DialogContent showCloseButton={true}>
-            <DialogHeader>
-              <div className="size-10 rounded-full bg-yellow-500/10 flex items-center justify-center mb-2">
-                <AlertCircle className="size-5 text-yellow-600" />
-              </div>
-              <DialogTitle>Overwrite Confirmation</DialogTitle>
-              <DialogDescription className="text-pretty">{overwriteDialog?.message}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setOverwriteDialog(null);
-                  setInstallingRegistryId(null);
-                }}
-                className="cursor-pointer"
-              >
-                Cancel
-              </Button>
-              <Button onClick={() => void handleConfirmOverwrite()} className="cursor-pointer">Continue</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <Dialog
+        open={!!overwriteDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOverwriteDialog(null);
+            setInstallingRegistryId(null);
+          }
+        }}
+      >
+        <DialogContent showCloseButton={true}>
+          <DialogHeader>
+            <div className="size-10 rounded-full bg-yellow-500/10 flex items-center justify-center mb-2">
+              <AlertCircle className="size-5 text-yellow-600" />
+            </div>
+            <DialogTitle>Overwrite Confirmation</DialogTitle>
+            <DialogDescription className="text-pretty">{overwriteDialog?.message}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOverwriteDialog(null);
+                setInstallingRegistryId(null);
+              }}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => void handleConfirmOverwrite()} className="cursor-pointer">Continue</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog
-          open={!!removeConfirmDialog}
-          onOpenChange={(open) => {
-            if (!open) setRemoveConfirmDialog(null);
-          }}
-        >
-          <DialogContent showCloseButton={true}>
-            <DialogHeader>
-              <div className="size-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
-                <Trash2 className="size-5 text-destructive" />
-              </div>
-              <DialogTitle>Uninstall Agent</DialogTitle>
-              <DialogDescription className="text-pretty">
-                Are you sure you want to uninstall <span className="font-semibold text-foreground">{removeConfirmDialog?.name}</span>? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setRemoveConfirmDialog(null)}
-                className="cursor-pointer"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => removeConfirmDialog && handleRemoveRegistry(removeConfirmDialog.registryId)}
-                className="cursor-pointer"
-              >
-                Uninstall
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <Dialog
+        open={!!removeConfirmDialog}
+        onOpenChange={(open) => {
+          if (!open) setRemoveConfirmDialog(null);
+        }}
+      >
+        <DialogContent showCloseButton={true}>
+          <DialogHeader>
+            <div className="size-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+              <Trash2 className="size-5 text-destructive" />
+            </div>
+            <DialogTitle>Uninstall Agent</DialogTitle>
+            <DialogDescription className="text-pretty">
+              Are you sure you want to uninstall <span className="font-semibold text-foreground">{removeConfirmDialog?.name}</span>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRemoveConfirmDialog(null)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => removeConfirmDialog && handleRemoveRegistry(removeConfirmDialog.registryId)}
+              className="cursor-pointer"
+            >
+              Uninstall
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog
-          open={!!removeCustomConfirmDialog}
-          onOpenChange={(open) => {
-            if (!open) setRemoveCustomConfirmDialog(null);
-          }}
-        >
-          <DialogContent showCloseButton={true}>
-            <DialogHeader>
-              <div className="size-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
-                <Trash2 className="size-5 text-destructive" />
-              </div>
-              <DialogTitle>Remove Custom Agent</DialogTitle>
-              <DialogDescription className="text-pretty">
-                Are you sure you want to remove <span className="font-semibold text-foreground">{removeCustomConfirmDialog?.name}</span>? You can add it back later.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setRemoveCustomConfirmDialog(null)}
-                className="cursor-pointer"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => removeCustomConfirmDialog && handleRemoveCustomAgent(removeCustomConfirmDialog.name)}
-                className="cursor-pointer"
-              >
-                Remove
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      <Dialog
+        open={!!removeCustomConfirmDialog}
+        onOpenChange={(open) => {
+          if (!open) setRemoveCustomConfirmDialog(null);
+        }}
+      >
+        <DialogContent showCloseButton={true}>
+          <DialogHeader>
+            <div className="size-10 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+              <Trash2 className="size-5 text-destructive" />
+            </div>
+            <DialogTitle>Remove Custom Agent</DialogTitle>
+            <DialogDescription className="text-pretty">
+              Are you sure you want to remove <span className="font-semibold text-foreground">{removeCustomConfirmDialog?.name}</span>? You can add it back later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRemoveCustomConfirmDialog(null)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => removeCustomConfirmDialog && handleRemoveCustomAgent(removeCustomConfirmDialog.name)}
+              className="cursor-pointer"
+            >
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog
-          open={addCustomDialogOpen}
-          onOpenChange={(open) => {
-            if (!open) {
-              setAddCustomDialogOpen(false);
-              setCustomForm({ name: "", command: "", args: "", env: "" });
-              setCustomEditMode("form");
-              setCustomJsonText("");
-              setCustomJsonError(null);
-            }
-          }}
-        >
-          <DialogContent showCloseButton={true} className="sm:max-w-lg">
-            <DialogHeader>
-              <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-                <Terminal className="size-5 text-primary" />
+      <Dialog
+        open={addCustomDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddCustomDialogOpen(false);
+            setCustomForm({ name: "", command: "", args: "", env: "" });
+            setCustomEditMode("form");
+            setCustomJsonText("");
+            setCustomJsonError(null);
+          }
+        }}
+      >
+        <DialogContent showCloseButton={true} className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <Terminal className="size-5 text-primary" />
+            </div>
+            <DialogTitle>Add Custom Agent</DialogTitle>
+            <DialogDescription className="text-pretty">
+              Add an ACP-compatible agent by filling in the form, or edit the raw JSON directly.
+            </DialogDescription>
+            <p className="text-sm text-muted-foreground">
+              Reference available ACP agents at{" "}
+              <a
+                href="https://agentclientprotocol.com/get-started/agents"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline underline-offset-4"
+              >
+                agentclientprotocol.com/get-started/agents
+              </a>
+            </p>
+          </DialogHeader>
+
+          {customEditMode === "form" ? (
+            <>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Name</label>
+                  <Input
+                    value={customForm.name}
+                    onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder='e.g. "Kiro Agent"'
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Command</label>
+                  <Input
+                    value={customForm.command}
+                    onChange={(e) => setCustomForm((f) => ({ ...f, command: e.target.value }))}
+                    placeholder='e.g. "npx" or "~/.local/bin/kiro-cli"'
+                    className="h-9 font-mono text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Args <span className="text-muted-foreground font-normal">(space-separated or JSON array)</span>
+                  </label>
+                  <Input
+                    value={customForm.args}
+                    onChange={(e) => setCustomForm((f) => ({ ...f, args: e.target.value }))}
+                    placeholder='e.g. acp  or  ["-y", "pi-acp"]'
+                    className="h-9 font-mono text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Env <span className="text-muted-foreground font-normal">(JSON object, optional)</span>
+                  </label>
+                  <Input
+                    value={customForm.env}
+                    onChange={(e) => setCustomForm((f) => ({ ...f, env: e.target.value }))}
+                    placeholder='e.g. {"PI_ACP_STARTUP_INFO": "true"}'
+                    className="h-9 font-mono text-sm"
+                  />
+                </div>
               </div>
-              <DialogTitle>Add Custom Agent</DialogTitle>
-              <DialogDescription className="text-pretty">
-                Add an ACP-compatible agent by filling in the form, or edit the raw JSON directly.
-              </DialogDescription>
-              <p className="text-sm text-muted-foreground">
-                Reference available ACP agents at{" "}
-                <a
-                  href="https://agentclientprotocol.com/get-started/agents"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline underline-offset-4"
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => void handleSwitchToJsonMode()}
+                  disabled={loadingJson}
+                  className="cursor-pointer sm:mr-auto"
                 >
-                  agentclientprotocol.com/get-started/agents
-                </a>
-              </p>
-            </DialogHeader>
-
-            {customEditMode === "form" ? (
-              <>
-                <div className="space-y-4 py-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Name</label>
-                    <Input
-                      value={customForm.name}
-                      onChange={(e) => setCustomForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder='e.g. "Kiro Agent"'
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Command</label>
-                    <Input
-                      value={customForm.command}
-                      onChange={(e) => setCustomForm((f) => ({ ...f, command: e.target.value }))}
-                      placeholder='e.g. "npx" or "~/.local/bin/kiro-cli"'
-                      className="h-9 font-mono text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Args <span className="text-muted-foreground font-normal">(space-separated or JSON array)</span>
-                    </label>
-                    <Input
-                      value={customForm.args}
-                      onChange={(e) => setCustomForm((f) => ({ ...f, args: e.target.value }))}
-                      placeholder='e.g. acp  or  ["-y", "pi-acp"]'
-                      className="h-9 font-mono text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Env <span className="text-muted-foreground font-normal">(JSON object, optional)</span>
-                    </label>
-                    <Input
-                      value={customForm.env}
-                      onChange={(e) => setCustomForm((f) => ({ ...f, env: e.target.value }))}
-                      placeholder='e.g. {"PI_ACP_STARTUP_INFO": "true"}'
-                      className="h-9 font-mono text-sm"
-                    />
-                  </div>
-                </div>
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => void handleSwitchToJsonMode()}
-                    disabled={loadingJson}
-                    className="cursor-pointer sm:mr-auto"
-                  >
-                    {loadingJson ? (
-                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                    ) : (
-                      <FileCode className="mr-1.5 size-3.5" />
-                    )}
-                    Edit JSON
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setAddCustomDialogOpen(false);
-                      setCustomForm({ name: "", command: "", args: "", env: "" });
-                    }}
-                    className="cursor-pointer"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => void handleAddCustomAgent()}
-                    disabled={addingCustom || !customForm.name.trim() || !customForm.command.trim()}
-                    className="cursor-pointer"
-                  >
-                    {addingCustom ? (
-                      <>
-                        <Loader2 className="mr-1 size-3 animate-spin" />
-                        Adding
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-1 size-3.5" />
-                        Add Agent
-                      </>
-                    )}
-                  </Button>
-                </DialogFooter>
-              </>
-            ) : (
-              <>
-                <div className="space-y-3 py-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      custom_agents <span className="text-muted-foreground font-normal">(acp_servers.json)</span>
-                    </label>
-                    <Textarea
-                      value={customJsonText}
-                      onChange={(e) => {
-                        setCustomJsonText(e.target.value);
-                        setCustomJsonError(null);
-                      }}
-                      placeholder='{ "pi": { "type": "custom", "command": "npx", "args": ["-y", "pi-acp"], "env": {} } }'
-                      className="min-h-[260px] font-mono text-sm leading-relaxed resize-y"
-                      spellCheck={false}
-                    />
-                    {customJsonError && (
-                      <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
-                        <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
-                        <p className="text-xs text-destructive break-all">{customJsonError}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setCustomEditMode("form");
+                  {loadingJson ? (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  ) : (
+                    <FileCode className="mr-1.5 size-3.5" />
+                  )}
+                  Edit JSON
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAddCustomDialogOpen(false);
+                    setCustomForm({ name: "", command: "", args: "", env: "" });
+                  }}
+                  className="cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => void handleAddCustomAgent()}
+                  disabled={addingCustom || !customForm.name.trim() || !customForm.command.trim()}
+                  className="cursor-pointer"
+                >
+                  {addingCustom ? (
+                    <>
+                      <Loader2 className="mr-1 size-3 animate-spin" />
+                      Adding
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-1 size-3.5" />
+                      Add Agent
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3 py-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    custom_agents <span className="text-muted-foreground font-normal">(acp_servers.json)</span>
+                  </label>
+                  <Textarea
+                    value={customJsonText}
+                    onChange={(e) => {
+                      setCustomJsonText(e.target.value);
                       setCustomJsonError(null);
                     }}
-                    className="cursor-pointer sm:mr-auto"
-                  >
-                    Back to Form
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setAddCustomDialogOpen(false);
-                      setCustomEditMode("form");
-                      setCustomJsonText("");
-                      setCustomJsonError(null);
-                      setCustomForm({ name: "", command: "", args: "", env: "" });
-                    }}
-                    className="cursor-pointer"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => void handleSaveCustomJson()}
-                    disabled={addingCustom || !customJsonText.trim()}
-                    className="cursor-pointer"
-                  >
-                    {addingCustom ? (
-                      <>
-                        <Loader2 className="mr-1 size-3 animate-spin" />
-                        Saving
-                      </>
-                    ) : (
-                      "Save"
-                    )}
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+                    placeholder='{ "pi": { "type": "custom", "command": "npx", "args": ["-y", "pi-acp"], "env": {} } }'
+                    className="min-h-[260px] font-mono text-sm leading-relaxed resize-y"
+                    spellCheck={false}
+                  />
+                  {customJsonError && (
+                    <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2">
+                      <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+                      <p className="text-xs text-destructive break-all">{customJsonError}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCustomEditMode("form");
+                    setCustomJsonError(null);
+                  }}
+                  className="cursor-pointer sm:mr-auto"
+                >
+                  Back to Form
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAddCustomDialogOpen(false);
+                    setCustomEditMode("form");
+                    setCustomJsonText("");
+                    setCustomJsonError(null);
+                    setCustomForm({ name: "", command: "", args: "", env: "" });
+                  }}
+                  className="cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => void handleSaveCustomJson()}
+                  disabled={addingCustom || !customJsonText.trim()}
+                  className="cursor-pointer"
+                >
+                  {addingCustom ? (
+                    <>
+                      <Loader2 className="mr-1 size-3 animate-spin" />
+                      Saving
+                    </>
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

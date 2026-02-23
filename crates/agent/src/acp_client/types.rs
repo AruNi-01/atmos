@@ -95,3 +95,41 @@ pub enum ToolCallStatus {
     Completed,
     Failed,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentConfigOptionValue {
+    pub value: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentConfigOption {
+    pub id: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub r#type: String,
+    pub current_value: Option<String>,
+    pub options: Vec<AgentConfigOptionValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigOptionsUpdate {
+    pub config_options: Vec<AgentConfigOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentPlanEntry {
+    pub content: String,
+    pub priority: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentPlan {
+    pub entries: Vec<AgentPlanEntry>,
+}

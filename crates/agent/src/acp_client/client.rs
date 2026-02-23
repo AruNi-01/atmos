@@ -83,7 +83,7 @@ use tracing::warn;
 
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
-use crate::acp_client::types::{StreamDelta, ToolCallStatus, ToolCallUpdate};
+use crate::acp_client::types::{StreamDelta, ToolCallStatus, ToolCallUpdate, AgentConfigOption, AgentPlan, AgentPlanEntry};
 
 /// Events sent from ACP session to the session manager (for WebSocket forwarding)
 #[derive(Debug)]
@@ -98,6 +98,8 @@ pub enum AcpSessionEvent {
     },
     TurnEnd,
     SessionEnded,
+    ConfigOptionsUpdate(Vec<AgentConfigOption>),
+    Plan(AgentPlan),
 }
 
 /// Atmos ACP Client - implements the Client trait, routes tool calls to handler
@@ -382,6 +384,28 @@ impl AcpClientTrait for AtmosAcpClient {
                         raw_output: update.fields.raw_output.clone(),
                         detail: None,
                     }));
+            }
+            acp::SessionUpdate::Plan(plan) => {
+                let entries = plan
+                    .entries
+                    .into_iter()
+                    .map(|e| AgentPlanEntry {
+                        content: e.content,
+                        priority: match e.priority {
+                            acp::PlanEntryPriority::High => "high".to_string(),
+                            acp::PlanEntryPriority::Medium => "medium".to_string(),
+                            acp::PlanEntryPriority::Low => "low".to_string(),
+                            _ => "medium".to_string(),
+                        },
+                        status: match e.status {
+                            acp::PlanEntryStatus::Pending => "pending".to_string(),
+                            acp::PlanEntryStatus::InProgress => "in_progress".to_string(),
+                            acp::PlanEntryStatus::Completed => "completed".to_string(),
+                            _ => "pending".to_string(),
+                        },
+                    })
+                    .collect();
+                let _ = self.event_tx.send(AcpSessionEvent::Plan(AgentPlan { entries }));
             }
             _ => {}
         }

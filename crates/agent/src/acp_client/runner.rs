@@ -23,6 +23,7 @@ use super::process::spawn_agent;
 enum SessionCommand {
     Prompt(String),
     Cancel,
+    SetConfigOption(String, String),
 }
 
 /// Handle to an active ACP session - used to send prompts, receive events, and handle permissions
@@ -43,6 +44,10 @@ impl AcpSessionHandle {
     /// Send a session/cancel notification to interrupt the current turn
     pub fn send_cancel(&self) {
         let _ = self.cmd_tx.send(SessionCommand::Cancel);
+    }
+
+    pub fn send_set_config_option(&self, config_id: String, value: String) {
+        let _ = self.cmd_tx.send(SessionCommand::SetConfigOption(config_id, value));
     }
 
     pub async fn recv_event(&mut self) -> Option<AcpSessionEvent> {
@@ -69,6 +74,7 @@ pub async fn run_acp_session(
     env_overrides: Option<std::collections::HashMap<String, String>>,
     resume_session_id: Option<String>,
     auth_method_id: Option<String>,
+    default_config: Option<std::collections::HashMap<String, String>>,
 ) -> Result<AcpSessionHandle, String> {
     let session_id_for_thread = session_id_hint.clone();
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<SessionCommand>();
@@ -101,6 +107,7 @@ pub async fn run_acp_session(
                     event_tx.clone(),
                     permission_tx,
                     Some(ready_tx),
+                    default_config,
                 )
                 .await
                 {
@@ -143,6 +150,7 @@ async fn run_session_inner(
     event_tx: mpsc::UnboundedSender<AcpSessionEvent>,
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
     mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
+    default_config: Option<std::collections::HashMap<String, String>>,
 ) -> Result<(), String> {
     let (stdin, stdout, stderr, mut _child) =
         spawn_agent(&launch_spec, Some(cwd.clone()), env_overrides).map_err(|e| {
@@ -241,8 +249,62 @@ async fn run_session_inner(
                         .load_session(acp::LoadSessionRequest::new(requested.clone(), cwd.clone()))
                         .await
                     {
-                        Ok(_) => {
+                        Ok(response) => {
                             info!("Loaded ACP session: {}", resume_id);
+                            if let Some(opts) = response.config_options {
+                                let mut out = Vec::new();
+                                for opt in opts {
+                                    let (current_value, options_vec) = match opt.kind {
+                                        acp::SessionConfigKind::Select(s) => {
+                                            let current = Some(s.current_value.to_string());
+                                            let mut opts = Vec::new();
+                                            match s.options {
+                                                acp::SessionConfigSelectOptions::Ungrouped(uns) => {
+                                                    for o in uns {
+                                                        opts.push(crate::acp_client::types::AgentConfigOptionValue {
+                                                            value: o.value.to_string(),
+                                                            name: Some(o.name),
+                                                            description: o.description,
+                                                        });
+                                                    }
+                                                }
+                                                acp::SessionConfigSelectOptions::Grouped(gs) => {
+                                                    for g in gs {
+                                                        for o in g.options {
+                                                            opts.push(crate::acp_client::types::AgentConfigOptionValue {
+                                                                value: o.value.to_string(),
+                                                                name: Some(o.name),
+                                                                description: o.description,
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                            (current, opts)
+                                        }
+                                        sc_kind => {
+                                            tracing::warn!("Unsupported config Option kind for config_id {}: {:?}", opt.id, sc_kind);
+                                            (None, Vec::new())
+                                        }
+                                    };
+
+                                    let mapped = crate::acp_client::types::AgentConfigOption {
+                                        id: opt.id.to_string(),
+                                        name: Some(opt.name),
+                                        description: opt.description,
+                                        category: opt.category.map(|c| {
+                                            let json = serde_json::to_value(&c).unwrap_or(serde_json::Value::Null);
+                                            json.as_str().unwrap_or("").to_string()
+                                        }),
+                                        r#type: "select".to_string(),
+                                        current_value,
+                                        options: options_vec,
+                                    };
+                                    out.push(mapped);
+                                }
+                                let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                            }
                             Ok(requested)
                         }
                         Err(e) => {
@@ -253,7 +315,63 @@ async fn run_session_inner(
                 } else {
                     conn.new_session(acp::NewSessionRequest::new(cwd))
                         .await
-                        .map(|response| response.session_id)
+                        .map(|response| {
+                            if let Some(opts) = response.config_options {
+                                let mut out = Vec::new();
+                                for opt in opts {
+                                    let (current_value, options_vec) = match opt.kind {
+                                        acp::SessionConfigKind::Select(s) => {
+                                            let current = Some(s.current_value.to_string());
+                                            let mut opts = Vec::new();
+                                            match s.options {
+                                                acp::SessionConfigSelectOptions::Ungrouped(uns) => {
+                                                    for o in uns {
+                                                        opts.push(crate::acp_client::types::AgentConfigOptionValue {
+                                                            value: o.value.to_string(),
+                                                            name: Some(o.name),
+                                                            description: o.description,
+                                                        });
+                                                    }
+                                                }
+                                                acp::SessionConfigSelectOptions::Grouped(gs) => {
+                                                    for g in gs {
+                                                        for o in g.options {
+                                                            opts.push(crate::acp_client::types::AgentConfigOptionValue {
+                                                                value: o.value.to_string(),
+                                                                name: Some(o.name),
+                                                                description: o.description,
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                            (current, opts)
+                                        }
+                                        sc_kind => {
+                                            tracing::warn!("Unsupported config Option kind for config_id {}: {:?}", opt.id, sc_kind);
+                                            (None, Vec::new())
+                                        }
+                                    };
+
+                                    let mapped = crate::acp_client::types::AgentConfigOption {
+                                        id: opt.id.to_string(),
+                                        name: Some(opt.name),
+                                        description: opt.description,
+                                        category: opt.category.map(|c| {
+                                            let json = serde_json::to_value(&c).unwrap_or(serde_json::Value::Null);
+                                            json.as_str().unwrap_or("").to_string()
+                                        }),
+                                        r#type: "select".to_string(),
+                                        current_value,
+                                        options: options_vec,
+                                    };
+                                    out.push(mapped);
+                                }
+                                let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                            }
+                            response.session_id
+                        })
                 };
 
             let session_id_acp = match create_or_load_result {
@@ -289,6 +407,17 @@ async fn run_session_inner(
                     return Err(msg);
                 }
             };
+
+            // Apply default configurations if any
+            if let Some(defaults) = default_config {
+                for (config_id, value) in defaults {
+                    info!("Applying default config for {}: {}={}", _session_id, config_id, value);
+                    let req = acp::SetSessionConfigOptionRequest::new(session_id_acp.clone(), config_id, value);
+                    if let Err(e) = conn.set_session_config_option(req).await {
+                        warn!("Failed to apply default config for {}: {}", _session_id, e);
+                    }
+                }
+            }
 
             // Some ACP agents replay history via chunk notifications during load_session
             // without an explicit turn-end marker. Emit one synthetic TurnEnd so the UI
@@ -329,6 +458,18 @@ async fn run_session_inner(
                             .await
                         {
                             warn!("Cancel failed: {}", e);
+                        }
+                    }
+                    SessionCommand::SetConfigOption(config_id, value) => {
+                        if let Err(e) = conn
+                            .set_session_config_option(acp::SetSessionConfigOptionRequest::new(
+                                session_id_acp.clone(),
+                                acp::SessionConfigId::new(config_id),
+                                acp::SessionConfigValueId::new(value),
+                            ))
+                            .await
+                        {
+                            warn!("Set config option failed: {}", e);
                         }
                     }
                 }
