@@ -1645,7 +1645,10 @@ export function AgentChatPanel() {
             )}
             <div ref={bottomRef} />
           </ConversationContent>
-          <ConversationScrollButton className="absolute bottom-4 right-4" />
+          <ConversationScrollButton className="absolute right-3 bottom-1 left-auto translate-x-0 z-10 cursor-pointer rounded-sm border-dashed shadow-md dark:bg-background">
+            <ChevronDown className="mr-1 size-4" />
+            Bottom
+          </ConversationScrollButton>
           {userEntryIndices.length >= 2 && (
             <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-0.5 rounded-sm border border-border/50 bg-background/80 py-1 shadow-sm backdrop-blur-sm dark:bg-background/60">
               <button
@@ -1720,7 +1723,7 @@ export function AgentChatPanel() {
         </div>
       )}
 
-      <div className="shrink-0 p-3">
+      <div className="shrink-0 px-3 pb-3 pt-px">
         <PromptInput
           onSubmit={(msg) => handleSubmit({ text: msg.text, files: msg.files })}
           className="w-full"
