@@ -20,6 +20,7 @@ export {
   Command,
   CommandDialog,
   CommandInput,
+  CommandInputWithoutBorder,
   CommandList,
   CommandEmpty,
   CommandGroup,
