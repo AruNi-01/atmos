@@ -210,6 +210,19 @@ pub enum WsAction {
     AgentRegistryInstall,
     /// 从 ACP Registry 卸载 agent
     AgentRegistryRemove,
+
+    /// 列出自定义 ACP agents
+    CustomAgentList,
+    /// 添加自定义 ACP agent
+    CustomAgentAdd,
+    /// 删除自定义 ACP agent
+    CustomAgentRemove,
+    /// 获取自定义 agents 的原始 JSON（用于手动编辑）
+    CustomAgentGetJson,
+    /// 设置自定义 agents 的原始 JSON（保存手动编辑）
+    CustomAgentSetJson,
+    /// 获取 acp_servers.json 文件路径
+    CustomAgentGetManifestPath,
 }
 
 /// 服务端主动推送的事件类型
@@ -808,6 +821,26 @@ pub struct AgentRegistryRemoveRequest {
 pub struct AgentRegistryListRequest {
     #[serde(default)]
     pub force_refresh: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomAgentAddRequest {
+    pub name: String,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomAgentRemoveRequest {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomAgentSetJsonRequest {
+    pub json: String,
 }
 
 // ===== WsMessage 工厂方法 =====

@@ -162,8 +162,8 @@ impl AgentManager {
         let mut manifest = load_install_manifest().unwrap_or_default();
 
         // Remove entries that no longer exist: binary file deleted, or npx package uninstalled
-        let before = manifest.entries.len();
-        manifest.entries.retain(|e| {
+        let before = manifest.registry.len();
+        manifest.registry.retain(|e| {
             if e.install_method == "binary" {
                 e.binary_path
                     .as_ref()
@@ -190,12 +190,12 @@ impl AgentManager {
                 true
             }
         });
-        if manifest.entries.len() != before {
+        if manifest.registry.len() != before {
             let _ = save_install_manifest(&manifest);
         }
 
         let installed_registry_ids: HashSet<String> = manifest
-            .entries
+            .registry
             .iter()
             .filter(|e| {
                 if e.install_method == "npx" {
@@ -256,7 +256,7 @@ impl AgentManager {
                 // Get installed version from manifest
                 let installed_version = if is_installed {
                     manifest
-                        .entries
+                        .registry
                         .iter()
                         .find(|e| e.registry_id == id && e.install_method == "binary")
                         .and_then(|e| e.installed_version.clone())
@@ -331,7 +331,7 @@ impl AgentManager {
         let mut uninstalled_old_package = None;
         let manifest = load_install_manifest().unwrap_or_default();
         let new_package_name = normalize_npm_package_name(&npx.package);
-        if let Some(old_entry) = manifest.entries.iter().find(|e| e.registry_id == registry_id && e.install_method == "npx") {
+        if let Some(old_entry) = manifest.registry.iter().find(|e| e.registry_id == registry_id && e.install_method == "npx") {
             if let Some(ref old_package) = old_entry.npm_package {
                 if old_package != &new_package_name {
                     // Package name changed, uninstall the old one first
@@ -407,7 +407,7 @@ impl AgentManager {
         // Load manifest first to get the stored npm_package (handles registry package name changes)
         let manifest = load_install_manifest().unwrap_or_default();
         let manifest_entry = manifest
-            .entries
+            .registry
             .iter()
             .find(|e| e.registry_id == registry_id && e.install_method == "npx");
 
@@ -436,7 +436,7 @@ impl AgentManager {
 
         let mut manifest = load_install_manifest().unwrap_or_default();
         manifest
-            .entries
+            .registry
             .retain(|e| !(e.registry_id == registry_id && e.install_method == "npx"));
         let _ = save_install_manifest(&manifest);
 
@@ -484,7 +484,7 @@ impl AgentManager {
     ) -> Result<AgentLaunchSpec> {
         let manifest = load_install_manifest()?;
         let m_entry = manifest
-            .entries
+            .registry
             .iter()
             .find(|e| e.registry_id == registry_id)
             .ok_or_else(|| AgentError::NotFound(format!("installed agent: {}", registry_id)))?;
@@ -533,6 +533,92 @@ impl AgentManager {
             "unknown install_method: {}",
             m_entry.install_method
         )))
+    }
+
+    /// List all custom agents from the install manifest.
+    pub fn list_custom_agents(&self) -> Result<Vec<crate::models::CustomAgent>> {
+        let manifest = load_install_manifest()?;
+        Ok(manifest
+            .custom_agents
+            .into_iter()
+            .map(|(name, entry)| crate::models::CustomAgent {
+                name,
+                agent_type: entry.agent_type,
+                command: entry.command,
+                args: entry.args,
+                env: entry.env,
+            })
+            .collect())
+    }
+
+    /// Add or update a custom agent.
+    pub fn add_custom_agent(&self, agent: &crate::models::CustomAgent) -> Result<()> {
+        let mut manifest = load_install_manifest()?;
+        manifest.custom_agents.insert(
+            agent.name.clone(),
+            CustomAgentEntry {
+                agent_type: "custom".to_string(),
+                command: agent.command.clone(),
+                args: agent.args.clone(),
+                env: agent.env.clone(),
+            },
+        );
+        save_install_manifest(&manifest)
+    }
+
+    /// Remove a custom agent by name.
+    pub fn remove_custom_agent(&self, name: &str) -> Result<()> {
+        let mut manifest = load_install_manifest()?;
+        manifest.custom_agents.remove(name);
+        save_install_manifest(&manifest)
+    }
+
+    /// Get launch spec for a custom agent.
+    pub fn get_custom_agent_launch_spec(&self, name: &str) -> Result<AgentLaunchSpec> {
+        let manifest = load_install_manifest()?;
+        let entry = manifest
+            .custom_agents
+            .get(name)
+            .ok_or_else(|| AgentError::NotFound(format!("custom agent: {}", name)))?;
+        let program = if entry.command.starts_with("~/") {
+            let home = dirs::home_dir()
+                .ok_or_else(|| AgentError::Command("cannot resolve home directory".to_string()))?;
+            home.join(&entry.command[2..]).to_string_lossy().to_string()
+        } else {
+            entry.command.clone()
+        };
+        Ok(AgentLaunchSpec {
+            program,
+            args: entry.args.clone(),
+            env: if entry.env.is_empty() {
+                None
+            } else {
+                Some(entry.env.clone())
+            },
+        })
+    }
+
+    /// Get the absolute path to the acp_servers.json manifest file.
+    pub fn get_manifest_path(&self) -> Result<String> {
+        manifest_path().map(|p| p.to_string_lossy().to_string())
+    }
+
+    /// Get the raw custom_agents section as a JSON string for manual editing.
+    pub fn get_custom_agents_json(&self) -> Result<String> {
+        let manifest = load_install_manifest()?;
+        serde_json::to_string_pretty(&manifest.custom_agents)
+            .map_err(|e| AgentError::Command(format!("failed to serialize custom_agents: {}", e)))
+    }
+
+    /// Set custom_agents from a raw JSON string. Validates the JSON before saving.
+    pub fn set_custom_agents_json(&self, json_str: &str) -> Result<()> {
+        let parsed: std::collections::HashMap<String, CustomAgentEntry> =
+            serde_json::from_str(json_str).map_err(|e| {
+                AgentError::Command(format!("invalid custom_agents JSON: {}", e))
+            })?;
+        let mut manifest = load_install_manifest()?;
+        manifest.custom_agents = parsed;
+        save_install_manifest(&manifest)
     }
 
     pub fn get_agent_config(&self, id: AgentId) -> Result<AgentConfigState> {
@@ -738,7 +824,7 @@ impl AgentManager {
     ) -> Result<RegistryInstallResult> {
         let mut manifest = load_install_manifest().unwrap_or_default();
         let pos = manifest
-            .entries
+            .registry
             .iter()
             .position(|e| e.registry_id == registry_id && e.install_method == "binary")
             .ok_or_else(|| {
@@ -748,7 +834,7 @@ impl AgentManager {
                 ))
             })?;
 
-        let entry = manifest.entries.remove(pos);
+        let entry = manifest.registry.remove(pos);
         let path = entry
             .binary_path
             .as_ref()
@@ -1006,7 +1092,11 @@ fn npx_command_preview(spec: &RegistryPackageDistribution) -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct InstallManifest {
-    entries: Vec<ManifestEntry>,
+    #[serde(alias = "entries")]
+    registry: Vec<ManifestEntry>,
+    /// User-defined custom ACP agents keyed by name.
+    #[serde(default)]
+    custom_agents: std::collections::HashMap<String, CustomAgentEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1024,6 +1114,19 @@ struct ManifestEntry {
     /// The version currently installed (if detectable); used for upgrade detection.
     #[serde(default)]
     installed_version: Option<String>,
+}
+
+/// Persisted custom agent entry within the install manifest.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CustomAgentEntry {
+    /// Fixed to "custom".
+    #[serde(rename = "type")]
+    pub agent_type: String,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1082,14 +1185,14 @@ fn save_install_manifest(manifest: &InstallManifest) -> Result<()> {
 
 fn upsert_manifest_entry(manifest: &mut InstallManifest, entry: ManifestEntry) {
     if let Some(existing) = manifest
-        .entries
+        .registry
         .iter_mut()
         .find(|e| e.registry_id == entry.registry_id && e.install_method == entry.install_method)
     {
         *existing = entry;
         return;
     }
-    manifest.entries.push(entry);
+    manifest.registry.push(entry);
 }
 
 fn sanitize_registry_id(id: &str) -> String {

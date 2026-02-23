@@ -1095,20 +1095,32 @@ export function AgentChatPanel() {
     if (isConnected || isConnecting) return;
     if (installedAgents.length > 0 && registryId) return;
     setLoadingAgents(true);
-    agentApi
-      .listRegistry()
-      .then(({ agents }) => {
+    Promise.all([agentApi.listRegistry(), agentApi.listCustomAgents()])
+      .then(([{ agents }, { agents: customAgents }]) => {
         const installed = agents.filter((a) => a.installed);
-        setInstalledAgents(installed);
-        if (installed.length > 0) {
+        const customAsRegistry: RegistryAgent[] = customAgents.map((c) => ({
+          id: c.name,
+          name: c.name,
+          version: "",
+          description: `${c.command} ${c.args.join(" ")}`,
+          repository: null,
+          icon: null,
+          cli_command: `${c.command} ${c.args.join(" ")}`,
+          install_method: "custom",
+          package: null,
+          installed: true,
+        }));
+        const allInstalled = [...installed, ...customAsRegistry];
+        setInstalledAgents(allInstalled);
+        if (allInstalled.length > 0) {
           const storedDefault = readDefaultAgentRegistryId();
-          const hasStoredDefault = !!storedDefault && installed.some((a) => a.id === storedDefault);
-          const resolvedDefault = hasStoredDefault ? (storedDefault as string) : installed[0].id;
+          const hasStoredDefault = !!storedDefault && allInstalled.some((a) => a.id === storedDefault);
+          const resolvedDefault = hasStoredDefault ? (storedDefault as string) : allInstalled[0].id;
           setDefaultRegistryId(resolvedDefault);
           if (resolvedDefault !== storedDefault) {
             writeDefaultAgentRegistryId(resolvedDefault);
           }
-          const currentIsInstalled = installed.some((a) => a.id === registryId);
+          const currentIsInstalled = allInstalled.some((a) => a.id === registryId);
           if (!currentIsInstalled) setRegistryId(resolvedDefault);
         } else {
           setDefaultRegistryId("");
