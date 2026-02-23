@@ -35,15 +35,21 @@ export const AgentIcon: React.FC<{
   registryId: string;
   name: string;
   size?: number;
-}> = ({ registryId, name, size = 18 }) => {
+  isCustom?: boolean;
+}> = ({ registryId, name, size = 18, isCustom = false }) => {
+  const isLikelyCustom = React.useMemo(
+    () => isCustom || registryId.includes(" ") || registryId.includes("%20"),
+    [isCustom, registryId]
+  );
+
   const candidates = React.useMemo(
-    () => getAgentIconCandidates(registryId),
-    [registryId]
+    () => (isLikelyCustom ? [] : getAgentIconCandidates(registryId)),
+    [registryId, isLikelyCustom]
   );
   const [idx, setIdx] = React.useState(0);
   const invertedTheme = shouldInvertTheme(registryId);
 
-  if (idx >= candidates.length) {
+  if (isLikelyCustom || idx >= candidates.length) {
     return (
       <Bot
         className="text-muted-foreground shrink-0"

@@ -27,6 +27,15 @@ enum AgentClientMessage {
         remember_for_session: bool,
     },
     Cancel,
+    SetConfigOption {
+        config_id: String,
+        value: String,
+    },
+    SetAgentDefaultConfig {
+        config_id: String,
+        value: String,
+        registry_id: String,
+    },
 }
 
 /// Command from main loop to bridge task
@@ -34,6 +43,7 @@ enum AgentCommand {
     Prompt(String),
     PermissionResponse { request_id: String, allowed: bool },
     Cancel,
+    SetConfigOption(String, String),
 }
 
 /// Server -> Client message
@@ -69,6 +79,13 @@ enum AgentServerMessage {
     PhaseUpdate {
         phase: String,
     },
+    ConfigOptionsUpdate {
+        #[serde(rename = "configOptions")]
+        config_options: Vec<agent::acp_client::types::AgentConfigOption>,
+    },
+    PlanUpdate {
+        plan: agent::acp_client::types::AgentPlan,
+    },
 }
 
 fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
@@ -101,6 +118,12 @@ fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
         }),
         AcpSessionEvent::TurnEnd => Some(AgentServerMessage::TurnEnd),
         AcpSessionEvent::SessionEnded => Some(AgentServerMessage::SessionEnded),
+        AcpSessionEvent::ConfigOptionsUpdate(opts) => {
+            Some(AgentServerMessage::ConfigOptionsUpdate {
+                config_options: opts,
+            })
+        }
+        AcpSessionEvent::Plan(plan) => Some(AgentServerMessage::PlanUpdate { plan }),
     }
 }
 
@@ -294,6 +317,7 @@ async fn run_bridge(
                         }
                     }
                     Some(AgentCommand::Cancel) => handle.send_cancel(),
+                    Some(AgentCommand::SetConfigOption(config_id, value)) => handle.send_set_config_option(config_id, value),
                     None => break,
                 },
                 ev = handle.recv_event() => match ev {
@@ -345,6 +369,29 @@ async fn run_bridge(
                     }
                     AgentClientMessage::Cancel => {
                         let _ = cmd_tx_clone.send(AgentCommand::Cancel);
+                    }
+                    AgentClientMessage::SetConfigOption { config_id, value } => {
+                        let _ = cmd_tx_clone.send(AgentCommand::SetConfigOption(config_id, value));
+                    }
+                    AgentClientMessage::SetAgentDefaultConfig {
+                        config_id,
+                        value,
+                        registry_id,
+                    } => {
+                        info!("Received set_agent_default_config: {}/{}={}", registry_id, config_id, value);
+                        if let Err(e) = state
+                            .agent_service
+                            .set_agent_default_config(&registry_id, &config_id, &value)
+                        {
+                            warn!("Failed to set agent default config: {}", e);
+                            if let Ok(json) = serde_json::to_string(&AgentServerMessage::Error {
+                                code: "SET_DEFAULT_CONFIG_FAILED".to_string(),
+                                message: format!("Failed to save default config: {}", e),
+                                recoverable: true,
+                            }) {
+                                let _ = ws_tx.send(json);
+                            }
+                        }
                     }
                 }
             }

@@ -88,6 +88,7 @@ pub struct LazySessionSpec {
     pub env_overrides: Option<std::collections::HashMap<String, String>>,
     pub resume_session_id: Option<String>,
     pub auth_method_id: Option<String>,
+    pub default_config: Option<std::collections::HashMap<String, String>>,
 }
 
 /// Manages active Agent chat sessions
@@ -135,6 +136,8 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_env_overrides(registry_id);
 
+        let default_config = self.agent_service.get_agent_default_config(registry_id);
+
         let session_id_hint = uuid::Uuid::new_v4().to_string();
         let allow_file_access = workspace_id.is_some();
         let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
@@ -151,6 +154,7 @@ impl AgentSessionService {
             env_overrides,
             None,
             auth_method_id,
+            default_config,
         )
         .await
         .map_err(|e| crate::ServiceError::Processing(e))?;
@@ -212,6 +216,8 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_env_overrides(registry_id);
 
+        let default_config = self.agent_service.get_agent_default_config(registry_id);
+
         let session_id = uuid::Uuid::new_v4().to_string();
         let allow_file_access = workspace_id.is_some();
         let cwd_str = cwd.to_string_lossy().to_string();
@@ -224,6 +230,7 @@ impl AgentSessionService {
             env_overrides,
             resume_session_id: None,
             auth_method_id,
+            default_config,
         };
         self.pending_sessions
             .write()
@@ -284,6 +291,8 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_env_overrides(&model.registry_id);
 
+        let default_config = self.agent_service.get_agent_default_config(&model.registry_id);
+
         let spec = LazySessionSpec {
             session_id: model.guid.clone(),
             launch_spec,
@@ -297,6 +306,7 @@ impl AgentSessionService {
                     .unwrap_or_else(|| model.guid.clone()),
             ),
             auth_method_id: None,
+            default_config,
         };
         self.pending_sessions
             .write()
@@ -333,6 +343,7 @@ impl AgentSessionService {
             spec.env_overrides,
             spec.resume_session_id,
             spec.auth_method_id,
+            spec.default_config,
         )
         .await?;
 
@@ -371,6 +382,8 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_env_overrides(&model.registry_id);
 
+        let default_config = self.agent_service.get_agent_default_config(&model.registry_id);
+
         let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
             fs_engine: FsEngine::new(),
             allow_file_access: model.allow_file_access,
@@ -389,6 +402,7 @@ impl AgentSessionService {
                     .unwrap_or_else(|| model.guid.clone()),
             ),
             None,
+            default_config,
         )
         .await
         .map_err(|e| crate::ServiceError::Processing(e))?;

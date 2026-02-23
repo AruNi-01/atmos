@@ -126,11 +126,29 @@ impl AgentService {
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))
     }
 
+    pub fn set_agent_default_config(
+        &self,
+        registry_id: &str,
+        config_id: &str,
+        value: &str,
+    ) -> Result<()> {
+        self.manager
+            .set_agent_default_config(registry_id, config_id, value)
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
     /// Get env overrides (API key from keyring) for spawning a registry agent.
     pub fn get_registry_agent_env_overrides(
         &self,
         registry_id: &str,
     ) -> Option<std::collections::HashMap<String, String>> {
         self.manager.get_registry_agent_env_overrides(registry_id)
+    }
+
+    pub fn get_agent_default_config(
+        &self,
+        registry_id: &str,
+    ) -> Option<std::collections::HashMap<String, String>> {
+        self.manager.get_agent_default_config(registry_id)
     }
 }

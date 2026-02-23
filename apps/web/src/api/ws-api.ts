@@ -675,6 +675,7 @@ export interface RegistryAgent {
   installed: boolean;
   /** The version currently installed (if installed). May differ from `version` which is the latest. */
   installed_version?: string;
+  default_config?: Record<string, string>;
 }
 
 export interface CustomAgent {
@@ -683,6 +684,7 @@ export interface CustomAgent {
   command: string;
   args: string[];
   env: Record<string, string>;
+  default_config?: Record<string, string>;
 }
 
 export interface RegistryInstallResponse {

@@ -1474,6 +1474,7 @@ set -x
             command: req.command,
             args: req.args,
             env: req.env,
+            default_config: None,
         };
         self.agent_service.add_custom_agent(&agent)?;
         Ok(json!({ "success": true }))

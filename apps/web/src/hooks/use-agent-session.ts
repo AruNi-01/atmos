@@ -51,7 +51,41 @@ export type AgentServerMessage =
   | { type: "error"; code: string; message: string; recoverable: boolean }
   | { type: "turn_end" }
   | { type: "session_ended" }
-  | { type: "phase_update"; phase: string };
+  | { type: "phase_update"; phase: string }
+  | {
+      type: "config_options_update";
+      configOptions: AgentConfigOption[];
+    }
+  | {
+      type: "plan_update";
+      plan: AgentPlan;
+    };
+
+export interface AgentPlanEntry {
+  content: string;
+  priority: string;
+  status: string;
+}
+
+export interface AgentPlan {
+  entries: AgentPlanEntry[];
+}
+
+export interface AgentConfigOptionValue {
+  value: string;
+  name?: string;
+  description?: string;
+}
+
+export interface AgentConfigOption {
+  id: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  type: "select" | string;
+  currentValue?: string;
+  options: AgentConfigOptionValue[];
+}
 
 export interface UseAgentSessionOptions {
   workspaceId: string | null;
@@ -91,6 +125,9 @@ export interface UseAgentSessionReturn {
   resumeSession: (sessionId: string) => Promise<boolean>;
   clearAuthRequest: () => void;
   disconnect: () => void;
+  configOptions: AgentConfigOption[];
+  setConfigOption: (id: string, value: string) => void;
+  setAgentDefaultConfig: (configId: string, value: string) => void;
 }
 
 function parseAuthRequiredError(err: unknown): AgentAuthRequiredPayload | null {
@@ -140,6 +177,7 @@ export function useAgentSession({
   const [connectionPhase, setConnectionPhase] = useState<AgentConnectionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [authRequest, setAuthRequest] = useState<AgentAuthRequiredPayload | null>(null);
+  const [configOptions, setConfigOptions] = useState<AgentConfigOption[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const onMessageRef = useRef(onMessage);
 
@@ -189,6 +227,39 @@ export function useAgentSession({
     []
   );
 
+  const setConfigOption = useCallback(
+    (configId: string, value: string) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({ type: "set_config_option", config_id: configId, value })
+        );
+      }
+      // Optimistically update local state so UI responds immediately
+      setConfigOptions(prevOpts => 
+        prevOpts.map(opt => 
+          opt.id === configId ? { ...opt, currentValue: value } : opt
+        )
+      );
+    },
+    []
+  );
+
+  const setAgentDefaultConfig = useCallback(
+    (configId: string, value: string) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: "set_agent_default_config",
+            config_id: configId,
+            value,
+            registry_id: registryId,
+          })
+        );
+      }
+    },
+    [registryId]
+  );
+
   const disconnect = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.close();
@@ -201,6 +272,7 @@ export function useAgentSession({
     setConnectionPhase("idle");
     setError(null);
     setAuthRequest(null);
+    setConfigOptions([]);
   }, []);
 
   const startSession = useCallback(
@@ -209,6 +281,7 @@ export function useAgentSession({
       setConnectionPhase(override?.authMethodId ? "authenticating" : "initializing");
       setError(null);
       setAuthRequest(null);
+      setConfigOptions([]);
       const w = override?.workspaceId ?? workspaceId;
       const p = override?.projectId ?? projectId;
       const r = override?.registryId ?? registryId;
@@ -254,6 +327,14 @@ export function useAgentSession({
                 setError(null);
                 setAuthRequest(null);
                 onConnected?.();
+              }
+              return;
+            }
+            if (msg.type === "config_options_update") {
+              // Order them if necessary, but the agent provides the configOptions
+              // We'll trust the agent's array
+              if (Array.isArray(msg.configOptions)) {
+                setConfigOptions(msg.configOptions);
               }
               return;
             }
@@ -321,6 +402,7 @@ export function useAgentSession({
       setConnectionPhase("resuming_session");
       setError(null);
       setAuthRequest(null);
+      setConfigOptions([]);
       try {
         const res = await agentApi.resumeSession(sessionIdToResume);
         const sid = res.session_id;
@@ -358,6 +440,12 @@ export function useAgentSession({
                 setIsConnected(true);
                 setError(null);
                 onConnected?.();
+              }
+              return;
+            }
+            if (msg.type === "config_options_update") {
+              if (Array.isArray(msg.configOptions)) {
+                setConfigOptions(msg.configOptions);
               }
               return;
             }
@@ -434,5 +522,8 @@ export function useAgentSession({
     resumeSession,
     clearAuthRequest: () => setAuthRequest(null),
     disconnect,
+    configOptions,
+    setConfigOption,
+    setAgentDefaultConfig,
   };
 }

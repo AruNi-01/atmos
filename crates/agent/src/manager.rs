@@ -237,6 +237,15 @@ impl AgentManager {
                 } else {
                     None
                 };
+                let default_config = if is_installed {
+                    manifest
+                        .registry
+                        .iter()
+                        .find(|e| e.registry_id == id && e.install_method == "npx")
+                        .and_then(|e| e.default_config.clone())
+                } else {
+                    None
+                };
                 out.push(RegistryAgent {
                     id,
                     name: agent.name,
@@ -249,19 +258,23 @@ impl AgentManager {
                     package: Some(npx.package.clone()),
                     installed: is_installed,
                     installed_version,
+                    default_config,
                 });
             } else if agent.distribution.binary.is_some() {
                 let id = agent.id.clone();
                 let is_installed = installed_registry_ids.contains(&agent.id);
                 // Get installed version from manifest
-                let installed_version = if is_installed {
-                    manifest
+                let (installed_version, default_config) = if is_installed {
+                    let e = manifest
                         .registry
                         .iter()
-                        .find(|e| e.registry_id == id && e.install_method == "binary")
-                        .and_then(|e| e.installed_version.clone())
+                        .find(|e| e.registry_id == id && e.install_method == "binary");
+                    (
+                        e.and_then(|e| e.installed_version.clone()),
+                        e.and_then(|e| e.default_config.clone()),
+                    )
                 } else {
-                    None
+                    (None, None)
                 };
                 out.push(RegistryAgent {
                     id,
@@ -275,6 +288,7 @@ impl AgentManager {
                     package: None,
                     installed: is_installed,
                     installed_version,
+                    default_config,
                 });
             }
         }
@@ -368,6 +382,10 @@ impl AgentManager {
                 .and_then(|pkgs| pkgs.get(&new_package_name).cloned());
 
             let mut manifest = load_install_manifest().unwrap_or_default();
+            let existing_default = manifest.registry.iter()
+                .find(|e| e.registry_id == registry_id && e.install_method == "npx")
+                .and_then(|e| e.default_config.clone());
+
             upsert_manifest_entry(
                 &mut manifest,
                 ManifestEntry {
@@ -376,6 +394,7 @@ impl AgentManager {
                     binary_path: None,
                     npm_package: Some(new_package_name),
                     installed_version,
+                    default_config: existing_default,
                 },
             );
             let _ = save_install_manifest(&manifest);
@@ -547,13 +566,83 @@ impl AgentManager {
                 command: entry.command,
                 args: entry.args,
                 env: entry.env,
+                default_config: entry.default_config,
             })
             .collect())
+    }
+
+    pub fn set_agent_default_config(
+        &self,
+        registry_id: &str,
+        config_id: &str,
+        value: &str,
+    ) -> Result<()> {
+        let path = manifest_path()?;
+        let mut manifest = load_install_manifest()?;
+        tracing::info!("Attempting to set default config in {}: {}/{}={}", path.display(), registry_id, config_id, value);
+
+        // Try registry agents first
+        if let Some(entry) = manifest.registry.iter_mut().find(|e| e.registry_id == registry_id) {
+            let mut defaults = entry.default_config.clone().unwrap_or_default();
+            defaults.insert(config_id.to_string(), value.to_string());
+            entry.default_config = Some(defaults);
+            tracing::info!("Successfully updated registry agent default config");
+            return save_install_manifest(&manifest);
+        }
+
+        // Try custom agents (exact match or normalized match)
+        let found_custom = manifest.custom_agents.contains_key(registry_id);
+        if found_custom {
+            if let Some(entry) = manifest.custom_agents.get_mut(registry_id) {
+                let mut defaults = entry.default_config.clone().unwrap_or_default();
+                defaults.insert(config_id.to_string(), value.to_string());
+                entry.default_config = Some(defaults);
+                tracing::info!("Successfully updated custom agent default config via exact match");
+                return save_install_manifest(&manifest);
+            }
+        }
+
+        // Fallback for custom agents: try case-insensitive or name match if registry_id is from UI
+        let mut found_by_name = None;
+        for (name, _) in manifest.custom_agents.iter() {
+            if name.to_lowercase() == registry_id.to_lowercase() {
+                found_by_name = Some(name.clone());
+                break;
+            }
+        }
+
+        if let Some(name) = found_by_name {
+            if let Some(entry) = manifest.custom_agents.get_mut(&name) {
+                let mut defaults = entry.default_config.clone().unwrap_or_default();
+                defaults.insert(config_id.to_string(), value.to_string());
+                entry.default_config = Some(defaults);
+                tracing::info!("Successfully updated custom agent default config via case-insensitive match: {}", name);
+                return save_install_manifest(&manifest);
+            }
+        }
+
+        tracing::warn!("Agent '{}' not found in manifest at {}", registry_id, path.display());
+        Err(AgentError::NotFound(format!("agent not found: {}", registry_id)))
+    }
+
+    pub fn get_agent_default_config(&self, registry_id: &str) -> Option<std::collections::HashMap<String, String>> {
+        let manifest = load_install_manifest().ok()?;
+
+        if let Some(entry) = manifest.registry.iter().find(|e| e.registry_id == registry_id) {
+            return entry.default_config.clone();
+        }
+
+        if let Some(entry) = manifest.custom_agents.get(registry_id) {
+            return entry.default_config.clone();
+        }
+
+        None
     }
 
     /// Add or update a custom agent.
     pub fn add_custom_agent(&self, agent: &crate::models::CustomAgent) -> Result<()> {
         let mut manifest = load_install_manifest()?;
+        let existing_default = manifest.custom_agents.get(&agent.name).and_then(|e| e.default_config.clone());
         manifest.custom_agents.insert(
             agent.name.clone(),
             CustomAgentEntry {
@@ -561,6 +650,7 @@ impl AgentManager {
                 command: agent.command.clone(),
                 args: agent.args.clone(),
                 env: agent.env.clone(),
+                default_config: agent.default_config.clone().or(existing_default),
             },
         );
         save_install_manifest(&manifest)
@@ -790,6 +880,10 @@ impl AgentManager {
         let installed_version = detect_binary_version(&target_path).await;
 
         let mut manifest = load_install_manifest().unwrap_or_default();
+        let existing_default = manifest.registry.iter()
+            .find(|e| e.registry_id == registry_id && e.install_method == "binary")
+            .and_then(|e| e.default_config.clone());
+            
         let bin_path_str = target_path.to_string_lossy().to_string();
         upsert_manifest_entry(
             &mut manifest,
@@ -799,6 +893,7 @@ impl AgentManager {
                 binary_path: Some(bin_path_str),
                 npm_package: None,
                 installed_version,
+                default_config: existing_default,
             },
         );
         save_install_manifest(&manifest)?;
@@ -1114,6 +1209,8 @@ struct ManifestEntry {
     /// The version currently installed (if detectable); used for upgrade detection.
     #[serde(default)]
     installed_version: Option<String>,
+    #[serde(default)]
+    pub default_config: Option<std::collections::HashMap<String, String>>,
 }
 
 /// Persisted custom agent entry within the install manifest.
@@ -1127,6 +1224,8 @@ struct CustomAgentEntry {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub default_config: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -1189,7 +1288,12 @@ fn upsert_manifest_entry(manifest: &mut InstallManifest, entry: ManifestEntry) {
         .iter_mut()
         .find(|e| e.registry_id == entry.registry_id && e.install_method == entry.install_method)
     {
+        let mut entry = entry;
+        let default_config = entry.default_config.take().or(existing.default_config.take());
+        let installed_version = entry.installed_version.take().or(existing.installed_version.take());
         *existing = entry;
+        existing.default_config = default_config;
+        existing.installed_version = installed_version;
         return;
     }
     manifest.registry.push(entry);
