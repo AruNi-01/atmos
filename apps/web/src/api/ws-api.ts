@@ -677,6 +677,14 @@ export interface RegistryAgent {
   installed_version?: string;
 }
 
+export interface CustomAgent {
+  name: string;
+  type: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+}
+
 export interface RegistryInstallResponse {
   registry_id: string;
   installed: boolean;
@@ -757,5 +765,34 @@ export const agentApi = {
     return wsRequest<RegistryInstallResponse>('agent_registry_remove', {
       registry_id: registryId,
     });
+  },
+
+  listCustomAgents: async (): Promise<{ agents: CustomAgent[] }> => {
+    return wsRequest<{ agents: CustomAgent[] }>('custom_agent_list');
+  },
+
+  addCustomAgent: async (agent: {
+    name: string;
+    command: string;
+    args: string[];
+    env: Record<string, string>;
+  }): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('custom_agent_add', agent);
+  },
+
+  removeCustomAgent: async (name: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('custom_agent_remove', { name });
+  },
+
+  getCustomAgentsJson: async (): Promise<{ json: string }> => {
+    return wsRequest<{ json: string }>('custom_agent_get_json');
+  },
+
+  setCustomAgentsJson: async (json: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('custom_agent_set_json', { json });
+  },
+
+  getManifestPath: async (): Promise<{ path: string }> => {
+    return wsRequest<{ path: string }>('custom_agent_get_manifest_path');
   },
 };

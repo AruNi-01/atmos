@@ -9,6 +9,6 @@ pub use acp_client::{
 };
 pub use manager::AgentManager;
 pub use models::{
-    AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentStatus, KnownAgent,
-    RegistryAgent, RegistryInstallResult,
+    AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentStatus, CustomAgent,
+    KnownAgent, RegistryAgent, RegistryInstallResult,
 };

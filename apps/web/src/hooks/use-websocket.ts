@@ -72,7 +72,14 @@ export type WsAction =
   | 'agent_config_set'
   | 'agent_registry_list'
   | 'agent_registry_install'
-  | 'agent_registry_remove';
+  | 'agent_registry_remove'
+  // Custom Agent 操作
+  | 'custom_agent_list'
+  | 'custom_agent_add'
+  | 'custom_agent_remove'
+  | 'custom_agent_get_json'
+  | 'custom_agent_set_json'
+  | 'custom_agent_get_manifest_path';
 
 export interface WsRequest {
   type: 'request';

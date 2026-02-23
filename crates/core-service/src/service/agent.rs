@@ -1,6 +1,6 @@
 use agent::{
     AgentConfigState, AgentId, AgentInstallResult, AgentLaunchSpec, AgentManager, AgentStatus,
-    RegistryAgent, RegistryInstallResult,
+    CustomAgent, RegistryAgent, RegistryInstallResult,
 };
 
 use crate::error::Result;
@@ -81,6 +81,48 @@ impl AgentService {
         self.manager
             .get_registry_agent_launch_spec(registry_id)
             .await
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    pub fn list_custom_agents(&self) -> Result<Vec<CustomAgent>> {
+        self.manager
+            .list_custom_agents()
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    pub fn add_custom_agent(&self, agent: &CustomAgent) -> Result<()> {
+        self.manager
+            .add_custom_agent(agent)
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    pub fn remove_custom_agent(&self, name: &str) -> Result<()> {
+        self.manager
+            .remove_custom_agent(name)
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    pub fn get_custom_agent_launch_spec(&self, name: &str) -> Result<AgentLaunchSpec> {
+        self.manager
+            .get_custom_agent_launch_spec(name)
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    pub fn get_manifest_path(&self) -> Result<String> {
+        self.manager
+            .get_manifest_path()
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    pub fn get_custom_agents_json(&self) -> Result<String> {
+        self.manager
+            .get_custom_agents_json()
+            .map_err(|e| crate::ServiceError::Processing(e.to_string()))
+    }
+
+    pub fn set_custom_agents_json(&self, json_str: &str) -> Result<()> {
+        self.manager
+            .set_custom_agents_json(json_str)
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))
     }
 

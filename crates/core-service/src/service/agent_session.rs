@@ -128,6 +128,7 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_launch_spec(registry_id)
             .await
+            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(registry_id))
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
 
         let env_overrides = self
@@ -204,6 +205,7 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_launch_spec(registry_id)
             .await
+            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(registry_id))
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
 
         let env_overrides = self
@@ -276,6 +278,7 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_launch_spec(&model.registry_id)
             .await
+            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(&model.registry_id))
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
         let env_overrides = self
             .agent_service
@@ -362,6 +365,7 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_launch_spec(&model.registry_id)
             .await
+            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(&model.registry_id))
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
         let env_overrides = self
             .agent_service

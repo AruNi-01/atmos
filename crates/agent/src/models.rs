@@ -71,6 +71,24 @@ pub struct AgentLaunchSpec {
     pub env: Option<std::collections::HashMap<String, String>>,
 }
 
+/// A custom ACP agent added manually by the user.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomAgent {
+    /// Display name (e.g. "Kiro Agent", "pi").
+    pub name: String,
+    /// Fixed to "custom".
+    #[serde(rename = "type")]
+    pub agent_type: String,
+    /// Program to execute (e.g. "npx", "~/.local/bin/kiro-cli").
+    pub command: String,
+    /// Arguments (e.g. ["acp"], ["-y", "pi-acp"]).
+    #[serde(default)]
+    pub args: Vec<String>,
+    /// Environment variables.
+    #[serde(default)]
+    pub env: std::collections::HashMap<String, String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistryInstallResult {
     pub registry_id: String,

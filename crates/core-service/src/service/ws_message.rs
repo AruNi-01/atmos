@@ -5,12 +5,13 @@
 
 use std::sync::Arc;
 
-use agent::AgentId;
+use agent::{AgentId, CustomAgent};
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
-    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, FsListDirRequest, FsListProjectFilesRequest,
+    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CustomAgentAddRequest,
+    CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsListDirRequest, FsListProjectFilesRequest,
     FsReadFileRequest, FsSearchContentRequest, FsValidateGitPathRequest, FsWriteFileRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
     GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitGetCommitCountRequest,
@@ -243,6 +244,23 @@ impl WsMessageService {
             WsAction::AgentRegistryRemove => {
                 self.handle_agent_registry_remove(parse_request(request.data)?)
                     .await
+            }
+            WsAction::CustomAgentList => self.handle_custom_agent_list().await,
+            WsAction::CustomAgentAdd => {
+                self.handle_custom_agent_add(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::CustomAgentRemove => {
+                self.handle_custom_agent_remove(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::CustomAgentGetJson => self.handle_custom_agent_get_json().await,
+            WsAction::CustomAgentSetJson => {
+                self.handle_custom_agent_set_json(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::CustomAgentGetManifestPath => {
+                self.handle_custom_agent_get_manifest_path().await
             }
         }
     }
@@ -1442,6 +1460,43 @@ set -x
             .remove_registry_agent(&req.registry_id)
             .await?;
         Ok(json!(result))
+    }
+
+    async fn handle_custom_agent_list(&self) -> Result<Value> {
+        let agents = self.agent_service.list_custom_agents()?;
+        Ok(json!({ "agents": agents }))
+    }
+
+    async fn handle_custom_agent_add(&self, req: CustomAgentAddRequest) -> Result<Value> {
+        let agent = CustomAgent {
+            name: req.name,
+            agent_type: "custom".to_string(),
+            command: req.command,
+            args: req.args,
+            env: req.env,
+        };
+        self.agent_service.add_custom_agent(&agent)?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_custom_agent_remove(&self, req: CustomAgentRemoveRequest) -> Result<Value> {
+        self.agent_service.remove_custom_agent(&req.name)?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_custom_agent_get_json(&self) -> Result<Value> {
+        let json = self.agent_service.get_custom_agents_json()?;
+        Ok(json!({ "json": json }))
+    }
+
+    async fn handle_custom_agent_set_json(&self, req: CustomAgentSetJsonRequest) -> Result<Value> {
+        self.agent_service.set_custom_agents_json(&req.json)?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_custom_agent_get_manifest_path(&self) -> Result<Value> {
+        let path = self.agent_service.get_manifest_path()?;
+        Ok(json!({ "path": path }))
     }
 
     /// Recursively copy directory. Symlinks are preserved with their target path unchanged;
