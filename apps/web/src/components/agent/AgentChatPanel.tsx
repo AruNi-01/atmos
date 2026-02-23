@@ -882,6 +882,7 @@ export function AgentChatPanel() {
   const { projects, fetchProjects } = useProjectStore();
   const restoreAttemptedRef = useRef(false);
   const autoResumeTriedRef = useRef<string | null>(null);
+  const autoStartHandledRef = useRef(false);
   const stoppedRef = useRef(false);
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1088,6 +1089,7 @@ export function AgentChatPanel() {
     if (!isAgentChatOpen) {
       restoreAttemptedRef.current = false;
       skipNextAutoConnectRef.current = false;
+      autoStartHandledRef.current = false;
       setIsResumingHistory(false);
       autoResumeTriedRef.current = null;
       return;
@@ -1151,6 +1153,7 @@ export function AgentChatPanel() {
         if (autoResumeTriedRef.current === sessionId) return;
         autoResumeTriedRef.current = sessionId;
         setIsResumedSession(true);
+        autoStartHandledRef.current = true;
         void resumeSession(sessionId);
         return;
       }
@@ -1161,15 +1164,23 @@ export function AgentChatPanel() {
           if (autoResumeTriedRef.current === lastSessionId) return;
           autoResumeTriedRef.current = lastSessionId;
           setIsResumedSession(true);
+          autoStartHandledRef.current = true;
           void (async () => {
-            await resumeSession(lastSessionId);
+            const success = await resumeSession(lastSessionId);
+            if (!success) {
+              setIsResumedSession(false);
+              clearLastSessionIdForContext(contextKey);
+            }
           })();
           return;
         }
       }
-      autoResumeTriedRef.current = null;
-      setIsResumedSession(false);
-      startSession();
+      if (!autoStartHandledRef.current) {
+        autoStartHandledRef.current = true;
+        autoResumeTriedRef.current = null;
+        setIsResumedSession(false);
+        startSession();
+      }
     }
   }, [
     contextKey,
@@ -1723,7 +1734,7 @@ export function AgentChatPanel() {
         </div>
       )}
 
-      <div className="shrink-0 px-3 pb-3 pt-px">
+      <div className="shrink-0 px-3 pb-3 pt-px select-none">
         <PromptInput
           onSubmit={(msg) => handleSubmit({ text: msg.text, files: msg.files })}
           className="w-full"
