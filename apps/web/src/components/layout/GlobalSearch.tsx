@@ -36,6 +36,7 @@ import {
   Terminal,
   Blocks,
   toastManager,
+  CommandInputWithoutBorder,
 } from '@workspace/ui';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -663,12 +664,12 @@ export function GlobalSearch() {
   };
 
   return (
-    <CommandDialog open={isGlobalSearchOpen} onOpenChange={setGlobalSearchOpen} shouldFilter={false} value={selectedValue} onValueChange={setSelectedValue}>
+    <CommandDialog showCloseButton={false} open={isGlobalSearchOpen} onOpenChange={setGlobalSearchOpen} shouldFilter={false} value={selectedValue} onValueChange={setSelectedValue}>
       <CodePreviewTooltip />
       {/* Tab Navigation */}
       <div className="px-1">
         <Tabs value={globalSearchTab} onValueChange={(v) => setGlobalSearchTab(v as SearchTab)} className="w-full h-full">
-          <TabsList variant="underline" className="h-12 w-full flex border-b-2 border-border">
+          <TabsList variant="underline" className="h-12 w-full flex border-b border-border">
             <TabsTab value="app" className="h-full flex-1 text-[12px] gap-2 font-semibold transition-all">
               <Layers className="size-3.5" />
               <span>App</span>
@@ -685,14 +686,14 @@ export function GlobalSearch() {
         </Tabs>
       </div>
 
-      <CommandInput
+      <CommandInputWithoutBorder
         placeholder="Search for apps, files, or code..."
         value={searchQuery}
         onValueChange={setSearchQuery}
         className="text-base"
       />
 
-      <CommandList className="bg-muted/50 dark:bg-black/60 rounded-t-[20px] mt-1 pt-2 shadow-inner/5">
+      <CommandList className="bg-muted/50 dark:bg-black/60 rounded-t-[20px] pt-1 shadow-inner/5">
         {/* App Search Tab */}
         {globalSearchTab === 'app' && (
           <>
