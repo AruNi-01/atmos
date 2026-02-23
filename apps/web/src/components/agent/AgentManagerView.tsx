@@ -876,6 +876,17 @@ export const AgentManagerView: React.FC = () => {
               <DialogDescription className="text-pretty">
                 Add an ACP-compatible agent by filling in the form, or edit the raw JSON directly.
               </DialogDescription>
+              <p className="text-sm text-muted-foreground">
+                Reference available ACP agents at{" "}
+                <a
+                  href="https://agentclientprotocol.com/get-started/agents"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline underline-offset-4"
+                >
+                  agentclientprotocol.com/get-started/agents
+                </a>
+              </p>
             </DialogHeader>
 
             {customEditMode === "form" ? (
