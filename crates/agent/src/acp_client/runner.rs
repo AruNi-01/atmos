@@ -5,8 +5,10 @@ use std::sync::Arc;
 use std::thread;
 
 use agent_client_protocol::{self as acp, Agent};
+use tokio::io::AsyncReadExt;
 use tokio::runtime::Builder;
 use tokio::sync::{mpsc, oneshot};
+use tokio::time::{timeout, Duration};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
@@ -142,8 +144,25 @@ async fn run_session_inner(
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
     mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
 ) -> Result<(), String> {
-    let (stdin, stdout, mut _child) = spawn_agent(&launch_spec, Some(cwd.clone()), env_overrides)
-        .map_err(|e| format!("Failed to spawn agent: {}", e))?;
+    let (stdin, stdout, stderr, mut _child) =
+        spawn_agent(&launch_spec, Some(cwd.clone()), env_overrides).map_err(|e| {
+            let msg = format!("Failed to spawn agent: {}", e);
+            if let Some(tx) = ready_tx.take() {
+                let _ = tx.send(Err(msg.clone()));
+            }
+            msg
+        })?;
+
+    // Collect stderr in background. When the agent exits (pipe closes), send
+    // the collected output via a oneshot so the main task can await it.
+    let (stderr_tx, stderr_rx) = oneshot::channel::<String>();
+    tokio::spawn(async move {
+        let mut buf = Vec::new();
+        let mut stderr = stderr;
+        let _ = stderr.read_to_end(&mut buf).await;
+        let text = String::from_utf8_lossy(&buf).trim().to_string();
+        let _ = stderr_tx.send(text);
+    });
 
     let client = AtmosAcpClient::new(handler, cwd.clone(), permission_tx, event_tx.clone());
 
@@ -163,13 +182,35 @@ async fn run_session_inner(
 
             tokio::task::spawn_local(handle_io);
 
-            let init_response = conn
+            // Use match instead of map_err so we can async-await stderr on failure.
+            let init_response = match conn
                 .initialize(
                     acp::InitializeRequest::new(acp::ProtocolVersion::V1)
                         .client_info(acp::Implementation::new("atmos", "0.1.0").title("ATMOS")),
                 )
                 .await
-                .map_err(|e| format!("Initialize failed: {}", e))?;
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    // Wait up to 1 s for the agent process to flush its stderr so we
+                    // can show the real error (e.g. "You are not logged in") instead of
+                    // the generic protocol-level message.
+                    let stderr_text = timeout(Duration::from_secs(1), stderr_rx)
+                        .await
+                        .ok()
+                        .and_then(|r| r.ok())
+                        .filter(|s| !s.is_empty());
+                    let msg = if let Some(stderr) = stderr_text {
+                        format!("Agent error: {}", stderr)
+                    } else {
+                        format!("Initialize failed: {}", e)
+                    };
+                    if let Some(tx) = ready_tx.take() {
+                        let _ = tx.send(Err(msg.clone()));
+                    }
+                    return Err(msg);
+                }
+            };
 
             let auth_methods: Vec<AuthMethodSummary> = init_response
                 .auth_methods
@@ -184,7 +225,13 @@ async fn run_session_inner(
             if let Some(method_id) = auth_method_id {
                 conn.authenticate(acp::AuthenticateRequest::new(method_id))
                     .await
-                    .map_err(|e| format!("Authenticate failed: {}", e))?;
+                    .map_err(|e| {
+                        let msg = format!("Authenticate failed: {}", e);
+                        if let Some(tx) = ready_tx.take() {
+                            let _ = tx.send(Err(msg.clone()));
+                        }
+                        msg
+                    })?;
             }
 
             let create_or_load_result: acp::Result<acp::SessionId> =
