@@ -19,6 +19,9 @@ interface DialogStore {
 
   isAgentChatOpen: boolean;
   setAgentChatOpen: (open: boolean) => void;
+
+  isCodeReviewDialogOpen: boolean;
+  setCodeReviewDialogOpen: (open: boolean) => void;
 }
 
 export const useDialogStore = create<DialogStore>((set) => ({
@@ -38,4 +41,7 @@ export const useDialogStore = create<DialogStore>((set) => ({
 
   isAgentChatOpen: false,
   setAgentChatOpen: (open) => set({ isAgentChatOpen: open }),
+
+  isCodeReviewDialogOpen: false,
+  setCodeReviewDialogOpen: (open) => set({ isCodeReviewDialogOpen: open }),
 }));

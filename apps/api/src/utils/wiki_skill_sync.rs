@@ -1,4 +1,4 @@
-//! Sync project-wiki and project-wiki-update skills to ~/.atmos/skills/.system/ on startup.
+//! Sync all system skills (wiki + code review) to ~/.atmos/skills/.system/ on startup.
 //! 1. Copy from project root if running from ATMOS source (symlinks are preserved; project-wiki is synced first)
 //! 2. Otherwise clone from GitHub when target does not exist
 
@@ -6,6 +6,19 @@ use std::path::Path;
 use tracing::{info, warn};
 
 const GITHUB_REPO: &str = "https://github.com/AruNi-01/atmos.git";
+
+/// All system skills that should be synced to ~/.atmos/skills/.system/ on startup.
+/// Includes wiki skills and code review skills.
+const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
+    // Wiki skills
+    "project-wiki",
+    "project-wiki-update",
+    "project-wiki-specify",
+    // Code review skills
+    "code-reviewer",
+    "code-review-expert",
+    "typescript-react-reviewer",
+];
 
 /// Recursively copy directory. Symlinks are preserved with their target path unchanged;
 /// since project-wiki is synced first, relative symlinks (e.g. ../project-wiki/references) resolve correctly.
@@ -40,9 +53,8 @@ fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Clone atmos repo from GitHub and copy wiki skills to ~/.atmos/skills/.system/.
-/// Copies project-wiki, project-wiki-update, and project-wiki-specify.
-/// Returns true if at least project-wiki was synced.
+/// Clone atmos repo from GitHub and copy specified skills to ~/.atmos/skills/.system/.
+/// Returns true if at least one skill was synced.
 fn clone_and_sync_all_wiki_skills(system_dir: &Path, skills_to_sync: &[&str]) -> bool {
     let temp_dir = std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
     if std::fs::create_dir_all(&temp_dir).is_err() {
@@ -97,12 +109,6 @@ fn clone_and_sync_all_wiki_skills(system_dir: &Path, skills_to_sync: &[&str]) ->
     any_ok
 }
 
-const WIKI_SKILL_NAMES: &[&str] = &[
-    "project-wiki",
-    "project-wiki-update",
-    "project-wiki-specify",
-];
-
 /// Check if a skill directory is valid (has SKILL.md). Empty dirs are considered invalid.
 fn skill_dir_is_valid(skill_path: &Path) -> bool {
     skill_path.join("SKILL.md").exists()
@@ -137,7 +143,7 @@ fn sync_skill_from_project(skill_name: &str, system_dir: &Path, project_root: &P
                 skill_name,
                 target_dir.to_string_lossy()
             );
-            return true;
+            true
         }
         Err(e) => {
             warn!(
@@ -148,7 +154,7 @@ fn sync_skill_from_project(skill_name: &str, system_dir: &Path, project_root: &P
                 e,
                 e.kind()
             );
-            return false;
+            false
         }
     }
 }
@@ -171,10 +177,10 @@ fn resolve_project_root() -> std::path::PathBuf {
     std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf())
 }
 
-/// Ensure project-wiki, project-wiki-update, and project-wiki-specify skills exist in ~/.atmos/skills/.system/.
+/// Ensure all system skills (wiki + code review) exist in ~/.atmos/skills/.system/.
 /// 1. If target exists and valid, no-op
-/// 2. Copy from project root when running from ATMOS source (uses CARGO_MANIFEST_DIR to find skills/)
-/// 3. For any still missing: clone from GitHub and copy all three
+/// 2. Copy from project root when running from ATMOS source
+/// 3. For any still missing: clone from GitHub and copy
 pub fn sync_project_wiki_skill_on_startup() {
     let home = match dirs::home_dir() {
         Some(h) => h,
@@ -190,18 +196,18 @@ pub fn sync_project_wiki_skill_on_startup() {
     let skills_path = project_root.join("skills");
     if !skills_path.exists() {
         warn!(
-            "Project skills dir not found at {}, using current_dir fallback - wiki sync may be incomplete",
+            "Project skills dir not found at {}, using current_dir fallback - skill sync may be incomplete",
             skills_path.display()
         );
     }
 
-    // 1. Try copy from project root for each skill
-    for skill_name in WIKI_SKILL_NAMES {
+    // 1. Try copy from project root for each skill (wiki + code review)
+    for skill_name in ALL_SYSTEM_SKILL_NAMES {
         sync_skill_from_project(skill_name, &system_dir, &project_root);
     }
 
-    // 2. For any still missing or invalid (empty), clone from GitHub and copy all
-    let missing: Vec<&str> = WIKI_SKILL_NAMES
+    // 2. For any still missing or invalid (empty), clone from GitHub and copy
+    let missing: Vec<&str> = ALL_SYSTEM_SKILL_NAMES
         .iter()
         .filter(|name| {
             let path = system_dir.join(*name);

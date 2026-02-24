@@ -32,7 +32,7 @@ import { useProjectStore } from "@/hooks/use-project-store";
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
 
-type TerminalGridScope = "default" | "project-wiki";
+type TerminalGridScope = "default" | "project-wiki" | "code-review";
 
 /** Control which toolbar action buttons to show. Omitted or true = show, false = hide. */
 export interface TerminalToolbarActions {
@@ -76,6 +76,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
 
   const isProjectWiki = scope === "project-wiki";
+  const isCodeReview = scope === "code-review";
   const actions = { ...DEFAULT_TOOLBAR_ACTIONS, ...toolbarActions };
 
   const {
@@ -103,12 +104,40 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     toggleProjectWikiMaximize,
     isProjectWikiReady,
     projectWikiMaximizedIds,
+    getCodeReviewPanes,
+    getCodeReviewLayout,
+    setCodeReviewLayout,
+    addCodeReviewTerminal,
+    removeCodeReviewTerminal,
+    splitCodeReviewTerminal,
+    initCodeReviewWorkspace,
+    getCodeReviewPaneIdByTmuxWindowName,
+    setCodeReviewDynamicTitle,
+    toggleCodeReviewMaximize,
+    isCodeReviewReady,
+    codeReviewMaximizedIds,
   } = useTerminalStore();
 
-  const panes = isProjectWiki ? getProjectWikiPanes(workspaceId) : getPanes(workspaceId);
-  const layout = isProjectWiki ? getProjectWikiLayout(workspaceId) : getLayout(workspaceId);
-  const workspaceReady = isProjectWiki ? isProjectWikiReady(workspaceId) : isWorkspaceReady(workspaceId);
-  const maximizedIds = isProjectWiki ? projectWikiMaximizedIds : workspaceMaximizedIds;
+  const panes = isCodeReview
+    ? getCodeReviewPanes(workspaceId)
+    : isProjectWiki
+    ? getProjectWikiPanes(workspaceId)
+    : getPanes(workspaceId);
+  const layout = isCodeReview
+    ? getCodeReviewLayout(workspaceId)
+    : isProjectWiki
+    ? getProjectWikiLayout(workspaceId)
+    : getLayout(workspaceId);
+  const workspaceReady = isCodeReview
+    ? isCodeReviewReady(workspaceId)
+    : isProjectWiki
+    ? isProjectWikiReady(workspaceId)
+    : isWorkspaceReady(workspaceId);
+  const maximizedIds = isCodeReview
+    ? codeReviewMaximizedIds
+    : isProjectWiki
+    ? projectWikiMaximizedIds
+    : workspaceMaximizedIds;
 
   const { projects, isLoading: isProjectsLoading } = useProjectStore();
 
@@ -138,21 +167,31 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   useEffect(() => {
     if (workspaceExists) {
-      if (isProjectWiki) {
+      if (isCodeReview) {
+        initCodeReviewWorkspace(workspaceId);
+      } else if (isProjectWiki) {
         initProjectWikiWorkspace(workspaceId);
       } else {
         initWorkspace(workspaceId);
       }
     }
-  }, [workspaceId, workspaceExists, initWorkspace, initProjectWikiWorkspace, isProjectWiki]);
+  }, [workspaceId, workspaceExists, initWorkspace, initProjectWikiWorkspace, initCodeReviewWorkspace, isProjectWiki, isCodeReview]);
 
   const hasPanes = Object.keys(panes).length > 0;
 
-  const getPaneId = isProjectWiki ? getProjectWikiPaneIdByTmuxWindowName : getPaneIdByTmuxWindowName;
-  const addTerminal = isProjectWiki
+  const getPaneId = isCodeReview
+    ? getCodeReviewPaneIdByTmuxWindowName
+    : isProjectWiki
+    ? getProjectWikiPaneIdByTmuxWindowName
+    : getPaneIdByTmuxWindowName;
+  const addTerminal = isCodeReview
+    ? (title?: string) => addCodeReviewTerminal(workspaceId, title)
+    : isProjectWiki
     ? (title?: string) => addProjectWikiTerminal(workspaceId, title)
     : (title?: string) => addTerminalToStore(workspaceId, title);
-  const removeTerminalFromScope = isProjectWiki
+  const removeTerminalFromScope = isCodeReview
+    ? (id: string) => removeCodeReviewTerminal(workspaceId, id)
+    : isProjectWiki
     ? (id: string) => removeProjectWikiTerminal(workspaceId, id)
     : (id: string) => removeTerminalFromStore(workspaceId, id);
 
@@ -189,10 +228,26 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     },
   }), [workspaceId, addTerminal, getPaneId, removeTerminalFromScope]);
 
-  const setLayoutForScope = isProjectWiki ? setProjectWikiLayout : setLayout;
-  const splitTerminalForScope = isProjectWiki ? splitProjectWikiTerminal : splitTerminalInStore;
-  const toggleMaximizeForScope = isProjectWiki ? toggleProjectWikiMaximize : toggleMaximize;
-  const setDynamicTitleForScope = isProjectWiki ? setProjectWikiDynamicTitle : setDynamicTitle;
+  const setLayoutForScope = isCodeReview
+    ? setCodeReviewLayout
+    : isProjectWiki
+    ? setProjectWikiLayout
+    : setLayout;
+  const splitTerminalForScope = isCodeReview
+    ? splitCodeReviewTerminal
+    : isProjectWiki
+    ? splitProjectWikiTerminal
+    : splitTerminalInStore;
+  const toggleMaximizeForScope = isCodeReview
+    ? toggleCodeReviewMaximize
+    : isProjectWiki
+    ? toggleProjectWikiMaximize
+    : toggleMaximize;
+  const setDynamicTitleForScope = isCodeReview
+    ? setCodeReviewDynamicTitle
+    : isProjectWiki
+    ? setProjectWikiDynamicTitle
+    : setDynamicTitle;
 
   const onChange = useCallback((newLayout: MosaicNode<string> | null) => {
     setLayoutForScope(workspaceId, newLayout);
