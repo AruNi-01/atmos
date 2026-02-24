@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { useContextParams } from "@/hooks/use-context-params";
 import { GitChangedFile } from '@/api/ws-api';
 import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
+import { useDialogStore } from "@/hooks/use-dialog-store";
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -223,6 +224,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const { currentProjectPath } = useEditorStore();
   const { projects } = useProjectStore();
+  const { setCodeReviewDialogOpen } = useDialogStore();
 
   const currentProject = projects.find(p =>
     (workspaceId && p.workspaces.some(w => w.id === workspaceId)) ||
@@ -439,7 +441,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-48">
-                    <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
+                    <DropdownMenuItem onClick={() => setCodeReviewDialogOpen(true)}>
                       <Bot className="size-3 mr-2" />
                       <span>Code Agent Review</span>
                     </DropdownMenuItem>
