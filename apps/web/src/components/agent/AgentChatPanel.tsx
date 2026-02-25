@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "streamdown/styles.css";
+import { motion, AnimatePresence } from "framer-motion";
 import { PatchDiff, MultiFileDiff } from "@pierre/diffs/react";
 import type { FileContents } from "@pierre/diffs";
 import { useTheme } from "next-themes";
@@ -780,12 +781,25 @@ function PlanBlockView({ plan }: { plan: import("@/hooks/use-agent-session").Age
       </Collapsible>
 
       {!isOpen && currentRunningEntry && (
-        <div className="flex items-center gap-3 p-3 px-4 border-t border-border/40 bg-muted/5 rounded-b-md">
+        <div className="flex items-center gap-3 p-3 px-4 border-t border-border/40 bg-muted/5 rounded-b-md overflow-hidden">
           <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
-          <span className="text-sm font-medium text-foreground truncate flex-1">
-            <span className="text-muted-foreground mr-1 font-normal">Current:</span>
-            {currentRunningEntry.content}
-          </span>
+          <div className="flex flex-1 items-center h-5 relative overflow-hidden">
+            <span className="text-sm text-muted-foreground mr-1 font-normal shrink-0">Current:</span>
+            <div className="flex-1 relative h-full overflow-hidden">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key={currentIndex}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -20, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  className="absolute inset-0 text-sm font-medium text-foreground truncate"
+                >
+                  {currentRunningEntry.content}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
           <span className="text-sm text-muted-foreground ml-2 shrink-0">
             {totalCount - currentIndex} left
           </span>
