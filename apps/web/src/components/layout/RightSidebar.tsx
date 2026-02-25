@@ -46,6 +46,10 @@ import { useContextParams } from "@/hooks/use-context-params";
 import { GitChangedFile } from '@/api/ws-api';
 import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useGitInfoStore } from '@/hooks/use-git-info-store';
+import { PRPanel } from '@/components/github/PRPanel';
+import { PRDetailModal } from '@/components/github/PRDetailModal';
+import { CIBadge } from '@/components/github/CIBadge';
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -264,6 +268,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("changes");
+  const [changesView, setChangesView] = useState<'changes' | 'pr'>('changes');
+  const [activePrNumber, setActivePrNumber] = useState<number | null>(null);
+
+  const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
 
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -412,12 +420,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       <Tabs defaultValue="changes" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
         {/* Tabs Header */}
         <div className="h-10 flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm">
-          <TabsList variant="underline" className="w-full h-full gap-0 items-stretch !py-0">
-            <TabsTab value="changes" className="flex-1 !h-full text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none !border-0">
+          <TabsList variant="underline" className="w-full h-full gap-0 items-stretch py-0!">
+            <TabsTab value="changes" className="flex-1 h-full! text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!">
               <GitBranch className="size-3.5" />
               <span>Changes</span>
             </TabsTab>
-            <TabsTab value="run-preview" className="flex-1 !h-full text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none !border-0">
+            <TabsTab value="run-preview" className="flex-1 h-full! text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!">
               <Play className="size-3.5" />
               <span>Run/Preview</span>
             </TabsTab>
@@ -429,62 +437,120 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           <div className="flex border-b border-sidebar-border shrink-0 bg-sidebar-accent/5 h-10 overflow-hidden">
             {hasWorkingContext && (
               <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="flex-1 flex items-center justify-center gap-1.5 transition-colors group cursor-pointer border-r border-sidebar-border/50 hover:bg-sidebar-accent text-muted-foreground hover:text-foreground"
-                      title="Agent Review"
-                    >
-                      <Bot className="size-3.5" />
-                      <span className="text-[11px] font-medium">Review</span>
-                      <ChevronDown className="size-3 opacity-50 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48">
-                    <DropdownMenuItem onClick={() => setCodeReviewDialogOpen(true)}>
-                      <Bot className="size-3 mr-2" />
-                      <span>Code Agent Review</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
-                      <Link className="size-3 mr-2" />
-                      <span>Qodo</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
-                      <Link className="size-3 mr-2" />
-                      <span>Devin Review</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <button
-                  className="flex-1 flex items-center justify-center gap-1.5 transition-colors group cursor-pointer border-r border-sidebar-border/50 hover:bg-sidebar-accent text-muted-foreground hover:text-foreground"
-                  title="Create PR"
+                {/* Changes Toggle */}
+                <div
+                  className={cn(
+                    "flex-1 flex items-center justify-center transition-colors group relative cursor-pointer border-r border-sidebar-border/50",
+                    changesView === 'changes' ? "text-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  )}
+                  onClick={() => {
+                    if (changesView === 'pr') {
+                      setChangesView('changes');
+                    }
+                  }}
                 >
-                  <GitPullRequestCreateArrow className="size-3.5" />
-                  <span className="text-[11px] font-medium">Create PR</span>
+                  {/* Default State (Changes Icon/Text) */}
+                  <div className={cn(
+                    "flex items-center gap-1.5 justify-center transition-opacity duration-200",
+                    (changesView === 'changes') ? "group-hover:opacity-0" : "opacity-100"
+                  )}>
+                    <GitBranch className="size-3.5" />
+                    <span className="text-[11px] font-medium">Changes</span>
+                  </div>
+
+                  {/* Hover State (Refresh + Review) */}
+                  {(changesView === 'changes') && (
+                    <div className="absolute inset-0 flex opacity-0 group-hover:opacity-100 transition-opacity duration-200 divide-x divide-sidebar-border/50">
+                      {/* Left side: Refresh */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          refreshGitStatus();
+                          refreshChangedFiles();
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 hover:bg-sidebar-accent/50 group/refresh"
+                        title="Refresh"
+                      >
+                        <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
+                      </button>
+
+                      {/* Right side: Review Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 flex items-center justify-center hover:bg-sidebar-accent/50"
+                            title="Agent Review"
+                          >
+                            <Bot className="size-3.5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                          <DropdownMenuItem onClick={() => setCodeReviewDialogOpen(true)}>
+                            <Bot className="size-3 mr-2" />
+                            <span>Code Agent Review</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
+                            <Link className="size-3 mr-2" />
+                            <span>Qodo</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
+                            <Link className="size-3 mr-2" />
+                            <span>Devin Review</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pull Requests Toggle */}
+                <button
+                  onClick={() => setChangesView(v => v === 'pr' ? 'changes' : 'pr')}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 transition-colors group cursor-pointer border-r border-sidebar-border/50 hover:bg-sidebar-accent hover:text-foreground",
+                    changesView === 'pr' ? "bg-sidebar-accent text-foreground" : "text-muted-foreground"
+                  )}
+                  title="Pull Requests"
+                >
+                  <GitPullRequest className="size-3.5" />
+                  <span className="text-[11px] font-medium">PR</span>
                 </button>
 
-                <button
-                  onClick={() => { refreshGitStatus(); refreshChangedFiles(); }}
-                  className="w-10 flex items-center justify-center transition-colors group cursor-pointer hover:bg-sidebar-accent text-muted-foreground hover:text-foreground"
-                  title="Refresh"
-                >
-                  <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
-                </button>
+                {/* CI Badge */}
+                {githubOwner && githubRepo && currentBranch && (
+                  <div className="flex items-center justify-center px-1 border-transparent w-10 shrink-0">
+                    <CIBadge owner={githubOwner} repo={githubRepo} branch={currentBranch} />
+                  </div>
+                )}
               </>
             )}
           </div>
 
-          {/* Changes List */}
+          {/* Content Area */}
           <div className={cn(
             "flex-1 overflow-y-auto no-scrollbar p-2",
-            (!hasWorkingContext || (!hasChanges && !isLoading)) && "flex items-center justify-center"
+            (!hasWorkingContext || (changesView === 'changes' && !hasChanges && !isLoading)) && "flex items-center justify-center"
           )}>
             {!hasWorkingContext ? (
               <div className="flex flex-col items-center text-muted-foreground/50">
                 <FolderOpen className="size-8 opacity-20 mb-2" />
                 <span className="text-xs text-center">Select a project or workspace to view changes</span>
               </div>
+            ) : changesView === 'pr' ? (
+              githubOwner && githubRepo && currentBranch ? (
+                <PRPanel
+                  owner={githubOwner}
+                  repo={githubRepo}
+                  branch={currentBranch}
+                  onPrClick={(num) => setActivePrNumber(num)}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
+                  <GitPullRequest className="size-8 opacity-20 mb-2" />
+                  <span className="text-xs text-center">Not a GitHub repository</span>
+                </div>
+              )
             ) : !hasChanges && !isLoading ? (
               <div className="flex flex-col items-center text-muted-foreground/50">
                 <Check className="size-8 opacity-20 mb-2" />
@@ -633,6 +699,23 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {githubOwner && githubRepo && currentBranch && (
+        <PRDetailModal
+          isOpen={activePrNumber !== null}
+          onOpenChange={(open) => {
+            if (!open) setActivePrNumber(null);
+          }}
+          owner={githubOwner}
+          repo={githubRepo}
+          branch={currentBranch}
+          prNumber={activePrNumber}
+          onMerged={() => {
+            refreshGitStatus();
+            refreshChangedFiles();
+          }}
+        />
+      )}
     </aside >
   );
 };

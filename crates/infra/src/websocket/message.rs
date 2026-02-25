@@ -227,6 +227,24 @@ pub enum WsAction {
     CustomAgentSetJson,
     /// 获取 acp_servers.json 文件路径
     CustomAgentGetManifestPath,
+
+    // ===== GitHub 操作 =====
+    /// 获取分支关联的所有 PR 列表
+    GithubPrList,
+    /// 获取单个 PR 详情
+    GithubPrDetail,
+    /// 创建 PR
+    GithubPrCreate,
+    /// 合并 PR
+    GithubPrMerge,
+    /// 关闭 PR
+    GithubPrClose,
+    /// 在浏览器中打开 PR
+    GithubPrOpenBrowser,
+    /// 获取最新 CI 运行状态
+    GithubCiStatus,
+    /// 在浏览器中打开 CI run
+    GithubCiOpenBrowser,
 }
 
 /// 服务端主动推送的事件类型
@@ -491,6 +509,10 @@ pub struct GitStatusResponse {
     pub unpushed_count: u32,
     /// 当前分支名
     pub current_branch: Option<String>,
+    /// Github owner
+    pub github_owner: Option<String>,
+    /// Github repo
+    pub github_repo: Option<String>,
 }
 
 /// 列出 Git 分支请求
@@ -795,6 +817,69 @@ pub struct SkillsGetRequest {
 }
 
 // ===== Agent 操作数据结构 =====
+
+// ===== GitHub 操作数据结构 =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrListRequest {
+    pub owner: String,
+    pub repo: String,
+    pub branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrDetailRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrCreateRequest {
+    pub owner: String,
+    pub repo: String,
+    pub branch: String,
+    pub title: String,
+    pub body: Option<String>,
+    pub base_branch: String,
+    pub draft: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrMergeRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    pub strategy: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrCloseRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrOpenBrowserRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubCiStatusRequest {
+    pub owner: String,
+    pub repo: String,
+    pub branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubCiOpenBrowserRequest {
+    pub owner: String,
+    pub repo: String,
+    pub run_id: u64,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentInstallRequest {

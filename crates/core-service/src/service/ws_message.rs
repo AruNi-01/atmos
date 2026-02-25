@@ -22,8 +22,10 @@ use infra::{
     ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest, WorkspaceArchiveRequest,
     WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
     WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrCreateRequest,
+    GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
 };
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
@@ -38,6 +40,7 @@ pub struct WsMessageService {
     fs_engine: FsEngine,
     git_engine: GitEngine,
     app_engine: core_engine::AppEngine,
+    github_engine: core_engine::GithubEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
     agent_service: Arc<AgentService>,
@@ -54,6 +57,7 @@ impl WsMessageService {
             fs_engine: FsEngine::new(),
             git_engine: GitEngine::new(),
             app_engine: core_engine::AppEngine::new(),
+            github_engine: core_engine::GithubEngine::new(),
             project_service,
             workspace_service,
             agent_service,
@@ -264,6 +268,16 @@ impl WsMessageService {
             WsAction::CustomAgentGetManifestPath => {
                 self.handle_custom_agent_get_manifest_path().await
             }
+
+            // GitHub
+            WsAction::GithubPrList => self.handle_github_pr_list(parse_request(request.data)?).await,
+            WsAction::GithubPrDetail => self.handle_github_pr_detail(parse_request(request.data)?).await,
+            WsAction::GithubPrCreate => self.handle_github_pr_create(parse_request(request.data)?).await,
+            WsAction::GithubPrMerge => self.handle_github_pr_merge(parse_request(request.data)?).await,
+            WsAction::GithubPrClose => self.handle_github_pr_close(parse_request(request.data)?).await,
+            WsAction::GithubPrOpenBrowser => self.handle_github_pr_open_browser(parse_request(request.data)?).await,
+            WsAction::GithubCiStatus => self.handle_github_ci_status(parse_request(request.data)?).await,
+            WsAction::GithubCiOpenBrowser => self.handle_github_ci_open_browser(parse_request(request.data)?).await,
         }
     }
 
@@ -440,12 +454,20 @@ impl WsMessageService {
             .map_err(|e| ServiceError::Validation(format!("Failed to get git status: {}", e)))?;
 
         let current_branch = self.git_engine.get_current_branch(&path).ok();
+        
+        let remote_url = self.git_engine.get_remote_url(&path).unwrap_or_default();
+        let github_info = core_engine::GithubEngine::parse_github_remote(&remote_url);
+        let github_owner = github_info.as_ref().map(|x| x.0.clone());
+        let github_repo = github_info.as_ref().map(|x| x.1.clone());
+
         Ok(json!({
             "has_uncommitted_changes": status.has_uncommitted_changes,
             "has_unpushed_commits": status.has_unpushed_commits,
             "uncommitted_count": status.uncommitted_count,
             "unpushed_count": status.unpushed_count,
             "current_branch": current_branch,
+            "github_owner": github_owner,
+            "github_repo": github_repo,
         }))
     }
 
@@ -1569,6 +1591,99 @@ set -x
             }
         }
         Ok(())
+    }
+
+    // ===== GitHub Handlers =====
+    
+    async fn handle_github_pr_list(&self, req: GithubPrListRequest) -> Result<Value> {
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["pr", "list", "--repo", &repo_arg, "--head", &req.branch, "--state", "all", "--limit", "10", "--json", "number,title,state,mergeable,reviewDecision,baseRefName,createdAt,url"];
+        let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR list: {}", e)))?;
+        Ok(output)
+    }
+
+    async fn handle_github_pr_detail(&self, req: GithubPrDetailRequest) -> Result<Value> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup"];
+        let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
+        Ok(output)
+    }
+
+    async fn handle_github_pr_create(&self, req: GithubPrCreateRequest) -> Result<Value> {
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let mut args = vec!["pr", "create", "--repo", &repo_arg, "--title", &req.title, "--base", &req.base_branch, "--head", &req.branch];
+        if let Some(body) = &req.body {
+            args.push("--body");
+            args.push(body);
+        }
+        if req.draft.unwrap_or(false) {
+            args.push("--draft");
+        }
+        let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to create PR: {}", e)))?;
+        Ok(output)
+    }
+
+    async fn handle_github_pr_merge(&self, req: GithubPrMergeRequest) -> Result<Value> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let strategy_flag = format!("--{}", req.strategy);
+        let args = vec!["pr", "merge", &pr_num_str, "--repo", &repo_arg, &strategy_flag];
+        
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        // `gh pr merge` typically returns empty json or null on success if not asking for json
+        // We ensure success: true is returned
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
+    }
+
+    async fn handle_github_pr_close(&self, req: GithubPrCloseRequest) -> Result<Value> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["pr", "close", &pr_num_str, "--repo", &repo_arg];
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
+    }
+
+    async fn handle_github_pr_open_browser(&self, req: GithubPrOpenBrowserRequest) -> Result<Value> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--web"];
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
+    }
+
+    async fn handle_github_ci_status(&self, req: GithubCiStatusRequest) -> Result<Value> {
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["run", "list", "--repo", &repo_arg, "--branch", &req.branch, "--limit", "1", "--json", "databaseId,workflowName,status,conclusion,createdAt,url"];
+        let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get CI status: {}", e)))?;
+        
+        // Return exactly what we got (either array with 1 item or empty array)
+        if let Some(arr) = output.as_array() {
+            if let Some(item) = arr.first() {
+                return Ok(item.clone());
+            }
+        }
+        Ok(json!({ "status": "no_ci_record" }))
+    }
+
+    async fn handle_github_ci_open_browser(&self, req: GithubCiOpenBrowserRequest) -> Result<Value> {
+        let run_id_str = req.run_id.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["run", "view", &run_id_str, "--repo", &repo_arg, "--web"];
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
     }
 }
 

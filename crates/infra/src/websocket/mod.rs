@@ -34,5 +34,7 @@ pub use message::{
     WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
     WsAction, WsError as WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrCreateRequest,
+    GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
 };
 pub use service::{WsService, WsServiceConfig};
