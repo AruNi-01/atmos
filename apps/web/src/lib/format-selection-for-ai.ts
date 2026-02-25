@@ -8,6 +8,9 @@ export interface SelectionInfo {
   endLine: number;
   selectedText: string;
   language?: string;
+  // Wiki-specific
+  sectionTitle?: string;
+  pageTitle?: string;
   // DiffViewer specific
   changeType?: 'addition' | 'deletion' | 'context' | 'mixed';
   beforeText?: string; // Old file content for the selected lines
@@ -115,6 +118,33 @@ export function formatDiffSelectionForAI(
 
   if (userNote?.trim()) {
     output += `\n\n## Note\n${userNote.trim()}`;
+  }
+
+  return output;
+}
+
+/**
+ * Format Wiki selection for AI
+ */
+export function formatWikiSelectionForAI(
+  info: SelectionInfo,
+  userNote?: string
+): string {
+  const pagePath = info.filePath
+    .replace(/^\.?\/?\.atmos\/wiki\//, '')
+    .replace(/^\/+/, '');
+  const selectedText = info.selectedText.trim();
+
+  let output = `## Wiki Excerpt\n`;
+  output += `- **Wiki Page**: \`${pagePath || info.filePath}\`\n`;
+  if (info.sectionTitle?.trim()) {
+    output += `- **Section**: \`${info.sectionTitle.trim()}\`\n`;
+  }
+
+  output += `\n~~~markdown\n${selectedText}\n~~~`;
+
+  if (userNote?.trim()) {
+    output += `\n\n## Ask\n${userNote.trim()}`;
   }
 
   return output;

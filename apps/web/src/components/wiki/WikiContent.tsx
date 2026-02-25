@@ -7,13 +7,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   ScrollArea,
-  cn,
   toastManager,
 } from "@workspace/ui";
 import { AlertTriangle, ChevronRight, Clock, Eye, Frown, Loader2, Meh, Pencil, Save, Smile } from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
+import { useSelectionPopover } from "@/hooks/use-selection-popover";
+import { SelectionPopover } from "@/components/selection/SelectionPopover";
+import { useDialogStore } from "@/hooks/use-dialog-store";
 import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
 import { fsApi } from "@/api/ws-api";
 
@@ -59,6 +61,10 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const { activeContent, activePage, contentLoading, contentError } =
     useWikiContext(contextId);
   const topRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const wikiContentRootRef = useRef<HTMLDivElement>(null);
+  const setAgentChatOpen = useDialogStore((s) => s.setAgentChatOpen);
+  const setPendingAgentChatMode = useDialogStore((s) => s.setPendingAgentChatMode);
 
   const [isPreview, setIsPreview] = useState(true);
   const [localContent, setLocalContent] = useState("");
@@ -138,6 +144,83 @@ export const WikiContent: React.FC<WikiContentProps> = ({
       setIsSaving(false);
     }
   }, [contextId, fullFilePath, localContent, hasUnsavedChanges, effectivePath, activePage]);
+
+  const getWikiSelectionInfo = useCallback(() => {
+    if (!isPreview || !activePage) return null;
+    const root = wikiContentRootRef.current;
+    if (!root) return null;
+
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+
+    const isInsideWikiRoot = (node: Node | null): boolean => {
+      if (!node) return false;
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        return root.contains(node as Element);
+      }
+      return !!node.parentElement && root.contains(node.parentElement);
+    };
+
+    if (!isInsideWikiRoot(selection.anchorNode) || !isInsideWikiRoot(selection.focusNode)) {
+      return null;
+    }
+
+    const selectedText = selection.toString();
+    if (!selectedText.trim()) return null;
+
+    const range = selection.getRangeAt(0);
+    const selectionTop = range.getBoundingClientRect().top;
+    const headings = Array.from(
+      root.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6")
+    );
+    const sectionTitle = headings.reduce<string | undefined>((latest, heading) => {
+      const headingTop = heading.getBoundingClientRect().top;
+      if (headingTop <= selectionTop + 1) {
+        const next = heading.textContent?.trim();
+        return next || latest;
+      }
+      return latest;
+    }, undefined);
+
+    return {
+      filePath: `.atmos/wiki/${activePage}.md`,
+      startLine: 0,
+      endLine: 0,
+      selectedText,
+      language: "markdown",
+      sectionTitle,
+    };
+  }, [activePage, isPreview]);
+
+  const {
+    isVisible: selectionPopoverVisible,
+    position: selectionPopoverPosition,
+    selectionInfo: selectionPopoverInfo,
+    isExpanded: selectionPopoverExpanded,
+    setIsExpanded: setSelectionPopoverExpanded,
+    dismiss: dismissSelectionPopover,
+    popoverRef: selectionPopoverRef,
+  } = useSelectionPopover({
+    getSelectionInfo: getWikiSelectionInfo,
+    containerRef: previewContainerRef,
+    enabled: isPreview,
+  });
+
+  useEffect(() => {
+    if (!isPreview || !selectionPopoverVisible) return;
+    const viewport = previewContainerRef.current?.querySelector(
+      "[data-slot='scroll-area-viewport']"
+    );
+    if (!viewport) return;
+    const onScroll = () => dismissSelectionPopover();
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", onScroll);
+  }, [dismissSelectionPopover, isPreview, selectionPopoverVisible]);
+
+  const handleWikiSelectionCopied = useCallback(() => {
+    setPendingAgentChatMode("wiki_ask");
+    setAgentChatOpen(true);
+  }, [setAgentChatOpen, setPendingAgentChatMode]);
 
   if (contentLoading && !activeContent) {
     return (
@@ -240,44 +323,57 @@ export const WikiContent: React.FC<WikiContentProps> = ({
       {/* Content: Preview or Editor */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {isPreview ? (
-          <ScrollArea className="h-full">
-            <div ref={topRef} />
-            <div id="wiki-content-root" className="px-6 py-6 space-y-4">
-              {sources.length > 0 && (
-                <Collapsible defaultOpen={false} className="rounded-lg border border-border">
-                  <CollapsibleTrigger className="group flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer transition-colors">
-                    <ChevronRight className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90" />
-                    <span>Relevant source files</span>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="flex flex-wrap gap-1.5 px-3 pt-2 pb-3 border-t border-border">
-                      {sources.map((src) => (
-                        <span
-                          key={src}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono"
-                        >
-                          {src}
-                        </span>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
-              <MarkdownRenderer
-                wikiBasePath={activePage ?? undefined}
-                onWikiLinkNavigate={onWikiLinkNavigate}
-              >
-                {body}
-              </MarkdownRenderer>
-              {formattedUpdatedAt && (
-                <div className="flex justify-end pt-6">
-                  <span className="text-[11px] text-muted-foreground">
-                    updated_at: {formattedUpdatedAt}
-                  </span>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+          <div ref={previewContainerRef} className="h-full relative">
+            <SelectionPopover
+              isVisible={selectionPopoverVisible}
+              position={selectionPopoverPosition}
+              selectionInfo={selectionPopoverInfo}
+              isExpanded={selectionPopoverExpanded}
+              onExpand={() => setSelectionPopoverExpanded(true)}
+              onDismiss={dismissSelectionPopover}
+              type="wiki"
+              popoverRef={selectionPopoverRef}
+              onCopied={handleWikiSelectionCopied}
+            />
+            <ScrollArea className="h-full">
+              <div ref={topRef} />
+              <div ref={wikiContentRootRef} id="wiki-content-root" className="px-6 py-6 space-y-4">
+                {sources.length > 0 && (
+                  <Collapsible defaultOpen={false} className="rounded-lg border border-border">
+                    <CollapsibleTrigger className="group flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer transition-colors">
+                      <ChevronRight className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                      <span>Relevant source files</span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="flex flex-wrap gap-1.5 px-3 pt-2 pb-3 border-t border-border">
+                        {sources.map((src) => (
+                          <span
+                            key={src}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono"
+                          >
+                            {src}
+                          </span>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+                <MarkdownRenderer
+                  wikiBasePath={activePage ?? undefined}
+                  onWikiLinkNavigate={onWikiLinkNavigate}
+                >
+                  {body}
+                </MarkdownRenderer>
+                {formattedUpdatedAt && (
+                  <div className="flex justify-end pt-6">
+                    <span className="text-[11px] text-muted-foreground">
+                      updated_at: {formattedUpdatedAt}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         ) : (
           <MonacoEditor
             language="markdown"

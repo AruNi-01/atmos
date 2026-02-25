@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from 'zustand';
+import type { AgentChatMode } from '@/types/agent-chat';
 
 interface DialogStore {
   isCreateProjectOpen: boolean;
@@ -19,6 +20,10 @@ interface DialogStore {
 
   isAgentChatOpen: boolean;
   setAgentChatOpen: (open: boolean) => void;
+  pendingAgentChatMode: AgentChatMode | null;
+  setPendingAgentChatMode: (mode: AgentChatMode | null) => void;
+  peekPendingAgentChatMode: () => AgentChatMode | null;
+  consumePendingAgentChatMode: () => AgentChatMode | null;
 
   /** A prompt queued for the Agent Chat Panel (e.g. from Code Review Dialog). */
   pendingAgentChatPrompt: { prompt: string; registryId?: string; forceNewSession?: boolean } | null;
@@ -49,6 +54,24 @@ export const useDialogStore = create<DialogStore>((set) => ({
 
   isAgentChatOpen: false,
   setAgentChatOpen: (open) => set({ isAgentChatOpen: open }),
+  pendingAgentChatMode: null,
+  setPendingAgentChatMode: (mode) => set({ pendingAgentChatMode: mode }),
+  peekPendingAgentChatMode: () => {
+    let mode: AgentChatMode | null = null;
+    set((state) => {
+      mode = state.pendingAgentChatMode;
+      return state;
+    });
+    return mode;
+  },
+  consumePendingAgentChatMode: () => {
+    let mode: AgentChatMode | null = null;
+    set((state) => {
+      mode = state.pendingAgentChatMode;
+      return { pendingAgentChatMode: null };
+    });
+    return mode;
+  },
 
   pendingAgentChatPrompt: null,
   setPendingAgentChatPrompt: (data) => set({ pendingAgentChatPrompt: data }),

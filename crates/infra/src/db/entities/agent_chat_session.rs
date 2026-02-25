@@ -23,6 +23,8 @@ pub struct Model {
     pub title: Option<String>,
     /// auto | user
     pub title_source: Option<String>,
+    /// default | wiki_ask
+    pub mode: String,
 }
 
 impl_base_entity!(Model);
