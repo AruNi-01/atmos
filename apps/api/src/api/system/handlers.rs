@@ -493,6 +493,51 @@ pub async fn kill_project_wiki_window(
     }
 }
 
+/// GET /api/system/code-review-window/:workspace_id - Check if Code Review tmux window exists
+pub async fn check_code_review_window(
+    State(state): State<AppState>,
+    axum::extract::Path(workspace_id): axum::extract::Path<String>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let session_name = match resolve_session_name(&state, &workspace_id).await {
+        Some(s) => s,
+        None => return Ok(Json(ApiResponse::success(json!({ "exists": false })))),
+    };
+    let exists = state
+        .terminal_service
+        .has_code_review_window(&session_name)
+        .unwrap_or(false);
+    Ok(Json(ApiResponse::success(json!({ "exists": exists }))))
+}
+
+/// POST /api/system/code-review-window/:workspace_id - Kill the Code Review tmux window
+pub async fn kill_code_review_window(
+    State(state): State<AppState>,
+    axum::extract::Path(workspace_id): axum::extract::Path<String>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let session_name = match resolve_session_name(&state, &workspace_id).await {
+        Some(s) => s,
+        None => {
+            return Ok(Json(ApiResponse::success(json!({
+                "killed": false,
+                "message": "Could not resolve workspace to tmux session"
+            }))))
+        }
+    };
+    match state
+        .terminal_service
+        .kill_code_review_window(&session_name)
+    {
+        Ok(()) => Ok(Json(ApiResponse::success(json!({
+            "killed": true,
+            "message": "Code Review window closed"
+        })))),
+        Err(e) => Ok(Json(ApiResponse::success(json!({
+            "killed": false,
+            "message": format!("{}", e)
+        })))),
+    }
+}
+
 /// GET /api/system/tmux-windows/:workspace_id - List tmux windows for a workspace
 pub async fn list_tmux_windows(
     State(state): State<AppState>,

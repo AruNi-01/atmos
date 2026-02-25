@@ -726,6 +726,15 @@ export const skillsApi = {
     const res = await wsRequest<{ installed: boolean }>('wiki_skill_system_status');
     return res.installed;
   },
+
+  /**
+   * Check if all three code review skills (code-reviewer, code-review-expert, typescript-react-reviewer)
+   * are installed in ~/.atmos/skills/.system/
+   */
+  isCodeReviewSkillsInstalledInSystem: async (): Promise<boolean> => {
+    const res = await wsRequest<{ installed: boolean }>('code_review_skill_system_status');
+    return res.installed;
+  },
 };
 
 // ===== Agent API =====

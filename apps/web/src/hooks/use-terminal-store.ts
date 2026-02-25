@@ -69,6 +69,25 @@ interface TerminalStore {
   getProjectWikiPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
   setProjectWikiDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
   toggleProjectWikiMaximize: (workspaceId: string, id: string) => void;
+
+  // Code Review scope (separate from main Terminal and Project Wiki)
+  codeReviewPanes: Record<string, Record<string, TerminalPaneProps>>;
+  codeReviewLayouts: Record<string, MosaicNode<string> | null>;
+  codeReviewMaximizedIds: Record<string, string | null>;
+  codeReviewLoadedWorkspaces: Set<string>;
+  codeReviewInitializingWorkspaces: Set<string>;
+  getCodeReviewPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
+  getCodeReviewLayout: (workspaceId: string) => MosaicNode<string> | null;
+  isCodeReviewReady: (workspaceId: string) => boolean;
+  setCodeReviewLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
+  addCodeReviewTerminal: (workspaceId: string, title?: string) => string;
+  removeCodeReviewTerminal: (workspaceId: string, id: string) => void;
+  initCodeReviewWorkspace: (workspaceId: string) => void;
+  loadCodeReviewFromTmux: (workspaceId: string) => Promise<void>;
+  getCodeReviewPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
+  setCodeReviewDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
+  toggleCodeReviewMaximize: (workspaceId: string, id: string) => void;
+  splitCodeReviewTerminal: (workspaceId: string, id: string, direction: MosaicDirection) => void;
 }
 
 /** Generate next available window name (1, 2, 3, ...) for numeric names */
@@ -89,10 +108,13 @@ function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): st
 /** Fixed tmux window name for Project Wiki - never gets -1/-2 suffix. Export for reuse. */
 export const PROJECT_WIKI_WINDOW_NAME = "Generate Project Wiki";
 
+/** Fixed tmux window name for Code Review - never gets -1/-2 suffix. Export for reuse. */
+export const CODE_REVIEW_WINDOW_NAME = "Code Review";
+
 /** Generate unique window name with suffix for agent windows (e.g., "Claude Code", "Claude Code-2") */
 function getUniqueAgentName(baseName: string, existingPanes: Record<string, TerminalPaneProps>): string {
-  // Project Wiki uses a fixed name - always return as-is for attach/reuse
-  if (baseName === PROJECT_WIKI_WINDOW_NAME) {
+  // Project Wiki and Code Review use fixed names - always return as-is for attach/reuse
+  if (baseName === PROJECT_WIKI_WINDOW_NAME || baseName === CODE_REVIEW_WINDOW_NAME) {
     return baseName;
   }
 
@@ -150,6 +172,11 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   projectWikiMaximizedIds: {},
   projectWikiLoadedWorkspaces: new Set(),
   projectWikiInitializingWorkspaces: new Set(),
+  codeReviewPanes: {},
+  codeReviewLayouts: {},
+  codeReviewMaximizedIds: {},
+  codeReviewLoadedWorkspaces: new Set(),
+  codeReviewInitializingWorkspaces: new Set(),
 
   getPanes: (workspaceId) => {
     const state = get();
@@ -830,5 +857,174 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         },
       };
     });
+  },
+
+  // ===== Code Review scope actions =====
+
+  getCodeReviewPanes: (workspaceId) => get().codeReviewPanes[workspaceId] || {},
+  getCodeReviewLayout: (workspaceId) => get().codeReviewLayouts[workspaceId] || null,
+  isCodeReviewReady: (workspaceId) => {
+    const state = get();
+    return state.codeReviewLoadedWorkspaces.has(workspaceId) && !state.codeReviewInitializingWorkspaces.has(workspaceId);
+  },
+  setCodeReviewLayout: (workspaceId, layout) => {
+    set((state) => ({
+      codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: layout },
+    }));
+  },
+  addCodeReviewTerminal: (workspaceId, title = CODE_REVIEW_WINDOW_NAME) => {
+    const panes = get().codeReviewPanes[workspaceId] || {};
+    const layout = get().codeReviewLayouts[workspaceId];
+    const newId = uuidv4();
+    const newPane: TerminalPaneProps = {
+      id: newId,
+      title,
+      sessionId: uuidv4(),
+      workspaceId,
+      tmuxWindowName: title,
+      isNewPane: true,
+    };
+    const nextPanes = { ...panes, [newId]: newPane };
+    let nextLayout: MosaicNode<string>;
+    if (!layout) {
+      nextLayout = newId;
+    } else {
+      nextLayout = { direction: 'row', first: layout, second: newId };
+    }
+    set((state) => ({
+      codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: nextPanes },
+      codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: nextLayout },
+      codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
+    }));
+    return newId;
+  },
+  removeCodeReviewTerminal: (workspaceId, id) => {
+    const panes = get().codeReviewPanes[workspaceId] || {};
+    const layout = get().codeReviewLayouts[workspaceId];
+    const nextPanes = { ...panes };
+    delete nextPanes[id];
+    const removeFromLayout = (node: MosaicNode<string>): MosaicNode<string> | null => {
+      if (typeof node === 'string') return node === id ? null : node;
+      const first = removeFromLayout(node.first);
+      const second = removeFromLayout(node.second);
+      if (!first) return second;
+      if (!second) return first;
+      return { ...node, first, second };
+    };
+    const nextLayout = layout ? removeFromLayout(layout) : null;
+    set((state) => ({
+      codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: nextPanes },
+      codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: nextLayout },
+    }));
+  },
+  initCodeReviewWorkspace: (workspaceId) => {
+    const state = get();
+    if (state.codeReviewLoadedWorkspaces.has(workspaceId)) return;
+    if (state.codeReviewInitializingWorkspaces.has(workspaceId)) return;
+    set((state) => ({
+      codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces, workspaceId]),
+    }));
+    get().loadCodeReviewFromTmux(workspaceId);
+  },
+  loadCodeReviewFromTmux: async (workspaceId) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const { exists } = await systemApi.checkCodeReviewWindow(workspaceId);
+      const state = get();
+      if (!state.codeReviewInitializingWorkspaces.has(workspaceId)) return;
+      if (exists) {
+        const panes = state.codeReviewPanes[workspaceId] || {};
+        const hasPane = Object.values(panes).some(p => p.tmuxWindowName === CODE_REVIEW_WINDOW_NAME);
+        if (!hasPane) {
+          const newId = uuidv4();
+          const newPane: TerminalPaneProps = {
+            id: newId,
+            title: CODE_REVIEW_WINDOW_NAME,
+            sessionId: uuidv4(),
+            workspaceId,
+            tmuxWindowName: CODE_REVIEW_WINDOW_NAME,
+            isNewPane: false,
+          };
+          set((state) => ({
+            codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: { ...panes, [newId]: newPane } },
+            codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: newId },
+            codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
+            codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
+          }));
+          return;
+        }
+      }
+      set((state) => ({
+        codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
+        codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
+      }));
+    } catch (err) {
+      console.debug('Failed to load Code Review from tmux:', err);
+      set((state) => ({
+        codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
+        codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
+      }));
+    }
+  },
+  getCodeReviewPaneIdByTmuxWindowName: (workspaceId, tmuxWindowName) => {
+    const panes = get().codeReviewPanes[workspaceId] || {};
+    const entry = Object.entries(panes).find(([, p]) => p.tmuxWindowName === tmuxWindowName);
+    return entry ? entry[0] : null;
+  },
+  setCodeReviewDynamicTitle: (workspaceId, paneId, dynamicTitle) => {
+    const panes = get().codeReviewPanes[workspaceId];
+    if (!panes?.[paneId] || panes[paneId].dynamicTitle === dynamicTitle) return;
+    set((state) => ({
+      codeReviewPanes: {
+        ...state.codeReviewPanes,
+        [workspaceId]: {
+          ...panes,
+          [paneId]: { ...panes[paneId], dynamicTitle },
+        },
+      },
+    }));
+  },
+  toggleCodeReviewMaximize: (workspaceId, id) => {
+    set((state) => {
+      const current = state.codeReviewMaximizedIds[workspaceId];
+      const next = current === id ? null : id;
+      return {
+        codeReviewMaximizedIds: {
+          ...state.codeReviewMaximizedIds,
+          [workspaceId]: next,
+        },
+      };
+    });
+  },
+  splitCodeReviewTerminal: (workspaceId, id, direction) => {
+    const layout = get().codeReviewLayouts[workspaceId];
+    const panes = get().codeReviewPanes[workspaceId] || {};
+    if (!layout) return;
+    const newId = uuidv4();
+    const newPane: TerminalPaneProps = {
+      id: newId,
+      title: CODE_REVIEW_WINDOW_NAME + "-2",
+      sessionId: uuidv4(),
+      workspaceId,
+      tmuxWindowName: CODE_REVIEW_WINDOW_NAME + "-2",
+      isNewPane: true,
+    };
+    const nextPanes = { ...panes, [newId]: newPane };
+    const splitById = (node: MosaicNode<string>, targetId: string): MosaicNode<string> => {
+      if (typeof node === 'string') {
+        if (node === targetId) return { direction, first: node, second: newId };
+        return node;
+      }
+      return {
+        ...node,
+        first: splitById(node.first, targetId),
+        second: splitById(node.second, targetId),
+      };
+    };
+    const nextLayout = splitById(layout, id);
+    set((state) => ({
+      codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: nextPanes },
+      codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: nextLayout },
+    }));
   },
 }));

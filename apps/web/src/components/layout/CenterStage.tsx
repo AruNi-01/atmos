@@ -54,7 +54,8 @@ import { AgentManagerView } from "@/components/agent/AgentManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
 import { WikiTab } from "@/components/wiki";
 import { systemApi } from "@/api/rest-api";
-import { PROJECT_WIKI_WINDOW_NAME } from "@/hooks/use-terminal-store";
+import { PROJECT_WIKI_WINDOW_NAME, CODE_REVIEW_WINDOW_NAME } from "@/hooks/use-terminal-store";
+import { CodeReviewDialog } from "@/components/code-review";
 
 // Dynamic import Monaco Editor to avoid SSR issues
 const FileViewer = dynamic(
@@ -98,8 +99,8 @@ interface CenterStageProps {
   logs: TerminalLine[];
 }
 
-type FixedTab = "overview" | "terminal" | "wiki" | "project-wiki";
-const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki", "project-wiki"]);
+type FixedTab = "overview" | "terminal" | "wiki" | "project-wiki" | "code-review";
+const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki", "project-wiki", "code-review"]);
 
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
@@ -113,6 +114,14 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
   const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
   const [wikiRefreshing, setWikiRefreshing] = React.useState(false);
+
+  // Code Review tab state
+  const codeReviewTerminalGridRef = React.useRef<TerminalGridHandle>(null);
+  const [codeReviewTabVisible, setCodeReviewTabVisible] = React.useState(false);
+  const [codeReviewPendingCommand, setCodeReviewPendingCommand] = React.useState<string | null>(null);
+  const codeReviewUserTriggeredRef = React.useRef(false);
+  const [codeReviewCloseConfirmOpen, setCodeReviewCloseConfirmOpen] = React.useState(false);
+  // codeReviewDialogOpen is managed via useDialogStore for cross-component access
 
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
@@ -149,8 +158,9 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   const fixedTab: FixedTab = React.useMemo(() => {
     if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return "terminal";
+    if (tabFromUrl === "code-review" && !codeReviewTabVisible) return "terminal";
     return (tabFromUrl && FIXED_TABS.has(tabFromUrl) ? tabFromUrl : "terminal") as FixedTab;
-  }, [tabFromUrl, projectWikiTabVisible]);
+  }, [tabFromUrl, projectWikiTabVisible, codeReviewTabVisible]);
 
   const setFixedTab = React.useCallback(
     (tab: FixedTab) => {
@@ -198,6 +208,30 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     );
   }, [effectiveContextId]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/updateUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
 
+  // Check Code Review window on mount and when workspace changes.
+  React.useEffect(() => {
+    if (!effectiveContextId) {
+      setCodeReviewTabVisible(false);
+      return;
+    }
+    systemApi.checkCodeReviewWindow(effectiveContextId).then(
+      ({ exists }) => {
+        if (codeReviewUserTriggeredRef.current) return;
+        setCodeReviewTabVisible(exists);
+        if (tabFromUrl === "code-review" && !exists) {
+          updateUrlParams({ tab: "terminal" });
+        }
+      },
+      () => {
+        if (codeReviewUserTriggeredRef.current) return;
+        setCodeReviewTabVisible(false);
+        if (tabFromUrl === "code-review") {
+          updateUrlParams({ tab: "terminal" });
+        }
+      }
+    );
+  }, [effectiveContextId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCloseFile = (file: OpenFile) => {
     if (file.isDirty) {
       setFileToClose(file);
@@ -222,7 +256,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     getActiveFile,
     pinFile,
   } = useEditorStore();
-  const { setCreateProjectOpen } = useDialogStore();
+  const { setCreateProjectOpen, isCodeReviewDialogOpen, setCodeReviewDialogOpen } = useDialogStore();
   const { projects, setupProgress, clearSetupProgress } = useProjectStore();
   const { currentBranch } = useGitInfoStore();
 
@@ -261,6 +295,22 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     }, 3000);
     return () => clearTimeout(t);
   }, [projectWikiPendingCommand, effectiveContextId, projectWikiTabVisible, activeValue]);
+
+  // Run pending code review command when Code Review tab is active and grid is ready
+  React.useEffect(() => {
+    if (!codeReviewPendingCommand || !effectiveContextId || !codeReviewTabVisible || activeValue !== "code-review")
+      return;
+    const cmd = codeReviewPendingCommand;
+    setCodeReviewPendingCommand(null);
+    codeReviewTerminalGridRef.current?.createOrFocusAndRunTerminal({
+      title: CODE_REVIEW_WINDOW_NAME,
+      command: cmd,
+    });
+    const t = setTimeout(() => {
+      codeReviewUserTriggeredRef.current = false;
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [codeReviewPendingCommand, effectiveContextId, codeReviewTabVisible, activeValue]);
 
   const handleAddAgent = (name: string) => {
     if (terminalGridRef.current) {
@@ -502,6 +552,33 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             </Tooltip>
           )}
 
+          {/* Code Review Tab - shown when code review runs or tmux window exists */}
+          {effectiveContextId && codeReviewTabVisible && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <TabsTab
+                  value="code-review"
+                  className="group/cr !h-full pl-4 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                >
+                  <TerminalIcon className="size-3.5 shrink-0 text-blue-500" />
+                  <span className="text-[13px] font-medium text-pretty">Code Review</span>
+                  <span
+                    role="button"
+                    aria-label="Close Code Review tab"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCodeReviewCloseConfirmOpen(true);
+                    }}
+                    className="size-4 flex items-center justify-center shrink-0 ml-0 rounded-sm opacity-0 group-hover/cr:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
+                  >
+                    <X className="size-3" />
+                  </span>
+                </TabsTab>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Code Review Terminal</TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Open File Tabs */}
           {openFiles.map((file) => {
             const isDiff = file.path.startsWith("diff://");
@@ -652,6 +729,24 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           </div>
         )}
 
+        {/* Code Review Tab Content - Same TerminalGrid/Mosaic UI, separate panes from main Terminal */}
+        {effectiveContextId && codeReviewTabVisible && (
+          <div
+            className={cn(
+              "flex-1 min-h-0 min-w-0",
+              activeValue !== "code-review" && "hidden"
+            )}
+          >
+            <TerminalGrid
+              ref={codeReviewTerminalGridRef}
+              workspaceId={effectiveContextId}
+              scope="code-review"
+              toolbarActions={{ split: false, maximize: false, close: false }}
+              className="h-full"
+            />
+          </div>
+        )}
+
         {/* Overview Tab Content - CSS visibility controlled like terminal */}
         {effectiveContextId && (
           <div
@@ -781,6 +876,87 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Code Review Close Confirm Dialog */}
+      <Dialog open={codeReviewCloseConfirmOpen} onOpenChange={(open) => !open && setCodeReviewCloseConfirmOpen(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close Code Review terminal?</DialogTitle>
+            <DialogDescription>
+              Any running code review will be stopped. You can start a new review from the Changes panel.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-4">
+            <Button variant="outline" className="cursor-pointer" onClick={() => setCodeReviewCloseConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={async () => {
+                if (effectiveContextId) {
+                  try {
+                    await systemApi.killCodeReviewWindow(effectiveContextId);
+                    codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
+                    setCodeReviewTabVisible(false);
+                    setFixedTab("terminal");
+                  } catch (err) {
+                    toastManager.add({
+                      title: "Failed to close terminal",
+                      description: err instanceof Error ? err.message : "Unknown error",
+                      type: "error",
+                    });
+                  }
+                }
+                setCodeReviewCloseConfirmOpen(false);
+              }}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Code Review Dialog */}
+      {effectiveContextId && (
+        <CodeReviewDialog
+          open={isCodeReviewDialogOpen}
+          onOpenChange={setCodeReviewDialogOpen}
+          workspaceId={effectiveContextId}
+          projectName={currentProject?.name}
+          workspacePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
+          currentBranch={currentBranch ?? undefined}
+          onStartTerminalMode={(command) => {
+            codeReviewUserTriggeredRef.current = true;
+            setCodeReviewPendingCommand(command);
+            setCodeReviewTabVisible(true);
+            setFixedTab("code-review");
+          }}
+          onReplaceTerminalAndRun={async (command) => {
+            if (!effectiveContextId) return;
+            try {
+              await systemApi.killCodeReviewWindow(effectiveContextId);
+              codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
+              codeReviewUserTriggeredRef.current = true;
+              setCodeReviewPendingCommand(command);
+              setCodeReviewTabVisible(true);
+              setFixedTab("code-review");
+              toastManager.add({
+                title: "Code review started",
+                description: "Switched to Code Review tab. Check progress there.",
+                type: "info",
+              });
+            } catch (err) {
+              setCodeReviewPendingCommand(null);
+              toastManager.add({
+                title: "Failed to close previous terminal",
+                description: err instanceof Error ? err.message : "Unknown error",
+                type: "error",
+              });
+            }
+          }}
+        />
+      )}
 
       {/* Unsaved Changes Dialog */}
       <Dialog
