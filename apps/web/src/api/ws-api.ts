@@ -204,12 +204,13 @@ export const fsApi = {
    */
   listDir: async (
     path: string,
-    options?: { dirsOnly?: boolean; showHidden?: boolean }
+    options?: { dirsOnly?: boolean; showHidden?: boolean; ignoreNotFound?: boolean }
   ): Promise<FsListDirResponse> => {
     return wsRequest<FsListDirResponse>('fs_list_dir', {
       path,
       dirs_only: options?.dirsOnly ?? true,  // 默认只显示目录
       show_hidden: options?.showHidden ?? false,
+      ignore_not_found: options?.ignoreNotFound ?? false,
     });
   },
   
@@ -734,6 +735,13 @@ export const skillsApi = {
   isCodeReviewSkillsInstalledInSystem: async (): Promise<boolean> => {
     const res = await wsRequest<{ installed: boolean }>('code_review_skill_system_status');
     return res.installed;
+  },
+
+  /**
+   * Manually trigger sync of all system skills from project/GitHub
+   */
+  syncSystemSkills: async (): Promise<{ initiated: boolean }> => {
+    return wsRequest<{ initiated: boolean }>('skills_system_sync');
   },
 };
 

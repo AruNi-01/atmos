@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "streamdown/styles.css";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { PatchDiff, MultiFileDiff } from "@pierre/diffs/react";
 import type { FileContents } from "@pierre/diffs";
 import { useTheme } from "next-themes";
@@ -74,9 +74,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui";
-import { Bot, Brain, ChevronDown, ChevronUp, Folder, FolderInput, Globe, Heart, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, SquareCheck, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, SquareCheck, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useAgentChatLayout } from "@/hooks/use-agent-chat-layout";
 import { AgentIcon } from "./AgentIcon";
 import { useAgentSession, type AgentServerMessage, type AcpPermissionOption } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
@@ -533,6 +534,26 @@ function deriveToolDisplayName(tool: string, description: string, raw_input?: un
   return description || "Tool";
 }
 
+function CommandCopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [text]);
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="shrink-0 px-2 py-1 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+      aria-label="Copy command"
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </button>
+  );
+}
+
 function TerminalBlock({
   tool,
   description,
@@ -582,8 +603,11 @@ function TerminalBlock({
         </div>
       </AcpTerminalHeader>
       {commandStr && (
-        <div className="border-b border-zinc-800 px-4 py-2 font-mono text-sm text-zinc-300">
-          <span className="text-green-400">$</span> {commandStr}
+        <div className="flex items-center border-b border-zinc-800">
+          <div className="flex-1 min-w-0 overflow-x-auto px-4 py-2 font-mono text-sm text-zinc-300">
+            <span className="whitespace-nowrap"><span className="text-green-400">$</span> {commandStr}</span>
+          </div>
+          <CommandCopyButton text={commandStr} />
         </div>
       )}
       <AcpTerminalContent className="max-h-60" />
@@ -824,6 +848,7 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
               parseIncompleteMarkdown
               animated={isLastTextBlock}
               caret={isLastTextBlock ? "block" : undefined}
+              className="break-words"
             >
               {block.content}
             </MessageResponse>
@@ -863,7 +888,7 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
               defaultOpen={isCurrentlyThinking}
             >
               <ReasoningTrigger />
-              <ReasoningContent>{content || ""}</ReasoningContent>
+              <ReasoningContent className="break-words prose-sm dark:prose-invert max-w-full overflow-hidden">{content || ""}</ReasoningContent>
             </Reasoning>
           );
         }
@@ -1006,7 +1031,7 @@ function PromptInputAttachmentsSection() {
 
 export function AgentChatPanel() {
   const { workspaceId, projectId, effectiveContextId } = useContextParams();
-  const { isAgentChatOpen, setAgentChatOpen } = useDialogStore();
+  const { isAgentChatOpen, setAgentChatOpen, pendingAgentChatPrompt, consumePendingAgentChatPrompt, peekPendingAgentChatPrompt } = useDialogStore();
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
@@ -1034,7 +1059,110 @@ export function AgentChatPanel() {
   const autoResumeTriedRef = useRef<string | null>(null);
   const autoStartHandledRef = useRef(false);
   const stoppedRef = useRef(false);
+  const forcedDisconnectDoneRef = useRef(false);
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Draggable & Resizable layout
+  // ---------------------------------------------------------------------------
+  const { layout, updateLayout, loaded: layoutLoaded, loadLayout } = useAgentChatLayout();
+  useEffect(() => { loadLayout(); }, [loadLayout]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resizeState = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
+
+  // Resolve "auto" position (-1) to bottom-right
+  const resolvePosition = useCallback(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    return {
+      x: layout.x < 0 ? w - layout.width - 24 : layout.x,
+      y: layout.y < 0 ? h - layout.height - 24 : layout.y,
+    };
+  }, [layout]);
+
+  // Clamp position so panel stays on screen
+  const clamp = useCallback((x: number, y: number, w: number, h: number) => {
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    return {
+      x: Math.max(0, Math.min(x, vw - w)),
+      y: Math.max(0, Math.min(y, vh - h)),
+    };
+  }, []);
+
+  // Drag handlers
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    // Don't start drag from interactive elements
+    if ((e.target as HTMLElement).closest('button, input, textarea, [role="button"], [data-radix-popper-content-wrapper]')) return;
+    e.preventDefault();
+    const pos = resolvePosition();
+    dragState.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+
+    const handleMove = (ev: MouseEvent) => {
+      if (!dragState.current) return;
+      const dx = ev.clientX - dragState.current.startX;
+      const dy = ev.clientY - dragState.current.startY;
+      const clamped = clamp(dragState.current.origX + dx, dragState.current.origY + dy, layout.width, layout.height);
+      updateLayout({ x: clamped.x, y: clamped.y });
+    };
+    const handleUp = () => {
+      dragState.current = null;
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+    };
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+  }, [resolvePosition, clamp, layout.width, layout.height, updateLayout]);
+
+  // Resize handlers
+  const MIN_W = 320;
+  const MIN_H = 300;
+  const handleResizeStart = useCallback((edge: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const pos = resolvePosition();
+    resizeState.current = { startX: e.clientX, startY: e.clientY, origW: layout.width, origH: layout.height, origX: pos.x, origY: pos.y, edge };
+
+    const handleMove = (ev: MouseEvent) => {
+      if (!resizeState.current) return;
+      const s = resizeState.current;
+      const dx = ev.clientX - s.startX;
+      const dy = ev.clientY - s.startY;
+      let newW = s.origW;
+      let newH = s.origH;
+      let newX = s.origX;
+      let newY = s.origY;
+
+      if (s.edge.includes('e')) newW = Math.max(MIN_W, s.origW + dx);
+      if (s.edge.includes('w')) { newW = Math.max(MIN_W, s.origW - dx); newX = s.origX + s.origW - newW; }
+      if (s.edge.includes('s')) newH = Math.max(MIN_H, s.origH + dy);
+      if (s.edge.includes('n')) { newH = Math.max(MIN_H, s.origH - dy); newY = s.origY + s.origH - newH; }
+
+      const clamped = clamp(newX, newY, newW, newH);
+      updateLayout({ width: newW, height: newH, x: clamped.x, y: clamped.y });
+    };
+    const handleUp = () => {
+      resizeState.current = null;
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+    };
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+  }, [resolvePosition, clamp, layout.width, layout.height, updateLayout]);
+
+  // Keep panel on screen when window resizes
+  useEffect(() => {
+    const handleWindowResize = () => {
+      if (layout.x < 0 && layout.y < 0) return; // still auto
+      const clamped = clamp(layout.x, layout.y, layout.width, layout.height);
+      if (clamped.x !== layout.x || clamped.y !== layout.y) {
+        updateLayout(clamped);
+      }
+    };
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, [layout, clamp, updateLayout]);
 
   useEffect(() => {
     if (isAgentChatOpen && projects.length === 0) {
@@ -1174,6 +1302,8 @@ export function AgentChatPanel() {
       disconnect();
       setEntries([]);
       setPendingPermission(null);
+      setWaitingForResponse(false);
+      stoppedRef.current = false;
       setRegistryId(s.registry_id);
       setSessionTitle(s.title || null);
       setIsResumedSession(true);
@@ -1199,6 +1329,8 @@ export function AgentChatPanel() {
     setPendingPermission(null);
     setSessionTitle(null);
     setIsResumedSession(false);
+    setWaitingForResponse(false);
+    stoppedRef.current = false;
     setRegistryId(nextRegistryId);
     restoreAttemptedRef.current = true;
     autoResumeTriedRef.current = null;
@@ -1297,6 +1429,29 @@ export function AgentChatPanel() {
     void refreshAgents();
   }, [isAgentChatOpen, isConnected, isConnecting, installedAgents.length, registryId, refreshAgents]);
 
+  // Handle forced new session even if already connected (e.g. from Code Review Dialog)
+  useEffect(() => {
+    if (isAgentChatOpen && isConnected) {
+      const pendingPrompt = peekPendingAgentChatPrompt();
+      if (pendingPrompt?.forceNewSession && !forcedDisconnectDoneRef.current) {
+        // Mark that we've handled this forced disconnect so we don't fire again
+        // when the NEW session connects (the prompt is still in the store until consumed).
+        forcedDisconnectDoneRef.current = true;
+        // Disconnect and clear state so the auto-connect effect can start a fresh session.
+        disconnect();
+        setEntries([]);
+        setPendingPermission(null);
+        setSessionTitle(null);
+        setIsResumedSession(false);
+        setWaitingForResponse(false);
+        stoppedRef.current = false;
+        autoResumeTriedRef.current = null;
+        autoStartHandledRef.current = false;
+        restoreAttemptedRef.current = true; // Don't try to restore the old session
+      }
+    }
+  }, [isAgentChatOpen, isConnected, pendingAgentChatPrompt, peekPendingAgentChatPrompt, disconnect]);
+
   useEffect(() => {
     if (
       isAgentChatOpen &&
@@ -1309,6 +1464,25 @@ export function AgentChatPanel() {
         skipNextAutoConnectRef.current = false;
         return;
       }
+
+      const pendingPrompt = peekPendingAgentChatPrompt();
+      const forcedRegistryId = pendingPrompt?.forceNewSession ? pendingPrompt.registryId : undefined;
+
+      if (forcedRegistryId) {
+        autoStartHandledRef.current = true;
+        autoResumeTriedRef.current = null;
+        setIsResumedSession(false);
+        setEntries([]);
+        setPendingPermission(null);
+        setSessionTitle(null);
+        if (registryId !== forcedRegistryId) {
+          setRegistryId(forcedRegistryId);
+        }
+        clearLastSessionIdForContext(contextKey);
+        startSession({ registryId: forcedRegistryId });
+        return;
+      }
+
       if (sessionId) {
         if (autoResumeTriedRef.current === sessionId) return;
         autoResumeTriedRef.current = sessionId;
@@ -1352,6 +1526,8 @@ export function AgentChatPanel() {
     sessionId,
     resumeSession,
     startSession,
+    peekPendingAgentChatPrompt,
+    pendingAgentChatPrompt,
   ]);
 
   // When we successfully connect to a session, mark it as "already tried" so
@@ -1367,6 +1543,23 @@ export function AgentChatPanel() {
     if (!sessionId) return;
     setLastSessionIdForContext(contextKey, sessionId);
   }, [contextKey, sessionId]);
+
+  // Handle auto-starting a pending prompt (e.g. from Code Review Dialog) once connected
+  useEffect(() => {
+    if (isConnected && connectionPhase === "connected") {
+      const data = consumePendingAgentChatPrompt();
+      if (data && data.prompt) {
+        // Reset the forced-disconnect guard now that we've consumed the prompt
+        forcedDisconnectDoneRef.current = false;
+        setEntries((prev) => [
+          ...prev,
+          { role: "user" as const, content: data.prompt },
+        ]);
+        setWaitingForResponse(true);
+        sendPrompt(data.prompt);
+      }
+    }
+  }, [isConnected, connectionPhase, sendPrompt, consumePendingAgentChatPrompt]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -1515,7 +1708,9 @@ export function AgentChatPanel() {
     return () => clearCloseAgentsMenuTimer();
   }, [clearCloseAgentsMenuTimer]);
 
-  if (!isAgentChatOpen) return null;
+  if (!isAgentChatOpen || !layoutLoaded) return null;
+
+  const pos = resolvePosition();
 
   const connectionPhaseLabel = (() => {
     switch (connectionPhase) {
@@ -1540,11 +1735,23 @@ export function AgentChatPanel() {
 
   return (
     <div
-      className="fixed bottom-6 right-6 z-50 flex w-[400px] flex-col rounded-xl border border-border bg-background shadow-lg"
-      style={{ height: "min(560px, 70dvh)" }}
+      ref={panelRef}
+      className="fixed z-50 flex flex-col rounded-xl border border-border bg-background shadow-lg"
+      style={{ left: pos.x, top: pos.y, width: layout.width, height: layout.height }}
     >
+      {/* Resize handles */}
+      <div className="absolute -top-1 left-2 right-2 h-2 cursor-n-resize z-10" onMouseDown={handleResizeStart('n')} />
+      <div className="absolute -bottom-1 left-2 right-2 h-2 cursor-s-resize z-10" onMouseDown={handleResizeStart('s')} />
+      <div className="absolute -left-1 top-2 bottom-2 w-2 cursor-w-resize z-10" onMouseDown={handleResizeStart('w')} />
+      <div className="absolute -right-1 top-2 bottom-2 w-2 cursor-e-resize z-10" onMouseDown={handleResizeStart('e')} />
+      <div className="absolute -top-1 -left-1 h-3 w-3 cursor-nw-resize z-20" onMouseDown={handleResizeStart('nw')} />
+      <div className="absolute -top-1 -right-1 h-3 w-3 cursor-ne-resize z-20" onMouseDown={handleResizeStart('ne')} />
+      <div className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize z-20" onMouseDown={handleResizeStart('sw')} />
+      <div className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize z-20" onMouseDown={handleResizeStart('se')} />
+
       <div
-        className="flex shrink-0 flex-col gap-1 border-b border-border px-4 py-3"
+        className="flex shrink-0 flex-col gap-1 border-b border-border px-4 py-3 cursor-grab active:cursor-grabbing"
+        onMouseDown={handleDragStart}
         onMouseEnter={() => setHeaderHovered(true)}
         onMouseLeave={() => setHeaderHovered(false)}
       >
@@ -1816,7 +2023,7 @@ export function AgentChatPanel() {
                           ))}
                         </Attachments>
                       )}
-                      {entry.content}
+                      <div className="whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'normal' }}>{entry.content}</div>
                     </MessageContent>
                   </Message>
                 ) : (
@@ -1878,7 +2085,7 @@ export function AgentChatPanel() {
           >
             <ConfirmationRequest>
               <span className="font-medium">Permission requested</span>
-              <p className="mt-1 text-sm text-muted-foreground break-words max-w-full">
+              <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
                 {pendingPermission.description}
               </p>
             </ConfirmationRequest>

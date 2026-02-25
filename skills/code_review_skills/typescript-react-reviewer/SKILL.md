@@ -140,6 +140,56 @@ const App = ({ prop }: Props) => {};  // Explicit props
 4. **Assess TypeScript safety** - Generic components, discriminated unions, strict config
 5. **Review for maintainability** - Component size, hook design, folder structure
 
+## Generate the Report
+
+Write the review report to the specified file path. The report MUST follow this exact structure:
+
+```markdown
+# TypeScript + React 19 Code Review Report
+
+| Entry | Details |
+| :--- | :--- |
+| **Date** | YYYY-MM-DD HH:MM |
+| **Reviewer** | AI (typescript-react-reviewer) |
+| **Scope** | [description of what was reviewed — git diff / specific files / commit range] |
+| **Project Stack** | TypeScript + React 19 (detected frameworks/libraries) |
+| **Overall Assessment** | **APPROVE** \| **REQUEST_CHANGES** \| **COMMENT** |
+
+---
+
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Files Reviewed | X |
+| Lines Changed | +Y / -Z |
+| Critical Issues | N |
+| High Priority | N |
+| Architecture Issues | N |
+
+---
+
+## Findings by Priority
+
+### 🚫 Critical
+> None found. ✅
+(or list each finding with file, line, impact, and fix)
+
+### ⚠️ High Priority
+(same format)
+
+### 📝 Architecture/Style
+(same format)
+
+---
+
+## Recommended Next Steps
+
+1. Address any critical bugs (P0)
+2. Refactor high-priority anti-patterns
+3. Consider architectural improvements
+```
+
 ## Reference Documents
 
 For detailed patterns and examples:

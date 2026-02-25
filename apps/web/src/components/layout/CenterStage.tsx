@@ -328,14 +328,14 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   // Derive workspace and project info for OverviewTab
   const { currentProject, currentWorkspace } = (() => {
     if (!effectiveContextId) return { currentProject: undefined, currentWorkspace: undefined };
-    
+
     for (const project of projects) {
       const workspace = project.workspaces.find(w => w.id === effectiveContextId);
       if (workspace) {
         return { currentProject: project, currentWorkspace: workspace };
       }
     }
-    
+
     // If no workspace found, check if effectiveContextId is a projectId
     const project = projects.find(p => p.id === effectiveContextId);
     return { currentProject: project, currentWorkspace: undefined };
@@ -420,13 +420,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         {/* Top Tab Bar */}
         <TabsList
           variant="underline"
-          className="h-10 w-full justify-start border-b border-sidebar-border px-0 bg-transparent overflow-x-auto no-scrollbar gap-0 items-stretch !py-0"
+          className="h-10 w-full justify-start border-b border-sidebar-border px-0 bg-transparent overflow-x-auto no-scrollbar gap-0 items-stretch py-0!"
         >
           {/* Overview Tab - Fixed, shown when workspace/project is selected */}
           {effectiveContextId && (
             <TabsTab
               value="overview"
-              className="!h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+              className="h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
             >
               <LayoutDashboard className="size-3.5" />
             </TabsTab>
@@ -436,7 +436,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               <TooltipTrigger asChild>
                 <TabsTab
                   value="wiki"
-                  className="group/wiki relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                  className="group/wiki relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
                 >
                   <span className="relative size-3.5">
                     <BookOpen
@@ -451,7 +451,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                       <RefreshCw
                         className={cn(
                           "size-3.5 absolute inset-0 transition-all duration-200",
-                          "opacity-0 scale-50 rotate-[60deg]",
+                          "opacity-0 scale-50 rotate-60",
                           "group-hover/wiki:opacity-100 group-hover/wiki:scale-100 group-hover/wiki:rotate-0",
                           wikiRefreshing && "animate-spin"
                         )}
@@ -482,7 +482,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
           <TabsTab
             value="terminal"
-            className="relative !h-full pl-4 pr-8 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+            className="relative h-full! pl-4 pr-8 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
           >
             <TerminalIcon className="size-3.5" />
             <span className="text-[13px] font-medium text-pretty">
@@ -925,6 +925,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           workspaceId={effectiveContextId}
           projectName={currentProject?.name}
           workspacePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
+          projectMainPath={currentProject?.mainFilePath}
           currentBranch={currentBranch ?? undefined}
           onStartTerminalMode={(command) => {
             codeReviewUserTriggeredRef.current = true;

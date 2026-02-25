@@ -78,8 +78,10 @@ Structure your review as follows:
 ```markdown
 ## Code Review Summary
 
-**Files reviewed**: X files, Y lines changed
-**Overall assessment**: [APPROVE / REQUEST_CHANGES / COMMENT]
+| Entry | Details |
+| :--- | :--- |
+| **Files Reviewed** | X files, Y lines changed |
+| **Overall Assessment** | **APPROVE** \| **REQUEST_CHANGES** \| **COMMENT** |
 
 ---
 

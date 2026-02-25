@@ -18,7 +18,15 @@ import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  PointerSensor,
 } from '@workspace/ui';
+import type { DragEndEvent, DragStartEvent } from '@workspace/ui';
 import {
   GitBranch,
   MapPin,
@@ -38,7 +46,8 @@ import {
   History,
   ChevronRight,
   CircleDashed,
-  RotateCcw
+  RotateCcw,
+  FileText
 } from 'lucide-react';
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -75,6 +84,33 @@ function formatDate(isoString?: string): string {
   }
 }
 
+// ---------------------------------------------------------------------------
+// DnD helper components
+// ---------------------------------------------------------------------------
+
+function DroppableSection({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={cn("w-full rounded-sm transition-colors", isOver && "bg-primary/10")}>
+      {children}
+    </div>
+  );
+}
+
+function DraggableTask({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn("cursor-grab active:cursor-grabbing", isDragging && "opacity-30")}
+    >
+      {children}
+    </div>
+  );
+}
+
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   contextId,
   projectName,
@@ -108,6 +144,32 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { resolvedTheme } = useTheme();
 
+  const [reviewFiles, setReviewFiles] = useState<{ name: string, path: string }[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [activeDragTask, setActiveDragTask] = useState<{ index: number; content: string; status: TaskStatus } | null>(null);
+
+  const loadReviews = useCallback(async () => {
+    if (!projectPath || !contextId) return;
+    const reviewPath = `${projectPath}/.atmos/reviews/${contextId}`;
+    setReviewsLoading(true);
+    try {
+      const res = await fsApi.listDir(reviewPath, { dirsOnly: false, showHidden: false, ignoreNotFound: true });
+      if (res && res.entries) {
+        const files = res.entries
+          .filter(e => !e.is_dir && e.name.endsWith('.md'))
+          .map(e => ({ name: e.name, path: e.path }))
+          .sort((a, b) => b.name.localeCompare(a.name));
+        setReviewFiles(files);
+      } else {
+        setReviewFiles([]);
+      }
+    } catch {
+      setReviewFiles([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [projectPath, contextId]);
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     progress: true,
     todo: true,
@@ -129,12 +191,36 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const needsExpansion = requirementPreview !== null;
   const effectivePath = workspacePath || projectPath;
 
+  // DnD: drag tasks between status sections
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    const idx = parseInt(id.replace('task-', ''), 10);
+    const task = tasks[idx];
+    if (task) setActiveDragTask({ index: idx, content: task.content, status: task.status });
+  }, [tasks]);
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { over } = event;
+    if (over && activeDragTask && effectivePath) {
+      const targetStatus = String(over.id).replace('section-', '') as TaskStatus;
+      if (targetStatus !== activeDragTask.status) {
+        await updateTaskStatus(effectivePath, activeDragTask.index, targetStatus);
+      }
+    }
+    setActiveDragTask(null);
+  }, [activeDragTask, effectivePath, updateTaskStatus]);
+
   useEffect(() => {
     if (effectivePath) {
       loadRequirement(effectivePath);
       loadTasks(effectivePath);
     }
-  }, [effectivePath]);
+    if (projectPath) {
+      loadReviews();
+    }
+  }, [effectivePath, projectPath]);
 
   const handleRefresh = useCallback(async () => {
     if (!effectivePath) return;
@@ -142,9 +228,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     await Promise.all([
       loadRequirement(effectivePath),
       loadTasks(effectivePath),
+      loadReviews(),
     ]);
     setIsRefreshing(false);
-  }, [effectivePath, loadRequirement, loadTasks]);
+  }, [effectivePath, loadRequirement, loadTasks, loadReviews]);
 
   const handleEditRequirement = useCallback(async () => {
     if (!effectivePath) return;
@@ -283,7 +370,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </CardTitle>
             <div className="flex items-center gap-2.5">
               <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-foreground rounded-full transition-all duration-300"
                   style={{ width: tasks.length > 0 ? `${(tasks.filter(t => t.status === 'done').length / tasks.length) * 100}%` : '0%' }}
                 />
@@ -331,134 +418,147 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span className="text-sm">No tasks added yet.</span>
                 </div>
               ) : (
-                <div className="flex flex-col gap-0.5">
-                  {taskSections.map((section) => {
-                    const sectionTasks = groupedTasks[section.id];
-                    if (sectionTasks.length === 0 && section.id !== 'todo' && section.id !== 'progress') return null;
+                <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                  <div className="flex flex-col gap-0.5">
+                    {taskSections.map((section) => {
+                      const sectionTasks = groupedTasks[section.id];
+                      if (sectionTasks.length === 0 && section.id !== 'todo' && section.id !== 'progress') return null;
 
-                    return (
-                      <Collapsible
-                        key={section.id}
-                        open={expandedSections[section.id]}
-                        onOpenChange={() => toggleSection(section.id)}
-                        className="w-full"
-                      >
-                        <CollapsibleTrigger className="flex items-center gap-2.5 w-full px-3.5 py-2 hover:bg-muted/50 transition-colors text-xs font-medium text-muted-foreground uppercase tracking-wide group rounded-sm cursor-pointer">
-                          <ChevronRight className={cn("size-3.5 transition-transform duration-200 opacity-50", expandedSections[section.id] && "rotate-90")} />
-                          <div className="flex items-center gap-2">
-                            {section.icon}
-                            <span>{section.label}</span>
-                          </div>
-                          <span className="ml-auto text-[11px] font-mono opacity-50">{sectionTasks.length}</span>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <div className="relative mt-0.5 pb-2.5 ml-[20px]">
-                            {/* Vertical connecting line - aligned with chevron center */}
-                            <div className="absolute left-0 top-0 bottom-2.5 w-px bg-border" />
-                            <div className="flex flex-col gap-0.5 pl-4">
-                            {sectionTasks.length === 0 ? (
-                              <div className="py-2 text-xs text-muted-foreground/40 italic">No items in this section.</div>
-                            ) : (
-                              sectionTasks.map((task) => (
-                                <div
-                                  key={task.index}
-                                  onDoubleClick={() => handleTaskDoubleClick(task.index, task.content)}
-                                  className={cn(
-                                    'group flex items-center gap-3 px-3 py-2 rounded-sm hover:bg-muted/50 transition-colors cursor-default select-none',
-                                    task.status === 'done' && 'opacity-50'
+                      return (
+                        <DroppableSection key={section.id} id={`section-${section.id}`}>
+                          <Collapsible
+                            open={expandedSections[section.id]}
+                            onOpenChange={() => toggleSection(section.id)}
+                            className="w-full"
+                          >
+                            <CollapsibleTrigger className="flex items-center gap-2.5 w-full px-3.5 py-2 hover:bg-muted/50 transition-colors text-xs font-medium text-muted-foreground uppercase tracking-wide group rounded-sm cursor-pointer">
+                              <ChevronRight className={cn("size-3.5 transition-transform duration-200 opacity-50", expandedSections[section.id] && "rotate-90")} />
+                              <div className="flex items-center gap-2">
+                                {section.icon}
+                                <span>{section.label}</span>
+                              </div>
+                              <span className="ml-auto text-[11px] font-mono opacity-50">{sectionTasks.length}</span>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="relative mt-0.5 pb-2.5 ml-[20px]">
+                                {/* Vertical connecting line - aligned with chevron center */}
+                                <div className="absolute left-0 top-0 bottom-2.5 w-px bg-border" />
+                                <div className="flex flex-col gap-0.5 pl-4">
+                                  {sectionTasks.length === 0 ? (
+                                    <div className="py-2 text-xs text-muted-foreground/40 italic">No items in this section.</div>
+                                  ) : (
+                                    sectionTasks.map((task) => (
+                                      <DraggableTask key={task.index} id={`task-${task.index}`}>
+                                        <div
+                                          onDoubleClick={() => handleTaskDoubleClick(task.index, task.content)}
+                                          className={cn(
+                                            'group flex items-center gap-3 px-3 py-2 rounded-sm hover:bg-muted/50 transition-colors select-none',
+                                            task.status === 'done' && 'opacity-50'
+                                          )}
+                                        >
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleStatusClick(task.index, task.status);
+                                            }}
+                                            onDoubleClick={(e) => e.stopPropagation()}
+                                            className="shrink-0 transition-transform active:scale-90 hover:scale-110 focus:outline-none cursor-pointer"
+                                          >
+                                            {renderStatusIcon(task.status)}
+                                          </button>
+
+                                          <div className="flex-1 min-w-0 flex items-center min-h-6">
+                                            {editingTaskIndex === task.index ? (
+                                              <input
+                                                value={editingTaskContent}
+                                                onChange={(e) => setEditingTaskContent(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') handleTaskEditSubmit();
+                                                  if (e.key === 'Escape') handleTaskEditCancel();
+                                                }}
+                                                onBlur={handleTaskEditSubmit}
+                                                autoFocus
+                                                onDoubleClick={(e) => e.stopPropagation()}
+                                                className="w-full p-0 border-none bg-transparent outline-none ring-0 text-sm text-foreground"
+                                              />
+                                            ) : (
+                                              <span
+                                                className={cn(
+                                                  "text-sm wrap-break-word cursor-default select-none text-sidebar-foreground",
+                                                  task.status === 'done' && "line-through text-muted-foreground",
+                                                  task.status === 'cancelled' && "line-through text-muted-foreground/60"
+                                                )}
+                                              >
+                                                {task.content}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div onDoubleClick={(e) => e.stopPropagation()}>
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="size-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted rounded-sm cursor-pointer"
+                                                >
+                                                  <MoreHorizontal className="size-3.5 text-muted-foreground" />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end" className="w-[150px]">
+                                                <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'todo')} className="text-xs cursor-pointer">
+                                                  <Circle className="size-3.5 mr-2 opacity-50" />
+                                                  To Do
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'progress')} className="text-xs cursor-pointer">
+                                                  <RotateCcw className="size-3.5 mr-2" />
+                                                  In Progress
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'done')} className="text-xs cursor-pointer">
+                                                  <CheckSquare className="size-3.5 mr-2" />
+                                                  Completed
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'cancelled')} className="text-xs opacity-60 cursor-pointer">
+                                                  <XOctagon className="size-3.5 mr-2" />
+                                                  Cancelled
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => handleTaskDoubleClick(task.index, task.content)} className="text-xs cursor-pointer">
+                                                  <Pencil className="size-3.5 mr-2 opacity-50" />
+                                                  Edit Task
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                  onClick={() => handleDeleteTask(task.index)}
+                                                  className="text-xs text-destructive focus:text-destructive cursor-pointer"
+                                                >
+                                                  <Trash2 className="size-3.5 mr-2" />
+                                                  Delete
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          </div>
+                                        </div>
+                                      </DraggableTask>
+                                    ))
                                   )}
-                                >
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusClick(task.index, task.status);
-                                    }}
-                                    onDoubleClick={(e) => e.stopPropagation()}
-                                    className="shrink-0 transition-transform active:scale-90 hover:scale-110 focus:outline-none cursor-pointer"
-                                  >
-                                    {renderStatusIcon(task.status)}
-                                  </button>
-
-                                  <div className="flex-1 min-w-0 flex items-center min-h-[1.5rem]">
-                                    {editingTaskIndex === task.index ? (
-                                      <input
-                                        value={editingTaskContent}
-                                        onChange={(e) => setEditingTaskContent(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') handleTaskEditSubmit();
-                                          if (e.key === 'Escape') handleTaskEditCancel();
-                                        }}
-                                        onBlur={handleTaskEditSubmit}
-                                        autoFocus
-                                        onDoubleClick={(e) => e.stopPropagation()}
-                                        className="w-full p-0 border-none bg-transparent outline-none ring-0 text-sm text-foreground"
-                                      />
-                                    ) : (
-                                      <span
-                                        className={cn(
-                                          "text-sm break-words cursor-default select-none text-sidebar-foreground",
-                                          task.status === 'done' && "line-through text-muted-foreground",
-                                          task.status === 'cancelled' && "line-through text-muted-foreground/60"
-                                        )}
-                                      >
-                                        {task.content}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div onDoubleClick={(e) => e.stopPropagation()}>
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="size-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted rounded-sm cursor-pointer"
-                                        >
-                                          <MoreHorizontal className="size-3.5 text-muted-foreground" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end" className="w-[150px]">
-                                        <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'todo')} className="text-xs cursor-pointer">
-                                          <Circle className="size-3.5 mr-2 opacity-50" />
-                                          To Do
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'progress')} className="text-xs cursor-pointer">
-                                          <RotateCcw className="size-3.5 mr-2" />
-                                          In Progress
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'done')} className="text-xs cursor-pointer">
-                                          <CheckSquare className="size-3.5 mr-2" />
-                                          Completed
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'cancelled')} className="text-xs opacity-60 cursor-pointer">
-                                          <XOctagon className="size-3.5 mr-2" />
-                                          Cancelled
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => handleTaskDoubleClick(task.index, task.content)} className="text-xs cursor-pointer">
-                                          <Pencil className="size-3.5 mr-2 opacity-50" />
-                                          Edit Task
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          onClick={() => handleDeleteTask(task.index)}
-                                          className="text-xs text-destructive focus:text-destructive cursor-pointer"
-                                        >
-                                          <Trash2 className="size-3.5 mr-2" />
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
                                 </div>
-                              ))
-                            )}
-                            </div>
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    );
-                  })}
-                </div>
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </DroppableSection>
+                      );
+                    })}
+                  </div>
+
+                  <DragOverlay dropAnimation={null}>
+                    {activeDragTask ? (
+                      <div className="flex items-center gap-3 px-3 py-2 rounded-sm bg-background border border-border shadow-md text-sm">
+                        {renderStatusIcon(activeDragTask.status)}
+                        <span className="text-sidebar-foreground">{activeDragTask.content}</span>
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
               )}
             </div>
           </CardContent>
@@ -538,6 +638,41 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </div>
             </div>
 
+            {/* Code Reviews Section */}
+            <div className="space-y-3">
+              <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">Code Reviews</h3>
+              <div className="grid gap-2.5">
+                {reviewsLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2].map(i => (
+                      <Skeleton key={i} className="h-10 w-full rounded-md" />
+                    ))}
+                  </div>
+                ) : reviewFiles.length > 0 ? (
+                  reviewFiles.map((file, i) => (
+                    <div
+                      key={i}
+                      onClick={() => openFile(file.path, contextId, { preview: true })}
+                      className="flex items-center gap-3 p-3 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group"
+                    >
+                      <FileText className="size-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors truncate">
+                        {file.name}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-border rounded-md">
+                    <FileText className="size-4 text-muted-foreground/30 mb-2" />
+                    <h3 className="text-xs text-muted-foreground mb-1">No code reviews yet</h3>
+                    <p className="text-[10px] text-muted-foreground/50 max-w-[200px]">
+                      Ask the agent to review code to see reports here.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </CardContent>
         </Card>
       </div>
@@ -603,7 +738,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         }
         @keyframes spin {
           from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+          to { transform: rotate(-360deg); }
         }
       `}</style>
     </div>

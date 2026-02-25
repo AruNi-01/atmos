@@ -853,3 +853,11 @@ pub async fn kill_orphaned_processes(
         "failed_pids": failed_pids,
     }))))
 }
+/// POST /api/system/sync-skills - Manually trigger system skill sync
+pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
+    tokio::task::spawn_blocking(infra::utils::system_skill_sync::sync_system_skills_on_startup);
+    Ok(Json(ApiResponse::success(json!({
+        "initiated": true,
+        "message": "System skill sync initiated"
+    }))))
+}

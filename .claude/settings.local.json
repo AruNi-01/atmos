@@ -39,7 +39,8 @@
       "mcp__acp__Bash",
       "Bash(cargo check:*)",
       "Bash(bunx tsc:*)",
-      "Bash(la -al)"
+      "Bash(la -al)",
+      "Bash(git diff:*)"
     ]
   }
 }

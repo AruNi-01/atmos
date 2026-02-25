@@ -221,6 +221,7 @@ impl WsMessageService {
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
             WsAction::CodeReviewSkillSystemStatus => self.handle_code_review_skill_system_status().await,
+            WsAction::SkillsSystemSync => self.handle_skills_system_sync().await,
             WsAction::AgentList => self.handle_agent_list().await,
             WsAction::AgentInstall => {
                 self.handle_agent_install(parse_request(request.data)?)
@@ -275,9 +276,14 @@ impl WsMessageService {
 
     fn handle_fs_list_dir(&self, req: FsListDirRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let entries = self
-            .fs_engine
-            .list_dir(&path, req.dirs_only, req.show_hidden)?;
+        
+        let entries = if req.ignore_not_found && !path.exists() {
+            Vec::new()
+        } else {
+            self.fs_engine
+                .list_dir(&path, req.dirs_only, req.show_hidden)?
+        };
+        
         let parent_path = self.fs_engine.get_parent(&path);
 
         let entries_json: Vec<Value> = entries
@@ -1413,9 +1419,9 @@ set -x
         Ok(json!({ "installed": installed }))
     }
 
-    /// Check if all three code review skills exist with SKILL.md in ~/.atmos/skills/.system/
+    /// Check if all code review skills exist with SKILL.md in ~/.atmos/skills/.system/code_review_skills/
     async fn handle_code_review_skill_system_status(&self) -> Result<Value> {
-        let system_dir = dirs::home_dir().map(|h| h.join(".atmos").join("skills").join(".system"));
+        let system_dir = dirs::home_dir().map(|h| h.join(".atmos").join("skills").join(".system").join("code_review_skills"));
         let installed = system_dir
             .map(|d| {
                 let skill_ok = |name: &str| {
@@ -1426,12 +1432,22 @@ set -x
                         && skill_md.exists()
                         && skill_md.is_file()
                 };
-                skill_ok("code-reviewer")
-                    && skill_ok("code-review-expert")
-                    && skill_ok("typescript-react-reviewer")
+                skill_ok("fullstack-reviewer") 
+                && skill_ok("code-review-expert") 
+                && skill_ok("typescript-react-reviewer")
             })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))
+    }
+
+    /// Manually trigger sync of all system skills from project/GitHub
+    async fn handle_skills_system_sync(&self) -> Result<Value> {
+        // Run in a blocking task to avoid blocking the async executor
+        tokio::task::spawn_blocking(move || {
+            infra::utils::system_skill_sync::sync_system_skills_on_startup();
+        });
+        
+        Ok(json!({ "initiated": true }))
     }
 
     // ===== Agent Handlers =====

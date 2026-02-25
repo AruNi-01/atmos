@@ -4,6 +4,7 @@ pub mod error;
 pub mod jobs;
 pub mod queue;
 pub mod websocket;
+pub mod utils;
 
 pub use db::{DatabaseConnection, DbConnection, Migrator, TestMessageRepo};
 pub use error::{InfraError, Result};

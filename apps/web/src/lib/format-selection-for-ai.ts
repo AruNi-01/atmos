@@ -52,13 +52,15 @@ export function formatEditorSelectionForAI(
   info: SelectionInfo,
   userNote?: string
 ): string {
-  const lineRange = formatLineRange(info.startLine, info.endLine);
   const language = info.language || getLanguageFromPath(info.filePath);
 
   let output = `## Code Snippet\n`;
   output += `- **File**: \`${info.filePath}\`\n`;
-  output += `- **Lines**: ${lineRange}\n\n`;
-  output += `\`\`\`${language}\n${info.selectedText}\n\`\`\``;
+  if (info.startLine > 0) {
+    const lineRange = formatLineRange(info.startLine, info.endLine);
+    output += `- **Lines**: ${lineRange}\n`;
+  }
+  output += `\n\`\`\`${language}\n${info.selectedText}\n\`\`\``;
 
   if (userNote?.trim()) {
     output += `\n\n## Note\n${userNote.trim()}`;
