@@ -1236,7 +1236,7 @@ export function AgentChatPanel() {
     if (wikiExists !== true) {
       return { enabled: false, reason: "Generate Wiki first to use Wiki Ask" as const };
     }
-    return { enabled: true, reason: null as const };
+    return { enabled: true, reason: null };
   }, [hasBoundContext, isProjectScopedView, isWikiTabActive, wikiExists]);
 
   useEffect(() => {
