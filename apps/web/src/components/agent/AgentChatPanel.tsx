@@ -1066,10 +1066,15 @@ export function AgentChatPanel() {
   // Draggable & Resizable layout
   // ---------------------------------------------------------------------------
   const { layout, updateLayout, loaded: layoutLoaded, loadLayout } = useAgentChatLayout();
-  useEffect(() => { loadLayout(); }, [loadLayout]);
+
+  useEffect(() => {
+    loadLayout();
+  }, [loadLayout]);
   const panelRef = useRef<HTMLDivElement>(null);
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const dragAbortController = useRef<AbortController | null>(null);
   const resizeState = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
+  const resizeAbortController = useRef<AbortController | null>(null);
 
   // Resolve "auto" position (-1) to bottom-right
   const resolvePosition = useCallback(() => {
@@ -1108,11 +1113,15 @@ export function AgentChatPanel() {
     };
     const handleUp = () => {
       dragState.current = null;
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleUp);
+      dragAbortController.current?.abort();
+      dragAbortController.current = null;
     };
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleUp);
+
+    // Use AbortController for automatic cleanup
+    dragAbortController.current = new AbortController();
+    const { signal } = dragAbortController.current;
+    document.addEventListener('mousemove', handleMove, { signal });
+    document.addEventListener('mouseup', handleUp, { signal });
   }, [resolvePosition, clamp, layout.width, layout.height, updateLayout]);
 
   // Resize handlers
@@ -1144,12 +1153,26 @@ export function AgentChatPanel() {
     };
     const handleUp = () => {
       resizeState.current = null;
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleUp);
+      resizeAbortController.current?.abort();
+      resizeAbortController.current = null;
     };
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleUp);
+
+    // Use AbortController for automatic cleanup
+    resizeAbortController.current = new AbortController();
+    const { signal } = resizeAbortController.current;
+    document.addEventListener('mousemove', handleMove, { signal });
+    document.addEventListener('mouseup', handleUp, { signal });
   }, [resolvePosition, clamp, layout.width, layout.height, updateLayout]);
+
+  // Cleanup abort controllers on unmount
+  useEffect(() => {
+    return () => {
+      dragAbortController.current?.abort();
+      dragAbortController.current = null;
+      resizeAbortController.current?.abort();
+      resizeAbortController.current = null;
+    };
+  }, []);
 
   // Keep panel on screen when window resizes
   useEffect(() => {
