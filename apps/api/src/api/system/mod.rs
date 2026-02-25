@@ -23,6 +23,14 @@ pub fn routes() -> Router<AppState> {
             "/project-wiki-window/{workspace_id}",
             post(handlers::kill_project_wiki_window),
         )
+        .route(
+            "/code-review-window/{workspace_id}",
+            get(handlers::check_code_review_window),
+        )
+        .route(
+            "/code-review-window/{workspace_id}",
+            post(handlers::kill_code_review_window),
+        )
         .route("/terminal-overview", get(handlers::get_terminal_overview))
         .route("/terminal-cleanup", post(handlers::cleanup_terminals))
         .route("/tmux-kill-server", post(handlers::kill_tmux_server))

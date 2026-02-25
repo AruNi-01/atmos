@@ -1048,6 +1048,25 @@ impl TerminalService {
         Ok(())
     }
 
+    /// Check if a "Code Review" tmux window exists in the given session.
+    pub fn has_code_review_window(&self, session_name: &str) -> Result<bool> {
+        let idx = self
+            .tmux_engine
+            .find_window_index_by_name(session_name, "Code Review")?;
+        Ok(idx.is_some())
+    }
+
+    /// Kill the "Code Review" tmux window in the given session.
+    pub fn kill_code_review_window(&self, session_name: &str) -> Result<()> {
+        if let Some(index) = self
+            .tmux_engine
+            .find_window_index_by_name(session_name, "Code Review")?
+        {
+            self.tmux_engine.kill_window(session_name, index)?;
+        }
+        Ok(())
+    }
+
     /// Get all active session IDs
     pub async fn list_sessions(&self) -> Vec<String> {
         self.sessions.lock().await.keys().cloned().collect()

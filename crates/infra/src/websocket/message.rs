@@ -194,6 +194,8 @@ pub enum WsAction {
     WikiSkillInstall,
     /// 检查 system 目录是否有 project-wiki skill
     WikiSkillSystemStatus,
+    /// 检查 system 目录是否有所有 code review skills
+    CodeReviewSkillSystemStatus,
 
     // ===== Agent 操作 =====
     /// 获取 Agent 管理状态

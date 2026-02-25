@@ -220,6 +220,7 @@ impl WsMessageService {
             WsAction::SkillsGet => self.handle_skills_get(parse_request(request.data)?).await,
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
+            WsAction::CodeReviewSkillSystemStatus => self.handle_code_review_skill_system_status().await,
             WsAction::AgentList => self.handle_agent_list().await,
             WsAction::AgentInstall => {
                 self.handle_agent_install(parse_request(request.data)?)
@@ -1407,6 +1408,27 @@ set -x
                 skill_ok("project-wiki")
                     && skill_ok("project-wiki-update")
                     && skill_ok("project-wiki-specify")
+            })
+            .unwrap_or(false);
+        Ok(json!({ "installed": installed }))
+    }
+
+    /// Check if all three code review skills exist with SKILL.md in ~/.atmos/skills/.system/
+    async fn handle_code_review_skill_system_status(&self) -> Result<Value> {
+        let system_dir = dirs::home_dir().map(|h| h.join(".atmos").join("skills").join(".system"));
+        let installed = system_dir
+            .map(|d| {
+                let skill_ok = |name: &str| {
+                    let skill_path = d.join(name);
+                    let skill_md = skill_path.join("SKILL.md");
+                    skill_path.exists()
+                        && skill_path.is_dir()
+                        && skill_md.exists()
+                        && skill_md.is_file()
+                };
+                skill_ok("code-reviewer")
+                    && skill_ok("code-review-expert")
+                    && skill_ok("typescript-react-reviewer")
             })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))
