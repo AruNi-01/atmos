@@ -15,9 +15,17 @@ import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import {
   formatEditorSelectionForAI,
   formatDiffSelectionForAI,
+  formatWikiSelectionForAI,
 } from '@/lib/format-selection-for-ai';
 
-export type SelectionType = 'editor' | 'diff';
+export type SelectionType = 'editor' | 'diff' | 'wiki';
+
+export interface SelectionCopiedPayload {
+  type: SelectionType;
+  selectionInfo: SelectionInfo;
+  formattedText: string;
+  includeNote: boolean;
+}
 
 interface SelectionPopoverProps {
   isVisible: boolean;
@@ -30,6 +38,7 @@ interface SelectionPopoverProps {
   popoverRef?: React.RefObject<HTMLDivElement | null>;
   className?: string;
   positioning?: 'absolute' | 'fixed';
+  onCopied?: (payload: SelectionCopiedPayload) => void;
 }
 
 export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
@@ -43,6 +52,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   popoverRef,
   className,
   positioning = 'absolute',
+  onCopied,
 }) => {
   const [userNote, setUserNote] = useState('');
   const [copied, setCopied] = useState(false);
@@ -95,9 +105,11 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     if (!displayInfo) return;
 
     const note = includeNote ? userNote : undefined;
-    const formatted = type === 'diff'
-      ? formatDiffSelectionForAI(displayInfo, note)
-      : formatEditorSelectionForAI(displayInfo, note);
+    const formatted = (() => {
+      if (type === 'diff') return formatDiffSelectionForAI(displayInfo, note);
+      if (type === 'wiki') return formatWikiSelectionForAI(displayInfo, note);
+      return formatEditorSelectionForAI(displayInfo, note);
+    })();
 
     try {
       await navigator.clipboard.writeText(formatted);
@@ -106,6 +118,12 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         title: 'Copied',
         description: 'Selection copied for AI',
         type: 'success',
+      });
+      onCopied?.({
+        type,
+        selectionInfo: displayInfo,
+        formattedText: formatted,
+        includeNote,
       });
       
       setTimeout(() => {
@@ -120,7 +138,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         type: 'error',
       });
     }
-  }, [displayInfo, userNote, type, onDismiss]);
+  }, [displayInfo, onCopied, onDismiss, type, userNote]);
 
   const handleQuickCopy = useCallback(() => {
     handleCopy(false);
@@ -134,9 +152,11 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     return null;
   }
 
-  const lineRange = displayInfo.startLine === displayInfo.endLine
-    ? `L${displayInfo.startLine}`
-    : `L${displayInfo.startLine}-L${displayInfo.endLine}`;
+  const lineRange = displayInfo.startLine > 0
+    ? (displayInfo.startLine === displayInfo.endLine
+      ? `L${displayInfo.startLine}`
+      : `L${displayInfo.startLine}-L${displayInfo.endLine}`)
+    : null;
 
   return (
     <div
@@ -204,8 +224,12 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               >
                 <bdi>{displayInfo.filePath}</bdi>
               </span>
-              <span className="shrink-0">·</span>
-              <span className="shrink-0">{lineRange}</span>
+              {lineRange && (
+                <>
+                  <span className="shrink-0">·</span>
+                  <span className="shrink-0">{lineRange}</span>
+                </>
+              )}
               {displayInfo.changeType && (
                 <>
                   <span className="shrink-0">·</span>

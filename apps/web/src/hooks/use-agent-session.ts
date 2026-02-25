@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { agentApi, getAgentWsBase, type AgentAuthMethod, type AgentAuthRequiredPayload } from "@/api/rest-api";
+import type { AgentChatMode } from "@/types/agent-chat";
 
 const AUTH_REQUIRED_ERROR_PREFIX = "ACP_AUTH_REQUIRED::";
 
@@ -91,6 +92,7 @@ export interface UseAgentSessionOptions {
   workspaceId: string | null;
   projectId: string | null;
   registryId: string;
+  mode: AgentChatMode;
   onMessage?: (msg: AgentServerMessage) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
@@ -103,6 +105,7 @@ export interface StartSessionOverride {
   projectId?: string | null;
   registryId?: string;
   authMethodId?: string | null;
+  mode?: AgentChatMode;
 }
 
 export interface UseAgentSessionReturn {
@@ -164,6 +167,7 @@ export function useAgentSession({
   workspaceId,
   projectId,
   registryId,
+  mode,
   onMessage,
   onConnected,
   onDisconnected,
@@ -286,9 +290,10 @@ export function useAgentSession({
       const w = override?.workspaceId ?? workspaceId;
       const p = override?.projectId ?? projectId;
       const r = override?.registryId ?? registryId;
+      const m = override?.mode ?? mode;
       try {
         setConnectionPhase("creating_session");
-        const res = await agentApi.createSession(w ?? null, p ?? null, r, override?.authMethodId);
+        const res = await agentApi.createSession(w ?? null, p ?? null, r, override?.authMethodId, m);
         const sid = res.session_id;
         setSessionId(sid);
         setSessionCwd(res.cwd);
@@ -394,7 +399,7 @@ export function useAgentSession({
         onError?.(msg);
       }
     },
-    [workspaceId, projectId, registryId, onConnected, onDisconnected, onError]
+    [workspaceId, projectId, registryId, mode, onConnected, onDisconnected, onError]
   );
 
   const resumeSession = useCallback(
@@ -405,7 +410,7 @@ export function useAgentSession({
       setAuthRequest(null);
       setConfigOptions([]);
       try {
-        const res = await agentApi.resumeSession(sessionIdToResume);
+        const res = await agentApi.resumeSession(sessionIdToResume, mode);
         const sid = res.session_id;
         setSessionId(sid);
         setSessionCwd(res.cwd);
@@ -498,7 +503,7 @@ export function useAgentSession({
         return false;
       }
     },
-    [onConnected, onDisconnected, onError]
+    [mode, onConnected, onDisconnected, onError]
   );
 
   useEffect(() => {

@@ -32,6 +32,7 @@ impl<'a> AgentChatSessionRepo<'a> {
         registry_id: &str,
         cwd: &str,
         allow_file_access: bool,
+        mode: &str,
     ) -> Result<agent_chat_session::Model> {
         let base = BaseFields::new();
         let model = agent_chat_session::ActiveModel {
@@ -48,6 +49,7 @@ impl<'a> AgentChatSessionRepo<'a> {
             status: Set("active".to_string()),
             title: Set(None),
             title_source: Set(None),
+            mode: Set(mode.to_string()),
         };
         let result = model.insert(self.db).await?;
         Ok(result)
@@ -126,6 +128,7 @@ impl<'a> AgentChatSessionRepo<'a> {
         &self,
         context_type: Option<&str>,
         context_guid: Option<&str>,
+        mode: Option<&str>,
         limit: u64,
         cursor: Option<&str>,
     ) -> Result<(Vec<agent_chat_session::Model>, Option<String>, bool)> {
@@ -142,6 +145,9 @@ impl<'a> AgentChatSessionRepo<'a> {
         }
         if let Some(cg) = context_guid {
             query = query.filter(agent_chat_session::Column::ContextGuid.eq(cg));
+        }
+        if let Some(m) = mode {
+            query = query.filter(agent_chat_session::Column::Mode.eq(m));
         }
 
         // Cursor: "updated_at_ts:guid" - filter rows before cursor (older in DESC order)

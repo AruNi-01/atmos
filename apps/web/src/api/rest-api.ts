@@ -332,6 +332,7 @@ export interface AgentChatSessionItem {
   context_guid: string | null;
   registry_id: string;
   status: string;
+  mode: string;
   created_at: string;
   updated_at: string;
 }
@@ -354,7 +355,8 @@ export const agentApi = {
     workspaceId: string | null | undefined,
     projectId: string | null | undefined,
     registryId: string,
-    authMethodId?: string | null
+    authMethodId?: string | null,
+    mode: "default" | "wiki_ask" = "default"
   ): Promise<CreateAgentSessionResponse> => {
     return fetchApi<CreateAgentSessionResponse>('/api/agent/session', {
       method: 'POST',
@@ -363,6 +365,7 @@ export const agentApi = {
         project_id: projectId || null,
         registry_id: registryId,
         auth_method_id: authMethodId || null,
+        mode,
       }),
     });
   },
@@ -371,10 +374,12 @@ export const agentApi = {
    * Resume an existing session by session id (no new DB row).
    */
   resumeSession: async (
-    sessionId: string
+    sessionId: string,
+    mode: "default" | "wiki_ask" = "default"
   ): Promise<CreateAgentSessionResponse> => {
+    const qs = new URLSearchParams({ mode }).toString();
     return fetchApi<CreateAgentSessionResponse>(
-      `/api/agent/sessions/${sessionId}/resume`,
+      `/api/agent/sessions/${sessionId}/resume?${qs}`,
       {
         method: 'POST',
       }
@@ -387,12 +392,14 @@ export const agentApi = {
   listSessions: async (params?: {
     context_type?: string;
     context_guid?: string;
+    mode?: "default" | "wiki_ask";
     limit?: number;
     cursor?: string;
   }): Promise<ListAgentSessionsResponse> => {
     const search = new URLSearchParams();
     if (params?.context_type) search.set('context_type', params.context_type);
     if (params?.context_guid) search.set('context_guid', params.context_guid);
+    if (params?.mode) search.set('mode', params.mode);
     if (params?.limit) search.set('limit', String(params.limit));
     if (params?.cursor) search.set('cursor', params.cursor);
     const qs = search.toString();
