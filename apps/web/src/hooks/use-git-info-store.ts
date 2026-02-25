@@ -25,6 +25,8 @@ export interface GitInfoState {
   hasUnpushedCommits: boolean;
   uncommittedCount: number;
   unpushedCount: number;
+  githubOwner: string | null;
+  githubRepo: string | null;
   
   // Loading states
   isLoadingStatus: boolean;
@@ -63,6 +65,8 @@ const initialState: GitInfoState = {
   hasUnpushedCommits: false,
   uncommittedCount: 0,
   unpushedCount: 0,
+  githubOwner: null,
+  githubRepo: null,
   isLoadingStatus: false,
   lastStatusFetch: null,
 };
@@ -110,6 +114,8 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
         hasUnpushedCommits: status.has_unpushed_commits,
         uncommittedCount: status.uncommitted_count,
         unpushedCount: status.unpushed_count,
+        githubOwner: status.github_owner,
+        githubRepo: status.github_repo,
         lastStatusFetch: Date.now(),
         isLoadingStatus: false,
       });

@@ -94,6 +94,8 @@ export interface GitStatusResponse {
   uncommitted_count: number;
   unpushed_count: number;
   current_branch: string | null;
+  github_owner: string | null;
+  github_repo: string | null;
 }
 
 // 变更文件信息

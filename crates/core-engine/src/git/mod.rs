@@ -289,6 +289,21 @@ impl GitEngine {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    /// Get remote origin url
+    pub fn get_remote_url(&self, repo_path: &Path) -> Result<String> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args(["config", "--get", "remote.origin.url"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to get remote url: {}", e)))?;
+
+        if !output.status.success() {
+            return Ok(String::new());
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
     /// Count commits between base and head (exclusive of base): git rev-list --count base..head
     pub fn get_commit_count(
         &self,

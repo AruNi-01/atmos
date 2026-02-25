@@ -81,7 +81,16 @@ export type WsAction =
   | 'custom_agent_remove'
   | 'custom_agent_get_json'
   | 'custom_agent_set_json'
-  | 'custom_agent_get_manifest_path';
+  | 'custom_agent_get_manifest_path'
+  // GitHub 操作
+  | 'github_pr_list'
+  | 'github_pr_detail'
+  | 'github_pr_create'
+  | 'github_pr_merge'
+  | 'github_pr_close'
+  | 'github_pr_open_browser'
+  | 'github_ci_status'
+  | 'github_ci_open_browser';
 
 export interface WsRequest {
   type: 'request';
