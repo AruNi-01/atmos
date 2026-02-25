@@ -172,19 +172,9 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       setSkillsReady(false);
     });
 
-    // Fetch dynamic review skills from system folder
-    setLoadingSkillsList(true);
-    fetch('/api/review-skills')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.skills && data.skills.length > 0) {
-          setSkillsList(data.skills);
-          const newStoredId = readStoredSkillId(data.skills);
-          setSkillId(newStoredId);
-        }
-      })
-      .catch((err) => console.error("Failed to load generic review skills", err))
-      .finally(() => setLoadingSkillsList(false));
+    // TODO: Re-enable when backend implements /api/review-skills endpoint
+    // setSkillsList([]); 
+    setLoadingSkillsList(false);
 
     setLoadingAcpAgents(true);
     Promise.all([

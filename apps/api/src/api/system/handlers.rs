@@ -855,7 +855,14 @@ pub async fn kill_orphaned_processes(
 }
 /// POST /api/system/sync-skills - Manually trigger system skill sync
 pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
-    tokio::task::spawn_blocking(infra::utils::system_skill_sync::sync_system_skills_on_startup);
+    tokio::task::spawn_blocking(|| {
+        match std::panic::catch_unwind(|| {
+            infra::utils::system_skill_sync::sync_system_skills_on_startup();
+        }) {
+            Ok(_) => tracing::info!("System skill sync completed successfully"),
+            Err(e) => tracing::error!("System skill sync panicked: {:?}", e),
+        }
+    });
     Ok(Json(ApiResponse::success(json!({
         "initiated": true,
         "message": "System skill sync initiated"
