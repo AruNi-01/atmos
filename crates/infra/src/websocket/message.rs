@@ -196,6 +196,8 @@ pub enum WsAction {
     WikiSkillSystemStatus,
     /// 检查 system 目录是否有所有 code review skills
     CodeReviewSkillSystemStatus,
+    /// 手动触发同步所有系统 skills
+    SkillsSystemSync,
 
     // ===== Agent 操作 =====
     /// 获取 Agent 管理状态
@@ -263,6 +265,9 @@ pub struct FsListDirRequest {
     /// 是否显示隐藏文件
     #[serde(default)]
     pub show_hidden: bool,
+    /// 如果找不到目录是否忽略错误返回空列表
+    #[serde(default)]
+    pub ignore_not_found: bool,
 }
 
 /// 目录条目

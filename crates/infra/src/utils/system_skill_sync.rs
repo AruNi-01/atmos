@@ -2,20 +2,19 @@
 //! 1. Copy from project root if running from ATMOS source (symlinks are preserved; project-wiki is synced first)
 //! 2. Otherwise clone from GitHub when target does not exist
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
 const GITHUB_REPO: &str = "https://github.com/AruNi-01/atmos.git";
 
 /// All system skills that should be synced to ~/.atmos/skills/.system/ on startup.
-/// Includes wiki skills and code review skills.
 const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     // Wiki skills
     "project-wiki",
     "project-wiki-update",
     "project-wiki-specify",
     // Code review skills
-    "code-reviewer",
+    "fullstack-reviewer",
     "code-review-expert",
     "typescript-react-reviewer",
 ];
@@ -55,8 +54,8 @@ fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
 
 /// Clone atmos repo from GitHub and copy specified skills to ~/.atmos/skills/.system/.
 /// Returns true if at least one skill was synced.
-fn clone_and_sync_all_wiki_skills(system_dir: &Path, skills_to_sync: &[&str]) -> bool {
-    let temp_dir = std::env::temp_dir().join(format!("atmos-wiki-skill-{}", std::process::id()));
+fn clone_and_sync_skills_from_github(system_dir: &Path, skills_to_sync: &[&str]) -> bool {
+    let temp_dir = std::env::temp_dir().join(format!("atmos-skill-sync-{}", std::process::id()));
     if std::fs::create_dir_all(&temp_dir).is_err() {
         return false;
     }
@@ -78,9 +77,26 @@ fn clone_and_sync_all_wiki_skills(system_dir: &Path, skills_to_sync: &[&str]) ->
     if let Ok(output) = clone_status {
         if output.status.success() {
             let skills_dir = clone_path.join("skills");
+            let dir_entries = std::fs::read_dir(&skills_dir)
+                .ok()
+                .map(|read_dir| read_dir.filter_map(Result::ok).collect::<Vec<_>>())
+                .unwrap_or_default();
+
             for skill_name in skills_to_sync {
-                let skill_src = skills_dir.join(skill_name);
-                let skill_dst = system_dir.join(skill_name);
+                let mut skill_src = skills_dir.join(skill_name);
+                if !skill_src.exists() || !skill_src.is_dir() {
+                    for entry in &dir_entries {
+                        if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                            let potential_source = entry.path().join(skill_name);
+                            if potential_source.exists() && potential_source.is_dir() {
+                                skill_src = potential_source;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                let skill_dst = get_target_dir(system_dir, skill_name);
                 if skill_src.exists() && skill_src.is_dir() && !skill_dir_is_valid(&skill_dst) {
                     if skill_dst.exists() {
                         let _ = std::fs::remove_dir_all(&skill_dst);
@@ -114,10 +130,20 @@ fn skill_dir_is_valid(skill_path: &Path) -> bool {
     skill_path.join("SKILL.md").exists()
 }
 
+/// Helper function to determine the target directory for a skill.
+fn get_target_dir(system_dir: &Path, skill_name: &str) -> PathBuf {
+    let review_skills = ["fullstack-reviewer", "code-review-expert", "typescript-react-reviewer"];
+    if review_skills.contains(&skill_name) {
+        system_dir.join("code_review_skills").join(skill_name)
+    } else {
+        system_dir.join(skill_name)
+    }
+}
+
 /// Sync a single skill from project root. Returns true if synced successfully.
 /// Re-syncs if target exists but is empty (no SKILL.md).
 fn sync_skill_from_project(skill_name: &str, system_dir: &Path, project_root: &Path) -> bool {
-    let target_dir = system_dir.join(skill_name);
+    let target_dir = get_target_dir(system_dir, skill_name);
     if target_dir.exists() && skill_dir_is_valid(&target_dir) {
         return false;
     }
@@ -126,7 +152,25 @@ fn sync_skill_from_project(skill_name: &str, system_dir: &Path, project_root: &P
         let _ = std::fs::remove_dir_all(&target_dir);
     }
 
-    let source = project_root.join("skills").join(skill_name);
+    let dir_entries = std::fs::read_dir(project_root.join("skills"))
+        .ok()
+        .map(|read_dir| read_dir.filter_map(Result::ok).collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let mut source = project_root.join("skills").join(skill_name);
+    if !source.exists() || !source.is_dir() {
+        // Try to find it in subdirectories (like code_review_skills/fullstack-reviewer)
+        for entry in dir_entries {
+            if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                let potential_source = entry.path().join(skill_name);
+                if potential_source.exists() && potential_source.is_dir() {
+                    source = potential_source;
+                    break;
+                }
+            }
+        }
+    }
+
     if !source.exists() || !source.is_dir() {
         tracing::debug!(
             "Skill {} source not found at {} (project_root: {})",
@@ -161,7 +205,7 @@ fn sync_skill_from_project(skill_name: &str, system_dir: &Path, project_root: &P
 
 /// Resolve project/workspace root. Derive from executable path (target/debug/api -> workspace root),
 /// which is reliable when running via `cargo run` regardless of cwd. Fall back to current_dir().
-fn resolve_project_root() -> std::path::PathBuf {
+fn resolve_project_root() -> PathBuf {
     if let Ok(exe) = std::env::current_exe() {
         // exe = .../atmos/target/debug/api or .../atmos/target/release/api
         if let Some(target_dir) = exe.parent() {
@@ -177,11 +221,11 @@ fn resolve_project_root() -> std::path::PathBuf {
     std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf())
 }
 
-/// Ensure all system skills (wiki + code review) exist in ~/.atmos/skills/.system/.
+/// Ensure all system skills exist in ~/.atmos/skills/.system/.
 /// 1. If target exists and valid, no-op
 /// 2. Copy from project root when running from ATMOS source
 /// 3. For any still missing: clone from GitHub and copy
-pub fn sync_project_wiki_skill_on_startup() {
+pub fn sync_system_skills_on_startup() {
     let home = match dirs::home_dir() {
         Some(h) => h,
         None => return,
@@ -201,7 +245,7 @@ pub fn sync_project_wiki_skill_on_startup() {
         );
     }
 
-    // 1. Try copy from project root for each skill (wiki + code review)
+    // 1. Try copy from project root for each skill
     for skill_name in ALL_SYSTEM_SKILL_NAMES {
         sync_skill_from_project(skill_name, &system_dir, &project_root);
     }
@@ -210,12 +254,12 @@ pub fn sync_project_wiki_skill_on_startup() {
     let missing: Vec<&str> = ALL_SYSTEM_SKILL_NAMES
         .iter()
         .filter(|name| {
-            let path = system_dir.join(*name);
+            let path = get_target_dir(&system_dir, name);
             !skill_dir_is_valid(&path)
         })
         .copied()
         .collect();
     if !missing.is_empty() {
-        clone_and_sync_all_wiki_skills(&system_dir, &missing);
+        clone_and_sync_skills_from_github(&system_dir, &missing);
     }
 }

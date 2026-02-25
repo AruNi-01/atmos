@@ -245,8 +245,8 @@ export const WikiContent: React.FC<WikiContentProps> = ({
             <div id="wiki-content-root" className="px-6 py-6 space-y-4">
               {sources.length > 0 && (
                 <Collapsible defaultOpen={false} className="rounded-lg border border-border">
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer transition-colors">
-                    <ChevronRight className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+                  <CollapsibleTrigger className="group flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer transition-colors">
+                    <ChevronRight className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90" />
                     <span>Relevant source files</span>
                   </CollapsibleTrigger>
                   <CollapsibleContent>

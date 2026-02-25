@@ -268,6 +268,7 @@ export function useAgentSession({
     setSessionId(null);
     setSessionCwd(null);
     setSessionTitle(null);
+    setIsConnecting(false);
     setIsConnected(false);
     setConnectionPhase("idle");
     setError(null);

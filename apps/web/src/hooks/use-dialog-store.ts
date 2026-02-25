@@ -20,6 +20,14 @@ interface DialogStore {
   isAgentChatOpen: boolean;
   setAgentChatOpen: (open: boolean) => void;
 
+  /** A prompt queued for the Agent Chat Panel (e.g. from Code Review Dialog). */
+  pendingAgentChatPrompt: { prompt: string; registryId?: string; forceNewSession?: boolean } | null;
+  setPendingAgentChatPrompt: (data: { prompt: string; registryId?: string; forceNewSession?: boolean } | null) => void;
+  /** Peek at the pending prompt without consuming it. */
+  peekPendingAgentChatPrompt: () => { prompt: string; registryId?: string; forceNewSession?: boolean } | null;
+  /** Consume (read & clear) the pending prompt. */
+  consumePendingAgentChatPrompt: () => { prompt: string; registryId?: string; forceNewSession?: boolean } | null;
+
   isCodeReviewDialogOpen: boolean;
   setCodeReviewDialogOpen: (open: boolean) => void;
 }
@@ -41,6 +49,25 @@ export const useDialogStore = create<DialogStore>((set) => ({
 
   isAgentChatOpen: false,
   setAgentChatOpen: (open) => set({ isAgentChatOpen: open }),
+
+  pendingAgentChatPrompt: null,
+  setPendingAgentChatPrompt: (data) => set({ pendingAgentChatPrompt: data }),
+  peekPendingAgentChatPrompt: () => {
+    let data = null;
+    set((state) => {
+      data = state.pendingAgentChatPrompt;
+      return state; // No-op, just read
+    });
+    return data;
+  },
+  consumePendingAgentChatPrompt: () => {
+    let data: { prompt: string; registryId?: string; forceNewSession?: boolean } | null = null;
+    set((state) => {
+      data = state.pendingAgentChatPrompt;
+      return { pendingAgentChatPrompt: null };
+    });
+    return data;
+  },
 
   isCodeReviewDialogOpen: false,
   setCodeReviewDialogOpen: (open) => set({ isCodeReviewDialogOpen: open }),

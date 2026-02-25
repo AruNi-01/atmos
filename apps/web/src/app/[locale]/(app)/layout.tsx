@@ -5,6 +5,7 @@ import CenterStage from "@/components/layout/CenterStage";
 import RightSidebar from "@/components/layout/RightSidebar";
 import GlobalSearch from "@/components/layout/GlobalSearch";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
+import { AgentFloatingBall } from "@/components/agent/AgentFloatingBall";
 import { TERMINAL_LOGS } from "@/constants";
 import Footer from "@/components/layout/Footer";
 import { PanelLayout } from "@/components/layout/PanelLayout";
@@ -34,6 +35,7 @@ export default async function AppLayout({ children, params }: Props) {
       <GlobalSearch />
 
       <AgentChatPanel />
+      <AgentFloatingBall />
 
       <DocumentTitle />
 

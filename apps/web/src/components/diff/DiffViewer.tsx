@@ -48,7 +48,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
   const [tipPaused, setTipPaused] = useState(false);
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const { stagedFiles, unstagedFiles, untrackedFiles } = useGitStore();
   const diffStats = useMemo(() => {
     const allFiles = [...stagedFiles, ...unstagedFiles, ...untrackedFiles];
@@ -259,7 +259,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       const target = event.target as HTMLElement;
       // Check for popover elements (including Portal-rendered content)
       if (
-        popoverRef.current?.contains(target) || 
+        popoverRef.current?.contains(target) ||
         target.closest('[data-selection-popover]') ||
         target.closest('[data-radix-popper-content-wrapper]') ||
         target.closest('[data-slot="popover-content"]')
@@ -311,7 +311,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     diffStyle: diffStyle,
     disableBackground: disableBackground,
     disableFileHeader: true,
-    overflow: wordWrap ? 'wrap' : 'scroll' as const,
+    overflow: (wordWrap ? 'wrap' : 'scroll') as 'wrap' | 'scroll',
     unsafeCSS: SCROLLBAR_CSS,
     enableLineSelection: true,
     onLineSelectionEnd: handleLineSelectionEnd,
@@ -392,18 +392,18 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
             onClick={() => setWordWrap(!wordWrap)}
             className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
           >
-            <span 
+            <span
               className="inline-block transition-all duration-300 ease-out"
-              style={{ 
+              style={{
                 transform: wordWrap ? 'translateY(-100%)' : 'translateY(0)',
                 opacity: wordWrap ? 0 : 1,
               }}
             >
               Wrap
             </span>
-            <span 
+            <span
               className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out"
-              style={{ 
+              style={{
                 transform: wordWrap ? 'translateY(0)' : 'translateY(100%)',
                 opacity: wordWrap ? 1 : 0,
               }}
@@ -416,18 +416,18 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
             onClick={() => setDiffStyle(diffStyle === 'split' ? 'unified' : 'split')}
             className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
           >
-            <span 
+            <span
               className="inline-block transition-all duration-300 ease-out"
-              style={{ 
+              style={{
                 transform: diffStyle === 'unified' ? 'translateY(-100%)' : 'translateY(0)',
                 opacity: diffStyle === 'unified' ? 0 : 1,
               }}
             >
               Unified
             </span>
-            <span 
+            <span
               className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out"
-              style={{ 
+              style={{
                 transform: diffStyle === 'unified' ? 'translateY(0)' : 'translateY(100%)',
                 opacity: diffStyle === 'unified' ? 1 : 0,
               }}
@@ -440,18 +440,18 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
             onClick={() => setDisableBackground(!disableBackground)}
             className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
           >
-            <span 
+            <span
               className="inline-block transition-all duration-300 ease-out"
-              style={{ 
+              style={{
                 transform: disableBackground ? 'translateY(-100%)' : 'translateY(0)',
                 opacity: disableBackground ? 0 : 1,
               }}
             >
               No BG
             </span>
-            <span 
+            <span
               className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out"
-              style={{ 
+              style={{
                 transform: disableBackground ? 'translateY(0)' : 'translateY(100%)',
                 opacity: disableBackground ? 1 : 0,
               }}
@@ -463,7 +463,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       </div>
 
       {/* Diff Content */}
-      <div 
+      <div
         ref={containerRef}
         className="diff-viewer-container flex-1 min-h-0 w-full overflow-scroll bg-background relative"
         style={{ height: '100%', scrollbarGutter: 'stable' }}

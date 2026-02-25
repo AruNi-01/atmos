@@ -39,4 +39,5 @@ pub fn routes() -> Router<AppState> {
             "/kill-orphaned-processes",
             post(handlers::kill_orphaned_processes),
         )
+        .route("/sync-skills", post(handlers::sync_skills))
 }

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useContextParams } from "@/hooks/use-context-params";
 import {
@@ -24,6 +24,10 @@ import {
   Minimize,
   Puzzle,
   Bot,
+  PopoverTrigger,
+  PopoverContent,
+  Popover,
+  Switch,
 } from '@workspace/ui';
 import LogoSvg from '@workspace/ui/components/logo-svg';
 import { QuickOpen } from './QuickOpen';
@@ -37,6 +41,7 @@ import { ArchivedWorkspacesModal } from '@/components/dialogs/ArchivedWorkspaces
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
+import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 
 const Header: React.FC = () => {
   const params = useParams();
@@ -45,6 +50,16 @@ const Header: React.FC = () => {
 
   const { projects, updateWorkspaceBranch, setupProgress } = useProjectStore();
   const { setGlobalSearchOpen, setAgentChatOpen } = useDialogStore();
+  const { layout, updateLayout, loadLayout } = useAgentChatLayout();
+  useEffect(() => { loadLayout(); }, [loadLayout]);
+  const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
+  const chatPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleChatPopoverClose = useCallback(() => {
+    chatPopoverTimerRef.current = setTimeout(() => setChatPopoverOpen(false), 200);
+  }, []);
+  const cancelChatPopoverClose = useCallback(() => {
+    if (chatPopoverTimerRef.current) { clearTimeout(chatPopoverTimerRef.current); chatPopoverTimerRef.current = null; }
+  }, []);
   const { setCurrentProjectPath } = useEditorStore();
   const {
     currentBranch,
@@ -455,13 +470,35 @@ const Header: React.FC = () => {
           </kbd>
         </button>
 
-        <button
-          aria-label="Agent Chat"
-          className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-          onClick={() => setAgentChatOpen(true)}
-        >
-          <Bot className="size-4" />
-        </button>
+        <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
+          <PopoverTrigger asChild>
+            <button
+              aria-label="Agent Chat"
+              className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+              onClick={() => { setChatPopoverOpen(false); setAgentChatOpen(true); }}
+              onMouseEnter={() => setChatPopoverOpen(true)}
+              onMouseLeave={() => scheduleChatPopoverClose()}
+            >
+              <Bot className="size-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            sideOffset={8}
+            className="w-48 p-3 bg-popover border border-border shadow-md"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onMouseEnter={() => cancelChatPopoverClose()}
+            onMouseLeave={() => scheduleChatPopoverClose()}
+          >
+            <label className="flex items-center justify-between cursor-pointer">
+              <span className="text-sm text-popover-foreground">Floating Ball</span>
+              <Switch
+                checked={layout.floatingBall}
+                onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
+              />
+            </label>
+          </PopoverContent>
+        </Popover>
 
         <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
         <button
