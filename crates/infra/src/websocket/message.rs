@@ -239,6 +239,12 @@ pub enum WsAction {
     GithubPrMerge,
     /// 关闭 PR
     GithubPrClose,
+    /// 重新打开 PR
+    GithubPrReopen,
+    /// 评论 PR
+    GithubPrComment,
+    /// 将 PR 设置为 Ready for Review
+    GithubPrReady,
     /// 在浏览器中打开 PR
     GithubPrOpenBrowser,
     /// 获取最新 CI 运行状态
@@ -851,10 +857,34 @@ pub struct GithubPrMergeRequest {
     pub repo: String,
     pub pr_number: u64,
     pub strategy: String,
+    pub body: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubPrCloseRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrReopenRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrCommentRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrReadyRequest {
     pub owner: String,
     pub repo: String,
     pub pr_number: u64,

@@ -88,6 +88,9 @@ export type WsAction =
   | 'github_pr_create'
   | 'github_pr_merge'
   | 'github_pr_close'
+  | 'github_pr_reopen'
+  | 'github_pr_comment'
+  | 'github_pr_ready'
   | 'github_pr_open_browser'
   | 'github_ci_status'
   | 'github_ci_open_browser';

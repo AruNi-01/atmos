@@ -1,7 +1,7 @@
 import React from 'react';
 import { useGithubCIStatus } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { AlertCircle, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Workflow, Loader2 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -25,7 +25,7 @@ export const CIBadge: React.FC<CIBadgeProps> = ({ owner, repo, branch, className
 
   const { status, conclusion, url } = ciStatus;
 
-  let icon = <Clock className="size-3.5 text-muted-foreground" />;
+  let icon = <Workflow className="size-3.5 text-muted-foreground" />;
   let tooltipText = 'CI Queued';
 
   if (status === 'in_progress') {
@@ -39,7 +39,7 @@ export const CIBadge: React.FC<CIBadgeProps> = ({ owner, repo, branch, className
       icon = <AlertCircle className="size-3.5 text-red-500" />;
       tooltipText = 'CI Failed';
     } else {
-      icon = <Clock className="size-3.5 text-muted-foreground" />;
+      icon = <Workflow className="size-3.5 text-muted-foreground" />;
       tooltipText = `CI ${conclusion || 'Completed'}`;
     }
   }
@@ -47,7 +47,9 @@ export const CIBadge: React.FC<CIBadgeProps> = ({ owner, repo, branch, className
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (url) {
-      send('github_ci_open_browser', { owner, repo, branch });
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      window.open(`https://github.com/${owner}/${repo}/actions`, '_blank', 'noopener,noreferrer');
     }
   };
 

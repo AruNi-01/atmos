@@ -81,6 +81,8 @@ export const useGitStore = create<GitStore>((set, get) => ({
         hasUnpushedCommits: false,
         uncommittedCount: 0,
         unpushedCount: 0,
+        githubOwner: null,
+        githubRepo: null,
       });
     }
   },
@@ -104,6 +106,8 @@ export const useGitStore = create<GitStore>((set, get) => ({
         hasUnpushedCommits: status.has_unpushed_commits,
         uncommittedCount: status.uncommitted_count,
         unpushedCount: status.unpushed_count,
+        githubOwner: status.github_owner,
+        githubRepo: status.github_repo,
         lastStatusFetch: Date.now(),
         isLoadingStatus: false,
       });

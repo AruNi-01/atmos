@@ -24,7 +24,7 @@ use infra::{
     WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrCreateRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
 };
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
@@ -275,6 +275,9 @@ impl WsMessageService {
             WsAction::GithubPrCreate => self.handle_github_pr_create(parse_request(request.data)?).await,
             WsAction::GithubPrMerge => self.handle_github_pr_merge(parse_request(request.data)?).await,
             WsAction::GithubPrClose => self.handle_github_pr_close(parse_request(request.data)?).await,
+            WsAction::GithubPrReopen => self.handle_github_pr_reopen(parse_request(request.data)?).await,
+            WsAction::GithubPrComment => self.handle_github_pr_comment(parse_request(request.data)?).await,
+            WsAction::GithubPrReady => self.handle_github_pr_ready(parse_request(request.data)?).await,
             WsAction::GithubPrOpenBrowser => self.handle_github_pr_open_browser(parse_request(request.data)?).await,
             WsAction::GithubCiStatus => self.handle_github_ci_status(parse_request(request.data)?).await,
             WsAction::GithubCiOpenBrowser => self.handle_github_ci_open_browser(parse_request(request.data)?).await,
@@ -1597,7 +1600,7 @@ set -x
     
     async fn handle_github_pr_list(&self, req: GithubPrListRequest) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "list", "--repo", &repo_arg, "--head", &req.branch, "--state", "all", "--limit", "10", "--json", "number,title,state,mergeable,reviewDecision,baseRefName,createdAt,url"];
+        let args = vec!["pr", "list", "--repo", &repo_arg, "--head", &req.branch, "--state", "all", "--limit", "10", "--json", "number,title,state,mergeable,reviewDecision,baseRefName,createdAt,url,author,isDraft"];
         let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR list: {}", e)))?;
         Ok(output)
     }
@@ -1605,8 +1608,18 @@ set -x
     async fn handle_github_pr_detail(&self, req: GithubPrDetailRequest) -> Result<Value> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup"];
-        let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
+        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft"];
+        let mut output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
+
+        // Fetch timeline for activities
+        let timeline_endpoint = format!("repos/{}/{}/issues/{}/timeline", req.owner, req.repo, req.pr_number);
+        let timeline_args = vec!["api", &timeline_endpoint];
+        if let Ok(timeline) = self.github_engine.run_gh(&timeline_args).await {
+            if let Some(obj) = output.as_object_mut() {
+                obj.insert("timeline".to_string(), timeline);
+            }
+        }
+
         Ok(output)
     }
 
@@ -1628,7 +1641,14 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let strategy_flag = format!("--{}", req.strategy);
-        let args = vec!["pr", "merge", &pr_num_str, "--repo", &repo_arg, &strategy_flag];
+        let mut args = vec!["pr", "merge", &pr_num_str, "--repo", &repo_arg, &strategy_flag];
+        
+        let body_val;
+        if let Some(body) = &req.body {
+            body_val = body.clone();
+            args.push("--body");
+            args.push(&body_val);
+        }
         
         let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
         // `gh pr merge` typically returns empty json or null on success if not asking for json
@@ -1642,7 +1662,37 @@ set -x
     async fn handle_github_pr_close(&self, req: GithubPrCloseRequest) -> Result<Value> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "close", &pr_num_str, "--repo", &repo_arg];
+        let mut args = vec!["pr", "close", &pr_num_str, "--repo", &repo_arg];
+        
+        let comment_val;
+        if let Some(comment) = &req.comment {
+            comment_val = comment.clone();
+            args.push("--comment");
+            args.push(&comment_val);
+        }
+
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
+    }
+
+    async fn handle_github_pr_reopen(&self, req: GithubPrReopenRequest) -> Result<Value> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["pr", "reopen", &pr_num_str, "--repo", &repo_arg];
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
+    }
+
+    async fn handle_github_pr_comment(&self, req: GithubPrCommentRequest) -> Result<Value> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["pr", "comment", &pr_num_str, "--repo", &repo_arg, "--body", &req.body];
         let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
@@ -1654,6 +1704,17 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--web"];
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
+    }
+
+    async fn handle_github_pr_ready(&self, req: GithubPrReadyRequest) -> Result<Value> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["pr", "ready", &pr_num_str, "--repo", &repo_arg];
         let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
