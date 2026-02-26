@@ -30,6 +30,6 @@ pub use websocket::{
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
     WsAction, WsConnection, WsError, WsErrorPayload, WsEvent, WsManager, WsMessage,
     WsMessageHandler, WsRequest, WsResponse, WsResult, WsService, WsServiceConfig,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrCreateRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
 };

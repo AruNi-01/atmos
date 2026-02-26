@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useProjectStore } from '@/hooks/use-project-store';
+import { useWebSocketStore } from '@/hooks/use-websocket';
 import {
   Check,
   RefreshCw,
@@ -40,7 +41,7 @@ import {
   Button,
   toastManager
 } from "@workspace/ui";
-import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link } from "lucide-react";
+import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useContextParams } from "@/hooks/use-context-params";
 import { GitChangedFile } from '@/api/ws-api';
@@ -271,6 +272,34 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [changesView, setChangesView] = useState<'changes' | 'pr'>('changes');
   const [activePrNumber, setActivePrNumber] = useState<number | null>(null);
 
+  const [isChangesActionReady, setIsChangesActionReady] = useState(false);
+  const [isChangesHovered, setIsChangesHovered] = useState(false);
+
+  const [isPrActionReady, setIsPrActionReady] = useState(false);
+  const [isPrHovered, setIsPrHovered] = useState(false);
+  const [prRefreshKey, setPrRefreshKey] = useState(0);
+
+  const send = useWebSocketStore(s => s.send);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (changesView === 'changes') {
+      timer = setTimeout(() => {
+        setIsChangesActionReady(true);
+      }, 1000); // 1 seconds delay
+      setIsPrActionReady(false);
+    } else {
+      setIsChangesActionReady(false);
+      timer = setTimeout(() => {
+        setIsPrActionReady(true);
+      }, 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [changesView]);
+
+  const showChangesActions = changesView === 'changes' && isChangesActionReady && isChangesHovered;
+  const showPrActions = changesView === 'pr' && isPrActionReady && isPrHovered;
+
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
 
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -440,9 +469,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 {/* Changes Toggle */}
                 <div
                   className={cn(
-                    "flex-1 flex items-center justify-center transition-colors group relative cursor-pointer border-r border-sidebar-border/50",
-                    changesView === 'changes' ? "text-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                    "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-sidebar-border/50 overflow-hidden",
+                    changesView === 'changes'
+                      ? (showChangesActions ? "text-foreground" : "bg-sidebar-accent text-foreground")
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                   )}
+                  onMouseEnter={() => setIsChangesHovered(true)}
+                  onMouseLeave={() => setIsChangesHovered(false)}
                   onClick={() => {
                     if (changesView === 'pr') {
                       setChangesView('changes');
@@ -451,76 +484,115 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 >
                   {/* Default State (Changes Icon/Text) */}
                   <div className={cn(
-                    "flex items-center gap-1.5 justify-center transition-opacity duration-200",
-                    (changesView === 'changes') ? "group-hover:opacity-0" : "opacity-100"
+                    "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
+                    showChangesActions ? "-translate-y-10 opacity-0" : ""
                   )}>
                     <GitBranch className="size-3.5" />
                     <span className="text-[11px] font-medium">Changes</span>
                   </div>
 
                   {/* Hover State (Refresh + Review) */}
-                  {(changesView === 'changes') && (
-                    <div className="absolute inset-0 flex opacity-0 group-hover:opacity-100 transition-opacity duration-200 divide-x divide-sidebar-border/50">
-                      {/* Left side: Refresh */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          refreshGitStatus();
-                          refreshChangedFiles();
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1.5 hover:bg-sidebar-accent/50 group/refresh"
-                        title="Refresh"
-                      >
-                        <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
-                      </button>
+                  <div className={cn(
+                    "absolute inset-0 flex transition-all duration-300 ease-out divide-x divide-sidebar-border/50",
+                    showChangesActions ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
+                  )}>
+                    {/* Left side: Refresh */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        refreshGitStatus();
+                        refreshChangedFiles();
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 hover:bg-sidebar-accent group/refresh cursor-pointer transition-colors"
+                      title="Refresh"
+                    >
+                      <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
+                    </button>
 
-                      {/* Right side: Review Dropdown */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 flex items-center justify-center hover:bg-sidebar-accent/50"
-                            title="Agent Review"
-                          >
-                            <Bot className="size-3.5" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-48">
-                          <DropdownMenuItem onClick={() => setCodeReviewDialogOpen(true)}>
-                            <Bot className="size-3 mr-2" />
-                            <span>Code Agent Review</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
-                            <Link className="size-3 mr-2" />
-                            <span>Qodo</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
-                            <Link className="size-3 mr-2" />
-                            <span>Devin Review</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  )}
+                    {/* Right side: Agent Review */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCodeReviewDialogOpen(true);
+                      }}
+                      className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
+                      title="Agent Review"
+                    >
+                      <FileCheck className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Pull Requests Toggle */}
-                <button
-                  onClick={() => setChangesView(v => v === 'pr' ? 'changes' : 'pr')}
+                <div
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 transition-colors group cursor-pointer border-r border-sidebar-border/50 hover:bg-sidebar-accent hover:text-foreground",
-                    changesView === 'pr' ? "bg-sidebar-accent text-foreground" : "text-muted-foreground"
+                    "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-sidebar-border/50 overflow-hidden group",
+                    changesView === 'pr'
+                      ? (showPrActions ? "text-foreground" : "bg-sidebar-accent text-foreground")
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                   )}
+                  onMouseEnter={() => setIsPrHovered(true)}
+                  onMouseLeave={() => setIsPrHovered(false)}
+                  onClick={() => {
+                    if (changesView === 'changes') {
+                      setChangesView('pr');
+                    }
+                  }}
                   title="Pull Requests"
                 >
-                  <GitPullRequest className="size-3.5" />
-                  <span className="text-[11px] font-medium">PR</span>
-                </button>
+                  {/* Default State (PR Icon/Text) */}
+                  <div className={cn(
+                    "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
+                    showPrActions ? "-translate-y-10 opacity-0" : ""
+                  )}>
+                    <GitPullRequest className="size-3.5" />
+                    <span className="text-[11px] font-medium">PR</span>
+                  </div>
+
+                  {/* Hover State (Refresh + Create PR) */}
+                  <div className={cn(
+                    "absolute inset-0 flex transition-all duration-300 ease-out divide-x divide-sidebar-border/50",
+                    showPrActions ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
+                  )}>
+                    {/* Left side: Refresh */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPrRefreshKey(Date.now());
+                      }}
+                      className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
+                      title="Refresh"
+                    >
+                      <RefreshCw className="size-3.5" />
+                    </button>
+
+                    {/* Right side: Create PR */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (githubOwner && githubRepo && currentBranch) {
+                          send('github_pr_create', {
+                            owner: githubOwner,
+                            repo: githubRepo,
+                            branch: currentBranch,
+                            base_branch: 'main',
+                            title: `Update from ${currentBranch}`,
+                            body: ''
+                          }).then(() => setPrRefreshKey(Date.now())).catch(console.error);
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
+                      title="Create PR"
+                    >
+                      <Plus className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
 
                 {/* CI Badge */}
                 {githubOwner && githubRepo && currentBranch && (
-                  <div className="flex items-center justify-center px-1 border-transparent w-10 shrink-0">
-                    <CIBadge owner={githubOwner} repo={githubRepo} branch={currentBranch} />
+                  <div className="flex border-transparent w-10 shrink-0">
+                    <CIBadge owner={githubOwner} repo={githubRepo} branch={currentBranch} className="w-full h-full rounded-none" />
                   </div>
                 )}
               </>
@@ -540,6 +612,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             ) : changesView === 'pr' ? (
               githubOwner && githubRepo && currentBranch ? (
                 <PRPanel
+                  key={prRefreshKey}
                   owner={githubOwner}
                   repo={githubRepo}
                   branch={currentBranch}

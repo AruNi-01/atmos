@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
+import rehypeRaw from 'rehype-raw';
+import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { Images, ArrowRightLeft } from 'lucide-react';
@@ -408,12 +410,14 @@ export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLink
   return (
     <div className={cn(
       "prose prose-[14px] max-w-none prose-code:before:content-none prose-code:after:content-none",
+      "prose-img:inline-block prose-img:m-0 prose-p:my-2 prose-a:break-all",
+      "[&_picture]:inline-block [&_img]:inline-block [&_img]:m-0 [&_svg]:inline-block [&_svg]:align-middle [&_svg]:m-0",
       resolvedTheme === 'dark' && "prose-invert",
       className,
     )}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSlug]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
+        rehypePlugins={[rehypeRaw, rehypeSlug]}
         components={components}
       >
         {children}

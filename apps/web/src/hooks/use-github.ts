@@ -90,5 +90,9 @@ export function useGithubPRDetail(prNumber: number, owner?: string, repo?: strin
     }
   }, [owner, repo, prNumber, send]);
 
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
   return { data, loading, fetch };
 }
