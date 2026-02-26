@@ -204,6 +204,9 @@ export const WikiContent: React.FC<WikiContentProps> = ({
     getSelectionInfo: getWikiSelectionInfo,
     containerRef: previewContainerRef,
     enabled: isPreview,
+    // Use document-level events to avoid missing first-mount binding race
+    // when the preview container ref is not ready yet.
+    useDocumentEvents: true,
   });
 
   useEffect(() => {

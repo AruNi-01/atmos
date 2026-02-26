@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { PatchDiff, MultiFileDiff } from "@pierre/diffs/react";
 import type { FileContents } from "@pierre/diffs";
 import { useTheme } from "next-themes";
-import { useSearchParams } from "next/navigation";
 import { useContextParams } from "@/hooks/use-context-params";
 import {
   Attachments,
@@ -561,6 +560,91 @@ function CommandCopyButton({ text }: { text: string }) {
   );
 }
 
+function MessageCopyButton({
+  text,
+  ariaLabel,
+  title,
+  className = "",
+}: {
+  text: string;
+  ariaLabel: string;
+  title: string;
+  className?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    void navigator.clipboard.writeText(trimmed).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  }, [text]);
+
+  return (
+    <button
+      type="button"
+      className={`cursor-pointer ${className}`}
+      onClick={handleCopy}
+      aria-label={ariaLabel}
+      title={title}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {copied ? (
+          <motion.span
+            key="copied"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="inline-flex size-3.5 items-center justify-center"
+          >
+            <Check className="size-3.5 text-green-500" />
+          </motion.span>
+        ) : (
+          <motion.span
+            key="copy"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="inline-flex size-3.5 items-center justify-center"
+          >
+            <Copy className="size-3.5" />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </button>
+  );
+}
+
+function getAssistantCopyText(entry: AssistantEntry): string {
+  const parts: string[] = [];
+  for (const block of entry.blocks) {
+    if (block.type === "text" || block.type === "thinking") {
+      if (block.content?.trim()) parts.push(block.content.trim());
+      continue;
+    }
+    if (block.type === "tool_call") {
+      if (typeof block.raw_output === "string" && block.raw_output.trim()) {
+        parts.push(block.raw_output.trim());
+      } else if (typeof block.description === "string" && block.description.trim()) {
+        parts.push(block.description.trim());
+      }
+    }
+  }
+  return parts.join("\n\n").trim();
+}
+
+function getAllAssistantMessagesCopyText(entries: ThreadEntry[]): string {
+  const all = entries
+    .filter((entry): entry is AssistantEntry => entry.role === "assistant")
+    .map((entry) => getAssistantCopyText(entry))
+    .filter((text) => !!text);
+  return all.join("\n\n").trim();
+}
+
 function TerminalBlock({
   tool,
   description,
@@ -1038,7 +1122,6 @@ function PromptInputAttachmentsSection() {
 
 export function AgentChatPanel() {
   const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
-  const searchParams = useSearchParams();
   const {
     isAgentChatOpen,
     setAgentChatOpen,
@@ -1073,6 +1156,9 @@ export function AgentChatPanel() {
   const [activeSessionByContext, setActiveSessionByContext] = useState<Record<string, string>>(
     {}
   );
+  const activeSessionByContextRef = useRef<Record<string, string>>({});
+  const entriesByContextRef = useRef<Record<string, ThreadEntry[]>>({});
+  const sessionTitleByContextRef = useRef<Record<string, string | null>>({});
   const { projects, fetchProjects } = useProjectStore();
   const restoreAttemptedRef = useRef(false);
   const autoResumeTriedRef = useRef<string | null>(null);
@@ -1227,17 +1313,16 @@ export function AgentChatPanel() {
   const wikiExists = useWikiExists(effectiveContextId);
   const checkWikiExists = useWikiStore((s) => s.checkWikiExists);
   const isProjectScopedView = currentView === "workspace" || currentView === "project";
-  const isWikiTabActive = searchParams.get("tab") === "wiki";
   const hasBoundContext = workspaceId != null || projectId != null;
   const wikiAskAvailability = useMemo(() => {
-    if (!hasBoundContext || !isProjectScopedView || !isWikiTabActive) {
-      return { enabled: false, reason: "Only available in Project Wiki" as const };
+    if (!hasBoundContext || !isProjectScopedView) {
+      return { enabled: false, reason: "Only available in Project or Workspace" as const };
     }
     if (wikiExists !== true) {
       return { enabled: false, reason: "Generate Wiki first to use Wiki Ask" as const };
     }
     return { enabled: true, reason: null };
-  }, [hasBoundContext, isProjectScopedView, isWikiTabActive, wikiExists]);
+  }, [hasBoundContext, isProjectScopedView, wikiExists]);
 
   useEffect(() => {
     if (!effectiveContextId || !localPath || !isProjectScopedView) return;
@@ -1379,15 +1464,24 @@ export function AgentChatPanel() {
     if (previousMode === chatMode) return;
     previousModeRef.current = chatMode;
     const previousContextKey = getSessionContextKey(workspaceId, projectId, previousMode);
+    const nextContextKey = getSessionContextKey(workspaceId, projectId, chatMode);
 
     if (sessionId) {
-      setActiveSessionByContext((prev) => ({ ...prev, [previousContextKey]: sessionId }));
+      const nextMap = {
+        ...activeSessionByContextRef.current,
+        [previousContextKey]: sessionId,
+      };
+      activeSessionByContextRef.current = nextMap;
+      setActiveSessionByContext(nextMap);
+      setLastSessionIdForContext(previousContextKey, sessionId);
     }
+    entriesByContextRef.current[previousContextKey] = entries;
+    sessionTitleByContextRef.current[previousContextKey] = sessionTitle;
 
     disconnect();
-    setEntries([]);
+    setEntries(entriesByContextRef.current[nextContextKey] ?? []);
     setPendingPermission(null);
-    setSessionTitle(null);
+    setSessionTitle(sessionTitleByContextRef.current[nextContextKey] ?? null);
     setIsResumedSession(false);
     setIsResumingHistory(false);
     setWaitingForResponse(false);
@@ -1395,15 +1489,28 @@ export function AgentChatPanel() {
     restoreAttemptedRef.current = false;
     autoResumeTriedRef.current = null;
     autoStartHandledRef.current = false;
-  }, [chatMode, disconnect, projectId, sessionId, workspaceId]);
+  }, [chatMode, disconnect, entries, projectId, sessionId, sessionTitle, workspaceId]);
 
   useEffect(() => {
     if (!sessionId) return;
-    setActiveSessionByContext((prev) => {
-      if (prev[contextKey] === sessionId) return prev;
-      return { ...prev, [contextKey]: sessionId };
-    });
+    const prevMap = activeSessionByContextRef.current;
+    if (prevMap[contextKey] === sessionId) return;
+    const nextMap = { ...prevMap, [contextKey]: sessionId };
+    activeSessionByContextRef.current = nextMap;
+    setActiveSessionByContext(nextMap);
   }, [contextKey, sessionId]);
+
+  useEffect(() => {
+    activeSessionByContextRef.current = activeSessionByContext;
+  }, [activeSessionByContext]);
+
+  useEffect(() => {
+    entriesByContextRef.current[contextKey] = entries;
+  }, [contextKey, entries]);
+
+  useEffect(() => {
+    sessionTitleByContextRef.current[contextKey] = sessionTitle;
+  }, [contextKey, sessionTitle]);
 
   useEffect(() => {
     if (!isConnected || !sessionId) {
@@ -1636,17 +1743,10 @@ export function AgentChatPanel() {
         return;
       }
 
-      if (sessionId) {
-        if (autoResumeTriedRef.current === sessionId) return;
-        autoResumeTriedRef.current = sessionId;
-        setIsResumedSession(true);
-        autoStartHandledRef.current = true;
-        void resumeSession(sessionId);
-        return;
-      }
       if (!restoreAttemptedRef.current) {
         restoreAttemptedRef.current = true;
-        const cachedSessionId = activeSessionByContext[contextKey];
+        const cachedSessionId =
+          activeSessionByContextRef.current[contextKey] ?? activeSessionByContext[contextKey];
         const lastSessionId = cachedSessionId || getLastSessionIdForContext(contextKey);
         if (lastSessionId) {
           if (autoResumeTriedRef.current === lastSessionId) return;
@@ -1654,6 +1754,7 @@ export function AgentChatPanel() {
           setIsResumedSession(true);
           autoStartHandledRef.current = true;
           void (async () => {
+            setIsResumingHistory(true);
             const success = await resumeSession(lastSessionId);
             if (!success) {
               setIsResumedSession(false);
@@ -1664,7 +1765,12 @@ export function AgentChatPanel() {
                 delete next[contextKey];
                 return next;
               });
+              // Resume target may be stale (e.g. mode storage switched), create a fresh session seamlessly.
+              autoStartHandledRef.current = false;
+              autoResumeTriedRef.current = null;
+              startSession();
             }
+            setIsResumingHistory(false);
           })();
           return;
         }
@@ -1684,7 +1790,6 @@ export function AgentChatPanel() {
     installedAgents.length,
     isConnected,
     isConnecting,
-    sessionId,
     resumeSession,
     startSession,
     peekPendingAgentChatPrompt,
@@ -1731,10 +1836,6 @@ export function AgentChatPanel() {
       setSessionTitle(activeSessionTitle);
     }
   }, [sessionId, activeSessionTitle]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries]);
 
   const userEntryIndices = React.useMemo(
     () => entries.map((e, i) => (e.role === "user" ? i : -1)).filter((i) => i >= 0),
@@ -2033,9 +2134,23 @@ export function AgentChatPanel() {
                 </Popover>
               </div>
               {isConnected && activeAgent ? (
-                <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
+                <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+                  <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
+                  {chatMode === "wiki_ask" && (
+                    <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black">
+                      Wiki Ask
+                    </span>
+                  )}
+                </div>
               ) : (
-                <span className="text-sm font-medium shrink-0">Agent Chat</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-sm font-medium shrink-0">Agent Chat</span>
+                  {chatMode === "wiki_ask" && (
+                    <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black">
+                      Wiki Ask
+                    </span>
+                  )}
+                </div>
               )}
             </div>
 
@@ -2174,11 +2289,6 @@ export function AgentChatPanel() {
             {sessionTitle}
           </div>
         )}
-        {chatMode === "wiki_ask" && (
-          <div className="text-[11px] text-muted-foreground">
-            Mode: Wiki Ask
-          </div>
-        )}
       </div>
 
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
@@ -2229,8 +2339,15 @@ export function AgentChatPanel() {
             {entries.map((entry, i) => (
               <div key={i} data-entry-index={i} className="w-full min-w-0">
                 {entry.role === "user" ? (
-                  <Message from="user">
-                    <MessageContent>
+                  <div className="group relative">
+                    <MessageCopyButton
+                      text={entry.content}
+                      ariaLabel="Copy user message"
+                      title="Copy message"
+                      className="absolute right-1 top-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/80 p-0 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+                    />
+                    <Message from="user">
+                      <MessageContent>
                       {entry.files && entry.files.length > 0 && (
                         <Attachments variant="inline" className="mb-2">
                           {entry.files.map((f) => (
@@ -2242,12 +2359,25 @@ export function AgentChatPanel() {
                         </Attachments>
                       )}
                       <div className="whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'normal' }}>{entry.content}</div>
-                    </MessageContent>
-                  </Message>
+                      </MessageContent>
+                    </Message>
+                  </div>
                 ) : (
                   <Message from="assistant">
                     <MessageContent>
                       <AssistantTurnView entry={entry} />
+                      {!entries.slice(i + 1).some((nextEntry) => nextEntry.role === "assistant") &&
+                        !entry.isStreaming &&
+                        !agentActivity.busy && (
+                        <div className="mt-2 flex">
+                          <MessageCopyButton
+                            text={getAllAssistantMessagesCopyText(entries)}
+                            ariaLabel="Copy all assistant messages"
+                            title="Copy all assistant messages"
+                            className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                          />
+                        </div>
+                      )}
                     </MessageContent>
                   </Message>
                 )}
@@ -2258,9 +2388,13 @@ export function AgentChatPanel() {
             )}
             <div ref={bottomRef} />
           </ConversationContent>
-          <ConversationScrollButton className="absolute right-3 bottom-1 left-auto translate-x-0 z-10 cursor-pointer rounded-sm border-dashed shadow-md dark:bg-background">
-            <ChevronDown className="mr-1 size-4" />
-            Bottom
+          <ConversationScrollButton className="group absolute right-3 bottom-1 left-auto z-10 inline-flex h-8 w-8 translate-x-0 items-center justify-center gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-0 text-foreground shadow-md transition-[width,padding,gap] duration-300 ease-out [transform-origin:right_center] hover:w-24 hover:px-2 hover:gap-1">
+            <span className="inline-flex size-4 shrink-0 items-center justify-center">
+              <ChevronDown className="size-4" />
+            </span>
+            <span className="max-w-0 whitespace-nowrap text-[11px] text-foreground opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-16 group-hover:opacity-100">
+              Bottom
+            </span>
           </ConversationScrollButton>
           {userEntryIndices.length >= 2 && (
             <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-0.5 rounded-sm border border-border/50 bg-background/80 py-1 shadow-sm backdrop-blur-sm dark:bg-background/60">

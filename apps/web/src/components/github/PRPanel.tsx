@@ -67,7 +67,7 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
               </div>
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-2">
                 <Avatar className="size-4 shrink-0 border border-sidebar-border/50">
-                  <AvatarImage src={`https://github.com/${pr.author?.login}.png?size=32`} alt={pr.author?.login} />
+                  <AvatarImage src={pr.author?.avatar_url || pr.author?.avatarUrl || `https://github.com/${pr.author?.login?.replace('[bot]', '')}.png?size=32`} alt={pr.author?.login} />
                   <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <span className="font-medium text-foreground/80">{pr.author?.login || 'unknown'}</span>

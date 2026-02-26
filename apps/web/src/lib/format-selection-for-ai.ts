@@ -130,18 +130,22 @@ export function formatWikiSelectionForAI(
   info: SelectionInfo,
   userNote?: string
 ): string {
-  const pagePath = info.filePath
+  const pageRelativePath = info.filePath
     .replace(/^\.?\/?\.atmos\/wiki\//, '')
     .replace(/^\/+/, '');
+  const wikiRoot = '.atmos/wiki';
+  const wikiPagePath = `${wikiRoot}/${pageRelativePath || info.filePath}`.replace(/\/{2,}/g, '/');
   const selectedText = info.selectedText.trim();
 
   let output = `## Wiki Excerpt\n`;
-  output += `- **Wiki Page**: \`${pagePath || info.filePath}\`\n`;
+  output += `- **Wiki Root**: \`${wikiRoot}/\`\n`;
+  output += `- **Wiki Page**: \`${wikiPagePath}\`\n`;
   if (info.sectionTitle?.trim()) {
     output += `- **Section**: \`${info.sectionTitle.trim()}\`\n`;
   }
 
   output += `\n~~~markdown\n${selectedText}\n~~~`;
+  output += `\n\n## Locate Rule\nIf the wiki page is not found directly, list files under \`${wikiRoot}/\` and locate the closest matching page before answering.`;
 
   if (userNote?.trim()) {
     output += `\n\n## Ask\n${userNote.trim()}`;
