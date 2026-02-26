@@ -16,7 +16,11 @@ import {
   AvatarImage,
   AvatarFallback,
   DialogClose,
-  Skeleton
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@workspace/ui';
 import { useGithubPRDetail } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -422,125 +426,134 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     {/* Vertical Timeline Line */}
                     <div className="absolute left-4 top-12 bottom-0 w-0.5 bg-border/60 z-0" />
 
-                    <div className="flex flex-col gap-6 relative z-10">
-                      {conversation.map((item: any, i: number) => {
-                        const isMainComment = item.type === 'comment' || (item.type === 'review' && item.body);
-                        const isBot = item.author?.is_bot || item.author?.login === 'cursor' || item.author?.login === 'vercel' || item.author?.login?.endsWith('[bot]');
+                    <TooltipProvider delayDuration={300}>
+                      <div className="flex flex-col gap-6 relative z-10">
+                        {conversation.map((item: any, i: number) => {
+                          const isMainComment = item.type === 'comment' || (item.type === 'review' && item.body);
+                          const isBot = item.author?.is_bot || item.author?.login === 'cursor' || item.author?.login === 'vercel' || item.author?.login?.endsWith('[bot]');
 
-                        if (isMainComment) {
-                          return (
-                            <div key={i} className="flex gap-4 items-start group">
-                              <div className="relative z-10">
-                                <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
-                                  <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
-                                  <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                              </div>
-                              <div className="flex-1 min-w-0 flex flex-col border border-border/60 rounded-xl overflow-hidden bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
-                                <div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border-b border-border/40 text-xs text-muted-foreground">
-                                  <span className="font-bold text-foreground">{item.author?.login}</span>
-                                  {isBot && (
-                                    <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                      bot
+                          if (isMainComment) {
+                            return (
+                              <div key={i} className="flex gap-4 items-start group">
+                                <div className="relative z-10">
+                                  <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
+                                    <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
+                                    <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                  </Avatar>
+                                </div>
+                                <div className="flex-1 min-w-0 flex flex-col border border-border/60 rounded-xl overflow-hidden bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
+                                  <div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border-b border-border/40 text-xs text-muted-foreground">
+                                    <span className="font-bold text-foreground">{item.author?.login}</span>
+                                    {isBot && (
+                                      <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
+                                        bot
+                                      </span>
+                                    )}
+                                    <span className="opacity-80">
+                                      {item.type === 'review' ? (item.state === 'APPROVED' ? 'approved' : 'reviewed') : 'commented'}
                                     </span>
-                                  )}
-                                  <span className="opacity-80">
-                                    {item.type === 'review' ? (item.state === 'APPROVED' ? 'approved' : 'reviewed') : 'commented'}
+                                    <span className="opacity-60 ml-auto">{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}</span>
+                                  </div>
+                                  <div className="p-4 bg-background">
+                                    <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
+                                      {item.body}
+                                    </MarkdownRenderer>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // Activity Row (Commit, Merge, Close, etc)
+                          let icon = <GitCommit className="size-3.5 text-muted-foreground" />;
+                          let colorClass = "bg-muted";
+                          let actionText = "";
+
+                          switch (item.event) {
+                            case 'closed':
+                              icon = <XCircle className="size-3.5 text-white" />;
+                              colorClass = "bg-red-500";
+                              actionText = "closed this";
+                              break;
+                            case 'reopened':
+                              icon = <RotateCcw className="size-3.5 text-white" />;
+                              colorClass = "bg-emerald-500";
+                              actionText = "reopened this";
+                              break;
+                            case 'merged':
+                              icon = <GitMerge className="size-3.5 text-white" />;
+                              colorClass = "bg-purple-600";
+                              actionText = "merged this";
+                              break;
+                            case 'committed':
+                              icon = <GitCommit className="size-3.5 text-muted-foreground" />;
+                              colorClass = "bg-muted border border-border/50";
+                              actionText = "committed";
+                              break;
+                            case 'head_ref_force_pushed':
+                              icon = <GitCommit className="size-3.5 text-white" />;
+                              colorClass = "bg-amber-500";
+                              actionText = "force-pushed this";
+                              break;
+                            case 'reviewed':
+                              if (item.state === 'APPROVED') {
+                                icon = <CheckCircle2 className="size-3.5 text-white" />;
+                                colorClass = "bg-emerald-500";
+                                actionText = "approved this PR";
+                              } else {
+                                icon = <MessageSquare className="size-3.5 text-white" />;
+                                colorClass = "bg-muted-foreground";
+                                actionText = "left a review";
+                              }
+                              break;
+                            case 'referenced':
+                              icon = <GitCommit className="size-3.5 text-muted-foreground" />;
+                              colorClass = "bg-muted border border-border/50";
+                              actionText = "referenced this";
+                              break;
+                          }
+
+                          return (
+                            <div key={i} className="flex items-center gap-3 pl-2.5">
+                              <div className={cn(
+                                "size-4 rounded-full flex items-center justify-center ring-4 ring-background z-10 shrink-0",
+                                colorClass
+                              )}>
+                                {icon}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs truncate">
+                                <Avatar className="size-4 shrink-0 border border-border/50">
+                                  <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=32`} />
+                                  <AvatarFallback className="text-[6px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <span className="font-semibold text-foreground/90">{item.author?.login}</span>
+                                {isBot && (
+                                  <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
+                                    bot
                                   </span>
-                                  <span className="opacity-60 ml-auto">{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}</span>
-                                </div>
-                                <div className="p-4 bg-background">
-                                  <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
-                                    {item.body}
-                                  </MarkdownRenderer>
-                                </div>
+                                )}
+                                <span className="text-muted-foreground">{actionText}</span>
+                                {(item.event === 'committed' || item.event === 'referenced') && item.body && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-foreground/70 font-medium truncate max-w-[280px] cursor-help">
+                                        {item.body}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-md text-xs break-all">
+                                      {item.body}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                <span className="text-muted-foreground opacity-60 ml-auto whitespace-nowrap">
+                                  {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                                </span>
                               </div>
                             </div>
                           );
-                        }
-
-                        // Activity Row (Commit, Merge, Close, etc)
-                        let icon = <GitCommit className="size-3.5 text-muted-foreground" />;
-                        let colorClass = "bg-muted";
-                        let actionText = "";
-
-                        switch (item.event) {
-                          case 'closed':
-                            icon = <XCircle className="size-3.5 text-white" />;
-                            colorClass = "bg-red-500";
-                            actionText = "closed this";
-                            break;
-                          case 'reopened':
-                            icon = <RotateCcw className="size-3.5 text-white" />;
-                            colorClass = "bg-emerald-500";
-                            actionText = "reopened this";
-                            break;
-                          case 'merged':
-                            icon = <GitMerge className="size-3.5 text-white" />;
-                            colorClass = "bg-purple-600";
-                            actionText = "merged this";
-                            break;
-                          case 'committed':
-                            icon = <GitCommit className="size-3.5 text-muted-foreground" />;
-                            colorClass = "bg-muted border border-border/50";
-                            actionText = "committed";
-                            break;
-                          case 'head_ref_force_pushed':
-                            icon = <GitCommit className="size-3.5 text-white" />;
-                            colorClass = "bg-amber-500";
-                            actionText = "force-pushed this";
-                            break;
-                          case 'reviewed':
-                            if (item.state === 'APPROVED') {
-                              icon = <CheckCircle2 className="size-3.5 text-white" />;
-                              colorClass = "bg-emerald-500";
-                              actionText = "approved this PR";
-                            } else {
-                              icon = <MessageSquare className="size-3.5 text-white" />;
-                              colorClass = "bg-muted-foreground";
-                              actionText = "left a review";
-                            }
-                            break;
-                          case 'referenced':
-                            icon = <GitCommit className="size-3.5 text-muted-foreground" />;
-                            colorClass = "bg-muted border border-border/50";
-                            actionText = "referenced this";
-                            break;
-                        }
-
-                        return (
-                          <div key={i} className="flex items-center gap-3 pl-2.5">
-                            <div className={cn(
-                              "size-4 rounded-full flex items-center justify-center ring-4 ring-background z-10 shrink-0",
-                              colorClass
-                            )}>
-                              {icon}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs truncate">
-                              <Avatar className="size-4 shrink-0 border border-border/50">
-                                <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=32`} />
-                                <AvatarFallback className="text-[6px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                              </Avatar>
-                              <span className="font-semibold text-foreground/90">{item.author?.login}</span>
-                              {isBot && (
-                                <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                  bot
-                                </span>
-                              )}
-                              <span className="text-muted-foreground">{actionText}</span>
-                              {item.event === 'committed' && (
-                                <span className="text-foreground/70 font-medium truncate max-w-[200px]" title={item.body}>
-                                  {item.body}
-                                </span>
-                              )}
-                              <span className="text-muted-foreground opacity-60 ml-auto whitespace-nowrap">
-                                {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                        })}
+                      </div>
+                    </TooltipProvider>
                   </div>
                 )}
 
