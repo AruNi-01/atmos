@@ -14,11 +14,13 @@ import {
   Textarea,
   Avatar,
   AvatarImage,
-  AvatarFallback
+  AvatarFallback,
+  DialogClose,
+  Skeleton
 } from '@workspace/ui';
 import { useGithubPRDetail } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket } from 'lucide-react';
+import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -32,6 +34,49 @@ interface PRDetailModalProps {
   onOpenChange: (open: boolean) => void;
   onMerged?: () => void;
   onClosed?: () => void;
+}
+
+function PRDetailSkeleton() {
+  return (
+    <div className="flex flex-col gap-6 animate-pulse p-2">
+      {/* Header Skeleton */}
+      <div className="space-y-4 pb-6 border-b border-border/50">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-6 w-2/3 rounded-md" />
+          <Skeleton className="h-4 w-12 rounded-sm" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-4 rounded-full" />
+          <Skeleton className="h-3 w-40 rounded-md" />
+          <Skeleton className="h-4 w-20 rounded-md" />
+          <Skeleton className="h-4 w-24 rounded-md" />
+        </div>
+      </div>
+
+      {/* Status Cards Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Skeleton className="h-28 w-full rounded-xl border border-border/50" />
+        <Skeleton className="h-28 w-full rounded-xl border border-border/50" />
+      </div>
+
+      {/* Conversation Skeleton */}
+      <div className="space-y-8 mt-4 relative">
+        <div className="absolute left-4 top-0 bottom-0 w-px bg-border/30 ml-[2px]" />
+        {[1, 2, 3].map(i => (
+          <div key={i} className="flex gap-4 items-start relative z-10">
+            <Skeleton className="size-8 rounded-full shrink-0 border border-background shadow-sm" />
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-3.5 w-24 rounded-md" />
+                <Skeleton className="h-3 w-32 rounded-md" />
+              </div>
+              <Skeleton className="h-24 w-full rounded-lg border border-border/50" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
@@ -67,7 +112,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
             body: item.body || item.message || ''
           };
         })
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,35 +235,50 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(
-        "transition-all duration-200 flex flex-col gap-0 overflow-hidden",
-        isFullscreen ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen p-6 sm:p-6 m-0 border-none rounded-none" : "max-w-5xl sm:max-w-5xl w-full max-h-[90vh] p-6 sm:p-6"
-      )}>
-        <button
-          className="absolute right-12 top-4 flex h-4 w-4 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-50"
-          onClick={() => setIsFullscreen(!isFullscreen)}
-        >
-          {isFullscreen ? <Shrink className="size-3.5" /> : <Expand className="size-3.5" />}
-          <span className="sr-only">Toggle Fullscreen</span>
-        </button>
-        <div className="flex-1 overflow-y-auto min-h-0 pr-4 -mr-4 pb-16 relative">
-          <DialogHeader className="pr-20">
-            <div className="flex items-center gap-2">
-              <Github className="size-5" />
-              <DialogTitle>Pull Request #{prNumber}</DialogTitle>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "transition-all duration-200 flex flex-col gap-0 overflow-hidden",
+          isFullscreen ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen px-6 pb-6 pt-0 m-0 border-none rounded-none" : "max-w-5xl sm:max-w-5xl w-full max-h-[90vh] px-6 pb-6 pt-0"
+        )}
+      >
+        <div className="flex-1 overflow-y-auto min-h-[600px] pr-4 -mr-4 pb-16 relative no-scrollbar">
+          <DialogHeader className="pr-24 flex flex-row items-center gap-3 space-y-0 pt-6 pb-4 shrink-0 relative">
+            <Github className="size-4.5 text-muted-foreground/60" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <DialogTitle className="text-base font-bold whitespace-nowrap">Pull Request #{prNumber}</DialogTitle>
+              <span className="text-muted-foreground/30 font-light select-none">|</span>
+              <DialogDescription className="text-[11px] text-muted-foreground/60 truncate pt-0.5 font-medium" title={`${owner}/${repo} • ${branch}`}>
+                {owner}/{repo} • {branch}
+              </DialogDescription>
             </div>
-            <DialogDescription className="text-xs truncate max-w-[calc(100%-80px)] leading-normal py-0.5" title={`${owner}/${repo} • ${branch}`}>
-              {owner}/{repo} • {branch}
-            </DialogDescription>
+
+            {/* Modal Controls in Header - these will scroll away */}
+            <div className="absolute right-0 top-6 flex items-center gap-1">
+              <button
+                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors opacity-70 hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFullscreen(!isFullscreen);
+                }}
+              >
+                {isFullscreen ? <Shrink className="size-3.5" /> : <Expand className="size-3.5" />}
+              </button>
+              <DialogClose asChild>
+                <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors opacity-70 hover:opacity-100">
+                  <X className="size-4" />
+                </button>
+              </DialogClose>
+            </div>
           </DialogHeader>
 
           {loading ? (
-            <div className="flex justify-center p-10">
-              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            <div className="pt-2 px-0.5">
+              <PRDetailSkeleton />
             </div>
           ) : pr ? (
-            <div className="flex flex-col text-sm mt-0 relative">
-              <div className="shrink-0 pb-4 pt-1 -mt-1 border-b border-border/50 sticky -top-1 z-10 bg-background/95 backdrop-blur-md">
+            <div className="flex flex-col text-sm relative">
+              <div className="shrink-0 pb-4 pt-1 border-b border-border/50 sticky top-0 z-30 bg-background/98 backdrop-blur-md">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-semibold text-foreground">{pr.title}</h3>
                   {pr.isDraft && (
@@ -230,7 +290,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
                   <div className="flex items-center gap-1.5 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm shrink-0">
                     <Avatar className="size-3.5 border border-border/50 shadow-inner">
-                      <AvatarImage src={`https://github.com/${pr.author?.login}.png?size=28`} />
+                      <AvatarImage src={pr.author?.avatar_url || pr.author?.avatarUrl || `https://github.com/${pr.author?.login?.replace('[bot]', '')}.png?size=28`} />
                       <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <span className="font-semibold text-foreground/90">{pr.author?.login}</span>
@@ -363,7 +423,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     <div className="absolute left-4 top-12 bottom-0 w-0.5 bg-border/60 z-0" />
 
                     <div className="flex flex-col gap-6 relative z-10">
-                      {conversation.map((item, i) => {
+                      {conversation.map((item: any, i: number) => {
                         const isMainComment = item.type === 'comment' || (item.type === 'review' && item.body);
                         const isBot = item.author?.is_bot || item.author?.login === 'cursor' || item.author?.login === 'vercel' || item.author?.login?.endsWith('[bot]');
 
@@ -372,7 +432,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             <div key={i} className="flex gap-4 items-start group">
                               <div className="relative z-10">
                                 <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
-                                  <AvatarImage src={`https://github.com/${item.author?.login}.png?size=64`} />
+                                  <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
                                   <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                               </div>
@@ -458,7 +518,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             </div>
                             <div className="flex items-center gap-2 text-xs truncate">
                               <Avatar className="size-4 shrink-0 border border-border/50">
-                                <AvatarImage src={`https://github.com/${item.author?.login}.png?size=32`} />
+                                <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=32`} />
                                 <AvatarFallback className="text-[6px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
                               </Avatar>
                               <span className="font-semibold text-foreground/90">{item.author?.login}</span>
@@ -596,7 +656,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
           <div className="w-px h-5 bg-border/40 shrink-0 mx-1" />
 
           <div className="flex gap-2.5">
-            {pr?.state === 'OPEN' && (
+            {loading ? (
+              <>
+                <Skeleton className="h-8 w-24 rounded-md" />
+                <Skeleton className="h-8 w-32 rounded-md" />
+              </>
+            ) : pr?.state === 'OPEN' ? (
               <>
                 <Button
                   variant="destructive"
@@ -622,9 +687,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   Squash and Merge
                 </Button>
               </>
-            )}
-
-            {pr?.state === 'CLOSED' && (
+            ) : pr?.state === 'CLOSED' ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -635,9 +698,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 {actionLoading === 'reopen' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <RotateCcw className="mr-2 size-4" />}
                 Reopen PR
               </Button>
-            )}
-
-            {pr?.state === 'MERGED' && (
+            ) : pr?.state === 'MERGED' ? (
               <Button
                 variant="secondary"
                 size="sm"
@@ -647,7 +708,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 <GitMerge className="mr-2 size-4" />
                 Merged
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
       </DialogContent>

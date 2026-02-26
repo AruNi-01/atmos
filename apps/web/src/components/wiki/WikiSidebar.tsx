@@ -298,8 +298,8 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                       <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[200px]">
-                    <p>Wiki is outdated. Click to update.</p>
+                  <TooltipContent side="bottom" className="w-auto max-w-none whitespace-nowrap">
+                    Wiki is outdated. Click to update.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
