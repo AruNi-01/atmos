@@ -202,7 +202,22 @@ function isDiffObject(o: unknown): o is DiffFileOutput {
 // ---------------------------------------------------------------------------
 
 const LAST_SESSION_STORAGE_KEY = "atmos.agent.last_session_by_context";
+const LAST_CHAT_MODE_STORAGE_KEY = "atmos.agent.last_chat_mode";
 const DEFAULT_AGENT_STORAGE_KEY = "atmos.agent.default_registry_id";
+
+function readLastChatMode(): AgentChatMode {
+  try {
+    const raw = localStorage.getItem(LAST_CHAT_MODE_STORAGE_KEY);
+    if (raw === "wiki_ask" || raw === "default") return raw;
+  } catch {}
+  return DEFAULT_AGENT_CHAT_MODE;
+}
+
+function writeLastChatMode(mode: AgentChatMode): void {
+  try {
+    localStorage.setItem(LAST_CHAT_MODE_STORAGE_KEY, mode);
+  } catch {}
+}
 
 function getSessionContextKey(
   workspaceId: string | null,
@@ -1344,8 +1359,34 @@ export function AgentChatPanel() {
   useEffect(() => {
     if (chatMode !== "wiki_ask") return;
     if (wikiAskAvailability.enabled) return;
+    // Only override when wiki is confirmed missing (wikiExists === false).
+    // When wikiExists is null (still loading), keep current mode to avoid overriding
+    // a restored preference before the check completes.
+    if (wikiExists !== false) return;
     setChatMode("default");
-  }, [chatMode, wikiAskAvailability.enabled]);
+  }, [chatMode, wikiAskAvailability.enabled, wikiExists]);
+
+  // Restore last-used chat mode from localStorage on mount (SSR-safe; localStorage
+  // doesn't exist on server, so we can only read it client-side in useEffect).
+  useEffect(() => {
+    const saved = readLastChatMode();
+    if (saved !== chatMode) {
+      setChatMode(saved);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist last-used chat mode so refresh restores the correct mode.
+  useEffect(() => {
+    writeLastChatMode(chatMode);
+  }, [chatMode]);
+
+  // Persist on panel close so the mode used when closing is definitely saved.
+  useEffect(() => {
+    if (!isAgentChatOpen) {
+      writeLastChatMode(chatMode);
+    }
+  }, [isAgentChatOpen, chatMode]);
 
   const handleMessage = useCallback((msg: AgentServerMessage) => {
     switch (msg.type) {
@@ -1403,6 +1444,9 @@ export function AgentChatPanel() {
     resumeSession,
     clearAuthRequest,
     disconnect,
+    stashSession,
+    unstashSession,
+    disconnectStashed,
     sessionCwd,
     sessionTitle: activeSessionTitle,
     configOptions,
@@ -1466,6 +1510,7 @@ export function AgentChatPanel() {
     const previousContextKey = getSessionContextKey(workspaceId, projectId, previousMode);
     const nextContextKey = getSessionContextKey(workspaceId, projectId, chatMode);
 
+    // ---- save outgoing session ----
     if (sessionId) {
       const nextMap = {
         ...activeSessionByContextRef.current,
@@ -1478,18 +1523,65 @@ export function AgentChatPanel() {
     entriesByContextRef.current[previousContextKey] = entries;
     sessionTitleByContextRef.current[previousContextKey] = sessionTitle;
 
-    disconnect();
+    // Stash the live WS connection (stays open in background).
+    stashSession(previousContextKey);
+
+    // ---- restore incoming session ----
     setEntries(entriesByContextRef.current[nextContextKey] ?? []);
     setPendingPermission(null);
     setSessionTitle(sessionTitleByContextRef.current[nextContextKey] ?? null);
-    setIsResumedSession(false);
-    setIsResumingHistory(false);
     setWaitingForResponse(false);
     stoppedRef.current = false;
-    restoreAttemptedRef.current = false;
-    autoResumeTriedRef.current = null;
-    autoStartHandledRef.current = false;
-  }, [chatMode, disconnect, entries, projectId, sessionId, sessionTitle, workspaceId]);
+
+    // Try to instantly restore a stashed session for the new mode.
+    const restoredSessionId = unstashSession(nextContextKey);
+
+    if (restoredSessionId) {
+      // Seamless switch – already connected. Persist the restored session to
+      // localStorage so both modes' sessions survive refresh.
+      setLastSessionIdForContext(nextContextKey, restoredSessionId);
+      activeSessionByContextRef.current[nextContextKey] = restoredSessionId;
+      setActiveSessionByContext((prev) => ({ ...prev, [nextContextKey]: restoredSessionId }));
+      setIsResumedSession(true);
+      setIsResumingHistory(false);
+      restoreAttemptedRef.current = true;
+      autoStartHandledRef.current = true;
+      // Sync connectedContextKeyRef so the effect below won't mistakenly
+      // disconnect when it sees contextKey changed.
+      connectedContextKeyRef.current = nextContextKey;
+      autoResumeTriedRef.current = restoredSessionId;
+    } else {
+      // No stashed session (e.g. after refresh). Proactively try to resume from
+      // localStorage. Don't wait for agents—resumeSession doesn't need them; we
+      // avoid "No agent" in the input area by showing loading when connecting.
+      const lastSessionId = getLastSessionIdForContext(nextContextKey);
+      if (lastSessionId) {
+        restoreAttemptedRef.current = true;
+        autoStartHandledRef.current = true;
+        autoResumeTriedRef.current = lastSessionId;
+        setIsResumedSession(true);
+        setIsResumingHistory(true);
+        void (async () => {
+          const success = await resumeSession(lastSessionId);
+          if (!success) {
+            clearLastSessionIdForContext(nextContextKey);
+            autoStartHandledRef.current = false;
+            restoreAttemptedRef.current = false;
+            autoResumeTriedRef.current = null;
+            setIsResumedSession(false);
+            startSession();
+          }
+          setIsResumingHistory(false);
+        })();
+      } else {
+        setIsResumedSession(false);
+        setIsResumingHistory(false);
+        restoreAttemptedRef.current = false;
+        autoResumeTriedRef.current = null;
+        autoStartHandledRef.current = false;
+      }
+    }
+  }, [chatMode, stashSession, unstashSession, entries, projectId, resumeSession, sessionId, sessionTitle, startSession, workspaceId]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -1571,6 +1663,7 @@ export function AgentChatPanel() {
     const nextRegistryId = targetRegistryId || defaultRegistryId || registryId;
     if (!nextRegistryId) return;
     skipNextAutoConnectRef.current = true;
+    disconnectStashed(contextKey);
     disconnect();
     setEntries([]);
     setPendingPermission(null);
@@ -1593,7 +1686,7 @@ export function AgentChatPanel() {
     } finally {
       skipNextAutoConnectRef.current = false;
     }
-  }, [contextKey, defaultRegistryId, disconnect, isConnecting, registryId, startSession]);
+  }, [contextKey, defaultRegistryId, disconnect, disconnectStashed, isConnecting, registryId, startSession]);
 
   const handleManualLoadMessages = useCallback(async () => {
     const targetSessionId = sessionId;
@@ -2136,20 +2229,16 @@ export function AgentChatPanel() {
               {isConnected && activeAgent ? (
                 <div className="flex items-center gap-1.5 shrink-0 min-w-0">
                   <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
-                  {chatMode === "wiki_ask" && (
-                    <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black">
-                      Wiki Ask
-                    </span>
-                  )}
+                  <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black shrink-0">
+                    {chatMode === "wiki_ask" ? "Wiki Ask" : "Default"}
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="text-sm font-medium shrink-0">Agent Chat</span>
-                  {chatMode === "wiki_ask" && (
-                    <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black">
-                      Wiki Ask
-                    </span>
-                  )}
+                  <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black">
+                    {chatMode === "wiki_ask" ? "Wiki Ask" : "Default"}
+                  </span>
                 </div>
               )}
             </div>
@@ -2294,10 +2383,14 @@ export function AgentChatPanel() {
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
         <Conversation className="min-h-0 h-full overflow-hidden">
           <ConversationContent className="gap-3 p-4!">
-            {(isConnecting || isResumingHistory) && (
+            {((loadingAgents && !isConnected && !isConnecting) || isConnecting || isResumingHistory) && (
               <div className="flex items-center justify-center py-6">
                 <TextShimmer duration={1.5}>
-                  {isResumingHistory ? "Restoring session..." : connectionPhaseLabel}
+                  {loadingAgents && !isConnecting && !isResumingHistory
+                    ? "Loading..."
+                    : isResumingHistory
+                      ? "Restoring session..."
+                      : connectionPhaseLabel}
                 </TextShimmer>
               </div>
             )}
@@ -2490,12 +2583,7 @@ export function AgentChatPanel() {
           <PromptInputFooter>
             <PromptInputTools>
               <PromptInputAddAttachmentsButton />
-              {loadingAgents ? (
-                <div className="flex h-8 items-center gap-2 px-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 shrink-0 animate-spin" />
-                  Loading
-                </div>
-              ) : installedAgents.length === 0 ? (
+              {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
                 <span className="px-2 text-xs text-muted-foreground">No agent</span>
               ) : null}
             </PromptInputTools>
