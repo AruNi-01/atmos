@@ -86,6 +86,8 @@ pub enum WsAction {
     FsGetHomeDir,
     /// 列出目录内容
     FsListDir,
+    /// 搜索目录（按名称）
+    FsSearchDirs,
     /// 验证 Git 仓库路径
     FsValidateGitPath,
     /// 读取文件内容
@@ -435,6 +437,32 @@ pub struct FsSearchContentResponse {
     pub matches: Vec<SearchMatch>,
     /// 是否被截断（超过最大结果数）
     pub truncated: bool,
+}
+
+/// 搜索目录请求（按名称）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsSearchDirsRequest {
+    /// 搜索根目录路径
+    pub root_path: String,
+    /// 搜索关键词（目录名）
+    pub query: String,
+    /// 最大结果数（默认 50）
+    #[serde(default = "default_max_results")]
+    pub max_results: usize,
+    /// 最大搜索深度（默认 4）
+    #[serde(default = "default_max_depth")]
+    pub max_depth: usize,
+}
+
+fn default_max_depth() -> usize {
+    4
+}
+
+/// 搜索目录响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsSearchDirsResponse {
+    /// 匹配的目录列表
+    pub entries: Vec<FsEntry>,
 }
 
 // ===== 应用程序操作数据结构 =====

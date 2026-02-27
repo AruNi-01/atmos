@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot } from '@workspace/ui';
-import { useDialogStore } from '@/hooks/use-dialog-store';
+import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 
 const BALL_SIZE = 36;
@@ -25,7 +25,7 @@ function snapToEdge(x: number, y: number, vw: number, vh: number): { x: number; 
 
 export function AgentFloatingBall() {
   const { layout, updateLayout, loadLayout, loaded: layoutLoaded } = useAgentChatLayout();
-  const { isAgentChatOpen, setAgentChatOpen } = useDialogStore();
+  const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
   // Logical center of the ball (used for snapping calculation)

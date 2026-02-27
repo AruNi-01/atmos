@@ -1,7 +1,9 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import { useQueryState } from "nuqs";
 import { useContextParams } from "@/hooks/use-context-params";
+import { skillsModalParams } from "@/lib/nuqs/searchParams";
 import {
   ArrowRight,
   Archive,
@@ -34,6 +36,7 @@ import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
+import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
@@ -49,7 +52,8 @@ const Header: React.FC = () => {
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
 
   const { projects, updateWorkspaceBranch, setupProgress } = useProjectStore();
-  const { setGlobalSearchOpen, setAgentChatOpen } = useDialogStore();
+  const { setGlobalSearchOpen } = useDialogStore();
+  const [, setAgentChatOpen] = useAgentChatUrl();
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
@@ -102,8 +106,8 @@ const Header: React.FC = () => {
   // Fullscreen state
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  // Skills modal state
-  const [isSkillsModalOpen, setIsSkillsModalOpen] = useState(false);
+  // Skills modal state (URL-persisted via nuqs)
+  const [isSkillsModalOpen, setSkillsModalOpen] = useQueryState("skillsModal", skillsModalParams.skillsModal);
 
   // Archive modal and delete dialog states
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
@@ -573,7 +577,7 @@ const Header: React.FC = () => {
       {/* Skills Modal */}
       <SkillsModal
         isOpen={isSkillsModalOpen}
-        onClose={() => setIsSkillsModalOpen(false)}
+        onClose={() => setSkillsModalOpen(false)}
       />
     </header>
   );

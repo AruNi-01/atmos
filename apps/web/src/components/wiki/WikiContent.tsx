@@ -16,6 +16,7 @@ import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
 import { useSelectionPopover } from "@/hooks/use-selection-popover";
 import { SelectionPopover } from "@/components/selection/SelectionPopover";
 import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
 import { fsApi } from "@/api/ws-api";
 
@@ -63,7 +64,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const topRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const wikiContentRootRef = useRef<HTMLDivElement>(null);
-  const setAgentChatOpen = useDialogStore((s) => s.setAgentChatOpen);
+  const [, setAgentChatOpen] = useAgentChatUrl();
   const setPendingAgentChatMode = useDialogStore((s) => s.setPendingAgentChatMode);
 
   const [isPreview, setIsPreview] = useState(true);

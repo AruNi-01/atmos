@@ -101,7 +101,7 @@ export function useGithubPRDetail(prNumber: number, owner?: string, repo?: strin
 export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
   const send = useWebSocketStore(s => s.send);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

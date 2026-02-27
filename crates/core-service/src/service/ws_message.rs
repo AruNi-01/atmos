@@ -12,7 +12,7 @@ use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
     AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CustomAgentAddRequest,
     CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsListDirRequest, FsListProjectFilesRequest,
-    FsReadFileRequest, FsSearchContentRequest, FsValidateGitPathRequest, FsWriteFileRequest,
+    FsReadFileRequest, FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest, FsWriteFileRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
     GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitGetCommitCountRequest,
     GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitPullRequest,
@@ -102,6 +102,9 @@ impl WsMessageService {
             }
             WsAction::FsSearchContent => {
                 self.handle_fs_search_content(parse_request(request.data)?)
+            }
+            WsAction::FsSearchDirs => {
+                self.handle_fs_search_dirs(parse_request(request.data)?)
             }
 
             // App
@@ -433,6 +436,33 @@ impl WsMessageService {
         Ok(json!({
             "matches": matches,
             "truncated": result.truncated,
+        }))
+    }
+
+    fn handle_fs_search_dirs(&self, req: FsSearchDirsRequest) -> Result<Value> {
+        let root_path = self.fs_engine.expand_path(&req.root_path)?;
+        let entries = self
+            .fs_engine
+            .search_dirs(&root_path, &req.query, req.max_results, req.max_depth)
+            .map_err(|e| ServiceError::Validation(format!("Search failed: {}", e)))?;
+
+        let entries_json: Vec<Value> = entries
+            .into_iter()
+            .map(|e| {
+                json!({
+                    "name": e.name,
+                    "path": e.path.to_string_lossy(),
+                    "is_dir": e.is_dir,
+                    "is_symlink": e.is_symlink,
+                    "is_ignored": e.is_ignored,
+                    "symlink_target": e.symlink_target,
+                    "is_git_repo": e.is_git_repo,
+                })
+            })
+            .collect();
+
+        Ok(json!({
+            "entries": entries_json,
         }))
     }
 
