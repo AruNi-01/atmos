@@ -869,6 +869,7 @@ pub struct GithubPrListRequest {
     pub owner: String,
     pub repo: String,
     pub branch: String,
+    pub state: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

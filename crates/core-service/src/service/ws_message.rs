@@ -1648,9 +1648,61 @@ set -x
     
     async fn handle_github_pr_list(&self, req: GithubPrListRequest) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "list", "--repo", &repo_arg, "--head", &req.branch, "--state", "all", "--limit", "10", "--json", "number,title,state,mergeable,reviewDecision,baseRefName,createdAt,url,author,isDraft"];
-        let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR list: {}", e)))?;
-        Ok(output)
+        let state = req.state.as_deref().unwrap_or("open").to_lowercase();
+        
+        // Fetch PRs where current branch is the HEAD (outgoing)
+        let head_args = vec![
+            "pr", "list", 
+            "--repo", &repo_arg, 
+            "--head", &req.branch, 
+            "--state", &state, 
+            "--limit", "30", 
+            "--json", "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits"
+        ];
+        
+        // Fetch PRs where current branch is the BASE (incoming)
+        let base_args = vec![
+            "pr", "list", 
+            "--repo", &repo_arg, 
+            "--base", &req.branch, 
+            "--state", &state, 
+            "--limit", "30", 
+            "--json", "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits"
+        ];
+
+        let (head_res, base_res) = tokio::join!(
+            self.github_engine.run_gh(&head_args),
+            self.github_engine.run_gh(&base_args)
+        );
+
+        let mut all_prs = Vec::new();
+        
+        if let Ok(Value::Array(prs)) = head_res {
+            all_prs.extend(prs);
+        }
+        if let Ok(Value::Array(prs)) = base_res {
+            all_prs.extend(prs);
+        }
+
+        // Deduplicate by PR number and sort by creation date (desc)
+        let mut seen_numbers = std::collections::HashSet::new();
+        let mut unique_prs = Vec::new();
+        
+        for pr in all_prs {
+            if let Some(num) = pr.get("number").and_then(|n| n.as_u64()) {
+                if seen_numbers.insert(num) {
+                    unique_prs.push(pr);
+                }
+            }
+        }
+        
+        unique_prs.sort_by(|a, b| {
+            let a_time = a.get("createdAt").and_then(|t| t.as_str()).unwrap_or("");
+            let b_time = b.get("createdAt").and_then(|t| t.as_str()).unwrap_or("");
+            b_time.cmp(a_time)
+        });
+
+        Ok(json!(unique_prs))
     }
 
     async fn handle_github_pr_detail(&self, req: GithubPrDetailRequest) -> Result<Value> {
