@@ -51,6 +51,7 @@ import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { PRDetailModal } from '@/components/github/PRDetailModal';
+import { PRCreateModal } from '@/components/github/PRCreateModal';
 import { PRPanel } from '@/components/github/PRPanel';
 import { ActionsPanel, type ActionRun } from '@/components/github/ActionsPanel';
 import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
@@ -273,7 +274,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
   const [{ rsTab: activeTab, rsView: changesView }, setSidebarParams] = useQueryStates(rightSidebarParams);
-  const [{ rsPr: activePrNumber, rsRunId: activeRunId }, setModalParams] = useQueryStates(rightSidebarModalParams);
+  const [{ rsPr: activePrNumber, rsRunId: activeRunId, rsCreatePr }, setModalParams] = useQueryStates(rightSidebarModalParams);
   const { activeActionRun, setActiveActionRun } = useDialogStore();
 
   const [isChangesActionReady, setIsChangesActionReady] = useState(false);
@@ -591,16 +592,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (githubOwner && githubRepo && currentBranch) {
-                          send('github_pr_create', {
-                            owner: githubOwner,
-                            repo: githubRepo,
-                            branch: currentBranch,
-                            base_branch: 'main',
-                            title: `Update from ${currentBranch}`,
-                            body: ''
-                          }).then(() => setPrRefreshKey(Date.now())).catch(console.error);
-                        }
+                        setModalParams({ rsCreatePr: true });
                       }}
                       className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
                       title="Create PR"
@@ -876,6 +868,16 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           repo={githubRepo}
           run={activeActionRun}
           runId={activeRunId}
+        />
+      )}
+      {githubOwner && githubRepo && currentBranch && (
+        <PRCreateModal
+          isOpen={!!rsCreatePr}
+          onOpenChange={(open) => setModalParams({ rsCreatePr: open })}
+          owner={githubOwner}
+          repo={githubRepo}
+          branch={currentBranch}
+          onCreated={() => setPrRefreshKey(Date.now())}
         />
       )}
     </aside >
