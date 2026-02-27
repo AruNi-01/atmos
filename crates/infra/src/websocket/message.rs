@@ -112,6 +112,8 @@ pub enum WsAction {
     GitGetCommitCount,
     /// 列出仓库的所有分支
     GitListBranches,
+    /// 列出仓库的所有远程分支
+    GitListRemoteBranches,
     /// 重命名 Git 分支
     GitRenameBranch,
     /// 获取变更文件列表

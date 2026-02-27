@@ -121,6 +121,9 @@ impl WsMessageService {
             WsAction::GitListBranches => {
                 self.handle_git_list_branches(parse_request(request.data)?)
             }
+            WsAction::GitListRemoteBranches => {
+                self.handle_git_list_remote_branches(parse_request(request.data)?)
+            }
             WsAction::GitRenameBranch => {
                 self.handle_git_rename_branch(parse_request(request.data)?)
             }
@@ -533,6 +536,16 @@ impl WsMessageService {
             .git_engine
             .list_branches(&path)
             .map_err(|e| ServiceError::Validation(format!("Failed to list branches: {}", e)))?;
+
+        Ok(json!({ "branches": branches }))
+    }
+
+    fn handle_git_list_remote_branches(&self, req: GitListBranchesRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let branches = self
+            .git_engine
+            .list_remote_branches(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to list remote branches: {}", e)))?;
 
         Ok(json!({ "branches": branches }))
     }
@@ -1647,12 +1660,15 @@ set -x
         let mut output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
 
         // Fetch timeline for activities
-        let timeline_endpoint = format!("repos/{}/{}/issues/{}/timeline", req.owner, req.repo, req.pr_number);
+        let timeline_endpoint = format!("repos/{}/{}/issues/{}/timeline?per_page=100", req.owner, req.repo, req.pr_number);
         let timeline_args = vec!["api", &timeline_endpoint];
         if let Ok(timeline) = self.github_engine.run_gh(&timeline_args).await {
             if let Some(obj) = output.as_object_mut() {
                 obj.insert("timeline".to_string(), timeline);
             }
+        } else {
+            // Log error if timeline fetch fails but don't fail the whole request
+            println!("Warning: Failed to fetch timeline for PR #{}", req.pr_number);
         }
 
         Ok(output)

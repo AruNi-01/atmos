@@ -29,7 +29,7 @@ import {
 } from '@workspace/ui';
 import { useGithubPRDetail } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check } from 'lucide-react';
+import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -168,9 +168,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     // If backend provided timeline, use it to build a rich history
     if (pr.timeline && Array.isArray(pr.timeline)) {
       return pr.timeline
-        .filter((item: any) => [
-          'commented', 'committed', 'reviewed', 'merged', 'closed', 'reopened', 'head_ref_force_pushed', 'referenced'
-        ].includes(item.event))
         .map((item: any) => {
           let author = item.actor || item.author || (item.user);
           // For commits in timeline
@@ -182,9 +179,9 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
             ...item,
             type: item.event === 'commented' ? 'comment' : (item.event === 'committed' ? 'commit' : (item.event === 'reviewed' ? 'review' : 'activity')),
             author: author,
-            createdAt: item.created_at || item.author?.date || item.submitted_at || pr.createdAt,
-            // Normalize body
-            body: item.body || item.message || ''
+            createdAt: item.created_at || item.author?.date || item.submitted_at || item.authoredDate || pr.createdAt,
+            // Normalize body - handle different GitHub API field names
+            body: item.body || item.message || item.messageHeadline || ''
           };
         })
         .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -465,39 +462,41 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     </div>
                   )}
 
-                  <div className={cn(
-                    "flex items-start gap-4 p-4 border rounded-xl transition-all shadow-sm",
-                    pr.mergeable === 'MERGEABLE' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-muted/30 border-border"
-                  )}>
+                  {pr.state === 'OPEN' && (
                     <div className={cn(
-                      "mt-0.5 rounded-full p-1.5 shadow-sm",
-                      pr.mergeable === 'MERGEABLE' ? "bg-emerald-500 text-white" : "bg-muted-foreground/20 text-muted-foreground"
+                      "flex items-start gap-4 p-4 border rounded-xl transition-all shadow-sm",
+                      pr.mergeable === 'MERGEABLE' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-muted/30 border-border"
                     )}>
-                      {pr.mergeable === 'MERGEABLE' ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
-                    </div>
-                    <div className="flex-1 select-none">
-                      <h5 className="text-sm font-bold">
-                        {pr.mergeable === 'MERGEABLE' ? 'No conflicts with base branch' : 'Conflict check in progress'}
-                      </h5>
-                      <div className="flex items-center justify-between gap-4">
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {pr.mergeable === 'MERGEABLE' ? 'Merging can be performed automatically.' : 'Determining if this PR can be merged without manual intervention.'}
-                        </p>
-                        {pr.state === 'OPEN' && !pr.isDraft && (
-                          <div className="text-[11px] text-muted-foreground shrink-0">
-                            Still in progress? {" "}
-                            <button
-                              onClick={handleDraft}
-                              disabled={!!actionLoading}
-                              className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-4"
-                            >
-                              Convert to draft
-                            </button>
-                          </div>
-                        )}
+                      <div className={cn(
+                        "mt-0.5 rounded-full p-1.5 shadow-sm",
+                        pr.mergeable === 'MERGEABLE' ? "bg-emerald-500 text-white" : "bg-muted-foreground/20 text-muted-foreground"
+                      )}>
+                        {pr.mergeable === 'MERGEABLE' ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
+                      </div>
+                      <div className="flex-1 select-none">
+                        <h5 className="text-sm font-bold">
+                          {pr.mergeable === 'MERGEABLE' ? 'No conflicts with base branch' : 'Conflict check in progress'}
+                        </h5>
+                        <div className="flex items-center justify-between gap-4">
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {pr.mergeable === 'MERGEABLE' ? 'Merging can be performed automatically.' : 'Determining if this PR can be merged without manual intervention.'}
+                          </p>
+                          {!pr.isDraft && (
+                            <div className="text-[11px] text-muted-foreground shrink-0">
+                              Still in progress? {" "}
+                              <button
+                                onClick={handleDraft}
+                                disabled={!!actionLoading}
+                                className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-4"
+                              >
+                                Convert to draft
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {pr.isDraft && (
                     <div className="flex items-start gap-4 p-4 border rounded-xl bg-muted/40 border-border shadow-sm">
@@ -587,7 +586,13 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             case 'merged':
                               icon = <GitMerge className="size-3.5 text-white" />;
                               colorClass = "bg-purple-600";
-                              actionText = "merged this";
+                              const commitId = item.commit_id || item.merge_commit_sha || item.commit_sha;
+                              const shortId = commitId?.substring(0, 7);
+                              actionText = (
+                                <>
+                                  merged commit <span className="font-mono bg-muted/50 px-1 rounded">{shortId || 'unknown'}</span> into <span className="font-semibold text-foreground/80">{pr.baseRefName || 'main'}</span>
+                                </>
+                              ) as any;
                               break;
                             case 'committed':
                               icon = <GitCommit className="size-3.5 text-muted-foreground" />;
@@ -611,48 +616,158 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                               }
                               break;
                             case 'referenced':
-                              icon = <GitCommit className="size-3.5 text-muted-foreground" />;
+                            case 'cross-referenced':
+                              icon = <ExternalLink className="size-3.5 text-muted-foreground" />;
                               colorClass = "bg-muted border border-border/50";
-                              actionText = "referenced this";
+                              actionText = item.event === 'cross-referenced' ? "referenced this pull request" : "referenced this";
+                              break;
+                            case 'ready_for_review':
+                              icon = <Eye className="size-3.5 text-white" />;
+                              colorClass = "bg-blue-500";
+                              actionText = "marked this pull request as ready for review";
+                              break;
+                            case 'converted_to_draft':
+                            case 'convert_to_draft':
+                              icon = <GitPullRequest className="size-3.5 text-muted-foreground" />;
+                              colorClass = "bg-muted border border-border/50";
+                              actionText = "marked this pull request as draft";
+                              break;
+                            case 'assigned':
+                            case 'unassigned':
+                              icon = <User className="size-3.5 text-white" />;
+                              colorClass = item.event === 'assigned' ? "bg-blue-600" : "bg-muted-foreground";
+                              const isSelf = item.assignee?.login === (item.actor?.login || item.author?.login);
+                              actionText = item.event === 'assigned'
+                                ? (isSelf ? "self-assigned this" : `assigned ${item.assignee?.login}`)
+                                : (isSelf ? "removed their assignment" : `unassigned ${item.assignee?.login}`);
+                              break;
+                            case 'labeled':
+                            case 'unlabeled':
+                              icon = <Tag className="size-3.5 text-muted-foreground" />;
+                              colorClass = "bg-muted";
+                              actionText = `${item.event === 'labeled' ? 'added' : 'removed'} the ${item.label?.name || 'label'} label`;
+                              break;
+                            case 'review_requested':
+                            case 'review_request_removed':
+                              icon = <Eye className="size-3.5 text-muted-foreground" />;
+                              colorClass = "bg-muted";
+                              actionText = item.event === 'review_requested'
+                                ? `requested a review from ${item.requested_reviewer?.login || 'someone'}`
+                                : `removed review request for ${item.requested_reviewer?.login || 'someone'}`;
+                              break;
+                            case 'milestoned':
+                            case 'demilestoned':
+                              icon = <Milestone className="size-3.5 text-muted-foreground" />;
+                              colorClass = "bg-muted";
+                              actionText = item.event === 'milestoned'
+                                ? `added this to the ${item.milestone?.title} milestone`
+                                : `removed this from the ${item.milestone?.title} milestone`;
+                              break;
+                            case 'renamed':
+                              icon = <Edit2 className="size-3.5 text-muted-foreground" />;
+                              colorClass = "bg-muted";
+                              actionText = `changed the title from "${item.rename?.from}" to "${item.rename?.to}"`;
+                              break;
+                            case 'deployed':
+                            case 'deployment_status':
+                              icon = <Rocket className="size-3.5 text-white" />;
+                              colorClass = "bg-sidebar-accent shadow-sm";
+                              const env = item.deployment?.environment || item.environment || 'Preview';
+                              actionText = (
+                                <>
+                                  deployed to <span className="font-bold">{env}</span>
+                                  {item.deployment_status?.target_url && (
+                                    <a
+                                      href={item.deployment_status.target_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="ml-2 px-1.5 py-0.5 bg-muted hover:bg-muted-foreground/20 rounded border border-border/40 transition-colors inline-flex items-center gap-1"
+                                    >
+                                      View deployment <ExternalLink className="size-2.5" />
+                                    </a>
+                                  )}
+                                </>
+                              ) as any;
+                              break;
+                            case 'head_ref_deleted':
+                              icon = <GitBranch className="size-3.5 text-muted-foreground" />;
+                              colorClass = "bg-muted";
+                              actionText = "deleted the branch";
+                              break;
+                            default:
+                              actionText = (item.event || '').replace(/_/g, ' ');
                               break;
                           }
 
                           return (
-                            <div key={i} className="flex items-center gap-3 pl-2.5">
-                              <div className={cn(
-                                "size-4 rounded-full flex items-center justify-center ring-4 ring-background z-10 shrink-0",
-                                colorClass
-                              )}>
-                                {icon}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs truncate">
-                                <Avatar className="size-4 shrink-0 border border-border/50">
-                                  <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=32`} />
-                                  <AvatarFallback className="text-[6px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                                <span className="font-semibold text-foreground/90">{item.author?.login}</span>
-                                {isBot && (
-                                  <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                    bot
-                                  </span>
-                                )}
-                                <span className="text-muted-foreground">{actionText}</span>
-                                {(item.event === 'committed' || item.event === 'referenced') && item.body && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="text-foreground/70 font-medium truncate max-w-[280px] cursor-help">
+                            <div key={i} className="flex flex-col gap-1.5 pl-2.5 relative">
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "size-4 rounded-full flex items-center justify-center ring-4 ring-background z-10 shrink-0",
+                                  colorClass
+                                )}>
+                                  {icon}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs truncate flex-1">
+                                  <Avatar className="size-4 shrink-0 border border-border/50">
+                                    <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=32`} />
+                                    <AvatarFallback className="text-[6px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                  </Avatar>
+                                  <span className="font-semibold text-foreground/90">{item.author?.login}</span>
+                                  {isBot && (
+                                    <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
+                                      bot
+                                    </span>
+                                  )}
+                                  <span className="text-muted-foreground">{actionText}</span>
+                                  {(item.event === 'committed' || item.event === 'referenced') && item.body && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-foreground/70 font-medium truncate max-w-[280px] cursor-help">
+                                          {item.body}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-md text-xs break-all">
                                         {item.body}
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="max-w-md text-xs break-all">
-                                      {item.body}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
-                                <span className="text-muted-foreground opacity-60 ml-auto whitespace-nowrap">
-                                  {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                                </span>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <span className="text-muted-foreground opacity-60 ml-auto whitespace-nowrap">
+                                    {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                                  </span>
+                                </div>
                               </div>
+
+                              {/* Subtext for specific events */}
+                              {item.event === 'merged' && pr.statusCheckRollup?.length > 0 && (
+                                <div className="pl-7 pb-1">
+                                  <div className="text-[10px] text-muted-foreground/80 flex items-center gap-1.5 bg-muted/30 w-fit px-2 py-0.5 rounded-full border border-border/40">
+                                    {pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS') ? (
+                                      <CheckCircle2 className="size-3 text-emerald-500" />
+                                    ) : (
+                                      <XCircle className="size-3 text-red-500" />
+                                    )}
+                                    <span>
+                                      {pr.statusCheckRollup.filter((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} of {pr.statusCheckRollup.length} checks passed
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {item.event === 'labeled' && item.label && (
+                                <div className="pl-7 pb-1">
+                                  <span
+                                    className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                                    style={{
+                                      backgroundColor: `#${item.label.color}20`,
+                                      color: `#${item.label.color}`,
+                                      border: `1px solid #${item.label.color}40`
+                                    }}
+                                  >
+                                    {item.label.name}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
