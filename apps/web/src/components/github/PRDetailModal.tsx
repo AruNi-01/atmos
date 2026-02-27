@@ -22,10 +22,14 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from '@workspace/ui';
 import { useGithubPRDetail } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown } from 'lucide-react';
+import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -156,6 +160,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [comment, setComment] = React.useState('');
   const [commentTab, setCommentTab] = React.useState<'write' | 'preview'>('write');
+  const [mergeStrategy, setMergeStrategy] = React.useState<'merge' | 'squash' | 'rebase'>('merge');
 
   const conversation = React.useMemo(() => {
     if (!pr) return [];
@@ -220,10 +225,11 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
         owner,
         repo,
         pr_number: prNumber,
-        strategy: 'squash',
+        strategy: mergeStrategy,
         body: comment.trim() || undefined
       });
       setComment('');
+      fetch?.();
       onMerged?.();
       onOpenChange(false);
     } catch (e) {
@@ -237,13 +243,9 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     if (!prNumber) return;
     setActionLoading('close');
     try {
-      await send('github_pr_close', {
-        owner,
-        repo,
-        pr_number: prNumber,
-        comment: comment.trim() || undefined
-      });
+      await send('github_pr_close', { owner, repo, pr_number: prNumber, comment: comment.trim() || undefined });
       setComment('');
+      fetch?.();
       onClosed?.();
       onOpenChange(false);
     } catch (e) {
@@ -268,9 +270,22 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
   const handleReady = async () => {
     if (!prNumber) return;
-    setActionLoading('reopen'); // Reuse state for simplicity or add 'ready'
+    setActionLoading('reopen'); // Using reopen state for now
     try {
       await send('github_pr_ready', { owner, repo, pr_number: prNumber });
+      fetch?.();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDraft = async () => {
+    if (!prNumber) return;
+    setActionLoading('reopen'); // Reuse or add custom
+    try {
+      await send('github_pr_draft', { owner, repo, pr_number: prNumber });
       fetch?.();
     } catch (e) {
       console.error(e);
@@ -460,13 +475,27 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     )}>
                       {pr.mergeable === 'MERGEABLE' ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 select-none">
                       <h5 className="text-sm font-bold">
                         {pr.mergeable === 'MERGEABLE' ? 'No conflicts with base branch' : 'Conflict check in progress'}
                       </h5>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {pr.mergeable === 'MERGEABLE' ? 'Merging can be performed automatically.' : 'Determining if this PR can be merged without manual intervention.'}
-                      </p>
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {pr.mergeable === 'MERGEABLE' ? 'Merging can be performed automatically.' : 'Determining if this PR can be merged without manual intervention.'}
+                        </p>
+                        {pr.state === 'OPEN' && !pr.isDraft && (
+                          <div className="text-[11px] text-muted-foreground shrink-0">
+                            Still in progress? {" "}
+                            <button
+                              onClick={handleDraft}
+                              disabled={!!actionLoading}
+                              className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-4"
+                            >
+                              Convert to draft
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -761,19 +790,77 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   {actionLoading === 'close' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <XCircle className="mr-2 size-4" />}
                   Close PR
                 </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleMerge}
-                  disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
-                  className={cn(
-                    "shadow-md transition-all transform active:scale-95 text-white",
-                    (pr.isDraft || pr.mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
-                  )}
-                >
-                  {actionLoading === 'merge' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
-                  Squash and Merge
-                </Button>
+                <div className="flex h-8 items-stretch gap-px shadow-sm rounded-md overflow-hidden">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleMerge}
+                    disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
+                    className={cn(
+                      "rounded-none h-full shadow-none transition-all transform active:scale-[0.98] text-white border-r border-white/10",
+                      (pr.isDraft || pr.mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
+                    )}
+                  >
+                    {actionLoading === 'merge' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
+                    {mergeStrategy === 'merge' ? 'Merge pull request' : mergeStrategy === 'squash' ? 'Squash and merge' : 'Rebase and merge'}
+                  </Button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className={cn(
+                          "px-2 rounded-none h-full min-w-0 shadow-none transition-all text-white",
+                          (pr.isDraft || pr.mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
+                        )}
+                        disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
+                      >
+                        <ChevronDown className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[320px] p-1">
+                      <DropdownMenuItem
+                        className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"
+                        onClick={() => setMergeStrategy('merge')}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="font-bold text-[13px]">Create a merge commit</span>
+                          {mergeStrategy === 'merge' && <Check className="size-3.5 text-blue-500" />}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-normal">
+                          All commits from this branch will be added to the base branch via a merge commit.
+                        </p>
+                      </DropdownMenuItem>
+                      <div className="h-px bg-border/40 my-1" />
+                      <DropdownMenuItem
+                        className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"
+                        onClick={() => setMergeStrategy('squash')}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="font-bold text-[13px]">Squash and merge</span>
+                          {mergeStrategy === 'squash' && <Check className="size-3.5 text-blue-500" />}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-normal">
+                          The {pr.commits?.length || 0} commits from this branch will be combined into one commit in the base branch.
+                        </p>
+                      </DropdownMenuItem>
+                      <div className="h-px bg-border/40 my-1" />
+                      <DropdownMenuItem
+                        className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"
+                        onClick={() => setMergeStrategy('rebase')}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="font-bold text-[13px]">Rebase and merge</span>
+                          {mergeStrategy === 'rebase' && <Check className="size-3.5 text-blue-500" />}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-normal">
+                          The {pr.commits?.length || 0} commits from this branch will be rebased and added to the base branch.
+                        </p>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </>
             ) : pr?.state === 'CLOSED' ? (
               <Button

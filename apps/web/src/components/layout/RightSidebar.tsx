@@ -294,17 +294,21 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     if (changesView === 'changes') {
       timer = setTimeout(() => {
         setIsChangesActionReady(true);
-      }, 1000); // 1 seconds delay
-      setIsPrActionReady(false);
-    } else if (changesView === 'pr') {
+      }, 1000);
       setIsPrActionReady(false);
       setIsActionsActionReady(false);
-    } else if (changesView === 'actions') {
+    } else if (changesView === 'pr') {
+      timer = setTimeout(() => {
+        setIsPrActionReady(true);
+      }, 1000);
       setIsChangesActionReady(false);
-      setIsPrActionReady(false);
+      setIsActionsActionReady(false);
+    } else if (changesView === 'actions') {
       timer = setTimeout(() => {
         setIsActionsActionReady(true);
       }, 1000);
+      setIsChangesActionReady(false);
+      setIsPrActionReady(false);
     } else {
       setIsChangesActionReady(false);
       setIsPrActionReady(false);
