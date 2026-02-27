@@ -74,9 +74,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui";
-import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, SquareCheck, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatLayout } from "@/hooks/use-agent-chat-layout";
 import { AgentIcon } from "./AgentIcon";
 import { useAgentSession, type AgentServerMessage, type AcpPermissionOption } from "@/hooks/use-agent-session";
@@ -84,6 +85,8 @@ import { agentApi } from "@/api/ws-api";
 import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-api";
 import { formatLocalDateTime } from "@atmos/shared";
 import type { RegistryAgent } from "@/api/ws-api";
+import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/types/agent-chat";
+import { useWikiExists, useWikiStore } from "@/hooks/use-wiki-store";
 
 // ---------------------------------------------------------------------------
 // Zed-style ACP Entry Model
@@ -200,12 +203,31 @@ function isDiffObject(o: unknown): o is DiffFileOutput {
 // ---------------------------------------------------------------------------
 
 const LAST_SESSION_STORAGE_KEY = "atmos.agent.last_session_by_context";
+const LAST_CHAT_MODE_STORAGE_KEY = "atmos.agent.last_chat_mode";
 const DEFAULT_AGENT_STORAGE_KEY = "atmos.agent.default_registry_id";
 
-function getSessionContextKey(workspaceId: string | null, projectId: string | null): string {
-  if (workspaceId) return `workspace:${workspaceId}`;
-  if (projectId) return `project:${projectId}`;
-  return "temp";
+function readLastChatMode(): AgentChatMode {
+  try {
+    const raw = localStorage.getItem(LAST_CHAT_MODE_STORAGE_KEY);
+    if (raw === "wiki_ask" || raw === "default") return raw;
+  } catch {}
+  return DEFAULT_AGENT_CHAT_MODE;
+}
+
+function writeLastChatMode(mode: AgentChatMode): void {
+  try {
+    localStorage.setItem(LAST_CHAT_MODE_STORAGE_KEY, mode);
+  } catch {}
+}
+
+function getSessionContextKey(
+  workspaceId: string | null,
+  projectId: string | null,
+  mode: AgentChatMode
+): string {
+  if (workspaceId) return `workspace:${workspaceId}:${mode}`;
+  if (projectId) return `project:${projectId}:${mode}`;
+  return `temp:${mode}`;
 }
 
 function readLastSessionMap(): Record<string, string> {
@@ -552,6 +574,91 @@ function CommandCopyButton({ text }: { text: string }) {
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
     </button>
   );
+}
+
+function MessageCopyButton({
+  text,
+  ariaLabel,
+  title,
+  className = "",
+}: {
+  text: string;
+  ariaLabel: string;
+  title: string;
+  className?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    void navigator.clipboard.writeText(trimmed).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  }, [text]);
+
+  return (
+    <button
+      type="button"
+      className={`cursor-pointer ${className}`}
+      onClick={handleCopy}
+      aria-label={ariaLabel}
+      title={title}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {copied ? (
+          <motion.span
+            key="copied"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="inline-flex size-3.5 items-center justify-center"
+          >
+            <Check className="size-3.5 text-green-500" />
+          </motion.span>
+        ) : (
+          <motion.span
+            key="copy"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="inline-flex size-3.5 items-center justify-center"
+          >
+            <Copy className="size-3.5" />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </button>
+  );
+}
+
+function getAssistantCopyText(entry: AssistantEntry): string {
+  const parts: string[] = [];
+  for (const block of entry.blocks) {
+    if (block.type === "text" || block.type === "thinking") {
+      if (block.content?.trim()) parts.push(block.content.trim());
+      continue;
+    }
+    if (block.type === "tool_call") {
+      if (typeof block.raw_output === "string" && block.raw_output.trim()) {
+        parts.push(block.raw_output.trim());
+      } else if (typeof block.description === "string" && block.description.trim()) {
+        parts.push(block.description.trim());
+      }
+    }
+  }
+  return parts.join("\n\n").trim();
+}
+
+function getAllAssistantMessagesCopyText(entries: ThreadEntry[]): string {
+  const all = entries
+    .filter((entry): entry is AssistantEntry => entry.role === "assistant")
+    .map((entry) => getAssistantCopyText(entry))
+    .filter((text) => !!text);
+  return all.join("\n\n").trim();
 }
 
 function TerminalBlock({
@@ -1030,9 +1137,16 @@ function PromptInputAttachmentsSection() {
 // ---------------------------------------------------------------------------
 
 export function AgentChatPanel() {
-  const { workspaceId, projectId, effectiveContextId } = useContextParams();
-  const { isAgentChatOpen, setAgentChatOpen, pendingAgentChatPrompt, consumePendingAgentChatPrompt, peekPendingAgentChatPrompt } = useDialogStore();
+  const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
+  const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
+  const {
+    pendingAgentChatPrompt,
+    consumePendingAgentChatPrompt,
+    peekPendingAgentChatPrompt,
+    consumePendingAgentChatMode,
+  } = useDialogStore();
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
+  const [chatMode, setChatMode] = useState<AgentChatMode>(DEFAULT_AGENT_CHAT_MODE);
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
   const [registryId, setRegistryId] = useState<string>("");
@@ -1054,6 +1168,12 @@ export function AgentChatPanel() {
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [headerHovered, setHeaderHovered] = useState(false);
   const [selectedAuthMethodId, setSelectedAuthMethodId] = useState<string>("");
+  const [activeSessionByContext, setActiveSessionByContext] = useState<Record<string, string>>(
+    {}
+  );
+  const activeSessionByContextRef = useRef<Record<string, string>>({});
+  const entriesByContextRef = useRef<Record<string, ThreadEntry[]>>({});
+  const sessionTitleByContextRef = useRef<Record<string, string | null>>({});
   const { projects, fetchProjects } = useProjectStore();
   const restoreAttemptedRef = useRef(false);
   const autoResumeTriedRef = useRef<string | null>(null);
@@ -1061,6 +1181,8 @@ export function AgentChatPanel() {
   const stoppedRef = useRef(false);
   const forcedDisconnectDoneRef = useRef(false);
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousModeRef = useRef<AgentChatMode>(chatMode);
+  const connectedContextKeyRef = useRef<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // Draggable & Resizable layout
@@ -1203,6 +1325,80 @@ export function AgentChatPanel() {
     return null;
   }, [projects, effectiveContextId]);
 
+  // Wiki path: always use project's mainFilePath (wiki is stored in the main
+  // project directory, not in workspace worktree directories).
+  const wikiPath = React.useMemo(() => {
+    if (!effectiveContextId) return null;
+    for (const p of projects) {
+      if (p.workspaces.find((w) => w.id === effectiveContextId)) return p.mainFilePath;
+      if (p.id === effectiveContextId) return p.mainFilePath;
+    }
+    return null;
+  }, [projects, effectiveContextId]);
+
+  const wikiExists = useWikiExists(effectiveContextId);
+  const checkWikiExists = useWikiStore((s) => s.checkWikiExists);
+  const isProjectScopedView = currentView === "workspace" || currentView === "project";
+  const hasBoundContext = workspaceId != null || projectId != null;
+  const wikiAskAvailability = useMemo(() => {
+    if (!hasBoundContext || !isProjectScopedView) {
+      return { enabled: false, reason: "Only available in Project or Workspace" as const };
+    }
+    if (wikiExists !== true) {
+      return { enabled: false, reason: "Generate Wiki first to use Wiki Ask" as const };
+    }
+    return { enabled: true, reason: null };
+  }, [hasBoundContext, isProjectScopedView, wikiExists]);
+
+  useEffect(() => {
+    if (!effectiveContextId || !wikiPath || !isProjectScopedView) return;
+    if (wikiExists !== null) return;
+    void checkWikiExists(effectiveContextId, wikiPath);
+  }, [checkWikiExists, effectiveContextId, isProjectScopedView, wikiPath, wikiExists]);
+
+  useEffect(() => {
+    if (!isAgentChatOpen) return;
+    const pendingMode = consumePendingAgentChatMode();
+    if (!pendingMode) return;
+    if (pendingMode === "wiki_ask" && !wikiAskAvailability.enabled) {
+      setChatMode("default");
+      return;
+    }
+    setChatMode(pendingMode);
+  }, [consumePendingAgentChatMode, isAgentChatOpen, wikiAskAvailability.enabled]);
+
+  useEffect(() => {
+    if (chatMode !== "wiki_ask") return;
+    if (wikiAskAvailability.enabled) return;
+    // Only override when wiki is confirmed missing (wikiExists === false).
+    // When wikiExists is null (still loading), keep current mode to avoid overriding
+    // a restored preference before the check completes.
+    if (wikiExists !== false) return;
+    setChatMode("default");
+  }, [chatMode, wikiAskAvailability.enabled, wikiExists]);
+
+  // Restore last-used chat mode from localStorage on mount (SSR-safe; localStorage
+  // doesn't exist on server, so we can only read it client-side in useEffect).
+  useEffect(() => {
+    const saved = readLastChatMode();
+    if (saved !== chatMode) {
+      setChatMode(saved);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist last-used chat mode so refresh restores the correct mode.
+  useEffect(() => {
+    writeLastChatMode(chatMode);
+  }, [chatMode]);
+
+  // Persist on panel close so the mode used when closing is definitely saved.
+  useEffect(() => {
+    if (!isAgentChatOpen) {
+      writeLastChatMode(chatMode);
+    }
+  }, [isAgentChatOpen, chatMode]);
+
   const handleMessage = useCallback((msg: AgentServerMessage) => {
     switch (msg.type) {
       case "stream":
@@ -1259,6 +1455,9 @@ export function AgentChatPanel() {
     resumeSession,
     clearAuthRequest,
     disconnect,
+    stashSession,
+    unstashSession,
+    disconnectStashed,
     sessionCwd,
     sessionTitle: activeSessionTitle,
     configOptions,
@@ -1268,6 +1467,7 @@ export function AgentChatPanel() {
     workspaceId,
     projectId,
     registryId,
+    mode: chatMode,
     onMessage: handleMessage,
   });
 
@@ -1281,6 +1481,7 @@ export function AgentChatPanel() {
         const res = await agentRestApi.listSessions({
           context_type: contextType,
           context_guid: contextGuid,
+          mode: chatMode,
           limit: 20,
           cursor,
         });
@@ -1297,7 +1498,7 @@ export function AgentChatPanel() {
         setHistoryLoading(false);
       }
     },
-    [workspaceId, projectId]
+    [workspaceId, projectId, chatMode]
   );
 
   useEffect(() => {
@@ -1309,9 +1510,134 @@ export function AgentChatPanel() {
 
   const skipNextAutoConnectRef = useRef(false);
   const contextKey = React.useMemo(
-    () => getSessionContextKey(workspaceId, projectId),
-    [workspaceId, projectId]
+    () => getSessionContextKey(workspaceId, projectId, chatMode),
+    [workspaceId, projectId, chatMode]
   );
+
+  useEffect(() => {
+    const previousMode = previousModeRef.current;
+    if (previousMode === chatMode) return;
+    previousModeRef.current = chatMode;
+    const previousContextKey = getSessionContextKey(workspaceId, projectId, previousMode);
+    const nextContextKey = getSessionContextKey(workspaceId, projectId, chatMode);
+
+    // ---- save outgoing session ----
+    if (sessionId) {
+      const nextMap = {
+        ...activeSessionByContextRef.current,
+        [previousContextKey]: sessionId,
+      };
+      activeSessionByContextRef.current = nextMap;
+      setActiveSessionByContext(nextMap);
+      setLastSessionIdForContext(previousContextKey, sessionId);
+    }
+    entriesByContextRef.current[previousContextKey] = entries;
+    sessionTitleByContextRef.current[previousContextKey] = sessionTitle;
+
+    // Stash the live WS connection (stays open in background).
+    stashSession(previousContextKey);
+
+    // ---- restore incoming session ----
+    setEntries(entriesByContextRef.current[nextContextKey] ?? []);
+    setPendingPermission(null);
+    setSessionTitle(sessionTitleByContextRef.current[nextContextKey] ?? null);
+    setWaitingForResponse(false);
+    stoppedRef.current = false;
+
+    // Try to instantly restore a stashed session for the new mode.
+    const restoredSessionId = unstashSession(nextContextKey);
+
+    if (restoredSessionId) {
+      // Seamless switch – already connected. Persist the restored session to
+      // localStorage so both modes' sessions survive refresh.
+      setLastSessionIdForContext(nextContextKey, restoredSessionId);
+      activeSessionByContextRef.current[nextContextKey] = restoredSessionId;
+      setActiveSessionByContext((prev) => ({ ...prev, [nextContextKey]: restoredSessionId }));
+      setIsResumedSession(true);
+      setIsResumingHistory(false);
+      restoreAttemptedRef.current = true;
+      autoStartHandledRef.current = true;
+      // Sync connectedContextKeyRef so the effect below won't mistakenly
+      // disconnect when it sees contextKey changed.
+      connectedContextKeyRef.current = nextContextKey;
+      autoResumeTriedRef.current = restoredSessionId;
+    } else {
+      // No stashed session (e.g. after refresh). Proactively try to resume from
+      // localStorage. Don't wait for agents—resumeSession doesn't need them; we
+      // avoid "No agent" in the input area by showing loading when connecting.
+      const lastSessionId = getLastSessionIdForContext(nextContextKey);
+      if (lastSessionId) {
+        restoreAttemptedRef.current = true;
+        autoStartHandledRef.current = true;
+        autoResumeTriedRef.current = lastSessionId;
+        setIsResumedSession(true);
+        setIsResumingHistory(true);
+        void (async () => {
+          const success = await resumeSession(lastSessionId);
+          if (!success) {
+            clearLastSessionIdForContext(nextContextKey);
+            autoStartHandledRef.current = false;
+            restoreAttemptedRef.current = false;
+            autoResumeTriedRef.current = null;
+            setIsResumedSession(false);
+            startSession();
+          }
+          setIsResumingHistory(false);
+        })();
+      } else {
+        setIsResumedSession(false);
+        setIsResumingHistory(false);
+        restoreAttemptedRef.current = false;
+        autoResumeTriedRef.current = null;
+        autoStartHandledRef.current = false;
+      }
+    }
+  }, [chatMode, stashSession, unstashSession, entries, projectId, resumeSession, sessionId, sessionTitle, startSession, workspaceId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const prevMap = activeSessionByContextRef.current;
+    if (prevMap[contextKey] === sessionId) return;
+    const nextMap = { ...prevMap, [contextKey]: sessionId };
+    activeSessionByContextRef.current = nextMap;
+    setActiveSessionByContext(nextMap);
+  }, [contextKey, sessionId]);
+
+  useEffect(() => {
+    activeSessionByContextRef.current = activeSessionByContext;
+  }, [activeSessionByContext]);
+
+  useEffect(() => {
+    entriesByContextRef.current[contextKey] = entries;
+  }, [contextKey, entries]);
+
+  useEffect(() => {
+    sessionTitleByContextRef.current[contextKey] = sessionTitle;
+  }, [contextKey, sessionTitle]);
+
+  useEffect(() => {
+    if (!isConnected || !sessionId) {
+      connectedContextKeyRef.current = null;
+      return;
+    }
+    if (connectedContextKeyRef.current == null) {
+      connectedContextKeyRef.current = contextKey;
+      return;
+    }
+    if (connectedContextKeyRef.current === contextKey) return;
+
+    connectedContextKeyRef.current = null;
+    disconnect();
+    setEntries([]);
+    setPendingPermission(null);
+    setSessionTitle(null);
+    setIsResumedSession(false);
+    setWaitingForResponse(false);
+    stoppedRef.current = false;
+    restoreAttemptedRef.current = false;
+    autoResumeTriedRef.current = null;
+    autoStartHandledRef.current = false;
+  }, [contextKey, disconnect, isConnected, sessionId]);
 
   const handleSelectHistorySession = useCallback(
     async (s: AgentChatSessionItem) => {
@@ -1330,6 +1656,7 @@ export function AgentChatPanel() {
       setRegistryId(s.registry_id);
       setSessionTitle(s.title || null);
       setIsResumedSession(true);
+      setActiveSessionByContext((prev) => ({ ...prev, [contextKey]: s.guid }));
       setIsResumingHistory(true);
       autoResumeTriedRef.current = null;
       try {
@@ -1339,7 +1666,7 @@ export function AgentChatPanel() {
         skipNextAutoConnectRef.current = false;
       }
     },
-    [disconnect, isConnected, isConnecting, resumeSession, sessionId]
+    [contextKey, disconnect, isConnected, isConnecting, resumeSession, sessionId]
   );
 
   const handleCreateNewSession = useCallback(async (targetRegistryId?: string) => {
@@ -1347,6 +1674,7 @@ export function AgentChatPanel() {
     const nextRegistryId = targetRegistryId || defaultRegistryId || registryId;
     if (!nextRegistryId) return;
     skipNextAutoConnectRef.current = true;
+    disconnectStashed(contextKey);
     disconnect();
     setEntries([]);
     setPendingPermission(null);
@@ -1357,13 +1685,19 @@ export function AgentChatPanel() {
     setRegistryId(nextRegistryId);
     restoreAttemptedRef.current = true;
     autoResumeTriedRef.current = null;
+    setActiveSessionByContext((prev) => {
+      if (!(contextKey in prev)) return prev;
+      const next = { ...prev };
+      delete next[contextKey];
+      return next;
+    });
     clearLastSessionIdForContext(contextKey);
     try {
       await startSession({ registryId: nextRegistryId });
     } finally {
       skipNextAutoConnectRef.current = false;
     }
-  }, [contextKey, defaultRegistryId, disconnect, isConnecting, registryId, startSession]);
+  }, [contextKey, defaultRegistryId, disconnect, disconnectStashed, isConnecting, registryId, startSession]);
 
   const handleManualLoadMessages = useCallback(async () => {
     const targetSessionId = sessionId;
@@ -1445,6 +1779,7 @@ export function AgentChatPanel() {
       autoStartHandledRef.current = false;
       setIsResumingHistory(false);
       autoResumeTriedRef.current = null;
+      connectedContextKeyRef.current = null;
       return;
     }
     if (isConnected || isConnecting) return;
@@ -1501,33 +1836,45 @@ export function AgentChatPanel() {
         if (registryId !== forcedRegistryId) {
           setRegistryId(forcedRegistryId);
         }
+        setActiveSessionByContext((prev) => {
+          if (!(contextKey in prev)) return prev;
+          const next = { ...prev };
+          delete next[contextKey];
+          return next;
+        });
         clearLastSessionIdForContext(contextKey);
         startSession({ registryId: forcedRegistryId });
         return;
       }
 
-      if (sessionId) {
-        if (autoResumeTriedRef.current === sessionId) return;
-        autoResumeTriedRef.current = sessionId;
-        setIsResumedSession(true);
-        autoStartHandledRef.current = true;
-        void resumeSession(sessionId);
-        return;
-      }
       if (!restoreAttemptedRef.current) {
         restoreAttemptedRef.current = true;
-        const lastSessionId = getLastSessionIdForContext(contextKey);
+        const cachedSessionId =
+          activeSessionByContextRef.current[contextKey] ?? activeSessionByContext[contextKey];
+        const lastSessionId = cachedSessionId || getLastSessionIdForContext(contextKey);
         if (lastSessionId) {
           if (autoResumeTriedRef.current === lastSessionId) return;
           autoResumeTriedRef.current = lastSessionId;
           setIsResumedSession(true);
           autoStartHandledRef.current = true;
           void (async () => {
+            setIsResumingHistory(true);
             const success = await resumeSession(lastSessionId);
             if (!success) {
               setIsResumedSession(false);
               clearLastSessionIdForContext(contextKey);
+              setActiveSessionByContext((prev) => {
+                if (prev[contextKey] !== lastSessionId) return prev;
+                const next = { ...prev };
+                delete next[contextKey];
+                return next;
+              });
+              // Resume target may be stale (e.g. mode storage switched), create a fresh session seamlessly.
+              autoStartHandledRef.current = false;
+              autoResumeTriedRef.current = null;
+              startSession();
             }
+            setIsResumingHistory(false);
           })();
           return;
         }
@@ -1540,13 +1887,13 @@ export function AgentChatPanel() {
       }
     }
   }, [
+    activeSessionByContext,
     contextKey,
     isAgentChatOpen,
     registryId,
     installedAgents.length,
     isConnected,
     isConnecting,
-    sessionId,
     resumeSession,
     startSession,
     peekPendingAgentChatPrompt,
@@ -1593,10 +1940,6 @@ export function AgentChatPanel() {
       setSessionTitle(activeSessionTitle);
     }
   }, [sessionId, activeSessionTitle]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [entries]);
 
   const userEntryIndices = React.useMemo(
     () => entries.map((e, i) => (e.role === "user" ? i : -1)).filter((i) => i >= 0),
@@ -1662,7 +2005,10 @@ export function AgentChatPanel() {
         },
       ]);
 
-      let finalPrompt = text;
+      const modeWrappedPrompt = chatMode === "wiki_ask"
+        ? `You are in Wiki Ask mode. Prioritize information from the project's generated wiki content under .atmos/wiki. If the wiki does not contain enough context, state that clearly.\n\nUser question:\n${text}`
+        : text;
+      let finalPrompt = modeWrappedPrompt;
 
       const uploadPath = localPath ?? sessionCwd;
       if (message.files && message.files.length > 0 && uploadPath) {
@@ -1677,7 +2023,7 @@ export function AgentChatPanel() {
           );
           if (paths.length > 0) {
             const attachmentInfo = paths.map((p) => `- ${p}`).join("\n");
-            finalPrompt = `${text}\n\n[Attached files have been saved to the following paths, please read them to understand the content:]\n${attachmentInfo}`;
+            finalPrompt = `${modeWrappedPrompt}\n\n[Attached files have been saved to the following paths, please read them to understand the content:]\n${attachmentInfo}`;
           }
         } catch (err) {
           console.error("Failed to upload attachments:", err);
@@ -1686,7 +2032,7 @@ export function AgentChatPanel() {
 
       sendPrompt(finalPrompt);
     },
-    [isConnected, sendPrompt, localPath, sessionCwd, entries.length, sessionId]
+    [chatMode, isConnected, sendPrompt, localPath, sessionCwd, entries.length, sessionId]
   );
 
   const handleClose = useCallback(() => {
@@ -1727,6 +2073,15 @@ export function AgentChatPanel() {
     writeDefaultAgentRegistryId(agentId);
   }, []);
 
+  const handleToggleChatMode = useCallback(() => {
+    if (chatMode === "wiki_ask") {
+      setChatMode("default");
+      return;
+    }
+    if (!wikiAskAvailability.enabled) return;
+    setChatMode("wiki_ask");
+  }, [chatMode, wikiAskAvailability.enabled]);
+
   useEffect(() => {
     return () => clearCloseAgentsMenuTimer();
   }, [clearCloseAgentsMenuTimer]);
@@ -1760,7 +2115,7 @@ export function AgentChatPanel() {
     <div
       ref={panelRef}
       className="fixed z-50 flex flex-col rounded-xl border border-border bg-background shadow-lg"
-      style={{ left: pos.x, top: pos.y, width: layout.width, height: layout.height }}
+      style={{ left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }}
     >
       {/* Resize handles */}
       <div className="absolute -top-1 left-2 right-2 h-2 cursor-n-resize z-10" onMouseDown={handleResizeStart('n')} />
@@ -1883,9 +2238,19 @@ export function AgentChatPanel() {
                 </Popover>
               </div>
               {isConnected && activeAgent ? (
-                <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
+                <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+                  <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
+                  <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black shrink-0">
+                    {chatMode === "wiki_ask" ? "Wiki Ask" : "Default"}
+                  </span>
+                </div>
               ) : (
-                <span className="text-sm font-medium shrink-0">Agent Chat</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-sm font-medium shrink-0">Agent Chat</span>
+                  <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black">
+                    {chatMode === "wiki_ask" ? "Wiki Ask" : "Default"}
+                  </span>
+                </div>
               )}
             </div>
 
@@ -1914,6 +2279,36 @@ export function AgentChatPanel() {
             )}
           </div>
           <div className="flex items-center gap-0.5">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleToggleChatMode}
+                    disabled={chatMode === "default" && !wikiAskAvailability.enabled}
+                    className={`rounded p-1.5 transition-colors ${
+                      chatMode === "wiki_ask"
+                        ? "text-primary hover:bg-primary/10"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    } disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent`}
+                    aria-label="Toggle chat mode"
+                  >
+                    {chatMode === "wiki_ask" ? (
+                      <BookOpen className="size-4" />
+                    ) : (
+                      <MessageSquare className="size-4" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {chatMode === "wiki_ask"
+                    ? "Switch to Default Chat"
+                    : wikiAskAvailability.enabled
+                      ? "Switch to Wiki Ask"
+                      : wikiAskAvailability.reason}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
@@ -1933,7 +2328,9 @@ export function AgentChatPanel() {
               </TooltipProvider>
               <PopoverContent className="w-80 p-0" align="end">
                 <div className="border-b border-border px-3 py-2">
-                  <p className="text-sm font-medium">Chat history</p>
+                  <p className="text-sm font-medium">
+                    {chatMode === "wiki_ask" ? "Wiki Ask history" : "Chat history"}
+                  </p>
                 </div>
                 <ScrollArea className="h-[280px]">
                   {historyLoading && historySessions.length === 0 ? (
@@ -1942,7 +2339,7 @@ export function AgentChatPanel() {
                     </div>
                   ) : historySessions.length === 0 ? (
                     <div className="py-8 text-center text-sm text-muted-foreground">
-                      No history yet
+                      {chatMode === "wiki_ask" ? "No Wiki Ask history yet" : "No history yet"}
                     </div>
                   ) : (
                     <div className="p-1">
@@ -1997,10 +2394,14 @@ export function AgentChatPanel() {
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
         <Conversation className="min-h-0 h-full overflow-hidden">
           <ConversationContent className="gap-3 p-4!">
-            {(isConnecting || isResumingHistory) && (
+            {((loadingAgents && !isConnected && !isConnecting) || isConnecting || isResumingHistory) && (
               <div className="flex items-center justify-center py-6">
                 <TextShimmer duration={1.5}>
-                  {isResumingHistory ? "Restoring session..." : connectionPhaseLabel}
+                  {loadingAgents && !isConnecting && !isResumingHistory
+                    ? "Loading..."
+                    : isResumingHistory
+                      ? "Restoring session..."
+                      : connectionPhaseLabel}
                 </TextShimmer>
               </div>
             )}
@@ -2026,16 +2427,31 @@ export function AgentChatPanel() {
             )}
             {isConnected && entries.length === 0 && !isConnecting && !error && (
               <ConversationEmptyState
-                icon={<MessageSquare className="size-12" />}
-                title="Start a conversation"
-                description="Type a message below to begin chatting"
+                icon={
+                  chatMode === "wiki_ask"
+                    ? <BookOpen className="size-12" />
+                    : <MessageSquare className="size-12" />
+                }
+                title={chatMode === "wiki_ask" ? "Ask your project wiki" : "Start a conversation"}
+                description={
+                  chatMode === "wiki_ask"
+                    ? "Type a question about the generated wiki content"
+                    : "Type a message below to begin chatting"
+                }
               />
             )}
             {entries.map((entry, i) => (
               <div key={i} data-entry-index={i} className="w-full min-w-0">
                 {entry.role === "user" ? (
-                  <Message from="user">
-                    <MessageContent>
+                  <div className="group relative">
+                    <MessageCopyButton
+                      text={entry.content}
+                      ariaLabel="Copy user message"
+                      title="Copy message"
+                      className="absolute right-1 top-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/80 p-0 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+                    />
+                    <Message from="user">
+                      <MessageContent>
                       {entry.files && entry.files.length > 0 && (
                         <Attachments variant="inline" className="mb-2">
                           {entry.files.map((f) => (
@@ -2047,12 +2463,25 @@ export function AgentChatPanel() {
                         </Attachments>
                       )}
                       <div className="whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'normal' }}>{entry.content}</div>
-                    </MessageContent>
-                  </Message>
+                      </MessageContent>
+                    </Message>
+                  </div>
                 ) : (
                   <Message from="assistant">
                     <MessageContent>
                       <AssistantTurnView entry={entry} />
+                      {!entries.slice(i + 1).some((nextEntry) => nextEntry.role === "assistant") &&
+                        !entry.isStreaming &&
+                        !agentActivity.busy && (
+                        <div className="mt-2 flex">
+                          <MessageCopyButton
+                            text={getAllAssistantMessagesCopyText(entries)}
+                            ariaLabel="Copy all assistant messages"
+                            title="Copy all assistant messages"
+                            className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                          />
+                        </div>
+                      )}
                     </MessageContent>
                   </Message>
                 )}
@@ -2063,9 +2492,13 @@ export function AgentChatPanel() {
             )}
             <div ref={bottomRef} />
           </ConversationContent>
-          <ConversationScrollButton className="absolute right-3 bottom-1 left-auto translate-x-0 z-10 cursor-pointer rounded-sm border-dashed shadow-md dark:bg-background">
-            <ChevronDown className="mr-1 size-4" />
-            Bottom
+          <ConversationScrollButton className="group absolute right-3 bottom-1 left-auto z-10 inline-flex h-8 w-8 translate-x-0 items-center justify-center gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-0 text-foreground shadow-md transition-[width,padding,gap] duration-300 ease-out [transform-origin:right_center] hover:w-24 hover:px-2 hover:gap-1">
+            <span className="inline-flex size-4 shrink-0 items-center justify-center">
+              <ChevronDown className="size-4" />
+            </span>
+            <span className="max-w-0 whitespace-nowrap text-[11px] text-foreground opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-16 group-hover:opacity-100">
+              Bottom
+            </span>
           </ConversationScrollButton>
           {userEntryIndices.length >= 2 && (
             <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-0.5 rounded-sm border border-border/50 bg-background/80 py-1 shadow-sm backdrop-blur-sm dark:bg-background/60">
@@ -2150,19 +2583,18 @@ export function AgentChatPanel() {
           <PromptInputAttachmentsSection />
           <PromptInputBody>
             <PromptInputTextarea
-              placeholder={isConnected ? "Type a message..." : "Select agent to connect"}
+              placeholder={
+                isConnected
+                  ? (chatMode === "wiki_ask" ? "Ask about this wiki..." : "Type a message...")
+                  : "Select agent to connect"
+              }
               disabled={!isConnected}
             />
           </PromptInputBody>
           <PromptInputFooter>
             <PromptInputTools>
               <PromptInputAddAttachmentsButton />
-              {loadingAgents ? (
-                <div className="flex h-8 items-center gap-2 px-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 shrink-0 animate-spin" />
-                  Loading
-                </div>
-              ) : installedAgents.length === 0 ? (
+              {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
                 <span className="px-2 text-xs text-muted-foreground">No agent</span>
               ) : null}
             </PromptInputTools>

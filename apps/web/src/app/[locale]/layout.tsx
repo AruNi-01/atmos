@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@atmos/i18n/routing";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { WebSocketProvider } from "@/components/providers/websocket-provider";
 import { TmuxCheckProvider } from "@/components/providers/tmux-check-provider";
@@ -54,31 +55,33 @@ export default async function LocaleLayout({ children, params }: Props) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <NextIntlClientProvider messages={messages}>
-            <WebSocketProvider>
-              <TmuxCheckProvider>
-                <ToastProvider position="bottom-right">
-                  <AnchoredToastProvider>
-                    <TooltipProvider>
-                      {children}
-                    </TooltipProvider>
-                    {process.env.NODE_ENV === "development" && (
-                      <div className="fixed top-0 left-0 right-0 z-[9999]">
-                        <Agentation />
-                      </div>
-                    )}
-                  </AnchoredToastProvider>
-                </ToastProvider>
-              </TmuxCheckProvider>
-            </WebSocketProvider>
-          </NextIntlClientProvider>
-        </ThemeProvider>
+        <NuqsAdapter>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <NextIntlClientProvider messages={messages}>
+              <WebSocketProvider>
+                <TmuxCheckProvider>
+                  <ToastProvider position="bottom-right">
+                    <AnchoredToastProvider>
+                      <TooltipProvider>
+                        {children}
+                      </TooltipProvider>
+                      {process.env.NODE_ENV === "development" && (
+                        <div className="fixed top-0 left-0 right-0 z-[9999]">
+                          <Agentation />
+                        </div>
+                      )}
+                    </AnchoredToastProvider>
+                  </ToastProvider>
+                </TmuxCheckProvider>
+              </WebSocketProvider>
+            </NextIntlClientProvider>
+          </ThemeProvider>
+        </NuqsAdapter>
       </body>
     </html>
   );

@@ -19,8 +19,9 @@ pub use message::{
     AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CustomAgentAddRequest,
     CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FileTreeNode, FsEntry, FsListDirRequest,
     FsListDirResponse, FsListProjectFilesRequest, FsListProjectFilesResponse, FsReadFileRequest,
-    FsReadFileResponse, FsSearchContentRequest, FsSearchContentResponse, FsValidateGitPathRequest,
-    FsValidateGitPathResponse, FsWriteFileRequest, FsWriteFileResponse, GitBranchesResponse,
+    FsReadFileResponse, FsSearchContentRequest, FsSearchContentResponse, FsSearchDirsRequest,
+    FsSearchDirsResponse, FsValidateGitPathRequest, FsValidateGitPathResponse, FsWriteFileRequest,
+    FsWriteFileResponse, GitBranchesResponse,
     GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse, GitCommitRequest,
     GitCommitResponse, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest,
     GitFileDiffRequest, GitFileDiffResponse, GitGetCommitCountRequest, GitGetHeadCommitRequest,
@@ -34,7 +35,8 @@ pub use message::{
     WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
     WsAction, WsError as WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrCreateRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest, GithubPrDraftRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
+    GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
 };
 pub use service::{WsService, WsServiceConfig};

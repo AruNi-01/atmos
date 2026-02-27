@@ -14,7 +14,7 @@ pub use websocket::{
     ClientType, CustomAgentAddRequest, CustomAgentRemoveRequest, CustomAgentSetJsonRequest,
     FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse, FsListProjectFilesRequest,
     FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse, FsSearchContentRequest,
-    FsSearchContentResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
+    FsSearchContentResponse, FsSearchDirsRequest, FsSearchDirsResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
     FsWriteFileRequest, FsWriteFileResponse, GitBranchesResponse, GitChangedFile,
     GitChangedFilesRequest, GitChangedFilesResponse, GitCommitRequest, GitCommitResponse,
     GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
@@ -30,6 +30,7 @@ pub use websocket::{
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
     WsAction, WsConnection, WsError, WsErrorPayload, WsEvent, WsManager, WsMessage,
     WsMessageHandler, WsRequest, WsResponse, WsResult, WsService, WsServiceConfig,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrCreateRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest, GithubPrDraftRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
+    GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
 };

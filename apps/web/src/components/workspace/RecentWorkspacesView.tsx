@@ -15,6 +15,8 @@ import {
 import { Project, Workspace } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
+import { useQueryState } from "nuqs";
+import { workspacesParams } from "@/lib/nuqs/searchParams";
 import { parseUTCDate, format, isToday, isYesterday, subDays, subWeeks, subMonths, isAfter, subYears } from '@atmos/shared';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "motion/react";
@@ -69,7 +71,7 @@ interface RecentWorkspacesViewProps {
 export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey }) => {
   const router = useRouter();
   const { projects } = useProjectStore();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<EnrichedWorkspace[]>([]);
   const [gitStatuses, setGitStatuses] = useState<Record<string, GitStatus>>({});
 

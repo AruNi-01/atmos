@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from 'zustand';
+import type { AgentChatMode } from '@/types/agent-chat';
 
 interface DialogStore {
   isCreateProjectOpen: boolean;
@@ -17,8 +18,10 @@ interface DialogStore {
   globalSearchTab: 'app' | 'files' | 'code';
   setGlobalSearchTab: (tab: 'app' | 'files' | 'code') => void;
 
-  isAgentChatOpen: boolean;
-  setAgentChatOpen: (open: boolean) => void;
+  pendingAgentChatMode: AgentChatMode | null;
+  setPendingAgentChatMode: (mode: AgentChatMode | null) => void;
+  peekPendingAgentChatMode: () => AgentChatMode | null;
+  consumePendingAgentChatMode: () => AgentChatMode | null;
 
   /** A prompt queued for the Agent Chat Panel (e.g. from Code Review Dialog). */
   pendingAgentChatPrompt: { prompt: string; registryId?: string; forceNewSession?: boolean } | null;
@@ -30,6 +33,12 @@ interface DialogStore {
 
   isCodeReviewDialogOpen: boolean;
   setCodeReviewDialogOpen: (open: boolean) => void;
+
+  activeActionRun: any | null;
+  setActiveActionRun: (run: any | null) => void;
+  
+  activePr: any | null;
+  setActivePr: (pr: any | null) => void;
 }
 
 export const useDialogStore = create<DialogStore>((set) => ({
@@ -47,8 +56,24 @@ export const useDialogStore = create<DialogStore>((set) => ({
   globalSearchTab: 'app',
   setGlobalSearchTab: (tab) => set({ globalSearchTab: tab }),
 
-  isAgentChatOpen: false,
-  setAgentChatOpen: (open) => set({ isAgentChatOpen: open }),
+  pendingAgentChatMode: null,
+  setPendingAgentChatMode: (mode) => set({ pendingAgentChatMode: mode }),
+  peekPendingAgentChatMode: () => {
+    let mode: AgentChatMode | null = null;
+    set((state) => {
+      mode = state.pendingAgentChatMode;
+      return state;
+    });
+    return mode;
+  },
+  consumePendingAgentChatMode: () => {
+    let mode: AgentChatMode | null = null;
+    set((state) => {
+      mode = state.pendingAgentChatMode;
+      return { pendingAgentChatMode: null };
+    });
+    return mode;
+  },
 
   pendingAgentChatPrompt: null,
   setPendingAgentChatPrompt: (data) => set({ pendingAgentChatPrompt: data }),
@@ -71,4 +96,10 @@ export const useDialogStore = create<DialogStore>((set) => ({
 
   isCodeReviewDialogOpen: false,
   setCodeReviewDialogOpen: (open) => set({ isCodeReviewDialogOpen: open }),
+
+  activeActionRun: null,
+  setActiveActionRun: (run) => set({ activeActionRun: run }),
+
+  activePr: null,
+  setActivePr: (pr) => set({ activePr: pr }),
 }));

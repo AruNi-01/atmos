@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { useQueryStates } from "nuqs";
+import { agentManagerParams, type AgentTab } from "@/lib/nuqs/searchParams";
 import {
   Button,
   Input,
@@ -63,16 +65,13 @@ function needsUpdate(installedVersion: string, latestVersion: string): boolean {
   return installedPatch < latestPatch;
 }
 
-type AgentTab = "installed" | "registry" | "custom";
-
 export const AgentManagerView: React.FC = () => {
-  const [activeTab, setActiveTab] = React.useState<AgentTab>("installed");
+  const [{ agentTab: activeTab, agentQ: query }, setAgentParams] = useQueryStates(agentManagerParams);
   const [registryAgents, setRegistryAgents] = React.useState<RegistryAgent[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [installingRegistryId, setInstallingRegistryId] = React.useState<string | null>(null);
   const [removingRegistryId, setRemovingRegistryId] = React.useState<string | null>(null);
-  const [query, setQuery] = React.useState("");
   const [overwriteDialog, setOverwriteDialog] = React.useState<{
     registryId: string;
     message: string;
@@ -546,7 +545,7 @@ export const AgentManagerView: React.FC = () => {
       {query && (
         <Button
           variant="link"
-          onClick={() => setQuery("")}
+          onClick={() => setAgentParams({ agentQ: "" })}
           className="mt-4"
         >
           Clear search filter
@@ -603,7 +602,7 @@ export const AgentManagerView: React.FC = () => {
               <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
               <Input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => setAgentParams({ agentQ: e.target.value })}
                 placeholder="Search agents..."
                 className="h-10 pl-10 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
               />
@@ -637,7 +636,7 @@ export const AgentManagerView: React.FC = () => {
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as AgentTab)}
+        onValueChange={(v) => setAgentParams({ agentTab: v as AgentTab })}
         className="flex-1 flex flex-col overflow-hidden"
       >
         <div className="px-8 pt-4 pb-2">

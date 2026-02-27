@@ -8,30 +8,19 @@ import {
   TabsPanel,
   Folder,
 } from "@workspace/ui";
+import { useQueryState } from "nuqs";
 import { RecentWorkspacesView } from './RecentWorkspacesView';
 import { ArchivedWorkspacesView } from './ArchivedWorkspacesView';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { workspacesParams } from "@/lib/nuqs/searchParams";
 
 export const WorkspacesManagementView: React.FC = () => {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const view = searchParams.get('view');
-  
-  // Determine active tab based on 'view' param, default to 'recent'
-  const activeTab = view === 'archived' ? 'archived' : 'recent';
-
-  const handleTabChange = (value: string) => {
-    // Keep all other search params, but update 'view'
-    const params = new URLSearchParams();
-    params.set('view', value);
-    router.push(`/workspaces?${params.toString()}`);
-  };
+  const [view, setView] = useQueryState("view", workspacesParams.view);
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
       <Tabs 
-        value={activeTab} 
-        onValueChange={handleTabChange}
+        value={view} 
+        onValueChange={(v) => setView(v as "recent" | "archived")}
         className="flex-1 flex flex-col overflow-hidden"
       >
         <div className="px-6 py-4 shrink-0 border-b border-border bg-background/50">
@@ -46,7 +35,7 @@ export const WorkspacesManagementView: React.FC = () => {
         </div>
 
         <TabsPanel value="recent" className="flex-1 overflow-hidden m-0">
-          <RecentWorkspacesView refreshKey={searchParams.toString()} />
+          <RecentWorkspacesView />
         </TabsPanel>
 
         <TabsPanel value="archived" className="flex-1 overflow-hidden m-0">

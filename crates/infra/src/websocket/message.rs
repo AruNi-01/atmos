@@ -86,6 +86,8 @@ pub enum WsAction {
     FsGetHomeDir,
     /// 列出目录内容
     FsListDir,
+    /// 搜索目录（按名称）
+    FsSearchDirs,
     /// 验证 Git 仓库路径
     FsValidateGitPath,
     /// 读取文件内容
@@ -239,12 +241,26 @@ pub enum WsAction {
     GithubPrMerge,
     /// 关闭 PR
     GithubPrClose,
+    /// 重新打开 PR
+    GithubPrReopen,
+    /// 评论 PR
+    GithubPrComment,
+    /// 将 PR 设置为 Ready for Review
+    GithubPrReady,
     /// 在浏览器中打开 PR
     GithubPrOpenBrowser,
+    /// 将 PR 转换为 Draft
+    GithubPrDraft,
     /// 获取最新 CI 运行状态
     GithubCiStatus,
     /// 在浏览器中打开 CI run
     GithubCiOpenBrowser,
+    /// 列出所有的 workflow runs
+    GithubActionsList,
+    /// 获取 workflow run 详情
+    GithubActionsDetail,
+    /// Rerun workflow
+    GithubActionsRerun,
 }
 
 /// 服务端主动推送的事件类型
@@ -423,6 +439,32 @@ pub struct FsSearchContentResponse {
     pub matches: Vec<SearchMatch>,
     /// 是否被截断（超过最大结果数）
     pub truncated: bool,
+}
+
+/// 搜索目录请求（按名称）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsSearchDirsRequest {
+    /// 搜索根目录路径
+    pub root_path: String,
+    /// 搜索关键词（目录名）
+    pub query: String,
+    /// 最大结果数（默认 50）
+    #[serde(default = "default_max_results")]
+    pub max_results: usize,
+    /// 最大搜索深度（默认 4）
+    #[serde(default = "default_max_depth")]
+    pub max_depth: usize,
+}
+
+fn default_max_depth() -> usize {
+    4
+}
+
+/// 搜索目录响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsSearchDirsResponse {
+    /// 匹配的目录列表
+    pub entries: Vec<FsEntry>,
 }
 
 // ===== 应用程序操作数据结构 =====
@@ -851,10 +893,41 @@ pub struct GithubPrMergeRequest {
     pub repo: String,
     pub pr_number: u64,
     pub strategy: String,
+    pub body: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubPrCloseRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrReopenRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrCommentRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrReadyRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrDraftRequest {
     pub owner: String,
     pub repo: String,
     pub pr_number: u64,
@@ -1000,4 +1073,26 @@ impl WsMessage {
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubActionsListRequest {
+    pub owner: String,
+    pub repo: String,
+    pub branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubActionsRerunRequest {
+    pub owner: String,
+    pub repo: String,
+    pub run_id: u64,
+    pub failed_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubActionsDetailRequest {
+    pub owner: String,
+    pub repo: String,
+    pub run_id: u64,
 }
