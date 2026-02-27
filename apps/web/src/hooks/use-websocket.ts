@@ -93,7 +93,10 @@ export type WsAction =
   | 'github_pr_ready'
   | 'github_pr_open_browser'
   | 'github_ci_status'
-  | 'github_ci_open_browser';
+  | 'github_ci_open_browser'
+  | 'github_actions_list'
+  | 'github_actions_rerun'
+  | 'github_actions_detail';
 
 export interface WsRequest {
   type: 'request';

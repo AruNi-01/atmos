@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +25,7 @@ import {
 } from '@workspace/ui';
 import { useGithubPRDetail } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X } from 'lucide-react';
+import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -38,6 +39,71 @@ interface PRDetailModalProps {
   onOpenChange: (open: boolean) => void;
   onMerged?: () => void;
   onClosed?: () => void;
+}
+
+function CheckGroupItem({ groupName, checks }: { groupName: string, checks: any[] }) {
+  const hasFailure = checks.some(c => c.state === 'FAILURE' || c.state === 'ERROR' || c.conclusion === 'FAILURE' || c.conclusion === 'ACTION_REQUIRED');
+  const hasInProgress = checks.some(c => c.state === 'PENDING' || c.state === 'IN_PROGRESS' || c.state === 'EXPECTED' || (c.status && c.status !== 'COMPLETED'));
+
+  const [isOpen, setIsOpen] = React.useState(hasFailure || hasInProgress);
+
+  const GroupIcon = hasFailure ? XCircle : hasInProgress ? Loader2 : CheckCircle2;
+  const groupIconClass = hasFailure ? "text-red-500" : hasInProgress ? "text-amber-500 animate-spin" : "text-emerald-500";
+
+  return (
+    <div className="flex flex-col border-b border-border/40 last:border-0 overflow-hidden bg-background">
+      <button
+        className="flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors w-full text-left"
+        onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
+      >
+        <div className={cn("shrink-0 flex items-center justify-center size-3 text-muted-foreground/50 transition-transform duration-200", isOpen ? "rotate-90" : "rotate-0")}>
+          <ChevronRight className="size-3.5" />
+        </div>
+        <div className="flex-1 min-w-0 font-medium text-[13px] text-foreground truncate">
+          {groupName}
+        </div>
+        <div className="shrink-0 flex items-center">
+          <GroupIcon className={cn("size-3.5", groupIconClass)} />
+        </div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="bg-muted/20 shadow-inner overflow-hidden"
+          >
+            <div className="flex flex-col pb-1.5 pt-0.5">
+              {checks.map((check, idx) => {
+                const isFailure = check.state === 'FAILURE' || check.state === 'ERROR' || check.conclusion === 'FAILURE';
+                const isSkipped = check.conclusion === 'SKIPPED' || check.conclusion === 'NEUTRAL';
+                const isSuccess = check.state === 'SUCCESS' || check.conclusion === 'SUCCESS';
+
+                return (
+                  <div key={idx} className="flex items-center justify-between text-[13px] px-4 py-2 pl-10 hover:bg-muted/40 group transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="shrink-0 flex items-center justify-center">
+                        {isFailure ? <XCircle className="size-3.5 text-red-500" /> :
+                          isSuccess ? <CheckCircle2 className="size-3.5 text-emerald-500" /> :
+                            isSkipped ? <div className="size-3 rounded-full border-[1.5px] border-muted-foreground/40" /> :
+                              <Loader2 className="size-3.5 text-amber-500 animate-spin" />}
+                      </div>
+                      <span className={cn("font-medium truncate", isFailure ? "text-red-500" : "text-foreground/80")}>
+                        {check.name || check.context}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 function PRDetailSkeleton() {
@@ -332,45 +398,54 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 <div className="flex flex-col gap-3 py-2">
                   {pr.statusCheckRollup?.length > 0 && (
                     <div className={cn(
-                      "flex items-start gap-4 p-4 border rounded-xl transition-all",
+                      "flex flex-col border rounded-xl transition-all shadow-sm overflow-hidden",
                       pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                        ? "bg-emerald-500/5 border-emerald-500/20 shadow-sm"
-                        : "bg-amber-500/5 border-amber-500/20 shadow-sm"
+                        ? "border-emerald-500/20"
+                        : "border-amber-500/20"
                     )}>
                       <div className={cn(
-                        "mt-0.5 rounded-full p-1.5 shadow-sm",
+                        "flex items-start gap-4 p-4",
                         pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                          ? "bg-emerald-500 text-white"
-                          : "bg-amber-500 text-white"
+                          ? "bg-emerald-500/5"
+                          : "bg-amber-500/5"
                       )}>
-                        {pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                          ? <CheckCircle2 className="size-4" />
-                          : <AlertCircle className="size-4" />}
-                      </div>
-                      <div className="flex-1">
-                        <h5 className="text-sm font-bold flex items-center justify-between">
+                        <div className={cn(
+                          "mt-0.5 rounded-full p-1.5 shadow-sm",
+                          pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                            ? "bg-emerald-500 text-white"
+                            : "bg-amber-500 text-white"
+                        )}>
                           {pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                            ? 'All checks have passed'
-                            : 'Some checks are still running or failed'}
-                        </h5>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {pr.statusCheckRollup.filter((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} successful checks
-                        </p>
-                        <div className="mt-3 flex flex-col gap-2 border-t border-border/20 pt-3">
-                          {pr.statusCheckRollup.map((check: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between text-[11px]">
-                              <div className="flex items-center gap-2.5">
-                                {(check.state === 'SUCCESS' || check.conclusion === 'SUCCESS')
-                                  ? <CheckCircle2 className="size-3 text-emerald-500" />
-                                  : <Loader2 className="size-3 text-amber-500 animate-spin" />}
-                                <span className="text-foreground/80 font-medium">{check.context || check.name}</span>
-                              </div>
-                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
-                                {check.state || check.conclusion}
-                              </span>
-                            </div>
-                          ))}
+                            ? <CheckCircle2 className="size-4" />
+                            : <AlertCircle className="size-4" />}
                         </div>
+                        <div className="flex-1">
+                          <h5 className="text-sm font-bold flex items-center justify-between text-foreground">
+                            {pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                              ? 'All checks have passed'
+                              : 'Some checks are still running or failed'}
+                          </h5>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {pr.statusCheckRollup.filter((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} successful checks
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col border-t border-border/40 bg-background">
+                        {(() => {
+                          const groups: Record<string, any[]> = {};
+                          pr.statusCheckRollup.forEach((c: any) => {
+                            let g = c.workflowName;
+                            if (!g) {
+                              g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
+                            }
+                            if (!groups[g]) groups[g] = [];
+                            groups[g].push(c);
+                          });
+                          return Object.entries(groups).map(([groupName, checks]) => (
+                            <CheckGroupItem key={groupName} groupName={groupName} checks={checks} />
+                          ));
+                        })()}
                       </div>
                     </div>
                   )}

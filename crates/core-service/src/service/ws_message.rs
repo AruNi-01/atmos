@@ -26,6 +26,7 @@ use infra::{
     WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
+    GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
 };
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
@@ -281,6 +282,9 @@ impl WsMessageService {
             WsAction::GithubPrOpenBrowser => self.handle_github_pr_open_browser(parse_request(request.data)?).await,
             WsAction::GithubCiStatus => self.handle_github_ci_status(parse_request(request.data)?).await,
             WsAction::GithubCiOpenBrowser => self.handle_github_ci_open_browser(parse_request(request.data)?).await,
+            WsAction::GithubActionsList => self.handle_github_actions_list(parse_request(request.data)?).await,
+            WsAction::GithubActionsRerun => self.handle_github_actions_rerun(parse_request(request.data)?).await,
+            WsAction::GithubActionsDetail => self.handle_github_actions_detail(parse_request(request.data)?).await,
         }
     }
 
@@ -1736,6 +1740,17 @@ set -x
         Ok(json!({ "status": "no_ci_record" }))
     }
 
+    async fn handle_github_actions_list(&self, req: GithubActionsListRequest) -> Result<Value> {
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        // limit 30 runs should be enough
+        let args = vec!["run", "list", "--repo", &repo_arg, "--branch", &req.branch, "--limit", "30", "--json", "databaseId,workflowName,displayTitle,status,conclusion,createdAt,url,event,headBranch,headSha"];
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!([]));
+        if !output.is_array() {
+            output = json!([]);
+        }
+        Ok(output)
+    }
+
     async fn handle_github_ci_open_browser(&self, req: GithubCiOpenBrowserRequest) -> Result<Value> {
         let run_id_str = req.run_id.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
@@ -1745,6 +1760,52 @@ set -x
             output = json!({ "success": true });
         }
         Ok(output)
+    }
+
+    async fn handle_github_actions_rerun(&self, req: GithubActionsRerunRequest) -> Result<Value> {
+        let run_id_str = req.run_id.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let mut args = vec!["run", "rerun", &run_id_str, "--repo", &repo_arg];
+        if req.failed_only.unwrap_or(false) {
+            args.push("--failed");
+        }
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
+    }
+
+    async fn handle_github_actions_detail(&self, req: GithubActionsDetailRequest) -> Result<Value> {
+        let run_id_str = req.run_id.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let api_endpoint = format!("/repos/{}/actions/runs/{}", repo_arg, run_id_str);
+        
+        // 1. Fetch raw API output for actor
+        let api_args = vec!["api", &api_endpoint];
+        let api_output = self.github_engine.run_gh(&api_args).await.unwrap_or_else(|_| json!({}));
+        
+        // 2. Fetch jobs JSON
+        let jobs_args = vec!["run", "view", &run_id_str, "--repo", &repo_arg, "--json", "jobs"];
+        let jobs_output = self.github_engine.run_gh(&jobs_args).await.unwrap_or_else(|_| json!({}));
+        
+        // We can just rely on run_gh falling back to string if it fails parsing or run raw?
+        // Wait, github_engine.run_gh tries to parse json. It might fail.
+        
+        let mut result = json!({});
+        if let Some(obj) = result.as_object_mut() {
+            if let Some(actor) = api_output.get("actor") {
+                obj.insert("actor".to_string(), actor.clone());
+            }
+            if let Some(triggering_actor) = api_output.get("triggering_actor") {
+                obj.insert("triggering_actor".to_string(), triggering_actor.clone());
+            }
+            if let Some(jobs) = jobs_output.get("jobs") {
+                obj.insert("jobs".to_string(), jobs.clone());
+            }
+        }
+        
+        Ok(result)
     }
 }
 

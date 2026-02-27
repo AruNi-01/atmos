@@ -76,8 +76,10 @@ import { useWorkspaceContext, type TaskStatus } from '@/hooks/use-workspace-cont
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
-import { useGithubPRList, useGithubCIStatus } from '@/hooks/use-github';
+import { useGithubPRList, useGithubActionsList } from '@/hooks/use-github';
 import { PRDetailModal } from '@/components/github/PRDetailModal';
+import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
+import { type ActionRun } from '@/components/github/ActionsPanel';
 import { fsApi } from '@/api/ws-api';
 
 interface OverviewTabProps {
@@ -167,7 +169,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     repo: githubRepo || '',
     branch: effectiveGitBranch
   });
-  const ciStatus = useGithubCIStatus({
+  const { data: actionRuns, loading: actionsLoading } = useGithubActionsList({
     owner: githubOwner || '',
     repo: githubRepo || '',
     branch: effectiveGitBranch
@@ -175,6 +177,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
   const [selectedPrNumber, setSelectedPrNumber] = useState<number | null>(null);
   const [isPrModalOpen, setIsPrModalOpen] = useState(false);
+  const [activeActionRun, setActiveActionRun] = useState<ActionRun | null>(null);
   const [requirementExpanded, setRequirementExpanded] = useState(false);
   const [newTaskContent, setNewTaskContent] = useState('');
   const [editingTaskIndex, setEditingTaskIndex] = useState<number | null>(null);
@@ -216,7 +219,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     sourceControl: false,
     fileSystem: false,
     pullRequests: true,
-    ciStatus: true,
+    actionsStatus: true,
   });
 
   const toggleSection = (section: string) => {
@@ -835,46 +838,62 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </div>
 
               <div className="space-y-2.5 pt-1">
-                <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">CI Status</h3>
-                <div className="grid gap-2">
-                  {ciStatus && ciStatus.status !== 'no_ci_record' ? (
-                    <div className={cn(
-                      "flex flex-col gap-1.5 p-2.5 rounded-md transition-all border",
-                      ciStatus.status === 'completed' && ciStatus.conclusion === 'success' ? "bg-emerald-500/5 border-emerald-500/10" :
-                        ciStatus.status === 'completed' && ciStatus.conclusion === 'failure' ? "bg-red-500/5 border-red-500/10" :
-                          "bg-blue-500/5 border-blue-500/10"
-                    )}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {ciStatus.status === 'completed' ? (
-                            ciStatus.conclusion === 'success' ? <CheckCircle2 className="size-3.5 text-emerald-500" /> : <XCircle className="size-3.5 text-red-500" />
-                          ) : (ciStatus.status === 'in_progress' || ciStatus.status === 'queued') ? (
-                            <Loader2 className="size-3.5 text-blue-500 animate-spin" />
-                          ) : (
-                            <Info className="size-3.5 text-muted-foreground" />
-                          )}
-                          <span className="text-[10px] font-semibold text-foreground uppercase tracking-tight">
-                            Latest Run
-                          </span>
-                        </div>
-                        <span className={cn(
-                          "text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase",
-                          ciStatus.status === 'completed' && ciStatus.conclusion === 'success' ? "bg-emerald-500/10 text-emerald-500" :
-                            ciStatus.status === 'completed' && ciStatus.conclusion === 'failure' ? "bg-red-500/10 text-red-500" :
-                              "bg-blue-500/10 text-blue-500"
-                        )}>
-                          {ciStatus.conclusion || ciStatus.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground pl-6">
-                        <Rocket className="size-3" />
-                        <span className="truncate">{ciStatus.name || 'CI Check'}</span>
-                      </div>
+                <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">Actions</h3>
+                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 no-scrollbar">
+                  {actionsLoading && (!actionRuns || actionRuns.length === 0) ? (
+                    <div className="flex flex-col items-center justify-center p-4 text-muted-foreground/50 border rounded-md border-dashed border-border/40">
+                      <Loader2 className="size-4 animate-spin opacity-50 mb-2" />
+                      <span className="text-[10px]">Loading workflows...</span>
                     </div>
+                  ) : actionRuns && actionRuns.length > 0 ? (
+                    actionRuns.map((run: ActionRun) => {
+                      const isSuccess = run.conclusion === 'success';
+                      const isFailure = run.conclusion === 'failure';
+                      const isCompleted = run.status === 'completed';
+
+                      return (
+                        <div
+                          key={run.databaseId}
+                          onClick={() => setActiveActionRun(run)}
+                          className={cn(
+                            "flex flex-col gap-1.5 p-2.5 rounded-md transition-all border cursor-pointer hover:shadow-sm",
+                            isCompleted ? (
+                              isSuccess ? "bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/30" : "bg-red-500/5 border-red-500/10 hover:border-red-500/30"
+                            ) : "bg-blue-500/5 border-blue-500/10 hover:border-blue-500/30"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {isCompleted ? (
+                                isSuccess ? <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" /> : <XCircle className="size-3.5 text-red-500 shrink-0" />
+                              ) : (
+                                <Loader2 className="size-3.5 text-blue-500 animate-spin shrink-0" />
+                              )}
+                              <span className="text-[11px] font-bold text-foreground tracking-tight line-clamp-1">
+                                {run.displayTitle || run.workflowName}
+                              </span>
+                            </div>
+                            <span className={cn(
+                              "text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase shrink-0",
+                              isCompleted ? (
+                                isSuccess ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                              ) : "bg-blue-500/10 text-blue-500"
+                            )}>
+                              {isCompleted ? run.conclusion : run.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground pl-5 overflow-hidden">
+                            <Rocket className="size-3 shrink-0" />
+                            <span className="truncate">{run.workflowName}</span>
+                            <span className="shrink-0">•</span>
+                            <span className="shrink-0">{formatDate(run.createdAt)}</span>
+                          </div>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="flex flex-col items-center justify-center py-4 text-center bg-muted/10 rounded-md border border-dashed border-border/40">
-                      <History className="size-3.5 text-muted-foreground/20 mb-1" />
-                      <span className="text-[10px] text-muted-foreground/50">No check runs detected</span>
+                      <span className="text-[10px] text-muted-foreground/50">No workflow runs detected</span>
                     </div>
                   )}
                 </div>
@@ -958,6 +977,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         isOpen={isPrModalOpen}
         onOpenChange={setIsPrModalOpen}
       />
+
+      {githubOwner && githubRepo && (
+        <ActionsDetailModal
+          isOpen={activeActionRun !== null}
+          onOpenChange={(open) => {
+            if (!open) setActiveActionRun(null);
+          }}
+          owner={githubOwner}
+          repo={githubRepo}
+          run={activeActionRun}
+        />
+      )}
     </>
   );
 };

@@ -251,6 +251,12 @@ pub enum WsAction {
     GithubCiStatus,
     /// 在浏览器中打开 CI run
     GithubCiOpenBrowser,
+    /// 列出所有的 workflow runs
+    GithubActionsList,
+    /// 获取 workflow run 详情
+    GithubActionsDetail,
+    /// Rerun workflow
+    GithubActionsRerun,
 }
 
 /// 服务端主动推送的事件类型
@@ -1030,4 +1036,26 @@ impl WsMessage {
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubActionsListRequest {
+    pub owner: String,
+    pub repo: String,
+    pub branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubActionsRerunRequest {
+    pub owner: String,
+    pub repo: String,
+    pub run_id: u64,
+    pub failed_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubActionsDetailRequest {
+    pub owner: String,
+    pub repo: String,
+    pub run_id: u64,
 }

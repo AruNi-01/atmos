@@ -1325,6 +1325,17 @@ export function AgentChatPanel() {
     return null;
   }, [projects, effectiveContextId]);
 
+  // Wiki path: always use project's mainFilePath (wiki is stored in the main
+  // project directory, not in workspace worktree directories).
+  const wikiPath = React.useMemo(() => {
+    if (!effectiveContextId) return null;
+    for (const p of projects) {
+      if (p.workspaces.find((w) => w.id === effectiveContextId)) return p.mainFilePath;
+      if (p.id === effectiveContextId) return p.mainFilePath;
+    }
+    return null;
+  }, [projects, effectiveContextId]);
+
   const wikiExists = useWikiExists(effectiveContextId);
   const checkWikiExists = useWikiStore((s) => s.checkWikiExists);
   const isProjectScopedView = currentView === "workspace" || currentView === "project";
@@ -1340,10 +1351,10 @@ export function AgentChatPanel() {
   }, [hasBoundContext, isProjectScopedView, wikiExists]);
 
   useEffect(() => {
-    if (!effectiveContextId || !localPath || !isProjectScopedView) return;
+    if (!effectiveContextId || !wikiPath || !isProjectScopedView) return;
     if (wikiExists !== null) return;
-    void checkWikiExists(effectiveContextId, localPath);
-  }, [checkWikiExists, effectiveContextId, isProjectScopedView, localPath, wikiExists]);
+    void checkWikiExists(effectiveContextId, wikiPath);
+  }, [checkWikiExists, effectiveContextId, isProjectScopedView, wikiPath, wikiExists]);
 
   useEffect(() => {
     if (!isAgentChatOpen) return;
@@ -2104,7 +2115,7 @@ export function AgentChatPanel() {
     <div
       ref={panelRef}
       className="fixed z-50 flex flex-col rounded-xl border border-border bg-background shadow-lg"
-      style={{ left: pos.x, top: pos.y, width: layout.width, height: layout.height }}
+      style={{ left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }}
     >
       {/* Resize handles */}
       <div className="absolute -top-1 left-2 right-2 h-2 cursor-n-resize z-10" onMouseDown={handleResizeStart('n')} />

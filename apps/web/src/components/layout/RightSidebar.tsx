@@ -48,9 +48,11 @@ import { GitChangedFile } from '@/api/ws-api';
 import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
-import { PRPanel } from '@/components/github/PRPanel';
 import { PRDetailModal } from '@/components/github/PRDetailModal';
-import { CIBadge } from '@/components/github/CIBadge';
+import { PRPanel } from '@/components/github/PRPanel';
+import { ActionsPanel, type ActionRun } from '@/components/github/ActionsPanel';
+import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
+import { Workflow } from 'lucide-react';
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -269,8 +271,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("changes");
-  const [changesView, setChangesView] = useState<'changes' | 'pr'>('changes');
+  const [changesView, setChangesView] = useState<'changes' | 'pr' | 'actions'>('changes');
   const [activePrNumber, setActivePrNumber] = useState<number | null>(null);
+  const [activeActionRun, setActiveActionRun] = useState<ActionRun | null>(null);
 
   const [isChangesActionReady, setIsChangesActionReady] = useState(false);
   const [isChangesHovered, setIsChangesHovered] = useState(false);
@@ -288,11 +291,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         setIsChangesActionReady(true);
       }, 1000); // 1 seconds delay
       setIsPrActionReady(false);
-    } else {
+    } else if (changesView === 'pr') {
       setIsChangesActionReady(false);
       timer = setTimeout(() => {
         setIsPrActionReady(true);
       }, 1000);
+    } else {
+      setIsChangesActionReady(false);
+      setIsPrActionReady(false);
     }
     return () => clearTimeout(timer);
   }, [changesView]);
@@ -477,7 +483,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   onMouseEnter={() => setIsChangesHovered(true)}
                   onMouseLeave={() => setIsChangesHovered(false)}
                   onClick={() => {
-                    if (changesView === 'pr') {
+                    if (changesView !== 'changes') {
                       setChangesView('changes');
                     }
                   }}
@@ -534,7 +540,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   onMouseEnter={() => setIsPrHovered(true)}
                   onMouseLeave={() => setIsPrHovered(false)}
                   onClick={() => {
-                    if (changesView === 'changes') {
+                    if (changesView !== 'pr') {
                       setChangesView('pr');
                     }
                   }}
@@ -589,12 +595,24 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   </div>
                 </div>
 
-                {/* CI Badge */}
-                {githubOwner && githubRepo && currentBranch && (
-                  <div className="flex border-transparent w-10 shrink-0">
-                    <CIBadge owner={githubOwner} repo={githubRepo} branch={currentBranch} className="w-full h-full rounded-none" />
+                {/* Actions Toggle */}
+                <div
+                  className={cn(
+                    "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-transparent overflow-hidden",
+                    changesView === 'actions'
+                      ? "bg-sidebar-accent text-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  )}
+                  onClick={() => {
+                    if (changesView !== 'actions') setChangesView('actions');
+                  }}
+                  title="Actions"
+                >
+                  <div className="flex items-center gap-1.5 justify-center transition-all duration-300 ease-out">
+                    <Workflow className="size-3.5" />
+                    <span className="text-[11px] font-medium">Actions</span>
                   </div>
-                )}
+                </div>
               </>
             )}
           </div>
@@ -621,6 +639,20 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
                   <GitPullRequest className="size-8 opacity-20 mb-2" />
+                  <span className="text-xs text-center">Not a GitHub repository</span>
+                </div>
+              )
+            ) : changesView === 'actions' ? (
+              githubOwner && githubRepo && currentBranch ? (
+                <ActionsPanel
+                  owner={githubOwner}
+                  repo={githubRepo}
+                  branch={currentBranch}
+                  onRunClick={(run: ActionRun) => setActiveActionRun(run)}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
+                  <Workflow className="size-8 opacity-20 mb-2" />
                   <span className="text-xs text-center">Not a GitHub repository</span>
                 </div>
               )
@@ -787,6 +819,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             refreshGitStatus();
             refreshChangedFiles();
           }}
+        />
+      )}
+
+      {githubOwner && githubRepo && currentBranch && (
+        <ActionsDetailModal
+          isOpen={activeActionRun !== null}
+          onOpenChange={(open) => {
+            if (!open) setActiveActionRun(null);
+          }}
+          owner={githubOwner}
+          repo={githubRepo}
+          run={activeActionRun}
         />
       )}
     </aside >

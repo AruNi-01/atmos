@@ -36,5 +36,6 @@ pub use message::{
     WsAction, WsError as WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
+    GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
 };
 pub use service::{WsService, WsServiceConfig};
