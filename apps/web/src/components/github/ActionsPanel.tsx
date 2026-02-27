@@ -144,7 +144,7 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey }: Ac
                 <div
                   key={run.databaseId}
                   onClick={() => onRunClick?.(run)}
-                  className="flex flex-col p-3 rounded-md border border-sidebar-border bg-sidebar-accent/30 hover:bg-sidebar-accent/80 transition-colors cursor-pointer group"
+                  className="flex flex-col p-3 rounded-md border border-sidebar-border bg-transparent hover:bg-sidebar-accent/50 transition-colors cursor-pointer group"
                 >
                   <div className="flex justify-between items-start mb-1">
                     <span className="text-[13px] font-medium leading-tight group-hover:text-foreground line-clamp-2">

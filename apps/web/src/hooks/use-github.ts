@@ -8,7 +8,7 @@ export interface GithubContext {
 }
 
 // PR 列表
-export function useGithubPRList({ owner, repo, branch }: GithubContext) {
+export function useGithubPRList({ owner, repo, branch, state }: GithubContext & { state?: string }) {
   const send = useWebSocketStore(s => s.send);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any>(null);
@@ -18,7 +18,7 @@ export function useGithubPRList({ owner, repo, branch }: GithubContext) {
     if (!owner || !repo || !branch) return;
     setLoading(true);
     try {
-      const result = await send('github_pr_list', { owner, repo, branch });
+      const result = await send('github_pr_list', { owner, repo, branch, state });
       setData(result);
     } catch (e) {
       console.error(e);
@@ -26,7 +26,7 @@ export function useGithubPRList({ owner, repo, branch }: GithubContext) {
     } finally {
       setLoading(false);
     }
-  }, [owner, repo, branch, send]);
+  }, [owner, repo, branch, state, send]);
 
   useEffect(() => { 
     fetch(); 
