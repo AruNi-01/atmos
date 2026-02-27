@@ -169,12 +169,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
 
   const effectiveGitBranch = propGitBranch || currentBranch || 'main';
-  const { data: prs, loading: prsLoading } = useGithubPRList({
+  const { data: prs, loading: prsLoading, refresh: refreshPRs } = useGithubPRList({
     owner: githubOwner || '',
     repo: githubRepo || '',
     branch: effectiveGitBranch
   });
-  const { data: actionRuns, loading: actionsLoading } = useGithubActionsList({
+  const { data: actionRuns, loading: actionsLoading, refresh: refreshActions } = useGithubActionsList({
     owner: githubOwner || '',
     repo: githubRepo || '',
     branch: effectiveGitBranch
@@ -280,6 +280,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       loadRequirement(effectivePath),
       loadTasks(effectivePath),
       loadReviews(),
+      refreshPRs?.(),
+      refreshActions?.(),
     ]);
     setIsRefreshing(false);
   }, [effectivePath, loadRequirement, loadTasks, loadReviews]);
