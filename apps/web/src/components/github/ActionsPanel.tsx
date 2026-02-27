@@ -87,7 +87,7 @@ export function ActionsSummaryHeader({ stats, className }: { stats: ActionsStats
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1 text-muted-foreground">
+            <div className="flex items-center gap-1 text-blue-500">
               <Loader2 className="size-3.5" />
               <span className="text-xs font-mono font-bold leading-none">{stats.inProgress}</span>
             </div>
@@ -160,9 +160,9 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey }: Ac
                                 isSuccess ? 'bg-emerald-500/10 text-emerald-500' :
                                   isFailure ? 'bg-red-500/10 text-red-500' :
                                     'bg-zinc-500/10 text-zinc-500'
-                              ) : "bg-muted text-muted-foreground"
+                              ) : "bg-blue-500/10 text-blue-500"
                             )}>
-                              {!isCompleted && <Loader2 className="size-3" />}
+                              {!isCompleted && <Loader2 className="size-3 animate-spin" />}
                               {isCompleted ? run.conclusion : run.status}
                             </span>
                           </TooltipTrigger>

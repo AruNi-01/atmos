@@ -879,7 +879,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               {isCompleted ? (
                                 isSuccess ? <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" /> : <XCircle className="size-3.5 text-red-500 shrink-0" />
                               ) : (
-                                <Loader2 className="size-3.5 text-muted-foreground shrink-0" />
+                                <Loader2 className="size-3.5 text-blue-500 animate-spin shrink-0" />
                               )}
                               <span className="text-[11px] font-bold text-foreground tracking-tight line-clamp-1">
                                 {run.displayTitle || run.workflowName}
@@ -889,7 +889,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               "text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase shrink-0",
                               isCompleted ? (
                                 isSuccess ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
-                              ) : "bg-muted text-muted-foreground"
+                              ) : "bg-blue-500/10 text-blue-500"
                             )}>
                               {isCompleted ? run.conclusion : run.status}
                             </span>
