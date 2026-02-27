@@ -353,6 +353,43 @@ impl GitEngine {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
+    /// List only remote branches (origin) for a repository
+    pub fn list_remote_branches(&self, repo_path: &Path) -> Result<Vec<String>> {
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args([
+                "for-each-ref",
+                "refs/remotes/origin",
+                "--format=%(refname)",
+            ])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to list remote branches: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(EngineError::Git(format!(
+                "Failed to list remote branches: {}",
+                stderr
+            )));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let branches = stdout
+            .lines()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty() && !l.ends_with("/HEAD"))
+            .filter_map(|l| {
+                // refs/remotes/origin/main -> main
+                l.strip_prefix("refs/remotes/origin/")
+                    .map(|s| s.to_string())
+            })
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        Ok(branches)
+    }
+
     /// List both local and remote branches for a repository
     pub fn list_branches(&self, repo_path: &Path) -> Result<Vec<String>> {
         let output = Command::new("git")

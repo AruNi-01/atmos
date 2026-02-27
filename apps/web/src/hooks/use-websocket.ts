@@ -10,6 +10,7 @@ export type WsAction =
   // 文件系统操作
   | 'fs_get_home_dir'
   | 'fs_list_dir'
+  | 'fs_search_dirs'
   | 'fs_validate_git_path'
   | 'fs_read_file'
   | 'fs_write_file'
@@ -22,6 +23,7 @@ export type WsAction =
   | 'git_get_head_commit'
   | 'git_get_commit_count'
   | 'git_list_branches'
+  | 'git_list_remote_branches'
   | 'git_rename_branch'
   | 'git_changed_files'
   | 'git_file_diff'
