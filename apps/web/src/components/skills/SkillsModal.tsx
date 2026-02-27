@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQueryState } from 'nuqs';
 import {
   Tabs,
   TabsList,
@@ -15,6 +16,7 @@ import {
   Button,
 } from '@workspace/ui';
 import { skillsApi, SkillInfo } from '@/api/ws-api';
+import { skillsModalParams, type SkillsModalTab } from '@/lib/nuqs/searchParams';
 import { SkillCard } from './SkillCard';
 import { SkillDetail } from './SkillDetail';
 
@@ -24,7 +26,7 @@ interface SkillsModalProps {
 }
 
 export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'my-skills' | 'marketplace'>('my-skills');
+  const [activeTab, setActiveTab] = useQueryState('skillsModalTab', skillsModalParams.skillsModalTab);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
@@ -113,7 +115,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
       {/* Tabs */}
       <Tabs 
         value={activeTab} 
-        onValueChange={(v) => setActiveTab(v as 'my-skills' | 'marketplace')}
+        onValueChange={(v) => setActiveTab(v as SkillsModalTab)}
         className="flex-1 flex flex-col overflow-hidden"
       >
         <div className="px-6 py-4 shrink-0 border-b border-border">

@@ -1,0 +1,45 @@
+name: CI - Packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - ".github/workflows/ci-packages.yml"
+      - ".github/actions/setup-bun/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - ".github/workflows/ci-packages.yml"
+      - ".github/actions/setup-bun/**"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      # config 包无 lint 脚本，只对有 lint 的包执行
+      - name: Lint packages
+        run: |
+          bun --filter '@workspace/ui' lint
+          bun --filter '@atmos/i18n' lint
+          bun --filter '@atmos/shared' lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      # config 包无需 typecheck（纯 JSON 配置），其余三个包均有 typecheck 脚本
+      - name: Typecheck packages
+        run: |
+          bun --filter '@workspace/ui' typecheck
+          bun --filter '@atmos/i18n' typecheck
+          bun --filter '@atmos/shared' typecheck

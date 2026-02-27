@@ -1,0 +1,56 @@
+name: CI - Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - ".github/workflows/ci-web.yml"
+      - ".github/actions/setup-bun/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - ".github/workflows/ci-web.yml"
+      - ".github/actions/setup-bun/**"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      - name: Lint web
+        run: bun --filter web lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      - name: Typecheck packages
+        run: |
+          bun --filter '@workspace/ui' typecheck
+          bun --filter '@atmos/i18n' typecheck
+          bun --filter '@atmos/shared' typecheck
+      - name: Typecheck web
+        run: bun --filter web typecheck
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      - name: Build web
+        run: bun --filter web build
+        env:
+          SKIP_ENV_VALIDATION: true

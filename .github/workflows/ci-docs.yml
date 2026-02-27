@@ -1,0 +1,50 @@
+name: CI - Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/docs/**"
+      - "packages/**"
+      - ".github/workflows/ci-docs.yml"
+      - ".github/actions/setup-bun/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/docs/**"
+      - "packages/**"
+      - ".github/workflows/ci-docs.yml"
+      - ".github/actions/setup-bun/**"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      - name: Lint docs
+        run: bun --filter docs lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      # docs 使用 fumadocs，需要先生成类型再做 typecheck
+      - name: Typecheck docs
+        run: bun --filter docs types:check
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-bun
+      - name: Build docs
+        run: bun --filter docs build

@@ -17,6 +17,18 @@ pub struct CreateAgentSessionPayload {
     pub project_id: Option<String>,
     pub registry_id: String,
     pub auth_method_id: Option<String>,
+    pub mode: Option<String>,
+}
+
+fn parse_chat_mode(mode: Option<&str>) -> Result<String, crate::error::ApiError> {
+    match mode.unwrap_or("default") {
+        "default" => Ok("default".to_string()),
+        "wiki_ask" => Ok("wiki_ask".to_string()),
+        other => Err(crate::error::ApiError::BadRequest(format!(
+            "Invalid mode: {}",
+            other
+        ))),
+    }
 }
 
 /// POST /api/agent/session - Create a new Agent chat session
@@ -26,6 +38,7 @@ pub async fn create_agent_session(
     State(state): State<AppState>,
     Json(payload): Json<CreateAgentSessionPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
+    let mode = parse_chat_mode(payload.mode.as_deref())?;
     let (workspace_id_opt, project_id_opt, cwd) = if let Some(ref wid) = payload.workspace_id {
         let workspace = state
             .workspace_service
@@ -74,6 +87,7 @@ pub async fn create_agent_session(
             &payload.registry_id,
             cwd,
             payload.auth_method_id.clone(),
+            &mode,
         )
         .await?;
     let title: Option<String> = None;
@@ -88,11 +102,13 @@ pub async fn create_agent_session(
 /// POST /api/agent/sessions/{session_id}/resume - Re-create runtime for an existing session
 pub async fn resume_agent_session(
     Path(session_id): Path<String>,
+    Query(q): Query<ResumeAgentSessionQuery>,
     State(state): State<AppState>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
+    let mode = parse_chat_mode(q.mode.as_deref())?;
     let (runtime_session_id, cwd) = state
         .agent_session_service
-        .resume_session_lazy(&session_id)
+        .resume_session_lazy(&session_id, Some(&mode))
         .await?;
     let title = state
         .agent_session_service
@@ -174,9 +190,15 @@ pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiR
 pub struct ListAgentSessionsQuery {
     pub context_type: Option<String>,
     pub context_guid: Option<String>,
+    pub mode: Option<String>,
     #[serde(default = "default_limit")]
     pub limit: u64,
     pub cursor: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResumeAgentSessionQuery {
+    pub mode: Option<String>,
 }
 
 fn default_limit() -> u64 {
@@ -188,11 +210,13 @@ pub async fn list_agent_sessions(
     State(state): State<AppState>,
     Query(q): Query<ListAgentSessionsQuery>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
+    let mode = parse_chat_mode(q.mode.as_deref())?;
     let (items, next_cursor, has_more) = state
         .agent_session_service
         .list_sessions(
             q.context_type.as_deref(),
             q.context_guid.as_deref(),
+            Some(&mode),
             q.limit,
             q.cursor.as_deref(),
         )
@@ -209,6 +233,7 @@ pub async fn list_agent_sessions(
                 "context_guid": s.context_guid,
                 "registry_id": s.registry_id,
                 "status": s.status,
+                "mode": s.mode,
                 "created_at": s.created_at,
                 "updated_at": s.updated_at,
             })
@@ -239,6 +264,7 @@ pub async fn get_agent_session(
         "context_guid": s.context_guid,
         "registry_id": s.registry_id,
         "status": s.status,
+        "mode": s.mode,
         "created_at": s.created_at,
         "updated_at": s.updated_at,
     }))))

@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { DraggableAttributes, DraggableSyntheticListeners, DragStartEvent } from '@dnd-kit/core';
 import { useRouter } from 'next/navigation';
+import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/hooks/use-context-params';
+import { leftSidebarParams, type LeftSidebarTab } from '@/lib/nuqs/searchParams';
 import {
     Ellipsis,
     Plus,
@@ -752,7 +754,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const { setCurrentProjectPath } = useEditorStore();
     const { setCurrentContext } = useGitInfoStore();
 
-    const [activeTab, setActiveTab] = useState<'projects' | 'files'>('projects');
+    const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
         currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents'
@@ -894,7 +896,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     // Handle tab change
     const handleTabChange = (value: string) => {
-        setActiveTab(value as 'projects' | 'files');
+        setActiveTab(value as LeftSidebarTab);
     };
 
     // Refresh file tree
@@ -1126,7 +1128,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                 <div className="flex-1 flex flex-col min-h-0">
 
                     <Tabs
-                        defaultValue="projects"
+                        value={activeTab}
                         className="flex flex-col h-full overflow-hidden"
                         onValueChange={handleTabChange}
                     >

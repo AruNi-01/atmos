@@ -15,53 +15,31 @@ import {
 } from '@workspace/ui';
 import { skillsApi, SkillInfo } from '@/api/ws-api';
 import { SkillCard } from '@/components/skills/SkillCard';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useQueryStates } from "nuqs";
+import { skillsParams, type ScopeFilter } from "@/lib/nuqs/searchParams";
 import { SkillDetail } from './SkillDetail';
 import { useContextParams } from "@/hooks/use-context-params";
 import { motion, AnimatePresence } from "motion/react";
 import { Search } from "lucide-react";
 import { Skeleton } from "@workspace/ui";
 
-type ScopeFilter = 'all' | 'global' | 'project';
-
 export const SkillsView: React.FC = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [{ filter: scopeFilter, projects: projectsParam, q: query }, setParams] = useQueryStates(skillsParams);
   const { skillScope, skillId } = useContextParams();
 
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [query, setQuery] = useState("");
 
-  // Read filter state from URL
-  const scopeFilter = (searchParams.get('filter') as ScopeFilter) || 'all';
   const selectedProjectIds = useMemo(() => {
-    const ids = searchParams.get('projects');
-    return ids ? ids.split(',').filter(Boolean) : [];
-  }, [searchParams]);
+    return projectsParam ? projectsParam.split(',').filter(Boolean) : [];
+  }, [projectsParam]);
 
   const isFilterActive = scopeFilter !== 'all';
   const [showFilter, setShowFilter] = useState(isFilterActive);
-
-  // Update URL with filter state
-  const updateFilterParams = useCallback((filter: ScopeFilter, projectIds: string[]) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (filter === 'all') {
-      params.delete('filter');
-      params.delete('projects');
-    } else {
-      params.set('filter', filter);
-      if (filter === 'project' && projectIds.length > 0) {
-        params.set('projects', projectIds.join(','));
-      } else {
-        params.delete('projects');
-      }
-    }
-    const qs = params.toString();
-    router.push(qs ? `/skills?${qs}` : '/skills');
-  }, [router, searchParams]);
 
   const projects = useMemo(() => {
     const projectMap = new Map<string, string>();
@@ -92,14 +70,14 @@ export const SkillsView: React.FC = () => {
   }, [skills, scopeFilter, selectedProjectIds, query]);
 
   const handleScopeFilterChange = (filter: ScopeFilter) => {
-    updateFilterParams(filter, []);
+    setParams({ filter, projects: "" });
   };
 
   const handleProjectToggle = (projectId: string) => {
     const newIds = selectedProjectIds.includes(projectId)
       ? selectedProjectIds.filter(id => id !== projectId)
       : [...selectedProjectIds, projectId];
-    updateFilterParams('project', newIds);
+    setParams({ filter: "project", projects: newIds.join(",") || "" });
   };
 
   const loadSkills = useCallback(async () => {
@@ -186,7 +164,7 @@ export const SkillsView: React.FC = () => {
               <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
               <Input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => setParams({ q: e.target.value })}
                 placeholder="Search skills..."
                 className="h-10 pl-10 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
               />
@@ -325,10 +303,7 @@ export const SkillsView: React.FC = () => {
               {(query || isFilterActive) && (
                 <Button
                   variant="link"
-                  onClick={() => {
-                    setQuery("");
-                    handleScopeFilterChange("all");
-                  }}
+                  onClick={() => setParams({ q: "", filter: "all", projects: "" })}
                   className="mt-6 font-medium"
                 >
                   Reset all filters

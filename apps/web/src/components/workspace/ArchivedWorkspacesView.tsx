@@ -17,6 +17,8 @@ import {
   Skeleton
 } from "@workspace/ui";
 import { ArchivedWorkspace, wsWorkspaceApi } from '@/api/ws-api';
+import { useQueryState } from "nuqs";
+import { workspacesParams } from "@/lib/nuqs/searchParams";
 import { useProjectStore } from '@/hooks/use-project-store';
 import { formatRelativeTime } from '@atmos/shared';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
@@ -24,7 +26,7 @@ import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialo
 import { motion, AnimatePresence } from "motion/react";
 
 export const ArchivedWorkspacesView: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());

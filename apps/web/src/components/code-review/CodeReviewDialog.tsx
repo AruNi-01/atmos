@@ -21,6 +21,7 @@ import { skillsApi, agentApi } from "@/api/ws-api";
 import type { RegistryAgent } from "@/api/ws-api";
 import { cn } from "@/lib/utils";
 import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 
@@ -160,7 +161,8 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   const [skillsReady, setSkillsReady] = useState<boolean | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const { setAgentChatOpen, setPendingAgentChatPrompt } = useDialogStore();
+  const [, setAgentChatOpen] = useAgentChatUrl();
+  const { setPendingAgentChatPrompt } = useDialogStore();
 
   // Fetch ACP agents, skills list, and system status
   useEffect(() => {

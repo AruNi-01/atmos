@@ -74,6 +74,10 @@ export interface FsSearchContentResponse {
   truncated: boolean;
 }
 
+export interface FsSearchDirsResponse {
+  entries: FsEntry[];
+}
+
 // Project 类型（后端返回格式）
 export interface ProjectModel {
   guid: string;
@@ -263,6 +267,22 @@ export const fsApi = {
       query,
       max_results: options?.maxResults ?? 50,
       case_sensitive: options?.caseSensitive ?? false,
+    });
+  },
+
+  /**
+   * 搜索目录（按名称）
+   */
+  searchDirs: async (
+    rootPath: string,
+    query: string,
+    options?: { maxResults?: number; maxDepth?: number }
+  ): Promise<FsSearchDirsResponse> => {
+    return wsRequest<FsSearchDirsResponse>('fs_search_dirs', {
+      root_path: rootPath,
+      query,
+      max_results: options?.maxResults ?? 50,
+      max_depth: options?.maxDepth ?? 4,
     });
   },
 };

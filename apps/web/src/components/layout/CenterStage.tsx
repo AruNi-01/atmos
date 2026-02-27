@@ -39,7 +39,9 @@ import { DiffViewer } from "@/components/diff/DiffViewer";
 import { Plus, Bot, Sparkles, Cpu, Zap, Brain, BookOpen, RefreshCw } from "lucide-react";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useQueryStates } from "nuqs";
+import { centerStageParams } from "@/lib/nuqs/searchParams";
+import type { FixedTab } from "@/lib/nuqs/searchParams";
 import { useContextParams } from "@/hooks/use-context-params";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from "@/hooks/use-project-store";
@@ -99,7 +101,6 @@ interface CenterStageProps {
   logs: TerminalLine[];
 }
 
-type FixedTab = "overview" | "terminal" | "wiki" | "project-wiki" | "code-review";
 const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki", "project-wiki", "code-review"]);
 
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
@@ -126,60 +127,35 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
 
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
 
   // --- URL-synced tab state ---
-  const tabFromUrl = searchParams.get("tab");
-  const wikiPageFromUrl = searchParams.get("wikiPage") || undefined;
-
-  const updateUrlParams = React.useCallback(
-    (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      for (const [key, value] of Object.entries(updates)) {
-        if (value === null) {
-          params.delete(key);
-        } else {
-          params.set(key, value);
-        }
-      }
-      const qs = params.toString();
-      const nextUrl = qs ? `${pathname}?${qs}` : pathname;
-      const currentQs = searchParams.toString();
-      const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
-      if (nextUrl !== currentUrl) {
-        router.push(nextUrl, { scroll: false });
-      }
-    },
-    [router, pathname, searchParams]
-  );
+  const [{ tab: tabFromUrl, wikiPage: wikiPageFromUrl }, setUrlParams] = useQueryStates(centerStageParams);
 
   const fixedTab: FixedTab = React.useMemo(() => {
     if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return "terminal";
     if (tabFromUrl === "code-review" && !codeReviewTabVisible) return "terminal";
-    return (tabFromUrl && FIXED_TABS.has(tabFromUrl) ? tabFromUrl : "terminal") as FixedTab;
+    return tabFromUrl;
   }, [tabFromUrl, projectWikiTabVisible, codeReviewTabVisible]);
 
   const setFixedTab = React.useCallback(
     (tab: FixedTab) => {
       if (tab === fixedTab) return;
-      const updates: Record<string, string | null> = { tab };
+      const updates: Parameters<typeof setUrlParams>[0] = { tab };
       // Clear wikiPage when leaving wiki tab
       if (tab !== "wiki") {
         updates.wikiPage = null;
       }
-      updateUrlParams(updates);
+      setUrlParams(updates);
     },
-    [fixedTab, updateUrlParams]
+    [fixedTab, setUrlParams]
   );
 
   const setWikiPage = React.useCallback(
     (page: string) => {
-      updateUrlParams({ tab: "wiki", wikiPage: page });
+      setUrlParams({ tab: "wiki" as const, wikiPage: page });
     },
-    [updateUrlParams]
+    [setUrlParams]
   );
 
   // Check Project Wiki window on mount and when workspace changes. Redirect to terminal only when window doesn't exist.
@@ -195,18 +171,18 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         if (projectWikiUserTriggeredRef.current) return; // User just triggered wiki gen, don't overwrite
         setProjectWikiTabVisible(exists);
         if (tabFromUrl === "project-wiki" && !exists) {
-          updateUrlParams({ tab: "terminal" });
+          setUrlParams({ tab: "terminal" });
         }
       },
       () => {
         if (projectWikiUserTriggeredRef.current) return;
         setProjectWikiTabVisible(false);
         if (tabFromUrl === "project-wiki") {
-          updateUrlParams({ tab: "terminal" });
+          setUrlParams({ tab: "terminal" });
         }
       }
     );
-  }, [effectiveContextId]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/updateUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
+  }, [effectiveContextId]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/setUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
 
   // Check Code Review window on mount and when workspace changes.
   React.useEffect(() => {
@@ -219,14 +195,14 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         if (codeReviewUserTriggeredRef.current) return;
         setCodeReviewTabVisible(exists);
         if (tabFromUrl === "code-review" && !exists) {
-          updateUrlParams({ tab: "terminal" });
+          setUrlParams({ tab: "terminal" });
         }
       },
       () => {
         if (codeReviewUserTriggeredRef.current) return;
         setCodeReviewTabVisible(false);
         if (tabFromUrl === "code-review") {
-          updateUrlParams({ tab: "terminal" });
+          setUrlParams({ tab: "terminal" });
         }
       }
     );
@@ -412,7 +388,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           } else {
             setActiveFile(val, effectiveContextId || undefined);
             // Clear tab param when opening a file
-            updateUrlParams({ tab: null, wikiPage: null });
+            setUrlParams({ tab: null, wikiPage: null });
           }
         }}
         className="flex-1 flex flex-col gap-0 min-h-0 overflow-hidden"
@@ -778,7 +754,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           >
             <WikiTab
               contextId={effectiveContextId}
-              effectivePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
+              effectivePath={currentProject?.mainFilePath || ""}
               projectName={currentProject?.name}
               refreshTrigger={wikiRefreshTrigger}
               terminalGridRef={terminalGridRef}
@@ -812,7 +788,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                   });
                 }
               }}
-              wikiPage={wikiPageFromUrl}
+              wikiPage={wikiPageFromUrl ?? undefined}
               onWikiPageChange={setWikiPage}
               isWikiTabActive={activeValue === "wiki"}
             />

@@ -90,5 +90,94 @@ export function useGithubPRDetail(prNumber: number, owner?: string, repo?: strin
     }
   }, [owner, repo, prNumber, send]);
 
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
   return { data, loading, fetch };
+}
+
+// Actions List
+export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
+  const send = useWebSocketStore(s => s.send);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [data, setData] = useState<any[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetch = useCallback(async (isAuto = false) => {
+    if (!owner || !repo || !branch) return;
+    if (!isAuto) setLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await send('github_actions_list', { owner, repo, branch }) as any[];
+      setData(result);
+      return result;
+    } catch (e) {
+      console.error(e);
+      return null;
+    } finally {
+      if (!isAuto) setLoading(false);
+    }
+  }, [owner, repo, branch, send]);
+
+  useEffect(() => {
+    if (!owner || !repo || !branch) return;
+    
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let isMounted = true;
+
+    const poll = async () => {
+      const result = await fetch(true);
+      if (!isMounted) return;
+      
+      // 如果有 running/queued 的，轮询
+      const hasInProgress = result?.some(r => r.status === 'in_progress' || r.status === 'queued');
+      if (hasInProgress) {
+        timer = setTimeout(poll, 30_000); // 30s
+      }
+    };
+
+    fetch();
+    poll(); // Start polling if needed
+
+    return () => { 
+      isMounted = false;
+      if (timer) clearTimeout(timer); 
+    };
+  }, [fetch]); // Dependencies owner, repo, branch are in fetch
+
+  return { data, loading, refresh: () => fetch() };
+}
+
+export function useGithubActionsDetail(owner: string, repo: string, runId: number | undefined) {
+  const send = useWebSocketStore(s => s.send);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!owner || !repo || !runId) {
+      setData(null);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchDetail = async () => {
+      setLoading(true);
+      try {
+        const result = await send('github_actions_detail', { owner, repo, run_id: runId });
+        if (!isMounted) return;
+        setData(result);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchDetail();
+    return () => { isMounted = false; };
+  }, [owner, repo, runId, send]);
+
+  return { data, loading };
 }

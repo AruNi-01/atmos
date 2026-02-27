@@ -39,6 +39,17 @@ export function useSelectionPopover({
   const lastMousePosition = useRef({ x: 0, y: 0 });
   const pendingSelectionInfo = useRef<SelectionInfo | null>(null);
 
+  const isPopoverInteractionTarget = useCallback((target: EventTarget | null): boolean => {
+    if (!target) return false;
+    if (target instanceof Node && popoverRef.current?.contains(target)) return true;
+    if (!(target instanceof Element)) return false;
+    return (
+      !!target.closest('[data-selection-popover]') ||
+      !!target.closest('[data-radix-popper-content-wrapper]') ||
+      !!target.closest('[data-slot="popover-content"]')
+    );
+  }, []);
+
   const dismiss = useCallback(() => {
     setIsVisible(false);
     setIsExpanded(false);
@@ -63,7 +74,7 @@ export function useSelectionPopover({
   const handleMouseUp = useCallback((event: MouseEvent) => {
     if (!enabled) return;
 
-    const target = event.target as HTMLElement;
+    const target = event.target;
     const container = containerRef.current;
     
     // For document events (Shadow DOM), check if event is within container bounds
@@ -81,12 +92,7 @@ export function useSelectionPopover({
     }
     
     // Check if interacting with popover (including Portal-rendered content)
-    if (
-      popoverRef.current?.contains(target) || 
-      target.closest('[data-selection-popover]') ||
-      target.closest('[data-radix-popper-content-wrapper]') ||
-      target.closest('[data-slot="popover-content"]')
-    ) {
+    if (isPopoverInteractionTarget(target)) {
       isInteractingWithPopover.current = true;
       return;
     }
@@ -124,18 +130,13 @@ export function useSelectionPopover({
       // Clear pending info
       pendingSelectionInfo.current = null;
     }, 10);
-  }, [enabled, getSelectionInfo, containerRef, useDocumentEvents]);
+  }, [enabled, getSelectionInfo, containerRef, isPopoverInteractionTarget, useDocumentEvents]);
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
-    const target = event.target as HTMLElement;
+    const target = event.target;
     
     // Check if click is inside the popover (including Portal-rendered content)
-    if (
-      popoverRef.current?.contains(target) || 
-      target.closest('[data-selection-popover]') ||
-      target.closest('[data-radix-popper-content-wrapper]') ||
-      target.closest('[data-slot="popover-content"]')
-    ) {
+    if (isPopoverInteractionTarget(target)) {
       isInteractingWithPopover.current = true;
       return;
     }
@@ -144,7 +145,7 @@ export function useSelectionPopover({
     if (isVisible) {
       dismiss();
     }
-  }, [dismiss, isVisible]);
+  }, [dismiss, isPopoverInteractionTarget, isVisible]);
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Escape' && isVisible) {
@@ -156,7 +157,7 @@ export function useSelectionPopover({
     if (!enabled) return;
 
     const container = containerRef.current;
-    if (!container) return;
+    if (!useDocumentEvents && !container) return;
 
     if (useDocumentEvents) {
       // For Shadow DOM scenarios, listen on document

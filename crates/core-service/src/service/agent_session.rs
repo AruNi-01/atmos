@@ -25,6 +25,7 @@ pub struct AgentSessionSummary {
     pub context_guid: Option<String>,
     pub registry_id: String,
     pub status: String,
+    pub mode: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -124,6 +125,7 @@ impl AgentSessionService {
         registry_id: &str,
         cwd: PathBuf,
         auth_method_id: Option<String>,
+        mode: &str,
     ) -> Result<String> {
         let launch_spec = self
             .agent_service
@@ -179,6 +181,7 @@ impl AgentSessionService {
                 registry_id,
                 &cwd_str,
                 allow_file_access,
+                mode,
             )
             .await
         {
@@ -204,6 +207,7 @@ impl AgentSessionService {
         registry_id: &str,
         cwd: PathBuf,
         auth_method_id: Option<String>,
+        mode: &str,
     ) -> Result<String> {
         let launch_spec = self
             .agent_service
@@ -253,6 +257,7 @@ impl AgentSessionService {
                 registry_id,
                 &cwd_str,
                 allow_file_access,
+                mode,
             )
             .await
         {
@@ -267,7 +272,11 @@ impl AgentSessionService {
     }
 
     /// Prepare a lazy resume spec. Returns immediately.
-    pub async fn resume_session_lazy(&self, session_id: &str) -> Result<(String, String)> {
+    pub async fn resume_session_lazy(
+        &self,
+        session_id: &str,
+        mode: Option<&str>,
+    ) -> Result<(String, String)> {
         let repo = AgentChatSessionRepo::new(&self.db);
         let model = repo
             .find_by_guid(session_id)
@@ -280,6 +289,14 @@ impl AgentSessionService {
                 );
                 crate::ServiceError::NotFound(format!("Session {} not found", session_id))
             })?;
+        if let Some(target_mode) = mode {
+            if model.mode != target_mode {
+                return Err(crate::ServiceError::NotFound(format!(
+                    "Session {} not found",
+                    session_id
+                )));
+            }
+        }
 
         let launch_spec = self
             .agent_service
@@ -515,6 +532,7 @@ impl AgentSessionService {
             context_guid: m.context_guid,
             registry_id: m.registry_id,
             status: m.status,
+            mode: m.mode,
             created_at: m.created_at.to_string(),
             updated_at: m.updated_at.to_string(),
         }))
@@ -525,12 +543,13 @@ impl AgentSessionService {
         &self,
         context_type: Option<&str>,
         context_guid: Option<&str>,
+        mode: Option<&str>,
         limit: u64,
         cursor: Option<&str>,
     ) -> Result<(Vec<AgentSessionSummary>, Option<String>, bool)> {
         let repo = AgentChatSessionRepo::new(&self.db);
         let (items, next_cursor, has_more) = repo
-            .list_with_cursor(context_type, context_guid, limit, cursor)
+            .list_with_cursor(context_type, context_guid, mode, limit, cursor)
             .await
             .map_err(crate::ServiceError::Infra)?;
         let summaries: Vec<AgentSessionSummary> = items
@@ -543,6 +562,7 @@ impl AgentSessionService {
                 context_guid: m.context_guid,
                 registry_id: m.registry_id,
                 status: m.status,
+                mode: m.mode,
                 created_at: m.created_at.to_string(),
                 updated_at: m.updated_at.to_string(),
             })

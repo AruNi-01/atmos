@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { agentApi, getAgentWsBase, type AgentAuthMethod, type AgentAuthRequiredPayload } from "@/api/rest-api";
+import type { AgentChatMode } from "@/types/agent-chat";
 
 const AUTH_REQUIRED_ERROR_PREFIX = "ACP_AUTH_REQUIRED::";
 
@@ -91,6 +92,7 @@ export interface UseAgentSessionOptions {
   workspaceId: string | null;
   projectId: string | null;
   registryId: string;
+  mode: AgentChatMode;
   onMessage?: (msg: AgentServerMessage) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
@@ -103,6 +105,16 @@ export interface StartSessionOverride {
   projectId?: string | null;
   registryId?: string;
   authMethodId?: string | null;
+  mode?: AgentChatMode;
+}
+
+/** Snapshot of a live session that can be stashed and restored later. */
+export interface StashedSession {
+  ws: WebSocket;
+  sessionId: string;
+  cwd: string | null;
+  title: string | null;
+  configOptions: AgentConfigOption[];
 }
 
 export interface UseAgentSessionReturn {
@@ -125,6 +137,15 @@ export interface UseAgentSessionReturn {
   resumeSession: (sessionId: string) => Promise<boolean>;
   clearAuthRequest: () => void;
   disconnect: () => void;
+  /** Move the current session to an internal stash (keyed by `key`).
+   *  The WebSocket stays open in the background; call `unstashSession`
+   *  to bring it back instantly. */
+  stashSession: (key: string) => void;
+  /** Restore a previously stashed session.  Returns the restored sessionId
+   *  if the stash existed and the WebSocket was still alive, else null. */
+  unstashSession: (key: string) => string | null;
+  /** Close a specific stashed session (or all if no key). */
+  disconnectStashed: (key?: string) => void;
   configOptions: AgentConfigOption[];
   setConfigOption: (id: string, value: string) => void;
   setAgentDefaultConfig: (configId: string, value: string) => void;
@@ -164,6 +185,7 @@ export function useAgentSession({
   workspaceId,
   projectId,
   registryId,
+  mode,
   onMessage,
   onConnected,
   onDisconnected,
@@ -260,11 +282,19 @@ export function useAgentSession({
     [registryId]
   );
 
-  const disconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+  // Ref that always reflects the latest state values so stable callbacks can
+  // read them without adding state to their dependency arrays.
+  const latestRef = useRef({
+    sessionId: null as string | null,
+    cwd: null as string | null,
+    title: null as string | null,
+    configOptions: [] as AgentConfigOption[],
+  });
+  latestRef.current = { sessionId, cwd: sessionCwd, title: sessionTitle, configOptions };
+
+  const stashedRef = useRef<Map<string, StashedSession>>(new Map());
+
+  const clearActiveState = useCallback(() => {
     setSessionId(null);
     setSessionCwd(null);
     setSessionTitle(null);
@@ -274,6 +304,73 @@ export function useAgentSession({
     setError(null);
     setAuthRequest(null);
     setConfigOptions([]);
+  }, []);
+
+  const disconnect = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    clearActiveState();
+  }, [clearActiveState]);
+
+  const stashSession = useCallback((key: string) => {
+    const ws = wsRef.current;
+    const { sessionId: sid, cwd, title, configOptions: opts } = latestRef.current;
+
+    if (ws && ws.readyState === WebSocket.OPEN && sid) {
+      stashedRef.current.set(key, { ws, sessionId: sid, cwd, title, configOptions: opts });
+      // Detach without closing – the WS stays alive in the background.
+      // Existing onmessage/onclose handlers check `wsRef.current !== ws`
+      // and will no-op while the session is stashed.
+      wsRef.current = null;
+    } else if (ws) {
+      ws.close();
+      wsRef.current = null;
+    }
+
+    clearActiveState();
+  }, [clearActiveState]);
+
+  const unstashSession = useCallback((key: string): string | null => {
+    const stashed = stashedRef.current.get(key);
+    if (!stashed) return null;
+    stashedRef.current.delete(key);
+
+    if (stashed.ws.readyState !== WebSocket.OPEN) {
+      stashed.ws.close();
+      return null;
+    }
+
+    // Close any current active connection first.
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    // Re-attach: set wsRef so existing onmessage/onclose handlers resume.
+    wsRef.current = stashed.ws;
+    setSessionId(stashed.sessionId);
+    setSessionCwd(stashed.cwd);
+    setSessionTitle(stashed.title);
+    setConfigOptions(stashed.configOptions);
+    setIsConnecting(false);
+    setIsConnected(true);
+    setConnectionPhase("connected");
+    setError(null);
+    setAuthRequest(null);
+
+    return stashed.sessionId;
+  }, []);
+
+  const disconnectStashed = useCallback((key?: string) => {
+    if (key !== undefined) {
+      const s = stashedRef.current.get(key);
+      if (s) { s.ws.close(); stashedRef.current.delete(key); }
+    } else {
+      for (const [, s] of stashedRef.current) s.ws.close();
+      stashedRef.current.clear();
+    }
   }, []);
 
   const startSession = useCallback(
@@ -286,9 +383,10 @@ export function useAgentSession({
       const w = override?.workspaceId ?? workspaceId;
       const p = override?.projectId ?? projectId;
       const r = override?.registryId ?? registryId;
+      const m = override?.mode ?? mode;
       try {
         setConnectionPhase("creating_session");
-        const res = await agentApi.createSession(w ?? null, p ?? null, r, override?.authMethodId);
+        const res = await agentApi.createSession(w ?? null, p ?? null, r, override?.authMethodId, m);
         const sid = res.session_id;
         setSessionId(sid);
         setSessionCwd(res.cwd);
@@ -394,7 +492,7 @@ export function useAgentSession({
         onError?.(msg);
       }
     },
-    [workspaceId, projectId, registryId, onConnected, onDisconnected, onError]
+    [workspaceId, projectId, registryId, mode, onConnected, onDisconnected, onError]
   );
 
   const resumeSession = useCallback(
@@ -405,7 +503,7 @@ export function useAgentSession({
       setAuthRequest(null);
       setConfigOptions([]);
       try {
-        const res = await agentApi.resumeSession(sessionIdToResume);
+        const res = await agentApi.resumeSession(sessionIdToResume, mode);
         const sid = res.session_id;
         setSessionId(sid);
         setSessionCwd(res.cwd);
@@ -427,8 +525,9 @@ export function useAgentSession({
           try {
             const msg = JSON.parse(e.data) as AgentServerMessage;
             if (msg.type === "phase_update") {
+              // When resuming, show "Restoring" instead of "Initializing".
               const phaseMap: Record<string, AgentConnectionPhase> = {
-                initializing: "initializing",
+                initializing: "resuming_session",
                 spawning_agent: "resuming_session",
                 creating_session: "resuming_session",
                 connected: "connected",
@@ -498,12 +597,15 @@ export function useAgentSession({
         return false;
       }
     },
-    [onConnected, onDisconnected, onError]
+    [mode, onConnected, onDisconnected, onError]
   );
 
   useEffect(() => {
     return () => {
       disconnect();
+      // Also close all stashed sessions on unmount.
+      for (const [, s] of stashedRef.current) s.ws.close();
+      stashedRef.current.clear();
     };
   }, [disconnect]);
 
@@ -523,6 +625,9 @@ export function useAgentSession({
     resumeSession,
     clearAuthRequest: () => setAuthRequest(null),
     disconnect,
+    stashSession,
+    unstashSession,
+    disconnectStashed,
     configOptions,
     setConfigOption,
     setAgentDefaultConfig,

@@ -8,6 +8,7 @@ mod m20260126_000005_add_workspace_terminal_layout;
 mod m20260129_000006_add_maximized_terminal_id;
 mod m20260215_000007_create_agent_chat_tables;
 mod m20260217_000008_add_acp_session_id_to_agent_chat_session;
+mod m20260225_000009_add_mode_to_agent_chat_session;
 
 pub struct Migrator;
 
@@ -23,6 +24,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260129_000006_add_maximized_terminal_id::Migration),
             Box::new(m20260215_000007_create_agent_chat_tables::Migration),
             Box::new(m20260217_000008_add_acp_session_id_to_agent_chat_session::Migration),
+            Box::new(m20260225_000009_add_mode_to_agent_chat_session::Migration),
         ]
     }
 }

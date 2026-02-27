@@ -133,29 +133,22 @@ pub async fn agent_ws_handler(
     State(state): State<AppState>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    // Check for already-connected session (legacy path)
-    let handle = state.agent_session_service.take_session(&session_id);
-    // Check for pending lazy session
     let pending = state
         .agent_session_service
         .take_pending_session(&session_id);
 
-    if handle.is_none() && pending.is_none() {
+    let Some(spec) = pending else {
         return (
             axum::http::StatusCode::NOT_FOUND,
             format!("Agent session {} not found", session_id),
         )
             .into_response();
-    }
+    };
 
     info!("Agent WebSocket connected for session: {}", session_id);
 
     ws.on_upgrade(move |socket| async move {
-        if let Some(spec) = pending {
-            handle_lazy_agent_socket(socket, session_id, spec, state).await;
-        } else if let Some(handle) = handle {
-            handle_agent_socket(socket, session_id, handle, state).await;
-        }
+        handle_lazy_agent_socket(socket, session_id, spec, state).await;
     })
 }
 
@@ -179,7 +172,6 @@ async fn handle_lazy_agent_socket(
 
     let (ws_tx, mut ws_rx) = mpsc::unbounded_channel::<String>();
 
-    // Spawn a task to forward messages from ws_tx to the actual WS sender
     let session_id_send = session_id.clone();
     let send_task = tokio::spawn(async move {
         while let Some(msg) = ws_rx.recv().await {
@@ -197,9 +189,7 @@ async fn handle_lazy_agent_socket(
         }
     });
 
-    // Report phases while connecting
     send_phase(&ws_tx, "initializing");
-
     send_phase(&ws_tx, "spawning_agent");
 
     let connect_result = state.agent_session_service.connect_session(spec).await;
@@ -250,49 +240,7 @@ async fn handle_lazy_agent_socket(
     info!("Agent WebSocket closed for session: {}", session_id_close);
 }
 
-/// Legacy path: session was already ACP-connected before WS
-async fn handle_agent_socket(
-    socket: axum::extract::ws::WebSocket,
-    session_id: String,
-    handle: AcpSessionHandle,
-    state: AppState,
-) {
-    let (mut ws_sender, ws_receiver) = socket.split();
-
-    let (ws_tx, mut ws_rx) = mpsc::unbounded_channel::<String>();
-
-    let session_id_send = session_id.clone();
-    let send_task = tokio::spawn(async move {
-        while let Some(msg) = ws_rx.recv().await {
-            if ws_sender
-                .send(axum::extract::ws::Message::Text(msg.into()))
-                .await
-                .is_err()
-            {
-                warn!(
-                    "Failed to send to Agent WebSocket for session: {}",
-                    session_id_send
-                );
-                break;
-            }
-        }
-    });
-
-    {
-        let state_bridge = state.clone();
-        let sid = session_id.clone();
-        run_bridge(sid, handle, ws_tx, ws_receiver, state_bridge).await;
-    }
-
-    let _ = send_task.await;
-    state
-        .agent_session_service
-        .mark_session_closed(&session_id)
-        .await;
-    info!("Agent WebSocket closed for session: {}", session_id);
-}
-
-/// Common bridge loop between WS receiver and ACP session handle
+/// Common bridge loop between WS receiver and ACP session handle.
 async fn run_bridge(
     session_id: String,
     mut handle: AcpSessionHandle,
@@ -405,5 +353,6 @@ async fn run_bridge(
     }
 
     drop(cmd_tx);
-    bridge_task.abort();
+    drop(cmd_tx_clone);
+    let _ = bridge_task.await;
 }

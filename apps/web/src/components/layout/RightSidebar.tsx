@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useProjectStore } from '@/hooks/use-project-store';
+import { useWebSocketStore } from '@/hooks/use-websocket';
 import {
   Check,
   RefreshCw,
@@ -40,16 +41,20 @@ import {
   Button,
   toastManager
 } from "@workspace/ui";
-import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link } from "lucide-react";
+import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQueryStates } from "nuqs";
+import { rightSidebarParams, rightSidebarModalParams, type RightSidebarTab, type ChangesView } from "@/lib/nuqs/searchParams";
 import { useContextParams } from "@/hooks/use-context-params";
 import { GitChangedFile } from '@/api/ws-api';
 import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
-import { PRPanel } from '@/components/github/PRPanel';
 import { PRDetailModal } from '@/components/github/PRDetailModal';
-import { CIBadge } from '@/components/github/CIBadge';
+import { PRPanel } from '@/components/github/PRPanel';
+import { ActionsPanel, type ActionRun } from '@/components/github/ActionsPanel';
+import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
+import { Workflow } from 'lucide-react';
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -267,9 +272,54 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("changes");
-  const [changesView, setChangesView] = useState<'changes' | 'pr'>('changes');
-  const [activePrNumber, setActivePrNumber] = useState<number | null>(null);
+  const [{ rsTab: activeTab, rsView: changesView }, setSidebarParams] = useQueryStates(rightSidebarParams);
+  const [{ rsPr: activePrNumber, rsRunId: activeRunId }, setModalParams] = useQueryStates(rightSidebarModalParams);
+  const { activeActionRun, setActiveActionRun } = useDialogStore();
+
+  const [isChangesActionReady, setIsChangesActionReady] = useState(false);
+  const [isChangesHovered, setIsChangesHovered] = useState(false);
+
+  const [isPrActionReady, setIsPrActionReady] = useState(false);
+  const [isPrHovered, setIsPrHovered] = useState(false);
+  const [prRefreshKey, setPrRefreshKey] = useState(0);
+
+  const [isActionsActionReady, setIsActionsActionReady] = useState(false);
+  const [isActionsHovered, setIsActionsHovered] = useState(false);
+  const [actionsRefreshKey, setActionsRefreshKey] = useState(0);
+
+  const send = useWebSocketStore(s => s.send);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (changesView === 'changes') {
+      timer = setTimeout(() => {
+        setIsChangesActionReady(true);
+      }, 1000);
+      setIsPrActionReady(false);
+      setIsActionsActionReady(false);
+    } else if (changesView === 'pr') {
+      timer = setTimeout(() => {
+        setIsPrActionReady(true);
+      }, 1000);
+      setIsChangesActionReady(false);
+      setIsActionsActionReady(false);
+    } else if (changesView === 'actions') {
+      timer = setTimeout(() => {
+        setIsActionsActionReady(true);
+      }, 1000);
+      setIsChangesActionReady(false);
+      setIsPrActionReady(false);
+    } else {
+      setIsChangesActionReady(false);
+      setIsPrActionReady(false);
+      setIsActionsActionReady(false);
+    }
+    return () => clearTimeout(timer);
+  }, [changesView]);
+
+  const showChangesActions = changesView === 'changes' && isChangesActionReady && isChangesHovered;
+  const showPrActions = changesView === 'pr' && isPrActionReady && isPrHovered;
+  const showActionsActions = changesView === 'actions' && isActionsActionReady && isActionsHovered;
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
 
@@ -417,13 +467,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   return (
     <aside className="w-full flex flex-col h-full">
-      <Tabs defaultValue="changes" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+      <Tabs value={activeTab} onValueChange={(v) => setSidebarParams({ rsTab: v as RightSidebarTab })} className="flex flex-col h-full">
         {/* Tabs Header */}
         <div className="h-10 flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm">
           <TabsList variant="underline" className="w-full h-full gap-0 items-stretch py-0!">
             <TabsTab value="changes" className="flex-1 h-full! text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!">
-              <GitBranch className="size-3.5" />
-              <span>Changes</span>
+              <GitPullRequest className="size-3.5" />
+              <span>Changes/PR</span>
             </TabsTab>
             <TabsTab value="run-preview" className="flex-1 h-full! text-[12px] gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!">
               <Play className="size-3.5" />
@@ -440,96 +490,173 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 {/* Changes Toggle */}
                 <div
                   className={cn(
-                    "flex-1 flex items-center justify-center transition-colors group relative cursor-pointer border-r border-sidebar-border/50",
-                    changesView === 'changes' ? "text-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                    "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-sidebar-border/50 overflow-hidden",
+                    changesView === 'changes'
+                      ? (showChangesActions ? "text-foreground" : "bg-sidebar-accent text-foreground")
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                   )}
+                  onMouseEnter={() => setIsChangesHovered(true)}
+                  onMouseLeave={() => setIsChangesHovered(false)}
                   onClick={() => {
-                    if (changesView === 'pr') {
-                      setChangesView('changes');
+                    if (changesView !== 'changes') {
+                      setSidebarParams({ rsView: 'changes' });
                     }
                   }}
                 >
                   {/* Default State (Changes Icon/Text) */}
                   <div className={cn(
-                    "flex items-center gap-1.5 justify-center transition-opacity duration-200",
-                    (changesView === 'changes') ? "group-hover:opacity-0" : "opacity-100"
+                    "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
+                    showChangesActions ? "-translate-y-10 opacity-0" : ""
                   )}>
                     <GitBranch className="size-3.5" />
                     <span className="text-[11px] font-medium">Changes</span>
                   </div>
 
                   {/* Hover State (Refresh + Review) */}
-                  {(changesView === 'changes') && (
-                    <div className="absolute inset-0 flex opacity-0 group-hover:opacity-100 transition-opacity duration-200 divide-x divide-sidebar-border/50">
-                      {/* Left side: Refresh */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          refreshGitStatus();
-                          refreshChangedFiles();
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1.5 hover:bg-sidebar-accent/50 group/refresh"
-                        title="Refresh"
-                      >
-                        <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
-                      </button>
+                  <div className={cn(
+                    "absolute inset-0 flex transition-all duration-300 ease-out divide-x divide-sidebar-border/50",
+                    showChangesActions ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
+                  )}>
+                    {/* Left side: Refresh */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        refreshGitStatus();
+                        refreshChangedFiles();
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 hover:bg-sidebar-accent group/refresh cursor-pointer transition-colors"
+                      title="Refresh"
+                    >
+                      <RefreshCw className={cn("size-3.5", isLoading && "animate-spin")} />
+                    </button>
 
-                      {/* Right side: Review Dropdown */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex-1 flex items-center justify-center hover:bg-sidebar-accent/50"
-                            title="Agent Review"
-                          >
-                            <Bot className="size-3.5" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-48">
-                          <DropdownMenuItem onClick={() => setCodeReviewDialogOpen(true)}>
-                            <Bot className="size-3 mr-2" />
-                            <span>Code Agent Review</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
-                            <Link className="size-3 mr-2" />
-                            <span>Qodo</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toastManager.add({ title: "Coming Soon", type: "info" })}>
-                            <Link className="size-3 mr-2" />
-                            <span>Devin Review</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  )}
+                    {/* Right side: Agent Review */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCodeReviewDialogOpen(true);
+                      }}
+                      className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
+                      title="Agent Review"
+                    >
+                      <FileCheck className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Pull Requests Toggle */}
-                <button
-                  onClick={() => setChangesView(v => v === 'pr' ? 'changes' : 'pr')}
+                <div
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 transition-colors group cursor-pointer border-r border-sidebar-border/50 hover:bg-sidebar-accent hover:text-foreground",
-                    changesView === 'pr' ? "bg-sidebar-accent text-foreground" : "text-muted-foreground"
+                    "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-sidebar-border/50 overflow-hidden group",
+                    changesView === 'pr'
+                      ? (showPrActions ? "text-foreground" : "bg-sidebar-accent text-foreground")
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                   )}
+                  onMouseEnter={() => setIsPrHovered(true)}
+                  onMouseLeave={() => setIsPrHovered(false)}
+                  onClick={() => {
+                    if (changesView !== 'pr') {
+                      setSidebarParams({ rsView: 'pr' });
+                    }
+                  }}
                   title="Pull Requests"
                 >
-                  <GitPullRequest className="size-3.5" />
-                  <span className="text-[11px] font-medium">PR</span>
-                </button>
-
-                {/* CI Badge */}
-                {githubOwner && githubRepo && currentBranch && (
-                  <div className="flex items-center justify-center px-1 border-transparent w-10 shrink-0">
-                    <CIBadge owner={githubOwner} repo={githubRepo} branch={currentBranch} />
+                  {/* Default State (PR Icon/Text) */}
+                  <div className={cn(
+                    "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
+                    showPrActions ? "-translate-y-10 opacity-0" : ""
+                  )}>
+                    <GitPullRequest className="size-3.5" />
+                    <span className="text-[11px] font-medium">PR</span>
                   </div>
-                )}
+
+                  {/* Hover State (Refresh + Create PR) */}
+                  <div className={cn(
+                    "absolute inset-0 flex transition-all duration-300 ease-out divide-x divide-sidebar-border/50",
+                    showPrActions ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
+                  )}>
+                    {/* Left side: Refresh */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPrRefreshKey(Date.now());
+                      }}
+                      className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
+                      title="Refresh"
+                    >
+                      <RefreshCw className="size-3.5" />
+                    </button>
+
+                    {/* Right side: Create PR */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (githubOwner && githubRepo && currentBranch) {
+                          send('github_pr_create', {
+                            owner: githubOwner,
+                            repo: githubRepo,
+                            branch: currentBranch,
+                            base_branch: 'main',
+                            title: `Update from ${currentBranch}`,
+                            body: ''
+                          }).then(() => setPrRefreshKey(Date.now())).catch(console.error);
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
+                      title="Create PR"
+                    >
+                      <Plus className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Actions Toggle */}
+                <div
+                  className={cn(
+                    "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-transparent overflow-hidden h-full",
+                    changesView === 'actions'
+                      ? (showActionsActions ? "text-foreground" : "bg-sidebar-accent text-foreground")
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  )}
+                  onClick={() => {
+                    if (changesView !== 'actions') setSidebarParams({ rsView: 'actions' });
+                  }}
+                  onMouseEnter={() => setIsActionsHovered(true)}
+                  onMouseLeave={() => setIsActionsHovered(false)}
+                  title="Actions"
+                >
+                  <div className={cn(
+                    "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
+                    showActionsActions ? "-translate-y-10 opacity-0" : ""
+                  )}>
+                    <Workflow className="size-3.5" />
+                    <span className="text-[11px] font-medium">Actions</span>
+                  </div>
+
+                  <div className={cn(
+                    "absolute inset-0 flex transition-all duration-300 ease-out",
+                    showActionsActions ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
+                  )}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActionsRefreshKey(Date.now());
+                      }}
+                      className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
+                      title="Refresh"
+                    >
+                      <RefreshCw className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
               </>
             )}
           </div>
 
           {/* Content Area */}
           <div className={cn(
-            "flex-1 overflow-y-auto no-scrollbar p-2",
+            "flex-1 overflow-y-auto no-scrollbar",
+            changesView === 'changes' ? "p-2" : "pt-0 px-2 pb-2",
             (!hasWorkingContext || (changesView === 'changes' && !hasChanges && !isLoading)) && "flex items-center justify-center"
           )}>
             {!hasWorkingContext ? (
@@ -540,14 +667,33 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             ) : changesView === 'pr' ? (
               githubOwner && githubRepo && currentBranch ? (
                 <PRPanel
+                  key={prRefreshKey}
                   owner={githubOwner}
                   repo={githubRepo}
                   branch={currentBranch}
-                  onPrClick={(num) => setActivePrNumber(num)}
+                  onPrClick={(num) => setModalParams({ rsPr: num })}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
                   <GitPullRequest className="size-8 opacity-20 mb-2" />
+                  <span className="text-xs text-center">Not a GitHub repository</span>
+                </div>
+              )
+            ) : changesView === 'actions' ? (
+              githubOwner && githubRepo && currentBranch ? (
+                <ActionsPanel
+                  key={actionsRefreshKey}
+                  owner={githubOwner}
+                  repo={githubRepo}
+                  branch={currentBranch}
+                  onRunClick={(run: ActionRun) => {
+                    setActiveActionRun(run);
+                    setModalParams({ rsRunId: run.databaseId });
+                  }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
+                  <Workflow className="size-8 opacity-20 mb-2" />
                   <span className="text-xs text-center">Not a GitHub repository</span>
                 </div>
               )
@@ -587,8 +733,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             )}
           </div>
 
-          {/* Commit Actions (Sticky Bottom) - Only show when working context exists */}
-          {hasWorkingContext && (
+          {/* Commit Actions (Sticky Bottom) - Only show when working context exists and in changes view */}
+          {hasWorkingContext && changesView === 'changes' && (
             <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
               {/* Input */}
               <textarea
@@ -704,7 +850,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         <PRDetailModal
           isOpen={activePrNumber !== null}
           onOpenChange={(open) => {
-            if (!open) setActivePrNumber(null);
+            if (!open) setModalParams({ rsPr: null });
           }}
           owner={githubOwner}
           repo={githubRepo}
@@ -714,6 +860,22 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             refreshGitStatus();
             refreshChangedFiles();
           }}
+        />
+      )}
+
+      {githubOwner && githubRepo && currentBranch && (
+        <ActionsDetailModal
+          isOpen={activeRunId !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setActiveActionRun(null);
+              setModalParams({ rsRunId: null });
+            }
+          }}
+          owner={githubOwner}
+          repo={githubRepo}
+          run={activeActionRun}
+          runId={activeRunId}
         />
       )}
     </aside >

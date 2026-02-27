@@ -369,3 +369,13 @@ export function useWikiContext(contextId: string | null) {
     [state, checkWikiExists, loadCatalog, checkForUpdates, loadPage, setActivePage]
   );
 }
+
+/**
+ * Lightweight selector for wiki existence gate checks.
+ * Returns null before first check, then true/false.
+ */
+export function useWikiExists(contextId: string | null): boolean | null {
+  return useWikiStore((s) =>
+    contextId ? (s.contextStates[contextId]?.wikiExists ?? null) : null
+  );
+}
