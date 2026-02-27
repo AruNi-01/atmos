@@ -1647,12 +1647,15 @@ set -x
         let mut output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
 
         // Fetch timeline for activities
-        let timeline_endpoint = format!("repos/{}/{}/issues/{}/timeline", req.owner, req.repo, req.pr_number);
+        let timeline_endpoint = format!("repos/{}/{}/issues/{}/timeline?per_page=100", req.owner, req.repo, req.pr_number);
         let timeline_args = vec!["api", &timeline_endpoint];
         if let Ok(timeline) = self.github_engine.run_gh(&timeline_args).await {
             if let Some(obj) = output.as_object_mut() {
                 obj.insert("timeline".to_string(), timeline);
             }
+        } else {
+            // Log error if timeline fetch fails but don't fail the whole request
+            println!("Warning: Failed to fetch timeline for PR #{}", req.pr_number);
         }
 
         Ok(output)
