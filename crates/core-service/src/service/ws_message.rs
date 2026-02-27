@@ -24,7 +24,7 @@ use infra::{
     WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest, GithubPrDraftRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
     GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
 };
@@ -283,6 +283,7 @@ impl WsMessageService {
             WsAction::GithubPrComment => self.handle_github_pr_comment(parse_request(request.data)?).await,
             WsAction::GithubPrReady => self.handle_github_pr_ready(parse_request(request.data)?).await,
             WsAction::GithubPrOpenBrowser => self.handle_github_pr_open_browser(parse_request(request.data)?).await,
+            WsAction::GithubPrDraft => self.handle_github_pr_draft(parse_request(request.data)?).await,
             WsAction::GithubCiStatus => self.handle_github_ci_status(parse_request(request.data)?).await,
             WsAction::GithubCiOpenBrowser => self.handle_github_ci_open_browser(parse_request(request.data)?).await,
             WsAction::GithubActionsList => self.handle_github_actions_list(parse_request(request.data)?).await,
@@ -1749,6 +1750,18 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let args = vec!["pr", "ready", &pr_num_str, "--repo", &repo_arg];
+        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        if !output.is_object() {
+            output = json!({ "success": true });
+        }
+        Ok(output)
+    }
+
+    async fn handle_github_pr_draft(&self, req: GithubPrDraftRequest) -> Result<Value> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        // Using gh pr ready --undo to convert back to draft
+        let args = vec!["pr", "ready", &pr_num_str, "--repo", &repo_arg, "--undo"];
         let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });

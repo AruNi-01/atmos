@@ -249,6 +249,8 @@ pub enum WsAction {
     GithubPrReady,
     /// 在浏览器中打开 PR
     GithubPrOpenBrowser,
+    /// 将 PR 转换为 Draft
+    GithubPrDraft,
     /// 获取最新 CI 运行状态
     GithubCiStatus,
     /// 在浏览器中打开 CI run
@@ -919,6 +921,13 @@ pub struct GithubPrCommentRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubPrReadyRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrDraftRequest {
     pub owner: String,
     pub repo: String,
     pub pr_number: u64,

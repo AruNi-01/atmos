@@ -91,6 +91,7 @@ export type WsAction =
   | 'github_pr_reopen'
   | 'github_pr_comment'
   | 'github_pr_ready'
+  | 'github_pr_draft'
   | 'github_pr_open_browser'
   | 'github_ci_status'
   | 'github_ci_open_browser'

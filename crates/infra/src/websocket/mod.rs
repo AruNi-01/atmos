@@ -35,7 +35,7 @@ pub use message::{
     WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
     WsAction, WsError as WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest, GithubPrDraftRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
     GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
 };
