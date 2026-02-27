@@ -497,6 +497,20 @@ const Header: React.FC = () => {
                 onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
               />
             </label>
+            <div className="mt-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-popover-foreground">Opacity</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{layout.opacity}%</span>
+              </div>
+              <input
+                type="range"
+                min={20}
+                max={100}
+                value={layout.opacity}
+                onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
+              />
+            </div>
           </PopoverContent>
         </Popover>
 

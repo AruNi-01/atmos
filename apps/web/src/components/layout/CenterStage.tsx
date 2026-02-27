@@ -778,7 +778,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           >
             <WikiTab
               contextId={effectiveContextId}
-              effectivePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
+              effectivePath={currentProject?.mainFilePath || ""}
               projectName={currentProject?.name}
               refreshTrigger={wikiRefreshTrigger}
               terminalGridRef={terminalGridRef}
