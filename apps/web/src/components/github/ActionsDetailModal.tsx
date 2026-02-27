@@ -26,36 +26,54 @@ import { type ActionRun } from './ActionsPanel';
 interface ActionsDetailModalProps {
   owner: string;
   repo: string;
+  /** Full run object — available when opened from click, null on page refresh. */
   run: ActionRun | null;
+  /** Unique run ID used to fetch detail; drives isOpen when provided. */
+  runId: number | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function ActionsDetailModal({ owner, repo, run, isOpen, onOpenChange }: ActionsDetailModalProps) {
+export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChange }: ActionsDetailModalProps) {
   const send = useWebSocketStore(s => s.send);
   const [actionLoading, setActionLoading] = React.useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
-  const { data: detail, loading: detailLoading } = useGithubActionsDetail(owner, repo, isOpen ? run?.databaseId : undefined);
+  const effectiveRunId = runId ?? run?.databaseId;
+  const { data: detail, loading: detailLoading } = useGithubActionsDetail(owner, repo, isOpen ? effectiveRunId : undefined);
+
+  // Merge: prefer the passed-in `run` object; fall back to `detail` (available after fetch on refresh)
+  const effectiveRun: ActionRun | null = run ?? (detail ? {
+    databaseId: detail.databaseId ?? effectiveRunId!,
+    workflowName: detail.workflowName ?? detail.name ?? '',
+    displayTitle: detail.displayTitle ?? detail.name ?? '',
+    status: detail.status ?? '',
+    conclusion: detail.conclusion ?? '',
+    createdAt: detail.createdAt ?? '',
+    url: detail.url ?? '',
+    event: detail.event ?? '',
+    headBranch: detail.headBranch ?? detail.head_branch ?? '',
+    headSha: detail.headSha ?? detail.head_sha ?? '',
+  } : null);
 
   const handleOpenBrowser = async () => {
-    if (!run) return;
+    if (!effectiveRun) return;
     setActionLoading(true);
     try {
-      await send('github_ci_open_browser', { owner, repo, run_id: run.databaseId });
+      await send('github_ci_open_browser', { owner, repo, run_id: effectiveRun.databaseId });
     } catch (e) {
       console.log('Ignore error', e);
-      window.open(run.url, '_blank');
+      window.open(effectiveRun.url, '_blank');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleRerunAll = async () => {
-    if (!run) return;
+    if (!effectiveRun) return;
     setActionLoading(true);
     try {
-      await send('github_actions_rerun', { owner, repo, run_id: run.databaseId, failed_only: false });
+      await send('github_actions_rerun', { owner, repo, run_id: effectiveRun.databaseId, failed_only: false });
     } catch (e) {
       console.error(e);
     } finally {
@@ -65,10 +83,10 @@ export function ActionsDetailModal({ owner, repo, run, isOpen, onOpenChange }: A
   };
 
   const handleRerunFailed = async () => {
-    if (!run) return;
+    if (!effectiveRun) return;
     setActionLoading(true);
     try {
-      await send('github_actions_rerun', { owner, repo, run_id: run.databaseId, failed_only: true });
+      await send('github_actions_rerun', { owner, repo, run_id: effectiveRun.databaseId, failed_only: true });
     } catch (e) {
       console.error(e);
     } finally {
@@ -78,15 +96,31 @@ export function ActionsDetailModal({ owner, repo, run, isOpen, onOpenChange }: A
   };
 
   const handleNativeOpen = () => {
-    if (!run) return;
-    window.open(run.url, '_blank');
+    if (!effectiveRun) return;
+    window.open(effectiveRun.url, '_blank');
   };
 
-  if (!run) return null;
+  // Still loading initial data on refresh — show dialog with loading skeleton
+  if (!effectiveRun) {
+    if (!isOpen) return null;
+    return (
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent showCloseButton={false} className="max-w-2xl sm:max-w-2xl w-full h-[80vh] px-6 pb-6 pt-0 flex flex-col gap-0 overflow-hidden">
+          <DialogTitle className="sr-only">Loading Workflow Run</DialogTitle>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <Loader2 className="size-6 animate-spin opacity-50" />
+              <span className="text-xs">Loading Workflow Run...</span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
-  const isSuccess = run.conclusion === 'success';
-  const isFailure = run.conclusion === 'failure';
-  const isCompleted = run.status === 'completed';
+  const isSuccess = effectiveRun.conclusion === 'success';
+  const isFailure = effectiveRun.conclusion === 'failure';
+  const isCompleted = effectiveRun.status === 'completed';
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -101,7 +135,7 @@ export function ActionsDetailModal({ owner, repo, run, isOpen, onOpenChange }: A
           <DialogHeader className="pr-24 flex flex-row items-center gap-3 space-y-0 pt-6 pb-4 shrink-0 relative">
             <WorkflowIcon className="size-4.5 text-muted-foreground/60" />
             <div className="flex items-center gap-2.5 min-w-0">
-              <DialogTitle className="text-base font-bold whitespace-nowrap">Workflow Run #{run.databaseId}</DialogTitle>
+              <DialogTitle className="text-base font-bold whitespace-nowrap">Workflow Run #{effectiveRun.databaseId}</DialogTitle>
               <span className="text-muted-foreground/30 font-light select-none">|</span>
               <DialogDescription className="text-[11px] text-muted-foreground/60 truncate pt-0.5 font-medium" title={`${owner}/${repo}`}>
                 {owner}/{repo}
@@ -130,16 +164,16 @@ export function ActionsDetailModal({ owner, repo, run, isOpen, onOpenChange }: A
           <div className="flex flex-col text-sm relative">
             <div className="shrink-0 pb-4 pt-1 border-b border-border/50 sticky top-0 z-30 bg-background/98 backdrop-blur-md">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-semibold text-foreground">{run.displayTitle}</h3>
+                <h3 className="text-base font-semibold text-foreground">{effectiveRun.displayTitle}</h3>
               </div>
               <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
                 <div className="flex items-center gap-1.5 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm shrink-0">
                   <Rocket className="size-3.5" />
-                  <span className="font-semibold text-foreground/90">{run.workflowName}</span>
+                  <span className="font-semibold text-foreground/90">{effectiveRun.workflowName}</span>
                 </div>
                 <span>triggered via</span>
                 <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate shadow-sm capitalize mr-1">
-                  {run.event}
+                  {effectiveRun.event}
                 </span>
 
                 {detailLoading && !detail?.actor && (
@@ -161,13 +195,13 @@ export function ActionsDetailModal({ owner, repo, run, isOpen, onOpenChange }: A
 
                 <span>on target branch</span>
                 <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
-                  {run.headBranch || 'unknown'}
+                  {effectiveRun.headBranch || 'unknown'}
                 </span>
-                {run.headSha && (
+                {effectiveRun.headSha && (
                   <>
                     <span>at commit</span>
                     <span className="bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono truncate max-w-[100px] shadow-sm">
-                      {run.headSha.substring(0, 7)}
+                      {effectiveRun.headSha.substring(0, 7)}
                     </span>
                   </>
                 )}
@@ -197,15 +231,15 @@ export function ActionsDetailModal({ owner, repo, run, isOpen, onOpenChange }: A
                   </div>
                   <div className="flex-1">
                     <h5 className="text-sm font-bold flex items-center justify-between capitalize">
-                      {isCompleted ? `${run.conclusion} ` : `${run.status} `}
+                      {isCompleted ? `${effectiveRun.conclusion} ` : `${effectiveRun.status} `}
                       <span className="text-[10px] text-muted-foreground font-normal normal-case flex items-center gap-1">
                         <Clock className="size-3" />
-                        {new Date(run.createdAt).toLocaleString()}
-                        ({formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })})
+                        {new Date(effectiveRun.createdAt).toLocaleString()}
+                        ({formatDistanceToNow(new Date(effectiveRun.createdAt), { addSuffix: true })})
                       </span>
                     </h5>
                     <p className="text-[11px] text-muted-foreground mt-0.5 flex flex-col gap-1">
-                      This workflow run is currently {isCompleted ? run.conclusion : run.status}.
+                      This workflow run is currently {isCompleted ? effectiveRun.conclusion : effectiveRun.status}.
                     </p>
                   </div>
                 </div>
@@ -333,7 +367,7 @@ export function ActionsDetailModal({ owner, repo, run, isOpen, onOpenChange }: A
               GitHub
             </Button>
 
-            <Button variant="outline" size="sm" onClick={() => window.open(`https://better-hub.com/${owner}/${repo}/actions/runs/${run.databaseId}`, '_blank')} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
+            <Button variant="outline" size="sm" onClick={() => window.open(`https://better-hub.com/${owner}/${repo}/actions/runs/${effectiveRun.databaseId}`, '_blank')} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
               <ExternalLink className="mr-1.5 size-3.5" />
               BetterHub
             </Button>

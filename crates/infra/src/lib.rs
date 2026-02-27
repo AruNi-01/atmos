@@ -14,7 +14,7 @@ pub use websocket::{
     ClientType, CustomAgentAddRequest, CustomAgentRemoveRequest, CustomAgentSetJsonRequest,
     FileTreeNode, FsEntry, FsListDirRequest, FsListDirResponse, FsListProjectFilesRequest,
     FsListProjectFilesResponse, FsReadFileRequest, FsReadFileResponse, FsSearchContentRequest,
-    FsSearchContentResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
+    FsSearchContentResponse, FsSearchDirsRequest, FsSearchDirsResponse, FsValidateGitPathRequest, FsValidateGitPathResponse,
     FsWriteFileRequest, FsWriteFileResponse, GitBranchesResponse, GitChangedFile,
     GitChangedFilesRequest, GitChangedFilesResponse, GitCommitRequest, GitCommitResponse,
     GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,

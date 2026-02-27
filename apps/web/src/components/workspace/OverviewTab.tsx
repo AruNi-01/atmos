@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQueryState, useQueryStates } from 'nuqs';
+import { overviewParams, rightSidebarModalParams } from '@/lib/nuqs/searchParams';
 import {
   Button,
   Input,
@@ -67,19 +69,22 @@ import {
   FileCheck,
   GitMerge,
   GitPullRequestClosed,
-  GitPullRequestDraft
+  GitPullRequestDraft,
+  Github
 } from 'lucide-react';
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { useTheme } from 'next-themes';
 import { useWorkspaceContext, type TaskStatus } from '@/hooks/use-workspace-context';
 import { useEditorStore } from '@/hooks/use-editor-store';
+import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useProjectStore } from '@/hooks/use-project-store';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useGithubPRList, useGithubActionsList } from '@/hooks/use-github';
 import { PRDetailModal } from '@/components/github/PRDetailModal';
 import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
-import { type ActionRun } from '@/components/github/ActionsPanel';
+import { type ActionRun, useProcessedActions, ActionsSummaryHeader } from '@/components/github/ActionsPanel';
 import { fsApi } from '@/api/ws-api';
 
 interface OverviewTabProps {
@@ -174,10 +179,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     repo: githubRepo || '',
     branch: effectiveGitBranch
   });
+  const { latestRuns, stats } = useProcessedActions(actionRuns);
 
-  const [selectedPrNumber, setSelectedPrNumber] = useState<number | null>(null);
-  const [isPrModalOpen, setIsPrModalOpen] = useState(false);
-  const [activeActionRun, setActiveActionRun] = useState<ActionRun | null>(null);
+  const [{ rsPr: selectedPrNumber, rsRunId: activeRunId }, setModalParams] = useQueryStates(rightSidebarModalParams);
+  const { activeActionRun, setActiveActionRun, activePr, setActivePr } = useDialogStore();
+  const isPrModalOpen = selectedPrNumber !== null;
   const [requirementExpanded, setRequirementExpanded] = useState(false);
   const [newTaskContent, setNewTaskContent] = useState('');
   const [editingTaskIndex, setEditingTaskIndex] = useState<number | null>(null);
@@ -764,8 +770,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       <div
                         key={pr.number}
                         onClick={() => {
-                          setSelectedPrNumber(pr.number);
-                          setIsPrModalOpen(true);
+                          setActivePr(pr);
+                          setModalParams({ rsPr: pr.number });
                         }}
                         className="flex flex-col p-3 rounded-md bg-muted/20 border border-sidebar-border/50 hover:bg-muted/40 hover:border-sidebar-border transition-all cursor-pointer group"
                       >
@@ -838,15 +844,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </div>
 
               <div className="space-y-2.5 pt-1">
-                <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">Actions</h3>
-                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 no-scrollbar">
+                <div className="flex items-center justify-between pr-1">
+                  <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">Actions</h3>
+                  {actionRuns && actionRuns.length > 0 && <ActionsSummaryHeader stats={stats} />}
+                </div>
+                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 no-scrollbar shrink-0">
                   {actionsLoading && (!actionRuns || actionRuns.length === 0) ? (
                     <div className="flex flex-col items-center justify-center p-4 text-muted-foreground/50 border rounded-md border-dashed border-border/40">
                       <Loader2 className="size-4 animate-spin opacity-50 mb-2" />
                       <span className="text-[10px]">Loading workflows...</span>
                     </div>
-                  ) : actionRuns && actionRuns.length > 0 ? (
-                    actionRuns.map((run: ActionRun) => {
+                  ) : latestRuns && latestRuns.length > 0 ? (
+                    latestRuns.map((run: ActionRun) => {
                       const isSuccess = run.conclusion === 'success';
                       const isFailure = run.conclusion === 'failure';
                       const isCompleted = run.status === 'completed';
@@ -854,7 +863,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       return (
                         <div
                           key={run.databaseId}
-                          onClick={() => setActiveActionRun(run)}
+                          onClick={() => {
+                            setActiveActionRun(run);
+                            setModalParams({ rsRunId: run.databaseId });
+                          }}
                           className={cn(
                             "flex flex-col gap-1.5 p-2.5 rounded-md transition-all border cursor-pointer hover:shadow-sm",
                             isCompleted ? (
@@ -867,7 +879,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               {isCompleted ? (
                                 isSuccess ? <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" /> : <XCircle className="size-3.5 text-red-500 shrink-0" />
                               ) : (
-                                <Loader2 className="size-3.5 text-blue-500 animate-spin shrink-0" />
+                                <Loader2 className="size-3.5 text-muted-foreground shrink-0" />
                               )}
                               <span className="text-[11px] font-bold text-foreground tracking-tight line-clamp-1">
                                 {run.displayTitle || run.workflowName}
@@ -877,7 +889,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               "text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase shrink-0",
                               isCompleted ? (
                                 isSuccess ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
-                              ) : "bg-blue-500/10 text-blue-500"
+                              ) : "bg-muted text-muted-foreground"
                             )}>
                               {isCompleted ? run.conclusion : run.status}
                             </span>
@@ -897,6 +909,23 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     </div>
                   )}
                 </div>
+
+                {latestRuns.length > 0 && (
+                  <div className="pt-2 flex flex-col gap-2">
+                    <p className="text-[10px] text-muted-foreground leading-normal italic px-1">
+                      Only the latest run per workflow is shown. Check full history on GitHub.
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-[10px] font-medium gap-2 justify-center border border-dashed border-border hover:bg-muted"
+                      onClick={() => window.open(`https://github.com/${githubOwner}/${githubRepo}/actions?query=branch:${effectiveGitBranch}`, '_blank')}
+                    >
+                      <Github className="size-3" />
+                      View All Runs
+                    </Button>
+                  </div>
+                )}
               </div>
 
             </CardContent>
@@ -968,27 +997,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         }
       `}</style>
       </div>
-
-      <PRDetailModal
-        owner={githubOwner || ''}
-        repo={githubRepo || ''}
-        branch={effectiveGitBranch}
-        prNumber={selectedPrNumber}
-        isOpen={isPrModalOpen}
-        onOpenChange={setIsPrModalOpen}
-      />
-
-      {githubOwner && githubRepo && (
-        <ActionsDetailModal
-          isOpen={activeActionRun !== null}
-          onOpenChange={(open) => {
-            if (!open) setActiveActionRun(null);
-          }}
-          owner={githubOwner}
-          repo={githubRepo}
-          run={activeActionRun}
-        />
-      )}
     </>
   );
 };

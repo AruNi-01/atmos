@@ -43,6 +43,8 @@ import {
 } from "@workspace/ui";
 import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQueryStates } from "nuqs";
+import { rightSidebarParams, rightSidebarModalParams, type RightSidebarTab, type ChangesView } from "@/lib/nuqs/searchParams";
 import { useContextParams } from "@/hooks/use-context-params";
 import { GitChangedFile } from '@/api/ws-api';
 import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
@@ -270,10 +272,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("changes");
-  const [changesView, setChangesView] = useState<'changes' | 'pr' | 'actions'>('changes');
-  const [activePrNumber, setActivePrNumber] = useState<number | null>(null);
-  const [activeActionRun, setActiveActionRun] = useState<ActionRun | null>(null);
+  const [{ rsTab: activeTab, rsView: changesView }, setSidebarParams] = useQueryStates(rightSidebarParams);
+  const [{ rsPr: activePrNumber, rsRunId: activeRunId }, setModalParams] = useQueryStates(rightSidebarModalParams);
+  const { activeActionRun, setActiveActionRun } = useDialogStore();
 
   const [isChangesActionReady, setIsChangesActionReady] = useState(false);
   const [isChangesHovered, setIsChangesHovered] = useState(false);
@@ -281,6 +282,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [isPrActionReady, setIsPrActionReady] = useState(false);
   const [isPrHovered, setIsPrHovered] = useState(false);
   const [prRefreshKey, setPrRefreshKey] = useState(0);
+
+  const [isActionsActionReady, setIsActionsActionReady] = useState(false);
+  const [isActionsHovered, setIsActionsHovered] = useState(false);
+  const [actionsRefreshKey, setActionsRefreshKey] = useState(0);
 
   const send = useWebSocketStore(s => s.send);
 
@@ -292,19 +297,25 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       }, 1000); // 1 seconds delay
       setIsPrActionReady(false);
     } else if (changesView === 'pr') {
+      setIsPrActionReady(false);
+      setIsActionsActionReady(false);
+    } else if (changesView === 'actions') {
       setIsChangesActionReady(false);
+      setIsPrActionReady(false);
       timer = setTimeout(() => {
-        setIsPrActionReady(true);
+        setIsActionsActionReady(true);
       }, 1000);
     } else {
       setIsChangesActionReady(false);
       setIsPrActionReady(false);
+      setIsActionsActionReady(false);
     }
     return () => clearTimeout(timer);
   }, [changesView]);
 
   const showChangesActions = changesView === 'changes' && isChangesActionReady && isChangesHovered;
   const showPrActions = changesView === 'pr' && isPrActionReady && isPrHovered;
+  const showActionsActions = changesView === 'actions' && isActionsActionReady && isActionsHovered;
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
 
@@ -452,7 +463,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   return (
     <aside className="w-full flex flex-col h-full">
-      <Tabs defaultValue="changes" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+      <Tabs value={activeTab} onValueChange={(v) => setSidebarParams({ rsTab: v as RightSidebarTab })} className="flex flex-col h-full">
         {/* Tabs Header */}
         <div className="h-10 flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm">
           <TabsList variant="underline" className="w-full h-full gap-0 items-stretch py-0!">
@@ -484,7 +495,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   onMouseLeave={() => setIsChangesHovered(false)}
                   onClick={() => {
                     if (changesView !== 'changes') {
-                      setChangesView('changes');
+                      setSidebarParams({ rsView: 'changes' });
                     }
                   }}
                 >
@@ -541,7 +552,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   onMouseLeave={() => setIsPrHovered(false)}
                   onClick={() => {
                     if (changesView !== 'pr') {
-                      setChangesView('pr');
+                      setSidebarParams({ rsView: 'pr' });
                     }
                   }}
                   title="Pull Requests"
@@ -598,19 +609,40 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 {/* Actions Toggle */}
                 <div
                   className={cn(
-                    "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-transparent overflow-hidden",
+                    "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-transparent overflow-hidden h-full",
                     changesView === 'actions'
-                      ? "bg-sidebar-accent text-foreground"
+                      ? (showActionsActions ? "text-foreground" : "bg-sidebar-accent text-foreground")
                       : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                   )}
                   onClick={() => {
-                    if (changesView !== 'actions') setChangesView('actions');
+                    if (changesView !== 'actions') setSidebarParams({ rsView: 'actions' });
                   }}
+                  onMouseEnter={() => setIsActionsHovered(true)}
+                  onMouseLeave={() => setIsActionsHovered(false)}
                   title="Actions"
                 >
-                  <div className="flex items-center gap-1.5 justify-center transition-all duration-300 ease-out">
+                  <div className={cn(
+                    "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
+                    showActionsActions ? "-translate-y-10 opacity-0" : ""
+                  )}>
                     <Workflow className="size-3.5" />
                     <span className="text-[11px] font-medium">Actions</span>
+                  </div>
+
+                  <div className={cn(
+                    "absolute inset-0 flex transition-all duration-300 ease-out",
+                    showActionsActions ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
+                  )}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActionsRefreshKey(Date.now());
+                      }}
+                      className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
+                      title="Refresh"
+                    >
+                      <RefreshCw className="size-3.5" />
+                    </button>
                   </div>
                 </div>
               </>
@@ -619,7 +651,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
           {/* Content Area */}
           <div className={cn(
-            "flex-1 overflow-y-auto no-scrollbar p-2",
+            "flex-1 overflow-y-auto no-scrollbar",
+            changesView === 'changes' ? "p-2" : "pt-0 px-2 pb-2",
             (!hasWorkingContext || (changesView === 'changes' && !hasChanges && !isLoading)) && "flex items-center justify-center"
           )}>
             {!hasWorkingContext ? (
@@ -634,7 +667,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   owner={githubOwner}
                   repo={githubRepo}
                   branch={currentBranch}
-                  onPrClick={(num) => setActivePrNumber(num)}
+                  onPrClick={(num) => setModalParams({ rsPr: num })}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
@@ -645,10 +678,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             ) : changesView === 'actions' ? (
               githubOwner && githubRepo && currentBranch ? (
                 <ActionsPanel
+                  key={actionsRefreshKey}
                   owner={githubOwner}
                   repo={githubRepo}
                   branch={currentBranch}
-                  onRunClick={(run: ActionRun) => setActiveActionRun(run)}
+                  onRunClick={(run: ActionRun) => {
+                    setActiveActionRun(run);
+                    setModalParams({ rsRunId: run.databaseId });
+                  }}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
@@ -692,8 +729,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             )}
           </div>
 
-          {/* Commit Actions (Sticky Bottom) - Only show when working context exists */}
-          {hasWorkingContext && (
+          {/* Commit Actions (Sticky Bottom) - Only show when working context exists and in changes view */}
+          {hasWorkingContext && changesView === 'changes' && (
             <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
               {/* Input */}
               <textarea
@@ -809,7 +846,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         <PRDetailModal
           isOpen={activePrNumber !== null}
           onOpenChange={(open) => {
-            if (!open) setActivePrNumber(null);
+            if (!open) setModalParams({ rsPr: null });
           }}
           owner={githubOwner}
           repo={githubRepo}
@@ -824,13 +861,17 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
       {githubOwner && githubRepo && currentBranch && (
         <ActionsDetailModal
-          isOpen={activeActionRun !== null}
+          isOpen={activeRunId !== null}
           onOpenChange={(open) => {
-            if (!open) setActiveActionRun(null);
+            if (!open) {
+              setActiveActionRun(null);
+              setModalParams({ rsRunId: null });
+            }
           }}
           owner={githubOwner}
           repo={githubRepo}
           run={activeActionRun}
+          runId={activeRunId}
         />
       )}
     </aside >

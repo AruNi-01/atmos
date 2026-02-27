@@ -77,6 +77,7 @@ import {
 import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatLayout } from "@/hooks/use-agent-chat-layout";
 import { AgentIcon } from "./AgentIcon";
 import { useAgentSession, type AgentServerMessage, type AcpPermissionOption } from "@/hooks/use-agent-session";
@@ -1137,9 +1138,8 @@ function PromptInputAttachmentsSection() {
 
 export function AgentChatPanel() {
   const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
+  const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
   const {
-    isAgentChatOpen,
-    setAgentChatOpen,
     pendingAgentChatPrompt,
     consumePendingAgentChatPrompt,
     peekPendingAgentChatPrompt,
