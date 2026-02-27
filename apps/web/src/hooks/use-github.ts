@@ -104,40 +104,49 @@ export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
   const [data, setData] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const fetch = useCallback(async (isAuto = false) => {
+    if (!owner || !repo || !branch) return;
+    if (!isAuto) setLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await send('github_actions_list', { owner, repo, branch }) as any[];
+      setData(result);
+      return result;
+    } catch (e) {
+      console.error(e);
+      return null;
+    } finally {
+      if (!isAuto) setLoading(false);
+    }
+  }, [owner, repo, branch, send]);
+
   useEffect(() => {
     if (!owner || !repo || !branch) return;
     
     let timer: ReturnType<typeof setTimeout> | null = null;
     let isMounted = true;
 
-    const fetch = async () => {
-      setLoading(true);
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await send('github_actions_list', { owner, repo, branch }) as any[];
-        if (!isMounted) return;
-        setData(result);
-        
-        // 如果有 running/queued 的，轮询
-        const hasInProgress = result?.some(r => r.status === 'in_progress' || r.status === 'queued');
-        if (hasInProgress) {
-          timer = setTimeout(fetch, 30_000); // 30s
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        if (isMounted) setLoading(false);
+    const poll = async () => {
+      const result = await fetch(true);
+      if (!isMounted) return;
+      
+      // 如果有 running/queued 的，轮询
+      const hasInProgress = result?.some(r => r.status === 'in_progress' || r.status === 'queued');
+      if (hasInProgress) {
+        timer = setTimeout(poll, 30_000); // 30s
       }
     };
 
     fetch();
+    poll(); // Start polling if needed
+
     return () => { 
       isMounted = false;
       if (timer) clearTimeout(timer); 
     };
-  }, [owner, repo, branch, send]);
+  }, [fetch]); // Dependencies owner, repo, branch are in fetch
 
-  return { data, loading };
+  return { data, loading, refresh: () => fetch() };
 }
 
 export function useGithubActionsDetail(owner: string, repo: string, runId: number | undefined) {
