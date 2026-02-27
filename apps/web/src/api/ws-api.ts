@@ -345,6 +345,14 @@ export const gitApi = {
   },
 
   /**
+   * 列出仓库所有远程分支
+   */
+  listRemoteBranches: async (path: string): Promise<string[]> => {
+    const result = await wsRequest<{ branches: string[] }>('git_list_remote_branches', { path });
+    return result.branches;
+  },
+
+  /**
    * 重命名 Git 分支
    */
   renameBranch: async (path: string, oldName: string, newName: string): Promise<{ success: boolean }> => {

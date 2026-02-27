@@ -121,6 +121,9 @@ impl WsMessageService {
             WsAction::GitListBranches => {
                 self.handle_git_list_branches(parse_request(request.data)?)
             }
+            WsAction::GitListRemoteBranches => {
+                self.handle_git_list_remote_branches(parse_request(request.data)?)
+            }
             WsAction::GitRenameBranch => {
                 self.handle_git_rename_branch(parse_request(request.data)?)
             }
@@ -533,6 +536,16 @@ impl WsMessageService {
             .git_engine
             .list_branches(&path)
             .map_err(|e| ServiceError::Validation(format!("Failed to list branches: {}", e)))?;
+
+        Ok(json!({ "branches": branches }))
+    }
+
+    fn handle_git_list_remote_branches(&self, req: GitListBranchesRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let branches = self
+            .git_engine
+            .list_remote_branches(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to list remote branches: {}", e)))?;
 
         Ok(json!({ "branches": branches }))
     }

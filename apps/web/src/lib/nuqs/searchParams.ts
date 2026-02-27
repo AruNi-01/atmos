@@ -100,6 +100,7 @@ export const agentChatParams = {
 export const rightSidebarModalParams = {
   rsPr: parseAsInteger,
   rsRunId: parseAsInteger,
+  rsCreatePr: parseAsBoolean.withDefault(false),
 };
 
 // ---------------------------------------------------------------------------
