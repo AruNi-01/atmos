@@ -9,7 +9,7 @@ impl GithubEngine {
         Self
     }
 
-    /// Run a gh command and return parsed JSON
+    /// Run a gh command and return parsed JSON. If output is not JSON, returns it as a string.
     pub async fn run_gh(&self, args: &[&str]) -> Result<serde_json::Value> {
         let output = Command::new("gh")
             .args(args)
@@ -22,8 +22,15 @@ impl GithubEngine {
             return Err(anyhow!("gh exited with error: {}", stderr));
         }
 
-        serde_json::from_slice(&output.stdout)
-            .map_err(|e| anyhow!("Failed to parse gh output: {}", e))
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if stdout.is_empty() {
+            return Ok(serde_json::json!({ "success": true }));
+        }
+
+        match serde_json::from_str::<serde_json::Value>(&stdout) {
+            Ok(json) => Ok(json),
+            Err(_) => Ok(serde_json::Value::String(stdout)),
+        }
     }
 
     /// Extract (owner, repo) from a remote URL

@@ -111,7 +111,7 @@ export function PRCreateModal({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[640px] w-full p-0 overflow-hidden border border-border/60 shadow-2xl bg-background"
+        className="min-w-[820px] w-full p-0 overflow-hidden border border-border/60 shadow-2xl bg-background"
       >
         <div className="flex flex-col h-full relative">
           {/* Close Button in Header (matching PRDetailModal) */}
