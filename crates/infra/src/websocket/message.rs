@@ -200,6 +200,8 @@ pub enum WsAction {
     WikiSkillSystemStatus,
     /// 检查 system 目录是否有所有 code review skills
     CodeReviewSkillSystemStatus,
+    /// 检查 system 目录是否有 git-commit skill
+    GitCommitSkillSystemStatus,
     /// 手动触发同步所有系统 skills
     SkillsSystemSync,
 
@@ -263,6 +265,12 @@ pub enum WsAction {
     GithubActionsDetail,
     /// Rerun workflow
     GithubActionsRerun,
+
+    // ===== Function Settings =====
+    /// Read ~/.atmos/function_settings.json
+    FunctionSettingsGet,
+    /// Update a field in ~/.atmos/function_settings.json
+    FunctionSettingsUpdate,
 }
 
 /// 服务端主动推送的事件类型
@@ -1098,4 +1106,14 @@ pub struct GithubActionsDetailRequest {
     pub owner: String,
     pub repo: String,
     pub run_id: u64,
+}
+
+/// Update a single key path inside ~/.atmos/function_settings.json.
+/// `function_name` is the top-level key (e.g. "git_commit"), `key` is
+/// the nested field (e.g. "acp_new_session_switch"), `value` is the JSON value.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionSettingsUpdateRequest {
+    pub function_name: String,
+    pub key: String,
+    pub value: serde_json::Value,
 }

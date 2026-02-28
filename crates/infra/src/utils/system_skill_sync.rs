@@ -17,6 +17,8 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     "fullstack-reviewer",
     "code-review-expert",
     "typescript-react-reviewer",
+    // Git skills
+    "git-commit",
 ];
 
 /// Recursively copy directory. Symlinks are preserved with their target path unchanged;

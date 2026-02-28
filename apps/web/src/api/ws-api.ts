@@ -768,10 +768,41 @@ export const skillsApi = {
   },
 
   /**
+   * Check if git-commit skill is installed in ~/.atmos/skills/.system/git-commit/
+   */
+  isGitCommitSkillInstalledInSystem: async (): Promise<boolean> => {
+    const res = await wsRequest<{ installed: boolean }>('git_commit_skill_system_status');
+    return res.installed;
+  },
+
+  /**
    * Manually trigger sync of all system skills from project/GitHub
    */
   syncSystemSkills: async (): Promise<{ initiated: boolean }> => {
     return wsRequest<{ initiated: boolean }>('skills_system_sync');
+  },
+};
+
+// ===== Function Settings API =====
+
+export interface FunctionSettings {
+  git_commit?: {
+    acp_new_session_switch?: boolean;
+  };
+  [key: string]: unknown;
+}
+
+export const functionSettingsApi = {
+  get: async (): Promise<FunctionSettings> => {
+    return wsRequest<FunctionSettings>('function_settings_get');
+  },
+
+  update: async (functionName: string, key: string, value: unknown): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>('function_settings_update', {
+      function_name: functionName,
+      key,
+      value,
+    });
   },
 };
 
