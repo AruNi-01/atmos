@@ -181,3 +181,60 @@ export function useGithubActionsDetail(owner: string, repo: string, runId: numbe
 
   return { data, loading };
 }
+
+export interface GitCommit {
+  hash: string;
+  short_hash: string;
+  author_name: string;
+  author_email: string;
+  timestamp: number;
+  subject: string;
+  body: string;
+  is_pushed: boolean;
+  author_avatar_url?: string;
+}
+
+// Local Git commit log (current branch)
+export function useGitLog({ repoPath, limit = 30 }: { repoPath: string | null; limit?: number }) {
+  const send = useWebSocketStore(s => s.send);
+  const [commits, setCommits] = useState<GitCommit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+
+  const fetchPage = useCallback(async (pageIndex: number) => {
+    if (!repoPath) return;
+    setLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await send<any>('git_log', {
+        path: repoPath,
+        limit,
+        offset: pageIndex * limit,
+      });
+      const fetched: GitCommit[] = result?.commits ?? [];
+      setCommits(fetched);
+      setHasMore(fetched.length >= limit);
+      setPage(pageIndex);
+    } catch (e) {
+      console.error(e);
+      setCommits([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [repoPath, limit, send]);
+
+  useEffect(() => {
+    fetchPage(0);
+  }, [fetchPage]);
+
+  const goToPrevPage = useCallback(() => {
+    if (page > 0) fetchPage(page - 1);
+  }, [page, fetchPage]);
+
+  const goToNextPage = useCallback(() => {
+    if (hasMore) fetchPage(page + 1);
+  }, [page, hasMore, fetchPage]);
+
+  return { commits, loading, page, hasMore, goToPrevPage, goToNextPage, refresh: () => fetchPage(page) };
+}

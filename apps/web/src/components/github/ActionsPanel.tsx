@@ -1,7 +1,7 @@
 import React from 'react';
 import { useGithubActionsList } from '@/hooks/use-github';
 import { ExternalLink, Search, Loader2, Workflow, CheckCircle2, XCircle, FileText, Rocket, Github, AlertCircle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
 
@@ -182,9 +182,18 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey }: Ac
                     <span>•</span>
                     <span className="capitalize">{run.event}</span>
                     <span>•</span>
-                    <span title={new Date(run.createdAt).toLocaleString()}>
-                      {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
-                    </span>
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-default">
+                            {formatDistanceToNow(parseISO(run.createdAt), { addSuffix: true })}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-[11px]">
+                          {format(parseISO(run.createdAt), 'PPpp')}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               );

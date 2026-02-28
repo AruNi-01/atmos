@@ -122,3 +122,13 @@ export const rightSidebarParams = {
   rsTab: parseAsStringEnum<RightSidebarTab>(["changes", "run-preview"]).withDefault("changes"),
   rsView: parseAsStringEnum<ChangesView>(["changes", "pr", "actions"]).withDefault("changes"),
 };
+
+// ---------------------------------------------------------------------------
+// ChatSessions – filter & search
+// ---------------------------------------------------------------------------
+export const chatSessionsParams = {
+  q: parseAsString.withDefault(""),
+  registry_id: parseAsString.withDefault(""),
+  status: parseAsStringEnum<"active" | "closed" | "">(["active", "closed", ""]).withDefault(""),
+  mode: parseAsStringEnum<"default" | "wiki_ask" | "">(["default", "wiki_ask", ""]).withDefault(""),
+};

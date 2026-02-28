@@ -26,6 +26,7 @@ pub struct AgentSessionSummary {
     pub registry_id: String,
     pub status: String,
     pub mode: String,
+    pub cwd: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -533,23 +534,26 @@ impl AgentSessionService {
             registry_id: m.registry_id,
             status: m.status,
             mode: m.mode,
+            cwd: m.cwd,
             created_at: m.created_at.to_string(),
             updated_at: m.updated_at.to_string(),
         }))
     }
 
-    /// List sessions with cursor pagination
-    pub async fn list_sessions(
+    /// List sessions with cursor pagination and additional filters
+    pub async fn list_sessions_with_filters(
         &self,
         context_type: Option<&str>,
         context_guid: Option<&str>,
+        registry_id: Option<&str>,
+        status: Option<&str>,
         mode: Option<&str>,
         limit: u64,
         cursor: Option<&str>,
     ) -> Result<(Vec<AgentSessionSummary>, Option<String>, bool)> {
         let repo = AgentChatSessionRepo::new(&self.db);
         let (items, next_cursor, has_more) = repo
-            .list_with_cursor(context_type, context_guid, mode, limit, cursor)
+            .list_with_cursor_and_filters(context_type, context_guid, registry_id, status, mode, limit, cursor)
             .await
             .map_err(crate::ServiceError::Infra)?;
         let summaries: Vec<AgentSessionSummary> = items
@@ -563,11 +567,24 @@ impl AgentSessionService {
                 registry_id: m.registry_id,
                 status: m.status,
                 mode: m.mode,
+                cwd: m.cwd,
                 created_at: m.created_at.to_string(),
                 updated_at: m.updated_at.to_string(),
             })
             .collect();
         Ok((summaries, next_cursor, has_more))
+    }
+
+    /// List sessions with cursor pagination (backward compatible)
+    pub async fn list_sessions(
+        &self,
+        context_type: Option<&str>,
+        context_guid: Option<&str>,
+        mode: Option<&str>,
+        limit: u64,
+        cursor: Option<&str>,
+    ) -> Result<(Vec<AgentSessionSummary>, Option<String>, bool)> {
+        self.list_sessions_with_filters(context_type, context_guid, None, None, mode, limit, cursor).await
     }
 
     /// Update session title (user-edited)

@@ -3,7 +3,7 @@
 use crate::error::EngineError;
 use std::fs;
 use std::path::{Path, PathBuf};
-use ignore::{WalkBuilder, gitignore::{Gitignore, GitignoreBuilder}};
+use ignore::{WalkBuilder, gitignore::GitignoreBuilder};
 
 pub type Result<T> = std::result::Result<T, EngineError>;
 

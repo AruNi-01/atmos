@@ -18,7 +18,7 @@ import {
 } from '@workspace/ui';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { Github, ExternalLink, XCircle, Expand, Shrink, Loader2, CheckCircle2, AlertCircle, Rocket, X, FileText, Clock, PlayCircle, RotateCcw, Box, HelpCircle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { useGithubActionsDetail } from '@/hooks/use-github';
 import { cn } from '@/lib/utils';
 import { type ActionRun } from './ActionsPanel';
@@ -234,8 +234,8 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
                       {isCompleted ? `${effectiveRun.conclusion} ` : `${effectiveRun.status} `}
                       <span className="text-[10px] text-muted-foreground font-normal normal-case flex items-center gap-1">
                         <Clock className="size-3" />
-                        {new Date(effectiveRun.createdAt).toLocaleString()}
-                        ({formatDistanceToNow(new Date(effectiveRun.createdAt), { addSuffix: true })})
+                        {format(parseISO(effectiveRun.createdAt), 'PPpp')}
+                        ({formatDistanceToNow(parseISO(effectiveRun.createdAt), { addSuffix: true })})
                       </span>
                     </h5>
                     <p className="text-[11px] text-muted-foreground mt-0.5 flex flex-col gap-1">
@@ -317,7 +317,7 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
 
                             {jobCompleted && job.startedAt && job.completedAt && (
                               <div className="text-[11px] text-muted-foreground/80 shrink-0 whitespace-nowrap tabular-nums">
-                                {formatDistanceToNow(new Date(job.startedAt), { addSuffix: true })}
+                                {formatDistanceToNow(parseISO(job.startedAt), { addSuffix: true })}
                               </div>
                             )}
                           </div>

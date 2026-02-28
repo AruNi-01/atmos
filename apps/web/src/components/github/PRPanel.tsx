@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useGithubPRList } from '@/hooks/use-github';
 import { GitPullRequest, Search, Loader2, GitBranch, MessageSquare, GitCommit, RefreshCw, Github, ArrowLeft } from 'lucide-react';
-import { Avatar, AvatarImage, AvatarFallback, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, Button } from '@workspace/ui';
-import { formatDistanceToNow } from 'date-fns';
+import { Avatar, AvatarImage, AvatarFallback, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, Button, Tabs, TabsList, TabsTab } from '@workspace/ui';
+import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 
@@ -39,25 +39,15 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
   return (
     <TooltipProvider delayDuration={400}>
       <div className="flex flex-col h-full w-full overflow-hidden">
-        {/* Header with Filter - matching ActionsPanel style */}
-        <div className="px-3 h-8 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">Pull Requests</span>
-          <div className="flex items-center bg-muted/30 rounded-md p-0.5">
-            {(['OPEN', 'CLOSED'] as PRState[]).map((state) => (
-              <button
-                key={state}
-                onClick={() => setStateFilter(state)}
-                className={cn(
-                  "px-4 py-0.5 text-[9px] font-bold rounded-sm transition-all uppercase tracking-tight",
-                  stateFilter === state
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/30"
-                )}
-              >
-                {state.toLowerCase()}
-              </button>
-            ))}
-          </div>
+        {/* Header */}
+        <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm">
+          <span className="text-xs font-bold text-muted-foreground tracking-wider leading-none">Pull Requests</span>
+          <Tabs value={stateFilter} onValueChange={(v) => setStateFilter(v as PRState)}>
+            <TabsList className="">
+              <TabsTab value="OPEN" className="">Open</TabsTab>
+              <TabsTab value="CLOSED" className="">Closed</TabsTab>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-2">
@@ -73,7 +63,7 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
                 variant="secondary"
                 size="sm"
                 onClick={() => refresh()}
-                className="h-9 px-6 text-[11px] font-bold uppercase tracking-widest gap-2.5 shadow-sm hover:scale-[1.02] transition-transform active:scale-[0.98]"
+                className="h-9 px-6 text-[11px] font-bold tracking-widest gap-2.5 shadow-sm cursor-pointer"
               >
                 <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
                 Refresh {stateFilter.toLowerCase()}
@@ -168,7 +158,14 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
                       </div>
 
                       <div className="ml-auto flex items-center gap-1 opacity-70">
-                        <span>{formatDistanceToNow(new Date(pr.createdAt), { addSuffix: true })}</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default">{formatDistanceToNow(new Date(pr.createdAt), { addSuffix: true })}</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[11px]">
+                            {format(new Date(pr.createdAt), 'PPpp')}
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   </div>

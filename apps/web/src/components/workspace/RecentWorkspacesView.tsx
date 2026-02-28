@@ -251,187 +251,183 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
 
   return (
     <div className="flex flex-col h-full bg-background/50">
-      {/* Header / Search */}
-      <div className="flex-none p-8 pb-4 space-y-6 max-w-5xl mx-auto w-full">
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Folder className="size-5" />
-              </div>
-              Recent Workspaces
-            </h2>
-            <p className="text-sm text-muted-foreground text-pretty max-w-sm">
-              Quickly jump back into your most recent active development sessions.
-            </p>
-          </div>
-        </div>
-
-        <div className="relative group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, project, or branch..."
-            className="pl-10 h-12 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
-            autoFocus
-          />
-        </div>
-      </div>
-
-      {/* List */}
+      {/* Content with ScrollArea */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <ScrollArea className="h-full scrollbar-on-hover">
-          <div className="p-8 pt-2 max-w-5xl mx-auto w-full space-y-10">
-            <AnimatePresence mode="popLayout" initial={false}>
-              {GROUP_ORDER.map(group => {
-                const items = groupedWorkspaces[group];
-                if (items.length === 0) return null;
+          <div className="max-w-5xl mx-auto w-full px-8">
+            {/* Header / Title - Scrolls away */}
+            <div className="pt-12 pb-8 space-y-2">
+              <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Folder className="size-5" />
+                </div>
+                Recent Workspaces
+              </h2>
+              <p className="text-sm text-muted-foreground text-pretty max-w-sm">
+                Quickly jump back into your most recent active development sessions.
+              </p>
+            </div>
 
-                return (
-                  <motion.div
-                    key={group}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.98 }}
-                    className="space-y-4"
-                  >
-                    <div className="flex items-center gap-3 sticky top-0 bg-background/95 backdrop-blur-sm py-3 z-10 border-b border-border/40">
-                      <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest">{group}</span>
-                      <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono">
-                        {items.length}
-                      </span>
-                    </div>
-                    <div className="grid gap-2.5">
-                      <AnimatePresence mode="popLayout">
-                        {items.map((ws, index) => {
-                          const status = gitStatuses[ws.id];
-                          const hasGitInfo = status && !status.loading && !status.error;
+            {/* Sticky Search Bar */}
+            <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md pt-2 pb-6 -mx-4 px-4 sm:-mx-8 sm:px-8">
+              <div className="relative group max-w-5xl mx-auto">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, project, or branch..."
+                  className="pl-10 h-12 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
+                  autoFocus
+                />
+              </div>
+            </div>
 
-                          return (
-                            <motion.button
-                              key={ws.id}
-                              layout
-                              initial={{ opacity: 0, x: -5 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, scale: 0.95 }}
-                              transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
-                              onClick={() => handleSelect(ws)}
-                              className={cn(
-                                "group relative flex items-center justify-between p-4 rounded-xl border transition-all text-left w-full",
-                                ws.isArchivedRemote
-                                  ? "bg-muted/30 border-border/40 opacity-60 cursor-not-allowed"
-                                  : "bg-background border-border hover:border-primary/30 hover:shadow-md cursor-pointer hover:bg-muted/50"
-                              )}
-                            >
-                              <div className="flex items-center gap-5 min-w-0 flex-1">
-                                <div className="flex items-center gap-4 w-[260px] shrink-0">
-                                  <div className={cn(
-                                    "size-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 uppercase border transition-transform group-hover:scale-105",
-                                    ws.isArchivedRemote
-                                      ? "bg-muted text-muted-foreground border-border"
-                                      : "bg-primary/10 text-primary border-primary/20 shadow-sm"
-                                  )}>
-                                    {ws.projectName[0]}
-                                  </div>
-                                  <div className="flex flex-col min-w-0 overflow-hidden">
-                                    <span className={cn(
-                                      "text-[14px] font-semibold truncate transition-colors",
-                                      ws.isArchivedRemote ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
+            <div className="space-y-10 pb-12">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {GROUP_ORDER.map(group => {
+                  const items = groupedWorkspaces[group];
+                  if (items.length === 0) return null;
+
+                  return (
+                    <motion.div
+                      key={group}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      className="space-y-4"
+                    >
+                      <div className="flex items-center gap-3 sticky top-[76px] bg-background/95 backdrop-blur-sm py-3 z-5 border-b border-border/40">
+                        <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest">{group}</span>
+                        <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono">
+                          {items.length}
+                        </span>
+                      </div>
+                      <div className="grid gap-2.5">
+                        <AnimatePresence mode="popLayout">
+                          {items.map((ws, index) => {
+                            const status = gitStatuses[ws.id];
+                            const hasGitInfo = status && !status.loading && !status.error;
+
+                            return (
+                              <motion.button
+                                key={ws.id}
+                                layout
+                                initial={{ opacity: 0, x: -5 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
+                                onClick={() => handleSelect(ws)}
+                                className={cn(
+                                  "group relative flex items-center justify-between p-4 rounded-xl border transition-all text-left w-full",
+                                  ws.isArchivedRemote
+                                    ? "bg-muted/30 border-border/40 opacity-60 cursor-not-allowed"
+                                    : "bg-background border-border hover:border-primary/30 hover:shadow-md cursor-pointer hover:bg-muted/50"
+                                )}
+                              >
+                                <div className="flex items-center gap-5 min-w-0 flex-1">
+                                  <div className="flex items-center gap-4 w-[260px] shrink-0">
+                                    <div className={cn(
+                                      "size-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 uppercase border transition-transform group-hover:scale-105",
+                                      ws.isArchivedRemote
+                                        ? "bg-muted text-muted-foreground border-border"
+                                        : "bg-primary/10 text-primary border-primary/20 shadow-sm"
                                     )}>
-                                      {ws.projectName}
-                                    </span>
-                                    <span className="text-[11px] text-muted-foreground/70 truncate text-pretty" title={ws.projectMainPath}>
-                                      {truncatePath(ws.projectMainPath)}
-                                    </span>
+                                      {ws.projectName[0]}
+                                    </div>
+                                    <div className="flex flex-col min-w-0 overflow-hidden">
+                                      <span className={cn(
+                                        "text-[14px] font-semibold truncate transition-colors",
+                                        ws.isArchivedRemote ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
+                                      )}>
+                                        {ws.projectName}
+                                      </span>
+                                      <span className="text-[11px] text-muted-foreground/70 truncate text-pretty" title={ws.projectMainPath}>
+                                        {truncatePath(ws.projectMainPath)}
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
 
-                                <ArrowRight className="size-4 text-muted-foreground/30 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                                  <ArrowRight className="size-4 text-muted-foreground/30 shrink-0 group-hover:translate-x-0.5 transition-transform" />
 
-                                <div className="flex items-center gap-4 min-w-0 flex-1">
-                                  <div className="flex items-center gap-2.5 min-w-0 bg-muted/30 px-2.5 py-1 rounded-lg border border-border/50">
-                                    <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
-                                    <span className={cn(
-                                      "text-[13px] font-medium truncate",
-                                      ws.isArchivedRemote ? "text-muted-foreground/80" : "text-foreground/90"
-                                    )}>
-                                      {ws.branch}
-                                    </span>
+                                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                                    <div className="flex items-center gap-2.5 min-w-0 bg-muted/30 px-2.5 py-1 rounded-lg border border-border/50">
+                                      <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
+                                      <span className={cn(
+                                        "text-[13px] font-medium truncate",
+                                        ws.isArchivedRemote ? "text-muted-foreground/80" : "text-foreground/90"
+                                      )}>
+                                        {ws.branch}
+                                      </span>
+                                    </div>
+                                    {ws.branch !== ws.name && (
+                                      <span className="text-xs text-muted-foreground/60 truncate italic">
+                                        {ws.name}
+                                      </span>
+                                    )}
                                   </div>
-                                  {ws.branch !== ws.name && (
-                                    <span className="text-xs text-muted-foreground/60 truncate italic">
-                                      {ws.name}
-                                    </span>
+
+                                  {ws.isArchivedRemote ? (
+                                    <div className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
+                                      <Archive className="size-3" />
+                                      ARCHIVED
+                                    </div>
+                                  ) : (
+                                    <div className="ml-auto flex items-center gap-2 shrink-0">
+                                      {hasGitInfo ? (
+                                        <>
+                                          {status.uncommitted !== undefined && status.uncommitted > 0 && (
+                                            <div className="inline-flex items-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shadow-sm font-mono">
+                                              +{status.uncommitted}
+                                            </div>
+                                          )}
+                                          {status.unpushed !== undefined && status.unpushed > 0 && (
+                                            <div className="inline-flex items-center rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400 shadow-sm font-mono">
+                                              -{status.unpushed}
+                                            </div>
+                                          )}
+                                        </>
+                                      ) : null}
+                                    </div>
                                   )}
                                 </div>
 
-                                {ws.isArchivedRemote ? (
-                                  <div className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
-                                    <Archive className="size-3" />
-                                    ARCHIVED
-                                  </div>
-                                ) : (
-                                  <div className="ml-auto flex items-center gap-2 shrink-0">
-                                    {hasGitInfo ? (
-                                      <>
-                                        {status.uncommitted !== undefined && status.uncommitted > 0 && (
-                                          <div className="inline-flex items-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shadow-sm font-mono">
-                                            +{status.uncommitted}
-                                          </div>
-                                        )}
-                                        {status.unpushed !== undefined && status.unpushed > 0 && (
-                                          <div className="inline-flex items-center rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400 shadow-sm font-mono">
-                                            -{status.unpushed}
-                                          </div>
-                                        )}
-                                      </>
-                                    ) : null}
-                                  </div>
-                                )}
-                              </div>
+                                <div className="w-[110px] text-right text-[11px] font-medium text-muted-foreground/70 shrink-0 pl-6 tabular-nums">
+                                  {ws.createdAt && !isNaN(parseUTCDate(ws.createdAt).getTime()) ? format(parseUTCDate(ws.createdAt), 'MMM d, yyyy') : '-'}
+                                </div>
+                              </motion.button>
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
 
-                              <div className="w-[110px] text-right text-[11px] font-medium text-muted-foreground/70 shrink-0 pl-6 tabular-nums">
-                                {ws.createdAt && !isNaN(parseUTCDate(ws.createdAt).getTime()) ? format(parseUTCDate(ws.createdAt), 'MMM d, yyyy') : '-'}
-                              </div>
-                            </motion.button>
-                          );
-                        })}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-
-            {filteredWorkspaces.length === 0 && searchQuery && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-20 text-center"
-              >
-                <div className="size-20 rounded-3xl bg-muted/20 flex items-center justify-center mb-6">
-                  <Search className="size-10 text-muted-foreground/30" />
-                </div>
-                <h3 className="text-lg font-semibold text-foreground">No workspaces found</h3>
-                <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto text-pretty">
-                  We couldn&apos;t find any workspaces matching &quot;{searchQuery}&quot;.
-                </p>
-                <Button
-                  variant="link"
-                  onClick={() => setSearchQuery("")}
-                  className="mt-4"
+              {filteredWorkspaces.length === 0 && searchQuery && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-20 text-center"
                 >
-                  Clear search query
-                </Button>
-              </motion.div>
-            )}
+                  <div className="size-20 rounded-3xl bg-muted/20 flex items-center justify-center mb-6">
+                    <Search className="size-10 text-muted-foreground/30" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">No workspaces found</h3>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto text-pretty">
+                    We couldn&apos;t find any workspaces matching &quot;{searchQuery}&quot;.
+                  </p>
+                  <Button
+                    variant="link"
+                    onClick={() => setSearchQuery("")}
+                    className="mt-4"
+                  >
+                    Clear search query
+                  </Button>
+                </motion.div>
+              )}
 
-            <div className="pt-12 pb-8 text-center border-t border-border/40">
-              <p className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-widest">
-                Displaying workspaces from globally active projects
-              </p>
             </div>
           </div>
         </ScrollArea>

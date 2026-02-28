@@ -91,7 +91,9 @@ import { useGitStatusCheck, useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useTheme } from 'next-themes';
 import { SketchPicker } from 'react-color';
-import { Bot } from "lucide-react";
+import { Bot, SquareKanban } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+
 
 // ... (Keep existing stateless components: ProjectItem, SortableProject, WorkspaceContent, WorkspaceItem)
 // But update them to handle onClick correctly
@@ -1030,9 +1032,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     return (
         <>
-            <aside className="w-full flex flex-col h-full select-none">
+            <aside className="@container w-full flex flex-col h-full select-none">
                 {/* Management Center */}
-                <div className="flex flex-col border-b border-sidebar-border/50 shrink-0">
+                <div className="flex flex-col border-b border-sidebar-border shrink-0">
                     <div
                         className="h-[39px] flex items-center justify-between px-4 text-sm font-medium cursor-pointer hover:bg-sidebar-accent/50 transition-colors select-none"
                         onClick={() => setIsWorkspacesExpanded(!isWorkspacesExpanded)}
@@ -1050,77 +1052,65 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                         "grid transition-[grid-template-rows] duration-200 ease-in-out",
                         isWorkspacesExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                     )}>
-                        <div className="overflow-hidden flex flex-col">
-                            <button
-                                onClick={() => router.push('/workspaces')}
-                                className={cn(
-                                    "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    currentView === 'workspaces'
-                                        ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
-                                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
-                                )}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Clock className="size-3.5" />
-                                    <span>Workspaces</span>
-                                </div>
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
-                                    <ArrowRight className="size-3.5" />
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => router.push('/skills')}
-                                className={cn(
-                                    "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    currentView === 'skills'
-                                        ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
-                                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
-                                )}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Puzzle className="size-3.5" />
-                                    <span>Skills</span>
-                                </div>
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
-                                    <ArrowRight className="size-3.5" />
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => router.push('/terminals')}
-                                className={cn(
-                                    "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    currentView === 'terminals'
-                                        ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
-                                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
-                                )}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <SquareTerminal className="size-3.5" />
-                                    <span>Terminals</span>
-                                </div>
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
-                                    <ArrowRight className="size-3.5" />
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => router.push('/agents')}
-                                className={cn(
-                                    "w-full flex items-center justify-between px-4 py-2 text-[13px] transition-colors group cursor-pointer border-l-2",
-                                    currentView === 'agents'
-                                        ? "text-foreground bg-sidebar-accent border-sidebar-foreground/20"
-                                        : "text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent/50 hover:border-sidebar-foreground/20"
-                                )}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Bot className="size-3.5" />
-                                    <span>Agents</span>
-                                </div>
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity transform">
-                                    <ArrowRight className="size-3.5" />
-                                </div>
-                            </button>
+                        <div className="overflow-hidden border-t border-sidebar-border/30">
+                            <div className="grid grid-cols-1 @[200px]:grid-cols-2 @[300px]:grid-cols-3">
+                                {[
+                                    { id: 'workspaces', label: 'Workspaces', icon: SquareKanban, path: '/workspaces' },
+                                    { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
+                                    { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
+                                    { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
+                                ].map((item) => {
+                                    const Icon = item.icon;
+                                    const isActive = currentView === item.id;
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            onClick={() => router.push(item.path)}
+                                            className={cn(
+                                                "group relative h-12 cursor-pointer overflow-hidden transition-all duration-300 border-r border-sidebar-border/30 last:border-r-0 outline-none",
+                                                "border-b border-b-sidebar-border/30 transition-colors",
+                                                isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                                            )}
+                                        >
+                                            {/* Active Indicator Animation */}
+                                            <AnimatePresence>
+                                                {isActive && (
+                                                    <motion.div
+                                                        initial={{ scaleX: 0, opacity: 0 }}
+                                                        animate={{ scaleX: 1, opacity: 1 }}
+                                                        exit={{ scaleX: 0, opacity: 0 }}
+                                                        transition={{
+                                                            default: { ease: [0.16, 1, 0.3, 1] },
+                                                            opacity: { duration: 0.5 },
+                                                            scaleX: {
+                                                                duration: isActive ? 0.6 : 1.0,
+                                                                type: "tween"
+                                                            }
+                                                        }}
+                                                        className="absolute bottom-0 left-0 right-0 h-px bg-sidebar-foreground z-10 origin-center"
+                                                    />
+                                                )}
+                                            </AnimatePresence>
+
+                                            <div className="flex flex-col h-[200%] w-full transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) group-hover:-translate-y-1/2">
+                                                {/* Icon Layer */}
+                                                <div className="flex items-center justify-center h-1/2 w-full transition-all duration-300 group-hover:opacity-0 group-hover:scale-90">
+                                                    <Icon className="size-4.5" />
+                                                </div>
+                                                {/* Text Layer */}
+                                                <div className="flex items-center justify-center h-1/2 w-full px-1">
+                                                    <span className="text-[10px] font-bold uppercase tracking-tight text-center leading-none">
+                                                        {item.label}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
+
                 </div>
 
 
@@ -1134,10 +1124,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                     >
                         {/* Tabs Header */}
                         <div className="h-10 flex border-b border-sidebar-border">
-                            <TabsList variant="underline" className="w-full h-full gap-0 items-stretch !py-0">
+                            <TabsList variant="underline" className="w-full h-full gap-0 items-stretch py-0!">
                                 <TabsTab
                                     value="projects"
-                                    className="flex-1 !h-full text-[12px] p-0 overflow-hidden relative rounded-none !border-0"
+                                    className="flex-1 h-full! text-[12px] p-0 overflow-hidden relative rounded-none border-0!"
                                 >
                                     <div
                                         className="w-full h-full flex items-center justify-center group cursor-pointer"
@@ -1180,7 +1170,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                 </TabsTab>
                                 <TabsTab
                                     value="files"
-                                    className="flex-1 !h-full text-[12px] gap-1.5 rounded-none !border-0"
+                                    className="flex-1 h-full! text-[12px] gap-1.5 rounded-none border-0!"
                                 >
                                     <Folder className="size-3.5" />
                                     <span>Files</span>

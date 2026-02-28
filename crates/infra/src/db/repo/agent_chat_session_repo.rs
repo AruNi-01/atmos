@@ -121,13 +121,13 @@ impl<'a> AgentChatSessionRepo<'a> {
         Ok(())
     }
 
-    /// List sessions with cursor pagination. Returns (items, next_cursor, has_more).
-    /// cursor is (updated_at, guid) encoded as base64 or similar - for simplicity we use offset-based first.
-    /// For proper cursor: use (updated_at DESC, guid) and pass last item's (updated_at, guid).
-    pub async fn list_with_cursor(
+    /// List sessions with cursor pagination and additional filters. Returns (items, next_cursor, has_more).
+    pub async fn list_with_cursor_and_filters(
         &self,
         context_type: Option<&str>,
         context_guid: Option<&str>,
+        registry_id: Option<&str>,
+        status: Option<&str>,
         mode: Option<&str>,
         limit: u64,
         cursor: Option<&str>,
@@ -145,6 +145,12 @@ impl<'a> AgentChatSessionRepo<'a> {
         }
         if let Some(cg) = context_guid {
             query = query.filter(agent_chat_session::Column::ContextGuid.eq(cg));
+        }
+        if let Some(rid) = registry_id {
+            query = query.filter(agent_chat_session::Column::RegistryId.eq(rid));
+        }
+        if let Some(s) = status {
+            query = query.filter(agent_chat_session::Column::Status.eq(s));
         }
         if let Some(m) = mode {
             query = query.filter(agent_chat_session::Column::Mode.eq(m));

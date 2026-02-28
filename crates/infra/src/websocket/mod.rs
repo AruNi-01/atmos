@@ -25,7 +25,7 @@ pub use message::{
     GitChangedFile, GitChangedFilesRequest, GitChangedFilesResponse, GitCommitRequest,
     GitCommitResponse, GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest,
     GitFileDiffRequest, GitFileDiffResponse, GitGetCommitCountRequest, GitGetHeadCommitRequest,
-    GitGetStatusRequest, GitListBranchesRequest, GitPullRequest, GitPushRequest, GitPushResponse,
+    GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest, GitPushResponse,
     GitRenameBranchRequest, GitStageRequest, GitStatusResponse, GitSyncRequest, GitUnstageRequest,
     MessagePayload, ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
     ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
