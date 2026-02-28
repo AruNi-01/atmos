@@ -54,7 +54,7 @@ import { cn } from "@/lib/utils";
 import { useQueryStates } from "nuqs";
 import { rightSidebarParams, rightSidebarModalParams, type RightSidebarTab, type ChangesView } from "@/lib/nuqs/searchParams";
 import { useContextParams } from "@/hooks/use-context-params";
-import { GitChangedFile, functionSettingsApi } from '@/api/ws-api';
+import { GitChangedFile, functionSettingsApi, skillsApi } from '@/api/ws-api';
 import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
@@ -491,11 +491,42 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     }
   };
 
-  const handleGenerateCommitMessage = () => {
+  const handleGenerateCommitMessage = async () => {
     if (!agentHasAgents) {
       toastManager.add({
         title: "No ACP Agent Available",
         description: "Install an ACP agent first to use AI commit message generation.",
+        type: "error",
+      });
+      return;
+    }
+
+    try {
+      const skillInstalled = await skillsApi.isGitCommitSkillInstalledInSystem();
+      if (!skillInstalled) {
+        toastManager.add({
+          title: "Git Commit Skill Not Found",
+          description: "The git-commit skill is not installed.",
+          type: "error",
+          actionProps: {
+            children: "Install Now",
+            onClick: async () => {
+              const id = toastManager.add({ title: "Installing git-commit skill...", type: "loading", timeout: 0 });
+              try {
+                await skillsApi.syncSingleSystemSkill("git-commit");
+                toastManager.update(id, { title: "Git Commit Skill Installed", type: "success", timeout: 3000, actionProps: undefined });
+              } catch {
+                toastManager.update(id, { title: "Install Failed", description: "Failed to install. Please try again.", type: "error", timeout: 5000, actionProps: undefined });
+              }
+            },
+          },
+        });
+        return;
+      }
+    } catch {
+      toastManager.add({
+        title: "Skill Check Failed",
+        description: "Unable to verify git-commit skill status. Please try again.",
         type: "error",
       });
       return;

@@ -34,4 +34,5 @@ pub use websocket::{
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
     GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
     FunctionSettingsUpdateRequest,
+    SyncSingleSystemSkillRequest,
 };

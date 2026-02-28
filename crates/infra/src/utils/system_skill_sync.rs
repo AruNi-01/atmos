@@ -223,6 +223,35 @@ fn resolve_project_root() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf())
 }
 
+/// Sync a single system skill on demand (e.g. triggered by user clicking "Install Now").
+/// Returns Ok(()) on success, Err with message on failure.
+pub fn sync_single_system_skill(skill_name: &str) -> Result<(), String> {
+    if !ALL_SYSTEM_SKILL_NAMES.contains(&skill_name) {
+        return Err(format!("Unknown system skill: {}", skill_name));
+    }
+
+    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
+    let system_dir = home.join(".atmos").join("skills").join(".system");
+    std::fs::create_dir_all(&system_dir)
+        .map_err(|e| format!("Failed to create system skills dir: {}", e))?;
+
+    let project_root = resolve_project_root();
+    if sync_skill_from_project(skill_name, &system_dir, &project_root) {
+        return Ok(());
+    }
+
+    let target = get_target_dir(&system_dir, skill_name);
+    if skill_dir_is_valid(&target) {
+        return Ok(());
+    }
+
+    if clone_and_sync_skills_from_github(&system_dir, &[skill_name]) {
+        Ok(())
+    } else {
+        Err(format!("Failed to sync skill '{}' from project or GitHub", skill_name))
+    }
+}
+
 /// Ensure all system skills exist in ~/.atmos/skills/.system/.
 /// 1. If target exists and valid, no-op
 /// 2. Copy from project root when running from ATMOS source

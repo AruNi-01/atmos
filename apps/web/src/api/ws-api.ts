@@ -776,6 +776,13 @@ export const skillsApi = {
   },
 
   /**
+   * Sync a single system skill by name
+   */
+  syncSingleSystemSkill: async (skillName: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('sync_single_system_skill', { skill_name: skillName });
+  },
+
+  /**
    * Manually trigger sync of all system skills from project/GitHub
    */
   syncSystemSkills: async (): Promise<{ initiated: boolean }> => {

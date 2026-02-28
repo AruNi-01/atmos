@@ -202,6 +202,8 @@ pub enum WsAction {
     CodeReviewSkillSystemStatus,
     /// 检查 system 目录是否有 git-commit skill
     GitCommitSkillSystemStatus,
+    /// 按名称同步单个系统 skill
+    SyncSingleSystemSkill,
     /// 手动触发同步所有系统 skills
     SkillsSystemSync,
 
@@ -1116,4 +1118,9 @@ pub struct FunctionSettingsUpdateRequest {
     pub function_name: String,
     pub key: String,
     pub value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncSingleSystemSkillRequest {
+    pub skill_name: String,
 }

@@ -2442,7 +2442,7 @@ export function AgentChatPanel() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div
-                    className="group/title flex items-center gap-1 min-w-0 cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
+                    className="group/title inline-flex items-center gap-1 max-w-full cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
                     onClick={handleStartEditTitle}
                     onMouseDown={(e) => e.stopPropagation()}
                   >
