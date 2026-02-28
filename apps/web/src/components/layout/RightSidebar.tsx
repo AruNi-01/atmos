@@ -847,13 +847,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       }}
                       onMouseLeave={() => {
                         if (aiPopoverTimer.current) { clearTimeout(aiPopoverTimer.current); aiPopoverTimer.current = null; }
+                        aiPopoverTimer.current = setTimeout(() => setAiPopoverOpen(false), 300);
                       }}
                       disabled={!hasChanges}
-                      title="AI Generate Commit Message"
                       className={cn(
                         "absolute top-1.5 right-1.5 p-1 rounded-sm transition-colors",
                         hasChanges
-                          ? "text-muted-foreground hover:text-amber-500 hover:bg-sidebar-accent cursor-pointer"
+                          ? "text-muted-foreground hover:text-foreground cursor-pointer"
                           : "text-muted-foreground/30 cursor-not-allowed"
                       )}
                     >
@@ -863,7 +863,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   <PopoverContent
                     side="top"
                     align="end"
-                    className="w-52 p-1"
+                    className="w-56 p-1"
                     onMouseEnter={() => {
                       if (aiPopoverTimer.current) { clearTimeout(aiPopoverTimer.current); aiPopoverTimer.current = null; }
                     }}
@@ -881,7 +881,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                             </label>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-[200px] text-xs">
-                            Enabling this starts a fresh ACP session each time, which may take ~10s to initialize.
+                            Starts a fresh ACP session each time, which may take ~10s to initialize.
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -892,6 +892,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         className="scale-80 shrink-0"
                       />
                     </div>
+                    <div className="border-t border-border mx-1.5 my-1" />
+                    <p className="px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                      Auto-generate commit message and commit locally (will not push to remote).
+                    </p>
                   </PopoverContent>
                 </Popover>
               </div>
