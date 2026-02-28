@@ -27,6 +27,7 @@ use infra::{
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest, GithubPrDraftRequest,
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
     GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
+    FunctionSettingsUpdateRequest,
 };
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
@@ -232,6 +233,7 @@ impl WsMessageService {
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
             WsAction::CodeReviewSkillSystemStatus => self.handle_code_review_skill_system_status().await,
+            WsAction::GitCommitSkillSystemStatus => self.handle_git_commit_skill_system_status().await,
             WsAction::SkillsSystemSync => self.handle_skills_system_sync().await,
             WsAction::AgentList => self.handle_agent_list().await,
             WsAction::AgentInstall => {
@@ -292,6 +294,10 @@ impl WsMessageService {
             WsAction::GithubActionsList => self.handle_github_actions_list(parse_request(request.data)?).await,
             WsAction::GithubActionsRerun => self.handle_github_actions_rerun(parse_request(request.data)?).await,
             WsAction::GithubActionsDetail => self.handle_github_actions_detail(parse_request(request.data)?).await,
+
+            // Function settings
+            WsAction::FunctionSettingsGet => self.handle_function_settings_get().await,
+            WsAction::FunctionSettingsUpdate => self.handle_function_settings_update(parse_request(request.data)?).await,
         }
     }
 
@@ -1513,6 +1519,17 @@ set -x
         Ok(json!({ "installed": installed }))
     }
 
+    /// Check if git-commit skill exists with SKILL.md in ~/.atmos/skills/.system/git-commit/
+    async fn handle_git_commit_skill_system_status(&self) -> Result<Value> {
+        let installed = dirs::home_dir()
+            .map(|h| {
+                let skill_md = h.join(".atmos").join("skills").join(".system").join("git-commit").join("SKILL.md");
+                skill_md.exists() && skill_md.is_file()
+            })
+            .unwrap_or(false);
+        Ok(json!({ "installed": installed }))
+    }
+
     /// Manually trigger sync of all system skills from project/GitHub
     async fn handle_skills_system_sync(&self) -> Result<Value> {
         // Run in a blocking task to avoid blocking the async executor
@@ -1918,6 +1935,55 @@ set -x
         
         Ok(result)
     }
+
+    // ===== Function Settings Handlers =====
+
+    async fn handle_function_settings_get(&self) -> Result<Value> {
+        let path = function_settings_path();
+        if path.exists() {
+            let content = std::fs::read_to_string(&path)
+                .map_err(|e| ServiceError::Validation(format!("Failed to read function_settings.json: {}", e)))?;
+            let val: Value = serde_json::from_str(&content).unwrap_or(json!({}));
+            Ok(val)
+        } else {
+            Ok(json!({}))
+        }
+    }
+
+    async fn handle_function_settings_update(&self, req: FunctionSettingsUpdateRequest) -> Result<Value> {
+        let path = function_settings_path();
+        let mut settings: Value = if path.exists() {
+            let content = std::fs::read_to_string(&path).unwrap_or_else(|_| "{}".to_string());
+            serde_json::from_str(&content).unwrap_or(json!({}))
+        } else {
+            json!({})
+        };
+
+        if let Some(obj) = settings.as_object_mut() {
+            let section = obj.entry(&req.function_name).or_insert(json!({}));
+            if let Some(section_obj) = section.as_object_mut() {
+                section_obj.insert(req.key.clone(), req.value.clone());
+            }
+        }
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| ServiceError::Validation(format!("Failed to create ~/.atmos dir: {}", e)))?;
+        }
+        let pretty = serde_json::to_string_pretty(&settings)
+            .map_err(|e| ServiceError::Validation(format!("Failed to serialize settings: {}", e)))?;
+        std::fs::write(&path, pretty)
+            .map_err(|e| ServiceError::Validation(format!("Failed to write function_settings.json: {}", e)))?;
+
+        Ok(json!({ "ok": true }))
+    }
+}
+
+fn function_settings_path() -> std::path::PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".atmos")
+        .join("function_settings.json")
 }
 
 /// Parse request data from JSON Value.

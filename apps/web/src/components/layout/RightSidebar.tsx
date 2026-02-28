@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -39,14 +39,22 @@ import {
   DialogFooter,
   DialogClose,
   Button,
+  Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   toastManager
 } from "@workspace/ui";
-import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link, FileCheck } from "lucide-react";
+import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link, FileCheck, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryStates } from "nuqs";
 import { rightSidebarParams, rightSidebarModalParams, type RightSidebarTab, type ChangesView } from "@/lib/nuqs/searchParams";
 import { useContextParams } from "@/hooks/use-context-params";
-import { GitChangedFile } from '@/api/ws-api';
+import { GitChangedFile, functionSettingsApi } from '@/api/ws-api';
 import { RunPreviewPanel } from "@/components/run-preview/RunPreviewPanel";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
@@ -56,6 +64,8 @@ import { PRPanel } from '@/components/github/PRPanel';
 import { ActionsPanel, type ActionRun } from '@/components/github/ActionsPanel';
 import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
 import { Workflow } from 'lucide-react';
+import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
+import { useAgentChatStatusStore } from '@/hooks/use-agent-chat-status';
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -234,7 +244,26 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const { currentProjectPath } = useEditorStore();
   const { projects } = useProjectStore();
-  const { setCodeReviewDialogOpen } = useDialogStore();
+  const { setCodeReviewDialogOpen, setPendingAgentChatPrompt } = useDialogStore();
+  const [, setAgentChatOpen] = useAgentChatUrl();
+  const agentHasAgents = useAgentChatStatusStore((s) => s.hasInstalledAgents);
+  const agentIsConnected = useAgentChatStatusStore((s) => s.isConnected);
+  const agentIsBusy = useAgentChatStatusStore((s) => s.isBusy);
+
+  const [acpNewSession, setAcpNewSession] = useState(false);
+  const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
+  const aiPopoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    functionSettingsApi.get().then((s) => {
+      setAcpNewSession(s.git_commit?.acp_new_session_switch ?? false);
+    }).catch(() => {});
+  }, []);
+
+  const handleAcpNewSessionToggle = useCallback((checked: boolean) => {
+    setAcpNewSession(checked);
+    functionSettingsApi.update("git_commit", "acp_new_session_switch", checked).catch(() => {});
+  }, []);
 
   const currentProject = projects.find(p =>
     (workspaceId && p.workspaces.some(w => w.id === workspaceId)) ||
@@ -460,6 +489,39 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     } finally {
       setIsCommitting(false);
     }
+  };
+
+  const handleGenerateCommitMessage = () => {
+    if (!agentHasAgents) {
+      toastManager.add({
+        title: "No ACP Agent Available",
+        description: "Install an ACP agent first to use AI commit message generation.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (!acpNewSession && (!agentIsConnected || agentIsBusy)) {
+      toastManager.add({
+        title: "Agent Chat Busy",
+        description: "The default Chat agent is busy or not connected. Please wait and try again.",
+        type: "warning",
+      });
+      return;
+    }
+
+    const skillPath = "~/.atmos/skills/.system/git-commit/SKILL.md";
+    const prompt = `Read the skill instructions at ${skillPath} and follow the full workflow: analyze the diff, generate a conventional commit message, and execute the git commit. Do not ask for confirmation.`;
+    setPendingAgentChatPrompt({
+      prompt,
+      forceNewSession: acpNewSession,
+    });
+    setAgentChatOpen(true);
+    toastManager.add({
+      title: "Generating Commit Message",
+      description: "Prompt sent to Agent. It will analyze changes and auto-commit. No further action needed.",
+      type: "success",
+    });
   };
 
   const hasChanges = stagedFiles.length > 0 || unstagedFiles.length > 0 || untrackedFiles.length > 0;
@@ -728,19 +790,78 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           {/* Commit Actions (Sticky Bottom) - Only show when working context exists and in changes view */}
           {hasWorkingContext && changesView === 'changes' && (
             <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
-              {/* Input */}
-              <textarea
-                placeholder="Message (⌘+Enter to commit)"
-                value={commitMessage}
-                onChange={(e) => setCommitMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    handleCommit();
-                  }
-                }}
-                className="w-full min-h-[60px] p-2.5 bg-sidebar-accent/50 border-transparent focus:border-sidebar-border/50 focus:bg-sidebar-accent rounded-md text-sidebar-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 transition-all ease-out duration-200 text-xs resize-none"
-              />
+              {/* Input with AI generate button */}
+              <div className="relative">
+                <textarea
+                  placeholder="Message (⌘+Enter to commit)"
+                  value={commitMessage}
+                  onChange={(e) => setCommitMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      handleCommit();
+                    }
+                  }}
+                  className="w-full min-h-[60px] p-2.5 pr-8 bg-sidebar-accent/50 border-transparent focus:border-sidebar-border/50 focus:bg-sidebar-accent rounded-md text-sidebar-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 transition-all ease-out duration-200 text-xs resize-none"
+                />
+                <Popover open={aiPopoverOpen} onOpenChange={setAiPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      onClick={handleGenerateCommitMessage}
+                      onMouseEnter={() => {
+                        if (aiPopoverTimer.current) clearTimeout(aiPopoverTimer.current);
+                        aiPopoverTimer.current = setTimeout(() => setAiPopoverOpen(true), 400);
+                      }}
+                      onMouseLeave={() => {
+                        if (aiPopoverTimer.current) { clearTimeout(aiPopoverTimer.current); aiPopoverTimer.current = null; }
+                      }}
+                      disabled={!hasChanges}
+                      title="AI Generate Commit Message"
+                      className={cn(
+                        "absolute top-1.5 right-1.5 p-1 rounded-sm transition-colors",
+                        hasChanges
+                          ? "text-muted-foreground hover:text-amber-500 hover:bg-sidebar-accent cursor-pointer"
+                          : "text-muted-foreground/30 cursor-not-allowed"
+                      )}
+                    >
+                      <Sparkles className="size-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="top"
+                    align="end"
+                    className="w-52 p-1"
+                    onMouseEnter={() => {
+                      if (aiPopoverTimer.current) { clearTimeout(aiPopoverTimer.current); aiPopoverTimer.current = null; }
+                    }}
+                    onMouseLeave={() => {
+                      aiPopoverTimer.current = setTimeout(() => setAiPopoverOpen(false), 300);
+                    }}
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <div className="flex items-center justify-between gap-3 rounded-sm px-2.5 py-2 hover:bg-muted transition-colors">
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <label htmlFor="acp-new-session" className="text-xs font-medium text-popover-foreground cursor-help select-none">
+                              New ACP Session
+                            </label>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[200px] text-xs">
+                            Enabling this starts a fresh ACP session each time, which may take ~10s to initialize.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <Switch
+                        id="acp-new-session"
+                        checked={acpNewSession}
+                        onCheckedChange={handleAcpNewSessionToggle}
+                        className="scale-80 shrink-0"
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
 
               {/* Main Button with Dropdown */}
               <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">

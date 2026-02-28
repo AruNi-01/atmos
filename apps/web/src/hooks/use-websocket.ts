@@ -68,7 +68,11 @@ export type WsAction =
   | 'wiki_skill_install'
   | 'wiki_skill_system_status'
   | 'code_review_skill_system_status'
+  | 'git_commit_skill_system_status'
   | 'skills_system_sync'
+  // Function settings
+  | 'function_settings_get'
+  | 'function_settings_update'
   // Agent 操作
   | 'agent_list'
   | 'agent_install'

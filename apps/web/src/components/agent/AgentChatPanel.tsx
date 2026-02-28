@@ -79,6 +79,7 @@ import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatLayout } from "@/hooks/use-agent-chat-layout";
+import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
 import { AgentIcon } from "./AgentIcon";
 import { useAgentSession, type AgentServerMessage, type AcpPermissionOption } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
@@ -1166,6 +1167,8 @@ export function AgentChatPanel() {
   const [isManualLoadingMessages, setIsManualLoadingMessages] = useState(false);
   const [isResumedSession, setIsResumedSession] = useState(false);
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitleValue, setEditingTitleValue] = useState("");
   const [headerHovered, setHeaderHovered] = useState(false);
   const [selectedAuthMethodId, setSelectedAuthMethodId] = useState<string>("");
   const [activeSessionByContext, setActiveSessionByContext] = useState<Record<string, string>>(
@@ -1193,6 +1196,7 @@ export function AgentChatPanel() {
     loadLayout();
   }, [loadLayout]);
   const panelRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const dragAbortController = useRef<AbortController | null>(null);
   const resizeState = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; edge: string } | null>(null);
@@ -1471,6 +1475,14 @@ export function AgentChatPanel() {
     onMessage: handleMessage,
   });
 
+  // Publish readiness to global store so other components can check before sending prompts
+  const setStatusHasAgents = useAgentChatStatusStore((s) => s.setHasInstalledAgents);
+  const setStatusConnected = useAgentChatStatusStore((s) => s.setIsConnected);
+  const setStatusBusy = useAgentChatStatusStore((s) => s.setIsBusy);
+  useEffect(() => { setStatusHasAgents(installedAgents.length > 0); }, [installedAgents.length, setStatusHasAgents]);
+  useEffect(() => { setStatusConnected(isConnected); }, [isConnected, setStatusConnected]);
+  useEffect(() => { setStatusBusy(waitingForResponse); }, [waitingForResponse, setStatusBusy]);
+
   const loadHistorySessions = useCallback(
     async (cursor?: string) => {
       setHistoryLoading(true);
@@ -1631,6 +1643,7 @@ export function AgentChatPanel() {
     setEntries([]);
     setPendingPermission(null);
     setSessionTitle(null);
+    setIsEditingTitle(false);
     setIsResumedSession(false);
     setWaitingForResponse(false);
     stoppedRef.current = false;
@@ -1679,6 +1692,7 @@ export function AgentChatPanel() {
     setEntries([]);
     setPendingPermission(null);
     setSessionTitle(null);
+    setIsEditingTitle(false);
     setIsResumedSession(false);
     setWaitingForResponse(false);
     stoppedRef.current = false;
@@ -1914,12 +1928,13 @@ export function AgentChatPanel() {
     setLastSessionIdForContext(contextKey, sessionId);
   }, [contextKey, sessionId]);
 
-  // Handle auto-starting a pending prompt (e.g. from Code Review Dialog) once connected
+  // Handle auto-starting a pending prompt (e.g. from Code Review Dialog) once connected.
+  // Also fires when pendingAgentChatPrompt changes while already connected (e.g. commit
+  // message generation reusing the existing session).
   useEffect(() => {
     if (isConnected && connectionPhase === "connected") {
       const data = consumePendingAgentChatPrompt();
       if (data && data.prompt) {
-        // Reset the forced-disconnect guard now that we've consumed the prompt
         forcedDisconnectDoneRef.current = false;
         setEntries((prev) => [
           ...prev,
@@ -1929,7 +1944,7 @@ export function AgentChatPanel() {
         sendPrompt(data.prompt);
       }
     }
-  }, [isConnected, connectionPhase, sendPrompt, consumePendingAgentChatPrompt]);
+  }, [isConnected, connectionPhase, sendPrompt, consumePendingAgentChatPrompt, pendingAgentChatPrompt]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -1940,6 +1955,32 @@ export function AgentChatPanel() {
       setSessionTitle(activeSessionTitle);
     }
   }, [sessionId, activeSessionTitle]);
+
+  const handleStartEditTitle = useCallback(() => {
+    if (!sessionTitle) return;
+    setEditingTitleValue(sessionTitle);
+    setIsEditingTitle(true);
+    requestAnimationFrame(() => titleInputRef.current?.focus());
+  }, [sessionTitle]);
+
+  const handleFinishEditTitle = useCallback(() => {
+    setIsEditingTitle(false);
+    const trimmed = editingTitleValue.trim();
+    if (!trimmed || trimmed === sessionTitle) return;
+    setSessionTitle(trimmed);
+    if (sessionId) {
+      void agentRestApi.updateSessionTitle(sessionId, trimmed).catch(() => {});
+    }
+  }, [editingTitleValue, sessionTitle, sessionId]);
+
+  const handleTitleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleFinishEditTitle();
+    } else if (e.key === "Escape") {
+      setIsEditingTitle(false);
+    }
+  }, [handleFinishEditTitle]);
 
   const userEntryIndices = React.useMemo(
     () => entries.map((e, i) => (e.role === "user" ? i : -1)).filter((i) => i >= 0),
@@ -2385,9 +2426,28 @@ export function AgentChatPanel() {
           </div>
         </div>
         {sessionTitle && (
-          <div className="truncate text-xs text-muted-foreground" title={sessionTitle}>
-            {sessionTitle}
-          </div>
+          isEditingTitle ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={editingTitleValue}
+              onChange={(e) => setEditingTitleValue(e.target.value)}
+              onBlur={handleFinishEditTitle}
+              onKeyDown={handleTitleKeyDown}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="w-full rounded border border-border bg-transparent px-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
+            />
+          ) : (
+            <div
+              className="group/title flex items-center gap-1 min-w-0 cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
+              onClick={handleStartEditTitle}
+              onMouseDown={(e) => e.stopPropagation()}
+              title={sessionTitle}
+            >
+              <span className="truncate text-xs text-muted-foreground">{sessionTitle}</span>
+              <Pencil className="size-3 shrink-0 text-muted-foreground/0 group-hover/title:text-muted-foreground transition-colors" />
+            </div>
+          )
         )}
       </div>
 
