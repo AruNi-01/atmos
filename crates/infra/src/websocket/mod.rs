@@ -39,5 +39,6 @@ pub use message::{
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
     GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
     FunctionSettingsUpdateRequest,
+    SyncSingleSystemSkillRequest,
 };
 pub use service::{WsService, WsServiceConfig};

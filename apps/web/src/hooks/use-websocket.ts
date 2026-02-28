@@ -69,6 +69,7 @@ export type WsAction =
   | 'wiki_skill_system_status'
   | 'code_review_skill_system_status'
   | 'git_commit_skill_system_status'
+  | 'sync_single_system_skill'
   | 'skills_system_sync'
   // Function settings
   | 'function_settings_get'

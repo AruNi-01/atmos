@@ -28,6 +28,7 @@ use infra::{
     GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
     GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
     FunctionSettingsUpdateRequest,
+    SyncSingleSystemSkillRequest,
 };
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
@@ -234,6 +235,10 @@ impl WsMessageService {
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
             WsAction::CodeReviewSkillSystemStatus => self.handle_code_review_skill_system_status().await,
             WsAction::GitCommitSkillSystemStatus => self.handle_git_commit_skill_system_status().await,
+            WsAction::SyncSingleSystemSkill => {
+                self.handle_sync_single_system_skill(parse_request(request.data)?)
+                    .await
+            }
             WsAction::SkillsSystemSync => self.handle_skills_system_sync().await,
             WsAction::AgentList => self.handle_agent_list().await,
             WsAction::AgentInstall => {
@@ -1528,6 +1533,20 @@ set -x
             })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))
+    }
+
+    async fn handle_sync_single_system_skill(&self, req: SyncSingleSystemSkillRequest) -> Result<Value> {
+        let skill_name = req.skill_name;
+        let result = tokio::task::spawn_blocking(move || {
+            infra::utils::system_skill_sync::sync_single_system_skill(&skill_name)
+        })
+        .await
+        .map_err(|e| ServiceError::Processing(format!("Task join error: {}", e)))?;
+
+        match result {
+            Ok(()) => Ok(json!({ "success": true })),
+            Err(msg) => Err(ServiceError::Processing(msg)),
+        }
     }
 
     /// Manually trigger sync of all system skills from project/GitHub
