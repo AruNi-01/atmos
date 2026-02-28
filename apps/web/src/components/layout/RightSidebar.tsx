@@ -504,19 +504,20 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     try {
       const skillInstalled = await skillsApi.isGitCommitSkillInstalledInSystem();
       if (!skillInstalled) {
-        toastManager.add({
+        const toastId = toastManager.add({
           title: "Git Commit Skill Not Found",
           description: "The git-commit skill is not installed.",
           type: "error",
+          timeout: 0,
           actionProps: {
             children: "Install Now",
             onClick: async () => {
-              const id = toastManager.add({ title: "Installing git-commit skill...", type: "loading", timeout: 0 });
+              toastManager.update(toastId, { title: "Installing git-commit skill...", type: "loading", description: undefined, actionProps: undefined });
               try {
                 await skillsApi.syncSingleSystemSkill("git-commit");
-                toastManager.update(id, { title: "Git Commit Skill Installed", type: "success", timeout: 3000, actionProps: undefined });
+                toastManager.update(toastId, { title: "Git Commit Skill Installed", type: "success", timeout: 3000 });
               } catch {
-                toastManager.update(id, { title: "Install Failed", description: "Failed to install. Please try again.", type: "error", timeout: 5000, actionProps: undefined });
+                toastManager.update(toastId, { title: "Install Failed", description: "Please try again.", type: "error", timeout: 5000 });
               }
             },
           },
@@ -532,20 +533,21 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       return;
     }
 
-    if (!acpNewSession && (!agentIsConnected || agentIsBusy)) {
+    if (!acpNewSession && agentIsConnected && agentIsBusy) {
       toastManager.add({
         title: "Agent Chat Busy",
-        description: "The default Chat agent is busy or not connected. Please wait and try again.",
+        description: "The agent is currently processing. Please wait and try again.",
         type: "warning",
       });
       return;
     }
 
+    const shouldForceNewSession = acpNewSession || !agentIsConnected;
     const skillPath = "~/.atmos/skills/.system/git-commit/SKILL.md";
     const prompt = `Read the skill instructions at ${skillPath} and follow the full workflow: analyze the diff, generate a conventional commit message, and execute the git commit. Do not ask for confirmation.`;
     setPendingAgentChatPrompt({
       prompt,
-      forceNewSession: acpNewSession,
+      forceNewSession: shouldForceNewSession,
     });
     setAgentChatOpen(true);
     toastManager.add({
