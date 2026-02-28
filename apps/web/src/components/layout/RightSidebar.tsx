@@ -49,7 +49,7 @@ import {
   PopoverTrigger,
   toastManager
 } from "@workspace/ui";
-import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link, FileCheck, Sparkles } from "lucide-react";
+import { GitBranch, Play, GitPullRequest, GitPullRequestCreateArrow, FolderOpen, Bot, Link, FileCheck, Sparkles, GitCommit as GitCommitIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryStates } from "nuqs";
 import { rightSidebarParams, rightSidebarModalParams, type RightSidebarTab, type ChangesView } from "@/lib/nuqs/searchParams";
@@ -61,6 +61,7 @@ import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { PRDetailModal } from '@/components/github/PRDetailModal';
 import { PRCreateModal } from '@/components/github/PRCreateModal';
 import { PRPanel } from '@/components/github/PRPanel';
+import { CommitsPanel } from '@/components/github/CommitsPanel';
 import { ActionsPanel, type ActionRun } from '@/components/github/ActionsPanel';
 import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
 import { Workflow } from 'lucide-react';
@@ -257,12 +258,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   useEffect(() => {
     functionSettingsApi.get().then((s) => {
       setAcpNewSession(s.git_commit?.acp_new_session_switch ?? false);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleAcpNewSessionToggle = useCallback((checked: boolean) => {
     setAcpNewSession(checked);
-    functionSettingsApi.update("git_commit", "acp_new_session_switch", checked).catch(() => {});
+    functionSettingsApi.update("git_commit", "acp_new_session_switch", checked).catch(() => { });
   }, []);
 
   const currentProject = projects.find(p =>
@@ -308,6 +309,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   const [isChangesActionReady, setIsChangesActionReady] = useState(false);
   const [isChangesHovered, setIsChangesHovered] = useState(false);
+  const [changesSubTab, setChangesSubTab] = useState<'changes' | 'commits'>('changes');
 
   const [isPrActionReady, setIsPrActionReady] = useState(false);
   const [isPrHovered, setIsPrHovered] = useState(false);
@@ -740,11 +742,36 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             )}
           </div>
 
+          {/* Changes / Commits sub-tab bar - sticky, only shown in 'changes' view */}
+          {changesView === 'changes' && hasWorkingContext && (
+            <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm">
+              <span className="text-xs font-bold text-muted-foreground tracking-wider leading-none">Changes</span>
+              <Tabs
+                value={changesSubTab}
+                onValueChange={(v) => setChangesSubTab(v as 'changes' | 'commits')}
+                className=""
+              >
+                <TabsList className="">
+                  <TabsTab value="changes" className="">
+                    <GitBranch className="size-3" />
+                    Changes
+                  </TabsTab>
+                  <TabsTab value="commits" className="">
+                    <GitCommitIcon className="size-3" />
+                    Commits
+                  </TabsTab>
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
+
           {/* Content Area */}
           <div className={cn(
             "flex-1 overflow-y-auto no-scrollbar",
-            changesView === 'changes' ? "p-2" : "pt-0 px-2 pb-2",
-            (!hasWorkingContext || (changesView === 'changes' && !hasChanges && !isLoading)) && "flex items-center justify-center"
+            changesView === 'changes' && changesSubTab !== 'commits' ? "p-2" : "pt-0 px-2 pb-2",
+            changesView === 'changes' && changesSubTab !== 'commits' && hasWorkingContext && !hasChanges && !isLoading && "flex items-center justify-center",
+            changesView === 'changes' && !hasWorkingContext && "flex items-center justify-center",
+            changesView !== 'changes' && !hasWorkingContext && "flex items-center justify-center"
           )}>
             {!hasWorkingContext ? (
               <div className="flex flex-col items-center text-muted-foreground/50">
@@ -784,44 +811,69 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   <span className="text-xs text-center">Not a GitHub repository</span>
                 </div>
               )
-            ) : !hasChanges && !isLoading ? (
-              <div className="flex flex-col items-center text-muted-foreground/50">
-                <Check className="size-8 opacity-20 mb-2" />
-                <span className="text-xs">No changes detected</span>
-              </div>
-            ) : (
-              <>
-                <ChangeSection
-                  title="Staged Changes"
-                  files={stagedFiles}
-                  workspaceId={workspaceId}
-                  onUnstage={unstageFiles}
-                  onUnstageAll={unstageAll}
-                />
-                <ChangeSection
-                  title="Unstaged Changes"
-                  files={unstagedFiles}
-                  workspaceId={workspaceId}
-                  onStage={stageFiles}
-                  onDiscard={handleDiscardUnstaged}
-                  onStageAll={stageAllUnstaged}
-                  onDiscardAll={handleDiscardAllUnstaged}
-                />
-                <ChangeSection
-                  title="Untracked Changes"
-                  files={untrackedFiles}
-                  workspaceId={workspaceId}
-                  onStage={stageFiles}
-                  onDiscard={handleDiscardUntracked}
-                  onStageAll={stageAllUntracked}
-                  onDiscardAll={handleDiscardAllUntracked}
-                />
-              </>
-            )}
+            ) : changesView === 'changes' ? (
+              hasWorkingContext ? (
+                <>
+                  {changesSubTab === 'commits' ? (
+                    <div className="-mx-2 -mb-2 flex-1 h-full">
+                      {currentProjectPath && currentBranch ? (
+                        <CommitsPanel repoPath={currentProjectPath} branch={currentBranch} owner={githubOwner ?? undefined} repo={githubRepo ?? undefined} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
+                          <span className="text-xs">No repository context</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {!hasChanges && !isLoading ? (
+                        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50">
+                          <Check className="size-8 opacity-20 mb-2" />
+                          <span className="text-xs">No changes detected</span>
+                        </div>
+                      ) : (
+                        <>
+                          <ChangeSection
+                            title="Staged Changes"
+                            files={stagedFiles}
+                            workspaceId={workspaceId}
+                            onUnstage={unstageFiles}
+                            onUnstageAll={unstageAll}
+                          />
+                          <ChangeSection
+                            title="Unstaged Changes"
+                            files={unstagedFiles}
+                            workspaceId={workspaceId}
+                            onStage={stageFiles}
+                            onDiscard={handleDiscardUnstaged}
+                            onStageAll={stageAllUnstaged}
+                            onDiscardAll={handleDiscardAllUnstaged}
+                          />
+                          <ChangeSection
+                            title="Untracked Changes"
+                            files={untrackedFiles}
+                            workspaceId={workspaceId}
+                            onStage={stageFiles}
+                            onDiscard={handleDiscardUntracked}
+                            onStageAll={stageAllUntracked}
+                            onDiscardAll={handleDiscardAllUntracked}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center text-muted-foreground/50">
+                  <FolderOpen className="size-8 opacity-20 mb-2" />
+                  <span className="text-xs text-center">Select a project or workspace to view changes</span>
+                </div>
+              )
+            ) : null}
           </div>
 
           {/* Commit Actions (Sticky Bottom) - Only show when working context exists and in changes view */}
-          {hasWorkingContext && changesView === 'changes' && (
+          {hasWorkingContext && changesView === 'changes' && changesSubTab !== 'commits' && (
             <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
               {/* Input with AI generate button */}
               <div className="relative">

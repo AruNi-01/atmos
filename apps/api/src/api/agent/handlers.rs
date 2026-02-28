@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path as FsPath, PathBuf};
 
 use axum::extract::{Multipart, Path, Query, State};
 use serde::Deserialize;
@@ -150,6 +150,7 @@ pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiR
             })?;
 
             let attachment_dir = PathBuf::from(&base_path).join(".atmos").join("attachments");
+            ensure_atmos_attachments_gitignore(FsPath::new(&base_path), &attachment_dir)?;
             std::fs::create_dir_all(&attachment_dir).map_err(|e| {
                 crate::error::ApiError::InternalError(format!(
                     "Failed to create attachments directory: {}",
@@ -186,10 +187,63 @@ pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiR
     }))))
 }
 
+fn ensure_atmos_attachments_gitignore(
+    base_path: &FsPath,
+    _attachment_dir: &FsPath,
+) -> Result<(), crate::error::ApiError> {
+    if !is_inside_git_repo(base_path) {
+        return Ok(());
+    }
+
+    let atmos_dir = base_path.join(".atmos");
+    std::fs::create_dir_all(&atmos_dir).map_err(|e| {
+        crate::error::ApiError::InternalError(format!("Failed to create .atmos directory: {}", e))
+    })?;
+
+    let gitignore_path = atmos_dir.join(".gitignore");
+    let rule = "attachments/";
+    let existing = if gitignore_path.exists() {
+        std::fs::read_to_string(&gitignore_path).map_err(|e| {
+            crate::error::ApiError::InternalError(format!("Failed to read .atmos/.gitignore: {}", e))
+        })?
+    } else {
+        String::new()
+    };
+
+    let already_present = existing
+        .lines()
+        .map(str::trim)
+        .any(|line| line == rule || line == "/attachments/");
+    if already_present {
+        return Ok(());
+    }
+
+    let mut updated = existing;
+    if !updated.is_empty() && !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(rule);
+    updated.push('\n');
+
+    std::fs::write(&gitignore_path, updated).map_err(|e| {
+        crate::error::ApiError::InternalError(format!("Failed to write .atmos/.gitignore: {}", e))
+    })?;
+
+    Ok(())
+}
+
+fn is_inside_git_repo(path: &FsPath) -> bool {
+    path.ancestors().any(|ancestor| ancestor.join(".git").exists())
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ListAgentSessionsQuery {
     pub context_type: Option<String>,
     pub context_guid: Option<String>,
+    /// Filter by registry_id (ACP Agent)
+    pub registry_id: Option<String>,
+    /// Filter by status: active | closed
+    pub status: Option<String>,
     pub mode: Option<String>,
     #[serde(default = "default_limit")]
     pub limit: u64,
@@ -210,12 +264,22 @@ pub async fn list_agent_sessions(
     State(state): State<AppState>,
     Query(q): Query<ListAgentSessionsQuery>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
+    // Validate status if provided
+    let status = q.status.as_ref().map(|s| {
+        match s.as_str() {
+            "active" | "closed" => s.clone(),
+            _ => "active".to_string(),
+        }
+    });
+
     let mode = parse_chat_mode(q.mode.as_deref())?;
     let (items, next_cursor, has_more) = state
         .agent_session_service
-        .list_sessions(
+        .list_sessions_with_filters(
             q.context_type.as_deref(),
             q.context_guid.as_deref(),
+            q.registry_id.as_deref(),
+            status.as_deref(),
             Some(&mode),
             q.limit,
             q.cursor.as_deref(),
@@ -234,6 +298,7 @@ pub async fn list_agent_sessions(
                 "registry_id": s.registry_id,
                 "status": s.status,
                 "mode": s.mode,
+                "cwd": s.cwd,
                 "created_at": s.created_at,
                 "updated_at": s.updated_at,
             })
@@ -265,6 +330,7 @@ pub async fn get_agent_session(
         "registry_id": s.registry_id,
         "status": s.status,
         "mode": s.mode,
+        "cwd": s.cwd,
         "created_at": s.created_at,
         "updated_at": s.updated_at,
     }))))

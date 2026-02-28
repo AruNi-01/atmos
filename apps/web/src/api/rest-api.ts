@@ -333,6 +333,7 @@ export interface AgentChatSessionItem {
   registry_id: string;
   status: string;
   mode: string;
+  cwd: string;
   created_at: string;
   updated_at: string;
 }
@@ -387,11 +388,13 @@ export const agentApi = {
   },
 
   /**
-   * List agent chat sessions with cursor pagination.
+   * List agent chat sessions with cursor pagination and filters.
    */
   listSessions: async (params?: {
     context_type?: string;
     context_guid?: string;
+    registry_id?: string;
+    status?: "active" | "closed";
     mode?: "default" | "wiki_ask";
     limit?: number;
     cursor?: string;
@@ -399,6 +402,8 @@ export const agentApi = {
     const search = new URLSearchParams();
     if (params?.context_type) search.set('context_type', params.context_type);
     if (params?.context_guid) search.set('context_guid', params.context_guid);
+    if (params?.registry_id) search.set('registry_id', params.registry_id);
+    if (params?.status) search.set('status', params.status);
     if (params?.mode) search.set('mode', params.mode);
     if (params?.limit) search.set('limit', String(params.limit));
     if (params?.cursor) search.set('cursor', params.cursor);

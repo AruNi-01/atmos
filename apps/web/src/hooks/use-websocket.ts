@@ -36,6 +36,7 @@ export type WsAction =
   | 'git_pull'
   | 'git_fetch'
   | 'git_sync'
+  | 'git_log'
   // Project 操作
   | 'project_list'
   | 'project_create'

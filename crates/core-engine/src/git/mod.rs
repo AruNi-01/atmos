@@ -919,6 +919,193 @@ impl GitEngine {
         self.pull(repo_path)?;
         Ok(())
     }
+
+    /// Get commit log for the current branch (paginated)
+    pub fn get_commit_log(&self, repo_path: &Path, limit: usize, offset: usize) -> Result<Vec<CommitInfo>> {
+        // Check if there is an upstream branch
+        let upstream_exists = Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "--abbrev-ref", "@{u}"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        let mut all_commits = Vec::new();
+
+        if upstream_exists {
+            // First page: prepend ALL unpushed commits
+            if offset == 0 {
+                let unpushed = self.fetch_raw_commits(repo_path, "@{u}..HEAD", 0, 100, false)?;
+                all_commits.extend(unpushed);
+            }
+
+            // Fetch current page of PUSHED commits
+            // We fetch from the upstream branch directly to ensure pagination index aligns with GitHub API
+            let pushed = self.fetch_raw_commits(repo_path, "@{u}", offset, limit, true)?;
+            all_commits.extend(pushed);
+        } else {
+            // No upstream: fetch everything locally, everything is marking as unpushed
+            let local = self.fetch_raw_commits(repo_path, "HEAD", offset, limit, false)?;
+            all_commits.extend(local);
+        }
+
+        // Try to enrich with GitHub avatars if gh-cli is available
+        // GitHub API only knows about pushed commits on the server.
+        if let Ok(repo_info) = self.get_github_repo_info(repo_path) {
+            // Mapping: GitHub API's "pushed" page directly matches our pushed-only offset
+            if let Ok(avatars) = self.fetch_github_avatars(repo_path, &repo_info, offset) {
+                for commit in &mut all_commits {
+                    if commit.is_pushed {
+                        if let Some(avatar_url) = avatars.get(&commit.hash) {
+                            commit.author_avatar_url = Some(avatar_url.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(all_commits)
+    }
+
+    fn fetch_raw_commits(
+        &self,
+        repo_path: &Path,
+        rev_range: &str,
+        skip: usize,
+        limit: usize,
+        is_pushed: bool,
+    ) -> Result<Vec<CommitInfo>> {
+        let separator = "\x1f"; // unit separator
+        let record_sep = "\x1e"; // record separator
+        let format = format!(
+            "--format={}%H{}%an{}%ae{}%at{}%s{}%b{}",
+            record_sep, separator, separator, separator, separator, separator, separator
+        );
+
+        let output = Command::new("git")
+            .current_dir(repo_path)
+            .args([
+                "log",
+                &format,
+                &format!("--skip={}", skip),
+                &format!("-n{}", limit),
+                rev_range,
+            ])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to fetch raw commits for {}: {}", rev_range, e)))?;
+
+        if !output.status.success() {
+            // If the range is empty (e.g. @{u}..HEAD when identical), it might return success or harmless error
+            return Ok(Vec::new());
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut result = Vec::new();
+
+        for block in stdout.split(record_sep) {
+            let block = block.trim();
+            if block.is_empty() {
+                continue;
+            }
+            let parts: Vec<&str> = block.splitn(7, separator).collect();
+            if parts.len() < 6 {
+                continue;
+            }
+            let hash = parts[0].trim().to_string();
+            let author_name = parts[1].trim().to_string();
+            let author_email = parts[2].trim().to_string();
+            let timestamp: i64 = parts[3].trim().parse().unwrap_or(0);
+            let subject = parts[4].trim().to_string();
+            let body = if parts.len() > 5 { parts[5].trim().to_string() } else { String::new() };
+
+            if hash.is_empty() || hash.len() < 7 {
+                continue;
+            }
+
+            result.push(CommitInfo {
+                short_hash: hash[..7].to_string(),
+                hash,
+                author_name,
+                author_email,
+                timestamp,
+                subject,
+                body,
+                is_pushed,
+                author_avatar_url: None,
+            });
+        }
+        Ok(result)
+    }
+
+    fn get_github_repo_info(&self, path: &Path) -> Result<String> {
+        // First check if the remote URL actually contains github.com
+        let remote_output = Command::new("git")
+            .current_dir(path)
+            .args(["remote", "get-url", "origin"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("Failed to get remote URL: {}", e)))?;
+
+        if !remote_output.status.success() {
+            return Err(EngineError::Git("No remote origin found".to_string()));
+        }
+
+        let remote_url = String::from_utf8_lossy(&remote_output.stdout);
+        if !remote_url.contains("github.com") {
+            return Err(EngineError::Git("Not a GitHub repository".to_string()));
+        }
+
+        let output = Command::new("gh")
+            .current_dir(path)
+            .args(["repo", "view", "--json", "owner,name", "--template", "{{.owner.login}}/{{.name}}"])
+            .output()
+            .map_err(|e| EngineError::Git(format!("gh-cli not found: {}", e)))?;
+
+        if !output.status.success() {
+            return Err(EngineError::Git("gh-cli error or not authenticated".to_string()));
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    fn fetch_github_avatars(
+        &self,
+        path: &Path,
+        repo_info: &str,
+        offset: usize,
+    ) -> Result<std::collections::HashMap<String, String>> {
+        // Since we are now fetching pushed commits from @{u} directly,
+        // our 'offset' corresponds 1:1 with GitHub's commit ordering.
+        let gh_limit = 100;
+        let page = (offset / gh_limit) + 1;
+        
+        let url = format!("repos/{}/commits?per_page={}&page={}", repo_info, gh_limit, page);
+        let output = Command::new("gh")
+            .current_dir(path)
+            .args([
+                "api",
+                &url,
+                "--jq",
+                // Fallback from author to committer if author is null
+                ".[] | {sha: .sha, avatar: (.author.avatar_url // .committer.avatar_url)}",
+            ])
+            .output()
+            .map_err(|e| EngineError::Git(format!("gh api failed: {}", e)))?;
+
+        if !output.status.success() {
+            return Err(EngineError::Git("gh api error".to_string()));
+        }
+
+        let mut avatars = std::collections::HashMap::new();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
+                if let (Some(sha), Some(avatar)) = (val["sha"].as_str(), val["avatar"].as_str()) {
+                    avatars.insert(sha.to_string(), avatar.to_string());
+                }
+            }
+        }
+        Ok(avatars)
+    }
 }
 
 impl Default for GitEngine {
@@ -975,6 +1162,29 @@ pub struct FileDiffInfo {
     pub old_content: String,
     pub new_content: String,
     pub status: String,
+}
+
+/// Information about a single git commit
+#[derive(Debug, Clone)]
+pub struct CommitInfo {
+    /// Full commit hash (40 chars)
+    pub hash: String,
+    /// Short hash (7 chars)
+    pub short_hash: String,
+    /// Author display name
+    pub author_name: String,
+    /// Author email
+    pub author_email: String,
+    /// Unix timestamp of the commit
+    pub timestamp: i64,
+    /// Commit subject (first line of message)
+    pub subject: String,
+    /// Commit body (rest of message, may be empty)
+    pub body: String,
+    /// Whether this commit has been pushed to the remote tracking branch
+    pub is_pushed: bool,
+    /// URL to the author's avatar (e.g. from GitHub)
+    pub author_avatar_url: Option<String>,
 }
 
 /// Parse the output of `git worktree list --porcelain`

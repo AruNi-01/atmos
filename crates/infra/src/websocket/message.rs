@@ -138,6 +138,8 @@ pub enum WsAction {
     GitFetch,
     /// 同步 (fetch + pull)
     GitSync,
+    /// 获取当前分支的提交记录列表
+    GitLog,
 
     // ===== Project 操作 =====
     /// 获取所有项目
@@ -734,6 +736,23 @@ pub struct GitFetchRequest {
 pub struct GitSyncRequest {
     /// 仓库路径
     pub path: String,
+}
+
+/// 获取 Git 提交日志请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitLogRequest {
+    /// 仓库路径
+    pub path: String,
+    /// 每页条数（默认 30）
+    #[serde(default = "default_git_log_limit")]
+    pub limit: usize,
+    /// 跳过的条数（用于分页，默认 0）
+    #[serde(default)]
+    pub offset: usize,
+}
+
+fn default_git_log_limit() -> usize {
+    30
 }
 
 // ===== Script 操作数据结构 =====

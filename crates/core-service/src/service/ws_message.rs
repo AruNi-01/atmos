@@ -15,7 +15,7 @@ use infra::{
     FsReadFileRequest, FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest, FsWriteFileRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
     GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitGetCommitCountRequest,
-    GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitPullRequest,
+    GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest,
     GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
     ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
     ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
@@ -146,6 +146,7 @@ impl WsMessageService {
             WsAction::GitPull => self.handle_git_pull(parse_request(request.data)?),
             WsAction::GitFetch => self.handle_git_fetch(parse_request(request.data)?),
             WsAction::GitSync => self.handle_git_sync(parse_request(request.data)?),
+            WsAction::GitLog => self.handle_git_log(parse_request(request.data)?),
 
             // Project
             WsAction::ProjectList => self.handle_project_list().await,
@@ -708,6 +709,32 @@ impl WsMessageService {
             .map_err(|e| ServiceError::Validation(format!("Failed to sync: {}", e)))?;
 
         Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_log(&self, req: GitLogRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let commits = self.git_engine
+            .get_commit_log(&path, req.limit, req.offset)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get git log: {}", e)))?;
+
+        let commits_json: Vec<Value> = commits
+            .into_iter()
+            .map(|c| {
+                json!({
+                    "hash": c.hash,
+                    "short_hash": c.short_hash,
+                    "author_name": c.author_name,
+                    "author_email": c.author_email,
+                    "timestamp": c.timestamp,
+                    "subject": c.subject,
+                    "body": c.body,
+                    "is_pushed": c.is_pushed,
+                    "author_avatar_url": c.author_avatar_url,
+                })
+            })
+            .collect();
+
+        Ok(json!({ "commits": commits_json }))
     }
 
     // ===== Project Handlers =====

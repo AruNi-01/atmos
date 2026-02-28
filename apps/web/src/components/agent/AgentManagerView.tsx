@@ -19,13 +19,18 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
 } from "@workspace/ui";
 import {
   agentApi,
   type RegistryAgent,
   type CustomAgent,
 } from "@/api/ws-api";
-import { Bot, Github, Loader2, Search, Trash2, ArrowDownToLine, AlertCircle, RefreshCw, CircleFadingArrowUp, Plus, Terminal, Download, Globe, FileCode } from "lucide-react";
+import { Bot, Github, Loader2, Search, Trash2, ArrowDownToLine, AlertCircle, RefreshCw, CircleFadingArrowUp, Plus, Terminal, Download, Globe, FileCode, MessageSquare } from "lucide-react";
+import { ChatSessionsManagementView } from "@/components/chat-sessions/ChatSessionsManagementView";
 import { AgentIcon } from "./AgentIcon";
 import { Skeleton } from "@workspace/ui";
 import { motion, AnimatePresence } from "motion/react";
@@ -67,6 +72,8 @@ function needsUpdate(installedVersion: string, latestVersion: string): boolean {
 
 export const AgentManagerView: React.FC = () => {
   const [{ agentTab: activeTab, agentQ: query }, setAgentParams] = useQueryStates(agentManagerParams);
+  const [isSessionsView, setIsSessionsView] = React.useState(false);
+  const [iconHovered, setIconHovered] = React.useState(false);
   const [registryAgents, setRegistryAgents] = React.useState<RegistryAgent[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -583,57 +590,125 @@ export const AgentManagerView: React.FC = () => {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
-      <div className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10">
+      <div
+        className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10 cursor-pointer"
+        onMouseEnter={() => setIconHovered(true)}
+        onMouseLeave={() => setIconHovered(false)}
+        onClick={() => setIsSessionsView(prev => !prev)}
+      >
         <div className="flex items-center justify-between gap-6 max-w-5xl mx-auto w-full">
-          <div className="flex items-center gap-4">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
-              <Bot className="size-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">Agent Manager</h2>
-              <p className="text-sm text-muted-foreground text-pretty max-w-xs">
-                Explore and manage your ACP agents
-              </p>
+          <div className="flex items-center gap-4 shrink-0">
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="relative flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20 overflow-hidden transition-colors"
+                    aria-label={isSessionsView ? "Switch to Agent Manager" : "Switch to Sessions"}
+                  >
+                    <div className={cn(
+                      "absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                      iconHovered ? "-translate-y-1.5 scale-90 opacity-0" : "translate-y-0 scale-100 opacity-100"
+                    )}>
+                      {isSessionsView ? <MessageSquare className="size-6" /> : <Bot className="size-6" />}
+                    </div>
+                    <div className={cn(
+                      "absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                      iconHovered ? "translate-y-0 scale-100 opacity-100" : "translate-y-1.5 scale-90 opacity-0"
+                    )}>
+                      {isSessionsView ? <Bot className="size-6" /> : <MessageSquare className="size-6" />}
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isSessionsView ? "Switch to Agent Manager" : "Switch to Sessions"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <div className="relative overflow-hidden">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={isSessionsView ? "sessions-title" : "agents-title"}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -20, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">
+                    {isSessionsView ? "Chat Sessions" : "Agent Manager"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground text-pretty max-w-xs">
+                    {isSessionsView
+                      ? "View and manage your AI agent chat sessions"
+                      : "Explore and manage your ACP agents"}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 flex-1 max-w-md">
-            <div className="relative w-full group">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
-              <Input
-                value={query}
-                onChange={(e) => setAgentParams({ agentQ: e.target.value })}
-                placeholder="Search agents..."
-                className="h-10 pl-10 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
-              />
+          {/* Agent controls - only show when NOT in sessions view */}
+          {!isSessionsView && (
+            <div className="flex-1 max-w-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3">
+                <div className="relative w-full group">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
+                  <Input
+                    value={query}
+                    onChange={(e) => setAgentParams({ agentQ: e.target.value })}
+                    placeholder="Search agents..."
+                    className="h-10 pl-10 bg-muted/20 border-border/50 focus:bg-background transition-all rounded-xl shadow-sm focus-visible:ring-1 focus-visible:ring-primary/20"
+                  />
+                </div>
+                {activeTab === "custom" && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setAddCustomDialogOpen(true)}
+                    className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
+                    title="Add Custom Agent"
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                )}
+                {activeTab === "registry" && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => void handleRefresh()}
+                    disabled={refreshing}
+                    className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
+                    title="Refresh Registry"
+                  >
+                    <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
+                  </Button>
+                )}
+              </div>
             </div>
-            {activeTab === "custom" && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setAddCustomDialogOpen(true)}
-                className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
-                title="Add Custom Agent"
-              >
-                <Plus className="size-4" />
-              </Button>
-            )}
-            {activeTab === "registry" && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => void handleRefresh()}
-                disabled={refreshing}
-                className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
-                title="Refresh Registry"
-              >
-                <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-              </Button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
+      <AnimatePresence mode="wait" initial={false}>
+        {isSessionsView ? (
+          <motion.div
+            key="sessions-content"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-1 overflow-hidden"
+          >
+            <ChatSessionsManagementView hideHeader />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="agents-content"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-1 flex flex-col overflow-hidden"
+          >
       <Tabs
         value={activeTab}
         onValueChange={(v) => setAgentParams({ agentTab: v as AgentTab })}
@@ -673,7 +748,7 @@ export const AgentManagerView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto px-8 pt-4 pb-8 scrollbar-on-hover">
+        <div className="flex-1 scrollbar-on-hover overflow-auto px-8 pt-4 pb-8">
           <div className="max-w-5xl mx-auto w-full">
             <TabsContent value="installed">
               {loading ? renderSkeletonGrid() : (
@@ -754,6 +829,9 @@ export const AgentManagerView: React.FC = () => {
           </div>
         </div>
       </Tabs>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Dialog
         open={!!overwriteDialog}
