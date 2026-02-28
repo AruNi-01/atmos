@@ -2438,15 +2438,23 @@ export function AgentChatPanel() {
               className="w-full rounded border border-border bg-transparent px-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
             />
           ) : (
-            <div
-              className="group/title flex items-center gap-1 min-w-0 cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
-              onClick={handleStartEditTitle}
-              onMouseDown={(e) => e.stopPropagation()}
-              title={sessionTitle}
-            >
-              <span className="truncate text-xs text-muted-foreground">{sessionTitle}</span>
-              <Pencil className="size-3 shrink-0 text-muted-foreground/0 group-hover/title:text-muted-foreground transition-colors" />
-            </div>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="group/title flex items-center gap-1 min-w-0 cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
+                    onClick={handleStartEditTitle}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    <span className="truncate text-xs text-muted-foreground">{sessionTitle}</span>
+                    <Pencil className="size-3 shrink-0 text-muted-foreground/0 group-hover/title:text-muted-foreground transition-colors" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start" className="z-100 max-w-[300px] break-words text-xs">
+                  {sessionTitle}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )
         )}
       </div>
