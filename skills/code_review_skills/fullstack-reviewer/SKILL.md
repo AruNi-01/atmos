@@ -209,6 +209,79 @@ After writing the report, print a concise summary to the console:
 5. **Acknowledge good work** — The "Positive Highlights" section is not optional.
 6. **Be project-aware** — Respect the project's conventions and patterns over generic rules.
 
+---
+
+## Critical Rules - MUST FOLLOW ⚠️
+
+### 1. Verify Before Flagging
+
+**NEVER** report an issue based on assumptions. For EVERY finding, you MUST:
+
+1. **Read the actual code** — Examine the file and surrounding context
+2. **Trace the data flow** — Follow variables/parameters to understand their origin and validation
+3. **Check related files** — Auth might be in middleware, validation might be in DTO layer, etc.
+4. **Verify the field/property/type exists** — Don't suggest checking fields that don't exist in the codebase
+
+**BEFORE reporting any issue, ask yourself:**
+- "Did I read the actual file that contains this code?"
+- "Can I point to the exact line that demonstrates the problem?"
+- "Is this issue real, or am I assuming something exists?"
+
+**Examples of INCORRECT findings (DO NOT DO THIS):**
+- ❌ Suggesting to check a field/property that doesn't exist in the type definition
+- ❌ Claiming "missing authorization" when auth is handled by middleware
+- ❌ Reporting "race condition" without proving concurrent access actually exists
+- ❌ Proposing validation for inputs that are already constrained by types/enums
+
+### 2. Security Findings Require Extra Verification
+
+For ANY security-related finding (P0/P1), you MUST:
+
+1. **Trace the complete data flow** — From user input to final usage
+2. **Check for validation layers** — Middleware, DTOs, schema validation, ORM-level constraints
+3. **Verify the threat model** — Is this user-controlled? Is it actually accessible?
+4. **Consider the architecture** — Where are auth checks performed in this codebase?
+5. **Check if the issue is mitigated elsewhere** — Database constraints, framework protections, etc.
+
+**Only report as P0/P1 if:**
+- The vulnerability is exploitable in the current architecture
+- The fix is not already implemented elsewhere (middleware, framework, database, etc.)
+- The impact is clearly severe (data loss, security breach, correctness bug)
+
+### 3. Severity Level Calibration
+
+Use conservative thresholds to avoid "review fatigue":
+
+| Level | When to Use |
+|-------|-------------|
+| **P0** | Confirmed exploits, data loss, corruption, crashes in production code |
+| **P1** | Bugs affecting correctness, exploitable security issues, real performance regressions |
+| **P2** | Code smells, maintainability issues, minor violations |
+| **P3** | Style, naming, nitpicks |
+
+**Lower your severity if:**
+- The issue is theoretical with no proven impact
+- A framework/library already handles this
+- The fix requires significant refactoring for minor gain
+- The pattern is actually valid in this project's context
+- The code already has error handling (even if not perfect)
+
+### 4. Context-Aware Review
+
+Before flagging an issue:
+
+1. **Understand the business logic** — Why was this code written this way?
+2. **Check for trade-offs** — Complexity might be intentional for performance or readability
+3. **Look for patterns** — Is this how the project does things consistently?
+4. **Consider the scope** — Is this production code, internal tool, or prototype?
+5. **Read related files** — Don't judge code in isolation
+
+**Red flags that indicate you're over-reviewing:**
+- Finding 10+ P1 issues in a small PR (<500 lines)
+- Suggesting major architecture changes for a simple bug fix
+- Proposing "best practices" that don't fit the project's established patterns
+- Marking non-blocking issues as P1
+
 ## Additional Resources
 
 ### Reference Files

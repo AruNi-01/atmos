@@ -97,7 +97,7 @@ export function inferSkillFromFiles(_filePaths: string[]): CodeReviewSkillId {
 
 export function buildCodeReviewPrompt(skillId: string, reportPath: string): string {
   const skillPath = `~/.atmos/skills/.system/code_review_skills/${skillId}/SKILL.md`;
-  return `Read the skill instructions at ${skillPath} and follow them to perform a thorough code review of the current git changes (run 'git diff' and 'git diff --staged' to see changes). After completing the review, write the full review report in Markdown format to the file '${reportPath}'. Create parent directories if needed. Do not ask for confirmation before writing the file.\n\nIMPORTANT: This is a review-only task. Do NOT automatically fix or modify any code. Only report the issues you find. Any fixes must be explicitly requested and approved by the user.`;
+  return `Read the skill instructions at ${skillPath} and follow them to perform a thorough code review of the current git changes (run 'git diff' and 'git diff --staged' to see changes). After completing the review, write the full review report in Markdown format to the file '${reportPath}' (Remember to dynamically replace the 'code_review' part of the file name according to the content of the review). Create parent directories if needed. Do not ask for confirmation before writing the file.\n\nIMPORTANT: This is a review-only task. Do NOT automatically fix or modify any code. Only report the issues you find. Any fixes must be explicitly requested and approved by the user.`;
 }
 
 /**
@@ -175,7 +175,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     });
 
     // TODO: Re-enable when backend implements /api/review-skills endpoint
-    // setSkillsList([]); 
+    // setSkillsList([]);
     setLoadingSkillsList(false);
 
     setLoadingAcpAgents(true);

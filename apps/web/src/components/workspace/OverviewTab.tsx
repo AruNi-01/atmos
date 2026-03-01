@@ -619,7 +619,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </Card>
 
           {/* Status/Metadata Column */}
-          <Card className="bg-background border border-border flex flex-col h-[520px]">
+          <Card className="bg-background border border-border flex flex-col h-[520px] min-w-0">
             <CardHeader className="py-3 px-4 border-b border-border">
               <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
                 <History className="size-4" />
@@ -736,16 +736,24 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     </div>
                   ) : reviewFiles.length > 0 ? (
                     reviewFiles.map((file, i) => (
-                      <div
-                        key={i}
-                        onClick={() => openFile(file.path, contextId, { preview: true })}
-                        className="flex items-center gap-2.5 p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group"
-                      >
-                        <FileCheck className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                        <span className="text-[11px] text-muted-foreground group-hover:text-foreground transition-colors truncate">
-                          {file.name}
-                        </span>
-                      </div>
+                      <TooltipProvider key={i} delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              onClick={() => openFile(file.path, contextId, { preview: true })}
+                              className="flex items-center gap-2.5 p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group min-w-0"
+                            >
+                              <FileCheck className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                              <span className="text-[11px] text-muted-foreground group-hover:text-foreground transition-colors truncate">
+                                {file.name}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[10px] font-mono max-w-[400px] break-all">
+                            {file.name}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     ))
                   ) : (
                     <div className="flex flex-col items-center justify-center py-4 text-center border border-dashed border-border/60 rounded-md">

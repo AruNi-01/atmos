@@ -39,6 +39,7 @@ interface EditorStore {
   // 动作
   setWorkspaceId: (workspaceId: string | null) => void;
   openFile: (path: string, workspaceId?: string, options?: { preview?: boolean }) => Promise<void>;
+  reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
   pinFile: (path: string, workspaceId?: string) => void;
   closeFile: (path: string, workspaceId?: string) => void;
   setActiveFile: (path: string | null, workspaceId?: string) => void;
@@ -81,6 +82,19 @@ function isBinaryFile(path: string): boolean {
 
 function getFileNameFromPath(path: string): string {
   return path.split('/').pop() || path;
+}
+
+function getDiffTabName(name: string): string {
+  return name.endsWith(' (Diff)') ? name : `${name} (Diff)`;
+}
+
+async function readFileWithTimeout(path: string, timeoutMs = 12000) {
+  return Promise.race([
+    fsApi.readFile(path),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Read timeout: ${path}`)), timeoutMs)
+    ),
+  ]);
 }
 
 export const useEditorStore = create<EditorStore>()(
@@ -130,6 +144,9 @@ export const useEditorStore = create<EditorStore>()(
               [id]: { ...currentState, activeFilePath: path }
             }
           }));
+          if (existingFile.isLoading) {
+            await get().reloadFileContent(path, id);
+          }
           return;
         }
 
@@ -178,7 +195,7 @@ export const useEditorStore = create<EditorStore>()(
                  ...state.workspaceStates,
                  [id]: {
                    ...ws,
-                   openFiles: ws.openFiles.map(f => f.path === path ? { ...f, isLoading: false, name: f.name + ' (Diff)' } : f)
+                   openFiles: ws.openFiles.map(f => f.path === path ? { ...f, isLoading: false, name: getDiffTabName(f.name) } : f)
                  }
                }
              };
@@ -209,10 +226,55 @@ export const useEditorStore = create<EditorStore>()(
              return;
         }
 
+        await get().reloadFileContent(path, id);
+      },
+
+      reloadFileContent: async (path, workspaceId) => {
+        const id = workspaceId || get().currentWorkspaceId;
+        if (!id) return;
+
+        if (path.startsWith('diff://')) {
+          set((state) => {
+            const ws = state.workspaceStates[id];
+            if (!ws) return state;
+            return {
+              workspaceStates: {
+                ...state.workspaceStates,
+                [id]: {
+                  ...ws,
+                  openFiles: ws.openFiles.map(f => f.path === path ? { ...f, isLoading: false, name: getDiffTabName(f.name) } : f)
+                }
+              }
+            };
+          });
+          return;
+        }
+
+        if (isBinaryFile(path)) {
+          set((state) => {
+            const ws = state.workspaceStates[id];
+            if (!ws) return state;
+            return {
+              workspaceStates: {
+                ...state.workspaceStates,
+                [id]: {
+                  ...ws,
+                  openFiles: ws.openFiles.map(f => f.path === path ? {
+                    ...f,
+                    content: `stream://${path}`,
+                    originalContent: `stream://${path}`,
+                    isLoading: false
+                  } : f)
+                }
+              }
+            };
+          });
+          return;
+        }
+
         try {
-          const response = await fsApi.readFile(path);
+          const response = await readFileWithTimeout(path);
           if (!response.exists || response.content === null) {
-            // 文件不存在，提示用户并从打开列表中移除
             const fileName = path.split('/').pop() || path;
             toastManager.add({
               title: 'File not found',
@@ -221,13 +283,15 @@ export const useEditorStore = create<EditorStore>()(
             });
             set((state) => {
               const ws = state.workspaceStates[id];
+              if (!ws) return state;
+              const newOpenFiles = ws.openFiles.filter(f => f.path !== path);
               return {
                 workspaceStates: {
                   ...state.workspaceStates,
                   [id]: {
                     ...ws,
-                    openFiles: ws.openFiles.filter(f => f.path !== path),
-                    activeFilePath: ws.activeFilePath === path ? (ws.openFiles[0]?.path || null) : ws.activeFilePath
+                    openFiles: newOpenFiles,
+                    activeFilePath: ws.activeFilePath === path ? (newOpenFiles[0]?.path || null) : ws.activeFilePath
                   }
                 }
               };
@@ -236,27 +300,32 @@ export const useEditorStore = create<EditorStore>()(
           }
           set((state) => {
             const ws = state.workspaceStates[id];
+            if (!ws) return state;
             return {
-               workspaceStates: {
-                 ...state.workspaceStates,
-                 [id]: {
-                   ...ws,
-                   openFiles: ws.openFiles.map(f => f.path === path ? { ...f, content: response.content as string, originalContent: response.content as string, isLoading: false } : f)
-                 }
-               }
+              workspaceStates: {
+                ...state.workspaceStates,
+                [id]: {
+                  ...ws,
+                  openFiles: ws.openFiles.map(f =>
+                    f.path === path
+                      ? { ...f, content: response.content as string, originalContent: response.content as string, isLoading: false }
+                      : f
+                  )
+                }
+              }
             };
           });
         } catch (error) {
           console.error('Failed to read file:', error);
           set((state) => {
             const ws = state.workspaceStates[id];
+            if (!ws) return state;
             return {
               workspaceStates: {
                 ...state.workspaceStates,
                 [id]: {
                   ...ws,
-                  openFiles: ws.openFiles.filter(f => f.path !== path),
-                  activeFilePath: ws.activeFilePath === path ? (ws.openFiles[0]?.path || null) : ws.activeFilePath
+                  openFiles: ws.openFiles.map(f => f.path === path ? { ...f, isLoading: false } : f),
                 }
               }
             };
@@ -397,10 +466,36 @@ export const useEditorStore = create<EditorStore>()(
       storage: createJSONStorage(() => sessionStorage),
 
       partialize: (state) => ({
-        workspaceStates: state.workspaceStates,
+        // Strip content/originalContent to avoid bloating sessionStorage (~5MB limit)
+        workspaceStates: Object.fromEntries(
+          Object.entries(state.workspaceStates).map(([wsId, ws]) => [
+            wsId,
+            {
+              ...ws,
+              openFiles: ws.openFiles.map(f => ({
+                ...f,
+                content: '',
+                originalContent: '',
+                isLoading: true,
+                isDirty: false,
+              })),
+            },
+          ])
+        ),
         currentWorkspaceId: state.currentWorkspaceId,
         currentProjectPath: state.currentProjectPath,
       }),
+
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Reload file content from backend for all restored tabs
+        const { workspaceStates } = state;
+        for (const [wsId, ws] of Object.entries(workspaceStates)) {
+          for (const file of ws.openFiles) {
+            useEditorStore.getState().reloadFileContent(file.path, wsId);
+          }
+        }
+      },
     }
   )
 );
