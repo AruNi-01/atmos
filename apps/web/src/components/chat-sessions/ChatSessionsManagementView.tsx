@@ -17,20 +17,24 @@ import {
   TooltipProvider,
 } from "@workspace/ui";
 import { agentApi, type AgentChatSessionItem, type ListAgentSessionsResponse } from '@/api/rest-api';
+import { agentApi as wsAgentApi } from '@/api/ws-api';
+import { AgentIcon } from '@/components/agent/AgentIcon';
 import { useQueryState } from "nuqs";
 import { chatSessionsParams } from "@/lib/nuqs/searchParams";
-import { parseUTCDate, format } from '@atmos/shared';
+import { agentChatParams } from "@/lib/nuqs/searchParams";
+import { formatLocalDateTime, formatRelativeTime, parseUTCDate } from '@atmos/shared';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "motion/react";
 import { 
   MessageSquare, 
   ChevronDown, 
-  Bot, 
   Folder, 
   FolderOpen,
   GitBranch,
   Loader2,
-  X
+  X,
+  Trash2,
+  FolderInput
 } from 'lucide-react';
 
 // Registry agent names cache
@@ -79,22 +83,24 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   
   // Registry agents for filter dropdown
   const [registryAgents, setRegistryAgents] = useState<RegistryAgentInfo[]>([]);
 
-  // Load registry agents on mount
+  // Load registry agents + custom agents on mount
   useEffect(() => {
-    // Fetch registry agents from the agent service
-    // For now, we'll use a static list or fetch from API if available
-    // This is a placeholder - actual implementation would fetch from agentApi or ws-api
     const loadRegistryAgents = async () => {
       try {
-        // Try to get from local storage or use common ones
-        const stored = localStorage.getItem('atmos_registry_agents');
-        if (stored) {
-          setRegistryAgents(JSON.parse(stored));
-        }
+        const [registry, custom] = await Promise.all([
+          wsAgentApi.listRegistry(),
+          wsAgentApi.listCustomAgents(),
+        ]);
+        const agents: RegistryAgentInfo[] = [
+          ...registry.agents.map(a => ({ id: a.id, name: a.name })),
+          ...custom.agents.map(a => ({ id: a.name, name: a.name })),
+        ];
+        setRegistryAgents(agents);
       } catch (e) {
         console.error('Failed to load registry agents:', e);
       }
@@ -243,29 +249,54 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
     }
   };
 
-  // Handle session click - navigate to agent chat
+  // Handle session click - open in current page's chat panel
   const handleSessionClick = (session: EnrichedSession) => {
-    // For workspace/project context, navigate to the workspace
-    if (session.context_type === 'workspace' && session.context_guid) {
-      router.push(`/workspace/${session.context_guid}?chat=true&session=${session.guid}`);
-    } else if (session.context_type === 'project' && session.context_guid) {
-      router.push(`/project/${session.context_guid}?chat=true&session=${session.guid}`);
-    } else {
-      // Temp sessions - show a toast or navigate to home with chat param
-      router.push(`/?chat=true&session=${session.guid}`);
+    // Open chat panel with the session - use current URL params to stay on same page
+    // Also save to localStorage so AgentChatPanel can resume it
+    
+    // Determine context key (same logic as AgentChatPanel)
+    const contextKey = session.context_type === 'workspace' 
+      ? `workspace:${session.context_guid}:${session.mode}`
+      : session.context_type === 'project'
+        ? `project:${session.context_guid}:${session.mode}`
+        : `temp:${session.mode}`;
+    
+    // Save to localStorage so AgentChatPanel can resume this session
+    const map = (() => {
+      try {
+        const raw = localStorage.getItem('atmos.agent.last_session_by_context');
+        return raw ? JSON.parse(raw) : {};
+      } catch { return {}; }
+    })();
+    map[contextKey] = session.guid;
+    localStorage.setItem('atmos.agent.last_session_by_context', JSON.stringify(map));
+    
+    // Set chat=true in URL to open the panel
+    const currentParams = new URLSearchParams(window.location.search);
+    currentParams.set('chat', 'true');
+    currentParams.set('session', session.guid);
+    
+    // Update URL without full navigation
+    const newUrl = `${window.location.pathname}?${currentParams.toString()}`;
+    window.history.pushState({}, '', newUrl);
+  };
+
+  // Handle delete session
+  const handleDeleteSession = async (session: EnrichedSession, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    try {
+      const result = await agentApi.deleteSession(session.guid);
+      
+      // If it's a temp session, the backend returns the temp_cwd
+      // We could delete the temp directory here if needed
+      // For now, the backend handles the soft delete in DB
+      
+      // Remove from local state
+      setSessions(prev => prev.filter(s => s.guid !== session.guid));
+    } catch (error) {
+      console.error('Failed to delete session:', error);
     }
-  };
-
-  // Truncate helper
-  const truncate = (str: string, len: number) => {
-    if (str.length <= len) return str;
-    return '...' + str.slice(-len + 3);
-  };
-
-  const truncatePath = (path: string | null | undefined, maxLen: number = 30) => {
-    if (!path) return '-';
-    if (path.length <= maxLen) return path;
-    return '...' + path.slice(-maxLen + 3);
   };
 
   // Get status badge styles
@@ -317,17 +348,19 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
         </div>
         <div className="flex flex-wrap gap-2">
           <Select value={registryIdFilter || "__all__"} onValueChange={(v) => setRegistryIdFilter(v === "__all__" ? "" : v)}>
-            <SelectTrigger className={cn("w-[140px] bg-muted/20 border-border/50", compact ? "h-9" : "h-10")}>
+            <SelectTrigger className={cn("w-[160px] bg-muted/20 border-border/50", compact ? "h-9" : "h-10")}>
               <SelectValue placeholder="ACP Agent" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All Agents</SelectItem>
               {registryAgents.map(agent => (
-                <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
+                <SelectItem key={agent.id} value={agent.id}>
+                  <span className="flex items-center gap-2">
+                    <AgentIcon registryId={agent.id} name={agent.name} size={14} />
+                    {agent.name}
+                  </span>
+                </SelectItem>
               ))}
-              <SelectItem value="claude-code-acp">Claude Code</SelectItem>
-              <SelectItem value="codex-acp">Codex</SelectItem>
-              <SelectItem value="gemini">Gemini CLI</SelectItem>
             </SelectContent>
           </Select>
           <Select value={statusFilter || "__all__"} onValueChange={(v) => setStatusFilter(v === "__all__" ? "" : v as "active" | "closed")}>
@@ -341,7 +374,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
             </SelectContent>
           </Select>
           <Select value={modeFilter || "__all__"} onValueChange={(v) => setModeFilter(v === "__all__" ? "" : v as "default" | "wiki_ask")}>
-            <SelectTrigger className={cn("w-[110px] bg-muted/20 border-border/50", compact ? "h-9" : "h-10")}>
+            <SelectTrigger className={cn("w-[130px] bg-muted/20 border-border/50", compact ? "h-9" : "h-10")}>
               <SelectValue placeholder="Mode" />
             </SelectTrigger>
             <SelectContent>
@@ -457,7 +490,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                           <div className="space-y-2">
                             <AnimatePresence mode="popLayout">
                               {items.map((session, index) => (
-                                <motion.button
+                                <motion.div
                                   key={session.guid}
                                   layout
                                   initial={{ opacity: 0, x: -5 }}
@@ -465,12 +498,12 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                                   exit={{ opacity: 0, scale: 0.95 }}
                                   transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
                                   onClick={() => handleSessionClick(session)}
-                                  className="group relative w-full flex items-center justify-between p-4 rounded-xl border transition-all text-left bg-background hover:bg-muted/50 hover:border-primary/30 hover:shadow-md cursor-pointer"
+                                  className="group relative w-full flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:border-primary/30 hover:shadow-md cursor-pointer hover:bg-muted/50 transition-all duration-200"
                                 >
                                   <div className="flex items-center gap-4 min-w-0 flex-1">
                                     {/* Agent Icon */}
-                                    <div className="size-10 rounded-lg flex items-center justify-center bg-primary/10 text-primary border border-primary/20 shrink-0">
-                                      <Bot className="size-5" />
+                                    <div className="size-10 rounded-lg flex items-center justify-center bg-muted/30 border border-border/50 shrink-0 overflow-hidden">
+                                      <AgentIcon registryId={session.registry_id} name={session.displayAgent} size={22} />
                                     </div>
 
                                     {/* Session Info */}
@@ -522,8 +555,8 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                                         {/* CWD */}
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                            <span className="truncate max-w-[150px] text-muted-foreground/70">
-                                              {session.cwdDisplay}
+                                            <span className="block max-w-[150px] text-muted-foreground/70 overflow-hidden text-ellipsis whitespace-nowrap" dir="rtl">
+                                              {session.cwd || '-'}
                                             </span>
                                           </TooltipTrigger>
                                           <TooltipContent side="top">
@@ -534,15 +567,68 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                                     </div>
                                   </div>
 
-                                  {/* Time */}
-                                  <div className="text-right shrink-0 pl-4">
-                                    <span className="text-[11px] font-medium text-muted-foreground/70 tabular-nums">
-                                      {session.updated_at && !isNaN(parseUTCDate(session.updated_at).getTime()) 
-                                        ? format(parseUTCDate(session.updated_at), 'MMM d, yyyy')
-                                        : '-'}
-                                    </span>
+                                  {/* Time / Actions - time slides right, buttons slide in from left */}
+                                  <div className="shrink-0 pl-4 w-[100px] h-[34px] relative overflow-hidden">
+                                    {/* Time - slides right on hover */}
+                                    <div className={cn(
+                                      "absolute inset-0 flex items-center justify-end transition-all duration-200 ease-out",
+                                      "group-hover:translate-x-[15px] group-hover:opacity-0"
+                                    )}>
+                                      <div className="space-y-0.5 text-right">
+                                        <div className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                                          {session.created_at && !isNaN(parseUTCDate(session.created_at).getTime())
+                                            ? formatLocalDateTime(session.created_at, 'yyyy/MM/dd')
+                                            : '-'}
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground/50 tabular-nums">
+                                          {session.created_at && !isNaN(parseUTCDate(session.created_at).getTime())
+                                            ? formatLocalDateTime(session.created_at, 'HH:mm')
+                                            : ''}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Actions - slides in from left on hover */}
+                                    <div className={cn(
+                                      "absolute inset-0 flex items-center justify-end gap-1 transition-all duration-200 ease-out",
+                                      "-translate-x-[15px] opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
+                                    )}>
+                                      <TooltipProvider delayDuration={0}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleSessionClick(session);
+                                              }}
+                                              className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                            >
+                                              <FolderInput className="size-4" />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top" className="text-[10px]">
+                                            Open
+                                          </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => handleDeleteSession(session, e)}
+                                              className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                            >
+                                              <Trash2 className="size-4" />
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top" className="text-[10px]">
+                                            Delete
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </div>
                                   </div>
-                                </motion.button>
+                                </motion.div>
                               ))}
                             </AnimatePresence>
                           </div>

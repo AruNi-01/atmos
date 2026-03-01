@@ -430,6 +430,20 @@ export const agentApi = {
   },
 
   /**
+   * Delete (soft delete) a session. Returns temp_cwd if it was a temp session.
+   */
+  deleteSession: async (
+    sessionId: string
+  ): Promise<{ ok: boolean; temp_cwd: string | null }> => {
+    return fetchApi<{ ok: boolean; temp_cwd: string | null }>(
+      `/api/agent/sessions/${sessionId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  },
+
+  /**
    * Upload attachment files to workspace .atmos/attachments/ directory.
    * Returns the saved file paths that can be referenced in agent prompts.
    */

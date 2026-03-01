@@ -40,12 +40,16 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
     <TooltipProvider delayDuration={400}>
       <div className="flex flex-col h-full w-full overflow-hidden">
         {/* Header */}
-        <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm">
+        <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm relative z-[1]">
           <span className="text-xs font-bold text-muted-foreground tracking-wider leading-none">Pull Requests</span>
-          <Tabs value={stateFilter} onValueChange={(v) => setStateFilter(v as PRState)}>
-            <TabsList className="">
-              <TabsTab value="OPEN" className="">Open</TabsTab>
-              <TabsTab value="CLOSED" className="">Closed</TabsTab>
+          <Tabs value={stateFilter} onValueChange={(v) => setStateFilter(v as PRState)} className="h-full">
+            <TabsList variant='underline' className="h-full !py-0">
+              <TabsTab value="OPEN" className="">
+                <span className="text-xs">Open</span>
+              </TabsTab>
+              <TabsTab value="CLOSED" className="">
+                <span className="text-xs">Closed</span>
+              </TabsTab>
             </TabsList>
           </Tabs>
         </div>

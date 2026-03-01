@@ -162,7 +162,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   const [isStarting, setIsStarting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [, setAgentChatOpen] = useAgentChatUrl();
-  const { setPendingAgentChatPrompt } = useDialogStore();
+  const { setPendingAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
 
   // Fetch ACP agents, skills list, and system status
   useEffect(() => {
@@ -301,7 +301,12 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     try {
       const reportPath = buildReportPath();
       const prompt = buildCodeReviewPrompt(skillId, reportPath);
-      setPendingAgentChatPrompt({ prompt, registryId: acpAgentId, forceNewSession: true });
+      const now = new Date();
+      const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const titleName = projectName || "Project";
+      const sessionTitle = `${titleName}_CodeReview_${timeStr}`;
+      setPendingAgentChatPrompt({ prompt, registryId: acpAgentId, forceNewSession: true, sessionTitle });
+      setPendingAgentChatMode("default");
       onOpenChange(false);
       setAgentChatOpen(true);
       toastManager.add({
@@ -316,7 +321,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         type: "error",
       });
     }
-  }, [isStarting, buildReportPath, buildCodeReviewPrompt, skillId, acpAgentId, onOpenChange, setPendingAgentChatPrompt, setAgentChatOpen]);
+  }, [isStarting, buildReportPath, buildCodeReviewPrompt, skillId, acpAgentId, onOpenChange, setPendingAgentChatPrompt, setPendingAgentChatMode, setAgentChatOpen]);
 
   const handleSyncSkills = useCallback(async () => {
     if (isSyncing) return;

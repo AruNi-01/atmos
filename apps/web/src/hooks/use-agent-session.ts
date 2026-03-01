@@ -126,7 +126,7 @@ export interface UseAgentSessionReturn {
   connectionPhase: AgentConnectionPhase;
   error: string | null;
   authRequest: AgentAuthRequiredPayload | null;
-  sendPrompt: (message: string) => void;
+  sendPrompt: (message: string) => boolean;
   sendPermissionResponse: (
     requestId: string,
     allowed: boolean,
@@ -208,12 +208,14 @@ export function useAgentSession({
   }, [onMessage]);
 
   const sendPrompt = useCallback(
-    (message: string) => {
+    (message: string): boolean => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({ type: "prompt", message })
         );
+        return true;
       }
+      return false;
     },
     []
   );

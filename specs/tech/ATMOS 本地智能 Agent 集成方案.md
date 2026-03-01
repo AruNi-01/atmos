@@ -550,7 +550,45 @@ apps/web/src/components/agent/
 4. **架构清晰**：独立的 `crates/agent` crate，当前聚焦 ACP，未来可扩展为完整的 Agent 平台。
 5. **全平台就绪**：Rust 实现天然支持 Web、桌面 (Tauri)、CLI 的统一体验。
 
-## 7. 参考文献
+## 7. Bugfix: Agent Chat Session CWD 错乱
+
+**日期**: 2026-02-28
+
+### 7.1. 问题描述
+
+当用户在不同 context（Workspace/Project/Temp）之间切换时，Agent Chat session 的工作目录（cwd）与 UI 显示不一致：
+
+- **场景 A**：在非 Project/Workspace 下开启 temp session → 刷新浏览器 → 进入 Workspace → 点击 Chat → resume 后 UI 显示 Workspace 路径，但 Agent 实际工作在 temp 目录。
+- **场景 B**：在 Workspace A 开启 session → 切换到 Workspace B → Agent 仍在 Workspace A 的 cwd 下工作。
+
+### 7.2. 根因分析
+
+1. **localStorage Effect 竞态**：`contextKey` 变化时，`setLastSessionIdForContext` effect 先于 disconnect effect 执行，用旧 `sessionId` 写入新 `contextKey`，污染了 localStorage 的 session-context 映射。
+2. **UI 显示掩盖问题**：cwd 显示使用 `localPath ?? sessionCwd`，`localPath`（来自当前 Workspace）优先于 `sessionCwd`（Agent 实际 cwd），导致用户看不到 cwd 不匹配。
+3. **ACP 协议限制**：`load_session` 虽然接受 cwd 参数，但跨 context 强改 cwd 会导致 Agent 对话历史中的文件引用失效，不可行。
+
+### 7.3. 解决方案
+
+**核心原则**：session 跟着 cwd 走，禁止跨 context 自动 resume。
+
+| 变更 | 说明 |
+| :--- | :--- |
+| **移除 localStorage session 映射** | 删除 `LAST_SESSION_STORAGE_KEY` 及相关函数（`readLastSessionMap`、`getLastSessionIdForContext`、`setLastSessionIdForContext`、`clearLastSessionIdForContext`），消除竞态根源 |
+| **改用 DB 查询恢复 session** | 自动恢复时通过 `listSessions({ context_type, context_guid, mode, limit: 1 })` 查询当前 context 最近的 session，替代 localStorage 查找 |
+| **内存映射加 isConnected 守卫** | `activeSessionByContext` effect 仅在 `isConnected` 时写入，防止 contextKey 变化时用旧 sessionId 污染新 context 的内存映射 |
+| **历史列表 context 提示** | Chat history popover 头部添加当前 context 标识（Workspace/Project/Temp），tooltip 显示完整路径 |
+| **Wiki Ask 模式使用 Project context** | Wiki 数据存储在 Project 的 `.atmos/` 目录中，不在 Workspace worktree 中。当在 Workspace 下使用 wiki_ask 模式时，session 的 context 自动切换为父 Project（`sessionWorkspaceId = null`, `sessionProjectId = parentProjectId`），确保 session 的 cwd 指向 Project 路径，且同一 Project 下的多个 Workspace 共享 wiki_ask session |
+| **特定 session 统一命名** | Wiki Ask session 标题格式为 `{ProjectName}_WikiAsk_{时间}`；Code Review 新建 session 格式为 `{ProjectName}_CodeReview_{时间}`；Git Commit 新建 session 格式为 `{ContextName}_GitCommit_{时间}`（复用已有 session 时不重命名）。通过 `pendingAgentChatPrompt` 的 `sessionTitle` 字段传递 |
+
+### 7.4. 影响范围
+
+- `apps/web/src/components/agent/AgentChatPanel.tsx`
+- `apps/web/src/hooks/use-dialog-store.ts`（`pendingAgentChatPrompt` 类型增加 `sessionTitle` 字段）
+- `apps/web/src/components/code-review/CodeReviewDialog.tsx`（设置 Code Review session 标题）
+- `apps/web/src/components/layout/RightSidebar.tsx`（设置 Git Commit session 标题）
+- 后端无变更，API 无变更
+
+## 8. 参考文献
 
 [1] Agent Client Protocol. (2026). *ACP Official Website*. [https://agentclientprotocol.com/](https://agentclientprotocol.com/)
 [2] Zed. (2026). *Claude Code - ACP Agent*. [https://zed.dev/acp/agent/claude-code](https://zed.dev/acp/agent/claude-code)
