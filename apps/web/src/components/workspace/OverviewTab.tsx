@@ -40,7 +40,6 @@ import { formatDistanceToNow } from 'date-fns';
 import type { DragEndEvent, DragStartEvent } from '@workspace/ui';
 import {
   GitBranch,
-  MapPin,
   Clock,
   RefreshCw,
   Pencil,
@@ -53,7 +52,6 @@ import {
   PlayCircle,
   LayoutDashboard,
   Info,
-  GitCommit,
   History,
   ChevronRight,
   CircleDashed,
@@ -65,7 +63,6 @@ import {
   XCircle,
   Loader2,
   FolderOpen,
-  Settings,
   FileCheck,
   GitMerge,
   GitPullRequestClosed,
@@ -79,7 +76,6 @@ import { useWorkspaceContext, type TaskStatus } from '@/hooks/use-workspace-cont
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from '@/hooks/use-project-store';
-import { useGitStore } from '@/hooks/use-git-store';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useGithubPRList, useGithubActionsList } from '@/hooks/use-github';
 import { PRDetailModal } from '@/components/github/PRDetailModal';
@@ -165,7 +161,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     deleteTask,
   } = useWorkspaceContext(contextId);
 
-  const { stagedFiles, unstagedFiles, untrackedFiles, gitStatus } = useGitStore();
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
 
   const effectiveGitBranch = propGitBranch || currentBranch || 'main';
@@ -222,8 +217,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     todo: true,
     done: false,
     cancelled: false,
-    sourceControl: false,
-    fileSystem: false,
     pullRequests: true,
     actionsStatus: true,
   });
@@ -241,6 +234,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
   const needsExpansion = requirementPreview !== null;
   const effectivePath = workspacePath || projectPath;
+
+  const displayRootDirectory = useMemo(() => {
+    if (!effectivePath) return '-';
+    const segments = effectivePath.split('/').filter(Boolean);
+    if (segments.length <= 3) return effectivePath;
+    return `.../${segments.slice(-3).join('/')}`;
+  }, [effectivePath]);
 
   // DnD: drag tasks between status sections
   const sensors = useSensors(
@@ -393,9 +393,30 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               <LayoutDashboard className="size-4" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
-                {isProjectOnly ? 'Project Overview' : 'Workspace Overview'}
-              </span>
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-xs text-muted-foreground font-medium tracking-wide uppercase shrink-0">
+                  {isProjectOnly ? 'Project Overview' : 'Workspace Overview'}
+                </span>
+                <div className="inline-flex items-center gap-3 text-[11px] text-muted-foreground min-w-0">
+                  <div className="inline-flex items-center gap-1.5 min-w-0 shrink-0">
+                    <GitBranch className="size-3.5" />
+                    <span className="font-medium">{effectiveGitBranch}</span>
+                  </div>
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="inline-flex items-center gap-1.5 min-w-0">
+                          <FolderOpen className="size-3.5 shrink-0" />
+                          <span className="font-mono truncate max-w-[280px]">{displayRootDirectory}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-[10px] font-mono max-w-[520px] break-all">
+                        {effectivePath || '-'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
               <h1 className="text-xl font-semibold tracking-tight text-foreground">
                 {isProjectOnly ? projectName : workspaceName || projectName}
               </h1>
@@ -623,107 +644,21 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <CardHeader className="py-3 px-4 border-b border-border">
               <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
                 <History className="size-4" />
-                Environment
+                Integration
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-on-hover">
-              {/* Git Status Section */}
-              <div className="space-y-1">
-                <Collapsible
-                  open={expandedSections.sourceControl}
-                  onOpenChange={() => toggleSection('sourceControl')}
-                  className="w-full"
-                >
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide hover:text-foreground transition-colors group">
-                    <ChevronRight className={cn("size-3 transition-transform duration-200", expandedSections.sourceControl && "rotate-90")} />
-                    <Settings className="size-3.5" />
-                    <span>Source Control</span>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="grid gap-2 pl-5">
-                      <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-2.5 shrink-0">
-                          <GitBranch className="size-3.5 text-muted-foreground" />
-                          <span className="text-[11px] text-muted-foreground">Branch</span>
-                        </div>
-                        <TooltipProvider delayDuration={300}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-[11px] font-mono text-foreground truncate ml-4 max-w-[180px] text-right">
-                                {effectiveGitBranch}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-[10px] font-mono">
-                              {effectiveGitBranch}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-
-                      {gitStatus && (
-                        <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center gap-2.5">
-                            <GitCommit className="size-3.5 text-muted-foreground" />
-                            <span className="text-[11px] text-muted-foreground">Status</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {stagedFiles.length > 0 && (
-                              <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                                {stagedFiles.length} staged
-                              </span>
-                            )}
-                            {(unstagedFiles.length + untrackedFiles.length) > 0 && (
-                              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                                {unstagedFiles.length + untrackedFiles.length} modified
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-
-              {/* Info Section */}
-              <div className="space-y-1">
-                <Collapsible
-                  open={expandedSections.fileSystem}
-                  onOpenChange={() => toggleSection('fileSystem')}
-                  className="w-full"
-                >
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide hover:text-foreground transition-colors group">
-                    <ChevronRight className={cn("size-3 transition-transform duration-200", expandedSections.fileSystem && "rotate-90")} />
-                    <FolderOpen className="size-3.5" />
-                    <span>File System</span>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="grid gap-2 pl-5">
-                      <div className="flex flex-col gap-1.5 p-2.5 rounded-md bg-muted/30">
-                        <div className="flex items-center gap-2.5 text-muted-foreground">
-                          <MapPin className="size-3.5" />
-                          <span className="text-[10px] uppercase tracking-wide">Root Directory</span>
-                        </div>
-                        <span className="text-[11px] font-mono break-all text-muted-foreground pl-6">
-                          {effectivePath}
-                        </span>
-                      </div>
-
-                      {!isProjectOnly && createdAt && (
-                        <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center gap-2.5">
-                            <Clock className="size-3.5 text-muted-foreground" />
-                            <span className="text-[11px] text-muted-foreground">Created</span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
-                            {formatDate(createdAt)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
+              {!isProjectOnly && createdAt && (
+                <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2.5">
+                    <Clock className="size-3.5 text-muted-foreground" />
+                    <span className="text-[11px] text-muted-foreground">Created</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                    {formatDate(createdAt)}
+                  </span>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">Code Reviews</h3>
