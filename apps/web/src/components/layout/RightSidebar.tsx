@@ -547,9 +547,15 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     const shouldForceNewSession = acpNewSession || !agentIsConnected;
     const skillPath = "~/.atmos/skills/.system/git-commit/SKILL.md";
     const prompt = `Read the skill instructions at ${skillPath} and follow the full workflow: analyze the diff, generate a conventional commit message, and execute the git commit. Do not ask for confirmation.`;
+    const contextName = currentWorkspace?.localPath?.split("/").pop()
+      ?? currentProject?.name
+      ?? "Project";
+    const now = new Date();
+    const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     setPendingAgentChatPrompt({
       prompt,
       forceNewSession: shouldForceNewSession,
+      ...(shouldForceNewSession ? { sessionTitle: `${contextName}_GitCommit_${timeStr}` } : {}),
     });
     setAgentChatOpen(true);
     toastManager.add({
@@ -744,21 +750,21 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
           {/* Changes / Commits sub-tab bar - sticky, only shown in 'changes' view */}
           {changesView === 'changes' && hasWorkingContext && (
-            <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm">
+            <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm relative z-[1]">
               <span className="text-xs font-bold text-muted-foreground tracking-wider leading-none">Changes</span>
               <Tabs
                 value={changesSubTab}
                 onValueChange={(v) => setChangesSubTab(v as 'changes' | 'commits')}
-                className=""
+                className="h-full"
               >
-                <TabsList className="">
+                <TabsList variant='underline' className="h-full !py-0">
                   <TabsTab value="changes" className="">
                     <GitBranch className="size-3" />
-                    Changes
+                    <span className="text-xs">Changes</span>
                   </TabsTab>
                   <TabsTab value="commits" className="">
                     <GitCommitIcon className="size-3" />
-                    Commits
+                    <span className="text-xs">Commits</span>
                   </TabsTab>
                 </TabsList>
               </Tabs>

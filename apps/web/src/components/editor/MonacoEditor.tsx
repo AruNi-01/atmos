@@ -30,6 +30,15 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({ file, className }) =
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
   const isPreview = isMarkdown && previewFilePath === file.path;
 
+  // Auto-enable preview for .atmos/reviews/ markdown files
+  useEffect(() => {
+    if (isMarkdown && file.path.includes('/.atmos/reviews/') && previewFilePath !== file.path) {
+      setPreviewFilePath(file.path);
+      setDebouncedContent(file.content);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.path]);
+
   // Selection popover for copying code to AI
   const getSelectionInfo = useCallback(() => {
     if (isPreview) {

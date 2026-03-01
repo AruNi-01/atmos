@@ -353,3 +353,18 @@ pub async fn update_agent_session(
         .await?;
     Ok(Json(ApiResponse::success(json!({ "ok": true }))))
 }
+
+/// DELETE /api/agent/sessions/:session_id - Soft delete a session
+pub async fn delete_agent_session(
+    Path(session_id): Path<String>,
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let temp_cwd = state
+        .agent_session_service
+        .delete_session(&session_id)
+        .await?;
+    Ok(Json(ApiResponse::success(json!({ 
+        "ok": true,
+        "temp_cwd": temp_cwd,
+    }))))
+}

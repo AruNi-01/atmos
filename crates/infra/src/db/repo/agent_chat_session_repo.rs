@@ -204,4 +204,17 @@ impl<'a> AgentChatSessionRepo<'a> {
             })
             .unwrap_or(false))
     }
+
+    /// Soft delete a session by guid
+    pub async fn soft_delete(&self, guid: &str) -> Result<()> {
+        let now = chrono::Utc::now().naive_utc();
+        agent_chat_session::Entity::update_many()
+            .col_expr(agent_chat_session::Column::IsDeleted, Expr::value(true))
+            .col_expr(agent_chat_session::Column::UpdatedAt, Expr::value(now))
+            .filter(agent_chat_session::Column::Guid.eq(guid))
+            .filter(agent_chat_session::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
 }

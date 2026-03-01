@@ -621,4 +621,40 @@ impl AgentSessionService {
             )))
         }
     }
+
+    /// Soft delete a session by guid, returns the session's cwd if it was a temp session
+    pub async fn delete_session(&self, session_id: &str) -> Result<Option<String>> {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        
+        // Get session first to check if it's a temp session
+        let model = repo.find_by_guid(session_id).await?;
+        
+        if let Some(m) = model {
+            let is_temp = m.context_type == "temp";
+            let cwd = if is_temp { Some(m.cwd.clone()) } else { None };
+            
+            // If temp session, delete the temp directory
+            if is_temp {
+                let temp_path = std::path::PathBuf::from(&m.cwd);
+                if temp_path.exists() {
+                    if let Err(e) = std::fs::remove_dir_all(&temp_path) {
+                        tracing::warn!("Failed to delete temp session directory {}: {}", temp_path.display(), e);
+                    } else {
+                        info!("Deleted temp session directory: {}", temp_path.display());
+                    }
+                }
+            }
+            
+            // Soft delete the session
+            repo.soft_delete(session_id).await?;
+            
+            info!("Soft deleted agent session {} (temp: {})", session_id, is_temp);
+            Ok(cwd)
+        } else {
+            Err(crate::ServiceError::NotFound(format!(
+                "Session {} not found",
+                session_id
+            )))
+        }
+    }
 }

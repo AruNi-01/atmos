@@ -1,6 +1,6 @@
 pub mod handlers;
 
-use axum::{routing::get, routing::post, Router};
+use axum::{routing::delete, routing::get, routing::patch, routing::post, Router};
 
 use crate::app_state::AppState;
 
@@ -14,7 +14,9 @@ pub fn routes() -> Router<AppState> {
         )
         .route(
             "/sessions/{session_id}",
-            get(handlers::get_agent_session).patch(handlers::update_agent_session),
+            get(handlers::get_agent_session)
+                .patch(handlers::update_agent_session)
+                .delete(handlers::delete_agent_session),
         )
         .route("/upload-attachments", post(handlers::upload_attachments))
 }

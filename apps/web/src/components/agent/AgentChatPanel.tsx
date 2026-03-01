@@ -88,6 +88,7 @@ import { formatLocalDateTime } from "@atmos/shared";
 import type { RegistryAgent } from "@/api/ws-api";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/types/agent-chat";
 import { useWikiExists, useWikiStore } from "@/hooks/use-wiki-store";
+import { useEditorStore } from "@/hooks/use-editor-store";
 
 // ---------------------------------------------------------------------------
 // Zed-style ACP Entry Model
@@ -203,7 +204,6 @@ function isDiffObject(o: unknown): o is DiffFileOutput {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const LAST_SESSION_STORAGE_KEY = "atmos.agent.last_session_by_context";
 const LAST_CHAT_MODE_STORAGE_KEY = "atmos.agent.last_chat_mode";
 const DEFAULT_AGENT_STORAGE_KEY = "atmos.agent.default_registry_id";
 
@@ -229,39 +229,6 @@ function getSessionContextKey(
   if (workspaceId) return `workspace:${workspaceId}:${mode}`;
   if (projectId) return `project:${projectId}:${mode}`;
   return `temp:${mode}`;
-}
-
-function readLastSessionMap(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(LAST_SESSION_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(parsed)) {
-      if (typeof v === "string" && v) out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-function getLastSessionIdForContext(contextKey: string): string | null {
-  const map = readLastSessionMap();
-  return map[contextKey] ?? null;
-}
-
-function setLastSessionIdForContext(contextKey: string, sessionId: string): void {
-  const map = readLastSessionMap();
-  map[contextKey] = sessionId;
-  localStorage.setItem(LAST_SESSION_STORAGE_KEY, JSON.stringify(map));
-}
-
-function clearLastSessionIdForContext(contextKey: string): void {
-  const map = readLastSessionMap();
-  if (!(contextKey in map)) return;
-  delete map[contextKey];
-  localStorage.setItem(LAST_SESSION_STORAGE_KEY, JSON.stringify(map));
 }
 
 function readDefaultAgentRegistryId(): string | null {
@@ -941,7 +908,49 @@ function PlanBlockView({ plan }: { plan: import("@/hooks/use-agent-session").Age
   );
 }
 
+// ---------------------------------------------------------------------------
+// Review path link detection – matches .atmos/reviews/**/*.md paths
+// ---------------------------------------------------------------------------
+
+const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/g;
+
+function useReviewLinkComponents() {
+  const { openFile } = useEditorStore();
+  const { effectiveContextId } = useContextParams();
+
+  return useMemo(() => {
+    const handleOpen = (path: string) => {
+      void openFile(path, effectiveContextId || undefined, { preview: true });
+    };
+
+    const ReviewCode = (props: React.ComponentPropsWithoutRef<"code"> & { node?: unknown }) => {
+      const { children, node: _, ...rest } = props;
+      const text = typeof children === "string" ? children : "";
+      if (REVIEW_PATH_RE.test(text)) {
+        REVIEW_PATH_RE.lastIndex = 0;
+        const fileName = text.split("/").pop() || text;
+        return (
+          <button
+            type="button"
+            onClick={() => handleOpen(text)}
+            className="inline-flex items-center gap-1 rounded-sm bg-primary/10 px-1.5 py-0.5 font-mono text-[0.85em] text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:bg-primary/20 hover:decoration-primary cursor-pointer"
+            title={text}
+          >
+            <FileText className="size-3 shrink-0" />
+            {fileName}
+          </button>
+        );
+      }
+      return <code {...rest}>{children}</code>;
+    };
+
+    return { code: ReviewCode };
+  }, [openFile, effectiveContextId]);
+}
+
 function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
+  const reviewComponents = useReviewLinkComponents();
+
   return (
     <>
       {entry.blocks.map((block, i) => {
@@ -957,6 +966,7 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
               animated={isLastTextBlock}
               caret={isLastTextBlock ? "block" : undefined}
               className="break-words"
+              components={reviewComponents}
             >
               {block.content}
             </MessageResponse>
@@ -1142,6 +1152,7 @@ export function AgentChatPanel() {
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
   const {
     pendingAgentChatPrompt,
+    setPendingAgentChatPrompt,
     consumePendingAgentChatPrompt,
     peekPendingAgentChatPrompt,
     consumePendingAgentChatMode,
@@ -1329,6 +1340,16 @@ export function AgentChatPanel() {
     return null;
   }, [projects, effectiveContextId]);
 
+  // When viewing a workspace, resolve the parent project ID so wiki_ask
+  // sessions can be scoped to the project (wiki lives in project .atmos/).
+  const parentProjectId = React.useMemo(() => {
+    if (!workspaceId) return null;
+    for (const p of projects) {
+      if (p.workspaces.find((w) => w.id === workspaceId)) return p.id;
+    }
+    return null;
+  }, [projects, workspaceId]);
+
   // Wiki path: always use project's mainFilePath (wiki is stored in the main
   // project directory, not in workspace worktree directories).
   const wikiPath = React.useMemo(() => {
@@ -1359,6 +1380,16 @@ export function AgentChatPanel() {
     if (wikiExists !== null) return;
     void checkWikiExists(effectiveContextId, wikiPath);
   }, [checkWikiExists, effectiveContextId, isProjectScopedView, wikiPath, wikiExists]);
+
+  // For wiki_ask mode in a workspace, session context should use the parent
+  // project (wiki data lives in project .atmos/, not workspace worktree).
+  // These effective IDs are used for session creation, context key, history, and resume.
+  const sessionWorkspaceId = chatMode === "wiki_ask" && workspaceId && parentProjectId
+    ? null
+    : workspaceId;
+  const sessionProjectId = chatMode === "wiki_ask" && workspaceId && parentProjectId
+    ? parentProjectId
+    : projectId;
 
   useEffect(() => {
     if (!isAgentChatOpen) return;
@@ -1468,8 +1499,8 @@ export function AgentChatPanel() {
     setConfigOption,
     setAgentDefaultConfig,
   } = useAgentSession({
-    workspaceId,
-    projectId,
+    workspaceId: sessionWorkspaceId,
+    projectId: sessionProjectId,
     registryId,
     mode: chatMode,
     onMessage: handleMessage,
@@ -1488,8 +1519,8 @@ export function AgentChatPanel() {
       setHistoryLoading(true);
       try {
         const contextType =
-          workspaceId != null ? "workspace" : projectId != null ? "project" : "temp";
-        const contextGuid = workspaceId ?? projectId ?? undefined;
+          sessionWorkspaceId != null ? "workspace" : sessionProjectId != null ? "project" : "temp";
+        const contextGuid = sessionWorkspaceId ?? sessionProjectId ?? undefined;
         const res = await agentRestApi.listSessions({
           context_type: contextType,
           context_guid: contextGuid,
@@ -1510,7 +1541,7 @@ export function AgentChatPanel() {
         setHistoryLoading(false);
       }
     },
-    [workspaceId, projectId, chatMode]
+    [sessionWorkspaceId, sessionProjectId, chatMode]
   );
 
   useEffect(() => {
@@ -1522,16 +1553,27 @@ export function AgentChatPanel() {
 
   const skipNextAutoConnectRef = useRef(false);
   const contextKey = React.useMemo(
-    () => getSessionContextKey(workspaceId, projectId, chatMode),
-    [workspaceId, projectId, chatMode]
+    () => getSessionContextKey(sessionWorkspaceId, sessionProjectId, chatMode),
+    [sessionWorkspaceId, sessionProjectId, chatMode]
   );
+
+  // Compute effective session IDs for a given mode (wiki_ask in workspace → project context)
+  const getEffectiveIds = useCallback((mode: AgentChatMode) => {
+    const isWikiInWorkspace = mode === "wiki_ask" && workspaceId && parentProjectId;
+    return {
+      wId: isWikiInWorkspace ? null : workspaceId,
+      pId: isWikiInWorkspace ? parentProjectId : projectId,
+    };
+  }, [workspaceId, projectId, parentProjectId]);
 
   useEffect(() => {
     const previousMode = previousModeRef.current;
     if (previousMode === chatMode) return;
     previousModeRef.current = chatMode;
-    const previousContextKey = getSessionContextKey(workspaceId, projectId, previousMode);
-    const nextContextKey = getSessionContextKey(workspaceId, projectId, chatMode);
+    const prevIds = getEffectiveIds(previousMode);
+    const nextIds = getEffectiveIds(chatMode);
+    const previousContextKey = getSessionContextKey(prevIds.wId, prevIds.pId, previousMode);
+    const nextContextKey = getSessionContextKey(nextIds.wId, nextIds.pId, chatMode);
 
     // ---- save outgoing session ----
     if (sessionId) {
@@ -1541,7 +1583,6 @@ export function AgentChatPanel() {
       };
       activeSessionByContextRef.current = nextMap;
       setActiveSessionByContext(nextMap);
-      setLastSessionIdForContext(previousContextKey, sessionId);
     }
     entriesByContextRef.current[previousContextKey] = entries;
     sessionTitleByContextRef.current[previousContextKey] = sessionTitle;
@@ -1560,9 +1601,7 @@ export function AgentChatPanel() {
     const restoredSessionId = unstashSession(nextContextKey);
 
     if (restoredSessionId) {
-      // Seamless switch – already connected. Persist the restored session to
-      // localStorage so both modes' sessions survive refresh.
-      setLastSessionIdForContext(nextContextKey, restoredSessionId);
+      // Seamless switch – already connected.
       activeSessionByContextRef.current[nextContextKey] = restoredSessionId;
       setActiveSessionByContext((prev) => ({ ...prev, [nextContextKey]: restoredSessionId }));
       setIsResumedSession(true);
@@ -1574,46 +1613,57 @@ export function AgentChatPanel() {
       connectedContextKeyRef.current = nextContextKey;
       autoResumeTriedRef.current = restoredSessionId;
     } else {
-      // No stashed session (e.g. after refresh). Proactively try to resume from
-      // localStorage. Don't wait for agents—resumeSession doesn't need them; we
-      // avoid "No agent" in the input area by showing loading when connecting.
-      const lastSessionId = getLastSessionIdForContext(nextContextKey);
-      if (lastSessionId) {
-        restoreAttemptedRef.current = true;
-        autoStartHandledRef.current = true;
-        autoResumeTriedRef.current = lastSessionId;
-        setIsResumedSession(true);
-        setIsResumingHistory(true);
-        void (async () => {
-          const success = await resumeSession(lastSessionId);
-          if (!success) {
-            clearLastSessionIdForContext(nextContextKey);
-            autoStartHandledRef.current = false;
+      // No stashed session (e.g. after refresh). Query DB for the most recent session.
+      restoreAttemptedRef.current = true;
+      autoStartHandledRef.current = true;
+      setIsResumingHistory(true);
+      void (async () => {
+        try {
+          const contextType = nextIds.wId != null ? "workspace" : nextIds.pId != null ? "project" : "temp";
+          const contextGuid = nextIds.wId ?? nextIds.pId ?? undefined;
+          const res = await agentRestApi.listSessions({
+            context_type: contextType,
+            context_guid: contextGuid,
+            mode: chatMode,
+            limit: 1,
+          });
+          const latestSession = res.items[0];
+          if (latestSession) {
+            autoResumeTriedRef.current = latestSession.guid;
+            setIsResumedSession(true);
+            const success = await resumeSession(latestSession.guid);
+            if (!success) {
+              autoStartHandledRef.current = false;
+              restoreAttemptedRef.current = false;
+              autoResumeTriedRef.current = null;
+              setIsResumedSession(false);
+              startSession();
+            }
+          } else {
+            setIsResumedSession(false);
             restoreAttemptedRef.current = false;
             autoResumeTriedRef.current = null;
-            setIsResumedSession(false);
-            startSession();
+            autoStartHandledRef.current = false;
           }
-          setIsResumingHistory(false);
-        })();
-      } else {
-        setIsResumedSession(false);
+        } catch {
+          setIsResumedSession(false);
+          restoreAttemptedRef.current = false;
+          autoResumeTriedRef.current = null;
+          autoStartHandledRef.current = false;
+        }
         setIsResumingHistory(false);
-        restoreAttemptedRef.current = false;
-        autoResumeTriedRef.current = null;
-        autoStartHandledRef.current = false;
-      }
+      })();
     }
-  }, [chatMode, stashSession, unstashSession, entries, projectId, resumeSession, sessionId, sessionTitle, startSession, workspaceId]);
+  }, [chatMode, getEffectiveIds, stashSession, unstashSession, entries, resumeSession, sessionId, sessionTitle, startSession]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !isConnected) return;
     const prevMap = activeSessionByContextRef.current;
     if (prevMap[contextKey] === sessionId) return;
     const nextMap = { ...prevMap, [contextKey]: sessionId };
     activeSessionByContextRef.current = nextMap;
     setActiveSessionByContext(nextMap);
-  }, [contextKey, sessionId]);
+  }, [contextKey, sessionId, isConnected]);
 
   useEffect(() => {
     activeSessionByContextRef.current = activeSessionByContext;
@@ -1705,7 +1755,6 @@ export function AgentChatPanel() {
       delete next[contextKey];
       return next;
     });
-    clearLastSessionIdForContext(contextKey);
     try {
       await startSession({ registryId: nextRegistryId });
     } finally {
@@ -1846,7 +1895,7 @@ export function AgentChatPanel() {
         setIsResumedSession(false);
         setEntries([]);
         setPendingPermission(null);
-        setSessionTitle(null);
+        setSessionTitle(pendingPrompt?.sessionTitle ?? null);
         if (registryId !== forcedRegistryId) {
           setRegistryId(forcedRegistryId);
         }
@@ -1856,7 +1905,6 @@ export function AgentChatPanel() {
           delete next[contextKey];
           return next;
         });
-        clearLastSessionIdForContext(contextKey);
         startSession({ registryId: forcedRegistryId });
         return;
       }
@@ -1865,25 +1913,23 @@ export function AgentChatPanel() {
         restoreAttemptedRef.current = true;
         const cachedSessionId =
           activeSessionByContextRef.current[contextKey] ?? activeSessionByContext[contextKey];
-        const lastSessionId = cachedSessionId || getLastSessionIdForContext(contextKey);
-        if (lastSessionId) {
-          if (autoResumeTriedRef.current === lastSessionId) return;
-          autoResumeTriedRef.current = lastSessionId;
+        if (cachedSessionId) {
+          // In-memory session available, resume it directly
+          if (autoResumeTriedRef.current === cachedSessionId) return;
+          autoResumeTriedRef.current = cachedSessionId;
           setIsResumedSession(true);
           autoStartHandledRef.current = true;
           void (async () => {
             setIsResumingHistory(true);
-            const success = await resumeSession(lastSessionId);
+            const success = await resumeSession(cachedSessionId);
             if (!success) {
               setIsResumedSession(false);
-              clearLastSessionIdForContext(contextKey);
               setActiveSessionByContext((prev) => {
-                if (prev[contextKey] !== lastSessionId) return prev;
+                if (prev[contextKey] !== cachedSessionId) return prev;
                 const next = { ...prev };
                 delete next[contextKey];
                 return next;
               });
-              // Resume target may be stale (e.g. mode storage switched), create a fresh session seamlessly.
               autoStartHandledRef.current = false;
               autoResumeTriedRef.current = null;
               startSession();
@@ -1892,6 +1938,46 @@ export function AgentChatPanel() {
           })();
           return;
         }
+        // No in-memory session — query DB for the most recent session in this context
+        void (async () => {
+          try {
+            const contextType = sessionWorkspaceId != null ? "workspace" : sessionProjectId != null ? "project" : "temp";
+            const contextGuid = sessionWorkspaceId ?? sessionProjectId ?? undefined;
+            const res = await agentRestApi.listSessions({
+              context_type: contextType,
+              context_guid: contextGuid,
+              mode: chatMode,
+              limit: 1,
+            });
+            const latestSession = res.items[0];
+            if (latestSession) {
+              if (autoResumeTriedRef.current === latestSession.guid) return;
+              autoResumeTriedRef.current = latestSession.guid;
+              setIsResumedSession(true);
+              autoStartHandledRef.current = true;
+              setIsResumingHistory(true);
+              const success = await resumeSession(latestSession.guid);
+              if (!success) {
+                setIsResumedSession(false);
+                autoStartHandledRef.current = false;
+                autoResumeTriedRef.current = null;
+                startSession();
+              }
+              setIsResumingHistory(false);
+            } else {
+              autoStartHandledRef.current = true;
+              autoResumeTriedRef.current = null;
+              setIsResumedSession(false);
+              startSession();
+            }
+          } catch {
+            autoStartHandledRef.current = true;
+            autoResumeTriedRef.current = null;
+            setIsResumedSession(false);
+            startSession();
+          }
+        })();
+        return;
       }
       if (!autoStartHandledRef.current) {
         autoStartHandledRef.current = true;
@@ -1902,8 +1988,10 @@ export function AgentChatPanel() {
     }
   }, [
     activeSessionByContext,
+    chatMode,
     contextKey,
     isAgentChatOpen,
+    sessionProjectId,
     registryId,
     installedAgents.length,
     isConnected,
@@ -1912,6 +2000,7 @@ export function AgentChatPanel() {
     startSession,
     peekPendingAgentChatPrompt,
     pendingAgentChatPrompt,
+    sessionWorkspaceId,
   ]);
 
   // When we successfully connect to a session, mark it as "already tried" so
@@ -1923,28 +2012,35 @@ export function AgentChatPanel() {
     }
   }, [isConnected, sessionId]);
 
-  useEffect(() => {
-    if (!sessionId) return;
-    setLastSessionIdForContext(contextKey, sessionId);
-  }, [contextKey, sessionId]);
-
   // Handle auto-starting a pending prompt (e.g. from Code Review Dialog) once connected.
   // Also fires when pendingAgentChatPrompt changes while already connected (e.g. commit
   // message generation reusing the existing session).
   useEffect(() => {
-    if (isConnected && connectionPhase === "connected") {
-      const data = consumePendingAgentChatPrompt();
-      if (data && data.prompt) {
-        forcedDisconnectDoneRef.current = false;
-        setEntries((prev) => [
-          ...prev,
-          { role: "user" as const, content: data.prompt },
-        ]);
-        setWaitingForResponse(true);
-        sendPrompt(data.prompt);
-      }
-    }
-  }, [isConnected, connectionPhase, sendPrompt, consumePendingAgentChatPrompt, pendingAgentChatPrompt]);
+   if (isConnected && connectionPhase === "connected") {
+     const data = consumePendingAgentChatPrompt();
+     if (data && data.prompt) {
+       // Try to send – if the WebSocket was already torn down by a concurrent
+       // forced-disconnect effect (race condition), restore the prompt so it
+       // can be picked up once the new session connects.
+       const sent = sendPrompt(data.prompt);
+       if (!sent) {
+         setPendingAgentChatPrompt(data);
+         return;
+       }
+       forcedDisconnectDoneRef.current = false;
+       // Persist sessionTitle from the pending prompt (e.g. CodeReview / GitCommit titles)
+       if (data.sessionTitle && sessionId) {
+         setSessionTitle(data.sessionTitle);
+         void agentRestApi.updateSessionTitle(sessionId, data.sessionTitle).catch(() => {});
+       }
+       setEntries((prev) => [
+         ...prev,
+         { role: "user" as const, content: data.prompt },
+       ]);
+       setWaitingForResponse(true);
+     }
+   }
+  }, [isConnected, connectionPhase, sendPrompt, consumePendingAgentChatPrompt, setPendingAgentChatPrompt, pendingAgentChatPrompt, sessionId]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -2030,7 +2126,15 @@ export function AgentChatPanel() {
       if (!text || !isConnected) return;
       stoppedRef.current = false;
       if (entries.length === 0) {
-        const title = text.slice(0, 512).trim() || "新会话";
+        let title: string;
+        if (chatMode === "wiki_ask") {
+          const projName = (wikiPath ?? localPath)?.split("/").pop() ?? "Project";
+          const now = new Date();
+          const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+          title = `${projName}_WikiAsk_${ts}`;
+        } else {
+          title = text.slice(0, 512).trim() || "新会话";
+        }
         setSessionTitle(title);
         if (sessionId) {
           void agentRestApi.updateSessionTitle(sessionId, title).catch(() => { });
@@ -2073,7 +2177,7 @@ export function AgentChatPanel() {
 
       sendPrompt(finalPrompt);
     },
-    [chatMode, isConnected, sendPrompt, localPath, sessionCwd, entries.length, sessionId]
+    [chatMode, isConnected, sendPrompt, localPath, wikiPath, sessionCwd, entries.length, sessionId]
   );
 
   const handleClose = useCallback(() => {
@@ -2327,18 +2431,19 @@ export function AgentChatPanel() {
                     type="button"
                     onClick={handleToggleChatMode}
                     disabled={chatMode === "default" && !wikiAskAvailability.enabled}
-                    className={`rounded p-1.5 transition-colors ${
+                    className={`group/mode relative rounded p-1.5 transition-colors ${
                       chatMode === "wiki_ask"
                         ? "text-primary hover:bg-primary/10"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     } disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent`}
                     aria-label="Toggle chat mode"
                   >
-                    {chatMode === "wiki_ask" ? (
-                      <BookOpen className="size-4" />
-                    ) : (
-                      <MessageSquare className="size-4" />
-                    )}
+                    <span className="block transition-all duration-150 group-hover/mode:scale-0 group-hover/mode:opacity-0">
+                      {chatMode === "wiki_ask" ? <BookOpen className="size-4" /> : <MessageSquare className="size-4" />}
+                    </span>
+                    <span className="absolute inset-0 flex items-center justify-center transition-all duration-150 scale-0 opacity-0 group-hover/mode:scale-100 group-hover/mode:opacity-100">
+                      {chatMode === "wiki_ask" ? <MessageSquare className="size-4" /> : <BookOpen className="size-4" />}
+                    </span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
@@ -2368,10 +2473,32 @@ export function AgentChatPanel() {
                 </Tooltip>
               </TooltipProvider>
               <PopoverContent className="w-80 p-0" align="end">
-                <div className="border-b border-border px-3 py-2">
-                  <p className="text-sm font-medium">
+                <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+                  <p className="text-sm font-medium shrink-0">
                     {chatMode === "wiki_ask" ? "Wiki Ask history" : "Chat history"}
                   </p>
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="truncate text-[10px] text-muted-foreground/70 cursor-help max-w-[140px]">
+                          {sessionWorkspaceId
+                            ? `Workspace: ${localPath ? localPath.split("/").pop() : sessionWorkspaceId}`
+                            : sessionProjectId
+                              ? `Project: ${(wikiPath ?? localPath)?.split("/").pop() ?? sessionProjectId}`
+                              : "Temp sessions"}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs break-all">
+                        <p className="text-[11px]">
+                          {sessionWorkspaceId
+                            ? `Showing history for workspace${localPath ? `: ${localPath}` : ""}`
+                            : sessionProjectId
+                              ? `Showing history for project${(wikiPath ?? localPath) ? `: ${wikiPath ?? localPath}` : ""}`
+                              : "Showing history for temporary sessions"}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <ScrollArea className="h-[280px]">
                   {historyLoading && historySessions.length === 0 ? (
@@ -2442,7 +2569,7 @@ export function AgentChatPanel() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div
-                    className="group/title inline-flex items-center gap-1 max-w-full cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
+                    className="group/title flex w-fit items-center gap-1 max-w-full cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
                     onClick={handleStartEditTitle}
                     onMouseDown={(e) => e.stopPropagation()}
                   >
@@ -2652,11 +2779,11 @@ export function AgentChatPanel() {
           <PromptInputBody>
             <PromptInputTextarea
               placeholder={
-                isConnected
+                isConnected && !pendingAgentChatPrompt?.forceNewSession
                   ? (chatMode === "wiki_ask" ? "Ask about this wiki..." : "Type a message...")
                   : "Select agent to connect"
               }
-              disabled={!isConnected}
+              disabled={!isConnected || !!pendingAgentChatPrompt?.forceNewSession}
             />
           </PromptInputBody>
           <PromptInputFooter>

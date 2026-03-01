@@ -602,21 +602,34 @@ export const AgentManagerView: React.FC = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div
-                    className="relative flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20 overflow-hidden transition-colors"
+                    className="relative flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20 overflow-hidden"
                     aria-label={isSessionsView ? "Switch to Agent Manager" : "Switch to Sessions"}
                   >
-                    <div className={cn(
-                      "absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                      iconHovered ? "-translate-y-1.5 scale-90 opacity-0" : "translate-y-0 scale-100 opacity-100"
-                    )}>
-                      {isSessionsView ? <MessageSquare className="size-6" /> : <Bot className="size-6" />}
-                    </div>
-                    <div className={cn(
-                      "absolute inset-0 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                      iconHovered ? "translate-y-0 scale-100 opacity-100" : "translate-y-1.5 scale-90 opacity-0"
-                    )}>
-                      {isSessionsView ? <Bot className="size-6" /> : <MessageSquare className="size-6" />}
-                    </div>
+                    <AnimatePresence mode="wait" initial={false}>
+                      {(isSessionsView !== iconHovered) ? (
+                        <motion.div
+                          key="sessions-icon"
+                          initial={{ y: 12, opacity: 0, scale: 0.85 }}
+                          animate={{ y: 0, opacity: 1, scale: 1 }}
+                          exit={{ y: -12, opacity: 0, scale: 0.85 }}
+                          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                          className="absolute inset-0 flex items-center justify-center"
+                        >
+                          <MessageSquare className="size-6" />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="agents-icon"
+                          initial={{ y: 12, opacity: 0, scale: 0.85 }}
+                          animate={{ y: 0, opacity: 1, scale: 1 }}
+                          exit={{ y: -12, opacity: 0, scale: 0.85 }}
+                          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                          className="absolute inset-0 flex items-center justify-center"
+                        >
+                          <Bot className="size-6" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
