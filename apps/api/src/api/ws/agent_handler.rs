@@ -75,6 +75,7 @@ enum AgentServerMessage {
     },
     TurnEnd,
     SessionEnded,
+    LoadCompleted,
     /// Real-time ACP connection phase update
     PhaseUpdate {
         phase: String,
@@ -118,6 +119,7 @@ fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
         }),
         AcpSessionEvent::TurnEnd => Some(AgentServerMessage::TurnEnd),
         AcpSessionEvent::SessionEnded => Some(AgentServerMessage::SessionEnded),
+        AcpSessionEvent::LoadCompleted => Some(AgentServerMessage::LoadCompleted),
         AcpSessionEvent::ConfigOptionsUpdate(opts) => {
             Some(AgentServerMessage::ConfigOptionsUpdate {
                 config_options: opts,

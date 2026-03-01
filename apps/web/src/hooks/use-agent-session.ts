@@ -52,6 +52,7 @@ export type AgentServerMessage =
   | { type: "error"; code: string; message: string; recoverable: boolean }
   | { type: "turn_end" }
   | { type: "session_ended" }
+  | { type: "load_completed" }
   | { type: "phase_update"; phase: string }
   | {
       type: "config_options_update";

@@ -419,11 +419,16 @@ async fn run_session_inner(
                 }
             }
 
-            // Some ACP agents replay history via chunk notifications during load_session
-            // without an explicit turn-end marker. Emit one synthetic TurnEnd so the UI
-            // can finalize any "isStreaming" assistant block after resume replay.
+            // Per ACP spec, the session/load response means all history has been
+            // replayed. However, the SDK dispatches notifications as spawned tasks
+            // on this single-threaded runtime, so some may still be pending when
+            // load_session() returns. Yield repeatedly to let them flush before
+            // emitting the completion signal.
             if resume_session_id.is_some() {
-                let _ = event_tx.send(AcpSessionEvent::TurnEnd);
+                for _ in 0..20 {
+                    tokio::task::yield_now().await;
+                }
+                let _ = event_tx.send(AcpSessionEvent::LoadCompleted);
             }
 
             if let Some(tx) = ready_tx.take() {

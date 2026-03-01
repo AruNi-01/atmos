@@ -829,11 +829,13 @@ function ToolOrSkillBlock(props: ToolCallBlock) {
 function PlanBlockView({
   plan,
   docked = false,
+  defaultOpen = true,
 }: {
   plan: import("@/hooks/use-agent-session").AgentPlan;
   docked?: boolean;
+  defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
 
   if (!plan || !plan.entries || plan.entries.length === 0) return null;
 
@@ -1271,6 +1273,7 @@ export function AgentChatPanel() {
   const [registryId, setRegistryId] = useState<string>("");
   const [defaultRegistryId, setDefaultRegistryId] = useState<string>("");
   const [loadingAgents, setLoadingAgents] = useState(false);
+  const [hasLoadedAgents, setHasLoadedAgents] = useState(false);
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
@@ -1585,6 +1588,23 @@ export function AgentChatPanel() {
         stoppedRef.current = false;
         setWaitingForResponse(false);
         break;
+      case "load_completed":
+        stoppedRef.current = false;
+        setWaitingForResponse(false);
+        setIsResumingHistory(false);
+        setEntries((prev) => {
+          // Close isStreaming on ALL assistant entries left open after replay
+          let changed = false;
+          const next = prev.map((entry) => {
+            if (entry.role === "assistant" && entry.isStreaming) {
+              changed = true;
+              return { ...entry, isStreaming: false };
+            }
+            return entry;
+          });
+          return changed ? next : prev;
+        });
+        break;
     }
   }, []);
 
@@ -1747,6 +1767,7 @@ export function AgentChatPanel() {
             setIsResumedSession(true);
             const success = await resumeSession(latestSession.guid);
             if (!success) {
+              setIsResumingHistory(false);
               autoStartHandledRef.current = false;
               restoreAttemptedRef.current = false;
               autoResumeTriedRef.current = null;
@@ -1754,18 +1775,19 @@ export function AgentChatPanel() {
               startSession();
             }
           } else {
+            setIsResumingHistory(false);
             setIsResumedSession(false);
             restoreAttemptedRef.current = false;
             autoResumeTriedRef.current = null;
             autoStartHandledRef.current = false;
           }
         } catch {
+          setIsResumingHistory(false);
           setIsResumedSession(false);
           restoreAttemptedRef.current = false;
           autoResumeTriedRef.current = null;
           autoStartHandledRef.current = false;
         }
-        setIsResumingHistory(false);
       })();
     }
   }, [chatMode, getEffectiveIds, stashSession, unstashSession, entries, currentPlan, resumeSession, sessionId, sessionTitle, startSession]);
@@ -1839,9 +1861,13 @@ export function AgentChatPanel() {
       setIsResumingHistory(true);
       autoResumeTriedRef.current = null;
       try {
-        await resumeSession(s.guid);
-      } finally {
+        const success = await resumeSession(s.guid);
+        if (!success) {
+          setIsResumingHistory(false);
+        }
+      } catch {
         setIsResumingHistory(false);
+      } finally {
         skipNextAutoConnectRef.current = false;
       }
     },
@@ -1892,9 +1918,13 @@ export function AgentChatPanel() {
       setEntries([]);
       setCurrentPlan(null);
       setPendingPermission(null);
-      await resumeSession(targetSessionId);
-    } finally {
+      const success = await resumeSession(targetSessionId);
+      if (!success) {
+        setIsResumingHistory(false);
+      }
+    } catch {
       setIsResumingHistory(false);
+    } finally {
       skipNextAutoConnectRef.current = false;
       setIsManualLoadingMessages(false);
     }
@@ -1949,6 +1979,7 @@ export function AgentChatPanel() {
         setRegistryId("");
       }
     } finally {
+      setHasLoadedAgents(true);
       setLoadingAgents(false);
     }
   }, [registryId]);
@@ -1958,15 +1989,18 @@ export function AgentChatPanel() {
       restoreAttemptedRef.current = false;
       skipNextAutoConnectRef.current = false;
       autoStartHandledRef.current = false;
+      setHasLoadedAgents(false);
       setIsResumingHistory(false);
       autoResumeTriedRef.current = null;
       connectedContextKeyRef.current = null;
       return;
     }
-    if (isConnected || isConnecting) return;
-    if (installedAgents.length > 0 && registryId) return;
-    void refreshAgents();
-  }, [isAgentChatOpen, isConnected, isConnecting, installedAgents.length, registryId, refreshAgents]);
+    if (loadingAgents || isConnecting) return;
+    // Hydrate once per open; avoid repeated refresh loops when user truly has no installed agents.
+    if (!hasLoadedAgents || (!registryId && installedAgents.length > 0)) {
+      void refreshAgents();
+    }
+  }, [isAgentChatOpen, isConnecting, loadingAgents, hasLoadedAgents, installedAgents.length, registryId, refreshAgents]);
 
   // Handle forced new session even if already connected (e.g. from Code Review Dialog)
   useEffect(() => {
@@ -2043,6 +2077,7 @@ export function AgentChatPanel() {
             setIsResumingHistory(true);
             const success = await resumeSession(cachedSessionId);
             if (!success) {
+              setIsResumingHistory(false);
               setIsResumedSession(false);
               setActiveSessionByContext((prev) => {
                 if (prev[contextKey] !== cachedSessionId) return prev;
@@ -2054,7 +2089,6 @@ export function AgentChatPanel() {
               autoResumeTriedRef.current = null;
               startSession();
             }
-            setIsResumingHistory(false);
           })();
           return;
         }
@@ -2078,12 +2112,12 @@ export function AgentChatPanel() {
               setIsResumingHistory(true);
               const success = await resumeSession(latestSession.guid);
               if (!success) {
+                setIsResumingHistory(false);
                 setIsResumedSession(false);
                 autoStartHandledRef.current = false;
                 autoResumeTriedRef.current = null;
                 startSession();
               }
-              setIsResumingHistory(false);
             } else {
               autoStartHandledRef.current = true;
               autoResumeTriedRef.current = null;
@@ -2893,7 +2927,7 @@ export function AgentChatPanel() {
       <div className="shrink-0 px-3 pb-3 pt-px select-none">
         {currentPlan && (
           <div className="mx-auto w-[96%]">
-            <PlanBlockView plan={currentPlan} docked />
+            <PlanBlockView plan={currentPlan} docked defaultOpen={!isResumedSession} />
           </div>
         )}
         <PromptInput
