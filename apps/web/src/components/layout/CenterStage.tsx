@@ -27,6 +27,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   toastManager,
   getFileIconProps,
@@ -104,6 +105,13 @@ interface CenterStageProps {
 const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki", "project-wiki", "code-review"]);
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
 
+function getRelativePath(path: string, basePath?: string): string {
+  if (!basePath) return path;
+  if (path === basePath) return ".";
+  const normalizedBase = basePath.endsWith("/") ? basePath : `${basePath}/`;
+  return path.startsWith(normalizedBase) ? path.slice(normalizedBase.length) : path;
+}
+
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
@@ -119,6 +127,11 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
   const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
   const [wikiRefreshing, setWikiRefreshing] = React.useState(false);
+  const [tabContextMenu, setTabContextMenu] = React.useState<{
+    x: number;
+    y: number;
+    filePath: string;
+  } | null>(null);
 
   // Code Review tab state
   const codeReviewTerminalGridRef = React.useRef<TerminalGridHandle>(null);
@@ -242,6 +255,37 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const { currentBranch } = useGitInfoStore();
 
   const currentSetupProgress = workspaceId ? setupProgress[workspaceId] : null;
+
+  const closeFilesSafely = (files: OpenFile[]) => {
+    if (files.length === 0) return;
+    const closable = files.filter((f) => !f.isDirty);
+    const dirtyCount = files.length - closable.length;
+
+    for (const file of closable) {
+      closeFile(file.path, effectiveContextId || undefined);
+    }
+
+    if (dirtyCount > 0) {
+      toastManager.add({
+        title: "Skipped unsaved tabs",
+        description: `${dirtyCount} tab(s) have unsaved changes and were not closed.`,
+        type: "warning",
+      });
+    }
+  };
+
+  const copyToClipboard = async (value: string, successTitle: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toastManager.add({ title: successTitle, type: "success" });
+    } catch {
+      toastManager.add({
+        title: "Copy failed",
+        description: "Clipboard is not available.",
+        type: "error",
+      });
+    }
+  };
 
   const handleFinishSetup = () => {
     if (workspaceId) {
@@ -689,6 +733,11 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                   <TabsTab
                     value={file.path}
                     className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setActiveFile(file.path, effectiveContextId || undefined);
+                      setTabContextMenu({ x: e.clientX, y: e.clientY, filePath: file.path });
+                    }}
                     onDoubleClick={() => {
                       if (file.isPreview) {
                         pinFile(file.path, effectiveContextId || undefined);
@@ -937,6 +986,104 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           </TabsPanel>
         ))}
       </Tabs>
+
+      <DropdownMenu
+        open={!!tabContextMenu}
+        onOpenChange={(open) => {
+          if (!open) setTabContextMenu(null);
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-hidden
+            className="fixed size-0 pointer-events-none"
+            style={{
+              left: tabContextMenu?.x ?? -9999,
+              top: tabContextMenu?.y ?? -9999,
+            }}
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={4} className="w-52">
+          {(() => {
+            const target = openFiles.find((f) => f.path === tabContextMenu?.filePath);
+            if (!target) return null;
+            const targetIndex = openFiles.findIndex((f) => f.path === target.path);
+            const leftFiles = openFiles.slice(0, targetIndex);
+            const rightFiles = openFiles.slice(targetIndex + 1);
+            const basePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
+            const relativePath = getRelativePath(target.path, basePath);
+
+            return (
+              <>
+                <DropdownMenuItem
+                  onClick={() => {
+                    handleCloseFile(target);
+                    setTabContextMenu(null);
+                  }}
+                >
+                  Close
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    closeFilesSafely(openFiles.filter((f) => f.path !== target.path));
+                    setTabContextMenu(null);
+                  }}
+                  disabled={openFiles.length <= 1}
+                >
+                  Close Others
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    closeFilesSafely(leftFiles);
+                    setTabContextMenu(null);
+                  }}
+                  disabled={leftFiles.length === 0}
+                >
+                  Close All Left
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    closeFilesSafely(rightFiles);
+                    setTabContextMenu(null);
+                  }}
+                  disabled={rightFiles.length === 0}
+                >
+                  Close All Right
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    closeFilesSafely(openFiles);
+                    setTabContextMenu(null);
+                  }}
+                  disabled={openFiles.length === 0}
+                >
+                  Close All
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await copyToClipboard(target.path, "Path copied");
+                    setTabContextMenu(null);
+                  }}
+                >
+                  Copy Path
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await copyToClipboard(relativePath, "Relative path copied");
+                    setTabContextMenu(null);
+                  }}
+                >
+                  Copy Relative Path
+                </DropdownMenuItem>
+              </>
+            );
+          })()}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Project Wiki Tab Close Confirmation */}
       <Dialog open={projectWikiCloseConfirmOpen} onOpenChange={(open) => !open && setProjectWikiCloseConfirmOpen(false)}>
