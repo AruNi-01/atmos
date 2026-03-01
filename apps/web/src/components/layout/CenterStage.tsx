@@ -102,13 +102,17 @@ interface CenterStageProps {
 }
 
 const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki", "project-wiki", "code-review"]);
+const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
 
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
+  const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
+  const terminalLabelRef = React.useRef<HTMLSpanElement>(null);
+  const reloadingFilesRef = React.useRef<Set<string>>(new Set());
   const projectWikiTerminalGridRef = React.useRef<TerminalGridHandle>(null);
-  const [projectWikiTabVisible, setProjectWikiTabVisible] = React.useState(false);
+  const [projectWikiVisibleMap, setProjectWikiVisibleMap] = React.useState<Record<string, boolean>>({});
   const [projectWikiPendingCommand, setProjectWikiPendingCommand] = React.useState<string | null>(null);
   /** When user triggers wiki gen from Wiki tab, skip check overwriting projectWikiTabVisible (avoids race) */
   const projectWikiUserTriggeredRef = React.useRef(false);
@@ -118,7 +122,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   // Code Review tab state
   const codeReviewTerminalGridRef = React.useRef<TerminalGridHandle>(null);
-  const [codeReviewTabVisible, setCodeReviewTabVisible] = React.useState(false);
+  const [codeReviewVisibleMap, setCodeReviewVisibleMap] = React.useState<Record<string, boolean>>({});
   const [codeReviewPendingCommand, setCodeReviewPendingCommand] = React.useState<string | null>(null);
   const codeReviewUserTriggeredRef = React.useRef(false);
   const [codeReviewCloseConfirmOpen, setCodeReviewCloseConfirmOpen] = React.useState(false);
@@ -128,6 +132,10 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   useEditorStoreHydration();
 
   const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
+
+  // Derive per-workspace visibility (default false for unseen workspaces)
+  const projectWikiTabVisible = effectiveContextId ? (projectWikiVisibleMap[effectiveContextId] ?? false) : false;
+  const codeReviewTabVisible = effectiveContextId ? (codeReviewVisibleMap[effectiveContextId] ?? false) : false;
 
   // --- URL-synced tab state ---
   const [{ tab: tabFromUrl, wikiPage: wikiPageFromUrl }, setUrlParams] = useQueryStates(centerStageParams);
@@ -162,21 +170,19 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   // Intentionally NOT depending on tabFromUrl: when user triggers wiki gen from Wiki tab, we switch to project-wiki
   // and the window doesn't exist yet — re-running the check would overwrite projectWikiTabVisible and redirect away.
   React.useEffect(() => {
-    if (!effectiveContextId) {
-      setProjectWikiTabVisible(false);
-      return;
-    }
-    systemApi.checkProjectWikiWindow(effectiveContextId).then(
+    if (!effectiveContextId) return;
+    const ctxId = effectiveContextId;
+    systemApi.checkProjectWikiWindow(ctxId).then(
       ({ exists }) => {
         if (projectWikiUserTriggeredRef.current) return; // User just triggered wiki gen, don't overwrite
-        setProjectWikiTabVisible(exists);
+        setProjectWikiVisibleMap(prev => ({ ...prev, [ctxId]: exists }));
         if (tabFromUrl === "project-wiki" && !exists) {
           setUrlParams({ tab: "terminal" });
         }
       },
       () => {
         if (projectWikiUserTriggeredRef.current) return;
-        setProjectWikiTabVisible(false);
+        setProjectWikiVisibleMap(prev => ({ ...prev, [ctxId]: false }));
         if (tabFromUrl === "project-wiki") {
           setUrlParams({ tab: "terminal" });
         }
@@ -186,21 +192,19 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   // Check Code Review window on mount and when workspace changes.
   React.useEffect(() => {
-    if (!effectiveContextId) {
-      setCodeReviewTabVisible(false);
-      return;
-    }
-    systemApi.checkCodeReviewWindow(effectiveContextId).then(
+    if (!effectiveContextId) return;
+    const ctxId = effectiveContextId;
+    systemApi.checkCodeReviewWindow(ctxId).then(
       ({ exists }) => {
         if (codeReviewUserTriggeredRef.current) return;
-        setCodeReviewTabVisible(exists);
+        setCodeReviewVisibleMap(prev => ({ ...prev, [ctxId]: exists }));
         if (tabFromUrl === "code-review" && !exists) {
           setUrlParams({ tab: "terminal" });
         }
       },
       () => {
         if (codeReviewUserTriggeredRef.current) return;
-        setCodeReviewTabVisible(false);
+        setCodeReviewVisibleMap(prev => ({ ...prev, [ctxId]: false }));
         if (tabFromUrl === "code-review") {
           setUrlParams({ tab: "terminal" });
         }
@@ -231,6 +235,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     closeFile,
     getActiveFile,
     pinFile,
+    reloadFileContent,
   } = useEditorStore();
   const { setCreateProjectOpen, isCodeReviewDialogOpen, setCodeReviewDialogOpen } = useDialogStore();
   const { projects, setupProgress, clearSetupProgress } = useProjectStore();
@@ -254,6 +259,100 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
   // activeValue 优先使用打开的文件路径，否则使用 fixedTab
   const activeValue = activeFilePath || fixedTab;
+
+  React.useEffect(() => {
+    if (!effectiveContextId) return;
+    for (const file of openFiles) {
+      if (!file.isLoading) continue;
+      const key = `${effectiveContextId}:${file.path}`;
+      if (reloadingFilesRef.current.has(key)) continue;
+      reloadingFilesRef.current.add(key);
+      reloadFileContent(file.path, effectiveContextId)
+        .finally(() => {
+          reloadingFilesRef.current.delete(key);
+        });
+    }
+  }, [effectiveContextId, openFiles, reloadFileContent]);
+
+  React.useEffect(() => {
+    const container = scrollableTabsRef.current;
+    if (!container) return;
+
+    const applyScrollStyle = () => {
+      const ratio = Math.min(container.scrollLeft / 64, 1);
+      const label = terminalLabelRef.current;
+      if (!label) return;
+      label.style.opacity = `${1 - ratio}`;
+      label.style.maxWidth = `${72 * (1 - ratio)}px`;
+      label.style.marginLeft = `${10 * (1 - ratio)}px`;
+    };
+
+    const handleScroll = () => {
+      applyScrollStyle();
+    };
+
+    applyScrollStyle();
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [effectiveContextId, openFiles.length, projectWikiTabVisible, codeReviewTabVisible]);
+
+  React.useEffect(() => {
+    if (!effectiveContextId || !activeValue) return;
+    try {
+      const raw = sessionStorage.getItem(LAST_ACTIVE_TAB_STORAGE_KEY);
+      const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+      map[effectiveContextId] = activeValue;
+      sessionStorage.setItem(LAST_ACTIVE_TAB_STORAGE_KEY, JSON.stringify(map));
+    } catch {
+      // ignore storage errors
+    }
+  }, [effectiveContextId, activeValue]);
+
+  React.useEffect(() => {
+    if (!effectiveContextId || activeFilePath) return;
+    try {
+      const raw = sessionStorage.getItem(LAST_ACTIVE_TAB_STORAGE_KEY);
+      if (!raw) return;
+      const map = JSON.parse(raw) as Record<string, string>;
+      const last = map[effectiveContextId];
+      if (!last || last === activeValue) return;
+      if (FIXED_TABS.has(last)) {
+        setFixedTab(last as FixedTab);
+        return;
+      }
+      const exists = openFiles.some((f) => f.path === last);
+      if (exists) {
+        setActiveFile(last, effectiveContextId);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [effectiveContextId, activeFilePath, activeValue, openFiles, setActiveFile, setFixedTab]);
+
+  // Auto-scroll active tab into view when it changes or context/tabs are restored
+  React.useEffect(() => {
+    const container = scrollableTabsRef.current;
+    if (!activeValue || !container) return;
+    if (FIXED_TABS.has(activeValue)) return;
+
+    const timer = setTimeout(() => {
+      const current = scrollableTabsRef.current;
+      if (!current) return;
+      const activeTab = current.querySelector<HTMLElement>('[data-active], [aria-selected="true"]');
+      if (activeTab) {
+        const containerRect = current.getBoundingClientRect();
+        const tabRect = activeTab.getBoundingClientRect();
+        const isVisible = tabRect.left >= containerRect.left && tabRect.right <= containerRect.right;
+        if (!isVisible) {
+          activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        }
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [activeValue, effectiveContextId, openFiles.length, projectWikiTabVisible, codeReviewTabVisible]);
 
   // Run pending wiki command when Project Wiki tab is active and grid is ready
   React.useEffect(() => {
@@ -396,7 +495,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
         {/* Top Tab Bar */}
         <TabsList
           variant="underline"
-          className="h-10 w-full justify-start border-b border-sidebar-border px-0 bg-transparent overflow-x-auto no-scrollbar gap-0 items-stretch py-0!"
+          className="h-10 w-full justify-start border-b border-sidebar-border px-0 bg-transparent overflow-hidden gap-0 items-stretch py-0! [&_[data-slot=tab-indicator]]:hidden"
         >
           {/* Overview Tab - Fixed, shown when workspace/project is selected */}
           {effectiveContextId && (
@@ -458,22 +557,44 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
 
           <TabsTab
             value="terminal"
-            className="relative h-full! pl-4 pr-8 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
+            className="group/terminal relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-0 grow-0 shrink-0 justify-start rounded-none border-0!"
           >
-            <TerminalIcon className="size-3.5" />
-            <span className="text-[13px] font-medium text-pretty">
+            <span className="relative size-3.5 shrink-0">
+              <TerminalIcon
+                className={cn(
+                  "size-3.5 absolute inset-0 transition-all duration-200",
+                  activeValue === "terminal"
+                    ? "group-hover/terminal:opacity-0 group-hover/terminal:scale-50 group-hover/terminal:rotate-[-20deg]"
+                    : ""
+                )}
+              />
+            </span>
+            <span
+              ref={terminalLabelRef}
+              className="text-[13px] font-medium text-pretty whitespace-nowrap origin-left"
+              style={{
+                opacity: 1,
+                maxWidth: "72px",
+                marginLeft: "10px",
+                overflow: "hidden",
+              }}
+            >
               Terminal
             </span>
 
-            {/* Code Agent Dropdown - Absolute positioning to not affect flex layout flow */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <div
                   role="button"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-colors"
+                  className={cn(
+                    "absolute left-[13px] top-1/2 -translate-y-1/2 size-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all",
+                    activeValue === "terminal"
+                      ? "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto"
+                      : "hidden"
+                  )}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Plus className="size-3" />
+                  <Plus className="size-4" />
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
@@ -500,6 +621,8 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               </DropdownMenuContent>
             </DropdownMenu>
           </TabsTab>
+
+          <div ref={scrollableTabsRef} className="flex min-w-0 flex-1 overflow-x-auto no-scrollbar">
 
           {/* Project Wiki Tab - shown when wiki gen runs or tmux window exists */}
           {effectiveContextId && projectWikiTabVisible && (
@@ -613,6 +736,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               </Tooltip>
             );
           })}
+          </div>
         </TabsList>
 
         {/* Main Content Area - Panels are direct children of Tabs flex-col container */}
@@ -760,9 +884,10 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               terminalGridRef={terminalGridRef}
               onSwitchToTerminal={() => setFixedTab("terminal")}
               onSwitchToProjectWikiAndRun={(command) => {
+                if (!effectiveContextId) return;
                 projectWikiUserTriggeredRef.current = true;
                 setProjectWikiPendingCommand(command);
-                setProjectWikiTabVisible(true);
+                setProjectWikiVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
                 setFixedTab("project-wiki");
               }}
               onProjectWikiReplaceAndRun={async (command) => {
@@ -772,7 +897,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                   projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(PROJECT_WIKI_WINDOW_NAME);
                   projectWikiUserTriggeredRef.current = true;
                   setProjectWikiPendingCommand(command);
-                  setProjectWikiTabVisible(true);
+                  setProjectWikiVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
                   setFixedTab("project-wiki");
                   toastManager.add({
                     title: "Wiki generation started",
@@ -834,7 +959,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                   try {
                     await systemApi.killProjectWikiWindow(effectiveContextId);
                     projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(PROJECT_WIKI_WINDOW_NAME);
-                    setProjectWikiTabVisible(false);
+                    setProjectWikiVisibleMap(prev => ({ ...prev, [effectiveContextId]: false }));
                     setFixedTab("terminal");
                   } catch (err) {
                     toastManager.add({
@@ -874,7 +999,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                   try {
                     await systemApi.killCodeReviewWindow(effectiveContextId);
                     codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
-                    setCodeReviewTabVisible(false);
+                    setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: false }));
                     setFixedTab("terminal");
                   } catch (err) {
                     toastManager.add({
@@ -904,9 +1029,10 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
           projectMainPath={currentProject?.mainFilePath}
           currentBranch={currentBranch ?? undefined}
           onStartTerminalMode={(command) => {
+            if (!effectiveContextId) return;
             codeReviewUserTriggeredRef.current = true;
             setCodeReviewPendingCommand(command);
-            setCodeReviewTabVisible(true);
+            setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
             setFixedTab("code-review");
           }}
           onReplaceTerminalAndRun={async (command) => {
@@ -916,7 +1042,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
               codeReviewUserTriggeredRef.current = true;
               setCodeReviewPendingCommand(command);
-              setCodeReviewTabVisible(true);
+              setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: true }));
               setFixedTab("code-review");
               toastManager.add({
                 title: "Code review started",

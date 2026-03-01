@@ -1,5 +1,20 @@
 # Backend Review Checklist
 
+> **⚠️ CRITICAL: Before reporting ANY finding, you MUST:**
+> 1. **Read the actual code** - Do not guess what the code does
+> 2. **Follow the execution path** - Trace from handler to service to repository
+> 3. **Check for existing validations** - DTOs, schemas, middleware, database constraints
+> 4. **Verify the data flow** - Where does the input come from? Where is it used?
+> 5. **Search for related code** - Search to find validation/auth/checks elsewhere
+>
+> **Examples of WRONG findings to AVOID:**
+> - ❌ "Missing auth check on endpoint" → When auth is handled by middleware
+> - ❌ "Should validate field X as an enum" → When the code already uses an enum type
+> - ❌ "Missing ownership check" → When you haven't verified if ownership is checked elsewhere
+> - ❌ "Race condition in file deletion" → When the path comes from a validated database record
+
+---
+
 ## API Design
 
 ### Endpoint Design
@@ -119,9 +134,19 @@ authors = db.query("SELECT * FROM authors WHERE id IN (?)", author_ids)
 
 ## Concurrency & Async
 
+> **⚠️ BEFORE reporting "race condition" or "TOCTOU":**
+> 1. **Verify concurrent access actually exists** - Is this code actually called concurrently?
+> 2. **Check if the data source is trusted** - Data from database is not user-controlled
+> 3. **Understand the impact** - What's the worst case? Is it acceptable?
+> 4. **Consider the cost of fix** - Is a complex solution worth it for minor edge cases?
+>
+> **Examples of OVERSTATED race conditions:**
+> - ❌ `if exists(path) { delete(path) }` where `path` comes from a trusted database record
+> - ❌ State restoration after failed operation - when the restore is a safety mechanism
+
 ### Thread Safety
-- [ ] Shared mutable state protected by locks/mutexes
-- [ ] No race conditions in check-then-act patterns
+- [ ] Shared mutable state protected by locks/mutexes **WHEN actually accessed concurrently**
+- [ ] No race conditions in check-then-act patterns **that involve user-controlled input**
 - [ ] Concurrent data structures used where appropriate
 - [ ] Deadlock potential analyzed (lock ordering)
 
@@ -145,8 +170,15 @@ authors = db.query("SELECT * FROM authors WHERE id IN (?)", author_ids)
 - [ ] Race conditions checked with `go test -race`
 
 ## Authentication & Authorization
-- [ ] New endpoints have auth guards
-- [ ] RBAC/ABAC checks before data access
+
+> **⚠️ BEFORE reporting "missing auth":**
+> 1. **Search for middleware** - Search for middleware, guards, or auth handlers
+> 2. **Check route configuration** - Auth might be applied at route group level
+> 3. **Look at similar endpoints** - If they don't have explicit auth, it's likely handled elsewhere
+> 4. **Read the request handling flow** - Don't judge a single function in isolation
+
+- [ ] New endpoints have auth guards **OR** are protected by route-level middleware
+- [ ] RBAC/ABAC checks before data access **OR** enforced by database queries (e.g., `WHERE user_id = ?`)
 - [ ] No security through obscurity (hidden URLs are not auth)
 - [ ] Token validation includes expiry, issuer, audience checks
 - [ ] Password hashing uses modern algorithms (bcrypt, argon2)

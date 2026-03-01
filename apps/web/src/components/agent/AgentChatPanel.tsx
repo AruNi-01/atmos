@@ -81,7 +81,7 @@ import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatLayout } from "@/hooks/use-agent-chat-layout";
 import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
 import { AgentIcon } from "./AgentIcon";
-import { useAgentSession, type AgentServerMessage, type AcpPermissionOption } from "@/hooks/use-agent-session";
+import { useAgentSession, type AgentServerMessage, type AcpPermissionOption, type AgentPlan } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
 import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-api";
 import { formatLocalDateTime } from "@atmos/shared";
@@ -103,6 +103,20 @@ interface ToolCallBlock {
   raw_input?: unknown;
   raw_output?: unknown;
   detail?: unknown;
+}
+
+function isPlanUpdateToolCall(block: ToolCallBlock): boolean {
+  const tool = (block.tool || "").toLowerCase();
+  const description = (block.description || "").toLowerCase();
+  if (tool === "todowrite" || tool === "todo_write") return true;
+  if (description.includes("todo list updated")) return true;
+  if (block.raw_output && typeof block.raw_output === "object") {
+    const text = (block.raw_output as Record<string, unknown>).text;
+    if (typeof text === "string" && text.toLowerCase().includes("todo list updated")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function getToolIcon(tool: string): React.ReactNode {
@@ -611,6 +625,7 @@ function getAssistantCopyText(entry: AssistantEntry): string {
       continue;
     }
     if (block.type === "tool_call") {
+      if (isPlanUpdateToolCall(block)) continue;
       if (typeof block.raw_output === "string" && block.raw_output.trim()) {
         parts.push(block.raw_output.trim());
       } else if (typeof block.description === "string" && block.description.trim()) {
@@ -811,34 +826,118 @@ function ToolOrSkillBlock(props: ToolCallBlock) {
   );
 }
 
-function PlanBlockView({ plan }: { plan: import("@/hooks/use-agent-session").AgentPlan }) {
+function PlanBlockView({
+  plan,
+  docked = false,
+}: {
+  plan: import("@/hooks/use-agent-session").AgentPlan;
+  docked?: boolean;
+}) {
   const [isOpen, setIsOpen] = useState(true);
 
   if (!plan || !plan.entries || plan.entries.length === 0) return null;
 
   const completedCount = plan.entries.filter((e) => e.status === "completed").length;
   const totalCount = plan.entries.length;
+  const allCompleted = totalCount > 0 && completedCount === totalCount;
   const currentIndex = plan.entries.findIndex(
     (e) => e.status === "in_progress" || e.status === "running"
   );
 
   const currentRunningEntry = plan.entries[currentIndex];
 
+  const PlanEntryScrollableText = ({
+    text,
+    className,
+    shimmer = false,
+  }: {
+    text: string;
+    className: string;
+    shimmer?: boolean;
+  }) => {
+    const textRef = useRef<HTMLSpanElement>(null);
+    const animRef = useRef<number | null>(null);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const stopScroll = useCallback(() => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (animRef.current) {
+        cancelAnimationFrame(animRef.current);
+        animRef.current = null;
+      }
+      const el = textRef.current;
+      if (el) el.scrollLeft = 0;
+    }, []);
+
+    const startScroll = useCallback(() => {
+      const el = textRef.current;
+      if (!el) return;
+      const overflow = el.scrollWidth - el.clientWidth;
+      if (overflow <= 0) return;
+
+      el.scrollLeft = 0;
+      timeoutRef.current = setTimeout(() => {
+        const duration = overflow * 40;
+        const startTime = performance.now();
+
+        const step = (now: number) => {
+          const progress = Math.min((now - startTime) / duration, 1);
+          el.scrollLeft = overflow * progress;
+          if (progress < 1) {
+            animRef.current = requestAnimationFrame(step);
+          }
+        };
+        animRef.current = requestAnimationFrame(step);
+      }, 300);
+    }, []);
+
+    useEffect(() => {
+      return () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        if (animRef.current) cancelAnimationFrame(animRef.current);
+      };
+    }, []);
+
+    return (
+      <span
+        ref={textRef}
+        className={className}
+        onMouseEnter={startScroll}
+        onMouseLeave={stopScroll}
+      >
+        {shimmer ? (
+          <TextShimmer as="span" className="inline" duration={1.5}>
+            {text}
+          </TextShimmer>
+        ) : (
+          text
+        )}
+      </span>
+    );
+  };
+
   return (
-    <div className="w-full flex-col border border-border/40 bg-[#0d0d0d]/40 rounded-md mt-2 mb-2 flex overflow-hidden shadow-sm">
+    <div
+      className={`w-full flex-col border border-dashed border-border bg-background flex overflow-hidden shadow-sm ${docked ? "rounded-t-xl rounded-b-none border-b-0" : "rounded-md"}`}
+    >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center gap-2 p-3 hover:bg-muted/10 cursor-pointer transition-colors group">
-            <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-              {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-            </span>
-            <span className="text-sm font-medium text-foreground/90">Plan</span>
-            <div className="flex-1" />
-            <span className="text-sm text-muted-foreground mr-1">
-              {completedCount}/{totalCount}
-            </span>
-          </div>
-        </CollapsibleTrigger>
+        {(isOpen || allCompleted) && (
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center gap-2 p-3 hover:bg-muted/10 cursor-pointer transition-colors group">
+              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+                {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </span>
+              <span className="text-sm font-medium text-foreground/90">Plan</span>
+              <div className="flex-1" />
+              <span className="text-sm text-muted-foreground mr-1">
+                {allCompleted ? "All Done" : `${completedCount}/${totalCount}`}
+              </span>
+            </div>
+          </CollapsibleTrigger>
+        )}
         <CollapsibleContent>
           <div className="flex flex-col border-t border-border/40">
             {plan.entries.map((entry, idx) => {
@@ -862,16 +961,16 @@ function PlanBlockView({ plan }: { plan: import("@/hooks/use-agent-session").Age
                       <CircleDashed className="w-4 h-4 text-muted-foreground/40" />
                     )}
                   </div>
-                  <span
-                    className={`text-sm flex-1 ${isCompleted
+                  <PlanEntryScrollableText
+                    text={entry.content}
+                    shimmer={isRunning}
+                    className={`text-sm flex-1 overflow-hidden whitespace-nowrap ${isCompleted
                       ? "line-through text-muted-foreground/60"
                       : isRunning
                         ? "text-foreground font-medium"
                         : "text-muted-foreground/80"
                       }`}
-                  >
-                    {entry.content}
-                  </span>
+                  />
                 </div>
               );
             })}
@@ -880,7 +979,10 @@ function PlanBlockView({ plan }: { plan: import("@/hooks/use-agent-session").Age
       </Collapsible>
 
       {!isOpen && currentRunningEntry && (
-        <div className="flex items-center gap-3 p-3 px-4 border-t border-border/40 bg-muted/5 rounded-b-md overflow-hidden">
+        <div
+          className={`flex items-center gap-3 p-3 px-4 border-t border-border/40 bg-background overflow-hidden cursor-pointer ${docked ? "rounded-none" : "rounded-b-md"}`}
+          onClick={() => setIsOpen(true)}
+        >
           <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
           <div className="flex flex-1 items-center h-5 relative overflow-hidden">
             <span className="text-sm text-muted-foreground mr-1 font-normal shrink-0">Current:</span>
@@ -894,7 +996,9 @@ function PlanBlockView({ plan }: { plan: import("@/hooks/use-agent-session").Age
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   className="absolute inset-0 text-sm font-medium text-foreground truncate"
                 >
-                  {currentRunningEntry.content}
+                  <TextShimmer as="span" className="inline" duration={1.5}>
+                    {currentRunningEntry.content}
+                  </TextShimmer>
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -904,6 +1008,7 @@ function PlanBlockView({ plan }: { plan: import("@/hooks/use-agent-session").Age
           </span>
         </div>
       )}
+
     </div>
   );
 }
@@ -1010,9 +1115,9 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
             </Reasoning>
           );
         }
-        if (block.type === "plan") {
-          return <PlanBlockView key={`plan-${i}`} plan={block.plan} />;
-        }
+        if (block.type === "plan") return null;
+
+        if (block.type === "tool_call" && isPlanUpdateToolCall(block)) return null;
 
         return (
           <ToolOrSkillBlock key={block.tool_call_id || i} {...block as ToolCallBlock} />
@@ -1042,6 +1147,7 @@ function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): Age
   for (let i = assistant.blocks.length - 1; i >= 0; i--) {
     const block = assistant.blocks[i];
     if (block.type === "tool_call") {
+      if (isPlanUpdateToolCall(block)) continue;
       if (block.status === "running") {
         const tool = block.tool;
         const label =
@@ -1160,6 +1266,7 @@ export function AgentChatPanel() {
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const [chatMode, setChatMode] = useState<AgentChatMode>(DEFAULT_AGENT_CHAT_MODE);
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
+  const [currentPlan, setCurrentPlan] = useState<AgentPlan | null>(null);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
   const [registryId, setRegistryId] = useState<string>("");
   const [defaultRegistryId, setDefaultRegistryId] = useState<string>("");
@@ -1187,6 +1294,7 @@ export function AgentChatPanel() {
   );
   const activeSessionByContextRef = useRef<Record<string, string>>({});
   const entriesByContextRef = useRef<Record<string, ThreadEntry[]>>({});
+  const planByContextRef = useRef<Record<string, AgentPlan | null>>({});
   const sessionTitleByContextRef = useRef<Record<string, string | null>>({});
   const { projects, fetchProjects } = useProjectStore();
   const restoreAttemptedRef = useRef(false);
@@ -1444,6 +1552,10 @@ export function AgentChatPanel() {
         if (stoppedRef.current) return; // user stopped, discard
         setEntries((prev) => reduceEntries(prev, msg));
         break;
+      case "plan_update":
+        if (stoppedRef.current) return; // user stopped, discard
+        setCurrentPlan(msg.plan);
+        break;
       case "permission_request":
         setPendingPermission({
           request_id: msg.request_id,
@@ -1585,6 +1697,7 @@ export function AgentChatPanel() {
       setActiveSessionByContext(nextMap);
     }
     entriesByContextRef.current[previousContextKey] = entries;
+    planByContextRef.current[previousContextKey] = currentPlan;
     sessionTitleByContextRef.current[previousContextKey] = sessionTitle;
 
     // Stash the live WS connection (stays open in background).
@@ -1592,6 +1705,7 @@ export function AgentChatPanel() {
 
     // ---- restore incoming session ----
     setEntries(entriesByContextRef.current[nextContextKey] ?? []);
+    setCurrentPlan(planByContextRef.current[nextContextKey] ?? null);
     setPendingPermission(null);
     setSessionTitle(sessionTitleByContextRef.current[nextContextKey] ?? null);
     setWaitingForResponse(false);
@@ -1654,7 +1768,7 @@ export function AgentChatPanel() {
         setIsResumingHistory(false);
       })();
     }
-  }, [chatMode, getEffectiveIds, stashSession, unstashSession, entries, resumeSession, sessionId, sessionTitle, startSession]);
+  }, [chatMode, getEffectiveIds, stashSession, unstashSession, entries, currentPlan, resumeSession, sessionId, sessionTitle, startSession]);
 
   useEffect(() => {
     if (!sessionId || !isConnected) return;
@@ -1691,6 +1805,7 @@ export function AgentChatPanel() {
     connectedContextKeyRef.current = null;
     disconnect();
     setEntries([]);
+    setCurrentPlan(null);
     setPendingPermission(null);
     setSessionTitle(null);
     setIsEditingTitle(false);
@@ -1713,6 +1828,7 @@ export function AgentChatPanel() {
       skipNextAutoConnectRef.current = true;
       disconnect();
       setEntries([]);
+      setCurrentPlan(null);
       setPendingPermission(null);
       setWaitingForResponse(false);
       stoppedRef.current = false;
@@ -1740,6 +1856,7 @@ export function AgentChatPanel() {
     disconnectStashed(contextKey);
     disconnect();
     setEntries([]);
+    setCurrentPlan(null);
     setPendingPermission(null);
     setSessionTitle(null);
     setIsEditingTitle(false);
@@ -1773,6 +1890,7 @@ export function AgentChatPanel() {
       skipNextAutoConnectRef.current = true;
       disconnect();
       setEntries([]);
+      setCurrentPlan(null);
       setPendingPermission(null);
       await resumeSession(targetSessionId);
     } finally {
@@ -1861,6 +1979,7 @@ export function AgentChatPanel() {
         // Disconnect and clear state so the auto-connect effect can start a fresh session.
         disconnect();
         setEntries([]);
+        setCurrentPlan(null);
         setPendingPermission(null);
         setSessionTitle(null);
         setIsResumedSession(false);
@@ -1894,6 +2013,7 @@ export function AgentChatPanel() {
         autoResumeTriedRef.current = null;
         setIsResumedSession(false);
         setEntries([]);
+        setCurrentPlan(null);
         setPendingPermission(null);
         setSessionTitle(pendingPrompt?.sessionTitle ?? null);
         if (registryId !== forcedRegistryId) {
@@ -2141,6 +2261,7 @@ export function AgentChatPanel() {
         }
       }
       setWaitingForResponse(true);
+      setCurrentPlan(null);
       setEntries((prev) => [
         ...prev,
         {
@@ -2770,9 +2891,14 @@ export function AgentChatPanel() {
       )}
 
       <div className="shrink-0 px-3 pb-3 pt-px select-none">
+        {currentPlan && (
+          <div className="mx-auto w-[96%]">
+            <PlanBlockView plan={currentPlan} docked />
+          </div>
+        )}
         <PromptInput
           onSubmit={(msg) => handleSubmit({ text: msg.text, files: msg.files })}
-          className="w-full"
+          className={`w-full border-0 shadow-none rounded-none ${currentPlan ? "rounded-t-none" : "rounded-t-xl"}`}
           multiple
         >
           <PromptInputAttachmentsSection />

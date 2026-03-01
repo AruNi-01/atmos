@@ -1,5 +1,24 @@
 # Security Review Checklist
 
+> **⚠️ CRITICAL: Before reporting ANY security finding, you MUST:**
+> 1. **Trace the complete data flow** - Do not look at isolated code snippets
+> 2. **Check if validation exists elsewhere** - Middleware, DTOs, ORM, database constraints
+> 3. **Verify the threat is real** - Is this user-controlled? Is it accessible?
+> 4. **Search for mitigations** - Search to find related validation/auth code
+> 5. **Understand the architecture** - Where are auth checks performed in this project?
+>
+> **DO NOT report "missing auth" if:**
+> - Auth is handled by middleware (check for `middleware`, `guards`, `auth` files)
+> - The endpoint is protected by framework/route-level configuration
+> - You haven't searched for where auth is implemented
+>
+> **DO NOT report "missing validation" if:**
+> - Validation is done at the DTO/schema layer
+> - Database constraints provide the validation
+> - The input comes from a trusted source (e.g., database, not user)
+
+---
+
 ## Input/Output Safety
 
 ### Injection Attacks
