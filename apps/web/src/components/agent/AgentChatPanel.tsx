@@ -2961,7 +2961,12 @@ export function AgentChatPanel() {
                     .filter((opt): opt is NonNullable<typeof opt> => Boolean(opt))
                     .map(opt => (
                       <div key={opt.id} className="flex items-center gap-1">
-                        <Select value={opt.currentValue || ''} onValueChange={(val) => setConfigOption(opt.id, val)}>
+                        <Select
+                          value={opt.currentValue || ''}
+                          onValueChange={(val) => {
+                            setConfigOption(opt.id, val);
+                          }}
+                        >
                           <SelectTrigger className="h-8 text-xs min-w-[100px] border-border/50 bg-muted/20">
                             <SelectValue placeholder={opt.name || opt.id} />
                           </SelectTrigger>
@@ -2969,56 +2974,48 @@ export function AgentChatPanel() {
                             {opt.options.map(o => {
                               const isDefault = activeAgent?.default_config?.[opt.id] === o.value;
                               const item = (
-                                <SelectItem key={o.value} value={o.value} className="text-xs group/item pr-14 relative">
+                                <SelectItem
+                                  key={o.value}
+                                  value={o.value}
+                                  className="text-xs"
+                                  onPointerDown={(e) => {
+                                    if (!e.shiftKey) return;
+                                    setAgentDefaultConfig(opt.id, o.value);
+                                    setInstalledAgents((prev) =>
+                                      prev.map((a) => {
+                                        if (a.id === registryId) {
+                                          const newDefaults = {
+                                            ...(a.default_config || {}),
+                                            [opt.id]: o.value,
+                                          };
+                                          return { ...a, default_config: newDefaults };
+                                        }
+                                        return a;
+                                      })
+                                    );
+                                    void refreshAgents();
+                                  }}
+                                >
                                   <span className="truncate">{o.name || o.value}</span>
-                                  <div className="absolute right-8 top-1/2 -translate-y-1/2">
-                                    <TooltipProvider delayDuration={0}>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <div
-                                            className={`cursor-pointer p-1 rounded-sm hover:bg-primary/10 transition-all ${isDefault ? "opacity-100" : "opacity-0 group-hover/item:opacity-100"
-                                              }`}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              setAgentDefaultConfig(opt.id, o.value);
-
-                                              // Optimistically update the UI
-                                              setInstalledAgents(prev => prev.map(a => {
-                                                if (a.id === registryId) {
-                                                  const newDefaults = { ...(a.default_config || {}), [opt.id]: o.value };
-                                                  return { ...a, default_config: newDefaults };
-                                                }
-                                                return a;
-                                              }));
-
-                                              // Still refresh to stay in sync with server
-                                              void refreshAgents();
-                                            }}
-                                          >
-                                            <Heart
-                                              className={`size-3 ${isDefault ? "fill-primary text-primary" : "text-muted-foreground/60"
-                                                }`}
-                                            />
-                                          </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="right" className="z-100 text-[10px] py-1 px-2">
-                                          {isDefault ? "Saved as default" : "Set as default"}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
                                 </SelectItem>
                               );
-                              if (!o.description) return item;
                               return (
                                 <TooltipProvider key={o.value} delayDuration={0}>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       {item}
                                     </TooltipTrigger>
-                                    <TooltipContent side="left" align="center" className="max-w-[250px] z-100">
-                                      {o.description}
+                                    <TooltipContent
+                                      side="left"
+                                      align="center"
+                                      className="z-100 max-w-[250px]"
+                                    >
+                                      <div className="space-y-1.5">
+                                        {o.description ? <div>{o.description}</div> : null}
+                                        <div className="border-t border-border/50 pt-1 text-[10px]">
+                                          Shift + Click to set as default {isDefault ? "(current default)" : ""}
+                                        </div>
+                                      </div>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>

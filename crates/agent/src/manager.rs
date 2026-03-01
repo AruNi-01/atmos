@@ -1209,7 +1209,11 @@ struct ManifestEntry {
     /// The version currently installed (if detectable); used for upgrade detection.
     #[serde(default)]
     installed_version: Option<String>,
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "default_option_configs",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub default_config: Option<std::collections::HashMap<String, String>>,
 }
 
@@ -1224,7 +1228,11 @@ struct CustomAgentEntry {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: std::collections::HashMap<String, String>,
-    #[serde(default)]
+    #[serde(
+        default,
+        rename = "default_option_configs",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub default_config: Option<std::collections::HashMap<String, String>>,
 }
 
