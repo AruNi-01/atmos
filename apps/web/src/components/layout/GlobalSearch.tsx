@@ -664,7 +664,15 @@ export function GlobalSearch() {
   };
 
   return (
-    <CommandDialog showCloseButton={false} open={isGlobalSearchOpen} onOpenChange={setGlobalSearchOpen} shouldFilter={false} value={selectedValue} onValueChange={setSelectedValue}>
+    <CommandDialog
+      showCloseButton={false}
+      open={isGlobalSearchOpen}
+      onOpenChange={setGlobalSearchOpen}
+      shouldFilter={false}
+      value={selectedValue}
+      onValueChange={setSelectedValue}
+      className="w-[min(740px,calc(100vw-2rem))] sm:max-w-[740px] h-[min(82vh,900px)]"
+    >
       <CodePreviewTooltip />
       {/* Tab Navigation */}
       <div className="px-1">
@@ -693,7 +701,7 @@ export function GlobalSearch() {
         className="text-base"
       />
 
-      <CommandList className="bg-muted/50 dark:bg-black/60 rounded-t-[20px] pt-1 shadow-inner/5">
+      <CommandList className="bg-muted/50 dark:bg-black/60 rounded-t-[20px] pt-1 shadow-inner/5 max-h-[calc(82vh-150px)]">
         {/* App Search Tab */}
         {globalSearchTab === 'app' && (
           <>
@@ -865,7 +873,7 @@ export function GlobalSearch() {
         )}
       </CommandList>
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-transparent border-t border-border/40 text-[11px] text-muted-foreground/80 mt-auto shrink-0 select-none">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-transparent border-t border-border/40 text-[11px] text-muted-foreground/80 shrink-0 select-none">
         <div className="flex items-center gap-5">
           <span className="flex items-center gap-1.5 group">
             <div className="flex items-center gap-0.5">
