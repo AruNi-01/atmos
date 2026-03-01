@@ -26,6 +26,66 @@ enum SessionCommand {
     SetConfigOption(String, String),
 }
 
+fn map_config_options(
+    opts: Vec<acp::SessionConfigOption>,
+) -> Vec<crate::acp_client::types::AgentConfigOption> {
+    opts.into_iter()
+        .map(|opt| {
+            let (current_value, options_vec) = match opt.kind {
+                acp::SessionConfigKind::Select(s) => {
+                    let current = Some(s.current_value.to_string());
+                    let mut options = Vec::new();
+                    match s.options {
+                        acp::SessionConfigSelectOptions::Ungrouped(uns) => {
+                            for o in uns {
+                                options.push(crate::acp_client::types::AgentConfigOptionValue {
+                                    value: o.value.to_string(),
+                                    name: Some(o.name),
+                                    description: o.description,
+                                });
+                            }
+                        }
+                        acp::SessionConfigSelectOptions::Grouped(gs) => {
+                            for g in gs {
+                                for o in g.options {
+                                    options.push(crate::acp_client::types::AgentConfigOptionValue {
+                                        value: o.value.to_string(),
+                                        name: Some(o.name),
+                                        description: o.description,
+                                    });
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                    (current, options)
+                }
+                sc_kind => {
+                    tracing::warn!(
+                        "Unsupported config option kind for config_id {}: {:?}",
+                        opt.id,
+                        sc_kind
+                    );
+                    (None, Vec::new())
+                }
+            };
+
+            crate::acp_client::types::AgentConfigOption {
+                id: opt.id.to_string(),
+                name: Some(opt.name),
+                description: opt.description,
+                category: opt.category.map(|c| {
+                    let json = serde_json::to_value(&c).unwrap_or(serde_json::Value::Null);
+                    json.as_str().unwrap_or("").to_string()
+                }),
+                r#type: "select".to_string(),
+                current_value,
+                options: options_vec,
+            }
+        })
+        .collect()
+}
+
 /// Handle to an active ACP session - used to send prompts, receive events, and handle permissions
 pub struct AcpSessionHandle {
     pub session_id: String,
@@ -252,64 +312,27 @@ async fn run_session_inner(
                         Ok(response) => {
                             info!("Loaded ACP session: {}", resume_id);
                             if let Some(opts) = response.config_options {
-                                let mut out = Vec::new();
-                                for opt in opts {
-                                    let (current_value, options_vec) = match opt.kind {
-                                        acp::SessionConfigKind::Select(s) => {
-                                            let current = Some(s.current_value.to_string());
-                                            let mut opts = Vec::new();
-                                            match s.options {
-                                                acp::SessionConfigSelectOptions::Ungrouped(uns) => {
-                                                    for o in uns {
-                                                        opts.push(crate::acp_client::types::AgentConfigOptionValue {
-                                                            value: o.value.to_string(),
-                                                            name: Some(o.name),
-                                                            description: o.description,
-                                                        });
-                                                    }
-                                                }
-                                                acp::SessionConfigSelectOptions::Grouped(gs) => {
-                                                    for g in gs {
-                                                        for o in g.options {
-                                                            opts.push(crate::acp_client::types::AgentConfigOptionValue {
-                                                                value: o.value.to_string(),
-                                                                name: Some(o.name),
-                                                                description: o.description,
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                                _ => {}
-                                            }
-                                            (current, opts)
-                                        }
-                                        sc_kind => {
-                                            tracing::warn!("Unsupported config Option kind for config_id {}: {:?}", opt.id, sc_kind);
-                                            (None, Vec::new())
-                                        }
-                                    };
-
-                                    let mapped = crate::acp_client::types::AgentConfigOption {
-                                        id: opt.id.to_string(),
-                                        name: Some(opt.name),
-                                        description: opt.description,
-                                        category: opt.category.map(|c| {
-                                            let json = serde_json::to_value(&c).unwrap_or(serde_json::Value::Null);
-                                            json.as_str().unwrap_or("").to_string()
-                                        }),
-                                        r#type: "select".to_string(),
-                                        current_value,
-                                        options: options_vec,
-                                    };
-                                    out.push(mapped);
-                                }
+                                let out = map_config_options(opts);
                                 let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
                             }
                             Ok(requested)
                         }
                         Err(e) => {
-                            error!("ACP load_session failed for {}: {}", resume_id, e);
-                            Err(e)
+                            warn!(
+                                "ACP load_session failed for {}: {}, fallback to new_session",
+                                resume_id,
+                                e
+                            );
+                            conn.new_session(acp::NewSessionRequest::new(cwd.clone()))
+                                .await
+                                .map(|response| {
+                                    if let Some(opts) = response.config_options {
+                                        let out = map_config_options(opts);
+                                        let _ = event_tx
+                                            .send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                                    }
+                                    response.session_id
+                                })
                         }
                     }
                 } else {
@@ -317,57 +340,7 @@ async fn run_session_inner(
                         .await
                         .map(|response| {
                             if let Some(opts) = response.config_options {
-                                let mut out = Vec::new();
-                                for opt in opts {
-                                    let (current_value, options_vec) = match opt.kind {
-                                        acp::SessionConfigKind::Select(s) => {
-                                            let current = Some(s.current_value.to_string());
-                                            let mut opts = Vec::new();
-                                            match s.options {
-                                                acp::SessionConfigSelectOptions::Ungrouped(uns) => {
-                                                    for o in uns {
-                                                        opts.push(crate::acp_client::types::AgentConfigOptionValue {
-                                                            value: o.value.to_string(),
-                                                            name: Some(o.name),
-                                                            description: o.description,
-                                                        });
-                                                    }
-                                                }
-                                                acp::SessionConfigSelectOptions::Grouped(gs) => {
-                                                    for g in gs {
-                                                        for o in g.options {
-                                                            opts.push(crate::acp_client::types::AgentConfigOptionValue {
-                                                                value: o.value.to_string(),
-                                                                name: Some(o.name),
-                                                                description: o.description,
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                                _ => {}
-                                            }
-                                            (current, opts)
-                                        }
-                                        sc_kind => {
-                                            tracing::warn!("Unsupported config Option kind for config_id {}: {:?}", opt.id, sc_kind);
-                                            (None, Vec::new())
-                                        }
-                                    };
-
-                                    let mapped = crate::acp_client::types::AgentConfigOption {
-                                        id: opt.id.to_string(),
-                                        name: Some(opt.name),
-                                        description: opt.description,
-                                        category: opt.category.map(|c| {
-                                            let json = serde_json::to_value(&c).unwrap_or(serde_json::Value::Null);
-                                            json.as_str().unwrap_or("").to_string()
-                                        }),
-                                        r#type: "select".to_string(),
-                                        current_value,
-                                        options: options_vec,
-                                    };
-                                    out.push(mapped);
-                                }
+                                let out = map_config_options(opts);
                                 let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
                             }
                             response.session_id
@@ -412,9 +385,19 @@ async fn run_session_inner(
             if let Some(defaults) = default_config {
                 for (config_id, value) in defaults {
                     info!("Applying default config for {}: {}={}", _session_id, config_id, value);
-                    let req = acp::SetSessionConfigOptionRequest::new(session_id_acp.clone(), config_id, value);
-                    if let Err(e) = conn.set_session_config_option(req).await {
-                        warn!("Failed to apply default config for {}: {}", _session_id, e);
+                    let req = acp::SetSessionConfigOptionRequest::new(
+                        session_id_acp.clone(),
+                        acp::SessionConfigId::new(config_id),
+                        acp::SessionConfigValueId::new(value),
+                    );
+                    match conn.set_session_config_option(req).await {
+                        Ok(resp) => {
+                            let out = map_config_options(resp.config_options);
+                            let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                        }
+                        Err(e) => {
+                            warn!("Failed to apply default config for {}: {}", _session_id, e);
+                        }
                     }
                 }
             }
