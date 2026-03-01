@@ -98,6 +98,7 @@ pub enum AcpSessionEvent {
     },
     TurnEnd,
     SessionEnded,
+    LoadCompleted,
     ConfigOptionsUpdate(Vec<AgentConfigOption>),
     Plan(AgentPlan),
 }
