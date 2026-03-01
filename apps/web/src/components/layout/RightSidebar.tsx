@@ -245,7 +245,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const { currentProjectPath } = useEditorStore();
   const { projects } = useProjectStore();
-  const { setCodeReviewDialogOpen, setPendingAgentChatPrompt } = useDialogStore();
+  const { setCodeReviewDialogOpen, setPendingAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
   const [, setAgentChatOpen] = useAgentChatUrl();
   const agentHasAgents = useAgentChatStatusStore((s) => s.hasInstalledAgents);
   const agentIsConnected = useAgentChatStatusStore((s) => s.isConnected);
@@ -557,6 +557,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       forceNewSession: shouldForceNewSession,
       ...(shouldForceNewSession ? { sessionTitle: `${contextName}_GitCommit_${timeStr}` } : {}),
     });
+    setPendingAgentChatMode("default");
     setAgentChatOpen(true);
     toastManager.add({
       title: "Generating Commit Message",
