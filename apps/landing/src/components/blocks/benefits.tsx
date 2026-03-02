@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, type ReactNode } from 'react'
-import { motion, useScroll, useSpring, useTransform } from 'motion/react'
+import { motion, useScroll, useSpring, useTransform, type MotionValue } from 'motion/react'
 import { ArrowUpRightIcon } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -14,8 +14,17 @@ export type Features = {
   icon: ReactNode
   title: string
   description: string
-  image: any
+  image: StaticImageData
 }[]
+
+type StaticImageData = {
+  src: string
+  height: number
+  width: number
+  blurDataURL?: string
+  blurWidth?: number
+  blurHeight?: number
+}
 
 const FeatureItem = ({
   feature,
@@ -26,7 +35,7 @@ const FeatureItem = ({
   feature: Features[number]
   index: number
   totalFeatures: number
-  scrollYProgress: any
+  scrollYProgress: MotionValue<number>
 }) => {
   const start = index / totalFeatures
   const middle = (index + 0.5) / totalFeatures
@@ -72,7 +81,7 @@ const ImageItem = ({
   feature: Features[number]
   index: number
   totalFeatures: number
-  scrollYProgress: any
+  scrollYProgress: MotionValue<number>
 }) => {
   const start = index / totalFeatures
   const middle = (index + 0.5) / totalFeatures
