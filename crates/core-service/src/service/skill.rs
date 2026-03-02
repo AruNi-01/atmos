@@ -189,7 +189,7 @@ impl SkillScanner {
                                 Self::apply_unified_label(&mut skill, skill_dir);
                                 skills.push(skill);
                             }
-                        } else if path.extension().map_or(false, |ext| ext == "md") {
+                        } else if path.extension().is_some_and(|ext| ext == "md") {
                             // Single file skill (e.g., skill-name.md)
                             if let Some(skill) = Self::parse_skill_file(
                                 &path,
@@ -464,8 +464,8 @@ impl SkillScanner {
 
     /// Strip YAML frontmatter (between --- and ---) from content
     fn strip_frontmatter(content: &str) -> (&str, Option<&str>) {
-        if content.starts_with("---") {
-            if let Some(end_idx) = content[3..].find("---") {
+        if let Some(stripped) = content.strip_prefix("---") {
+            if let Some(end_idx) = stripped.find("---") {
                 let actual_end = end_idx + 3;
                 let frontmatter = &content[3..actual_end];
                 let rest = content[actual_end + 3..].trim_start();
