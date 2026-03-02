@@ -47,6 +47,24 @@ interface WorkspaceSetupProgressEventPayload {
   countdown?: number;
 }
 
+
+function isWorkspaceSetupProgressEventPayload(
+  data: unknown,
+): data is WorkspaceSetupProgressEventPayload {
+  if (!data || typeof data !== 'object') return false;
+
+  const payload = data as Record<string, unknown>;
+  const validStatus = ['creating', 'setting_up', 'completed', 'error'];
+
+  return (
+    typeof payload.workspace_id === 'string' &&
+    typeof payload.step_title === 'string' &&
+    typeof payload.success === 'boolean' &&
+    typeof payload.status === 'string' &&
+    validStatus.includes(payload.status)
+  );
+}
+
 interface ProjectStore {
   projects: Project[];
   activeWorkspaceId: string | null;
@@ -638,7 +656,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
 // Listen for setup progress events
 if (typeof window !== 'undefined') {
-  useWebSocketStore.getState().onEvent('workspace_setup_progress', (data: WorkspaceSetupProgressEventPayload) => {
+  useWebSocketStore.getState().onEvent('workspace_setup_progress', (data: unknown) => {
+    if (!isWorkspaceSetupProgressEventPayload(data)) return;
     useProjectStore.getState().setSetupProgress({
       workspaceId: data.workspace_id,
       status: data.status,
