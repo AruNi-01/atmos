@@ -64,11 +64,7 @@ impl AcpToolHandler for AgentToolHandler {
             .map_err(|e| e.to_string())
     }
 
-    async fn write_text_file(
-        &self,
-        path: &Path,
-        content: &str,
-    ) -> std::result::Result<(), String> {
+    async fn write_text_file(&self, path: &Path, content: &str) -> std::result::Result<(), String> {
         if !self.allow_file_access {
             return Err(
                 "File access disabled. Open a workspace to grant the Agent access to project files.".to_string(),

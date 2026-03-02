@@ -1,6 +1,6 @@
 //! ACP session runner - runs the ACP connection in a dedicated thread.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 
@@ -205,7 +205,7 @@ pub async fn run_acp_session(
 async fn run_session_inner(
     _session_id: &str,
     launch_spec: AgentLaunchSpec,
-    cwd: &PathBuf,
+    cwd: &Path,
     handler: Arc<dyn AcpToolHandler>,
     env_overrides: Option<std::collections::HashMap<String, String>>,
     resume_session_id: Option<String>,
@@ -217,7 +217,7 @@ async fn run_session_inner(
     default_config: Option<std::collections::HashMap<String, String>>,
 ) -> Result<(), String> {
     let (stdin, stdout, stderr, mut _child) =
-        spawn_agent(&launch_spec, Some(cwd.clone()), env_overrides).map_err(|e| {
+        spawn_agent(&launch_spec, Some(cwd.to_path_buf()), env_overrides).map_err(|e| {
             let msg = format!("Failed to spawn agent: {}", e);
             if let Some(tx) = ready_tx.take() {
                 let _ = tx.send(Err(msg.clone()));
@@ -236,11 +236,11 @@ async fn run_session_inner(
         let _ = stderr_tx.send(text);
     });
 
-    let client = AtmosAcpClient::new(handler, cwd.clone(), permission_tx, event_tx.clone());
+    let client = AtmosAcpClient::new(handler, cwd.to_path_buf(), permission_tx, event_tx.clone());
 
     let outgoing = stdin.compat_write();
     let incoming = stdout.compat();
-    let cwd = cwd.clone();
+    let cwd = cwd.to_path_buf();
 
     // Per agent-client-protocol rust-sdk docs: ClientSideConnection spawns futures via spawn_local.
     // spawn_local requires LocalSet context. Create conn and run everything INSIDE run_until.

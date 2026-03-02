@@ -316,7 +316,7 @@ impl FsEngine {
     /// Build file tree recursively with depth limit
     fn build_file_tree(
         &self,
-        root_path: &Path,
+        _root_path: &Path,
         dir_path: &Path,
         show_hidden: bool,
         depth: usize,
@@ -433,10 +433,7 @@ impl FsEngine {
         }
 
         // Build the gitignore matcher
-        match builder.build() {
-            Ok(gi) => Some(gi),
-            Err(_) => None,
-        }
+        builder.build().ok()
     }
 
     /// Check if a path is ignored using .gitignore
@@ -544,7 +541,7 @@ impl FsEngine {
             // Check symlink
             let is_symlink = ft.is_symlink();
             let symlink_target = if is_symlink {
-                fs::read_link(&path)
+                fs::read_link(path)
                     .ok()
                     .map(|p| p.to_string_lossy().to_string())
             } else {

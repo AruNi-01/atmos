@@ -4,6 +4,12 @@ use tokio::process::Command;
 
 pub struct GithubEngine;
 
+impl Default for GithubEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GithubEngine {
     pub fn new() -> Self {
         Self
