@@ -97,7 +97,7 @@ fn clone_and_sync_skills_from_github(system_dir: &Path, skills_to_sync: &[&str])
                         }
                     }
                 }
-                
+
                 let skill_dst = get_target_dir(system_dir, skill_name);
                 if skill_src.exists() && skill_src.is_dir() && !skill_dir_is_valid(&skill_dst) {
                     if skill_dst.exists() {
@@ -134,7 +134,11 @@ fn skill_dir_is_valid(skill_path: &Path) -> bool {
 
 /// Helper function to determine the target directory for a skill.
 fn get_target_dir(system_dir: &Path, skill_name: &str) -> PathBuf {
-    let review_skills = ["fullstack-reviewer", "code-review-expert", "typescript-react-reviewer"];
+    let review_skills = [
+        "fullstack-reviewer",
+        "code-review-expert",
+        "typescript-react-reviewer",
+    ];
     if review_skills.contains(&skill_name) {
         system_dir.join("code_review_skills").join(skill_name)
     } else {
@@ -248,7 +252,10 @@ pub fn sync_single_system_skill(skill_name: &str) -> Result<(), String> {
     if clone_and_sync_skills_from_github(&system_dir, &[skill_name]) {
         Ok(())
     } else {
-        Err(format!("Failed to sync skill '{}' from project or GitHub", skill_name))
+        Err(format!(
+            "Failed to sync skill '{}' from project or GitHub",
+            skill_name
+        ))
     }
 }
 

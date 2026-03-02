@@ -35,7 +35,7 @@ export * from "./components/ui/skeleton";
 export * from "./components/ui/preview-card";
 export * from "./components/logo-svg";
 export * from "./components/ui/avatar";
-export * from "./components/ui/badge";
+export { Badge, badgeVariants } from "./components/ui/badge";
 export * from "./components/ui/craft-button";
 export * from "./components/ui/marquee";
 export * from "./components/ui/motion-preset";

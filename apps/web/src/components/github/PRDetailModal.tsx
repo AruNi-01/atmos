@@ -34,6 +34,47 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 
+interface StatusCheck {
+  state?: string;
+  conclusion?: string;
+  status?: string;
+  name?: string;
+  context?: string;
+  workflowName?: string;
+}
+
+interface TimelineItem {
+  event?: string;
+  type?: string;
+  actor?: Record<string, unknown>;
+  author?: { login?: string; avatar_url?: string; avatarUrl?: string; is_bot?: boolean; date?: string };
+  user?: Record<string, unknown>;
+  created_at?: string;
+  submitted_at?: string;
+  authoredDate?: string;
+  body?: string;
+  message?: string;
+  messageHeadline?: string;
+  state?: string;
+  commit_id?: string;
+  merge_commit_sha?: string;
+  commit_sha?: string;
+  assignee?: { login?: string };
+  label?: { name?: string; color?: string };
+  requested_reviewer?: { login?: string };
+  milestone?: { title?: string };
+  rename?: { from?: string; to?: string };
+  deployment?: { environment?: string };
+  deployment_status?: { target_url?: string };
+  environment?: string;
+  createdAt?: string;
+}
+
+interface ConversationItem extends TimelineItem {
+  type: string;
+  createdAt: string;
+}
+
 interface PRDetailModalProps {
   owner: string;
   repo: string;
@@ -45,7 +86,7 @@ interface PRDetailModalProps {
   onClosed?: () => void;
 }
 
-function CheckGroupItem({ groupName, checks }: { groupName: string, checks: any[] }) {
+function CheckGroupItem({ groupName, checks }: { groupName: string, checks: StatusCheck[] }) {
   const hasFailure = checks.some(c => c.state === 'FAILURE' || c.state === 'ERROR' || c.conclusion === 'FAILURE' || c.conclusion === 'ACTION_REQUIRED');
   const hasInProgress = checks.some(c => c.state === 'PENDING' || c.state === 'IN_PROGRESS' || c.state === 'EXPECTED' || (c.status && c.status !== 'COMPLETED'));
 
@@ -168,7 +209,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     // If backend provided timeline, use it to build a rich history
     if (pr.timeline && Array.isArray(pr.timeline)) {
       return pr.timeline
-        .map((item: any) => {
+        .map((item: TimelineItem) => {
           let author = item.actor || item.author || (item.user);
           // For commits in timeline
           if (item.event === 'committed') {
@@ -184,7 +225,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
             body: item.body || item.message || item.messageHeadline || ''
           };
         })
-        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        .sort((a: ConversationItem, b: ConversationItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -411,42 +452,42 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   {pr.statusCheckRollup?.length > 0 && (
                     <div className={cn(
                       "flex flex-col border rounded-xl transition-all shadow-sm overflow-hidden",
-                      pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                      pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
                         ? "border-emerald-500/20"
                         : "border-amber-500/20"
                     )}>
                       <div className={cn(
                         "flex items-start gap-4 p-4",
-                        pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                        pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
                           ? "bg-emerald-500/5"
                           : "bg-amber-500/5"
                       )}>
                         <div className={cn(
                           "mt-0.5 rounded-full p-1.5 shadow-sm",
-                          pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                          pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
                             ? "bg-emerald-500 text-white"
                             : "bg-amber-500 text-white"
                         )}>
-                          {pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                          {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
                             ? <CheckCircle2 className="size-4" />
                             : <AlertCircle className="size-4" />}
                         </div>
                         <div className="flex-1">
                           <h5 className="text-sm font-bold flex items-center justify-between text-foreground">
-                            {pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                            {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
                               ? 'All checks have passed'
                               : 'Some checks are still running or failed'}
                           </h5>
                           <p className="text-[11px] text-muted-foreground mt-0.5">
-                            {pr.statusCheckRollup.filter((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} successful checks
+                            {pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} successful checks
                           </p>
                         </div>
                       </div>
 
                       <div className="flex flex-col border-t border-border/40 bg-background">
                         {(() => {
-                          const groups: Record<string, any[]> = {};
-                          pr.statusCheckRollup.forEach((c: any) => {
+                          const groups: Record<string, StatusCheck[]> = {};
+                          pr.statusCheckRollup.forEach((c: StatusCheck) => {
                             let g = c.workflowName;
                             if (!g) {
                               g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
@@ -531,7 +572,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
                     <TooltipProvider delayDuration={300}>
                       <div className="flex flex-col gap-6 relative z-10">
-                        {conversation.map((item: any, i: number) => {
+                        {conversation.map((item: ConversationItem, i: number) => {
                           const isMainComment = item.type === 'comment' || (item.type === 'review' && item.body);
                           const isBot = item.author?.is_bot || item.author?.login === 'cursor' || item.author?.login === 'vercel' || item.author?.login?.endsWith('[bot]');
 
@@ -559,7 +600,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                   </div>
                                   <div className="p-4 bg-background">
                                     <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
-                                      {item.body}
+                                      {item.body || ''}
                                     </MarkdownRenderer>
                                   </div>
                                 </div>
@@ -570,7 +611,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                           // Activity Row (Commit, Merge, Close, etc)
                           let icon = <GitCommit className="size-3.5 text-muted-foreground" />;
                           let colorClass = "bg-muted";
-                          let actionText = "";
+                          let actionText: React.ReactNode = "";
 
                           switch (item.event) {
                             case 'closed':
@@ -592,7 +633,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                 <>
                                   merged commit <span className="font-mono bg-muted/50 px-1 rounded">{shortId || 'unknown'}</span> into <span className="font-semibold text-foreground/80">{pr.baseRefName || 'main'}</span>
                                 </>
-                              ) as any;
+                              );
                               break;
                             case 'committed':
                               icon = <GitCommit className="size-3.5 text-muted-foreground" />;
@@ -687,7 +728,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                     </a>
                                   )}
                                 </>
-                              ) as any;
+                              );
                               break;
                             case 'head_ref_deleted':
                               icon = <GitBranch className="size-3.5 text-muted-foreground" />;
@@ -742,13 +783,13 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                               {item.event === 'merged' && pr.statusCheckRollup?.length > 0 && (
                                 <div className="pl-7 pb-1">
                                   <div className="text-[10px] text-muted-foreground/80 flex items-center gap-1.5 bg-muted/30 w-fit px-2 py-0.5 rounded-full border border-border/40">
-                                    {pr.statusCheckRollup.every((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS') ? (
+                                    {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS') ? (
                                       <CheckCircle2 className="size-3 text-emerald-500" />
                                     ) : (
                                       <XCircle className="size-3 text-red-500" />
                                     )}
                                     <span>
-                                      {pr.statusCheckRollup.filter((c: any) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} of {pr.statusCheckRollup.length} checks passed
+                                      {pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} of {pr.statusCheckRollup.length} checks passed
                                     </span>
                                   </div>
                                 </div>
@@ -782,7 +823,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     <span className="text-xs font-semibold flex items-center gap-2">
                       <MessageSquare className="size-3.5" /> Add a comment
                     </span>
-                    <Tabs value={commentTab} onValueChange={(v: any) => setCommentTab(v)}>
+                    <Tabs value={commentTab} onValueChange={(v: string) => setCommentTab(v as 'write' | 'preview')}>
                       <TabsList>
                         <TabsTrigger value="write" className="text-[11px] px-3">Write</TabsTrigger>
                         <TabsTrigger value="preview" className="text-[11px] px-3">Preview</TabsTrigger>

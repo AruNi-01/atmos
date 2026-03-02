@@ -37,11 +37,14 @@ impl GithubEngine {
     pub fn parse_github_remote(remote_url: &str) -> Option<(String, String)> {
         let re_https = Regex::new(r"github\.com/([^/]+)/([^/\s\.]+)").unwrap();
         let re_ssh = Regex::new(r"github\.com:([^/]+)/([^\s\.]+)").unwrap();
-        
-        re_https.captures(remote_url).or_else(|| re_ssh.captures(remote_url)).map(|c| {
-            // Remove .git suffix if present
-            let repo = c[2].trim_end_matches(".git").to_string();
-            (c[1].to_string(), repo)
-        })
+
+        re_https
+            .captures(remote_url)
+            .or_else(|| re_ssh.captures(remote_url))
+            .map(|c| {
+                // Remove .git suffix if present
+                let repo = c[2].trim_end_matches(".git").to_string();
+                (c[1].to_string(), repo)
+            })
     }
 }

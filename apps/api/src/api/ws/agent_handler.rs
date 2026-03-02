@@ -328,11 +328,15 @@ async fn run_bridge(
                         value,
                         registry_id,
                     } => {
-                        info!("Received set_agent_default_config: {}/{}={}", registry_id, config_id, value);
-                        if let Err(e) = state
-                            .agent_service
-                            .set_agent_default_config(&registry_id, &config_id, &value)
-                        {
+                        info!(
+                            "Received set_agent_default_config: {}/{}={}",
+                            registry_id, config_id, value
+                        );
+                        if let Err(e) = state.agent_service.set_agent_default_config(
+                            &registry_id,
+                            &config_id,
+                            &value,
+                        ) {
                             warn!("Failed to set agent default config: {}", e);
                             if let Ok(json) = serde_json::to_string(&AgentServerMessage::Error {
                                 code: "SET_DEFAULT_CONFIG_FAILED".to_string(),

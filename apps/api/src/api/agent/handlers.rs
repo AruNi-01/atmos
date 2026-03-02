@@ -204,7 +204,10 @@ fn ensure_atmos_attachments_gitignore(
     let rule = "attachments/";
     let existing = if gitignore_path.exists() {
         std::fs::read_to_string(&gitignore_path).map_err(|e| {
-            crate::error::ApiError::InternalError(format!("Failed to read .atmos/.gitignore: {}", e))
+            crate::error::ApiError::InternalError(format!(
+                "Failed to read .atmos/.gitignore: {}",
+                e
+            ))
         })?
     } else {
         String::new()
@@ -233,7 +236,8 @@ fn ensure_atmos_attachments_gitignore(
 }
 
 fn is_inside_git_repo(path: &FsPath) -> bool {
-    path.ancestors().any(|ancestor| ancestor.join(".git").exists())
+    path.ancestors()
+        .any(|ancestor| ancestor.join(".git").exists())
 }
 
 #[derive(Debug, Deserialize)]
@@ -265,11 +269,9 @@ pub async fn list_agent_sessions(
     Query(q): Query<ListAgentSessionsQuery>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     // Validate status if provided
-    let status = q.status.as_ref().map(|s| {
-        match s.as_str() {
-            "active" | "closed" => s.clone(),
-            _ => "active".to_string(),
-        }
+    let status = q.status.as_ref().map(|s| match s.as_str() {
+        "active" | "closed" => s.clone(),
+        _ => "active".to_string(),
     });
 
     let mode = parse_chat_mode(q.mode.as_deref())?;
@@ -363,7 +365,7 @@ pub async fn delete_agent_session(
         .agent_session_service
         .delete_session(&session_id)
         .await?;
-    Ok(Json(ApiResponse::success(json!({ 
+    Ok(Json(ApiResponse::success(json!({
         "ok": true,
         "temp_cwd": temp_cwd,
     }))))

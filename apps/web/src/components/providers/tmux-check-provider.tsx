@@ -21,6 +21,7 @@ export function TmuxCheckProvider({ children }: TmuxCheckProviderProps) {
   // Reset dismissed state when tmux becomes installed (e.g. user installed and retried)
   useEffect(() => {
     if (isInstalled) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUserDismissed(false);
     }
   }, [isInstalled]);

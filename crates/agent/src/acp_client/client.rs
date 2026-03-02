@@ -82,8 +82,10 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
 use crate::acp_client::tools::AcpToolHandler;
+use crate::acp_client::types::{
+    AgentConfigOption, AgentPlan, AgentPlanEntry, StreamDelta, ToolCallStatus, ToolCallUpdate,
+};
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
-use crate::acp_client::types::{StreamDelta, ToolCallStatus, ToolCallUpdate, AgentConfigOption, AgentPlan, AgentPlanEntry};
 
 /// Events sent from ACP session to the session manager (for WebSocket forwarding)
 #[derive(Debug)]
@@ -406,7 +408,9 @@ impl AcpClientTrait for AtmosAcpClient {
                         },
                     })
                     .collect();
-                let _ = self.event_tx.send(AcpSessionEvent::Plan(AgentPlan { entries }));
+                let _ = self
+                    .event_tx
+                    .send(AcpSessionEvent::Plan(AgentPlan { entries }));
             }
             _ => {}
         }

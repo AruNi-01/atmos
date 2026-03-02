@@ -1,9 +1,9 @@
 //! File system operations for project browsing and validation.
 
 use crate::error::EngineError;
+use ignore::{gitignore::GitignoreBuilder, WalkBuilder};
 use std::fs;
 use std::path::{Path, PathBuf};
-use ignore::{WalkBuilder, gitignore::GitignoreBuilder};
 
 pub type Result<T> = std::result::Result<T, EngineError>;
 
@@ -371,13 +371,7 @@ impl FsEngine {
             let should_recurse = is_dir && !is_ignored;
 
             let children = if should_recurse {
-                Some(self.build_file_tree(
-                    root_path,
-                    &path,
-                    show_hidden,
-                    depth + 1,
-                    gitignore,
-                )?)
+                Some(self.build_file_tree(root_path, &path, show_hidden, depth + 1, gitignore)?)
             } else {
                 None
             };
@@ -575,12 +569,10 @@ impl FsEngine {
         }
 
         // Sort: Git repos first, then alphabetically
-        results.sort_by(|a, b| {
-            match (a.is_git_repo, b.is_git_repo) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-            }
+        results.sort_by(|a, b| match (a.is_git_repo, b.is_git_repo) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
         });
 
         Ok(results)

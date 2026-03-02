@@ -359,7 +359,7 @@ export function FileBrowser({
             <div className="p-2">
               {isSearchMode && searchQuery && (
                 <div className="text-xs text-muted-foreground px-3 py-1 mb-1 sticky top-0 bg-background">
-                  {entries.length} {entries.length === 1 ? 'folder' : 'folders'} found matching "{searchQuery}"
+                  {entries.length} {entries.length === 1 ? 'folder' : 'folders'} found matching &quot;{searchQuery}&quot;
                 </div>
               )}
               {entries.map((entry) => (

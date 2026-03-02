@@ -715,12 +715,21 @@ function ToolOrSkillBlock(props: ToolCallBlock) {
     detail,
   } = props;
 
+  const { resolvedTheme } = useTheme();
+  const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
+  const diffOptions = useMemo(() => ({
+    theme: diffTheme,
+    diffStyle: "unified" as const,
+    overflow: "wrap" as const,
+    disableLineNumbers: false,
+    disableFileHeader: false,
+  }), [diffTheme]);
+
   // Render terminal for execute commands
   if (isTerminalCommand(tool)) {
     return <TerminalBlock {...props} />;
   }
 
-  const { resolvedTheme } = useTheme();
   const state = toolStatusToState(status);
   const isError = state === "output-error";
   const asSkill = isSkillInvocation(raw_input) || isSkillCommand(raw_input);
@@ -749,15 +758,6 @@ function ToolOrSkillBlock(props: ToolCallBlock) {
     }
     return null;
   })();
-
-  const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
-  const diffOptions = useMemo(() => ({
-    theme: diffTheme,
-    diffStyle: "unified" as const,
-    overflow: "wrap" as const,
-    disableLineNumbers: false,
-    disableFileHeader: false,
-  }), [diffTheme]);
 
   const output =
     raw_output !== undefined && raw_output !== null
@@ -1094,8 +1094,8 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
                   ? block.raw_input
                   : block.raw_input &&
                     typeof block.raw_input === "object" &&
-                    (block.raw_input as any).thought
-                    ? (block.raw_input as any).thought
+                    (block.raw_input as Record<string, unknown>).thought
+                    ? (block.raw_input as Record<string, unknown>).thought
                     : block.description;
 
           if (!content && block.type === "thinking") return null;

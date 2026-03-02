@@ -711,6 +711,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                       <Skeleton className="h-20 w-full rounded-md" />
                     </div>
                   ) : prs && prs.length > 0 ? (
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     prs.map((pr: any) => (
                       <div
                         key={pr.number}

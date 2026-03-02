@@ -303,13 +303,18 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_launch_spec(&model.registry_id)
             .await
-            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(&model.registry_id))
+            .or_else(|_| {
+                self.agent_service
+                    .get_custom_agent_launch_spec(&model.registry_id)
+            })
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
         let env_overrides = self
             .agent_service
             .get_registry_agent_env_overrides(&model.registry_id);
 
-        let default_config = self.agent_service.get_agent_default_config(&model.registry_id);
+        let default_config = self
+            .agent_service
+            .get_agent_default_config(&model.registry_id);
 
         let spec = LazySessionSpec {
             session_id: model.guid.clone(),
@@ -394,13 +399,18 @@ impl AgentSessionService {
             .agent_service
             .get_registry_agent_launch_spec(&model.registry_id)
             .await
-            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(&model.registry_id))
+            .or_else(|_| {
+                self.agent_service
+                    .get_custom_agent_launch_spec(&model.registry_id)
+            })
             .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
         let env_overrides = self
             .agent_service
             .get_registry_agent_env_overrides(&model.registry_id);
 
-        let default_config = self.agent_service.get_agent_default_config(&model.registry_id);
+        let default_config = self
+            .agent_service
+            .get_agent_default_config(&model.registry_id);
 
         let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
             fs_engine: FsEngine::new(),
@@ -553,7 +563,15 @@ impl AgentSessionService {
     ) -> Result<(Vec<AgentSessionSummary>, Option<String>, bool)> {
         let repo = AgentChatSessionRepo::new(&self.db);
         let (items, next_cursor, has_more) = repo
-            .list_with_cursor_and_filters(context_type, context_guid, registry_id, status, mode, limit, cursor)
+            .list_with_cursor_and_filters(
+                context_type,
+                context_guid,
+                registry_id,
+                status,
+                mode,
+                limit,
+                cursor,
+            )
             .await
             .map_err(crate::ServiceError::Infra)?;
         let summaries: Vec<AgentSessionSummary> = items
@@ -584,7 +602,8 @@ impl AgentSessionService {
         limit: u64,
         cursor: Option<&str>,
     ) -> Result<(Vec<AgentSessionSummary>, Option<String>, bool)> {
-        self.list_sessions_with_filters(context_type, context_guid, None, None, mode, limit, cursor).await
+        self.list_sessions_with_filters(context_type, context_guid, None, None, mode, limit, cursor)
+            .await
     }
 
     /// Update session title (user-edited)
@@ -625,30 +644,37 @@ impl AgentSessionService {
     /// Soft delete a session by guid, returns the session's cwd if it was a temp session
     pub async fn delete_session(&self, session_id: &str) -> Result<Option<String>> {
         let repo = AgentChatSessionRepo::new(&self.db);
-        
+
         // Get session first to check if it's a temp session
         let model = repo.find_by_guid(session_id).await?;
-        
+
         if let Some(m) = model {
             let is_temp = m.context_type == "temp";
             let cwd = if is_temp { Some(m.cwd.clone()) } else { None };
-            
+
             // If temp session, delete the temp directory
             if is_temp {
                 let temp_path = std::path::PathBuf::from(&m.cwd);
                 if temp_path.exists() {
                     if let Err(e) = std::fs::remove_dir_all(&temp_path) {
-                        tracing::warn!("Failed to delete temp session directory {}: {}", temp_path.display(), e);
+                        tracing::warn!(
+                            "Failed to delete temp session directory {}: {}",
+                            temp_path.display(),
+                            e
+                        );
                     } else {
                         info!("Deleted temp session directory: {}", temp_path.display());
                     }
                 }
             }
-            
+
             // Soft delete the session
             repo.soft_delete(session_id).await?;
-            
-            info!("Soft deleted agent session {} (temp: {})", session_id, is_temp);
+
+            info!(
+                "Soft deleted agent session {} (temp: {})",
+                session_id, is_temp
+            );
             Ok(cwd)
         } else {
             Err(crate::ServiceError::NotFound(format!(
