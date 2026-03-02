@@ -628,7 +628,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
 // Listen for setup progress events
 if (typeof window !== 'undefined') {
-  useWebSocketStore.getState().onEvent('workspace_setup_progress', (data) => {
+  useWebSocketStore.getState().onEvent('workspace_setup_progress', (data: any) => {
     useProjectStore.getState().setSetupProgress({
       workspaceId: data.workspace_id,
       status: data.status,

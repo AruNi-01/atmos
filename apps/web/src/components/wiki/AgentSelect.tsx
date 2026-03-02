@@ -35,7 +35,7 @@ export function buildCommand(
   if (!agent) return "";
 
   const quoted = shellQuote(prompt);
-  const parts = [agent.cmd];
+  const parts: string[] = [agent.cmd];
 
   if (useYolo && agent.yoloFlag) {
     parts.push(agent.yoloFlag);

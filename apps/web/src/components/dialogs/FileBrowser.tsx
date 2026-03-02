@@ -57,8 +57,8 @@ export function FileBrowser({
   const [pathInput, setPathInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchMode, setIsSearchMode] = useState(false);
-  const searchDebounceRef = useRef<NodeJS.Timeout>();
-  const searchDirectoriesRef = useRef<(query: string) => Promise<void>>();
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const searchDirectoriesRef = useRef<((query: string) => Promise<void>) | null>(null);
   const prevSearchQueryRef = useRef<string>('');
 
   // 加载目录内容
