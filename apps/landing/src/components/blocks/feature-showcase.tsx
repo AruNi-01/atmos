@@ -55,29 +55,31 @@ export default function FeatureShowcase() {
   // Track the actual video element to control playback if needed
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  useEffect(() => {
-    if (progress >= 100) {
-      setActiveIndex((prev) => (prev + 1) % features.length)
-      setProgress(0)
-    }
-  }, [progress])
-
+  // Combined effect: manage timer and auto-advance slides
   useEffect(() => {
     if (isHovering) {
       if (timerRef.current) clearInterval(timerRef.current)
       return
     }
 
-    const startTimer = () => {
-      timerRef.current = setInterval(() => {
-        setProgress((prev) => prev + (100 / (DURATION / 50)))
-      }, 50)
-    }
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        const nextProgress = prev + (100 / (DURATION / 50))
+        if (nextProgress >= 100) {
+          // Use setTimeout to defer state update and avoid cascading renders
+          setTimeout(() => {
+            setActiveIndex((idx) => (idx + 1) % features.length)
+          }, 0)
+          return 0
+        }
+        return nextProgress
+      })
+    }, 50)
 
-    startTimer()
+    timerRef.current = interval
 
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
+      clearInterval(interval)
     }
   }, [isHovering])
 
