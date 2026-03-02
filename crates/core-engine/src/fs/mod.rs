@@ -371,7 +371,7 @@ impl FsEngine {
             let should_recurse = is_dir && !is_ignored;
 
             let children = if should_recurse {
-                Some(self.build_file_tree(root_path, &path, show_hidden, depth + 1, gitignore)?)
+                Some(self.build_file_tree(_root_path, &path, show_hidden, depth + 1, gitignore)?)
             } else {
                 None
             };
