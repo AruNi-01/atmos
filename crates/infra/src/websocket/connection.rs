@@ -24,7 +24,7 @@ impl ClientType {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "web" => ClientType::Web,
             "desktop" => ClientType::Desktop,

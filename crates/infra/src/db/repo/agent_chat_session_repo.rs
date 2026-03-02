@@ -24,6 +24,7 @@ impl<'a> AgentChatSessionRepo<'a> {
         Self { db }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create(
         &self,
         guid: &str,
@@ -122,6 +123,7 @@ impl<'a> AgentChatSessionRepo<'a> {
     }
 
     /// List sessions with cursor pagination and additional filters. Returns (items, next_cursor, has_more).
+    #[allow(clippy::too_many_arguments)]
     pub async fn list_with_cursor_and_filters(
         &self,
         context_type: Option<&str>,
@@ -132,7 +134,7 @@ impl<'a> AgentChatSessionRepo<'a> {
         limit: u64,
         cursor: Option<&str>,
     ) -> Result<(Vec<agent_chat_session::Model>, Option<String>, bool)> {
-        let limit = limit.min(50).max(1);
+        let limit = limit.clamp(1, 50);
         let limit_plus_one = limit + 1;
 
         let mut query = agent_chat_session::Entity::find()
