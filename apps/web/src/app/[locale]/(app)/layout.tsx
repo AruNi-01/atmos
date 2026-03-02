@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
 import Header from "@/components/layout/Header";
 import LeftSidebar from "@/components/layout/LeftSidebar";
@@ -22,22 +23,24 @@ export default async function AppLayout({ children, params }: Props) {
 
   return (
     <div className="flex flex-col h-dvh">
-      <Header />
+      <Suspense fallback={null}>
+        <Header />
 
-      <PanelLayout
-        leftSidebar={<LeftSidebar />}
-        centerStage={<CenterStage logs={TERMINAL_LOGS} />}
-        rightSidebar={<RightSidebar />}
-      />
+        <PanelLayout
+          leftSidebar={<LeftSidebar />}
+          centerStage={<CenterStage logs={TERMINAL_LOGS} />}
+          rightSidebar={<RightSidebar />}
+        />
 
-      <Footer />
+        <Footer />
 
-      <GlobalSearch />
+        <GlobalSearch />
 
-      <AgentChatPanel />
-      <AgentFloatingBall />
+        <AgentChatPanel />
+        <AgentFloatingBall />
 
-      <DocumentTitle />
+        <DocumentTitle />
+      </Suspense>
 
       {/* Pages are thin route markers (return null) — required by Next.js layout contract */}
       {children}

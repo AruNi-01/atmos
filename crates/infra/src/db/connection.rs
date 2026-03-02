@@ -1,5 +1,5 @@
 use sea_orm::{Database, DatabaseConnection};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::info;
 
 use crate::error::{InfraError, Result};
@@ -14,7 +14,7 @@ impl DbConnection {
         Self::connect(&db_path).await
     }
 
-    pub async fn connect(db_path: &PathBuf) -> Result<Self> {
+    pub async fn connect(db_path: &Path) -> Result<Self> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent)?;
         }

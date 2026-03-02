@@ -138,6 +138,7 @@ pub async fn terminal_ws_handler(
 }
 
 /// Handle the terminal WebSocket connection
+#[allow(clippy::too_many_arguments)]
 async fn handle_terminal_socket(
     socket: WebSocket,
     session_id: String,

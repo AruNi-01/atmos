@@ -8,7 +8,7 @@ import {
   PanelResizeHandle,
   cn,
 } from "@workspace/ui";
-import type { ImperativePanelHandle } from "react-resizable-panels";
+import type { ImperativePanelHandle } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useWikiContext } from "@/hooks/use-wiki-store";

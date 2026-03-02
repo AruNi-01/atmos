@@ -156,7 +156,7 @@ impl AgentSessionService {
             default_config,
         )
         .await
-        .map_err(|e| crate::ServiceError::Processing(e))?;
+        .map_err(crate::ServiceError::Processing)?;
         let session_id = handle.session_id.clone();
 
         self.sessions.write().insert(session_id.clone(), handle);
@@ -429,7 +429,7 @@ impl AgentSessionService {
             default_config,
         )
         .await
-        .map_err(|e| crate::ServiceError::Processing(e))?;
+        .map_err(crate::ServiceError::Processing)?;
         let runtime_session_id = handle.session_id.clone();
         self.sessions
             .write()
@@ -501,7 +501,7 @@ impl AgentSessionService {
     pub fn spawn_title_generation(&self, session_id: String, first_message: String) {
         let db = Arc::clone(&self.db);
         tokio::spawn(async move {
-            let session_repo = AgentChatSessionRepo::new(&*db);
+            let session_repo = AgentChatSessionRepo::new(&db);
             if session_repo.can_auto_set_title(&session_id).await.ok() != Some(true) {
                 return;
             }
@@ -547,6 +547,7 @@ impl AgentSessionService {
     }
 
     /// List sessions with cursor pagination and additional filters
+    #[allow(clippy::too_many_arguments)]
     pub async fn list_sessions_with_filters(
         &self,
         context_type: Option<&str>,

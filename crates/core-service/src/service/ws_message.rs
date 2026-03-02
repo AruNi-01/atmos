@@ -1063,6 +1063,7 @@ impl WsMessageService {
 
     // ===== Setup Process Helper =====
 
+    #[allow(clippy::too_many_arguments)]
     async fn run_setup_process(
         manager: Arc<infra::WsManager>,
         project_service: Arc<ProjectService>,
@@ -1251,10 +1252,10 @@ set -x
 "#;
         let script_with_wrapper = format!("{}{}", wrapper, script);
         cmd.arg(script_with_wrapper);
-        cmd.cwd(cwd.to_path_buf());
+        cmd.cwd(cwd);
 
         // Inject env vars
-        cmd.env("ATMOS_ROOT_PROJECT_PATH", project_root.to_string());
+        cmd.env("ATMOS_ROOT_PROJECT_PATH", project_root);
         cmd.env("ATMOS_WORKSPACE_PATH", cwd.to_string_lossy().to_string());
         // For convenience, pass current PATH
         if let Ok(path) = std::env::var("PATH") {
@@ -1459,6 +1460,7 @@ set -x
 
     /// When project-wiki exists but project-wiki-update or project-wiki-specify are missing:
     /// 1) Try copy from project root; 2) If still missing, clone from GitHub and copy.
+    ///
     /// Returns Some(temp_dir) if clone was performed (caller should clean up), None otherwise.
     async fn install_missing_wiki_skills_from_project_then_github(
         system_dir: &std::path::Path,
