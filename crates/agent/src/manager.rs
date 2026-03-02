@@ -323,24 +323,23 @@ impl AgentManager {
             )));
         };
 
-        if !force_overwrite {
-            if is_npm_package_installed_globally(&npx.package)
+        if !force_overwrite
+            && is_npm_package_installed_globally(&npx.package)
                 .await
                 .unwrap_or(false)
-            {
-                return Ok(RegistryInstallResult {
-                    registry_id: registry_id.to_string(),
-                    installed: false,
-                    install_method: "npx".to_string(),
-                    message: String::new(),
-                    needs_confirmation: Some(true),
-                    overwrite_message: Some(format!(
-                        "{} ({}) is already installed globally via npm. Install will overwrite/update. Continue?",
-                        entry.name,
-                        normalize_npm_package_name(&npx.package)
-                    )),
-                });
-            }
+        {
+            return Ok(RegistryInstallResult {
+                registry_id: registry_id.to_string(),
+                installed: false,
+                install_method: "npx".to_string(),
+                message: String::new(),
+                needs_confirmation: Some(true),
+                overwrite_message: Some(format!(
+                    "{} ({}) is already installed globally via npm. Install will overwrite/update. Continue?",
+                    entry.name,
+                    normalize_npm_package_name(&npx.package)
+                )),
+            });
         }
 
         // Check if there's an old package to uninstall (package name changed)
@@ -1607,6 +1606,8 @@ fn extract_tar_gz(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()>
 /// Returns None if version detection fails or the binary doesn't support it.
 async fn detect_binary_version(binary_path: &Path) -> Option<String> {
     let common_flags = ["--version", "-v", "version", "-V"];
+    // Compile regex once before the loop to avoid recompilation on each iteration
+    let version_re = regex::Regex::new(r"(?i)v?(\d+\.\d+[\d.]*)").ok()?;
 
     for flag in common_flags {
         let output = Command::new(binary_path).arg(flag).output().await;
@@ -1619,10 +1620,7 @@ async fn detect_binary_version(binary_path: &Path) -> Option<String> {
 
                 // Try to extract version number from output
                 // Common patterns: "v1.2.3", "1.2.3", "version 1.2.3", etc.
-                if let Some(captures) = regex::Regex::new(r"(?i)v?(\d+\.\d+[\d.]*)")
-                    .ok()
-                    .and_then(|re| re.captures(&combined))
-                {
+                if let Some(captures) = version_re.captures(&combined) {
                     if let Some(version) = captures.get(1) {
                         return Some(version.as_str().to_string());
                     }

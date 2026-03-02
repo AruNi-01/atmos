@@ -1,7 +1,7 @@
 //! Agent session management - creates and manages ACP chat sessions.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use agent::{run_acp_session, AcpSessionHandle, AcpToolHandler};
@@ -40,7 +40,7 @@ struct AgentToolHandler {
 
 #[async_trait]
 impl AcpToolHandler for AgentToolHandler {
-    fn resolve_path(&self, session_cwd: &PathBuf, path: &str) -> PathBuf {
+    fn resolve_path(&self, session_cwd: &Path, path: &str) -> PathBuf {
         let path_buf = PathBuf::from(path);
         if path_buf.is_absolute() {
             if path_buf.starts_with(session_cwd) {
@@ -52,7 +52,7 @@ impl AcpToolHandler for AgentToolHandler {
         }
     }
 
-    async fn read_text_file(&self, path: &PathBuf) -> std::result::Result<String, String> {
+    async fn read_text_file(&self, path: &Path) -> std::result::Result<String, String> {
         if !self.allow_file_access {
             return Err(
                 "File access disabled. Open a workspace to grant the Agent access to project files.".to_string(),
@@ -66,7 +66,7 @@ impl AcpToolHandler for AgentToolHandler {
 
     async fn write_text_file(
         &self,
-        path: &PathBuf,
+        path: &Path,
         content: &str,
     ) -> std::result::Result<(), String> {
         if !self.allow_file_access {

@@ -731,12 +731,8 @@ impl TmuxEngine {
 
     /// Parse workspace ID from session name
     pub fn parse_workspace_id(&self, session_name: &str) -> Option<String> {
-        // Strip atmos_ prefix if present
-        let body = if let Some(stripped) = session_name.strip_prefix("atmos_") {
-            stripped
-        } else {
-            return None;
-        };
+        // Strip atmos_ prefix if present, return None if not present
+        let body = session_name.strip_prefix("atmos_")?;
 
         // Restore hyphens if any (tmux session names use underscores)
         Some(body.replace('_', "-"))
