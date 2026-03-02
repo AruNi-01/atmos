@@ -130,6 +130,7 @@ impl AcpSessionHandle {
 
 /// Run an ACP session in a dedicated thread with current_thread runtime.
 /// Returns a handle for sending prompts and receiving events.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_acp_session(
     session_id_hint: String,
     launch_spec: AgentLaunchSpec,
@@ -202,6 +203,7 @@ pub async fn run_acp_session(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_session_inner(
     _session_id: &str,
     launch_spec: AgentLaunchSpec,

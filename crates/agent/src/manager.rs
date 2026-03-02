@@ -956,6 +956,7 @@ impl AgentManager {
         })
     }
 
+    #[allow(dead_code)]
     fn remove_registry_binary_agent(
         &self,
         _entry: &RegistryEntry,
