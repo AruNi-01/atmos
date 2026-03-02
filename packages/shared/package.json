@@ -11,11 +11,13 @@
     "./hooks/*": "./src/hooks/*.ts"
   },
   "scripts": {
-    "lint": "eslint src/",
+
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/react": "^19",
+    "react": "^19",
     "typescript": "^5"
   },
   "dependencies": {

@@ -12,7 +12,6 @@
     "./middleware": "./src/middleware.ts"
   },
   "scripts": {
-    "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
