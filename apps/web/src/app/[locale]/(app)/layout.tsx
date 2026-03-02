@@ -23,28 +23,24 @@ export default async function AppLayout({ children, params }: Props) {
 
   return (
     <div className="flex flex-col h-dvh">
-      <Header />
-
-      <PanelLayout
-        leftSidebar={
-          <Suspense fallback={null}>
-            <LeftSidebar />
-          </Suspense>
-        }
-        centerStage={<CenterStage logs={TERMINAL_LOGS} />}
-        rightSidebar={<RightSidebar />}
-      />
-
-      <Footer />
-
       <Suspense fallback={null}>
+        <Header />
+
+        <PanelLayout
+          leftSidebar={<LeftSidebar />}
+          centerStage={<CenterStage logs={TERMINAL_LOGS} />}
+          rightSidebar={<RightSidebar />}
+        />
+
+        <Footer />
+
         <GlobalSearch />
+
+        <AgentChatPanel />
+        <AgentFloatingBall />
+
+        <DocumentTitle />
       </Suspense>
-
-      <AgentChatPanel />
-      <AgentFloatingBall />
-
-      <DocumentTitle />
 
       {/* Pages are thin route markers (return null) — required by Next.js layout contract */}
       {children}
