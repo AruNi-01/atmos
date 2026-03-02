@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { DraggableAttributes, DraggableSyntheticListeners, DragStartEvent } from '@dnd-kit/core';
+import type { DraggableAttributes, DraggableSyntheticListeners, DragStartEvent } from '@workspace/ui';
 import { useRouter } from 'next/navigation';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/hooks/use-context-params';
