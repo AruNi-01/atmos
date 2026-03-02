@@ -139,7 +139,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   // Agent dropdown state
   const [agentDropdownOpen, setAgentDropdownOpen] = React.useState(false);
   const [defaultAgentId, setDefaultAgentId] = React.useState<AgentId>("claude");
-  const agentDropdownTimeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
+  const agentDropdownTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Code Review tab state
   const codeReviewTerminalGridRef = React.useRef<TerminalGridHandle>(null);
@@ -474,7 +474,9 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
   };
 
   const handleAgentDropdownEnter = () => {
-    clearTimeout(agentDropdownTimeoutRef.current);
+    if (agentDropdownTimeoutRef.current) {
+      clearTimeout(agentDropdownTimeoutRef.current);
+    }
     setAgentDropdownOpen(true);
   };
 

@@ -214,13 +214,21 @@ impl FsEngine {
 
     /// Expand tilde (~) in path to home directory
     pub fn expand_path(&self, path: &str) -> Result<PathBuf> {
-        if path.starts_with('~') {
-            let home = self.get_home_dir()?;
-            let rest = path.strip_prefix("~/").unwrap_or(&path[1..]);
-            Ok(home.join(rest))
-        } else {
-            Ok(PathBuf::from(path))
+        if path == "~" {
+            return self.get_home_dir();
         }
+
+        if let Some(rest) = path.strip_prefix("~/") {
+            let home = self.get_home_dir()?;
+            return Ok(home.join(rest));
+        }
+
+        if let Some(rest) = path.strip_prefix('~') {
+            let home = self.get_home_dir()?;
+            return Ok(home.join(rest));
+        }
+
+        Ok(PathBuf::from(path))
     }
 
     /// Read file content
