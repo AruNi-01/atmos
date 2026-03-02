@@ -35,7 +35,7 @@ pub async fn ws_handler(
     Query(params): Query<WsQueryParams>,
     State(state): State<AppState>,
 ) -> Response {
-    let client_type = ClientType::from_str(&params.client_type);
+    let client_type = ClientType::parse(&params.client_type);
     ws.on_upgrade(move |socket| handle_socket(socket, state, client_type))
 }
 
