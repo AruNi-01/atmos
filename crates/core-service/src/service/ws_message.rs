@@ -11,24 +11,25 @@ use core_engine::{FsEngine, GitEngine};
 use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
     AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CustomAgentAddRequest,
-    CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsListDirRequest, FsListProjectFilesRequest,
-    FsReadFileRequest, FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest, FsWriteFileRequest,
+    CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsListDirRequest,
+    FsListProjectFilesRequest, FsReadFileRequest, FsSearchContentRequest, FsSearchDirsRequest,
+    FsValidateGitPathRequest, FsWriteFileRequest, FunctionSettingsUpdateRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
     GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitGetCommitCountRequest,
-    GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest,
-    GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
-    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
-    ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
-    ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest, WorkspaceArchiveRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
-    WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
-    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUnpinRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest, GithubPrReopenRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrReadyRequest, GithubPrDraftRequest,
-    GithubPrDetailRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
-    GithubActionsListRequest, GithubActionsRerunRequest, GithubActionsDetailRequest,
-    FunctionSettingsUpdateRequest,
-    SyncSingleSystemSkillRequest,
+    GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitLogRequest,
+    GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitSyncRequest,
+    GitUnstageRequest, GithubActionsDetailRequest, GithubActionsListRequest,
+    GithubActionsRerunRequest, GithubCiOpenBrowserRequest, GithubCiStatusRequest,
+    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest,
+    GithubPrDraftRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
+    GithubPrReadyRequest, GithubPrReopenRequest, ProjectCheckCanDeleteRequest,
+    ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
+    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest,
+    SyncSingleSystemSkillRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
+    WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
+    WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
+    WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
 };
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
@@ -105,9 +106,7 @@ impl WsMessageService {
             WsAction::FsSearchContent => {
                 self.handle_fs_search_content(parse_request(request.data)?)
             }
-            WsAction::FsSearchDirs => {
-                self.handle_fs_search_dirs(parse_request(request.data)?)
-            }
+            WsAction::FsSearchDirs => self.handle_fs_search_dirs(parse_request(request.data)?),
 
             // App
             WsAction::AppOpen => self.handle_app_open(parse_request(request.data)?),
@@ -234,8 +233,12 @@ impl WsMessageService {
             WsAction::SkillsGet => self.handle_skills_get(parse_request(request.data)?).await,
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
-            WsAction::CodeReviewSkillSystemStatus => self.handle_code_review_skill_system_status().await,
-            WsAction::GitCommitSkillSystemStatus => self.handle_git_commit_skill_system_status().await,
+            WsAction::CodeReviewSkillSystemStatus => {
+                self.handle_code_review_skill_system_status().await
+            }
+            WsAction::GitCommitSkillSystemStatus => {
+                self.handle_git_commit_skill_system_status().await
+            }
             WsAction::SyncSingleSystemSkill => {
                 self.handle_sync_single_system_skill(parse_request(request.data)?)
                     .await
@@ -285,25 +288,73 @@ impl WsMessageService {
             }
 
             // GitHub
-            WsAction::GithubPrList => self.handle_github_pr_list(parse_request(request.data)?).await,
-            WsAction::GithubPrDetail => self.handle_github_pr_detail(parse_request(request.data)?).await,
-            WsAction::GithubPrCreate => self.handle_github_pr_create(parse_request(request.data)?).await,
-            WsAction::GithubPrMerge => self.handle_github_pr_merge(parse_request(request.data)?).await,
-            WsAction::GithubPrClose => self.handle_github_pr_close(parse_request(request.data)?).await,
-            WsAction::GithubPrReopen => self.handle_github_pr_reopen(parse_request(request.data)?).await,
-            WsAction::GithubPrComment => self.handle_github_pr_comment(parse_request(request.data)?).await,
-            WsAction::GithubPrReady => self.handle_github_pr_ready(parse_request(request.data)?).await,
-            WsAction::GithubPrOpenBrowser => self.handle_github_pr_open_browser(parse_request(request.data)?).await,
-            WsAction::GithubPrDraft => self.handle_github_pr_draft(parse_request(request.data)?).await,
-            WsAction::GithubCiStatus => self.handle_github_ci_status(parse_request(request.data)?).await,
-            WsAction::GithubCiOpenBrowser => self.handle_github_ci_open_browser(parse_request(request.data)?).await,
-            WsAction::GithubActionsList => self.handle_github_actions_list(parse_request(request.data)?).await,
-            WsAction::GithubActionsRerun => self.handle_github_actions_rerun(parse_request(request.data)?).await,
-            WsAction::GithubActionsDetail => self.handle_github_actions_detail(parse_request(request.data)?).await,
+            WsAction::GithubPrList => {
+                self.handle_github_pr_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrDetail => {
+                self.handle_github_pr_detail(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrCreate => {
+                self.handle_github_pr_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrMerge => {
+                self.handle_github_pr_merge(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrClose => {
+                self.handle_github_pr_close(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrReopen => {
+                self.handle_github_pr_reopen(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrComment => {
+                self.handle_github_pr_comment(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrReady => {
+                self.handle_github_pr_ready(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrOpenBrowser => {
+                self.handle_github_pr_open_browser(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrDraft => {
+                self.handle_github_pr_draft(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubCiStatus => {
+                self.handle_github_ci_status(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubCiOpenBrowser => {
+                self.handle_github_ci_open_browser(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubActionsList => {
+                self.handle_github_actions_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubActionsRerun => {
+                self.handle_github_actions_rerun(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubActionsDetail => {
+                self.handle_github_actions_detail(parse_request(request.data)?)
+                    .await
+            }
 
             // Function settings
             WsAction::FunctionSettingsGet => self.handle_function_settings_get().await,
-            WsAction::FunctionSettingsUpdate => self.handle_function_settings_update(parse_request(request.data)?).await,
+            WsAction::FunctionSettingsUpdate => {
+                self.handle_function_settings_update(parse_request(request.data)?)
+                    .await
+            }
         }
     }
 
@@ -316,14 +367,14 @@ impl WsMessageService {
 
     fn handle_fs_list_dir(&self, req: FsListDirRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        
+
         let entries = if req.ignore_not_found && !path.exists() {
             Vec::new()
         } else {
             self.fs_engine
                 .list_dir(&path, req.dirs_only, req.show_hidden)?
         };
-        
+
         let parent_path = self.fs_engine.get_parent(&path);
 
         let entries_json: Vec<Value> = entries
@@ -507,7 +558,7 @@ impl WsMessageService {
             .map_err(|e| ServiceError::Validation(format!("Failed to get git status: {}", e)))?;
 
         let current_branch = self.git_engine.get_current_branch(&path).ok();
-        
+
         let remote_url = self.git_engine.get_remote_url(&path).unwrap_or_default();
         let github_info = core_engine::GithubEngine::parse_github_remote(&remote_url);
         let github_owner = github_info.as_ref().map(|x| x.0.clone());
@@ -554,10 +605,9 @@ impl WsMessageService {
 
     fn handle_git_list_remote_branches(&self, req: GitListBranchesRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let branches = self
-            .git_engine
-            .list_remote_branches(&path)
-            .map_err(|e| ServiceError::Validation(format!("Failed to list remote branches: {}", e)))?;
+        let branches = self.git_engine.list_remote_branches(&path).map_err(|e| {
+            ServiceError::Validation(format!("Failed to list remote branches: {}", e))
+        })?;
 
         Ok(json!({ "branches": branches }))
     }
@@ -713,7 +763,8 @@ impl WsMessageService {
 
     fn handle_git_log(&self, req: GitLogRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
-        let commits = self.git_engine
+        let commits = self
+            .git_engine
             .get_commit_log(&path, req.limit, req.offset)
             .map_err(|e| ServiceError::Validation(format!("Failed to get git log: {}", e)))?;
 
@@ -1532,7 +1583,12 @@ set -x
 
     /// Check if all code review skills exist with SKILL.md in ~/.atmos/skills/.system/code_review_skills/
     async fn handle_code_review_skill_system_status(&self) -> Result<Value> {
-        let system_dir = dirs::home_dir().map(|h| h.join(".atmos").join("skills").join(".system").join("code_review_skills"));
+        let system_dir = dirs::home_dir().map(|h| {
+            h.join(".atmos")
+                .join("skills")
+                .join(".system")
+                .join("code_review_skills")
+        });
         let installed = system_dir
             .map(|d| {
                 let skill_ok = |name: &str| {
@@ -1543,9 +1599,9 @@ set -x
                         && skill_md.exists()
                         && skill_md.is_file()
                 };
-                skill_ok("fullstack-reviewer") 
-                && skill_ok("code-review-expert") 
-                && skill_ok("typescript-react-reviewer")
+                skill_ok("fullstack-reviewer")
+                    && skill_ok("code-review-expert")
+                    && skill_ok("typescript-react-reviewer")
             })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))
@@ -1555,14 +1611,22 @@ set -x
     async fn handle_git_commit_skill_system_status(&self) -> Result<Value> {
         let installed = dirs::home_dir()
             .map(|h| {
-                let skill_md = h.join(".atmos").join("skills").join(".system").join("git-commit").join("SKILL.md");
+                let skill_md = h
+                    .join(".atmos")
+                    .join("skills")
+                    .join(".system")
+                    .join("git-commit")
+                    .join("SKILL.md");
                 skill_md.exists() && skill_md.is_file()
             })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))
     }
 
-    async fn handle_sync_single_system_skill(&self, req: SyncSingleSystemSkillRequest) -> Result<Value> {
+    async fn handle_sync_single_system_skill(
+        &self,
+        req: SyncSingleSystemSkillRequest,
+    ) -> Result<Value> {
         let skill_name = req.skill_name;
         let result = tokio::task::spawn_blocking(move || {
             infra::utils::system_skill_sync::sync_single_system_skill(&skill_name)
@@ -1582,7 +1646,7 @@ set -x
         tokio::task::spawn_blocking(move || {
             infra::utils::system_skill_sync::sync_system_skills_on_startup();
         });
-        
+
         Ok(json!({ "initiated": true }))
     }
 
@@ -1613,7 +1677,10 @@ set -x
     }
 
     async fn handle_agent_registry_list(&self, req: AgentRegistryListRequest) -> Result<Value> {
-        let agents = self.agent_service.list_registry_agents(req.force_refresh).await?;
+        let agents = self
+            .agent_service
+            .list_registry_agents(req.force_refresh)
+            .await?;
         Ok(json!({ "agents": agents }))
     }
 
@@ -1708,11 +1775,11 @@ set -x
     }
 
     // ===== GitHub Handlers =====
-    
+
     async fn handle_github_pr_list(&self, req: GithubPrListRequest) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let state = req.state.as_deref().unwrap_or("open").to_lowercase();
-        
+
         // Fetch PRs where current branch is the HEAD (outgoing)
         let head_args = vec![
             "pr", "list", 
@@ -1722,7 +1789,7 @@ set -x
             "--limit", "30", 
             "--json", "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits"
         ];
-        
+
         // Fetch PRs where current branch is the BASE (incoming)
         let base_args = vec![
             "pr", "list", 
@@ -1739,7 +1806,7 @@ set -x
         );
 
         let mut all_prs = Vec::new();
-        
+
         if let Ok(Value::Array(prs)) = head_res {
             all_prs.extend(prs);
         }
@@ -1750,7 +1817,7 @@ set -x
         // Deduplicate by PR number and sort by creation date (desc)
         let mut seen_numbers = std::collections::HashSet::new();
         let mut unique_prs = Vec::new();
-        
+
         for pr in all_prs {
             if let Some(num) = pr.get("number").and_then(|n| n.as_u64()) {
                 if seen_numbers.insert(num) {
@@ -1758,7 +1825,7 @@ set -x
                 }
             }
         }
-        
+
         unique_prs.sort_by(|a, b| {
             let a_time = a.get("createdAt").and_then(|t| t.as_str()).unwrap_or("");
             let b_time = b.get("createdAt").and_then(|t| t.as_str()).unwrap_or("");
@@ -1772,10 +1839,17 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft"];
-        let mut output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
 
         // Fetch timeline for activities
-        let timeline_endpoint = format!("repos/{}/{}/issues/{}/timeline?per_page=100", req.owner, req.repo, req.pr_number);
+        let timeline_endpoint = format!(
+            "repos/{}/{}/issues/{}/timeline?per_page=100",
+            req.owner, req.repo, req.pr_number
+        );
         let timeline_args = vec!["api", &timeline_endpoint];
         if let Ok(timeline) = self.github_engine.run_gh(&timeline_args).await {
             if let Some(obj) = output.as_object_mut() {
@@ -1783,7 +1857,10 @@ set -x
             }
         } else {
             // Log error if timeline fetch fails but don't fail the whole request
-            println!("Warning: Failed to fetch timeline for PR #{}", req.pr_number);
+            println!(
+                "Warning: Failed to fetch timeline for PR #{}",
+                req.pr_number
+            );
         }
 
         Ok(output)
@@ -1791,7 +1868,18 @@ set -x
 
     async fn handle_github_pr_create(&self, req: GithubPrCreateRequest) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let mut args = vec!["pr", "create", "--repo", &repo_arg, "--title", &req.title, "--base", &req.base_branch, "--head", &req.branch];
+        let mut args = vec![
+            "pr",
+            "create",
+            "--repo",
+            &repo_arg,
+            "--title",
+            &req.title,
+            "--base",
+            &req.base_branch,
+            "--head",
+            &req.branch,
+        ];
         if let Some(body) = &req.body {
             args.push("--body");
             args.push(body);
@@ -1799,7 +1887,11 @@ set -x
         if req.draft.unwrap_or(false) {
             args.push("--draft");
         }
-        let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to create PR: {}", e)))?;
+        let output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Failed to create PR: {}", e)))?;
         Ok(output)
     }
 
@@ -1807,16 +1899,27 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let strategy_flag = format!("--{}", req.strategy);
-        let mut args = vec!["pr", "merge", &pr_num_str, "--repo", &repo_arg, &strategy_flag];
-        
+        let mut args = vec![
+            "pr",
+            "merge",
+            &pr_num_str,
+            "--repo",
+            &repo_arg,
+            &strategy_flag,
+        ];
+
         let body_val;
         if let Some(body) = &req.body {
             body_val = body.clone();
             args.push("--body");
             args.push(&body_val);
         }
-        
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         // `gh pr merge` typically returns empty json or null on success if not asking for json
         // We ensure success: true is returned
         if !output.is_object() {
@@ -1829,7 +1932,7 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let mut args = vec!["pr", "close", &pr_num_str, "--repo", &repo_arg];
-        
+
         let comment_val;
         if let Some(comment) = &req.comment {
             comment_val = comment.clone();
@@ -1837,7 +1940,11 @@ set -x
             args.push(&comment_val);
         }
 
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
         }
@@ -1848,7 +1955,11 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let args = vec!["pr", "reopen", &pr_num_str, "--repo", &repo_arg];
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
         }
@@ -1858,19 +1969,38 @@ set -x
     async fn handle_github_pr_comment(&self, req: GithubPrCommentRequest) -> Result<Value> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "comment", &pr_num_str, "--repo", &repo_arg, "--body", &req.body];
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        let args = vec![
+            "pr",
+            "comment",
+            &pr_num_str,
+            "--repo",
+            &repo_arg,
+            "--body",
+            &req.body,
+        ];
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
         }
         Ok(output)
     }
 
-    async fn handle_github_pr_open_browser(&self, req: GithubPrOpenBrowserRequest) -> Result<Value> {
+    async fn handle_github_pr_open_browser(
+        &self,
+        req: GithubPrOpenBrowserRequest,
+    ) -> Result<Value> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--web"];
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
         }
@@ -1881,7 +2011,11 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let args = vec!["pr", "ready", &pr_num_str, "--repo", &repo_arg];
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
         }
@@ -1893,7 +2027,11 @@ set -x
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         // Using gh pr ready --undo to convert back to draft
         let args = vec!["pr", "ready", &pr_num_str, "--repo", &repo_arg, "--undo"];
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
         }
@@ -1902,9 +2040,24 @@ set -x
 
     async fn handle_github_ci_status(&self, req: GithubCiStatusRequest) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["run", "list", "--repo", &repo_arg, "--branch", &req.branch, "--limit", "1", "--json", "databaseId,workflowName,status,conclusion,createdAt,url"];
-        let output = self.github_engine.run_gh(&args).await.map_err(|e| ServiceError::Validation(format!("Failed to get CI status: {}", e)))?;
-        
+        let args = vec![
+            "run",
+            "list",
+            "--repo",
+            &repo_arg,
+            "--branch",
+            &req.branch,
+            "--limit",
+            "1",
+            "--json",
+            "databaseId,workflowName,status,conclusion,createdAt,url",
+        ];
+        let output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Failed to get CI status: {}", e)))?;
+
         // Return exactly what we got (either array with 1 item or empty array)
         if let Some(arr) = output.as_array() {
             if let Some(item) = arr.first() {
@@ -1918,18 +2071,29 @@ set -x
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         // limit 30 runs should be enough
         let args = vec!["run", "list", "--repo", &repo_arg, "--branch", &req.branch, "--limit", "30", "--json", "databaseId,workflowName,displayTitle,status,conclusion,createdAt,url,event,headBranch,headSha"];
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!([]));
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!([]));
         if !output.is_array() {
             output = json!([]);
         }
         Ok(output)
     }
 
-    async fn handle_github_ci_open_browser(&self, req: GithubCiOpenBrowserRequest) -> Result<Value> {
+    async fn handle_github_ci_open_browser(
+        &self,
+        req: GithubCiOpenBrowserRequest,
+    ) -> Result<Value> {
         let run_id_str = req.run_id.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let args = vec!["run", "view", &run_id_str, "--repo", &repo_arg, "--web"];
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
         }
@@ -1943,7 +2107,11 @@ set -x
         if req.failed_only.unwrap_or(false) {
             args.push("--failed");
         }
-        let mut output = self.github_engine.run_gh(&args).await.unwrap_or_else(|_| json!({ "success": true }));
+        let mut output = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or_else(|_| json!({ "success": true }));
         if !output.is_object() {
             output = json!({ "success": true });
         }
@@ -1954,18 +2122,34 @@ set -x
         let run_id_str = req.run_id.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let api_endpoint = format!("/repos/{}/actions/runs/{}", repo_arg, run_id_str);
-        
+
         // 1. Fetch raw API output for actor
         let api_args = vec!["api", &api_endpoint];
-        let api_output = self.github_engine.run_gh(&api_args).await.unwrap_or_else(|_| json!({}));
-        
+        let api_output = self
+            .github_engine
+            .run_gh(&api_args)
+            .await
+            .unwrap_or_else(|_| json!({}));
+
         // 2. Fetch jobs JSON
-        let jobs_args = vec!["run", "view", &run_id_str, "--repo", &repo_arg, "--json", "jobs"];
-        let jobs_output = self.github_engine.run_gh(&jobs_args).await.unwrap_or_else(|_| json!({}));
-        
+        let jobs_args = vec![
+            "run",
+            "view",
+            &run_id_str,
+            "--repo",
+            &repo_arg,
+            "--json",
+            "jobs",
+        ];
+        let jobs_output = self
+            .github_engine
+            .run_gh(&jobs_args)
+            .await
+            .unwrap_or_else(|_| json!({}));
+
         // We can just rely on run_gh falling back to string if it fails parsing or run raw?
         // Wait, github_engine.run_gh tries to parse json. It might fail.
-        
+
         let mut result = json!({});
         if let Some(obj) = result.as_object_mut() {
             if let Some(actor) = api_output.get("actor") {
@@ -1978,7 +2162,7 @@ set -x
                 obj.insert("jobs".to_string(), jobs.clone());
             }
         }
-        
+
         Ok(result)
     }
 
@@ -1987,8 +2171,9 @@ set -x
     async fn handle_function_settings_get(&self) -> Result<Value> {
         let path = function_settings_path();
         if path.exists() {
-            let content = std::fs::read_to_string(&path)
-                .map_err(|e| ServiceError::Validation(format!("Failed to read function_settings.json: {}", e)))?;
+            let content = std::fs::read_to_string(&path).map_err(|e| {
+                ServiceError::Validation(format!("Failed to read function_settings.json: {}", e))
+            })?;
             let val: Value = serde_json::from_str(&content).unwrap_or(json!({}));
             Ok(val)
         } else {
@@ -1996,7 +2181,10 @@ set -x
         }
     }
 
-    async fn handle_function_settings_update(&self, req: FunctionSettingsUpdateRequest) -> Result<Value> {
+    async fn handle_function_settings_update(
+        &self,
+        req: FunctionSettingsUpdateRequest,
+    ) -> Result<Value> {
         let path = function_settings_path();
         let mut settings: Value = if path.exists() {
             let content = std::fs::read_to_string(&path).unwrap_or_else(|_| "{}".to_string());
@@ -2013,13 +2201,16 @@ set -x
         }
 
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| ServiceError::Validation(format!("Failed to create ~/.atmos dir: {}", e)))?;
+            std::fs::create_dir_all(parent).map_err(|e| {
+                ServiceError::Validation(format!("Failed to create ~/.atmos dir: {}", e))
+            })?;
         }
-        let pretty = serde_json::to_string_pretty(&settings)
-            .map_err(|e| ServiceError::Validation(format!("Failed to serialize settings: {}", e)))?;
-        std::fs::write(&path, pretty)
-            .map_err(|e| ServiceError::Validation(format!("Failed to write function_settings.json: {}", e)))?;
+        let pretty = serde_json::to_string_pretty(&settings).map_err(|e| {
+            ServiceError::Validation(format!("Failed to serialize settings: {}", e))
+        })?;
+        std::fs::write(&path, pretty).map_err(|e| {
+            ServiceError::Validation(format!("Failed to write function_settings.json: {}", e))
+        })?;
 
         Ok(json!({ "ok": true }))
     }

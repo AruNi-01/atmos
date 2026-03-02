@@ -107,6 +107,7 @@ export function MermaidViewerModal({
 
   useEffect(() => {
     if (!open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setZoom(1);
       setZoomInput("100");
       setIsEditingZoom(false);

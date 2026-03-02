@@ -75,6 +75,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
 
   useEffect(() => {
     if (isActive) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShouldRender(true);
       setIsAnimatingIn(false);
       animationFrameRef.current = requestAnimationFrame(() => {

@@ -293,7 +293,9 @@ export function useAgentSession({
     title: null as string | null,
     configOptions: [] as AgentConfigOption[],
   });
-  latestRef.current = { sessionId, cwd: sessionCwd, title: sessionTitle, configOptions };
+  useEffect(() => {
+    latestRef.current = { sessionId, cwd: sessionCwd, title: sessionTitle, configOptions };
+  });
 
   const stashedRef = useRef<Map<string, StashedSession>>(new Map());
 

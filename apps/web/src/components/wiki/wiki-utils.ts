@@ -270,7 +270,7 @@ export function parseFrontmatter(markdown: string): {
       const keyMatch = line.match(/^([a-z_]+):\s*(.*)$/);
       if (keyMatch) {
         const key = keyMatch[1];
-        let val = keyMatch[2].trim();
+        const val = keyMatch[2].trim();
         if (val.startsWith("[") && val.endsWith("]")) {
           try {
             (frontmatter as Record<string, unknown>)[key] = JSON.parse(val);

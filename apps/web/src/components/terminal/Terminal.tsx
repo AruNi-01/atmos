@@ -140,7 +140,7 @@ const Terminal = ({
   const readOnlyRef = useRef(readOnly);
   // Keep onTitleChange callback ref in sync to avoid stale closures in the OSC handler
   const onTitleChangeRef = useRef(onTitleChange);
-  onTitleChangeRef.current = onTitleChange;
+  useEffect(() => { onTitleChangeRef.current = onTitleChange; });
 
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
@@ -284,9 +284,11 @@ const Terminal = ({
     });
 
   // Keep refs in sync (breaks circular dependencies with handleConnected / wheel handler)
-  sendResizeRef.current = sendResize;
-  sendCancelCopyModeRef.current = sendCancelCopyMode;
-  sendCheckCopyModeRef.current = sendCheckCopyMode;
+  useEffect(() => {
+    sendResizeRef.current = sendResize;
+    sendCancelCopyModeRef.current = sendCancelCopyMode;
+    sendCheckCopyModeRef.current = sendCheckCopyMode;
+  });
 
   const uiStatus = isReconnecting ? "reconnecting" : status;
 

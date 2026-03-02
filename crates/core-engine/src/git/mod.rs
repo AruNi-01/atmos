@@ -357,11 +357,7 @@ impl GitEngine {
     pub fn list_remote_branches(&self, repo_path: &Path) -> Result<Vec<String>> {
         let output = Command::new("git")
             .current_dir(repo_path)
-            .args([
-                "for-each-ref",
-                "refs/remotes/origin",
-                "--format=%(refname)",
-            ])
+            .args(["for-each-ref", "refs/remotes/origin", "--format=%(refname)"])
             .output()
             .map_err(|e| EngineError::Git(format!("Failed to list remote branches: {}", e)))?;
 
@@ -921,7 +917,12 @@ impl GitEngine {
     }
 
     /// Get commit log for the current branch (paginated)
-    pub fn get_commit_log(&self, repo_path: &Path, limit: usize, offset: usize) -> Result<Vec<CommitInfo>> {
+    pub fn get_commit_log(
+        &self,
+        repo_path: &Path,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<CommitInfo>> {
         // Check if there is an upstream branch
         let upstream_exists = Command::new("git")
             .current_dir(repo_path)
@@ -992,7 +993,12 @@ impl GitEngine {
                 rev_range,
             ])
             .output()
-            .map_err(|e| EngineError::Git(format!("Failed to fetch raw commits for {}: {}", rev_range, e)))?;
+            .map_err(|e| {
+                EngineError::Git(format!(
+                    "Failed to fetch raw commits for {}: {}",
+                    rev_range, e
+                ))
+            })?;
 
         if !output.status.success() {
             // If the range is empty (e.g. @{u}..HEAD when identical), it might return success or harmless error
@@ -1016,7 +1022,11 @@ impl GitEngine {
             let author_email = parts[2].trim().to_string();
             let timestamp: i64 = parts[3].trim().parse().unwrap_or(0);
             let subject = parts[4].trim().to_string();
-            let body = if parts.len() > 5 { parts[5].trim().to_string() } else { String::new() };
+            let body = if parts.len() > 5 {
+                parts[5].trim().to_string()
+            } else {
+                String::new()
+            };
 
             if hash.is_empty() || hash.len() < 7 {
                 continue;
@@ -1056,12 +1066,21 @@ impl GitEngine {
 
         let output = Command::new("gh")
             .current_dir(path)
-            .args(["repo", "view", "--json", "owner,name", "--template", "{{.owner.login}}/{{.name}}"])
+            .args([
+                "repo",
+                "view",
+                "--json",
+                "owner,name",
+                "--template",
+                "{{.owner.login}}/{{.name}}",
+            ])
             .output()
             .map_err(|e| EngineError::Git(format!("gh-cli not found: {}", e)))?;
 
         if !output.status.success() {
-            return Err(EngineError::Git("gh-cli error or not authenticated".to_string()));
+            return Err(EngineError::Git(
+                "gh-cli error or not authenticated".to_string(),
+            ));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -1077,8 +1096,11 @@ impl GitEngine {
         // our 'offset' corresponds 1:1 with GitHub's commit ordering.
         let gh_limit = 100;
         let page = (offset / gh_limit) + 1;
-        
-        let url = format!("repos/{}/commits?per_page={}&page={}", repo_info, gh_limit, page);
+
+        let url = format!(
+            "repos/{}/commits?per_page={}&page={}",
+            repo_info, gh_limit, page
+        );
         let output = Command::new("gh")
             .current_dir(path)
             .args([

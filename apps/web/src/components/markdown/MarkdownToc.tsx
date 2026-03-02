@@ -70,6 +70,7 @@ export const MarkdownToc: React.FC<MarkdownTocProps> = ({
 
   useEffect(() => {
     if (headings.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveId(null);
       return;
     }

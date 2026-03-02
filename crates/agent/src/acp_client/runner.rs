@@ -48,11 +48,13 @@ fn map_config_options(
                         acp::SessionConfigSelectOptions::Grouped(gs) => {
                             for g in gs {
                                 for o in g.options {
-                                    options.push(crate::acp_client::types::AgentConfigOptionValue {
-                                        value: o.value.to_string(),
-                                        name: Some(o.name),
-                                        description: o.description,
-                                    });
+                                    options.push(
+                                        crate::acp_client::types::AgentConfigOptionValue {
+                                            value: o.value.to_string(),
+                                            name: Some(o.name),
+                                            description: o.description,
+                                        },
+                                    );
                                 }
                             }
                         }
@@ -107,7 +109,9 @@ impl AcpSessionHandle {
     }
 
     pub fn send_set_config_option(&self, config_id: String, value: String) {
-        let _ = self.cmd_tx.send(SessionCommand::SetConfigOption(config_id, value));
+        let _ = self
+            .cmd_tx
+            .send(SessionCommand::SetConfigOption(config_id, value));
     }
 
     pub async fn recv_event(&mut self) -> Option<AcpSessionEvent> {
@@ -320,8 +324,7 @@ async fn run_session_inner(
                         Err(e) => {
                             warn!(
                                 "ACP load_session failed for {}: {}, fallback to new_session",
-                                resume_id,
-                                e
+                                resume_id, e
                             );
                             conn.new_session(acp::NewSessionRequest::new(cwd.clone()))
                                 .await
@@ -384,7 +387,10 @@ async fn run_session_inner(
             // Apply default configurations if any
             if let Some(defaults) = default_config {
                 for (config_id, value) in defaults {
-                    info!("Applying default config for {}: {}={}", _session_id, config_id, value);
+                    info!(
+                        "Applying default config for {}: {}={}",
+                        _session_id, config_id, value
+                    );
                     let req = acp::SetSessionConfigOptionRequest::new(
                         session_id_acp.clone(),
                         acp::SessionConfigId::new(config_id),

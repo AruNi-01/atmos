@@ -5,7 +5,7 @@ import path from 'path';
 
 export async function GET() {
   const systemReviewSkillsPath = path.join(os.homedir(), '.atmos', 'skills', '.system', 'code_review_skills');
-  const skills: any[] = [];
+  const skills: { id: string; label: string; badge: string; description: string; bestFor: string }[] = [];
 
   if (fs.existsSync(systemReviewSkillsPath)) {
     const dirs = fs.readdirSync(systemReviewSkillsPath);

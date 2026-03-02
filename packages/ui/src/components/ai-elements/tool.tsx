@@ -38,7 +38,7 @@ export const Tool = ({ className, defaultOpen = false, ...props }: ToolProps) =>
   />
 );
 
-export type ToolHeaderProps = ComponentProps<typeof CollapsibleTrigger> & {
+export type ToolHeaderProps = Omit<ComponentProps<typeof CollapsibleTrigger>, 'type'> & {
   /** Tool type/name */
   type?: string;
   /** Display state */

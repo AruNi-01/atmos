@@ -18,7 +18,7 @@ import {
 import { Terminal, Bot, Loader2, AlertTriangle } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "@/components/wiki/AgentSelect";
 import { skillsApi, agentApi } from "@/api/ws-api";
-import type { RegistryAgent } from "@/api/ws-api";
+import type { RegistryAgent, CustomAgent } from "@/api/ws-api";
 import { cn } from "@/lib/utils";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
@@ -184,7 +184,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       agentApi.listCustomAgents(),
     ]).then(([{ agents }, { agents: customAgents }]) => {
       const installed = agents.filter((a: RegistryAgent) => a.installed);
-      const customAsRegistry: RegistryAgent[] = customAgents.map((c: any) => ({
+      const customAsRegistry: RegistryAgent[] = customAgents.map((c: CustomAgent) => ({
         id: c.name,
         name: c.name,
         version: "",

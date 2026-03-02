@@ -398,6 +398,6 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
   );
 }
 
-function WorkflowIcon(props: any) {
+function WorkflowIcon(props: React.ComponentProps<typeof Rocket>) {
   return <Rocket {...props} />;
 }

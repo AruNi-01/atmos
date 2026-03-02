@@ -24,10 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-bun
-      # config 包无 lint 脚本，只对有 lint 的包执行
+      # config 包无 lint 脚本，ui 包无 eslint 配置，只对有 lint 的包执行
       - name: Lint packages
         run: |
-          bun --filter '@workspace/ui' lint
           bun --filter '@atmos/i18n' lint
           bun --filter '@atmos/shared' lint
 

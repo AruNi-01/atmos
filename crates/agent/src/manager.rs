@@ -184,7 +184,9 @@ impl AgentManager {
                     .iter()
                     .find(|a| a.id == e.registry_id)
                     .and_then(|a| a.distribution.npx.as_ref())
-                    .map(|npx| installed_npm.contains_key(&normalize_npm_package_name(&npx.package)))
+                    .map(|npx| {
+                        installed_npm.contains_key(&normalize_npm_package_name(&npx.package))
+                    })
                     .unwrap_or(false)
             } else {
                 true
@@ -345,7 +347,11 @@ impl AgentManager {
         let mut uninstalled_old_package = None;
         let manifest = load_install_manifest().unwrap_or_default();
         let new_package_name = normalize_npm_package_name(&npx.package);
-        if let Some(old_entry) = manifest.registry.iter().find(|e| e.registry_id == registry_id && e.install_method == "npx") {
+        if let Some(old_entry) = manifest
+            .registry
+            .iter()
+            .find(|e| e.registry_id == registry_id && e.install_method == "npx")
+        {
             if let Some(ref old_package) = old_entry.npm_package {
                 if old_package != &new_package_name {
                     // Package name changed, uninstall the old one first
@@ -377,12 +383,15 @@ impl AgentManager {
 
         if output.status.success() {
             // Get the installed version from npm
-            let installed_version = list_global_npm_packages().await
+            let installed_version = list_global_npm_packages()
+                .await
                 .ok()
                 .and_then(|pkgs| pkgs.get(&new_package_name).cloned());
 
             let mut manifest = load_install_manifest().unwrap_or_default();
-            let existing_default = manifest.registry.iter()
+            let existing_default = manifest
+                .registry
+                .iter()
                 .find(|e| e.registry_id == registry_id && e.install_method == "npx")
                 .and_then(|e| e.default_config.clone());
 
@@ -443,14 +452,22 @@ impl AgentManager {
                     .agents
                     .into_iter()
                     .find(|a| a.id == registry_id)
-                    .ok_or_else(|| AgentError::NotFound(format!("registry agent: {}", registry_id)))?;
+                    .ok_or_else(|| {
+                        AgentError::NotFound(format!("registry agent: {}", registry_id))
+                    })?;
                 let npx = r_entry.distribution.npx.as_ref().ok_or_else(|| {
-                    AgentError::Command(format!("registry agent '{}' has no npx distribution", registry_id))
+                    AgentError::Command(format!(
+                        "registry agent '{}' has no npx distribution",
+                        registry_id
+                    ))
                 })?;
                 (normalize_npm_package_name(&npx.package), Some(r_entry))
             }
         } else {
-            return Err(AgentError::NotFound(format!("no npx install found for: {}", registry_id)));
+            return Err(AgentError::NotFound(format!(
+                "no npx install found for: {}",
+                registry_id
+            )));
         };
 
         let mut manifest = load_install_manifest().unwrap_or_default();
@@ -579,10 +596,20 @@ impl AgentManager {
     ) -> Result<()> {
         let path = manifest_path()?;
         let mut manifest = load_install_manifest()?;
-        tracing::info!("Attempting to set default config in {}: {}/{}={}", path.display(), registry_id, config_id, value);
+        tracing::info!(
+            "Attempting to set default config in {}: {}/{}={}",
+            path.display(),
+            registry_id,
+            config_id,
+            value
+        );
 
         // Try registry agents first
-        if let Some(entry) = manifest.registry.iter_mut().find(|e| e.registry_id == registry_id) {
+        if let Some(entry) = manifest
+            .registry
+            .iter_mut()
+            .find(|e| e.registry_id == registry_id)
+        {
             let mut defaults = entry.default_config.clone().unwrap_or_default();
             defaults.insert(config_id.to_string(), value.to_string());
             entry.default_config = Some(defaults);
@@ -621,14 +648,28 @@ impl AgentManager {
             }
         }
 
-        tracing::warn!("Agent '{}' not found in manifest at {}", registry_id, path.display());
-        Err(AgentError::NotFound(format!("agent not found: {}", registry_id)))
+        tracing::warn!(
+            "Agent '{}' not found in manifest at {}",
+            registry_id,
+            path.display()
+        );
+        Err(AgentError::NotFound(format!(
+            "agent not found: {}",
+            registry_id
+        )))
     }
 
-    pub fn get_agent_default_config(&self, registry_id: &str) -> Option<std::collections::HashMap<String, String>> {
+    pub fn get_agent_default_config(
+        &self,
+        registry_id: &str,
+    ) -> Option<std::collections::HashMap<String, String>> {
         let manifest = load_install_manifest().ok()?;
 
-        if let Some(entry) = manifest.registry.iter().find(|e| e.registry_id == registry_id) {
+        if let Some(entry) = manifest
+            .registry
+            .iter()
+            .find(|e| e.registry_id == registry_id)
+        {
             return entry.default_config.clone();
         }
 
@@ -642,7 +683,10 @@ impl AgentManager {
     /// Add or update a custom agent.
     pub fn add_custom_agent(&self, agent: &crate::models::CustomAgent) -> Result<()> {
         let mut manifest = load_install_manifest()?;
-        let existing_default = manifest.custom_agents.get(&agent.name).and_then(|e| e.default_config.clone());
+        let existing_default = manifest
+            .custom_agents
+            .get(&agent.name)
+            .and_then(|e| e.default_config.clone());
         manifest.custom_agents.insert(
             agent.name.clone(),
             CustomAgentEntry {
@@ -703,9 +747,8 @@ impl AgentManager {
     /// Set custom_agents from a raw JSON string. Validates the JSON before saving.
     pub fn set_custom_agents_json(&self, json_str: &str) -> Result<()> {
         let parsed: std::collections::HashMap<String, CustomAgentEntry> =
-            serde_json::from_str(json_str).map_err(|e| {
-                AgentError::Command(format!("invalid custom_agents JSON: {}", e))
-            })?;
+            serde_json::from_str(json_str)
+                .map_err(|e| AgentError::Command(format!("invalid custom_agents JSON: {}", e)))?;
         let mut manifest = load_install_manifest()?;
         manifest.custom_agents = parsed;
         save_install_manifest(&manifest)
@@ -880,10 +923,12 @@ impl AgentManager {
         let installed_version = detect_binary_version(&target_path).await;
 
         let mut manifest = load_install_manifest().unwrap_or_default();
-        let existing_default = manifest.registry.iter()
+        let existing_default = manifest
+            .registry
+            .iter()
             .find(|e| e.registry_id == registry_id && e.install_method == "binary")
             .and_then(|e| e.default_config.clone());
-            
+
         let bin_path_str = target_path.to_string_lossy().to_string();
         upsert_manifest_entry(
             &mut manifest,
@@ -1297,8 +1342,14 @@ fn upsert_manifest_entry(manifest: &mut InstallManifest, entry: ManifestEntry) {
         .find(|e| e.registry_id == entry.registry_id && e.install_method == entry.install_method)
     {
         let mut entry = entry;
-        let default_config = entry.default_config.take().or(existing.default_config.take());
-        let installed_version = entry.installed_version.take().or(existing.installed_version.take());
+        let default_config = entry
+            .default_config
+            .take()
+            .or(existing.default_config.take());
+        let installed_version = entry
+            .installed_version
+            .take()
+            .or(existing.installed_version.take());
         *existing = entry;
         existing.default_config = default_config;
         existing.installed_version = installed_version;
@@ -1427,12 +1478,7 @@ fn looks_like_archive_url(url: &str) -> bool {
 /// or without an extension) inside the archive and copies it to
 /// `dest_dir/binary_name`.  If no exact match is found it falls back to the
 /// first file that looks like an executable.
-fn extract_archive(
-    url: &str,
-    data: &[u8],
-    dest_dir: &Path,
-    binary_name: &str,
-) -> Result<()> {
+fn extract_archive(url: &str, data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
     let lower = url.to_ascii_lowercase();
 
     if lower.ends_with(".zip") {
@@ -1454,7 +1500,8 @@ fn is_target_binary(entry_name: &str, binary_name: &str) -> bool {
         .unwrap_or("");
     base == binary_name
         || base == format!("{}.exe", binary_name)
-        || base.strip_suffix(".exe").unwrap_or(base) == binary_name.strip_suffix(".exe").unwrap_or(binary_name)
+        || base.strip_suffix(".exe").unwrap_or(base)
+            == binary_name.strip_suffix(".exe").unwrap_or(binary_name)
 }
 
 fn extract_zip(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
@@ -1562,10 +1609,7 @@ async fn detect_binary_version(binary_path: &Path) -> Option<String> {
     let common_flags = ["--version", "-v", "version", "-V"];
 
     for flag in common_flags {
-        let output = Command::new(binary_path)
-            .arg(flag)
-            .output()
-            .await;
+        let output = Command::new(binary_path).arg(flag).output().await;
 
         if let Ok(output) = output {
             if output.status.success() {

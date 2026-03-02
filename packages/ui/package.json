@@ -12,7 +12,6 @@
     "./hooks/*": "./src/hooks/*.ts"
   },
   "scripts": {
-    "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "ui:add": "bunx --bun shadcn@latest add"
   },

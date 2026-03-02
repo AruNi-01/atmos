@@ -34,10 +34,13 @@ interface DialogStore {
   isCodeReviewDialogOpen: boolean;
   setCodeReviewDialogOpen: (open: boolean) => void;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   activeActionRun: any | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setActiveActionRun: (run: any | null) => void;
-  
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   activePr: any | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setActivePr: (pr: any | null) => void;
 }
 

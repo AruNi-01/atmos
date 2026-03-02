@@ -83,6 +83,7 @@ function ShikiCode({
     const normalized = normalizeLang(language);
 
     if (!SUPPORTED_LANGS.has(normalized)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHtml(null);
       return;
     }
