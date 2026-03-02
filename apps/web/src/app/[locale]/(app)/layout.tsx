@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
 import Header from "@/components/layout/Header";
 import LeftSidebar from "@/components/layout/LeftSidebar";
@@ -25,14 +26,20 @@ export default async function AppLayout({ children, params }: Props) {
       <Header />
 
       <PanelLayout
-        leftSidebar={<LeftSidebar />}
+        leftSidebar={
+          <Suspense fallback={null}>
+            <LeftSidebar />
+          </Suspense>
+        }
         centerStage={<CenterStage logs={TERMINAL_LOGS} />}
         rightSidebar={<RightSidebar />}
       />
 
       <Footer />
 
-      <GlobalSearch />
+      <Suspense fallback={null}>
+        <GlobalSearch />
+      </Suspense>
 
       <AgentChatPanel />
       <AgentFloatingBall />
