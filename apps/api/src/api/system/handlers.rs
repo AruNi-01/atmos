@@ -107,7 +107,7 @@ fn get_pty_process_summary() -> Vec<Value> {
                     let device_name = parts[parts.len() - 1].trim().to_string();
                     device_counts
                         .entry(command)
-                        .or_insert_with(HashSet::new)
+                        .or_default()
                         .insert(device_name);
                 }
             }
@@ -729,11 +729,7 @@ pub async fn cleanup_terminals(
         })
         .unwrap_or(0);
 
-    let cleaned = if before_count > after_count {
-        before_count - after_count
-    } else {
-        0
-    };
+    let cleaned = before_count.saturating_sub(after_count);
 
     info!(
         "Terminal cleanup complete: {} stale client sessions removed",
