@@ -261,7 +261,7 @@ impl TerminalService {
 
     /// Create a new terminal session with tmux persistence
     /// Returns a receiver for terminal output
-#[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_session(
         &self,
         session_id: String,
@@ -467,7 +467,7 @@ impl TerminalService {
 
     /// Create a new simple terminal session (NO tmux persistence)
     /// Returns a receiver for terminal output
-#[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_simple_session(
         &self,
         session_id: String,
@@ -561,7 +561,7 @@ impl TerminalService {
     }
 
     /// Attach to an existing tmux window (for reconnection)
-#[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub async fn attach_session(
         &self,
         session_id: String,
@@ -606,7 +606,7 @@ impl TerminalService {
     }
 
     /// Internal version of attach_session that doesn't acquire the workspace lock
-#[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     async fn attach_session_internal(
         &self,
         session_id: String,
@@ -689,7 +689,7 @@ impl TerminalService {
     }
 
     /// Internal: Attach PTY to a tmux window
-#[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     async fn attach_to_tmux_window(
         &self,
         session_id: String,
