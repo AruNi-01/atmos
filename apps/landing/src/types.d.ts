@@ -1,20 +1,22 @@
+import type { StaticImageData } from 'next/image'
+
 declare module '*.png' {
-  const src: string
+  const src: StaticImageData
   export default src
 }
 
 declare module '*.jpg' {
-  const src: string
+  const src: StaticImageData
   export default src
 }
 
 declare module '*.jpeg' {
-  const src: string
+  const src: StaticImageData
   export default src
 }
 
 declare module '*.gif' {
-  const src: string
+  const src: StaticImageData
   export default src
 }
 
@@ -29,6 +31,6 @@ declare module '*.ico' {
 }
 
 declare module '*.webp' {
-  const src: string
+  const src: StaticImageData
   export default src
 }
