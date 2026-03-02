@@ -37,7 +37,10 @@ import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
 import { useGitStore } from "@/hooks/use-git-store";
 import { DiffViewer } from "@/components/diff/DiffViewer";
-import { Plus, Bot, Sparkles, Cpu, Zap, Brain, BookOpen, RefreshCw } from "lucide-react";
+import { Plus, BookOpen, RefreshCw, Star } from "lucide-react";
+import { AGENT_OPTIONS, type AgentId } from "@/components/wiki/AgentSelect";
+import { AgentIcon } from "@/components/agent/AgentIcon";
+import { functionSettingsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { useQueryStates } from "nuqs";
@@ -132,6 +135,11 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     y: number;
     filePath: string;
   } | null>(null);
+
+  // Agent dropdown state
+  const [agentDropdownOpen, setAgentDropdownOpen] = React.useState(false);
+  const [defaultAgentId, setDefaultAgentId] = React.useState<AgentId>("claude");
+  const agentDropdownTimeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
 
   // Code Review tab state
   const codeReviewTerminalGridRef = React.useRef<TerminalGridHandle>(null);
@@ -441,6 +449,41 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
     }
   };
 
+  // Load default agent from function_settings
+  React.useEffect(() => {
+    functionSettingsApi.get().then((settings) => {
+      const saved = (settings as Record<string, unknown>)?.agent_cli as Record<string, unknown> | undefined;
+      const agentId = saved?.center_fix_terminal_default_agent as string | undefined;
+      if (agentId && AGENT_OPTIONS.some((a) => a.id === agentId)) {
+        setDefaultAgentId(agentId as AgentId);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleSetDefaultAgent = (agentId: AgentId) => {
+    setDefaultAgentId(agentId);
+    functionSettingsApi.update("agent_cli", "center_fix_terminal_default_agent", agentId).catch(() => {});
+  };
+
+  const handleQuickAddDefaultAgent = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const agent = AGENT_OPTIONS.find((a) => a.id === defaultAgentId);
+    if (agent) handleAddAgent(agent.label);
+    setAgentDropdownOpen(false);
+  };
+
+  const handleAgentDropdownEnter = () => {
+    clearTimeout(agentDropdownTimeoutRef.current);
+    setAgentDropdownOpen(true);
+  };
+
+  const handleAgentDropdownLeave = () => {
+    agentDropdownTimeoutRef.current = setTimeout(() => {
+      setAgentDropdownOpen(false);
+    }, 150);
+  };
+
   const activeFile = getActiveFile(effectiveContextId || undefined);
   const { currentRepoPath } = useGitStore();
 
@@ -626,7 +669,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               Terminal
             </span>
 
-            <DropdownMenu>
+            <DropdownMenu open={agentDropdownOpen} onOpenChange={(open) => { if (!open) setAgentDropdownOpen(false); }} modal={false}>
               <DropdownMenuTrigger asChild>
                 <div
                   role="button"
@@ -636,32 +679,40 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
                       ? "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto"
                       : "hidden"
                   )}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={handleQuickAddDefaultAgent}
+                  onMouseEnter={handleAgentDropdownEnter}
+                  onMouseLeave={handleAgentDropdownLeave}
                 >
                   <Plus className="size-4" />
                 </div>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem onClick={() => handleAddAgent("Claude Code")}>
-                  <Bot className="mr-2 size-4 text-purple-500" />
-                  <span>Claude Code</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddAgent("Codex")}>
-                  <Cpu className="mr-2 size-4 text-blue-500" />
-                  <span>Codex</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddAgent("OpenCode")}>
-                  <Sparkles className="mr-2 size-4 text-yellow-500" />
-                  <span>OpenCode</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddAgent("Droid")}>
-                  <Zap className="mr-2 size-4 text-green-500" />
-                  <span>Droid</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleAddAgent("Amp")}>
-                  <Brain className="mr-2 size-4 text-orange-500" />
-                  <span>Amp</span>
-                </DropdownMenuItem>
+              <DropdownMenuContent
+                align="start"
+                className="w-56"
+                onMouseEnter={handleAgentDropdownEnter}
+                onMouseLeave={handleAgentDropdownLeave}
+                onCloseAutoFocus={(e) => e.preventDefault()}
+              >
+                {AGENT_OPTIONS.map((opt) => (
+                  <DropdownMenuItem key={opt.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(opt.label); setAgentDropdownOpen(false); }}>
+                    <AgentIcon registryId={opt.id} name={opt.label} size={16} />
+                    <span className="flex-1">{opt.label}</span>
+                    <button
+                      className={cn(
+                        "size-5 flex items-center justify-center rounded-sm shrink-0 transition-opacity",
+                        defaultAgentId === opt.id
+                          ? "opacity-100"
+                          : "opacity-0 group-hover/agent-item:opacity-100 hover:bg-muted-foreground/20"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSetDefaultAgent(opt.id);
+                      }}
+                    >
+                      <Star className={cn("size-3.5", defaultAgentId === opt.id ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
+                    </button>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </TabsTab>
