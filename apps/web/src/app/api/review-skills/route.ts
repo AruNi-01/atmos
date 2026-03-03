@@ -3,6 +3,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
+// Required for `next build` with `output: export` in desktop packaging.
+export const dynamic = 'force-static';
+
 export async function GET() {
   const systemReviewSkillsPath = path.join(os.homedir(), '.atmos', 'skills', '.system', 'code_review_skills');
   const skills: { id: string; label: string; badge: string; description: string; bestFor: string }[] = [];

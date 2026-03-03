@@ -96,10 +96,10 @@ For each file, check:
 ### 5. Generate the Report
 
 When generating the review report, you MUST save it to the specified directory using the following dynamic file naming format:
-`[projectName]_[branchName]_YYYYMMDD-HH:MM:SS_[reviewTopic].md`
-- The time portion MUST use colons, exactly formatted as `HH:MM:SS` (e.g., `14:38:15`).
+`[projectName]_[branchName]_YYYYMMDD-HHMMSS_[reviewTopic].md`
+- The time portion MUST be numeric-only `HHMMSS` (e.g., `143815`) to remain cross-platform safe.
 - `[reviewTopic]` MUST be a dynamically generated 1-5 word slug describing the core changes being reviewed (e.g., `auth_fix`, `ui_refactor`).
-- Example filename: `atmos_main_20260225-14:38:15_overview_tab_redesign.md`
+- Example filename: `atmos_main_20260225-143815_overview_tab_redesign.md`
 
 Write the review report to this file path. The report MUST follow this exact structure:
 
