@@ -60,8 +60,8 @@ jobs:
           if [ "${{ matrix.platform }}" = "windows-latest" ]; then EXT=".exe"; fi
           mkdir -p apps/desktop/src-tauri/binaries
           cp target/${{ matrix.target }}/release/api${EXT} apps/desktop/src-tauri/binaries/api-${{ matrix.target }}${EXT}
-      - name: Build Tauri app (PR validation)
-        if: github.event_name == 'pull_request'
+      - name: Build Tauri app (PR / manual validation)
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         working-directory: apps/desktop
         run: bun tauri build ${{ matrix.args }} --no-bundle
       - name: Build and release Tauri app
