@@ -8,7 +8,9 @@ mod utils;
 
 use std::sync::Arc;
 
+use crate::middleware::require_local_token;
 use app_state::AppState;
+use axum::{http::StatusCode, middleware::from_fn, routing::get, Router};
 use clap::Parser;
 use config::ServerConfig;
 use core_engine::TestEngine;
@@ -18,12 +20,10 @@ use core_service::{
 };
 use infra::{DbConnection, Migrator, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
-use axum::{http::StatusCode, middleware::from_fn, routing::get, Router};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use crate::middleware::require_local_token;
 
 #[derive(Parser)]
 #[command(name = "atmos-api", about = "ATMOS API Server")]
