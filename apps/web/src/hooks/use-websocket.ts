@@ -3,6 +3,8 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { toastManager } from '@workspace/ui';
+import { getRuntimeApiConfig, isTauriRuntime } from '@/lib/desktop-runtime';
+import { debugLog } from '@/lib/desktop-logger';
 
 // ===== 类型定义 =====
 
@@ -172,7 +174,7 @@ interface WebSocketStore {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   
   // 动作
-  connect: () => void;
+  connect: () => Promise<void>;
   disconnect: () => void;
   send: <T = unknown>(action: WsAction, data?: unknown) => Promise<T>;
   onEvent: (event: string, callback: (data: unknown) => void) => () => void;
@@ -187,18 +189,16 @@ interface WebSocketStore {
 // 获取 WebSocket URL
 const getWsUrl = (): string => {
   if (typeof window === 'undefined') {
-    return 'ws://localhost:8080/ws';
+    return 'ws://localhost:30303/ws';
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // 优先使用环境变量，支持 Tailscale 等内网穿透场景
   if (process.env.NEXT_PUBLIC_WS_URL) {
     return `${process.env.NEXT_PUBLIC_WS_URL}/ws`;
   }
-  // 在开发环境中：如果通过非 localhost 访问（如 Tailscale），使用当前 host + 后端端口
   if (process.env.NODE_ENV === 'development') {
     const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'localhost:8080'
-      : `${window.location.hostname}:8080`;
+      ? 'localhost:30303'
+      : `${window.location.hostname}:30303`;
     return `${protocol}//${host}/ws`;
   }
   return `${protocol}//${window.location.host}/ws`;
@@ -222,48 +222,75 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   reconnectTimer: null,
   
   // 连接
-  connect: () => {
-    const { socket, connectionState, url } = get();
-    
-    // 如果已连接或正在连接，跳过
-    if (socket && (connectionState === 'connected' || connectionState === 'connecting')) {
+  connect: async () => {
+    const { connectionState } = get();
+
+    // Prevent duplicate connections: only allow connect from 'disconnected' state.
+    if (connectionState === 'connected' || connectionState === 'connecting') {
       return;
     }
-    
+
     set({ connectionState: 'connecting' });
-    
+
     try {
-      const ws = new WebSocket(url);
-      
+      const cfg = await getRuntimeApiConfig();
+
+      // Re-check after async gap — another connect() may have won the race.
+      if (get().connectionState !== 'connecting') return;
+
+      const clientType = isTauriRuntime() ? 'desktop' : 'web';
+      const params = new URLSearchParams();
+      params.set('client_type', clientType);
+      if (cfg.token) params.set('token', cfg.token);
+      const runtimeUrl = `ws://${cfg.host}:${cfg.port}/ws?${params.toString()}`;
+      debugLog(`ws:connect url=ws://${cfg.host}:${cfg.port}/ws hasToken=${!!cfg.token}`);
+      console.log('[WebSocket] Connecting to:', `ws://${cfg.host}:${cfg.port}/ws?token=<redacted>`);
+
+      // Close any lingering socket before creating a new one.
+      const prev = get().socket;
+      if (prev && (prev.readyState === WebSocket.OPEN || prev.readyState === WebSocket.CONNECTING)) {
+        prev.onclose = null;
+        prev.close(1000, 'Replaced');
+      }
+
+      const ws = new WebSocket(runtimeUrl);
+
+      // Store socket immediately so subsequent connect() calls see it.
+      set({ socket: ws, url: runtimeUrl });
+
       ws.onopen = () => {
+        debugLog('ws:onopen connected');
         console.log('[WebSocket] Connected');
         set({ connectionState: 'connected', socket: ws });
         get()._startHeartbeat();
       };
-      
+
       ws.onclose = (event) => {
-        console.log('[WebSocket] Disconnected:', event.code, event.reason);
+        // Ignore close events from a replaced (stale) socket.
+        if (get().socket !== ws) return;
+        debugLog(`ws:onclose code=${event.code} reason="${event.reason}" wasClean=${event.wasClean}`);
+        console.log('[WebSocket] Disconnected:', event.code, event.reason, 'wasClean:', event.wasClean);
         get()._stopHeartbeat();
         set({ connectionState: 'disconnected', socket: null });
-        
-        // 自动重连
+
         if (!event.wasClean) {
           get()._scheduleReconnect();
         }
       };
-      
+
       ws.onerror = (error) => {
+        debugLog(`ws:onerror ${JSON.stringify(error)}`);
         console.error('[WebSocket] Error:', error);
       };
-      
+
       ws.onmessage = (event) => {
         get()._handleMessage(event);
       };
-      
-      set({ socket: ws });
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      debugLog(`ws:connect catch err=${msg}`);
       console.error('[WebSocket] Connection failed:', error);
-      set({ connectionState: 'disconnected' });
+      set({ connectionState: 'disconnected', socket: null });
       get()._scheduleReconnect();
     }
   },
@@ -365,20 +392,23 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     };
   },
   
-  // 启动心跳
   _startHeartbeat: () => {
-    const { heartbeatInterval, socket } = get();
-    
+    // Stop any previous heartbeat to avoid stacking multiple intervals.
+    const prev = get().heartbeatTimer;
+    if (prev) clearInterval(prev);
+
+    const { heartbeatInterval } = get();
     const timer = setInterval(() => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send('ping');
+      // Read socket from store each tick — NOT a stale closure capture.
+      const ws = get().socket;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send('ping');
       }
     }, heartbeatInterval);
-    
+
     set({ heartbeatTimer: timer });
   },
-  
-  // 停止心跳
+
   _stopHeartbeat: () => {
     const { heartbeatTimer } = get();
     if (heartbeatTimer) {

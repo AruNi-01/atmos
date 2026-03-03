@@ -179,6 +179,21 @@ impl WsManager {
         }
     }
 
+    /// Return a snapshot of all active connections (id, client_type, secs since last activity).
+    pub async fn list_connections(&self) -> Vec<(String, String, u64)> {
+        let connections = self.connections.read().await;
+        connections
+            .values()
+            .map(|conn| {
+                (
+                    conn.id.clone(),
+                    conn.client_type.as_str().to_string(),
+                    conn.last_active().elapsed().as_secs(),
+                )
+            })
+            .collect()
+    }
+
     /// Get list of expired connection IDs
     pub async fn get_expired_connections(&self, timeout_secs: u64) -> Vec<String> {
         let connections = self.connections.read().await;

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Atmos",
+  "version": "0.1.0",
+  "identifier": "com.atmos.desktop",
+  "build": {
+    "beforeDevCommand": "bun --filter web dev",
+    "beforeBuildCommand": "BUILD_TARGET=desktop bun --filter web build && bash ./scripts/prepare-sidecar.sh",
+    "devUrl": "http://localhost:3030",
+    "frontendDist": "../../web/out"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "splashscreen",
+        "url": "/splashscreen.html",
+        "width": 420,
+        "height": 280,
+        "resizable": false,
+        "decorations": false,
+        "alwaysOnTop": true
+      },
+      {
+        "label": "main",
+        "title": "Atmos",
+        "url": "/",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 600,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all",
+    "icon": ["icons/icon.svg"],
+    "externalBin": [
+      "binaries/api"
+    ],
+    "resources": {
+      "binaries/web-out": "web-out"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBBNTE2MDFGRkRDRUZFRDUKUldUVi9zNzlIMkJSQ3JaS0JWV1c1NVFHbGhEbWpDZ2JvMlBOSVdReDAyVXZCeDJ2L3kzbWJWMEkK",
+      "endpoints": [
+        "https://github.com/AruNi-01/atmos/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

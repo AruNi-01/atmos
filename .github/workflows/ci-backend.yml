@@ -57,7 +57,7 @@ jobs:
           workspaces: ". -> target"
 
       - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --exclude atmos-desktop --all-targets --all-features -- -D warnings
 
   test:
     name: Test
@@ -75,7 +75,7 @@ jobs:
           workspaces: ". -> target"
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo test --workspace --exclude atmos-desktop
 
   build:
     name: Build (Release)

@@ -52,6 +52,7 @@ import "@xterm/xterm/css/xterm.css";
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme } from "./theme";
 import { useTerminalWebSocket } from "./use-terminal-websocket";
 import type { TerminalProps } from "./types";
+import { getRuntimeApiConfig } from "@/lib/desktop-runtime";
 
 export interface TerminalRef {
   focus: () => void;
@@ -166,14 +167,15 @@ const Terminal = ({
   // For EXISTING panes: use tmux_window_name to ATTACH to existing tmux window
   const getTerminalWsUrl = () => {
     if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+    if (process.env.NEXT_PUBLIC_API_PORT) return `ws://localhost:${process.env.NEXT_PUBLIC_API_PORT}`;
     if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
       const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
       if (!isLocal) {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        return `${protocol}//${window.location.hostname}:8080`;
+        return `${protocol}//${window.location.hostname}:30303`;
       }
     }
-    return "ws://localhost:8080";
+    return "ws://localhost:30303";
   };
   const baseWsUrl = `${getTerminalWsUrl()}/ws/terminal/${sessionId}`;
   const wsParams = new URLSearchParams({
@@ -183,7 +185,6 @@ const Terminal = ({
   if (cwd) {
     wsParams.set("cwd", cwd);
   }
-
   // Common params
   if (projectName) {
     wsParams.set("project_name", projectName);
@@ -449,11 +450,34 @@ const Terminal = ({
     // Fit terminal to container (now onResize handler is registered to capture this)
     fitAddon.fit();
 
-    // Connect to WebSocket with initial terminal dimensions in URL.
-    // This ensures the backend creates the PTY with the correct size from the start,
-    // preventing garbled output from cols/rows mismatch.
-    const connectUrl = `${wsUrl}&cols=${terminal.cols}&rows=${terminal.rows}`;
-    connect(connectUrl);
+    // Connect with runtime token in desktop mode, then include initial cols/rows.
+    // cancelled is set to true by the cleanup function below. In desktop (Tauri) mode,
+    // getRuntimeApiConfig() needs ~50ms for IPC. React Strict Mode double-mounts the
+    // component, so two async IIFEs may be in flight simultaneously. The cancelled flag
+    // ensures only the IIFE belonging to the live mount actually calls connect().
+    let cancelled = false;
+    void (async () => {
+      let runtimeWsUrl = wsUrl;
+      try {
+        const { host, port, token } = await getRuntimeApiConfig();
+        if (cancelled) return;
+        const urlObj = new URL(wsUrl);
+        if (port) {
+          urlObj.host = `${host}:${port}`;
+          urlObj.protocol = "ws:";
+        }
+        if (token) {
+          urlObj.searchParams.set("token", token);
+        }
+        runtimeWsUrl = urlObj.toString();
+      } catch {
+        if (cancelled) return;
+        // Fallback to original URL in non-desktop environments.
+      }
+      const separator = runtimeWsUrl.includes("?") ? "&" : "?";
+      const connectUrl = `${runtimeWsUrl}${separator}cols=${terminal.cols}&rows=${terminal.rows}`;
+      connect(connectUrl);
+    })();
 
     // ── Copy-mode state helper ─────────────────────────────────────────
     // When entering copy-mode, disable mouse tracking so xterm.js handles
@@ -559,6 +583,7 @@ const Terminal = ({
     terminal.focus();
 
     return () => {
+      cancelled = true; // Prevent the async connect IIFE from firing after cleanup
       disconnect();
       resizeObserver.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
