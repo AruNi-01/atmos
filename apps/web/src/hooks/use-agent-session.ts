@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { agentApi, getAgentWsBase, type AgentAuthMethod, type AgentAuthRequiredPayload } from "@/api/rest-api";
+import { getRuntimeApiConfig } from "@/lib/desktop-runtime";
 import type { AgentChatMode } from "@/types/agent-chat";
 
 const AUTH_REQUIRED_ERROR_PREFIX = "ACP_AUTH_REQUIRED::";
@@ -397,8 +398,9 @@ export function useAgentSession({
         setSessionCwd(res.cwd);
         setSessionTitle(res.title ?? null);
 
-        const wsBase = getAgentWsBase();
-        const wsUrl = `${wsBase}/ws/agent/${sid}`;
+        const wsBase = await getAgentWsBase();
+        const cfg = await getRuntimeApiConfig();
+        const wsUrl = `${wsBase}/ws/agent/${sid}${cfg.token ? `?token=${encodeURIComponent(cfg.token)}` : ""}`;
         setConnectionPhase("connecting_ws");
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
@@ -514,8 +516,9 @@ export function useAgentSession({
         setSessionCwd(res.cwd);
         setSessionTitle(res.title ?? null);
 
-        const wsBase = getAgentWsBase();
-        const wsUrl = `${wsBase}/ws/agent/${sid}`;
+        const wsBase = await getAgentWsBase();
+        const cfg = await getRuntimeApiConfig();
+        const wsUrl = `${wsBase}/ws/agent/${sid}${cfg.token ? `?token=${encodeURIComponent(cfg.token)}` : ""}`;
         setConnectionPhase("connecting_ws");
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;

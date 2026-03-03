@@ -9,6 +9,7 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub cors_origins: CorsOriginConfig,
+    pub local_api_token: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -20,10 +21,11 @@ pub enum CorsOriginConfig {
 impl ServerConfig {
     pub fn from_env() -> Self {
         let host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-        let port = env::var("SERVER_PORT")
+        let port = env::var("ATMOS_PORT")
             .ok()
+            .or_else(|| env::var("SERVER_PORT").ok())
             .and_then(|p| p.parse().ok())
-            .unwrap_or(8080);
+            .unwrap_or(30303);
 
         let is_production = env::var("RUST_ENV")
             .map(|v| v == "production")
@@ -38,17 +40,33 @@ impl ServerConfig {
             _ if is_production => {
                 panic!("CORS_ORIGIN must be explicitly set in production (do not use \"*\")");
             }
-            _ => CorsOriginConfig::Any,
+            _ => CorsOriginConfig::List(vec![
+                "http://localhost:3030".to_string(),
+                "http://127.0.0.1:3030".to_string(),
+                "tauri://localhost".to_string(),
+                "https://tauri.localhost".to_string(),
+            ]),
         };
+
+        let local_api_token = env::var("ATMOS_LOCAL_TOKEN").ok();
 
         let config = Self {
             host,
             port,
             cors_origins,
+            local_api_token,
         };
 
         info!("Server config: {}:{}", config.host, config.port);
         info!("CORS origins: {:?}", config.cors_origins);
+        info!(
+            "Local token auth: {}",
+            if config.local_api_token.is_some() {
+                "enabled"
+            } else {
+                "disabled"
+            }
+        );
 
         config
     }

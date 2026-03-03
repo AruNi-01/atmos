@@ -157,7 +157,15 @@ export function useTerminalWebSocket({
   const effectiveUrlRef = useRef(url);
 
   const connect = useCallback((urlOverride?: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    // Guard against both OPEN and CONNECTING states to prevent duplicate connections.
+    // In desktop (Tauri) mode, getRuntimeApiConfig() is async (~50ms IPC round-trip).
+    // React Strict Mode double-mounts the component, launching two async IIFEs. Both
+    // complete after the cleanup runs (which only nulls wsRef when no socket exists yet),
+    // so both call connect() — the second one sees the first socket still CONNECTING and
+    // would create a second connection, causing every PTY character to arrive twice.
+    if (wsRef.current &&
+        (wsRef.current.readyState === WebSocket.OPEN ||
+         wsRef.current.readyState === WebSocket.CONNECTING)) {
       return;
     }
 

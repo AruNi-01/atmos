@@ -258,6 +258,12 @@ impl TmuxEngine {
         // and isolate from any local user preferences.
         self.run_tmux(&["set-option", "-g", "status", "off"])?;
 
+        // Set the default terminal type so shells running inside tmux panes
+        // get a proper TERM value. Without this, zsh/bash line editors (ZLE/readline)
+        // may fall back to dumb-terminal mode and perform their own local echo,
+        // causing typed characters to appear twice in the frontend.
+        let _ = self.run_tmux(&["set-option", "-g", "default-terminal", "xterm-256color"]);
+
         // Enable passthrough so shell shim OSC sequences (wrapped in DCS) can reach
         // the PTY reader and ultimately xterm.js on the frontend.
         // Without this, tmux silently drops unrecognized escape sequences.
