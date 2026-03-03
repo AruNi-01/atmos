@@ -165,7 +165,7 @@ export function useSelectionPopover({
       document.addEventListener('mousedown', handleMouseDown, true);
       document.addEventListener('selectionchange', handleSelectionChange);
       document.addEventListener('mousemove', handleMouseMove, true);
-    } else {
+    } else if (container) {
       // Use capture phase to catch events before they reach the editor
       container.addEventListener('mouseup', handleMouseUp, true);
       container.addEventListener('mousedown', handleMouseDown, true);
@@ -178,7 +178,7 @@ export function useSelectionPopover({
         document.removeEventListener('mousedown', handleMouseDown, true);
         document.removeEventListener('selectionchange', handleSelectionChange);
         document.removeEventListener('mousemove', handleMouseMove, true);
-      } else {
+      } else if (container) {
         container.removeEventListener('mouseup', handleMouseUp, true);
         container.removeEventListener('mousedown', handleMouseDown, true);
       }

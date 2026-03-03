@@ -261,7 +261,7 @@ mod tests {
 
         // Should be one of the Pokemon names
         let pokemon_part = &name[6..]; // Skip "atmos/"
-        let is_valid_pokemon = POKEMON_NAMES.iter().any(|p| pokemon_part == *p);
+        let is_valid_pokemon = POKEMON_NAMES.contains(&pokemon_part);
         assert!(is_valid_pokemon, "Generated name: {}", name);
     }
 

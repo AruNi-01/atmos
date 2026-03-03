@@ -392,7 +392,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
                         Description
                       </span>
                     </PreviewCardTrigger>
-                    <PreviewCardPopup side="bottom" align="start" className="w-80">
+                    <PreviewCardPopup align="start" className="w-80">
                       <div className="flex flex-col gap-2 overflow-hidden">
                         <div className="flex flex-col gap-1">
                           <h4 className="font-medium text-sm">Description</h4>
