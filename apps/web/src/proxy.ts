@@ -2,6 +2,9 @@ import type { NextRequest } from "next/server";
 import { i18nMiddleware } from "@atmos/i18n/middleware";
 
 export function proxy(request: NextRequest) {
+  if (process.env.BUILD_TARGET === "desktop") {
+    return;
+  }
   return i18nMiddleware(request);
 }
 

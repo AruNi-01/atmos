@@ -1,29 +1,28 @@
 'use client';
+import { getRuntimeApiConfig } from '@/lib/desktop-runtime';
 
 /**
  * REST API client for endpoints that need to be called before WebSocket connection
  * or when WebSocket is not available.
  */
 
-const getApiBase = (): string => {
+const getApiBaseSync = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!isLocal) {
-      return `${window.location.protocol}//${window.location.hostname}:8080`;
+      return `${window.location.protocol}//${window.location.hostname}:30303`;
     }
   }
-  return 'http://localhost:8080';
+  return 'http://localhost:30303';
 };
 
-const API_BASE = getApiBase();
-
 /** WebSocket base URL for agent chat (ws/wss derived from API base) */
-export const getAgentWsBase = (): string => {
-  const base = getApiBase();
-  return base.replace(/^http/, 'ws');
+export const getAgentWsBase = async (): Promise<string> => {
+  const cfg = await getRuntimeApiConfig();
+  return `ws://${cfg.host}:${cfg.port}`;
 };
 
 // ===== Types =====
@@ -59,10 +58,16 @@ interface ApiResponse<T> {
 }
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const cfg = await getRuntimeApiConfig();
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && !cfg.token) {
+    throw new Error('Desktop API token is missing in Tauri runtime');
+  }
+  const apiBase = `http://${cfg.host}:${cfg.port}`;
+  const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
       ...options?.headers,
     },
   });
@@ -200,6 +205,12 @@ export interface CleanupResponse {
   remaining_client_sessions: number;
 }
 
+export interface WsConnectionInfo {
+  id: string;
+  client_type: string;
+  idle_secs: number;
+}
+
 // ===== System API =====
 
 export const systemApi = {
@@ -299,6 +310,10 @@ export const systemApi = {
       method: 'POST',
       body: JSON.stringify({ pids }),
     });
+  },
+
+  getWsConnections: async (): Promise<{ connections: WsConnectionInfo[]; count: number }> => {
+    return fetchApi('/api/system/ws-connections');
   },
 };
 
@@ -461,8 +476,11 @@ export const agentApi = {
       formData.append('files', new File([blob], name, { type: file.mediaType || blob.type }));
     }
 
-    const res = await fetch(`${API_BASE}/api/agent/upload-attachments`, {
+    const cfg = await getRuntimeApiConfig();
+    const apiBase = `http://${cfg.host}:${cfg.port}`;
+    const res = await fetch(`${apiBase}/api/agent/upload-attachments`, {
       method: 'POST',
+      headers: cfg.token ? { Authorization: `Bearer ${cfg.token}` } : undefined,
       body: formData,
     });
 

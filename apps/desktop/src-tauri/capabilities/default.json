@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability set for Atmos desktop",
+  "windows": ["main", "splashscreen"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-set-focus",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/api",
+          "sidecar": true
+        }
+      ]
+    },
+    "notification:allow-notify",
+    "opener:allow-open-url"
+  ]
+}
