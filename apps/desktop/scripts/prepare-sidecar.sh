@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$ROOT_DIR"
 
-TARGET_TRIPLE="${TARGET_TRIPLE:-$(rustc -vV | rg '^host:' | awk '{print $2}')}"
+TARGET_TRIPLE="${TARGET_TRIPLE:-$(rustc -vV | awk '/^host:/ { print $2 }')}"
 BIN_EXT=""
 if [[ "$TARGET_TRIPLE" == *"windows"* ]]; then
   BIN_EXT=".exe"
