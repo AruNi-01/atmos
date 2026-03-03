@@ -5,7 +5,7 @@
   "identifier": "com.atmos.desktop",
   "build": {
     "beforeDevCommand": "bun --filter web dev",
-    "beforeBuildCommand": "BUILD_TARGET=desktop bun --filter web build && bash ./scripts/prepare-sidecar.sh",
+    "beforeBuildCommand": "node ./scripts/before-build.mjs",
     "devUrl": "http://localhost:3030",
     "frontendDist": "../../web/out"
   },
@@ -36,7 +36,7 @@
     }
   },
   "bundle": {
-    "active": false,
+    "active": true,
     "targets": "all",
     "icon": ["icons/icon.svg"],
     "externalBin": [

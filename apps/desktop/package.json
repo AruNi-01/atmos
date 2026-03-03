@@ -7,7 +7,7 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
-    "prepare:sidecar": "bash ./scripts/prepare-sidecar.sh"
+    "prepare:sidecar": "node ./scripts/before-build.mjs"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"
