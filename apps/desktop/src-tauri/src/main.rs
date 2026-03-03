@@ -4,9 +4,9 @@ mod state;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItem};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 
 use state::AppState;
@@ -88,7 +88,9 @@ fn main() {
 
             let quit_item = MenuItem::with_id(app, "quit", "Quit Atmos", true, None::<&str>)?;
             let show_item = MenuItem::with_id(app, "show", "Show Atmos", true, None::<&str>)?;
-            let menu = MenuBuilder::new(app).items(&[&show_item, &quit_item]).build()?;
+            let menu = MenuBuilder::new(app)
+                .items(&[&show_item, &quit_item])
+                .build()?;
             TrayIconBuilder::new()
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -224,7 +226,10 @@ async fn spawn_and_wait_sidecar(
                         *guard = Some(port);
                     }
                     wait_for_api(port).await?;
-                    append_sidecar_log(&sidecar_log_path, &format!("healthz OK port={port}, continuing to monitor"));
+                    append_sidecar_log(
+                        &sidecar_log_path,
+                        &format!("healthz OK port={port}, continuing to monitor"),
+                    );
                     // Keep draining sidecar output so we can log crashes after startup.
                     tokio::spawn(async move {
                         while let Some(ev) = rx.recv().await {
@@ -232,12 +237,18 @@ async fn spawn_and_wait_sidecar(
                                 tauri_plugin_shell::process::CommandEvent::Stdout(l) => {
                                     let t = String::from_utf8_lossy(&l);
                                     eprintln!("[sidecar stdout] {}", t.trim());
-                                    append_sidecar_log(&sidecar_log_path, &format!("stdout: {}", t.trim()));
+                                    append_sidecar_log(
+                                        &sidecar_log_path,
+                                        &format!("stdout: {}", t.trim()),
+                                    );
                                 }
                                 tauri_plugin_shell::process::CommandEvent::Stderr(l) => {
                                     let t = String::from_utf8_lossy(&l);
                                     eprintln!("[sidecar stderr] {}", t.trim());
-                                    append_sidecar_log(&sidecar_log_path, &format!("stderr: {}", t.trim()));
+                                    append_sidecar_log(
+                                        &sidecar_log_path,
+                                        &format!("stderr: {}", t.trim()),
+                                    );
                                 }
                                 tauri_plugin_shell::process::CommandEvent::Terminated(p) => {
                                     let msg = format!("TERMINATED: {:?}", p);
@@ -280,7 +291,11 @@ fn append_sidecar_log(path: &std::path::Path, msg: &str) {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
         let _ = writeln!(f, "[{ts}] {msg}");
     }
 }

@@ -42,7 +42,7 @@ fn is_local_or_lan(ip: &std::net::IpAddr) -> bool {
         std::net::IpAddr::V4(v4) => {
             v4.is_loopback()          // 127.0.0.0/8
             || v4.is_private()        // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-            || v4.is_link_local()     // 169.254.0.0/16
+            || v4.is_link_local() // 169.254.0.0/16
         }
         std::net::IpAddr::V6(v6) => {
             v6.is_loopback()          // ::1
@@ -54,7 +54,11 @@ fn is_local_or_lan(ip: &std::net::IpAddr) -> bool {
     }
 }
 
-pub fn is_request_authorized(headers: &HeaderMap, query: Option<&str>, token: &Option<String>) -> bool {
+pub fn is_request_authorized(
+    headers: &HeaderMap,
+    query: Option<&str>,
+    token: &Option<String>,
+) -> bool {
     let Some(expected_token) = token.as_ref() else {
         return true;
     };

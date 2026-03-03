@@ -214,9 +214,9 @@ impl FsEngine {
 
     /// Expand tilde (~) in path to home directory
     pub fn expand_path(&self, path: &str) -> Result<PathBuf> {
-        if path.starts_with('~') {
+        if let Some(stripped) = path.strip_prefix('~') {
             let home = self.get_home_dir()?;
-            let rest = path.strip_prefix("~/").unwrap_or(&path[1..]);
+            let rest = path.strip_prefix("~/").unwrap_or(stripped);
             Ok(home.join(rest))
         } else {
             Ok(PathBuf::from(path))
