@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "desktop-v*"
+      - "DeskTop-v*"
+      - "Desktop-v*"
 
 jobs:
   release:
@@ -61,8 +63,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
-          tagName: desktop-v__VERSION__
-          releaseName: Atmos Desktop v__VERSION__
+          tagName: ${{ github.ref_name }}
+          releaseName: Atmos Desktop ${{ github.ref_name }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
