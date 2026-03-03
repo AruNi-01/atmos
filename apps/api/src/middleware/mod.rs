@@ -47,7 +47,7 @@ fn is_local_or_lan(ip: &std::net::IpAddr) -> bool {
         std::net::IpAddr::V6(v6) => {
             v6.is_loopback()          // ::1
             // IPv4-mapped addresses (::ffff:x.x.x.x) — check the inner v4
-            || v6.to_ipv4_mapped().map_or(false, |v4| {
+            || v6.to_ipv4_mapped().is_some_and(|v4| {
                 v4.is_loopback() || v4.is_private() || v4.is_link_local()
             })
         }
