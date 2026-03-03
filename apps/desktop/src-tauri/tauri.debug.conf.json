@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "",
     "devUrl": "http://localhost:3030",
-    "beforeBuildCommand": "BUILD_TARGET=desktop bun --filter web build && bash ./scripts/prepare-sidecar.sh",
+    "beforeBuildCommand": "node ./scripts/before-build.mjs",
     "frontendDist": "../../web/out"
   },
   "app": {
