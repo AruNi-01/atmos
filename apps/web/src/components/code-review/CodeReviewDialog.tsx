@@ -232,8 +232,8 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   const buildReportPath = useCallback((): string => {
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
-    // Format: YYYYMMDD-HH:MM:SS
-    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    // Format: YYYYMMDD-HHMMSS (Windows-safe, no ':' in file names)
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
     const safeName = (s?: string) => (s || "unknown").replace(/[^a-zA-Z0-9_\-]/g, "_");
 
     // Default topic for now, could be dynamic in future
@@ -485,7 +485,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
               {[
                 (projectName || "project").replace(/[^a-zA-Z0-9_\-]/g, "_"),
                 (currentBranch || "branch").replace(/[^a-zA-Z0-9_\-]/g, "_"),
-                "YYYYMMDD-HH:MM:SS",
+                "YYYYMMDD-HHMMSS",
                 "code_review"
               ].join("_")}
               .md
