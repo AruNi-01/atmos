@@ -853,6 +853,23 @@ pub async fn kill_orphaned_processes(
         "failed_pids": failed_pids,
     }))))
 }
+/// GET /api/system/ws-connections - List active WebSocket connections
+pub async fn list_ws_connections(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let connections = state.ws_service.manager().list_connections().await;
+    let items: Vec<Value> = connections
+        .into_iter()
+        .map(|(id, client_type, idle_secs)| {
+            json!({ "id": id, "client_type": client_type, "idle_secs": idle_secs })
+        })
+        .collect();
+    Ok(Json(ApiResponse::success(json!({
+        "connections": items,
+        "count": items.len(),
+    }))))
+}
+
 /// POST /api/system/sync-skills - Manually trigger system skill sync
 pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
     tokio::task::spawn_blocking(|| {

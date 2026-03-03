@@ -9,6 +9,7 @@ mod utils;
 use std::sync::Arc;
 
 use app_state::AppState;
+use clap::Parser;
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
@@ -17,14 +18,31 @@ use core_service::{
 };
 use infra::{DbConnection, Migrator, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
+use axum::{http::StatusCode, middleware::from_fn, routing::get, Router};
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use crate::middleware::require_local_token;
+
+#[derive(Parser)]
+#[command(name = "atmos-api", about = "ATMOS API Server")]
+struct Cli {
+    /// Port to listen on (overrides ATMOS_PORT env var)
+    #[arg(short, long)]
+    port: Option<u16>,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cli = Cli::parse();
     dotenvy::from_filename("apps/api/.env").ok();
     dotenvy::dotenv().ok();
+
+    // CLI --port takes highest priority, then env var
+    if let Some(port) = cli.port {
+        std::env::set_var("ATMOS_PORT", port.to_string());
+    }
 
     tracing_subscriber::registry()
         .with(
@@ -91,6 +109,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         connection_timeout_secs: 30,
     };
 
+    let server_config = ServerConfig::from_env();
+    let cors = server_config.cors_layer();
+
     // Keep a reference for shutdown cleanup (must clone before moving into AppState)
     let terminal_service_shutdown = terminal_service.clone();
 
@@ -116,24 +137,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _heartbeat_task = app_state.ws_service.start_heartbeat();
     info!("WebSocket service started with heartbeat (timeout: 30s)");
 
-    let server_config = ServerConfig::from_env();
-    let cors = server_config.cors_layer();
-
-    let app = api::routes()
+    let protected = api::routes().route_layer(from_fn(require_local_token));
+    let mut app = Router::new()
+        .route("/healthz", get(|| async { StatusCode::OK }))
+        .merge(protected)
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
         .layer(cors);
 
+    // If ATMOS_STATIC_DIR is set, serve the static web files so the desktop
+    // WebView can load the frontend directly from http://127.0.0.1:{port}.
+    // This avoids macOS WKWebView mixed-content blocking (tauri:// → http://).
+    if let Ok(static_dir) = std::env::var("ATMOS_STATIC_DIR") {
+        let static_path = std::path::PathBuf::from(&static_dir);
+        let index = static_path.join("index.html");
+        if index.is_file() {
+            let serve_dir = ServeDir::new(&static_path).fallback(ServeFile::new(index));
+            app = app.fallback_service(serve_dir);
+        }
+    }
+
     let addr = server_config.socket_addr();
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    info!("Server listening on http://{}", addr);
+    let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AddrInUse {
+            format!(
+                "Port {} is already in use. Either stop the other process or use --port <PORT> / ATMOS_PORT=<PORT> to pick a different port.",
+                server_config.port
+            )
+        } else {
+            format!("Failed to bind to {}: {}", addr, e)
+        }
+    })?;
+    let actual_addr = listener.local_addr()?;
+    info!("Server listening on http://{}", actual_addr);
+    println!("ATMOS_READY port={}", actual_addr.port());
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
     // Without this, each restart leaks PTY devices until the system runs out.
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
 
     // Graceful shutdown: clean up all terminal sessions and PTY resources
     info!("Shutdown signal received, cleaning up terminal sessions...");

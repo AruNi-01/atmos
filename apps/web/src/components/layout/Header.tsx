@@ -45,6 +45,7 @@ import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialo
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
 const Header: React.FC = () => {
   const params = useParams();
@@ -314,9 +315,39 @@ const Header: React.FC = () => {
     <header className="h-12 flex items-center justify-between px-4 border-b border-sidebar-border select-none">
       {/* Left: Identity */}
       <div className="flex items-center space-x-4">
-        <div className={cn("flex items-center text-foreground font-semibold text-balance")}>
-          <LogoSvg className="size-6 mr-2 text-primary" />
-          <span className="text-[14px]">ATMOS</span>
+        <div className="relative h-8 w-[85px] group/brand">
+          <div className={cn(
+            "absolute inset-0 flex items-center text-foreground font-semibold text-balance transition-all duration-250 ease-out group-hover/brand:opacity-0 group-hover/brand:-translate-y-0.5 group-hover/brand:scale-[0.98]"
+          )}>
+            <LogoSvg className="size-6 mr-2 text-primary" />
+            <span className="text-[14px]">ATMOS</span>
+          </div>
+          <div className="absolute inset-0 flex items-center gap-1 opacity-0 translate-y-0.5 scale-[0.98] transition-all duration-250 ease-out group-hover/brand:opacity-100 group-hover/brand:translate-y-0 group-hover/brand:scale-100 pointer-events-none group-hover/brand:pointer-events-auto">
+            <button
+              type="button"
+              aria-label="Go back"
+              onClick={() => window.history.back()}
+              className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Go forward"
+              onClick={() => window.history.forward()}
+              className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Refresh page"
+              onClick={() => window.location.reload()}
+              className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <RefreshCw className="size-4" />
+            </button>
+          </div>
         </div>
         <span className="text-muted-foreground/30 text-lg font-light">/</span>
         <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">

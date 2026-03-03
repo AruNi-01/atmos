@@ -1304,6 +1304,12 @@ fn run_pty_session_with_tmux(
         "-t",
         &tmux_session,
     ]);
+    // Set TERM so the shell inside tmux (zsh/bash ZLE) correctly detects the
+    // terminal type. Without this, ZLE may fall back to a dumb-terminal mode
+    // that performs its own local echo, causing every typed character to
+    // appear twice (once from PTY line-discipline echo, once from ZLE).
+    cmd.env("TERM", "xterm-256color");
+    cmd.env("COLORTERM", "truecolor");
 
     // Spawn the tmux attach process
     if let Err(e) = pair.slave.spawn_command(cmd) {

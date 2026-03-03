@@ -11,24 +11,39 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "github-copilot": ["copilot"],
   "factory-droid": ["droid"],
   "junie-acp": ["junie"],
-  "claude": ["claude-code"],
-  "kilocode": ["kilo"],
-  "kiro": ["kiro-cli"],
   "agent": ["cursor"],
+};
+
+// Map registry IDs that don't have a matching SVG file to the actual filename.
+// Unlike aliases (which append fallback candidates after the registryId),
+// this replaces the primary candidate to avoid a guaranteed 404.
+const AGENT_ICON_REMAP: Record<string, string> = {
+  "claude": "claude-code",
+  "kilocode": "kilo",
+  "kiro": "kiro-cli",
 };
 
 /** Icons that use currentColor — need inverted theme handling (dark on light, light on dark) */
 const INVERTED_THEME_ICONS = new Set(["cline", "junie", "junie-acp"]);
 
 export function getAgentIconCandidates(registryId: string): string[] {
+  const primary = AGENT_ICON_REMAP[registryId] ?? registryId;
   const aliases = AGENT_ICON_ALIASES[registryId] ?? [];
-  return [registryId, ...aliases].map((name) => `/agents/${name}.svg`);
+  // Deduplicate: primary first, then any aliases that differ
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const n of [primary, ...aliases]) {
+    if (!seen.has(n)) { seen.add(n); names.push(n); }
+  }
+  return names.map((name) => `/agents/${name}.svg`);
 }
 
 function shouldInvertTheme(registryId: string): boolean {
   if (INVERTED_THEME_ICONS.has(registryId)) return true;
+  const remapped = AGENT_ICON_REMAP[registryId];
+  if (remapped && INVERTED_THEME_ICONS.has(remapped)) return true;
   const aliases = AGENT_ICON_ALIASES[registryId] ?? [];
-  return [registryId, ...aliases].some((name) => INVERTED_THEME_ICONS.has(name));
+  return aliases.some((name) => INVERTED_THEME_ICONS.has(name));
 }
 
 export const AgentIcon: React.FC<{

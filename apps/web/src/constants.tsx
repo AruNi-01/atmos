@@ -36,7 +36,7 @@ export const FILE_CHANGES: FileChange[] = [
 
 export const TERMINAL_LOGS: TerminalLine[] = [
   { id: 1, content: '> vibe dev --turbo', type: 'command' },
-  { id: 2, content: '[ready] started server on 0.0.0.0:3000, url: http://localhost:3000', type: 'success' },
+  { id: 2, content: '[ready] started server on 0.0.0.0:3030, url: http://localhost:3030', type: 'success' },
   { id: 3, content: '[event] hot reload src/components/Header.tsx', type: 'info' },
   { id: 4, content: '[warn] unused variable "User" in src/utils/auth.ts:42', type: 'error' },
 ];

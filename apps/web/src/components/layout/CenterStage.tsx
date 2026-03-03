@@ -866,7 +866,7 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
               <div className="flex-1 flex flex-col border-b border-sidebar-border">
                 <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
                   <span className="text-[11px] text-muted-foreground font-medium tabular-nums text-pretty">
-                    Local: 3000 (Server)
+                    Local: 3030 (Server)
                   </span>
                   <div className="flex space-x-2">
                     <div className="size-2 rounded-full bg-emerald-500"></div>
