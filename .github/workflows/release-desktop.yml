@@ -6,6 +6,11 @@ on:
       - "desktop-v*"
       - "DeskTop-v*"
       - "Desktop-v*"
+  pull_request:
+    paths:
+      - "apps/desktop/**"
+      - ".github/workflows/release-desktop.yml"
+  workflow_dispatch:
 
 jobs:
   release:
@@ -55,7 +60,12 @@ jobs:
           if [ "${{ matrix.platform }}" = "windows-latest" ]; then EXT=".exe"; fi
           mkdir -p apps/desktop/src-tauri/binaries
           cp target/${{ matrix.target }}/release/api${EXT} apps/desktop/src-tauri/binaries/api-${{ matrix.target }}${EXT}
+      - name: Build Tauri app (PR validation)
+        if: github.event_name == 'pull_request'
+        working-directory: apps/desktop
+        run: bun tauri build ${{ matrix.args }} --no-bundle
       - name: Build and release Tauri app
+        if: startsWith(github.ref, 'refs/tags/')
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
