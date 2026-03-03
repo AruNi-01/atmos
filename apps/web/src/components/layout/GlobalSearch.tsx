@@ -668,9 +668,6 @@ export function GlobalSearch() {
       showCloseButton={false}
       open={isGlobalSearchOpen}
       onOpenChange={setGlobalSearchOpen}
-      shouldFilter={false}
-      value={selectedValue}
-      onValueChange={setSelectedValue}
       className="w-[min(740px,calc(100vw-2rem))] sm:max-w-[740px] h-[min(82vh,900px)]"
     >
       <CodePreviewTooltip />

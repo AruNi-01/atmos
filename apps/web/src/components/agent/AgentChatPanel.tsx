@@ -1113,7 +1113,7 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
               defaultOpen={isCurrentlyThinking}
             >
               <ReasoningTrigger />
-              <ReasoningContent className="break-words prose-sm dark:prose-invert max-w-full overflow-hidden">{content || ""}</ReasoningContent>
+              <ReasoningContent className="break-words prose-sm dark:prose-invert max-w-full overflow-hidden">{String(content || "")}</ReasoningContent>
             </Reasoning>
           );
         }

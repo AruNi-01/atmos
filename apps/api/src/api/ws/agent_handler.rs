@@ -24,7 +24,8 @@ enum AgentClientMessage {
     PermissionResponse {
         request_id: String,
         allowed: bool,
-        remember_for_session: bool,
+        #[serde(rename = "remember_for_session")]
+        _remember_for_session: bool,
     },
     Cancel,
     SetConfigOption {
@@ -310,7 +311,7 @@ async fn run_bridge(
                     AgentClientMessage::PermissionResponse {
                         request_id,
                         allowed,
-                        remember_for_session: _,
+                        _remember_for_session: _,
                     } => {
                         let _ = cmd_tx_clone.send(AgentCommand::PermissionResponse {
                             request_id,
