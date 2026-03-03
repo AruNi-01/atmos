@@ -74,7 +74,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
-          releaseName: Atmos Desktop ${{ github.ref_name }}
+          releaseName: Atmos Desktop v__VERSION__
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
