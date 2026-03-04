@@ -116,7 +116,7 @@ jobs:
           fi
 
           if [ "$CREATE_RELEASE" = "true" ] && [ -z "$RELEASE_TAG" ]; then
-            echo "release_tag is required when create_release=true"
+            echo "❌ release_tag is required when create_release=true"
             exit 1
           fi
 

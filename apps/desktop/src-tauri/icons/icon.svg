@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="24" fill="#111827"/>
-  <path d="M32 88L58 40H72L46 88H32Z" fill="#60A5FA"/>
-  <path d="M62 88L80 40H96L78 88H62Z" fill="#A78BFA"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 32 32">
+  <!-- Black background -->
+  <circle cx="16" cy="16" r="15.5" fill="#111827"/>
+
+  <!-- Inner circles with white strokes, different opacity for depth -->
+  <circle cx="16" cy="16" r="7" fill="none" stroke="white" stroke-width="2.5"/>
+  <circle cx="16" cy="16" r="11" fill="none" stroke="white" stroke-width="1.5" opacity="0.6"/>
+  <circle cx="16" cy="16" r="15" fill="none" stroke="white" stroke-width="0.5" opacity="0.3" stroke-dasharray="4 4"/>
 </svg>

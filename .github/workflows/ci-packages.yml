@@ -26,7 +26,7 @@ jobs:
       - uses: ./.github/actions/setup-bun
       # 各包暂无 eslint 配置，跳过 lint
       - name: Lint packages
-        run: echo "Skipping lint - no eslint configs in packages"
+        run: echo "ℹ️ Skipping lint - no eslint configs in packages"
 
   typecheck:
     name: Typecheck
