@@ -1,21 +1,134 @@
-name: Release Desktop App
+name: Desktop CI & Release
+
+permissions:
+  contents: write
 
 on:
-  push:
-    tags:
-      - "desktop-v*"
-      - "DeskTop-v*"
-      - "Desktop-v*"
   pull_request:
     paths:
       - "apps/desktop/**"
+      - "apps/api/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "bun.lock"
+      - "package.json"
       - ".github/workflows/release-desktop.yml"
+  push:
+    tags:
+      - "desktop-v*"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (branch, tag or SHA)"
+        required: false
+        default: "main"
+      create_release:
+        description: "Create GitHub Release"
+        required: true
+        default: true
+        type: boolean
+      release_tag:
+        description: "Release tag when create_release=true (example: desktop-v0.5.0-rc.1)"
+        required: false
+      prerelease:
+        description: "Mark release as prerelease"
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
-  release:
+  pr-smoke:
+    name: PR smoke check (linux no-bundle)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
     permissions:
-      contents: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: pr-smoke-linux
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build API sidecar
+        run: cargo build --release --bin api --target x86_64-unknown-linux-gnu
+
+      - name: Prepare sidecar binary
+        run: |
+          mkdir -p apps/desktop/src-tauri/binaries
+          cp target/x86_64-unknown-linux-gnu/release/api apps/desktop/src-tauri/binaries/api-x86_64-unknown-linux-gnu
+
+      - name: Build Tauri app (no bundle)
+        working-directory: apps/desktop
+        run: bun tauri build --no-bundle
+
+  resolve-release-config:
+    name: Resolve release config
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      create_release: ${{ steps.resolve.outputs.create_release }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
+    steps:
+      - name: Resolve values
+        id: resolve
+        shell: bash
+        run: |
+          EVENT="${{ github.event_name }}"
+
+          if [ "$EVENT" = "push" ]; then
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CREATE_RELEASE="${{ github.event.inputs.create_release }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+          PRERELEASE="${{ github.event.inputs.prerelease }}"
+          CHECKOUT_REF="${{ github.event.inputs.ref }}"
+
+          if [ -z "$CHECKOUT_REF" ]; then
+            CHECKOUT_REF="main"
+          fi
+
+          if [ "$CREATE_RELEASE" = "true" ] && [ -z "$RELEASE_TAG" ]; then
+            echo "release_tag is required when create_release=true"
+            exit 1
+          fi
+
+          echo "create_release=$CREATE_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "checkout_ref=$CHECKOUT_REF" >> "$GITHUB_OUTPUT"
+
+  build-and-release:
+    name: Build desktop (${{ matrix.target }})
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: resolve-release-config
     strategy:
       fail-fast: false
       matrix:
@@ -32,27 +145,35 @@ jobs:
           - platform: "windows-latest"
             target: "x86_64-pc-windows-msvc"
             args: ""
-
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
       - uses: oven-sh/setup-bun@v2
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
-          key: ${{ matrix.target }}
+          key: release-${{ matrix.target }}
+
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - name: Install dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
+
       - name: Build API sidecar
         run: cargo build --release --bin api --target ${{ matrix.target }}
+
       - name: Prepare sidecar binary
         shell: bash
         run: |
@@ -60,12 +181,14 @@ jobs:
           if [ "${{ matrix.platform }}" = "windows-latest" ]; then EXT=".exe"; fi
           mkdir -p apps/desktop/src-tauri/binaries
           cp target/${{ matrix.target }}/release/api${EXT} apps/desktop/src-tauri/binaries/api-${{ matrix.target }}${EXT}
-      - name: Build Tauri app (PR / manual validation)
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+
+      - name: Build Tauri app (manual validation without release)
+        if: needs.resolve-release-config.outputs.create_release != 'true'
         working-directory: apps/desktop
         run: bun tauri build ${{ matrix.args }} --no-bundle
+
       - name: Build and release Tauri app
-        if: startsWith(github.ref, 'refs/tags/')
+        if: needs.resolve-release-config.outputs.create_release == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,8 +196,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
-          tagName: ${{ github.ref_name }}
-          releaseName: Atmos Desktop v__VERSION__
+          tagName: ${{ needs.resolve-release-config.outputs.release_tag }}
+          releaseName: Atmos Desktop __VERSION__
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ needs.resolve-release-config.outputs.prerelease == 'true' }}
           args: ${{ matrix.args }}
