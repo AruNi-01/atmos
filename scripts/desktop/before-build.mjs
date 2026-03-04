@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const rootDir = resolve(import.meta.dirname, "../../..");
+const rootDir = resolve(import.meta.dirname, "../..");
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -37,9 +37,7 @@ if (!targetTriple) {
     process.exit(rustc.status ?? 1);
   }
 
-  const hostLine = rustc.stdout
-    .split("\n")
-    .find((line) => line.startsWith("host:"));
+  const hostLine = rustc.stdout.split("\n").find((line) => line.startsWith("host:"));
 
   if (!hostLine) {
     console.error("Unable to detect rust host triple from `rustc -vV`.");

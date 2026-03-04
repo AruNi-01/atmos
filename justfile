@@ -36,7 +36,7 @@ dev-docs:
 
 # 启动 Desktop (Tauri) 开发环境 (完整启动，前后端日志混合)
 dev-desktop:
-    cd apps/desktop && bash ./scripts/prepare-sidecar.sh && bun run dev
+    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run dev
 
 # Desktop 分开启动: 仅前端 (用于单独查看前端日志)
 # NEXT_PUBLIC_API_PORT 指向 Desktop sidecar 的固定端口，使浏览器也能连上
@@ -49,11 +49,11 @@ dev-desktop-backend:
 
 # Desktop 分开启动: 仅 Tauri 窗口 (需先启动 frontend，backend 会自动启动)
 dev-desktop-tauri:
-    cd apps/desktop && bash ./scripts/prepare-sidecar.sh && bun run tauri dev --config src-tauri/tauri.debug.conf.json
+    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --config src-tauri/tauri.debug.conf.json
 
 # Desktop 调试模式：主窗口先显示，sidecar 异常弹窗提示（单命令）
 dev-desktop-debug:
-    cd apps/desktop && bash ./scripts/prepare-sidecar.sh && ATMOS_DESKTOP_DEBUG=true RUST_LOG=info bun run tauri dev --config src-tauri/tauri.debug.conf.json --verbose
+    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && ATMOS_DESKTOP_DEBUG=true RUST_LOG=info bun run tauri dev --config src-tauri/tauri.debug.conf.json --verbose
 
 # 启动 API 服务器
 # 直接 cargo run，Ctrl+C 信号能正确传播，避免 shell 先于 api 退出导致输出乱序
@@ -80,7 +80,7 @@ dev-all:
 
 # 构建 Desktop 应用
 build-desktop:
-    cd apps/desktop && bash ./scripts/prepare-sidecar.sh && bun run build
+    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run build
 
 # 构建 API 服务器 (release 模式)
 build-api:
