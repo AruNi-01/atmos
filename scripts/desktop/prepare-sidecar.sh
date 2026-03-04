@@ -29,5 +29,9 @@ if [ -d "$WEB_OUT" ]; then
   cp -r "$WEB_OUT" "$SIDECAR_WEBOUT"
   echo "📦 Copied web static export to: $SIDECAR_WEBOUT"
 else
-  echo "⚠️ Warning: $WEB_OUT not found, skipping web static copy"
+  # Dev mode: web static export not built yet. Create an empty directory
+  # so Tauri's resource path validation passes (tauri.conf.json declares
+  # "binaries/web-out" as a bundled resource).
+  mkdir -p "$SIDECAR_WEBOUT"
+  echo "⚠️ Warning: $WEB_OUT not found, created empty $SIDECAR_WEBOUT for dev mode"
 fi
