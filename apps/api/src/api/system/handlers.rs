@@ -866,6 +866,97 @@ pub async fn list_ws_connections(
     }))))
 }
 
+/// GET /api/system/review-skills - List code review skill definitions from ~/.atmos/skills/.system/code_review_skills
+pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let base =
+        std::path::PathBuf::from(&home).join(".atmos/skills/.system/code_review_skills");
+
+    let mut skills: Vec<Value> = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(&base) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let dir_name = entry.file_name().to_string_lossy().to_string();
+            let skill_md = path.join("SKILL.md");
+
+            let mut label = dir_name
+                .split('-')
+                .map(|w| {
+                    let mut c = w.chars();
+                    match c.next() {
+                        None => String::new(),
+                        Some(f) => f.to_uppercase().to_string() + c.as_str(),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+
+            let mut description = format!("Custom review skill for {}", dir_name);
+            let mut best_for =
+                "Code review tasks configured in system skills".to_string();
+
+            if skill_md.is_file() {
+                if let Ok(content) = std::fs::read_to_string(&skill_md) {
+                    for line in content.lines() {
+                        let trimmed = line.trim();
+                        if let Some(val) = trimmed.strip_prefix("bestFor:") {
+                            best_for = val.trim().to_string();
+                        } else if let Some(val) = trimmed.strip_prefix("description:") {
+                            let val = val.trim();
+                            if !val.is_empty() {
+                                description = val.to_string();
+                            }
+                        }
+                    }
+                }
+            }
+
+            let badge = if dir_name.contains("expert") {
+                "Backend"
+            } else if dir_name.contains("react") || dir_name.contains("typescript") {
+                "TS/React"
+            } else if dir_name.contains("fullstack") {
+                "Fullstack"
+            } else {
+                "Review"
+            };
+
+            // Well-known overrides
+            if dir_name == "fullstack-reviewer" {
+                label = "Fullstack Reviewer".into();
+                if best_for == "Code review tasks configured in system skills" {
+                    best_for = "Fullstack review for any project".into();
+                }
+            } else if dir_name == "code-review-expert" {
+                label = "Backend Arch Expert".into();
+                if best_for == "Code review tasks configured in system skills" {
+                    best_for =
+                        "Complex backend logic, API, and DB architectural reviews".into();
+                }
+            } else if dir_name == "typescript-react-reviewer" {
+                label = "TypeScript React Expert".into();
+                if best_for == "Code review tasks configured in system skills" {
+                    best_for = "React/Next.js frontend applications".into();
+                }
+            }
+
+            skills.push(json!({
+                "id": dir_name,
+                "label": label,
+                "badge": badge,
+                "description": description,
+                "bestFor": best_for,
+            }));
+        }
+    }
+
+    Ok(Json(ApiResponse::success(json!({ "skills": skills }))))
+}
+
 /// POST /api/system/sync-skills - Manually trigger system skill sync
 pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
     tokio::task::spawn_blocking(|| {

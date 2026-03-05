@@ -40,5 +40,6 @@ pub fn routes() -> Router<AppState> {
             post(handlers::kill_orphaned_processes),
         )
         .route("/sync-skills", post(handlers::sync_skills))
+        .route("/review-skills", get(handlers::list_review_skills))
         .route("/ws-connections", get(handlers::list_ws_connections))
 }

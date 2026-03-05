@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useAppRouter } from '@/hooks/use-app-router';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useTheme } from 'next-themes';
 import Fuse from 'fuse.js';
@@ -92,7 +92,7 @@ interface AppSearchItem {
 }
 
 export function GlobalSearch() {
-  const router = useRouter();
+  const router = useAppRouter();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { setTheme, theme } = useTheme();
 
@@ -284,7 +284,7 @@ export function GlobalSearch() {
           ].filter(Boolean),
           icon: <Layers className="size-4 text-muted-foreground" />,
           action: () => {
-            router.push(`/workspace/${workspace.id}`);
+            router.push(`/workspace?id=${workspace.id}`);
             setGlobalSearchOpen(false);
           },
         });
@@ -406,7 +406,7 @@ export function GlobalSearch() {
         action: async () => {
           const workspaceId = await quickAddWorkspace(project.id);
           if (workspaceId) {
-            router.push(`/workspace/${workspaceId}`);
+            router.push(`/workspace?id=${workspaceId}`);
           }
           setGlobalSearchOpen(false);
         },

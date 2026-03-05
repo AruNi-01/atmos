@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { DraggableAttributes, DraggableSyntheticListeners, DragStartEvent } from '@workspace/ui';
-import { useRouter } from 'next/navigation';
+import { useAppRouter } from '@/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/hooks/use-context-params';
 import { leftSidebarParams, type LeftSidebarTab } from '@/lib/nuqs/searchParams';
@@ -488,7 +488,7 @@ const WorkspaceContent: React.FC<{
     onArchive?: (workspaceId: string) => void;
     onDelete?: (workspaceId: string) => void;
 }> = ({ workspace, projectId, projectPath, isDragging, isPlaceholder, attributes, listeners, onPin, onUnpin, onArchive, onDelete }) => {
-    const router = useRouter();
+    const router = useAppRouter();
     const { workspaceId } = useContextParams();
     const isActive = workspaceId === workspace.id;
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -498,7 +498,7 @@ const WorkspaceContent: React.FC<{
     const [isCheckingGit, setIsCheckingGit] = useState(false);
 
     const handleClick = () => {
-        router.push(`/workspace/${workspace.id}`);
+        router.push(`/workspace?id=${workspace.id}`);
     };
 
     const handlePinClick = (e: React.MouseEvent) => {
@@ -736,7 +736,7 @@ interface LeftSidebarProps {
 }
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
-    const router = useRouter();
+    const router = useAppRouter();
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, currentView } = useContextParams();
     const {
         projects,
@@ -990,7 +990,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const handleQuickAddWorkspace = async (projectId: string) => {
         const workspaceId = await quickAddWorkspace(projectId);
         if (workspaceId) {
-            router.push(`/workspace/${workspaceId}`);
+            router.push(`/workspace?id=${workspaceId}`);
         }
     };
 
@@ -1204,7 +1204,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                             onArchiveWorkspace={archiveWorkspace}
                                             onDeleteWorkspace={deleteWorkspace}
                                             onConfigureScripts={handleConfigureScripts}
-                                            onSelectMain={(id) => router.push(`/project/${id}`)}
+                                            onSelectMain={(id) => router.push(`/project?id=${id}`)}
                                             isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
                                         />
                                     ))}

@@ -11,10 +11,27 @@
 /* Streamdown - streaming markdown */
 @source "../../../node_modules/streamdown/dist/*.js";
 
-/* Hack Nerd Font - Terminal font with Powerline/icon support */
+/* Hack Nerd Font Mono - Terminal font with Powerline/icon support */
+@font-face {
+  font-family: "Hack Nerd Font Mono";
+  src: url("/fonts/HackNerdFontMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Hack Nerd Font Mono";
+  src: url("/fonts/HackNerdFontMono-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Backward-compatible alias */
 @font-face {
   font-family: "Hack Nerd Font";
-  src: url("/fonts/HackNerdFont-Regular.woff2") format("woff2");
+  src: local("Hack Nerd Font Mono"), url("/fonts/HackNerdFontMono-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -22,7 +39,7 @@
 
 @font-face {
   font-family: "Hack Nerd Font";
-  src: url("/fonts/HackNerdFont-Bold.woff2") format("woff2");
+  src: local("Hack Nerd Font Mono"), url("/fonts/HackNerdFontMono-Bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;

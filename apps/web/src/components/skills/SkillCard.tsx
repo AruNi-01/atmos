@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useAppRouter } from '@/hooks/use-app-router';
 import {
   cn,
   Puzzle,
@@ -22,7 +22,7 @@ interface SkillCardProps {
 }
 
 export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
-  const router = useRouter();
+  const router = useAppRouter();
   const fileCount = skill.files?.length || 0;
 
   const handleClick = () => {
@@ -30,7 +30,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
       onClick();
     } else {
       const identifier = encodeURIComponent(skill.title || skill.name);
-      router.push(`/skills/${skill.scope}/${identifier}`);
+      router.push(`/skills?scope=${skill.scope}&skillId=${identifier}`);
     }
   };
 

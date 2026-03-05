@@ -150,9 +150,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let index = static_path.join("index.html");
         if index.is_file() {
             // Serve static files from the exported Next.js build.
-            // Fallback to the default locale page (en/index.html) so that
-            // client-side Next.js router can handle unmatched URLs (SPA pattern).
-            // If en/index.html doesn't exist, fallback to root index.html.
+            // Dynamic data is passed via query params (/workspace?id=...) so every
+            // route maps to a pre-rendered static page. Unmatched URLs fall back
+            // to en/index.html (or root index.html) for client-side resolution.
             let fallback = static_path.join("en").join("index.html");
             let fallback_file = if fallback.is_file() { &fallback } else { &index };
             let serve_dir = ServeDir::new(&static_path)

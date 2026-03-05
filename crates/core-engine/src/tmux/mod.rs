@@ -17,6 +17,36 @@ use crate::error::{EngineError, Result};
 /// Default socket path for Atmos tmux server
 const TMUX_SOCKET_NAME: &str = "atmos";
 
+fn is_utf8_locale(value: &str) -> bool {
+    let upper = value.to_ascii_uppercase();
+    upper.contains("UTF-8") || upper.contains("UTF8")
+}
+
+fn default_utf8_locale() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        "en_US.UTF-8".to_string()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        "C.UTF-8".to_string()
+    }
+}
+
+fn resolve_utf8_locale() -> String {
+    std::env::var("LC_CTYPE")
+        .ok()
+        .filter(|v| is_utf8_locale(v))
+        .or_else(|| std::env::var("LANG").ok().filter(|v| is_utf8_locale(v)))
+        .unwrap_or_else(default_utf8_locale)
+}
+
+fn apply_utf8_env(cmd: &mut Command) {
+    let locale = resolve_utf8_locale();
+    cmd.env("LANG", &locale);
+    cmd.env("LC_CTYPE", &locale);
+}
+
 /// Information about a tmux session
 #[derive(Debug, Clone)]
 pub struct TmuxSessionInfo {
@@ -120,12 +150,16 @@ impl TmuxEngine {
     fn run_tmux(&self, args: &[&str]) -> Result<String> {
         self.ensure_socket_dir()?;
 
-        let output = Command::new("tmux")
+        let mut cmd = Command::new("tmux");
+        cmd.arg("-u")
             .arg("-f")
             .arg("/dev/null") // Isolate from local ~/.tmux.conf
             .arg("-S")
             .arg(self.socket_arg())
-            .args(args)
+            .args(args);
+        apply_utf8_env(&mut cmd);
+
+        let output = cmd
             .output()
             .map_err(|e| EngineError::Tmux(format!("Failed to execute tmux: {}", e)))?;
 
@@ -140,6 +174,14 @@ impl TmuxEngine {
                 Err(EngineError::Tmux(format!("tmux error: {}", stderr)))
             }
         }
+    }
+
+    /// Keep tmux server environment UTF-8 so new shells inside windows render
+    /// Nerd Font / Powerline glyphs instead of falling back to ASCII placeholders.
+    fn sync_utf8_environment(&self) {
+        let locale = resolve_utf8_locale();
+        let _ = self.run_tmux(&["set-environment", "-g", "LANG", &locale]);
+        let _ = self.run_tmux(&["set-environment", "-g", "LC_CTYPE", &locale]);
     }
 
     /// Check if tmux is installed on the system
@@ -215,6 +257,7 @@ impl TmuxEngine {
     ) -> Result<String> {
         // Check if session already exists
         if self.session_exists(session_name)? {
+            self.sync_utf8_environment();
             info!("Tmux session already exists: {}", session_name);
             return Ok(session_name.to_string());
         }
@@ -253,6 +296,7 @@ impl TmuxEngine {
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         // Create new detached session with the first window named "1"
         self.run_tmux(&args_refs)?;
+        self.sync_utf8_environment();
 
         // Disable status bar globally for this Atmos tmux server to ensure a clean UI
         // and isolate from any local user preferences.
@@ -371,6 +415,7 @@ impl TmuxEngine {
             }
             let session_args_refs: Vec<&str> = session_args.iter().map(|s| s.as_str()).collect();
             self.run_tmux(&session_args_refs)?;
+            self.sync_utf8_environment();
 
             // Apply our standard configuration
             let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
@@ -383,6 +428,8 @@ impl TmuxEngine {
             let _ = self.run_tmux(&["set-option", "-g", "allow-rename", "off"]);
             let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);
         }
+
+        self.sync_utf8_environment();
 
         // Create new window with optional working directory and shell command
         let mut args: Vec<String> = vec![
@@ -668,12 +715,16 @@ impl TmuxEngine {
     pub fn session_exists(&self, session_name: &str) -> Result<bool> {
         self.ensure_socket_dir()?;
 
-        let output = Command::new("tmux")
+        let mut cmd = Command::new("tmux");
+        cmd.arg("-u")
             .arg("-f")
             .arg("/dev/null")
             .arg("-S")
             .arg(self.socket_arg())
-            .args(["has-session", "-t", session_name])
+            .args(["has-session", "-t", session_name]);
+        apply_utf8_env(&mut cmd);
+
+        let output = cmd
             .output()
             .map_err(|e| EngineError::Tmux(format!("Failed to execute tmux: {}", e)))?;
 

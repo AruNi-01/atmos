@@ -49,10 +49,71 @@ function stripMouseEnable(data: string): string {
 
 import "@xterm/xterm/css/xterm.css";
 
-import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme } from "./theme";
+import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "./theme";
 import { useTerminalWebSocket } from "./use-terminal-websocket";
 import type { TerminalProps } from "./types";
 import { getRuntimeApiConfig } from "@/lib/desktop-runtime";
+
+const TERMINAL_FONT_REGULAR_PATH = "/fonts/HackNerdFontMono-Regular.ttf";
+const TERMINAL_FONT_BOLD_PATH = "/fonts/HackNerdFontMono-Bold.ttf";
+const NERD_FONT_TEST_GLYPH = "\uE0B6";
+let terminalFontLoadPromise: Promise<void> | null = null;
+
+function toAbsoluteAssetUrl(path: string): string {
+  if (typeof window === "undefined") return path;
+  return new URL(path, window.location.origin).toString();
+}
+
+async function ensureTerminalFontsLoaded() {
+  if (typeof document === "undefined" || typeof FontFace === "undefined") return;
+
+  if (!terminalFontLoadPromise) {
+    terminalFontLoadPromise = (async () => {
+      const regularUrl = toAbsoluteAssetUrl(TERMINAL_FONT_REGULAR_PATH);
+      const boldUrl = toAbsoluteAssetUrl(TERMINAL_FONT_BOLD_PATH);
+      const faces = [
+        new FontFace("Hack Nerd Font Mono", `url("${regularUrl}")`, {
+          weight: "400",
+          style: "normal",
+        }),
+        new FontFace("Hack Nerd Font Mono", `url("${boldUrl}")`, {
+          weight: "700",
+          style: "normal",
+        }),
+        // Alias used in older terminal configs.
+        new FontFace("Hack Nerd Font", `url("${regularUrl}")`, {
+          weight: "400",
+          style: "normal",
+        }),
+        new FontFace("Hack Nerd Font", `url("${boldUrl}")`, {
+          weight: "700",
+          style: "normal",
+        }),
+      ];
+
+      const results = await Promise.allSettled(faces.map((face) => face.load()));
+      for (const result of results) {
+        if (result.status === "fulfilled" && !document.fonts.has(result.value)) {
+          document.fonts.add(result.value);
+        }
+      }
+
+      // Force glyph check with a Powerline character that must come from Nerd Font.
+      await Promise.allSettled([
+        document.fonts.load(`${terminalFont.size}px "Hack Nerd Font Mono"`, NERD_FONT_TEST_GLYPH),
+        document.fonts.load(`${terminalFont.size}px "Hack Nerd Font"`, NERD_FONT_TEST_GLYPH),
+        document.fonts.ready,
+      ]);
+    })();
+  }
+
+  try {
+    await terminalFontLoadPromise;
+  } catch {
+    terminalFontLoadPromise = null;
+    throw new Error("Failed to preload terminal fonts");
+  }
+}
 
 export interface TerminalRef {
   focus: () => void;
@@ -336,6 +397,17 @@ const Terminal = ({
   useEffect(() => {
     if (!containerRef.current || terminalRef.current) return;
 
+    let cancelled = false;
+
+    const initTerminal = async () => {
+      try {
+        await ensureTerminalFontsLoaded();
+      } catch (error) {
+        console.warn("Failed to preload terminal fonts, using fallback fonts", error);
+      }
+
+      if (cancelled || !containerRef.current || terminalRef.current) return;
+
     // Create terminal instance
     const terminal = new XTerm({
       ...defaultTerminalOptions,
@@ -455,7 +527,6 @@ const Terminal = ({
     // getRuntimeApiConfig() needs ~50ms for IPC. React Strict Mode double-mounts the
     // component, so two async IIFEs may be in flight simultaneously. The cancelled flag
     // ensures only the IIFE belonging to the live mount actually calls connect().
-    let cancelled = false;
     void (async () => {
       let runtimeWsUrl = wsUrl;
       try {
@@ -581,15 +652,18 @@ const Terminal = ({
 
     // Focus terminal
     terminal.focus();
+    }; // end initTerminal
+
+    initTerminal();
 
     return () => {
-      cancelled = true; // Prevent the async connect IIFE from firing after cleanup
+      cancelled = true;
       disconnect();
-      resizeObserver.disconnect();
+      resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
       if (copyModeCheckTimerRef.current) clearTimeout(copyModeCheckTimerRef.current);
       webglAddonRef.current?.dispose();
-      terminal.dispose();
+      terminalRef.current?.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
     };

@@ -18,6 +18,7 @@ import {
 import { Terminal, Bot, Loader2, AlertTriangle } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "@/components/wiki/AgentSelect";
 import { skillsApi, agentApi } from "@/api/ws-api";
+import { systemApi } from "@/api/rest-api";
 import type { RegistryAgent, CustomAgent } from "@/api/ws-api";
 import { cn } from "@/lib/utils";
 import { useDialogStore } from "@/hooks/use-dialog-store";
@@ -174,9 +175,22 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       setSkillsReady(false);
     });
 
-    // TODO: Re-enable when backend implements /api/review-skills endpoint
-    // setSkillsList([]);
-    setLoadingSkillsList(false);
+    setLoadingSkillsList(true);
+    systemApi.listReviewSkills().then(({ skills }) => {
+      if (skills.length > 0) {
+        setSkillsList(skills.map(s => ({
+          id: s.id as CodeReviewSkillId,
+          label: s.label,
+          badge: s.badge,
+          description: s.description,
+          bestFor: s.bestFor,
+        })));
+      }
+    }).catch(() => {
+      // Keep the hardcoded defaults on failure
+    }).finally(() => {
+      setLoadingSkillsList(false);
+    });
 
     setLoadingAcpAgents(true);
     Promise.all([
