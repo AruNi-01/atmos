@@ -84,6 +84,7 @@ use tracing::warn;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
     AgentConfigOption, AgentPlan, AgentPlanEntry, StreamDelta, ToolCallStatus, ToolCallUpdate,
+    AgentUsage, AgentTurnUsage,
 };
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
 
@@ -98,11 +99,12 @@ pub enum AcpSessionEvent {
         message: String,
         recoverable: bool,
     },
-    TurnEnd,
+    TurnEnd(Option<AgentTurnUsage>),
     SessionEnded,
     LoadCompleted,
     ConfigOptionsUpdate(Vec<AgentConfigOption>),
     Plan(AgentPlan),
+    Usage(AgentUsage),
 }
 
 /// Atmos ACP Client - implements the Client trait, routes tool calls to handler
@@ -411,6 +413,42 @@ impl AcpClientTrait for AtmosAcpClient {
                 let _ = self
                     .event_tx
                     .send(AcpSessionEvent::Plan(AgentPlan { entries }));
+            }
+            acp::SessionUpdate::CurrentModeUpdate(update) => {
+                tracing::info!(
+                    "Received CurrentModeUpdate notification: mode={}",
+                    update.current_mode_id
+                );
+                // Update the mode config option's current value
+                let opt = crate::acp_client::types::AgentConfigOption {
+                    id: "mode".to_string(),
+                    name: Some("Mode".to_string()),
+                    description: None,
+                    category: Some("mode".to_string()),
+                    r#type: "select".to_string(),
+                    current_value: Some(update.current_mode_id.to_string()),
+                    options: vec![],
+                };
+                let _ = self
+                    .event_tx
+                    .send(AcpSessionEvent::ConfigOptionsUpdate(vec![opt]));
+            }
+            acp::SessionUpdate::ConfigOptionUpdate(update) => {
+                let out = super::runner::map_config_options(update.config_options);
+                let _ = self
+                    .event_tx
+                    .send(AcpSessionEvent::ConfigOptionsUpdate(out));
+            }
+            acp::SessionUpdate::UsageUpdate(update) => {
+                let usage = AgentUsage {
+                    used: update.used,
+                    size: update.size,
+                    cost: update.cost.map(|c| crate::acp_client::types::AgentCost {
+                        amount: c.amount,
+                        currency: c.currency,
+                    }),
+                };
+                let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));
             }
             _ => {}
         }

@@ -13,7 +13,7 @@ use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
 use crate::acp_client::tools::AcpToolHandler;
-use crate::acp_client::types::{AuthMethodSummary, AuthRequiredPayload, PermissionRequest};
+use crate::acp_client::types::{AuthMethodSummary, AuthRequiredPayload, PermissionRequest, AgentTurnUsage};
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
 use crate::models::AgentLaunchSpec;
 
@@ -26,7 +26,55 @@ enum SessionCommand {
     SetConfigOption(String, String),
 }
 
-fn map_config_options(
+/// Convert legacy `modes` (from the older Session Modes API) into an AgentConfigOption.
+pub(crate) fn map_modes_to_config_option(
+    modes: acp::SessionModeState,
+) -> crate::acp_client::types::AgentConfigOption {
+    let options = modes
+        .available_modes
+        .into_iter()
+        .map(|m| crate::acp_client::types::AgentConfigOptionValue {
+            value: m.id.to_string(),
+            name: Some(m.name),
+            description: m.description,
+        })
+        .collect();
+    crate::acp_client::types::AgentConfigOption {
+        id: "mode".to_string(),
+        name: Some("Mode".to_string()),
+        description: None,
+        category: Some("mode".to_string()),
+        r#type: "select".to_string(),
+        current_value: Some(modes.current_mode_id.to_string()),
+        options,
+    }
+}
+
+/// Convert legacy `models` (from the unstable Session Models API) into an AgentConfigOption.
+pub(crate) fn map_models_to_config_option(
+    models: acp::SessionModelState,
+) -> crate::acp_client::types::AgentConfigOption {
+    let options = models
+        .available_models
+        .into_iter()
+        .map(|m| crate::acp_client::types::AgentConfigOptionValue {
+            value: m.model_id.to_string(),
+            name: Some(m.name),
+            description: m.description,
+        })
+        .collect();
+    crate::acp_client::types::AgentConfigOption {
+        id: "model".to_string(),
+        name: Some("Model".to_string()),
+        description: None,
+        category: Some("model".to_string()),
+        r#type: "select".to_string(),
+        current_value: Some(models.current_model_id.to_string()),
+        options,
+    }
+}
+
+pub(crate) fn map_config_options(
     opts: Vec<acp::SessionConfigOption>,
 ) -> Vec<crate::acp_client::types::AgentConfigOption> {
     opts.into_iter()
@@ -308,6 +356,54 @@ async fn run_session_inner(
                     })?;
             }
 
+            // Track whether the agent uses legacy APIs so we can translate
+            // SetConfigOption("mode"/"model", ..) → set_session_mode/set_session_model.
+            let mut uses_legacy_modes = false;
+            let mut uses_legacy_models = false;
+
+            /// Helper: emit config options from a session response, checking
+            /// the new `config_options` and the legacy `modes`/`models` fields.
+            /// Returns (uses_legacy_modes, uses_legacy_models).
+            fn emit_session_config(
+                config_options: Option<Vec<acp::SessionConfigOption>>,
+                modes: Option<acp::SessionModeState>,
+                models: Option<acp::SessionModelState>,
+                event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
+            ) -> (bool, bool) {
+                if let Some(opts) = config_options {
+                    info!("Session returned {} config options", opts.len());
+                    let out = map_config_options(opts);
+                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                    (false, false)
+                } else {
+                    let mut legacy_opts = Vec::new();
+                    let mut leg_modes = false;
+                    let mut leg_models = false;
+                    if let Some(modes) = modes {
+                        info!(
+                            "Session returned legacy modes ({} available)",
+                            modes.available_modes.len()
+                        );
+                        legacy_opts.push(map_modes_to_config_option(modes));
+                        leg_modes = true;
+                    }
+                    if let Some(models) = models {
+                        info!(
+                            "Session returned legacy models ({} available)",
+                            models.available_models.len()
+                        );
+                        legacy_opts.push(map_models_to_config_option(models));
+                        leg_models = true;
+                    }
+                    if legacy_opts.is_empty() {
+                        info!("Session returned NO config options, modes, or models");
+                    } else {
+                        let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(legacy_opts));
+                    }
+                    (leg_modes, leg_models)
+                }
+            }
+
             let create_or_load_result: acp::Result<acp::SessionId> =
                 if let Some(resume_id) = resume_session_id.clone() {
                     let requested = acp::SessionId::new(resume_id.clone());
@@ -317,10 +413,12 @@ async fn run_session_inner(
                     {
                         Ok(response) => {
                             info!("Loaded ACP session: {}", resume_id);
-                            if let Some(opts) = response.config_options {
-                                let out = map_config_options(opts);
-                                let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
-                            }
+                            (uses_legacy_modes, uses_legacy_models) = emit_session_config(
+                                response.config_options,
+                                response.modes,
+                                response.models,
+                                &event_tx,
+                            );
                             Ok(requested)
                         }
                         Err(e) => {
@@ -331,11 +429,12 @@ async fn run_session_inner(
                             conn.new_session(acp::NewSessionRequest::new(cwd.clone()))
                                 .await
                                 .map(|response| {
-                                    if let Some(opts) = response.config_options {
-                                        let out = map_config_options(opts);
-                                        let _ = event_tx
-                                            .send(AcpSessionEvent::ConfigOptionsUpdate(out));
-                                    }
+                                    (uses_legacy_modes, uses_legacy_models) = emit_session_config(
+                                        response.config_options,
+                                        response.modes,
+                                        response.models,
+                                        &event_tx,
+                                    );
                                     response.session_id
                                 })
                         }
@@ -344,10 +443,12 @@ async fn run_session_inner(
                     conn.new_session(acp::NewSessionRequest::new(cwd))
                         .await
                         .map(|response| {
-                            if let Some(opts) = response.config_options {
-                                let out = map_config_options(opts);
-                                let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
-                            }
+                            (uses_legacy_modes, uses_legacy_models) = emit_session_config(
+                                response.config_options,
+                                response.modes,
+                                response.models,
+                                &event_tx,
+                            );
                             response.session_id
                         })
                 };
@@ -393,18 +494,53 @@ async fn run_session_inner(
                         "Applying default config for {}: {}={}",
                         _session_id, config_id, value
                     );
-                    let req = acp::SetSessionConfigOptionRequest::new(
-                        session_id_acp.clone(),
-                        acp::SessionConfigId::new(config_id),
-                        acp::SessionConfigValueId::new(value),
-                    );
-                    match conn.set_session_config_option(req).await {
-                        Ok(resp) => {
-                            let out = map_config_options(resp.config_options);
-                            let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                    if uses_legacy_modes && config_id == "mode" {
+                        match conn
+                            .set_session_mode(acp::SetSessionModeRequest::new(
+                                session_id_acp.clone(),
+                                value,
+                            ))
+                            .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                warn!("Failed to apply default mode for {}: {}", _session_id, e);
+                            }
                         }
-                        Err(e) => {
-                            warn!("Failed to apply default config for {}: {}", _session_id, e);
+                    } else if uses_legacy_models && config_id == "model" {
+                        match conn
+                            .set_session_model(acp::SetSessionModelRequest::new(
+                                session_id_acp.clone(),
+                                value,
+                            ))
+                            .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                warn!(
+                                    "Failed to apply default model for {}: {}",
+                                    _session_id, e
+                                );
+                            }
+                        }
+                    } else {
+                        let req = acp::SetSessionConfigOptionRequest::new(
+                            session_id_acp.clone(),
+                            acp::SessionConfigId::new(config_id),
+                            acp::SessionConfigValueId::new(value),
+                        );
+                        match conn.set_session_config_option(req).await {
+                            Ok(resp) => {
+                                let out = map_config_options(resp.config_options);
+                                let _ =
+                                    event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                            }
+                            Err(e) => {
+                                warn!(
+                                    "Failed to apply default config for {}: {}",
+                                    _session_id, e
+                                );
+                            }
                         }
                     }
                 }
@@ -432,21 +568,34 @@ async fn run_session_inner(
                         if msg.is_empty() {
                             break;
                         }
-                        if let Err(e) = conn
+                        match conn
                             .prompt(acp::PromptRequest::new(
                                 session_id_acp.clone(),
                                 vec![msg.into()],
                             ))
                             .await
                         {
-                            warn!("Prompt failed: {}", e);
-                            let _ = event_tx.send(AcpSessionEvent::Error {
-                                code: "PROMPT_FAILED".to_string(),
-                                message: e.to_string(),
-                                recoverable: true,
-                            });
+                            Ok(res) => {
+                                let usage = res.usage.map(|u| AgentTurnUsage {
+                                    total_tokens: u.total_tokens,
+                                    input_tokens: u.input_tokens,
+                                    output_tokens: u.output_tokens,
+                                    thought_tokens: u.thought_tokens,
+                                    cached_read_tokens: u.cached_read_tokens,
+                                    cached_write_tokens: u.cached_write_tokens,
+                                });
+                                let _ = event_tx.send(AcpSessionEvent::TurnEnd(usage));
+                            }
+                            Err(e) => {
+                                warn!("Prompt failed: {}", e);
+                                let _ = event_tx.send(AcpSessionEvent::Error {
+                                    code: "PROMPT_FAILED".to_string(),
+                                    message: e.to_string(),
+                                    recoverable: true,
+                                });
+                                let _ = event_tx.send(AcpSessionEvent::TurnEnd(None));
+                            }
                         }
-                        let _ = event_tx.send(AcpSessionEvent::TurnEnd);
                     }
                     SessionCommand::Cancel => {
                         if let Err(e) = conn
@@ -457,15 +606,48 @@ async fn run_session_inner(
                         }
                     }
                     SessionCommand::SetConfigOption(config_id, value) => {
-                        if let Err(e) = conn
-                            .set_session_config_option(acp::SetSessionConfigOptionRequest::new(
-                                session_id_acp.clone(),
-                                acp::SessionConfigId::new(config_id),
-                                acp::SessionConfigValueId::new(value),
-                            ))
-                            .await
-                        {
-                            warn!("Set config option failed: {}", e);
+                        if uses_legacy_modes && config_id == "mode" {
+                            info!("Using legacy set_session_mode: {}", value);
+                            match conn
+                                .set_session_mode(acp::SetSessionModeRequest::new(
+                                    session_id_acp.clone(),
+                                    value,
+                                ))
+                                .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => warn!("Set session mode failed: {}", e),
+                            }
+                        } else if uses_legacy_models && config_id == "model" {
+                            info!("Using legacy set_session_model: {}", value);
+                            match conn
+                                .set_session_model(acp::SetSessionModelRequest::new(
+                                    session_id_acp.clone(),
+                                    value,
+                                ))
+                                .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => warn!("Set session model failed: {}", e),
+                            }
+                        } else {
+                            match conn
+                                .set_session_config_option(
+                                    acp::SetSessionConfigOptionRequest::new(
+                                        session_id_acp.clone(),
+                                        acp::SessionConfigId::new(config_id),
+                                        acp::SessionConfigValueId::new(value),
+                                    ),
+                                )
+                                .await
+                            {
+                                Ok(resp) => {
+                                    let out = map_config_options(resp.config_options);
+                                    let _ = event_tx
+                                        .send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                                }
+                                Err(e) => warn!("Set config option failed: {}", e),
+                            }
                         }
                     }
                 }

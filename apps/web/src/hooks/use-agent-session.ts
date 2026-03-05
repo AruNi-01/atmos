@@ -51,7 +51,7 @@ export type AgentServerMessage =
       options: AcpPermissionOption[];
     }
   | { type: "error"; code: string; message: string; recoverable: boolean }
-  | { type: "turn_end" }
+  | { type: "turn_end"; usage?: AgentTurnUsage }
   | { type: "session_ended" }
   | { type: "load_completed" }
   | { type: "phase_update"; phase: string }
@@ -62,7 +62,31 @@ export type AgentServerMessage =
   | {
       type: "plan_update";
       plan: AgentPlan;
+    }
+  | {
+      type: "usage_update";
+      usage: AgentUsage;
     };
+
+export interface AgentCost {
+  amount: number;
+  currency: string;
+}
+
+export interface AgentUsage {
+  used: number;
+  size: number;
+  cost?: AgentCost;
+}
+
+export interface AgentTurnUsage {
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  thoughtTokens?: number;
+  cachedReadTokens?: number;
+  cachedWriteTokens?: number;
+}
 
 export interface AgentPlanEntry {
   content: string;
@@ -117,6 +141,7 @@ export interface StashedSession {
   cwd: string | null;
   title: string | null;
   configOptions: AgentConfigOption[];
+  sessionUsage: AgentUsage | null;
 }
 
 export interface UseAgentSessionReturn {
@@ -149,6 +174,7 @@ export interface UseAgentSessionReturn {
   /** Close a specific stashed session (or all if no key). */
   disconnectStashed: (key?: string) => void;
   configOptions: AgentConfigOption[];
+  sessionUsage: AgentUsage | null;
   setConfigOption: (id: string, value: string) => void;
   setAgentDefaultConfig: (configId: string, value: string) => void;
 }
@@ -201,6 +227,7 @@ export function useAgentSession({
   const [connectionPhase, setConnectionPhase] = useState<AgentConnectionPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [authRequest, setAuthRequest] = useState<AgentAuthRequiredPayload | null>(null);
+  const [sessionUsage, setSessionUsage] = useState<AgentUsage | null>(null);
   const [configOptions, setConfigOptions] = useState<AgentConfigOption[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const onMessageRef = useRef(onMessage);
@@ -293,9 +320,10 @@ export function useAgentSession({
     cwd: null as string | null,
     title: null as string | null,
     configOptions: [] as AgentConfigOption[],
+    sessionUsage: null as AgentUsage | null,
   });
   useEffect(() => {
-    latestRef.current = { sessionId, cwd: sessionCwd, title: sessionTitle, configOptions };
+    latestRef.current = { sessionId, cwd: sessionCwd, title: sessionTitle, configOptions, sessionUsage };
   });
 
   const stashedRef = useRef<Map<string, StashedSession>>(new Map());
@@ -309,6 +337,7 @@ export function useAgentSession({
     setConnectionPhase("idle");
     setError(null);
     setAuthRequest(null);
+    setSessionUsage(null);
     setConfigOptions([]);
   }, []);
 
@@ -322,10 +351,10 @@ export function useAgentSession({
 
   const stashSession = useCallback((key: string) => {
     const ws = wsRef.current;
-    const { sessionId: sid, cwd, title, configOptions: opts } = latestRef.current;
+    const { sessionId: sid, cwd, title, configOptions: opts, sessionUsage: usage } = latestRef.current;
 
     if (ws && ws.readyState === WebSocket.OPEN && sid) {
-      stashedRef.current.set(key, { ws, sessionId: sid, cwd, title, configOptions: opts });
+      stashedRef.current.set(key, { ws, sessionId: sid, cwd, title, configOptions: opts, sessionUsage: usage });
       // Detach without closing – the WS stays alive in the background.
       // Existing onmessage/onclose handlers check `wsRef.current !== ws`
       // and will no-op while the session is stashed.
@@ -360,6 +389,7 @@ export function useAgentSession({
     setSessionCwd(stashed.cwd);
     setSessionTitle(stashed.title);
     setConfigOptions(stashed.configOptions);
+    setSessionUsage(stashed.sessionUsage);
     setIsConnecting(false);
     setIsConnected(true);
     setConnectionPhase("connected");
@@ -385,6 +415,7 @@ export function useAgentSession({
       setConnectionPhase(override?.authMethodId ? "authenticating" : "initializing");
       setError(null);
       setAuthRequest(null);
+      setSessionUsage(null);
       setConfigOptions([]);
       const w = override?.workspaceId ?? workspaceId;
       const p = override?.projectId ?? projectId;
@@ -436,11 +467,36 @@ export function useAgentSession({
               }
               return;
             }
+            if (msg.type === "usage_update") {
+              setSessionUsage(msg.usage);
+              return;
+            }
             if (msg.type === "config_options_update") {
-              // Order them if necessary, but the agent provides the configOptions
-              // We'll trust the agent's array
               if (Array.isArray(msg.configOptions)) {
-                setConfigOptions(msg.configOptions);
+                setConfigOptions(prev => {
+                  // If incoming options have full option lists, replace entirely
+                  const incoming = msg.configOptions as AgentConfigOption[];
+                  if (prev.length === 0) return incoming;
+                  // Merge: for each incoming option, if it has a non-empty options
+                  // list, use it fully; otherwise just update currentValue in the
+                  // existing option (e.g. from a legacy CurrentModeUpdate).
+                  const merged = [...prev];
+                  for (const inc of incoming) {
+                    const idx = merged.findIndex(o => o.id === inc.id);
+                    if (idx >= 0) {
+                      if (inc.options.length > 0) {
+                        merged[idx] = inc;
+                      } else {
+                        merged[idx] = { ...merged[idx], currentValue: inc.currentValue };
+                      }
+                    } else {
+                      if (inc.options.length > 0) {
+                        merged.push(inc);
+                      }
+                    }
+                  }
+                  return merged;
+                });
               }
               return;
             }
@@ -508,6 +564,7 @@ export function useAgentSession({
       setConnectionPhase("resuming_session");
       setError(null);
       setAuthRequest(null);
+      setSessionUsage(null);
       setConfigOptions([]);
       try {
         const res = await agentApi.resumeSession(sessionIdToResume, mode);
@@ -549,6 +606,10 @@ export function useAgentSession({
                 setError(null);
                 onConnected?.();
               }
+              return;
+            }
+            if (msg.type === "usage_update") {
+              setSessionUsage(msg.usage);
               return;
             }
             if (msg.type === "config_options_update") {
@@ -637,6 +698,7 @@ export function useAgentSession({
     unstashSession,
     disconnectStashed,
     configOptions,
+    sessionUsage,
     setConfigOption,
     setAgentDefaultConfig,
   };
