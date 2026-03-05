@@ -768,7 +768,7 @@ export const AgentManagerView: React.FC = () => {
                 <>
                   {installedAgents.length > 0 || customAgents.length > 0 ? (
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <AnimatePresence mode="popLayout">
+                      <AnimatePresence mode="popLayout" initial={false}>
                         {installedAgents.map((item, index) => renderAgentCard(item, index))}
                         {customAgents.map((agent, index) => renderCustomAgentCard(agent, installedAgents.length + index))}
                       </AnimatePresence>
@@ -789,7 +789,7 @@ export const AgentManagerView: React.FC = () => {
                 <>
                   {filteredRegistry.length > 0 ? (
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <AnimatePresence mode="popLayout">
+                      <AnimatePresence mode="popLayout" initial={false}>
                         {filteredRegistry.map((item, index) => renderAgentCard(item, index))}
                       </AnimatePresence>
                     </div>
@@ -809,7 +809,7 @@ export const AgentManagerView: React.FC = () => {
                 <>
                   {customAgents.length > 0 ? (
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <AnimatePresence mode="popLayout">
+                      <AnimatePresence mode="popLayout" initial={false}>
                         {customAgents.map((agent, index) => renderCustomAgentCard(agent, index))}
                       </AnimatePresence>
                     </div>

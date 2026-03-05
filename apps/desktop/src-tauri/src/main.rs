@@ -7,18 +7,16 @@ use std::time::Duration;
 use tauri::menu::{MenuBuilder, MenuItem};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_shell::ShellExt;
 
 use state::AppState;
 
 fn main() {
-    let debug_mode = std::env::var("ATMOS_DESKTOP_DEBUG")
-        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-        .unwrap_or(false);
-
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
             let api_token = uuid::Uuid::new_v4().to_string();
@@ -30,10 +28,6 @@ fn main() {
 
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                // Resolve the bundled static frontend directory.
-                // In a packaged app, the web-out dir is bundled as a resource.
-                // In dev mode (devUrl), the sidecar serves no static files —
-                // the webview already loads from http://localhost:3030.
                 let static_dir = app_handle
                     .path()
                     .resource_dir()
@@ -42,29 +36,30 @@ fn main() {
                     .filter(|p| p.join("index.html").is_file());
                 let has_static = static_dir.is_some();
 
-                if let Err(err) = spawn_and_wait_sidecar(&app_handle, api_token, static_dir).await {
+                if let Err(err) = spawn_and_wait_sidecar(&app_handle, api_token, static_dir).await
+                {
                     eprintln!("Failed to start sidecar: {err}");
-                    if debug_mode {
-                        if let Some(main) = app_handle.get_webview_window("main") {
-                            let _ = main.show();
-                            let _ = main.set_focus();
-                            let escaped = err.replace('\\', "\\\\").replace('\'', "\\'");
-                            let _ = main.eval(&format!(
-                                "window.alert('Atmos sidecar startup failed:\\n{}');",
-                                escaped
-                            ));
-                        }
-                    } else {
-                        app_handle.exit(1);
+
+                    // Close splashscreen so it doesn't linger behind the dialog
+                    if let Some(splash) = app_handle.get_webview_window("splashscreen") {
+                        let _ = splash.close();
                     }
+
+                    let handle = app_handle.clone();
+                    app_handle
+                        .dialog()
+                        .message(format!(
+                            "Atmos backend failed to start:\n\n{}\n\nThe app will now exit.",
+                            err
+                        ))
+                        .title("Atmos Startup Error")
+                        .kind(MessageDialogKind::Error)
+                        .show(move |_| {
+                            handle.exit(1);
+                        });
                     return;
                 }
 
-                // Navigate main window to the sidecar HTTP server so that
-                // fetch/WebSocket from the webview go to the same HTTP origin,
-                // avoiding macOS WKWebView mixed-content blocking.
-                // Only applies when bundled static files are available (production build).
-                // In dev mode, the webview already loads from http://localhost:3000.
                 let port = {
                     let state = app_handle.state::<AppState>();
                     let x = *state.api_port.lock().unwrap();
@@ -76,7 +71,6 @@ fn main() {
                 if let Some(main) = app_handle.get_webview_window("main") {
                     if let Some(p) = port {
                         if has_static {
-                            // Production: load frontend from the sidecar HTTP server.
                             let url = format!("http://127.0.0.1:{}", p);
                             let _ = main.navigate(url.parse().expect("valid url"));
                         }
@@ -121,20 +115,16 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                // Only kill the sidecar when the main window closes, not the splashscreen.
-                if window.label() != "main" {
-                    return;
-                }
-                let state = window.state::<AppState>();
-                let child = match state.sidecar_child.lock() {
-                    Ok(mut guard) => guard.take(),
-                    Err(_) => None,
-                };
-                if let Some(child) = child {
-                    let _ = child.kill();
+            // macOS: close button hides the window instead of quitting.
+            // The app stays in the dock; user can re-show via tray icon or dock click.
+            #[cfg(target_os = "macos")]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
                 }
             }
+            let _ = window; // suppress unused warning on non-macOS
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_api_config,
@@ -142,8 +132,60 @@ fn main() {
             commands::open_in_external_editor,
             commands::send_notification,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| match event {
+        // Sidecar cleanup on ALL exit paths:
+        // tray "Quit", Cmd+Q, dock "Quit", system shutdown, etc.
+        tauri::RunEvent::Exit => {
+            let child = {
+                let state = app_handle.state::<AppState>();
+                state.sidecar_child.lock().ok().and_then(|mut g| g.take())
+            };
+            if let Some(child) = child {
+                let _ = child.kill();
+            }
+        }
+        // macOS: clicking the dock icon when the window is hidden should re-show it.
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen {
+            has_visible_windows,
+            ..
+        } => {
+            if !has_visible_windows {
+                if let Some(w) = app_handle.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            }
+        }
+        _ => {}
+    });
+}
+
+fn is_utf8_locale(value: &str) -> bool {
+    let upper = value.to_ascii_uppercase();
+    upper.contains("UTF-8") || upper.contains("UTF8")
+}
+
+fn default_utf8_locale() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        "en_US.UTF-8".to_string()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        "C.UTF-8".to_string()
+    }
+}
+
+fn resolve_utf8_locale() -> String {
+    std::env::var("LC_CTYPE")
+        .ok()
+        .filter(|v| is_utf8_locale(v))
+        .or_else(|| std::env::var("LANG").ok().filter(|v| is_utf8_locale(v)))
+        .unwrap_or_else(default_utf8_locale)
 }
 
 async fn spawn_and_wait_sidecar(
@@ -160,9 +202,6 @@ async fn spawn_and_wait_sidecar(
         .ok_or_else(|| "invalid data dir".to_string())?
         .to_string();
 
-    // Fixed port so browsers (including mobile on LAN) can connect at
-    // http://<host>:30303 without needing Tauri IPC to discover the port.
-    // Override with ATMOS_PORT env var if 30303 is occupied.
     let port = std::env::var("ATMOS_PORT").unwrap_or_else(|_| "30303".into());
 
     // macOS .app bundles launched from Finder don't inherit the shell's PATH.
@@ -179,6 +218,9 @@ async fn spawn_and_wait_sidecar(
         }
         parts.join(":")
     };
+    // Finder-launched apps may miss LANG/LC_CTYPE; force UTF-8 so tmux/shell
+    // keep Nerd Font glyphs instead of ASCII fallbacks.
+    let utf8_locale = resolve_utf8_locale();
 
     let mut sidecar_cmd = app_handle
         .shell()
@@ -187,6 +229,8 @@ async fn spawn_and_wait_sidecar(
         .env("PATH", &path)
         .env("ATMOS_PORT", &port)
         .env("ATMOS_LOCAL_TOKEN", &api_token)
+        .env("LANG", &utf8_locale)
+        .env("LC_CTYPE", &utf8_locale)
         .env("ATMOS_DATA_DIR", data_dir_str);
 
     if let Some(dir) = static_dir {
@@ -247,7 +291,6 @@ async fn spawn_and_wait_sidecar(
                         &sidecar_log_path,
                         &format!("healthz OK port={port}, continuing to monitor"),
                     );
-                    // Keep draining sidecar output so we can log crashes after startup.
                     tokio::spawn(async move {
                         while let Some(ev) = rx.recv().await {
                             match ev {

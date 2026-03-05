@@ -969,17 +969,19 @@ impl TerminalService {
             // After detach, the PTY reader sees EOF and stops forwarding output.
             if let Some(ref client_session) = handle.client_session {
                 let socket = self.tmux_engine.socket_file_path();
-                let _ = std::process::Command::new("tmux")
-                    .args([
-                        "-f",
-                        "/dev/null",
-                        "-S",
-                        &socket,
-                        "detach-client",
-                        "-s",
-                        client_session,
-                    ])
-                    .output();
+                let mut cmd = std::process::Command::new("tmux");
+                cmd.args([
+                    "-u",
+                    "-f",
+                    "/dev/null",
+                    "-S",
+                    &socket,
+                    "detach-client",
+                    "-s",
+                    client_session,
+                ]);
+                apply_utf8_env_to_tmux_command(&mut cmd);
+                let _ = cmd.output();
             }
 
             // Step 2: Send Close command to PTY thread (it will exit cleanly
@@ -1210,6 +1212,42 @@ impl TerminalService {
     }
 }
 
+fn is_utf8_locale(value: &str) -> bool {
+    let upper = value.to_ascii_uppercase();
+    upper.contains("UTF-8") || upper.contains("UTF8")
+}
+
+fn default_utf8_locale() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        "en_US.UTF-8".to_string()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        "C.UTF-8".to_string()
+    }
+}
+
+fn resolve_utf8_locale() -> String {
+    std::env::var("LC_CTYPE")
+        .ok()
+        .filter(|v| is_utf8_locale(v))
+        .or_else(|| std::env::var("LANG").ok().filter(|v| is_utf8_locale(v)))
+        .unwrap_or_else(default_utf8_locale)
+}
+
+fn apply_utf8_env_to_tmux_command(cmd: &mut std::process::Command) {
+    let locale = resolve_utf8_locale();
+    cmd.env("LANG", &locale);
+    cmd.env("LC_CTYPE", &locale);
+}
+
+fn apply_utf8_env_to_pty_command(cmd: &mut CommandBuilder) {
+    let locale = resolve_utf8_locale();
+    cmd.env("LANG", &locale);
+    cmd.env("LC_CTYPE", &locale);
+}
+
 /// Run PTY session attached to a tmux window
 #[allow(clippy::too_many_arguments)]
 fn run_pty_session_with_tmux(
@@ -1236,17 +1274,19 @@ fn run_pty_session_with_tmux(
     let mut session_ready = false;
 
     for attempt in 0..max_retries {
-        let check_output = std::process::Command::new("tmux")
-            .args([
-                "-f",
-                "/dev/null",
-                "-S",
-                &socket_path.to_string_lossy(),
-                "has-session",
-                "-t",
-                &tmux_session,
-            ])
-            .output();
+        let mut check_cmd = std::process::Command::new("tmux");
+        check_cmd.args([
+            "-u",
+            "-f",
+            "/dev/null",
+            "-S",
+            &socket_path.to_string_lossy(),
+            "has-session",
+            "-t",
+            &tmux_session,
+        ]);
+        apply_utf8_env_to_tmux_command(&mut check_cmd);
+        let check_output = check_cmd.output();
 
         match check_output {
             Ok(output) if output.status.success() => {
@@ -1302,6 +1342,7 @@ fn run_pty_session_with_tmux(
     // or other settings, causing detach and other key-based operations to fail.
     let mut cmd = CommandBuilder::new("tmux");
     cmd.args([
+        "-u",
         "-f",
         "/dev/null",
         "-S",
@@ -1316,6 +1357,7 @@ fn run_pty_session_with_tmux(
     // appear twice (once from PTY line-discipline echo, once from ZLE).
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    apply_utf8_env_to_pty_command(&mut cmd);
 
     // Spawn the tmux attach process
     if let Err(e) = pair.slave.spawn_command(cmd) {
@@ -1441,16 +1483,19 @@ fn run_pty_session_with_tmux(
                     // `detach-client` is a direct command to the tmux server that
                     // always works and produces a clean exit (no "[exited]" message).
                     let detached = if let (Some(ref client_name), Some(ref sock)) = (&cs, &sp) {
-                        std::process::Command::new("tmux")
-                            .args([
-                                "-f",
-                                "/dev/null",
-                                "-S",
-                                &sock.to_string_lossy(),
-                                "detach-client",
-                                "-s",
-                                client_name,
-                            ])
+                        let mut detach_cmd = std::process::Command::new("tmux");
+                        detach_cmd.args([
+                            "-u",
+                            "-f",
+                            "/dev/null",
+                            "-S",
+                            &sock.to_string_lossy(),
+                            "detach-client",
+                            "-s",
+                            client_name,
+                        ]);
+                        apply_utf8_env_to_tmux_command(&mut detach_cmd);
+                        detach_cmd
                             .output()
                             .map(|o| o.status.success())
                             .unwrap_or(false)
@@ -1483,9 +1528,10 @@ fn run_pty_session_with_tmux(
     // which can leak to the frontend terminal.
     if let Some(cs) = close_client_session {
         if let Some(sp) = close_socket_path {
-            let _ = std::process::Command::new("tmux")
-                .args(["-S", &sp.to_string_lossy(), "kill-session", "-t", &cs])
-                .output();
+            let mut kill_cmd = std::process::Command::new("tmux");
+            kill_cmd.args(["-u", "-S", &sp.to_string_lossy(), "kill-session", "-t", &cs]);
+            apply_utf8_env_to_tmux_command(&mut kill_cmd);
+            let _ = kill_cmd.output();
             debug!("Killed client tmux session after detach: {}", cs);
         }
     }
@@ -1554,6 +1600,7 @@ fn run_simple_pty_session(
     // Set basic environment variables
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    apply_utf8_env_to_pty_command(&mut cmd);
 
     // Spawn the shell process
     if let Err(e) = pair.slave.spawn_command(cmd) {

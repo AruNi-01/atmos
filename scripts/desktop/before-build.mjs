@@ -63,19 +63,11 @@ const sidecarWebOut = join(binariesDir, "web-out");
 
 if (existsSync(webOut)) {
   const indexHtmlPath = join(webOut, "index.html");
-  if (!existsSync(indexHtmlPath)) {
-    // Generate a simple redirect to the default locale for Tauri entry point
-    writeFileSync(
-      indexHtmlPath,
-      `<!DOCTYPE html>
-<html>
-  <head>
-    <meta http-equiv="refresh" content="0; url=/en/" />
-    <script>window.location.replace('/en/');</script>
-  </head>
-  <body></body>
-</html>`
-    );
+  const enIndexPath = join(webOut, "en", "index.html");
+  if (!existsSync(indexHtmlPath) && existsSync(enIndexPath)) {
+    // Copy the default locale's page as root index.html so Tauri loads
+    // without a visible redirect flash (meta-refresh → /en/).
+    cpSync(enIndexPath, indexHtmlPath);
   }
   
   rmSync(sidecarWebOut, { recursive: true, force: true });

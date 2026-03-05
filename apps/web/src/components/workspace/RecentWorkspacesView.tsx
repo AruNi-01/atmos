@@ -18,7 +18,7 @@ import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
 import { useQueryState } from "nuqs";
 import { workspacesParams } from "@/lib/nuqs/searchParams";
 import { parseUTCDate, format, isToday, isYesterday, subDays, subWeeks, subMonths, isAfter, subYears } from '@atmos/shared';
-import { useRouter } from 'next/navigation';
+import { useAppRouter } from '@/hooks/use-app-router';
 import { motion, AnimatePresence } from "motion/react";
 import { Skeleton } from "@workspace/ui";
 
@@ -69,14 +69,18 @@ interface RecentWorkspacesViewProps {
 }
 
 export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey }) => {
-  const router = useRouter();
-  const { projects } = useProjectStore();
+  const router = useAppRouter();
+  const { projects, isLoading: isStoreLoading } = useProjectStore();
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<EnrichedWorkspace[]>([]);
+  const [isLoadingArchived, setIsLoadingArchived] = useState(true);
   const [gitStatuses, setGitStatuses] = useState<Record<string, GitStatus>>({});
+
+  const isDataReady = !isStoreLoading && !isLoadingArchived;
 
   // Fetch archived workspaces
   useEffect(() => {
+    setIsLoadingArchived(true);
     wsWorkspaceApi.listArchived().then(res => {
       const mapped = res.workspaces.map(aw => ({
         id: aw.guid,
@@ -93,7 +97,9 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
         projectName: aw.project_name
       } as EnrichedWorkspace));
       setArchivedWorkspaces(mapped);
-    }).catch(console.error);
+    }).catch(console.error).finally(() => {
+      setIsLoadingArchived(false);
+    });
   }, []);
 
   // Combine all workspaces
@@ -237,7 +243,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
       });
       return;
     }
-    router.push(`/workspace/${ws.id}`);
+    router.push(`/workspace?id=${ws.id}`);
   };
 
   const truncatePath = (path: string | undefined) => {
@@ -283,6 +289,33 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
             </div>
 
             <div className="space-y-10 pb-12">
+              {!isDataReady ? (
+                <div className="space-y-10">
+                  {[1, 2].map(g => (
+                    <div key={g} className="space-y-4">
+                      <div className="flex items-center gap-3 py-3 border-b border-border/40">
+                        <Skeleton className="h-3 w-20" />
+                        <Skeleton className="h-5 w-6 rounded-full" />
+                      </div>
+                      <div className="grid gap-2.5">
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border bg-background">
+                            <div className="flex items-center gap-5">
+                              <Skeleton className="size-10 rounded-xl" />
+                              <div className="space-y-2">
+                                <Skeleton className="h-4 w-32" />
+                                <Skeleton className="h-3 w-24" />
+                              </div>
+                            </div>
+                            <Skeleton className="h-4 w-20" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+              <>
               <AnimatePresence mode="popLayout" initial={false}>
                 {GROUP_ORDER.map(group => {
                   const items = groupedWorkspaces[group];
@@ -304,7 +337,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                         </span>
                       </div>
                       <div className="grid gap-2.5">
-                        <AnimatePresence mode="popLayout">
+                        <AnimatePresence mode="popLayout" initial={false}>
                           {items.map((ws, index) => {
                             const status = gitStatuses[ws.id];
                             const hasGitInfo = status && !status.loading && !status.error;
@@ -426,6 +459,8 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                     Clear search query
                   </Button>
                 </motion.div>
+              )}
+              </>
               )}
 
             </div>

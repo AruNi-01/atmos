@@ -2956,9 +2956,8 @@ export function AgentChatPanel() {
             <div className="flex items-center gap-2">
               {configOptions?.length > 0 && isConnected && (
                 <div className="flex items-center gap-2">
-                  {['mode', 'model', 'thought_level']
-                    .map(id => configOptions.find(o => o.id === id))
-                    .filter((opt): opt is NonNullable<typeof opt> => Boolean(opt))
+                  {configOptions
+                    .filter(opt => opt.type === 'select' && opt.options.length > 0)
                     .map(opt => (
                       <div key={opt.id} className="flex items-center gap-1">
                         <Select

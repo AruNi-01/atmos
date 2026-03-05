@@ -83,7 +83,7 @@ export const atmosLightTheme: ITheme = {
 // Hack Nerd Font is preferred for full Powerline/icon support
 export const terminalFont = {
   family:
-    '"Hack Nerd Font", "Hack", "JetBrains Mono NL", "JetBrains Mono", "Fira Code", "SF Mono", Monaco, "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace',
+    '"Hack Nerd Font Mono", "Hack Nerd Font", "Hack", "JetBrains Mono NL", "JetBrains Mono", "Fira Code", "SF Mono", Monaco, "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace',
   size: 14,
   lineHeight: 1.2,
   letterSpacing: 0,

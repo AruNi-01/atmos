@@ -315,6 +315,10 @@ export const systemApi = {
   getWsConnections: async (): Promise<{ connections: WsConnectionInfo[]; count: number }> => {
     return fetchApi('/api/system/ws-connections');
   },
+
+  listReviewSkills: async (): Promise<{ skills: { id: string; label: string; badge: string; description: string; bestFor: string }[] }> => {
+    return fetchApi('/api/system/review-skills');
+  },
 };
 
 // ===== Workspace Terminal Layout API =====

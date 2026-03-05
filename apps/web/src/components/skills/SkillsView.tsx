@@ -15,7 +15,7 @@ import {
 } from '@workspace/ui';
 import { skillsApi, SkillInfo } from '@/api/ws-api';
 import { SkillCard } from '@/components/skills/SkillCard';
-import { useRouter } from 'next/navigation';
+import { useAppRouter } from '@/hooks/use-app-router';
 import { useQueryStates } from "nuqs";
 import { skillsParams, type ScopeFilter } from "@/lib/nuqs/searchParams";
 import { SkillDetail } from './SkillDetail';
@@ -25,7 +25,7 @@ import { Search } from "lucide-react";
 import { Skeleton } from "@workspace/ui";
 
 export const SkillsView: React.FC = () => {
-  const router = useRouter();
+  const router = useAppRouter();
   const [{ filter: scopeFilter, projects: projectsParam, q: query }, setParams] = useQueryStates(skillsParams);
   const { skillScope, skillId } = useContextParams();
 
