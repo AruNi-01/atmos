@@ -145,14 +145,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(TraceLayer::new_for_http())
         .layer(cors);
 
-    // If ATMOS_STATIC_DIR is set, serve the static web files so the desktop
-    // WebView can load the frontend directly from http://127.0.0.1:{port}.
-    // This avoids macOS WKWebView mixed-content blocking (tauri:// → http://).
     if let Ok(static_dir) = std::env::var("ATMOS_STATIC_DIR") {
         let static_path = std::path::PathBuf::from(&static_dir);
         let index = static_path.join("index.html");
         if index.is_file() {
-            let serve_dir = ServeDir::new(&static_path).fallback(ServeFile::new(index));
+            // Serve static files from the exported Next.js build.
+            // Fallback to the default locale page (en/index.html) so that
+            // client-side Next.js router can handle unmatched URLs (SPA pattern).
+            // If en/index.html doesn't exist, fallback to root index.html.
+            let fallback = static_path.join("en").join("index.html");
+            let fallback_file = if fallback.is_file() { &fallback } else { &index };
+            let serve_dir = ServeDir::new(&static_path)
+                .append_index_html_on_directories(true)
+                .fallback(ServeFile::new(fallback_file));
             app = app.fallback_service(serve_dir);
         }
     }

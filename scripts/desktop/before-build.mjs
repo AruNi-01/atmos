@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -62,6 +62,22 @@ const webOut = join(rootDir, "apps/web/out");
 const sidecarWebOut = join(binariesDir, "web-out");
 
 if (existsSync(webOut)) {
+  const indexHtmlPath = join(webOut, "index.html");
+  if (!existsSync(indexHtmlPath)) {
+    // Generate a simple redirect to the default locale for Tauri entry point
+    writeFileSync(
+      indexHtmlPath,
+      `<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="refresh" content="0; url=/en/" />
+    <script>window.location.replace('/en/');</script>
+  </head>
+  <body></body>
+</html>`
+    );
+  }
+  
   rmSync(sidecarWebOut, { recursive: true, force: true });
   cpSync(webOut, sidecarWebOut, { recursive: true });
   console.log(`Copied web static export to: ${sidecarWebOut}`);

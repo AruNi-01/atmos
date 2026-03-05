@@ -8,6 +8,9 @@ const isDesktop = process.env.BUILD_TARGET === "desktop";
 
 const nextConfig: NextConfig = {
   output: isDesktop ? "export" : undefined,
+  // Generate en/index.html instead of en.html so static file servers
+  // can resolve /en/ correctly (ServeDir append_index_html).
+  trailingSlash: isDesktop,
   images: { unoptimized: isDesktop },
   allowedDevOrigins: ["*"],
   async headers() {

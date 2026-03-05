@@ -164,10 +164,27 @@ async fn spawn_and_wait_sidecar(
     // http://<host>:30303 without needing Tauri IPC to discover the port.
     // Override with ATMOS_PORT env var if 30303 is occupied.
     let port = std::env::var("ATMOS_PORT").unwrap_or_else(|_| "30303".into());
+
+    // macOS .app bundles launched from Finder don't inherit the shell's PATH.
+    // Homebrew installs (tmux, git, etc.) live in /opt/homebrew/bin (Apple Silicon)
+    // or /usr/local/bin (Intel). Augment PATH so the sidecar can find them.
+    let path = {
+        let current = std::env::var("PATH").unwrap_or_default();
+        let extra = ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin"];
+        let mut parts: Vec<&str> = extra.to_vec();
+        for p in current.split(':') {
+            if !parts.contains(&p) {
+                parts.push(p);
+            }
+        }
+        parts.join(":")
+    };
+
     let mut sidecar_cmd = app_handle
         .shell()
         .sidecar("api")
         .map_err(|e| e.to_string())?
+        .env("PATH", &path)
         .env("ATMOS_PORT", &port)
         .env("ATMOS_LOCAL_TOKEN", &api_token)
         .env("ATMOS_DATA_DIR", data_dir_str);
