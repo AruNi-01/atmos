@@ -329,7 +329,7 @@ function reduceEntries(
     const isThinking = msg.kind === "thinking";
     const last = prev[prev.length - 1];
 
-    if (last?.role === "assistant" && last.isStreaming) {
+    if (last?.role === "assistant") {
       const blocks = [...last.blocks];
       const lastBlock = blocks[blocks.length - 1];
       const expectedType: AssistantBlock["type"] = isThinking ? "thinking" : "text";
@@ -466,15 +466,13 @@ function reduceEntries(
 
   if (msg.type === "turn_end") {
     const entries = [...prev];
-    for (let i = entries.length - 1; i >= 0; i--) {
-      if (entries[i].role === "assistant") {
-        entries[i] = {
-          ...(entries[i] as AssistantEntry),
-          isStreaming: false,
-          usage: msg.usage,
-        };
-        break;
-      }
+    const lastIdx = entries.length - 1;
+    if (lastIdx >= 0 && entries[lastIdx].role === "assistant") {
+      entries[lastIdx] = {
+        ...(entries[lastIdx] as AssistantEntry),
+        isStreaming: false,
+        usage: msg.usage,
+      };
     }
     return entries;
   }
@@ -579,11 +577,13 @@ function MessageCopyButton({
   ariaLabel,
   title,
   className = "",
+  children,
 }: {
   text: string;
   ariaLabel: string;
   title: string;
   className?: string;
+  children?: React.ReactNode;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -629,18 +629,23 @@ function MessageCopyButton({
           </motion.span>
         )}
       </AnimatePresence>
+      {children}
     </button>
   );
 }
 
 function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
-  const percent = Math.min(100, (usage.used / usage.size) * 100);
+  const used = usage.used ?? 0;
+  const size = usage.size ?? 1;
+  const percent = Math.min(100, (used / size) * 100);
+
+  if (usage.used === undefined || usage.size === undefined) return null;
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="group absolute left-3 bottom-0 mb-4 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help">
+          <div className="group absolute left-3 bottom-1 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out origin-[left_center] hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help">
             <span className="inline-flex size-4 shrink-0 items-center justify-center">
               <LoaderCircle className="size-3.5 text-primary/80" />
             </span>
@@ -648,35 +653,35 @@ function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
               {percent.toFixed(0)}%
               {usage.cost && (
                 <span className="ml-1.5 border-l border-border/40 pl-1.5">
-                  ${usage.cost.amount.toFixed(2)}
+                  ${(usage.cost.amount ?? 0).toFixed(2)}
                 </span>
               )}
             </span>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" align="start" className="p-3 w-52 z-[100]">
+        <TooltipContent side="top" align="start" className="p-3 w-52 z-100">
           <div className="space-y-2">
             <div className="flex justify-between items-center text-xs">
               <span className="font-semibold">Context Window</span>
               <span className="font-mono">{percent.toFixed(1)}%</span>
             </div>
             <div className="space-y-1">
-              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-primary rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all duration-500"
+                  className="h-full bg-muted transition-all duration-500"
                   style={{ width: `${percent}%` }}
                 />
               </div>
               <div className="flex justify-between items-center text-[10px] pt-0.5">
-                <span className="font-mono">{usage.used.toLocaleString()}</span>
-                <span className="font-mono">{usage.size.toLocaleString()}</span>
+                <span className="font-mono">{used.toLocaleString()}</span>
+                <span className="font-mono">{size.toLocaleString()}</span>
               </div>
             </div>
             {usage.cost && (
               <div className="flex flex-col pt-2 border-t border-border/50">
                 <span className="text-[10px] uppercase">Estimated Cost</span>
                 <span className="text-xs font-mono font-semibold">
-                  {usage.cost.amount.toFixed(4)} {usage.cost.currency}
+                  {(usage.cost.amount ?? 0).toFixed(4)} {usage.cost.currency ?? "USD"}
                 </span>
               </div>
             )}
@@ -688,7 +693,10 @@ function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
 }
 
 function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
-  const total = usage.totalTokens >= 1000 ? `${(usage.totalTokens / 1000).toFixed(1)}k` : usage.totalTokens;
+  const totalTokens = usage.totalTokens ?? 0;
+  const total = totalTokens >= 1000 ? `${(totalTokens / 1000).toFixed(1)}k` : totalTokens;
+
+  if (usage.totalTokens === undefined) return null;
 
   return (
     <TooltipProvider>
@@ -699,21 +707,21 @@ function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
             <span>{total} tokens</span>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="p-3 w-52 z-[100]">
+        <TooltipContent side="top" align="center" className="p-3 w-52 z-100">
           <div className="space-y-1.5">
             <div className="text-xs font-semibold border-b border-border/50 pb-1 mb-1">Turn Token Usage</div>
             <div className="flex justify-between text-[11px]">
               <span>Input</span>
-              <span className="font-mono">{usage.inputTokens.toLocaleString()}</span>
+              <span className="font-mono">{(usage.inputTokens ?? 0).toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-[11px]">
               <span>Output</span>
-              <span className="font-mono">{usage.outputTokens.toLocaleString()}</span>
+              <span className="font-mono">{(usage.outputTokens ?? 0).toLocaleString()}</span>
             </div>
             {usage.thoughtTokens != null && (
               <div className="flex justify-between text-[11px]">
                 <span>Thought</span>
-                <span className="font-mono">{usage.thoughtTokens.toLocaleString()}</span>
+                <span className="font-mono">{(usage.thoughtTokens ?? 0).toLocaleString()}</span>
               </div>
             )}
             {(usage.cachedReadTokens != null || usage.cachedWriteTokens != null) && (
@@ -721,20 +729,20 @@ function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
                 {usage.cachedReadTokens != null && (
                   <div className="flex justify-between text-[11px]">
                     <span>Cache Read</span>
-                    <span className="font-mono">{usage.cachedReadTokens.toLocaleString()}</span>
+                    <span className="font-mono">{(usage.cachedReadTokens ?? 0).toLocaleString()}</span>
                   </div>
                 )}
                 {usage.cachedWriteTokens != null && (
                   <div className="flex justify-between text-[11px]">
                     <span>Cache Write</span>
-                    <span className="font-mono">{usage.cachedWriteTokens.toLocaleString()}</span>
+                    <span className="font-mono">{(usage.cachedWriteTokens ?? 0).toLocaleString()}</span>
                   </div>
                 )}
               </div>
             )}
             <div className="pt-1 mt-1 border-t border-border/50 flex justify-between text-[11px] font-bold">
               <span>Total</span>
-              <span className="font-mono">{usage.totalTokens.toLocaleString()}</span>
+              <span className="font-mono">{(usage.totalTokens ?? 0).toLocaleString()}</span>
             </div>
           </div>
         </TooltipContent>
@@ -3052,21 +3060,19 @@ export function AgentChatPanel() {
                   <Message from="assistant">
                     <MessageContent>
                       <AssistantTurnView entry={entry} />
-                      {!entries.slice(i + 1).some((nextEntry) => nextEntry.role === "assistant") &&
-                        !entry.isStreaming &&
-                        !agentActivity.busy && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <MessageCopyButton
-                              text={getAllAssistantMessagesCopyText(entries)}
-                              ariaLabel="Copy all assistant messages"
-                              title="Copy all assistant messages"
-                              className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                            />
-                            {entry.usage && (
-                              <MessageTurnUsageBadge usage={entry.usage} />
-                            )}
-                          </div>
-                        )}
+                      {!entry.isStreaming && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <MessageCopyButton
+                            text={getAssistantCopyText(entry)}
+                            ariaLabel="Copy current turn message"
+                            title="Copy turn"
+                            className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                          />
+                          {entry.usage && (
+                            <MessageTurnUsageBadge usage={entry.usage} />
+                          )}
+                        </div>
+                      )}
                     </MessageContent>
                   </Message>
                 )}

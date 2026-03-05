@@ -577,9 +577,9 @@ async fn run_session_inner(
                         {
                             Ok(res) => {
                                 let usage = res.usage.map(|u| AgentTurnUsage {
-                                    total_tokens: u.total_tokens,
-                                    input_tokens: u.input_tokens,
-                                    output_tokens: u.output_tokens,
+                                    total_tokens: Some(u.total_tokens),
+                                    input_tokens: Some(u.input_tokens),
+                                    output_tokens: Some(u.output_tokens),
                                     thought_tokens: u.thought_tokens,
                                     cached_read_tokens: u.cached_read_tokens,
                                     cached_write_tokens: u.cached_write_tokens,

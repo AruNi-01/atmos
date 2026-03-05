@@ -137,23 +137,23 @@ pub struct AgentPlan {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentCost {
-    pub amount: f64,
-    pub currency: String,
+    pub amount: Option<f64>,
+    pub currency: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentUsage {
-    pub used: u64,
-    pub size: u64,
+    pub used: Option<u64>,
+    pub size: Option<u64>,
     pub cost: Option<AgentCost>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentTurnUsage {
-    pub total_tokens: u64,
-    pub input_tokens: u64,
-    pub output_tokens: u64,
+    pub total_tokens: Option<u64>,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
     pub thought_tokens: Option<u64>,
     pub cached_read_tokens: Option<u64>,
     pub cached_write_tokens: Option<u64>,
