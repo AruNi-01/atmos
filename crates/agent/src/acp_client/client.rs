@@ -78,13 +78,34 @@ fn format_description(
     tool.to_string()
 }
 
+fn extract_markdown_from_tool_call_content(content: &[acp::ToolCallContent]) -> Option<String> {
+    let parts: Vec<String> = content
+        .iter()
+        .filter_map(|item| match item {
+            acp::ToolCallContent::Content(c) => match &c.content {
+                acp::ContentBlock::Text(text) if !text.text.trim().is_empty() => {
+                    Some(text.text.clone())
+                }
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("\n\n"))
+    }
+}
+
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
-    AgentConfigOption, AgentPlan, AgentPlanEntry, StreamDelta, ToolCallStatus, ToolCallUpdate,
-    AgentUsage, AgentTurnUsage,
+    AgentConfigOption, AgentPlan, AgentPlanEntry, AgentTurnUsage, AgentUsage, StreamDelta,
+    ToolCallStatus, ToolCallUpdate,
 };
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
 
@@ -175,12 +196,19 @@ impl AcpClientTrait for AtmosAcpClient {
                 },
             })
             .collect();
+        let content_markdown = args
+            .tool_call
+            .fields
+            .content
+            .as_ref()
+            .and_then(|content| extract_markdown_from_tool_call_content(content));
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = PermissionRequest {
             request_id: format!("perm_{}", uuid::Uuid::new_v4().simple()),
             tool: tool_name,
             description,
+            content_markdown,
             risk_level,
             options,
         };

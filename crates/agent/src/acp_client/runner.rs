@@ -13,7 +13,9 @@ use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
 use crate::acp_client::tools::AcpToolHandler;
-use crate::acp_client::types::{AuthMethodSummary, AuthRequiredPayload, PermissionRequest, AgentTurnUsage};
+use crate::acp_client::types::{
+    AgentTurnUsage, AuthMethodSummary, AuthRequiredPayload, PermissionRequest,
+};
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
 use crate::models::AgentLaunchSpec;
 
@@ -517,10 +519,7 @@ async fn run_session_inner(
                         {
                             Ok(_) => {}
                             Err(e) => {
-                                warn!(
-                                    "Failed to apply default model for {}: {}",
-                                    _session_id, e
-                                );
+                                warn!("Failed to apply default model for {}: {}", _session_id, e);
                             }
                         }
                     } else {
@@ -532,14 +531,10 @@ async fn run_session_inner(
                         match conn.set_session_config_option(req).await {
                             Ok(resp) => {
                                 let out = map_config_options(resp.config_options);
-                                let _ =
-                                    event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                                let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
                             }
                             Err(e) => {
-                                warn!(
-                                    "Failed to apply default config for {}: {}",
-                                    _session_id, e
-                                );
+                                warn!("Failed to apply default config for {}: {}", _session_id, e);
                             }
                         }
                     }
@@ -632,19 +627,17 @@ async fn run_session_inner(
                             }
                         } else {
                             match conn
-                                .set_session_config_option(
-                                    acp::SetSessionConfigOptionRequest::new(
-                                        session_id_acp.clone(),
-                                        acp::SessionConfigId::new(config_id),
-                                        acp::SessionConfigValueId::new(value),
-                                    ),
-                                )
+                                .set_session_config_option(acp::SetSessionConfigOptionRequest::new(
+                                    session_id_acp.clone(),
+                                    acp::SessionConfigId::new(config_id),
+                                    acp::SessionConfigValueId::new(value),
+                                ))
                                 .await
                             {
                                 Ok(resp) => {
                                     let out = map_config_options(resp.config_options);
-                                    let _ = event_tx
-                                        .send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                                    let _ =
+                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
                                 }
                                 Err(e) => warn!("Set config option failed: {}", e),
                             }

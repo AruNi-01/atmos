@@ -74,7 +74,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui";
-import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, LoaderCircle, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, Gauge, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
@@ -89,6 +89,7 @@ import type { RegistryAgent } from "@/api/ws-api";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/types/agent-chat";
 import { useWikiExists, useWikiStore } from "@/hooks/use-wiki-store";
 import { useEditorStore } from "@/hooks/use-editor-store";
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 
 // ---------------------------------------------------------------------------
 // Zed-style ACP Entry Model
@@ -185,6 +186,7 @@ interface PendingPermission {
   request_id: string;
   tool: string;
   description: string;
+  content_markdown?: string;
   risk_level: string;
   options: AcpPermissionOption[];
 }
@@ -647,7 +649,7 @@ function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
         <TooltipTrigger asChild>
           <div className="group absolute left-3 bottom-1 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out origin-[left_center] hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help">
             <span className="inline-flex size-4 shrink-0 items-center justify-center">
-              <LoaderCircle className="size-3.5 text-primary/80" />
+              <Gauge className="size-3.5 text-primary/80" />
             </span>
             <span className="max-w-0 flex whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-[150px] group-hover:opacity-100 items-center overflow-hidden">
               {percent.toFixed(0)}%
@@ -1808,6 +1810,7 @@ export function AgentChatPanel() {
           request_id: msg.request_id,
           tool: msg.tool,
           description: msg.description,
+          content_markdown: msg.content_markdown,
           risk_level: msg.risk_level,
           options: msg.options ?? [],
         });
@@ -3138,6 +3141,13 @@ export function AgentChatPanel() {
               <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
                 {pendingPermission.description}
               </p>
+              {pendingPermission.content_markdown ? (
+                <div className="mt-2 max-h-64 overflow-auto rounded-md border border-border bg-muted/20 p-3 text-sm">
+                  <MarkdownRenderer className="prose-sm max-w-none">
+                    {pendingPermission.content_markdown}
+                  </MarkdownRenderer>
+                </div>
+              ) : null}
             </ConfirmationRequest>
             <ConfirmationActions>
               {pendingPermission.options.length > 0 ? (
