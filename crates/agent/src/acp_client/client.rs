@@ -441,11 +441,11 @@ impl AcpClientTrait for AtmosAcpClient {
             }
             acp::SessionUpdate::UsageUpdate(update) => {
                 let usage = AgentUsage {
-                    used: update.used,
-                    size: update.size,
+                    used: Some(update.used),
+                    size: Some(update.size),
                     cost: update.cost.map(|c| crate::acp_client::types::AgentCost {
-                        amount: c.amount,
-                        currency: c.currency,
+                        amount: Some(c.amount),
+                        currency: Some(c.currency),
                     }),
                 };
                 let _ = self.event_tx.send(AcpSessionEvent::Usage(usage));

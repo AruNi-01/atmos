@@ -69,20 +69,20 @@ export type AgentServerMessage =
     };
 
 export interface AgentCost {
-  amount: number;
-  currency: string;
+  amount?: number;
+  currency?: string;
 }
 
 export interface AgentUsage {
-  used: number;
-  size: number;
+  used?: number;
+  size?: number;
   cost?: AgentCost;
 }
 
 export interface AgentTurnUsage {
-  totalTokens: number;
-  inputTokens: number;
-  outputTokens: number;
+  totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
   thoughtTokens?: number;
   cachedReadTokens?: number;
   cachedWriteTokens?: number;
