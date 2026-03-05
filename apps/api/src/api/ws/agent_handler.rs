@@ -74,7 +74,9 @@ enum AgentServerMessage {
         message: String,
         recoverable: bool,
     },
-    TurnEnd,
+    TurnEnd {
+        usage: Option<agent::acp_client::types::AgentTurnUsage>,
+    },
     SessionEnded,
     LoadCompleted,
     /// Real-time ACP connection phase update
@@ -87,6 +89,9 @@ enum AgentServerMessage {
     },
     PlanUpdate {
         plan: agent::acp_client::types::AgentPlan,
+    },
+    UsageUpdate {
+        usage: agent::acp_client::types::AgentUsage,
     },
 }
 
@@ -118,7 +123,7 @@ fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
             message,
             recoverable,
         }),
-        AcpSessionEvent::TurnEnd => Some(AgentServerMessage::TurnEnd),
+        AcpSessionEvent::TurnEnd(usage) => Some(AgentServerMessage::TurnEnd { usage }),
         AcpSessionEvent::SessionEnded => Some(AgentServerMessage::SessionEnded),
         AcpSessionEvent::LoadCompleted => Some(AgentServerMessage::LoadCompleted),
         AcpSessionEvent::ConfigOptionsUpdate(opts) => {
@@ -127,6 +132,7 @@ fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
             })
         }
         AcpSessionEvent::Plan(plan) => Some(AgentServerMessage::PlanUpdate { plan }),
+        AcpSessionEvent::Usage(usage) => Some(AgentServerMessage::UsageUpdate { usage }),
     }
 }
 

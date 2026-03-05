@@ -698,7 +698,7 @@ export function GlobalSearch() {
         className="text-base"
       />
 
-      <CommandList className="bg-muted/50 dark:bg-black/60 rounded-t-[20px] pt-1 shadow-inner/5 max-h-[calc(82vh-150px)]">
+      <CommandList className="flex-1 h-full max-h-none bg-muted/50 dark:bg-black/60 rounded-t-[20px] pt-1 shadow-inner/5">
         {/* App Search Tab */}
         {globalSearchTab === 'app' && (
           <>
@@ -870,7 +870,7 @@ export function GlobalSearch() {
         )}
       </CommandList>
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-transparent border-t border-border/40 text-[11px] text-muted-foreground/80 shrink-0 select-none">
+      <div className="mt-auto flex items-center justify-between px-4 py-2.5 bg-transparent border-t border-border/40 text-[11px] text-muted-foreground/80 shrink-0 select-none">
         <div className="flex items-center gap-5">
           <span className="flex items-center gap-1.5 group">
             <div className="flex items-center gap-0.5">

@@ -133,3 +133,28 @@ pub struct AgentPlanEntry {
 pub struct AgentPlan {
     pub entries: Vec<AgentPlanEntry>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentCost {
+    pub amount: f64,
+    pub currency: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentUsage {
+    pub used: u64,
+    pub size: u64,
+    pub cost: Option<AgentCost>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentTurnUsage {
+    pub total_tokens: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub thought_tokens: Option<u64>,
+    pub cached_read_tokens: Option<u64>,
+    pub cached_write_tokens: Option<u64>,
+}

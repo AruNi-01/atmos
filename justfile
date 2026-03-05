@@ -48,12 +48,13 @@ dev-desktop-backend:
     RUST_LOG=info cargo run --bin api
 
 # Desktop 分开启动: 仅 Tauri 窗口 (需先启动 frontend，backend 会自动启动)
+# --no-watch 防止修改 workspace 内其他 crate 的 Rust 代码时桌面端自动重启
 dev-desktop-tauri:
-    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --config src-tauri/tauri.debug.conf.json
+    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --no-watch --config src-tauri/tauri.debug.conf.json
 
 # Desktop 调试模式：主窗口先显示，sidecar 异常弹窗提示（单命令）
 dev-desktop-debug:
-    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && ATMOS_DESKTOP_DEBUG=true RUST_LOG=info bun run tauri dev --config src-tauri/tauri.debug.conf.json --verbose
+    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && ATMOS_DESKTOP_DEBUG=true RUST_LOG=info bun run tauri dev --no-watch --config src-tauri/tauri.debug.conf.json --verbose
 
 # 启动 API 服务器
 # 直接 cargo run，Ctrl+C 信号能正确传播，避免 shell 先于 api 退出导致输出乱序

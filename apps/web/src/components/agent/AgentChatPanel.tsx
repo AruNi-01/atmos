@@ -74,14 +74,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui";
-import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, LoaderCircle, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatLayout } from "@/hooks/use-agent-chat-layout";
 import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
 import { AgentIcon } from "./AgentIcon";
-import { useAgentSession, type AgentServerMessage, type AcpPermissionOption, type AgentPlan } from "@/hooks/use-agent-session";
+import { useAgentSession, type AgentServerMessage, type AcpPermissionOption, type AgentPlan, type AgentUsage, type AgentTurnUsage, type AgentConfigOption } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
 import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-api";
 import { formatLocalDateTime } from "@atmos/shared";
@@ -176,6 +176,7 @@ interface AssistantEntry {
   role: "assistant";
   blocks: AssistantBlock[];
   isStreaming?: boolean;
+  usage?: AgentTurnUsage;
 }
 
 type ThreadEntry = UserEntry | AssistantEntry;
@@ -225,14 +226,14 @@ function readLastChatMode(): AgentChatMode {
   try {
     const raw = localStorage.getItem(LAST_CHAT_MODE_STORAGE_KEY);
     if (raw === "wiki_ask" || raw === "default") return raw;
-  } catch {}
+  } catch { }
   return DEFAULT_AGENT_CHAT_MODE;
 }
 
 function writeLastChatMode(mode: AgentChatMode): void {
   try {
     localStorage.setItem(LAST_CHAT_MODE_STORAGE_KEY, mode);
-  } catch {}
+  } catch { }
 }
 
 function getSessionContextKey(
@@ -463,6 +464,21 @@ function reduceEntries(
     ];
   }
 
+  if (msg.type === "turn_end") {
+    const entries = [...prev];
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (entries[i].role === "assistant") {
+        entries[i] = {
+          ...(entries[i] as AssistantEntry),
+          isStreaming: false,
+          usage: msg.usage,
+        };
+        break;
+      }
+    }
+    return entries;
+  }
+
   if (msg.type === "plan_update") {
     const newBlock: PlanBlock = {
       type: "plan",
@@ -614,6 +630,116 @@ function MessageCopyButton({
         )}
       </AnimatePresence>
     </button>
+  );
+}
+
+function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
+  const percent = Math.min(100, (usage.used / usage.size) * 100);
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="group absolute left-3 bottom-0 mb-4 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help">
+            <span className="inline-flex size-4 shrink-0 items-center justify-center">
+              <LoaderCircle className="size-3.5 text-primary/80" />
+            </span>
+            <span className="max-w-0 flex whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-[150px] group-hover:opacity-100 items-center overflow-hidden">
+              {percent.toFixed(0)}%
+              {usage.cost && (
+                <span className="ml-1.5 border-l border-border/40 pl-1.5">
+                  ${usage.cost.amount.toFixed(2)}
+                </span>
+              )}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="p-3 w-52 z-[100]">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-semibold">Context Window</span>
+              <span className="font-mono">{percent.toFixed(1)}%</span>
+            </div>
+            <div className="space-y-1">
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center text-[10px] pt-0.5">
+                <span className="font-mono">{usage.used.toLocaleString()}</span>
+                <span className="font-mono">{usage.size.toLocaleString()}</span>
+              </div>
+            </div>
+            {usage.cost && (
+              <div className="flex flex-col pt-2 border-t border-border/50">
+                <span className="text-[10px] uppercase">Estimated Cost</span>
+                <span className="text-xs font-mono font-semibold">
+                  {usage.cost.amount.toFixed(4)} {usage.cost.currency}
+                </span>
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
+  const total = usage.totalTokens >= 1000 ? `${(usage.totalTokens / 1000).toFixed(1)}k` : usage.totalTokens;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/20 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-border hover:bg-muted/40 hover:text-foreground cursor-help">
+            <Coins className="size-3" />
+            <span>{total} tokens</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="center" className="p-3 w-52 z-[100]">
+          <div className="space-y-1.5">
+            <div className="text-xs font-semibold border-b border-border/50 pb-1 mb-1">Turn Token Usage</div>
+            <div className="flex justify-between text-[11px]">
+              <span>Input</span>
+              <span className="font-mono">{usage.inputTokens.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-[11px]">
+              <span>Output</span>
+              <span className="font-mono">{usage.outputTokens.toLocaleString()}</span>
+            </div>
+            {usage.thoughtTokens != null && (
+              <div className="flex justify-between text-[11px]">
+                <span>Thought</span>
+                <span className="font-mono">{usage.thoughtTokens.toLocaleString()}</span>
+              </div>
+            )}
+            {(usage.cachedReadTokens != null || usage.cachedWriteTokens != null) && (
+              <div className="pt-1 mt-1 border-t border-border/50 space-y-1">
+                {usage.cachedReadTokens != null && (
+                  <div className="flex justify-between text-[11px]">
+                    <span>Cache Read</span>
+                    <span className="font-mono">{usage.cachedReadTokens.toLocaleString()}</span>
+                  </div>
+                )}
+                {usage.cachedWriteTokens != null && (
+                  <div className="flex justify-between text-[11px]">
+                    <span>Cache Write</span>
+                    <span className="font-mono">{usage.cachedWriteTokens.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="pt-1 mt-1 border-t border-border/50 flex justify-between text-[11px] font-bold">
+              <span>Total</span>
+              <span className="font-mono">{usage.totalTokens.toLocaleString()}</span>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -1251,6 +1377,116 @@ function PromptInputAttachmentsSection() {
   );
 }
 
+function ConfigOptionDropdown({
+  opt,
+  registryId,
+  activeAgent,
+  setConfigOption,
+  setAgentDefaultConfig,
+  setInstalledAgents,
+  refreshAgents,
+}: {
+  opt: AgentConfigOption;
+  registryId: string;
+  activeAgent: any;
+  setConfigOption: (id: string, val: string) => void;
+  setAgentDefaultConfig: (id: string, val: string) => void;
+  setInstalledAgents: React.Dispatch<React.SetStateAction<any[]>>;
+  refreshAgents: () => void;
+}) {
+  const [search, setSearch] = useState("");
+
+  const filteredOptions = opt.options.filter(o => {
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return (o.name || o.value).toLowerCase().includes(s) || o.value.toLowerCase().includes(s);
+  });
+
+  return (
+    <div className="flex items-center gap-1">
+      <Select
+        value={opt.currentValue || ''}
+        onValueChange={(val) => {
+          setConfigOption(opt.id, val);
+        }}
+        onOpenChange={(open) => {
+          if (!open) setSearch("");
+        }}
+      >
+        <SelectTrigger className="h-8 text-xs min-w-[100px] border-border/50 bg-muted/20">
+          <SelectValue placeholder={opt.name || opt.id} />
+        </SelectTrigger>
+        <SelectContent>
+          {opt.options.length > 15 && (
+            <div className="p-1.5 border-b border-border/50 sticky top-0 bg-popover z-10 mb-1">
+              <input
+                className="w-full bg-transparent text-xs px-2 py-1 outline-none placeholder:text-muted-foreground/50 border border-border/50 rounded focus:border-ring"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
+                autoFocus
+              />
+            </div>
+          )}
+          {filteredOptions.length === 0 ? (
+            <div className="p-2 text-xs text-muted-foreground text-center">No results</div>
+          ) : (
+            filteredOptions.map(o => {
+              const isDefault = activeAgent?.default_config?.[opt.id] === o.value;
+              const item = (
+                <SelectItem
+                  key={o.value}
+                  value={o.value}
+                  className="text-xs"
+                  onPointerDown={(e) => {
+                    if (!e.shiftKey) return;
+                    setTimeout(() => {
+                      setAgentDefaultConfig(opt.id, o.value);
+                      setInstalledAgents((prev) =>
+                        prev.map((a) => {
+                          if (a.id === registryId) {
+                            return {
+                              ...a,
+                              default_config: {
+                                ...(a.default_config || {}),
+                                [opt.id]: o.value,
+                              },
+                            };
+                          }
+                          return a;
+                        })
+                      );
+                      void refreshAgents();
+                    }, 0);
+                  }}
+                >
+                  <span className="truncate">{o.name || o.value}</span>
+                </SelectItem>
+              );
+              return (
+                <TooltipProvider key={o.value} delayDuration={0}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>{item}</TooltipTrigger>
+                    <TooltipContent side="left" align="center" className="z-100 max-w-[250px]">
+                      <div className="space-y-1.5">
+                        {o.description ? <div>{o.description}</div> : null}
+                        <div className="border-t border-border/50 pt-1 text-[10px]">
+                          Shift + Click to set as default {isDefault ? "(current default)" : ""}
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Main Panel
 // ---------------------------------------------------------------------------
@@ -1576,13 +1812,7 @@ export function AgentChatPanel() {
       case "turn_end":
         stoppedRef.current = false;
         setWaitingForResponse(false);
-        setEntries((prev) => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "assistant" && last.isStreaming) {
-            return [...prev.slice(0, -1), { ...last, isStreaming: false }];
-          }
-          return prev;
-        });
+        setEntries((prev) => reduceEntries(prev, msg));
         break;
       case "session_ended":
         stoppedRef.current = false;
@@ -1628,6 +1858,7 @@ export function AgentChatPanel() {
     sessionCwd,
     sessionTitle: activeSessionTitle,
     configOptions,
+    sessionUsage,
     setConfigOption,
     setAgentDefaultConfig,
   } = useAgentSession({
@@ -1765,6 +1996,7 @@ export function AgentChatPanel() {
           if (latestSession) {
             autoResumeTriedRef.current = latestSession.guid;
             setIsResumedSession(true);
+            setRegistryId(latestSession.registry_id);
             const success = await resumeSession(latestSession.guid);
             if (!success) {
               setIsResumingHistory(false);
@@ -2108,6 +2340,7 @@ export function AgentChatPanel() {
               if (autoResumeTriedRef.current === latestSession.guid) return;
               autoResumeTriedRef.current = latestSession.guid;
               setIsResumedSession(true);
+              setRegistryId(latestSession.registry_id);
               autoStartHandledRef.current = true;
               setIsResumingHistory(true);
               const success = await resumeSession(latestSession.guid);
@@ -2170,30 +2403,30 @@ export function AgentChatPanel() {
   // Also fires when pendingAgentChatPrompt changes while already connected (e.g. commit
   // message generation reusing the existing session).
   useEffect(() => {
-   if (isConnected && connectionPhase === "connected") {
-     const data = consumePendingAgentChatPrompt();
-     if (data && data.prompt) {
-       // Try to send – if the WebSocket was already torn down by a concurrent
-       // forced-disconnect effect (race condition), restore the prompt so it
-       // can be picked up once the new session connects.
-       const sent = sendPrompt(data.prompt);
-       if (!sent) {
-         setPendingAgentChatPrompt(data);
-         return;
-       }
-       forcedDisconnectDoneRef.current = false;
-       // Persist sessionTitle from the pending prompt (e.g. CodeReview / GitCommit titles)
-       if (data.sessionTitle && sessionId) {
-         setSessionTitle(data.sessionTitle);
-         void agentRestApi.updateSessionTitle(sessionId, data.sessionTitle).catch(() => {});
-       }
-       setEntries((prev) => [
-         ...prev,
-         { role: "user" as const, content: data.prompt },
-       ]);
-       setWaitingForResponse(true);
-     }
-   }
+    if (isConnected && connectionPhase === "connected") {
+      const data = consumePendingAgentChatPrompt();
+      if (data && data.prompt) {
+        // Try to send – if the WebSocket was already torn down by a concurrent
+        // forced-disconnect effect (race condition), restore the prompt so it
+        // can be picked up once the new session connects.
+        const sent = sendPrompt(data.prompt);
+        if (!sent) {
+          setPendingAgentChatPrompt(data);
+          return;
+        }
+        forcedDisconnectDoneRef.current = false;
+        // Persist sessionTitle from the pending prompt (e.g. CodeReview / GitCommit titles)
+        if (data.sessionTitle && sessionId) {
+          setSessionTitle(data.sessionTitle);
+          void agentRestApi.updateSessionTitle(sessionId, data.sessionTitle).catch(() => { });
+        }
+        setEntries((prev) => [
+          ...prev,
+          { role: "user" as const, content: data.prompt },
+        ]);
+        setWaitingForResponse(true);
+      }
+    }
   }, [isConnected, connectionPhase, sendPrompt, consumePendingAgentChatPrompt, setPendingAgentChatPrompt, pendingAgentChatPrompt, sessionId]);
 
   useEffect(() => {
@@ -2219,7 +2452,7 @@ export function AgentChatPanel() {
     if (!trimmed || trimmed === sessionTitle) return;
     setSessionTitle(trimmed);
     if (sessionId) {
-      void agentRestApi.updateSessionTitle(sessionId, trimmed).catch(() => {});
+      void agentRestApi.updateSessionTitle(sessionId, trimmed).catch(() => { });
     }
   }, [editingTitleValue, sessionTitle, sessionId]);
 
@@ -2586,11 +2819,10 @@ export function AgentChatPanel() {
                     type="button"
                     onClick={handleToggleChatMode}
                     disabled={chatMode === "default" && !wikiAskAvailability.enabled}
-                    className={`group/mode relative rounded p-1.5 transition-colors ${
-                      chatMode === "wiki_ask"
-                        ? "text-primary hover:bg-primary/10"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    } disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent`}
+                    className={`group/mode relative rounded p-1.5 transition-colors ${chatMode === "wiki_ask"
+                      ? "text-primary hover:bg-primary/10"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      } disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent`}
                     aria-label="Toggle chat mode"
                   >
                     <span className="block transition-all duration-150 group-hover/mode:scale-0 group-hover/mode:opacity-0">
@@ -2802,17 +3034,17 @@ export function AgentChatPanel() {
                     />
                     <Message from="user">
                       <MessageContent>
-                      {entry.files && entry.files.length > 0 && (
-                        <Attachments variant="inline" className="mb-2">
-                          {entry.files.map((f) => (
-                            <Attachment key={f.id} data={f}>
-                              <AttachmentPreview />
-                              <AttachmentRemove />
-                            </Attachment>
-                          ))}
-                        </Attachments>
-                      )}
-                      <div className="whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'normal' }}>{entry.content}</div>
+                        {entry.files && entry.files.length > 0 && (
+                          <Attachments variant="inline" className="mb-2">
+                            {entry.files.map((f) => (
+                              <Attachment key={f.id} data={f}>
+                                <AttachmentPreview />
+                                <AttachmentRemove />
+                              </Attachment>
+                            ))}
+                          </Attachments>
+                        )}
+                        <div className="whitespace-pre-wrap" style={{ overflowWrap: 'break-word', wordBreak: 'normal' }}>{entry.content}</div>
                       </MessageContent>
                     </Message>
                   </div>
@@ -2823,15 +3055,18 @@ export function AgentChatPanel() {
                       {!entries.slice(i + 1).some((nextEntry) => nextEntry.role === "assistant") &&
                         !entry.isStreaming &&
                         !agentActivity.busy && (
-                        <div className="mt-2 flex">
-                          <MessageCopyButton
-                            text={getAllAssistantMessagesCopyText(entries)}
-                            ariaLabel="Copy all assistant messages"
-                            title="Copy all assistant messages"
-                            className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                          />
-                        </div>
-                      )}
+                          <div className="mt-2 flex items-center gap-2">
+                            <MessageCopyButton
+                              text={getAllAssistantMessagesCopyText(entries)}
+                              ariaLabel="Copy all assistant messages"
+                              title="Copy all assistant messages"
+                              className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                            />
+                            {entry.usage && (
+                              <MessageTurnUsageBadge usage={entry.usage} />
+                            )}
+                          </div>
+                        )}
                     </MessageContent>
                   </Message>
                 )}
@@ -2840,7 +3075,7 @@ export function AgentChatPanel() {
             {agentActivity.busy && (
               <AgentActivityIndicator activity={agentActivity} />
             )}
-            <div ref={bottomRef} />
+            <div ref={bottomRef} className="h-10" />
           </ConversationContent>
           <ConversationScrollButton className="group absolute right-3 bottom-1 left-auto z-10 inline-flex h-8 w-8 translate-x-0 items-center justify-center gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-0 text-foreground shadow-md transition-[width,padding,gap] duration-300 ease-out [transform-origin:right_center] hover:w-24 hover:px-2 hover:gap-1">
             <span className="inline-flex size-4 shrink-0 items-center justify-center">
@@ -2850,6 +3085,9 @@ export function AgentChatPanel() {
               Bottom
             </span>
           </ConversationScrollButton>
+          {sessionUsage && (
+            <SessionUsageBadge usage={sessionUsage} />
+          )}
           {userEntryIndices.length >= 2 && (
             <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-0.5 rounded-sm border border-border/50 bg-background/80 py-1 shadow-sm backdrop-blur-sm dark:bg-background/60">
               <button
@@ -2959,70 +3197,16 @@ export function AgentChatPanel() {
                   {configOptions
                     .filter(opt => opt.type === 'select' && opt.options.length > 0)
                     .map(opt => (
-                      <div key={opt.id} className="flex items-center gap-1">
-                        <Select
-                          value={opt.currentValue || ''}
-                          onValueChange={(val) => {
-                            setConfigOption(opt.id, val);
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs min-w-[100px] border-border/50 bg-muted/20">
-                            <SelectValue placeholder={opt.name || opt.id} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {opt.options.map(o => {
-                              const isDefault = activeAgent?.default_config?.[opt.id] === o.value;
-                              const item = (
-                                <SelectItem
-                                  key={o.value}
-                                  value={o.value}
-                                  className="text-xs"
-                                  onPointerDown={(e) => {
-                                    if (!e.shiftKey) return;
-                                    setAgentDefaultConfig(opt.id, o.value);
-                                    setInstalledAgents((prev) =>
-                                      prev.map((a) => {
-                                        if (a.id === registryId) {
-                                          const newDefaults = {
-                                            ...(a.default_config || {}),
-                                            [opt.id]: o.value,
-                                          };
-                                          return { ...a, default_config: newDefaults };
-                                        }
-                                        return a;
-                                      })
-                                    );
-                                    void refreshAgents();
-                                  }}
-                                >
-                                  <span className="truncate">{o.name || o.value}</span>
-                                </SelectItem>
-                              );
-                              return (
-                                <TooltipProvider key={o.value} delayDuration={0}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      {item}
-                                    </TooltipTrigger>
-                                    <TooltipContent
-                                      side="left"
-                                      align="center"
-                                      className="z-100 max-w-[250px]"
-                                    >
-                                      <div className="space-y-1.5">
-                                        {o.description ? <div>{o.description}</div> : null}
-                                        <div className="border-t border-border/50 pt-1 text-[10px]">
-                                          Shift + Click to set as default {isDefault ? "(current default)" : ""}
-                                        </div>
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <ConfigOptionDropdown
+                        key={opt.id}
+                        opt={opt}
+                        registryId={registryId}
+                        activeAgent={activeAgent}
+                        setConfigOption={setConfigOption}
+                        setAgentDefaultConfig={setAgentDefaultConfig}
+                        setInstalledAgents={setInstalledAgents}
+                        refreshAgents={refreshAgents}
+                      />
                     ))}
                 </div>
               )}
