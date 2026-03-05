@@ -26,6 +26,8 @@ pub struct PermissionRequest {
     pub request_id: String,
     pub tool: String,
     pub description: String,
+    /// Optional markdown preview content from tool call payload.
+    pub content_markdown: Option<String>,
     pub risk_level: RiskLevel,
     /// Permission options presented by the agent (may be empty for legacy agents)
     pub options: Vec<PermissionOption>,

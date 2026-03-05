@@ -47,6 +47,7 @@ export type AgentServerMessage =
       request_id: string;
       tool: string;
       description: string;
+      content_markdown?: string;
       risk_level: string;
       options: AcpPermissionOption[];
     }
@@ -112,6 +113,28 @@ export interface AgentConfigOption {
   type: "select" | string;
   currentValue?: string;
   options: AgentConfigOptionValue[];
+}
+
+function mergeConfigOptions(
+  prev: AgentConfigOption[],
+  incoming: AgentConfigOption[],
+): AgentConfigOption[] {
+  if (prev.length === 0) return incoming;
+
+  const merged = [...prev];
+  for (const inc of incoming) {
+    const idx = merged.findIndex((o) => o.id === inc.id);
+    if (idx >= 0) {
+      if (inc.options.length > 0) {
+        merged[idx] = inc;
+      } else {
+        merged[idx] = { ...merged[idx], currentValue: inc.currentValue };
+      }
+    } else if (inc.options.length > 0) {
+      merged.push(inc);
+    }
+  }
+  return merged;
 }
 
 export interface UseAgentSessionOptions {
@@ -473,30 +496,9 @@ export function useAgentSession({
             }
             if (msg.type === "config_options_update") {
               if (Array.isArray(msg.configOptions)) {
-                setConfigOptions(prev => {
-                  // If incoming options have full option lists, replace entirely
-                  const incoming = msg.configOptions as AgentConfigOption[];
-                  if (prev.length === 0) return incoming;
-                  // Merge: for each incoming option, if it has a non-empty options
-                  // list, use it fully; otherwise just update currentValue in the
-                  // existing option (e.g. from a legacy CurrentModeUpdate).
-                  const merged = [...prev];
-                  for (const inc of incoming) {
-                    const idx = merged.findIndex(o => o.id === inc.id);
-                    if (idx >= 0) {
-                      if (inc.options.length > 0) {
-                        merged[idx] = inc;
-                      } else {
-                        merged[idx] = { ...merged[idx], currentValue: inc.currentValue };
-                      }
-                    } else {
-                      if (inc.options.length > 0) {
-                        merged.push(inc);
-                      }
-                    }
-                  }
-                  return merged;
-                });
+                setConfigOptions((prev) =>
+                  mergeConfigOptions(prev, msg.configOptions as AgentConfigOption[])
+                );
               }
               return;
             }
@@ -614,7 +616,9 @@ export function useAgentSession({
             }
             if (msg.type === "config_options_update") {
               if (Array.isArray(msg.configOptions)) {
-                setConfigOptions(msg.configOptions);
+                setConfigOptions((prev) =>
+                  mergeConfigOptions(prev, msg.configOptions as AgentConfigOption[])
+                );
               }
               return;
             }
