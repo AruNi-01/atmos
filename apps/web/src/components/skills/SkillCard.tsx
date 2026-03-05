@@ -35,7 +35,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
   };
 
   return (
-    <div 
+    <div
       onClick={handleClick}
       className="h-[140px] rounded-lg border border-border bg-background p-4 hover:bg-accent/50 hover:border-accent transition-colors cursor-pointer flex flex-col"
     >
@@ -47,14 +47,14 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-medium text-sm truncate flex-1">{skill.title || skill.name}</h3>
-            
+
             <div className="flex items-center gap-1.5 shrink-0">
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className={cn(
                       "text-[9px] px-1 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider",
-                      skill.scope === 'global' 
+                      skill.scope === 'global'
                         ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
                         : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                     )}>
@@ -93,8 +93,8 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
         {skill.agents.map((agent) => {
           const config = getAgentConfig(agent);
           const label = (
-            <span 
-              key={agent} 
+            <span
+              key={agent}
               className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0", config.color)}
             >
               {config.name}
