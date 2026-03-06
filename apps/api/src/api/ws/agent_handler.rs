@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 
+use agent::acp_client::logging::append_acp_log;
 use crate::app_state::AppState;
 
 /// Client -> Server message
@@ -65,6 +66,7 @@ enum AgentServerMessage {
         description: String,
         status: agent::ToolCallStatus,
         raw_input: Option<serde_json::Value>,
+        content: Vec<agent::acp_client::types::AgentToolCallContentItem>,
         raw_output: Option<serde_json::Value>,
         detail: Option<serde_json::Value>,
     },
@@ -110,6 +112,7 @@ fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
             description: t.description,
             status: t.status,
             raw_input: t.raw_input,
+            content: t.content,
             raw_output: t.raw_output,
             detail: t.detail,
         }),
@@ -262,6 +265,7 @@ async fn run_bridge(
         HashMap::new();
 
     let ws_tx_clone = ws_tx.clone();
+    let session_id_for_bridge = session_id.clone();
     let bridge_task = tokio::spawn(async move {
         loop {
             tokio::select! {
@@ -287,6 +291,14 @@ async fn run_bridge(
                         }
                         if let Some(msg) = event_to_message(ev) {
                             if let Ok(json) = serde_json::to_string(&msg) {
+                                append_acp_log(
+                                    &session_id_for_bridge,
+                                    "agent_to_client_ws",
+                                    "ws_message",
+                                    &serde_json::json!({
+                                        "raw_text": json,
+                                    }),
+                                );
                                 let _ = ws_tx_clone.send(json);
                             }
                         }
@@ -307,6 +319,14 @@ async fn run_bridge(
                     warn!("Invalid Agent client message: {}", text);
                     continue;
                 };
+                append_acp_log(
+                    &session_id,
+                    "client_to_agent_ws",
+                    "ws_message",
+                    &serde_json::json!({
+                        "raw_text": text.to_string(),
+                    }),
+                );
                 match msg {
                     AgentClientMessage::Prompt { message } => {
                         state

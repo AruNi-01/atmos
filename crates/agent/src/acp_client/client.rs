@@ -99,6 +99,37 @@ fn extract_markdown_from_tool_call_content(content: &[acp::ToolCallContent]) -> 
     }
 }
 
+fn map_tool_call_content(
+    content: &[acp::ToolCallContent],
+) -> Vec<crate::acp_client::types::AgentToolCallContentItem> {
+    content
+        .iter()
+        .filter_map(|item| match item {
+            acp::ToolCallContent::Content(c) => match &c.content {
+                acp::ContentBlock::Text(text) if !text.text.trim().is_empty() => Some(
+                    crate::acp_client::types::AgentToolCallContentItem::Text {
+                        text: text.text.clone(),
+                    },
+                ),
+                _ => None,
+            },
+            acp::ToolCallContent::Diff(diff) => {
+                Some(crate::acp_client::types::AgentToolCallContentItem::Diff {
+                    path: Some(diff.path.display().to_string()),
+                    old_content: diff.old_text.clone(),
+                    new_content: diff.new_text.clone(),
+                })
+            }
+            acp::ToolCallContent::Terminal(terminal) => Some(
+                crate::acp_client::types::AgentToolCallContentItem::Terminal {
+                    terminal_id: terminal.terminal_id.to_string(),
+                },
+            ),
+            _ => None,
+        })
+        .collect()
+}
+
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
@@ -108,6 +139,7 @@ use crate::acp_client::types::{
     ToolCallStatus, ToolCallUpdate,
 };
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
+use crate::acp_client::logging::append_acp_log;
 
 /// Events sent from ACP session to the session manager (for WebSocket forwarding)
 #[derive(Debug)]
@@ -308,6 +340,12 @@ impl AcpClientTrait for AtmosAcpClient {
     }
 
     async fn session_notification(&self, args: acp::SessionNotification) -> acp::Result<()> {
+        append_acp_log(
+            &args.session_id.to_string(),
+            "agent_to_client_acp",
+            "session_notification",
+            &args,
+        );
         match args.update {
             acp::SessionUpdate::UserMessageChunk(acp::ContentChunk { content, .. }) => {
                 let text = match content {
@@ -383,6 +421,7 @@ impl AcpClientTrait for AtmosAcpClient {
                         description,
                         status,
                         raw_input: tool_call.raw_input.clone(),
+                        content: map_tool_call_content(&tool_call.content),
                         raw_output: tool_call.raw_output.clone(),
                         detail: None,
                     }));
@@ -414,6 +453,12 @@ impl AcpClientTrait for AtmosAcpClient {
                         description,
                         status,
                         raw_input: update.fields.raw_input.clone(),
+                        content: update
+                            .fields
+                            .content
+                            .as_ref()
+                            .map(|content| map_tool_call_content(content))
+                            .unwrap_or_default(),
                         raw_output: update.fields.raw_output.clone(),
                         detail: None,
                     }));
