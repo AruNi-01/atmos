@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -9,7 +10,6 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { WebSocketProvider } from "@/components/providers/websocket-provider";
 import { TmuxCheckProvider } from "@/components/providers/tmux-check-provider";
 import { ToastProvider, AnchoredToastProvider, TooltipProvider } from "@workspace/ui";
-import { Agentation } from "agentation";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -52,6 +52,15 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   return (
     <html lang={locale} suppressHydrationWarning>
+      <head>
+        {process.env.NODE_ENV === "development" && (
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        )}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -70,11 +79,6 @@ export default async function LocaleLayout({ children, params }: Props) {
                       <TooltipProvider>
                         {children}
                       </TooltipProvider>
-                      {process.env.NODE_ENV === "development" && (
-                        <div className="fixed top-0 left-0 right-0 z-[9999]">
-                          <Agentation />
-                        </div>
-                      )}
                     </AnchoredToastProvider>
                   </ToastProvider>
                 </TmuxCheckProvider>

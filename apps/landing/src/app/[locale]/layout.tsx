@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
 import { GeistPixelSquare } from "geist/font/pixel";
+import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@atmos/i18n/routing";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TooltipProvider } from "@workspace/ui/components/ui/tooltip";
-import { Agentation } from "agentation";
 import Header from "@/components/layout/header";
 import "../globals.css";
 
@@ -48,6 +48,15 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   return (
     <html lang={locale} suppressHydrationWarning>
+      <head>
+        {process.env.NODE_ENV === "development" && (
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        )}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${geistSans.className} antialiased`}
       >
@@ -63,7 +72,6 @@ export default async function LocaleLayout({ children, params }: Props) {
               {children}
             </TooltipProvider>
           </NextIntlClientProvider>
-          {process.env.NODE_ENV === "development" && <Agentation />}
         </ThemeProvider>
       </body>
     </html>
