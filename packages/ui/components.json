@@ -21,6 +21,7 @@
   "registries": {
     "@coss": "https://coss.com/ui/r/{name}.json",
     "@basecn": "https://basecn.dev/r/{name}.json",
-    "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json"
+    "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json",
+    "@magicui": "https://magicui.design/r/{name}"
   }
 }
