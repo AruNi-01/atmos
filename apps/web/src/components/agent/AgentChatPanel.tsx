@@ -1516,6 +1516,8 @@ export function AgentChatPanel() {
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousModeRef = useRef<AgentChatMode>(chatMode);
   const connectedContextKeyRef = useRef<string | null>(null);
+  const pendingStreamMessagesRef = useRef<AgentServerMessage[]>([]);
+  const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
   // Draggable & Resizable layout
@@ -1753,6 +1755,32 @@ export function AgentChatPanel() {
     }
   }, [isAgentChatOpen, chatMode]);
 
+  const flushPendingStreamMessages = useCallback(() => {
+    if (streamFlushTimerRef.current) {
+      clearTimeout(streamFlushTimerRef.current);
+      streamFlushTimerRef.current = null;
+    }
+    if (pendingStreamMessagesRef.current.length === 0) return;
+    const queued = pendingStreamMessagesRef.current;
+    pendingStreamMessagesRef.current = [];
+    setEntries((prev) => queued.reduce((acc, item) => applyServerMessageToEntries(acc, item), prev));
+  }, []);
+
+  const scheduleStreamFlush = useCallback(() => {
+    if (streamFlushTimerRef.current) return;
+    streamFlushTimerRef.current = setTimeout(() => {
+      flushPendingStreamMessages();
+    }, 48);
+  }, [flushPendingStreamMessages]);
+
+  useEffect(() => {
+    return () => {
+      if (streamFlushTimerRef.current) {
+        clearTimeout(streamFlushTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleMessage = useCallback((msg: AgentServerMessage) => {
     switch (msg.type) {
       case "stream":
@@ -1761,17 +1789,25 @@ export function AgentChatPanel() {
           stoppedRef.current = false;
           setWaitingForResponse(false);
         }
-        setEntries((prev) => applyServerMessageToEntries(prev, msg));
+        pendingStreamMessagesRef.current.push(msg);
+        if (msg.done) {
+          flushPendingStreamMessages();
+        } else {
+          scheduleStreamFlush();
+        }
         break;
       case "tool_call":
         if (stoppedRef.current) return; // user stopped, discard
+        flushPendingStreamMessages();
         setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "plan_update":
         if (stoppedRef.current) return; // user stopped, discard
+        flushPendingStreamMessages();
         setCurrentPlan(msg.plan);
         break;
       case "permission_request":
+        flushPendingStreamMessages();
         setPendingPermission({
           request_id: msg.request_id,
           tool: msg.tool,
@@ -1782,16 +1818,19 @@ export function AgentChatPanel() {
         });
         break;
       case "error":
+        flushPendingStreamMessages();
         stoppedRef.current = false;
         setWaitingForResponse(false);
         setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "turn_end":
+        flushPendingStreamMessages();
         stoppedRef.current = false;
         setWaitingForResponse(false);
         setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "usage_update":
+        flushPendingStreamMessages();
         setEntries((prev) => {
           let changed = false;
           const next = prev.map((entry) => {
@@ -1811,10 +1850,12 @@ export function AgentChatPanel() {
         });
         break;
       case "session_ended":
+        flushPendingStreamMessages();
         stoppedRef.current = false;
         setWaitingForResponse(false);
         break;
       case "load_completed":
+        flushPendingStreamMessages();
         stoppedRef.current = false;
         setWaitingForResponse(false);
         setIsResumingHistory(false);
@@ -1832,7 +1873,7 @@ export function AgentChatPanel() {
         });
         break;
     }
-  }, []);
+  }, [flushPendingStreamMessages, scheduleStreamFlush]);
 
   const {
     sessionId,
