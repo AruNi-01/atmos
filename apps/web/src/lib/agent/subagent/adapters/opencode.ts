@@ -70,7 +70,7 @@ export const opencodeSubAgentAdapter: SubAgentAdapter = {
   canHandle(block, vendor) {
     return vendor === "opencode" && looksLikeSubAgent(block);
   },
-  normalize(block, vendor): AtmosSubAgentMessage | null {
+  normalize(block, vendor, _childToolCalls): AtmosSubAgentMessage | null {
     if (!looksLikeSubAgent(block)) return null;
     const input = rawInputObject(block);
     const description = String(input.description ?? block.description ?? "");
@@ -88,6 +88,7 @@ export const opencodeSubAgentAdapter: SubAgentAdapter = {
       contentBlocks: convertContentBlocks(filterOpenCodeContent(block)),
       resultMarkdown: parsed.resultMarkdown,
       labels: parsed.labels,
+      childToolCalls: [],
     };
   },
 };

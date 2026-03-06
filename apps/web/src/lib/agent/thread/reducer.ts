@@ -141,6 +141,7 @@ export function applyServerMessageToEntries(
     const newBlock: ToolCallBlock = {
       type: "tool_call",
       tool_call_id: id,
+      parent_tool_call_id: msg.parent_tool_call_id,
       tool: msg.tool,
       description: msg.description,
       status: msg.status,
@@ -199,6 +200,7 @@ export function applyServerMessageToEntries(
         const prevBlock = blocks[toolIdx] as ToolCallBlock;
         blocks[toolIdx] = {
           ...prevBlock,
+          parent_tool_call_id: msg.parent_tool_call_id ?? prevBlock.parent_tool_call_id,
           tool: isGenericToolName(msg.tool) ? prevBlock.tool : msg.tool,
           description: msg.description || prevBlock.description,
           status: msg.status,

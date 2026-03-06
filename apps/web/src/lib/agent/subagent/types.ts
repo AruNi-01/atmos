@@ -3,6 +3,7 @@ import type { AgentVendor } from "@/lib/agent/agent-vendor";
 
 export interface SubAgentToolCallBlock {
   tool_call_id: string;
+  parent_tool_call_id?: string;
   tool: string;
   description: string;
   status: string;
@@ -43,9 +44,14 @@ export interface AtmosSubAgentMessage {
   contentBlocks: AtmosSubAgentContentBlock[];
   resultMarkdown?: string | null;
   labels: AtmosSubAgentLabel[];
+  childToolCalls: SubAgentToolCallBlock[];
 }
 
 export interface SubAgentAdapter {
   canHandle: (block: SubAgentToolCallBlock, vendor: AgentVendor) => boolean;
-  normalize: (block: SubAgentToolCallBlock, vendor: AgentVendor) => AtmosSubAgentMessage | null;
+  normalize: (
+    block: SubAgentToolCallBlock,
+    vendor: AgentVendor,
+    childToolCalls: SubAgentToolCallBlock[],
+  ) => AtmosSubAgentMessage | null;
 }

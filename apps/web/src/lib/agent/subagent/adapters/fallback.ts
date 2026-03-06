@@ -26,7 +26,7 @@ export const fallbackSubAgentAdapter: SubAgentAdapter = {
   canHandle(block) {
     return looksLikeSubAgent(block);
   },
-  normalize(block, vendor): AtmosSubAgentMessage | null {
+  normalize(block, vendor, _childToolCalls): AtmosSubAgentMessage | null {
     if (!looksLikeSubAgent(block)) return null;
     const input = rawInputObject(block);
     const description = String(input.description ?? block.description ?? "");
@@ -42,6 +42,7 @@ export const fallbackSubAgentAdapter: SubAgentAdapter = {
       contentBlocks: convertContentBlocks(block.content),
       resultMarkdown: fallbackResult(block.raw_output),
       labels: [],
+      childToolCalls: [],
     };
   },
 };

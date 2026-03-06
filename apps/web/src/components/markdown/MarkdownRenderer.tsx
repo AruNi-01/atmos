@@ -117,7 +117,7 @@ function ShikiCode({
   }
 
   return (
-    <pre className="py-3">
+    <pre className={cn("py-1", !language && "px-1")}>
       <code className="text-[13px] leading-relaxed">{code}</code>
     </pre>
   );
@@ -277,7 +277,7 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   );
 }
 
-function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
+export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
   const codeText = String(children).replace(/\n$/, '');
@@ -323,7 +323,7 @@ function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPro
         <CodeBlockGroup>
           <CodeBlockIcon language={LANG_TO_EXT[normalizeLang(language)] || language || 'txt'} />
           <span className="text-xs uppercase tracking-wider">
-            {language || 'code'}
+            {language || 'Code Block'}
           </span>
         </CodeBlockGroup>
         <CodeBlockGroup>
@@ -336,7 +336,11 @@ function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPro
           <CopyButton content={codeText} />
         </CodeBlockGroup>
       </CodeBlockHeader>
-      <CodeBlockContent ref={contentRef} expanded={expanded}>
+      <CodeBlockContent
+        ref={contentRef}
+        expanded={expanded}
+        className={!language ? "px-1" : undefined}
+      >
         <ShikiCode code={codeText} language={language} />
       </CodeBlockContent>
     </CodeBlock>

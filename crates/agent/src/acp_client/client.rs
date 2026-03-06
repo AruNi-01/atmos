@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use agent_client_protocol::{self as acp, Client as AcpClientTrait};
+use serde::Serialize;
 
 fn format_tool_kind(kind: Option<&acp::ToolKind>) -> String {
     match kind {
@@ -128,6 +129,16 @@ fn map_tool_call_content(
             _ => None,
         })
         .collect()
+}
+
+fn extract_parent_tool_use_id<T: Serialize>(value: &T) -> Option<String> {
+    let serialized = serde_json::to_value(value).ok()?;
+    serialized
+        .get("_meta")
+        .and_then(|value| value.get("claudeCode"))
+        .and_then(|value| value.get("parentToolUseId"))
+        .and_then(|value| value.as_str())
+        .map(ToOwned::to_owned)
 }
 
 use tokio::sync::{mpsc, oneshot};
@@ -400,6 +411,7 @@ impl AcpClientTrait for AtmosAcpClient {
             }
             acp::SessionUpdate::ToolCall(tool_call) => {
                 let tool_call_id = tool_call.tool_call_id.to_string();
+                let parent_tool_call_id = extract_parent_tool_use_id(&tool_call);
                 let status = match tool_call.status {
                     acp::ToolCallStatus::InProgress => ToolCallStatus::Running,
                     acp::ToolCallStatus::Completed => ToolCallStatus::Completed,
@@ -417,6 +429,7 @@ impl AcpClientTrait for AtmosAcpClient {
                     .event_tx
                     .send(AcpSessionEvent::ToolCall(ToolCallUpdate {
                         tool_call_id,
+                        parent_tool_call_id,
                         tool,
                         description,
                         status,
@@ -428,6 +441,7 @@ impl AcpClientTrait for AtmosAcpClient {
             }
             acp::SessionUpdate::ToolCallUpdate(update) => {
                 let tool_call_id = update.tool_call_id.to_string();
+                let parent_tool_call_id = extract_parent_tool_use_id(&update);
                 let status = match update
                     .fields
                     .status
@@ -449,6 +463,7 @@ impl AcpClientTrait for AtmosAcpClient {
                     .event_tx
                     .send(AcpSessionEvent::ToolCall(ToolCallUpdate {
                         tool_call_id,
+                        parent_tool_call_id,
                         tool,
                         description,
                         status,

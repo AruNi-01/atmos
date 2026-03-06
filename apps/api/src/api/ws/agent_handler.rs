@@ -62,6 +62,8 @@ enum AgentServerMessage {
     },
     ToolCall {
         tool_call_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        parent_tool_call_id: Option<String>,
         tool: String,
         description: String,
         status: agent::ToolCallStatus,
@@ -108,6 +110,7 @@ fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
         }),
         AcpSessionEvent::ToolCall(t) => Some(AgentServerMessage::ToolCall {
             tool_call_id: t.tool_call_id,
+            parent_tool_call_id: t.parent_tool_call_id,
             tool: t.tool,
             description: t.description,
             status: t.status,

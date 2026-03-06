@@ -96,6 +96,8 @@ pub enum AgentToolCallContentItem {
 pub struct ToolCallUpdate {
     /// Unique ID to match running -> completed/failed updates
     pub tool_call_id: String,
+    /// Parent tool call ID when this tool call belongs to a nested/subagent invocation.
+    pub parent_tool_call_id: Option<String>,
     pub tool: String,
     pub description: String,
     pub status: ToolCallStatus,
