@@ -8,6 +8,7 @@ import type {
 export interface ToolCallBlock {
   type: "tool_call";
   tool_call_id: string;
+  parent_tool_call_id?: string;
   tool: string;
   description: string;
   status: string;

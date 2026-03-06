@@ -90,7 +90,8 @@ import type { RegistryAgent } from "@/api/ws-api";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/types/agent-chat";
 import { useWikiExists, useWikiStore } from "@/hooks/use-wiki-store";
 import { useEditorStore } from "@/hooks/use-editor-store";
-import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import { MarkdownCodeBlock, MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import { resolveAgentVendor } from "@/lib/agent/agent-vendor";
 import { normalizeSubAgent, type AtmosSubAgentMessage } from "@/lib/agent/subagent";
 import {
   applyServerMessageToEntries,
@@ -701,6 +702,8 @@ function SubAgentLabelRow({
 function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
   const [isOpen, setIsOpen] = useState(true);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [isToolUsesOpen, setIsToolUsesOpen] = useState(false);
+  const toolUsesLabel = `${message.childToolCalls.length} tool use${message.childToolCalls.length === 1 ? "" : "s"}`;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full overflow-hidden rounded-xl border border-border/70 bg-muted/10 shadow-sm">
@@ -739,6 +742,26 @@ function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
                       {message.prompt}
                     </MarkdownRenderer>
                   </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {message.childToolCalls.length > 0 ? (
+            <div className="overflow-hidden rounded-lg border border-border/60 bg-background/70">
+              <button
+                type="button"
+                onClick={() => setIsToolUsesOpen((value) => !value)}
+                className="flex w-full items-center gap-3 px-3 py-2 text-left"
+              >
+                <span className="flex-1 text-sm font-medium text-muted-foreground">{toolUsesLabel}</span>
+                <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isToolUsesOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isToolUsesOpen ? (
+                <div className="space-y-3 border-t border-border/50 p-3">
+                  {message.childToolCalls.map((toolCall) => (
+                    <ToolOrSkillBlock key={toolCall.tool_call_id} type="tool_call" {...toolCall} />
+                  ))}
                 </div>
               ) : null}
             </div>
@@ -1112,7 +1135,7 @@ function useReviewLinkComponents() {
 
     const ReviewCode = (props: React.ComponentPropsWithoutRef<"code"> & { node?: unknown }) => {
       const { children, node: _, ...rest } = props;
-      const text = typeof children === "string" ? children : "";
+      const text = typeof children === "string" ? children : String(children ?? "");
       if (REVIEW_PATH_RE.test(text)) {
         REVIEW_PATH_RE.lastIndex = 0;
         const fileName = text.split("/").pop() || text;
@@ -1128,7 +1151,8 @@ function useReviewLinkComponents() {
           </button>
         );
       }
-      return <code {...rest}>{children}</code>;
+      REVIEW_PATH_RE.lastIndex = 0;
+      return <MarkdownCodeBlock {...rest}>{children}</MarkdownCodeBlock>;
     };
 
     return { code: ReviewCode };
@@ -1143,6 +1167,7 @@ function AssistantTurnView({
   registryId: string;
 }) {
   const reviewComponents = useReviewLinkComponents();
+  const vendor = resolveAgentVendor(registryId);
 
   return (
     <>
@@ -1207,8 +1232,14 @@ function AssistantTurnView({
 
         if (block.type === "tool_call" && isPlanUpdateToolCall(block)) return null;
         if (block.type === "tool_call" && isSwitchModePlanToolCall(block)) return null;
+        if (block.type === "tool_call" && vendor === "claude" && block.parent_tool_call_id) return null;
         if (block.type === "tool_call") {
-          const subAgent = normalizeSubAgent(block, registryId);
+          const childToolCalls = vendor === "claude"
+            ? entry.blocks.filter((candidate): candidate is ToolCallBlock => (
+              candidate.type === "tool_call" && candidate.parent_tool_call_id === block.tool_call_id
+            ))
+            : [];
+          const subAgent = normalizeSubAgent(block, registryId, childToolCalls);
           if (subAgent) {
             return <SubAgentBlockView key={block.tool_call_id || i} message={subAgent} />;
           }

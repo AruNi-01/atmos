@@ -4,12 +4,27 @@ import type {
   SubAgentToolCallBlock,
 } from "./types";
 
+function decodeEscapedMarkdown(markdown: string): string {
+  const hasEscapedNewlines = markdown.includes("\\n");
+  const hasRealNewlines = markdown.includes("\n");
+  const looksEscapedCodeFence = markdown.includes("```\\n") || markdown.includes("\\n```");
+
+  if (!hasEscapedNewlines) return markdown;
+  if (!looksEscapedCodeFence && hasRealNewlines) return markdown;
+
+  return markdown
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, "\"");
+}
+
 export function sanitizeSubAgentMarkdown(markdown: string | null | undefined): string | null {
   if (!markdown) return null;
-  const sanitized = markdown
+  const sanitized = decodeEscapedMarkdown(
+    markdown
     .replace(/<\/?usage>/gi, "")
     .replace(/<\/?task_result>/gi, "")
-    .trim();
+  ).trim();
   return sanitized || null;
 }
 

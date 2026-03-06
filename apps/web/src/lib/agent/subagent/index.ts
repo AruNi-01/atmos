@@ -17,6 +17,7 @@ export type { AtmosSubAgentMessage, SubAgentToolCallBlock } from "./types";
 export function normalizeSubAgent(
   block: SubAgentToolCallBlock,
   registryId: string,
+  childToolCalls: SubAgentToolCallBlock[] = [],
 ): AtmosSubAgentMessage | null {
   if (!looksLikeSubAgent(block)) return null;
   const vendor = resolveAgentVendor(registryId);
@@ -24,7 +25,7 @@ export function normalizeSubAgent(
 
   for (const adapter of adapters) {
     if (!adapter.canHandle(block, vendor)) continue;
-    const result = adapter.normalize(block, vendor);
+    const result = adapter.normalize(block, vendor, childToolCalls);
     if (result) return result;
   }
 

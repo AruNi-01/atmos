@@ -82,7 +82,7 @@ export const claudeCodeSubAgentAdapter: SubAgentAdapter = {
   canHandle(block, vendor) {
     return vendor === "claude" && looksLikeSubAgent(block);
   },
-  normalize(block, vendor): AtmosSubAgentMessage | null {
+  normalize(block, vendor, childToolCalls): AtmosSubAgentMessage | null {
     if (!looksLikeSubAgent(block)) return null;
     const input = rawInputObject(block);
     const description = String(input.description ?? block.description ?? "");
@@ -100,6 +100,7 @@ export const claudeCodeSubAgentAdapter: SubAgentAdapter = {
       contentBlocks: parsed.contentBlocks,
       resultMarkdown: null,
       labels: parsed.labels,
+      childToolCalls,
     };
   },
 };
