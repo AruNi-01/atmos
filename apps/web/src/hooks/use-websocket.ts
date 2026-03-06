@@ -328,7 +328,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   },
   
   // 发送请求
-  send: <T = unknown>(action: WsAction, data: unknown = {}): Promise<T> => {
+  send: <T = unknown>(action: WsAction, data: unknown = {}, timeoutMs?: number): Promise<T> => {
     return new Promise((resolve, reject) => {
       const { socket, connectionState, pendingRequests, requestTimeout } = get();
       
@@ -355,7 +355,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           pendingRequests.delete(requestId);
           pending.reject(new Error(`Request timeout: ${action}`));
         }
-      }, requestTimeout);
+      }, timeoutMs ?? requestTimeout);
       
       // 存储待处理请求
       pendingRequests.set(requestId, {

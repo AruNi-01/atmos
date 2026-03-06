@@ -431,8 +431,23 @@ impl AgentManager {
     }
 
     pub async fn remove_registry_agent(&self, registry_id: &str) -> Result<RegistryInstallResult> {
-        // Load manifest first to get the stored npm_package (handles registry package name changes)
+        // Load manifest first to determine install method
         let manifest = load_install_manifest().unwrap_or_default();
+
+        // Check for binary install first
+        let binary_entry = manifest
+            .registry
+            .iter()
+            .find(|e| e.registry_id == registry_id && e.install_method == "binary");
+        if binary_entry.is_some() {
+            let registry = fetch_acp_registry(false).await?;
+            let r_entry = registry.agents.iter().find(|a| a.id == registry_id);
+            return self.remove_registry_binary_agent(
+                r_entry.cloned().as_ref(),
+                registry_id,
+            );
+        }
+
         let manifest_entry = manifest
             .registry
             .iter()
@@ -464,7 +479,7 @@ impl AgentManager {
             }
         } else {
             return Err(AgentError::NotFound(format!(
-                "no npx install found for: {}",
+                "no install found for: {}",
                 registry_id
             )));
         };
@@ -880,7 +895,10 @@ impl AgentManager {
             });
         }
 
-        let response = reqwest::Client::new()
+        let response = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(180))
+            .build()
+            .map_err(|e| AgentError::Command(format!("failed to create http client: {}", e)))?
             .get(&asset.url)
             .send()
             .await
@@ -897,8 +915,10 @@ impl AgentManager {
             .await
             .map_err(|e| AgentError::Command(format!("failed to read binary bytes: {}", e)))?;
 
-        fs::create_dir_all(&bin_dir)
-            .map_err(|e| AgentError::Command(format!("failed to create bin dir: {}", e)))?;
+        if let Some(parent) = target_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| AgentError::Command(format!("failed to create bin dir: {}", e)))?;
+        }
 
         if looks_like_archive_url(&asset.url) {
             extract_archive(&asset.url, &bytes, &bin_dir, &file_name)?;
@@ -956,10 +976,9 @@ impl AgentManager {
         })
     }
 
-    #[allow(dead_code)]
     fn remove_registry_binary_agent(
         &self,
-        _entry: &RegistryEntry,
+        _entry: Option<&RegistryEntry>,
         registry_id: &str,
     ) -> Result<RegistryInstallResult> {
         let mut manifest = load_install_manifest().unwrap_or_default();
@@ -988,8 +1007,28 @@ impl AgentManager {
                     path.to_string_lossy()
                 )));
             }
-            fs::remove_file(&path)
-                .map_err(|e| AgentError::Command(format!("failed to remove binary file: {}", e)))?;
+            // For multi-file distributions (path contains subdirectory), remove
+            // the entire subdirectory tree instead of just the single file.
+            let relative = path.strip_prefix(&bin_dir).unwrap_or(&path);
+            if let Some(top_dir) = relative.iter().next() {
+                let sub_dir = bin_dir.join(top_dir);
+                if sub_dir != bin_dir && sub_dir.is_dir() && relative.components().count() > 1 {
+                    fs::remove_dir_all(&sub_dir).map_err(|e| {
+                        AgentError::Command(format!(
+                            "failed to remove binary directory: {}",
+                            e
+                        ))
+                    })?;
+                } else {
+                    fs::remove_file(&path).map_err(|e| {
+                        AgentError::Command(format!("failed to remove binary file: {}", e))
+                    })?;
+                }
+            } else {
+                fs::remove_file(&path).map_err(|e| {
+                    AgentError::Command(format!("failed to remove binary file: {}", e))
+                })?;
+            }
         }
         save_install_manifest(&manifest)?;
 
@@ -1478,13 +1517,27 @@ fn looks_like_archive_url(url: &str) -> bool {
 /// or without an extension) inside the archive and copies it to
 /// `dest_dir/binary_name`.  If no exact match is found it falls back to the
 /// first file that looks like an executable.
+///
+/// When `binary_name` contains a path separator (e.g. `dist-package/cursor-agent`)
+/// the archive is a multi-file distribution and we extract **all** entries,
+/// preserving the directory structure so that the entry-point script can find
+/// its sibling files at runtime.
 fn extract_archive(url: &str, data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
     let lower = url.to_ascii_lowercase();
+    let multi_file = binary_name.contains('/') || binary_name.contains('\\');
 
     if lower.ends_with(".zip") {
-        extract_zip(data, dest_dir, binary_name)
+        if multi_file {
+            extract_zip_all(data, dest_dir)
+        } else {
+            extract_zip(data, dest_dir, binary_name)
+        }
     } else if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
-        extract_tar_gz(data, dest_dir, binary_name)
+        if multi_file {
+            extract_tar_gz_all(data, dest_dir)
+        } else {
+            extract_tar_gz(data, dest_dir, binary_name)
+        }
     } else {
         Err(AgentError::Command(format!(
             "unsupported archive format for url: {}",
@@ -1547,6 +1600,11 @@ fn extract_zip(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
         .map_err(|e| AgentError::Command(format!("failed to extract zip entry: {}", e)))?;
 
     let out_path = dest_dir.join(binary_name);
+    if let Some(parent) = out_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            AgentError::Command(format!("failed to create directory for extracted binary: {}", e))
+        })?;
+    }
     fs::write(&out_path, &buf)
         .map_err(|e| AgentError::Command(format!("failed to write extracted binary: {}", e)))?;
 
@@ -1596,8 +1654,117 @@ fn extract_tar_gz(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()>
     })?;
 
     let out_path = dest_dir.join(binary_name);
+    if let Some(parent) = out_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            AgentError::Command(format!("failed to create directory for extracted binary: {}", e))
+        })?;
+    }
     fs::write(&out_path, &content)
         .map_err(|e| AgentError::Command(format!("failed to write extracted binary: {}", e)))?;
+
+    Ok(())
+}
+
+/// Extract **all** entries from a tar.gz archive into `dest_dir`, preserving
+/// the directory structure.  Used for multi-file distributions where the
+/// entry-point binary depends on sibling files.
+fn extract_tar_gz_all(data: &[u8], dest_dir: &Path) -> Result<()> {
+    let gz = flate2::read::GzDecoder::new(Cursor::new(data));
+    let mut archive = tar::Archive::new(gz);
+
+    let entries = archive
+        .entries()
+        .map_err(|e| AgentError::Command(format!("failed to read tar.gz archive: {}", e)))?;
+
+    for entry_result in entries {
+        let mut entry = entry_result
+            .map_err(|e| AgentError::Command(format!("failed to read tar entry: {}", e)))?;
+        let path = entry
+            .path()
+            .map(|p| p.to_path_buf())
+            .map_err(|e| AgentError::Command(format!("failed to read tar entry path: {}", e)))?;
+
+        let out_path = dest_dir.join(&path);
+
+        if entry.header().entry_type().is_dir() {
+            fs::create_dir_all(&out_path).map_err(|e| {
+                AgentError::Command(format!("failed to create directory: {}", e))
+            })?;
+            continue;
+        }
+
+        if let Some(parent) = out_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                AgentError::Command(format!("failed to create directory: {}", e))
+            })?;
+        }
+
+        let mut buf = Vec::new();
+        entry
+            .read_to_end(&mut buf)
+            .map_err(|e| AgentError::Command(format!("failed to extract tar entry: {}", e)))?;
+
+        fs::write(&out_path, &buf)
+            .map_err(|e| AgentError::Command(format!("failed to write extracted file: {}", e)))?;
+
+        #[cfg(unix)]
+        {
+            if let Ok(mode) = entry.header().mode() {
+                let _ = fs::set_permissions(&out_path, fs::Permissions::from_mode(mode));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Extract **all** entries from a zip archive into `dest_dir`, preserving
+/// the directory structure.
+fn extract_zip_all(data: &[u8], dest_dir: &Path) -> Result<()> {
+    let reader = Cursor::new(data);
+    let mut archive = zip::ZipArchive::new(reader)
+        .map_err(|e| AgentError::Command(format!("failed to open zip archive: {}", e)))?;
+
+    for i in 0..archive.len() {
+        let mut file = archive
+            .by_index(i)
+            .map_err(|e| AgentError::Command(format!("failed to read zip entry: {}", e)))?;
+        let name = file.name().to_string();
+
+        // Skip macOS metadata
+        if name.starts_with("._") || name.contains("__MACOSX") {
+            continue;
+        }
+
+        let out_path = dest_dir.join(&name);
+
+        if file.is_dir() {
+            fs::create_dir_all(&out_path).map_err(|e| {
+                AgentError::Command(format!("failed to create directory: {}", e))
+            })?;
+            continue;
+        }
+
+        if let Some(parent) = out_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                AgentError::Command(format!("failed to create directory: {}", e))
+            })?;
+        }
+
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)
+            .map_err(|e| AgentError::Command(format!("failed to extract zip entry: {}", e)))?;
+
+        fs::write(&out_path, &buf)
+            .map_err(|e| AgentError::Command(format!("failed to write extracted file: {}", e)))?;
+
+        #[cfg(unix)]
+        {
+            if let Some(mode) = file.unix_mode() {
+                let _ = fs::set_permissions(&out_path, fs::Permissions::from_mode(mode));
+            }
+        }
+    }
 
     Ok(())
 }
