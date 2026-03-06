@@ -77,6 +77,22 @@ pub struct StreamUsage {
 
 /// Tool call status update for frontend display
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AgentToolCallContentItem {
+    Text {
+        text: String,
+    },
+    Diff {
+        path: Option<String>,
+        old_content: Option<String>,
+        new_content: String,
+    },
+    Terminal {
+        terminal_id: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallUpdate {
     /// Unique ID to match running -> completed/failed updates
     pub tool_call_id: String,
@@ -85,6 +101,8 @@ pub struct ToolCallUpdate {
     pub status: ToolCallStatus,
     /// Raw input params (e.g. {"path": "src/lib.rs"} for Read)
     pub raw_input: Option<serde_json::Value>,
+    /// Structured content emitted by the tool call.
+    pub content: Vec<AgentToolCallContentItem>,
     /// Raw output or content from tool execution
     pub raw_output: Option<serde_json::Value>,
     pub detail: Option<serde_json::Value>,

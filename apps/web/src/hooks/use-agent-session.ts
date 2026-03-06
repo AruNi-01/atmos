@@ -39,6 +39,7 @@ export type AgentServerMessage =
       description: string;
       status: "running" | "completed" | "failed";
       raw_input?: unknown;
+      content?: AgentToolCallContentItem[];
       raw_output?: unknown;
       detail?: unknown;
     }
@@ -114,6 +115,22 @@ export interface AgentConfigOption {
   currentValue?: string;
   options: AgentConfigOptionValue[];
 }
+
+export type AgentToolCallContentItem =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "diff";
+      path?: string;
+      old_content?: string;
+      new_content: string;
+    }
+  | {
+      type: "terminal";
+      terminal_id: string;
+    };
 
 function mergeConfigOptions(
   prev: AgentConfigOption[],

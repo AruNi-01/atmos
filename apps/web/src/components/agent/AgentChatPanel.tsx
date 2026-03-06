@@ -91,50 +91,18 @@ import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/types/agent-chat"
 import { useWikiExists, useWikiStore } from "@/hooks/use-wiki-store";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
-
-// ---------------------------------------------------------------------------
-// Zed-style ACP Entry Model
-// ---------------------------------------------------------------------------
-
-interface ToolCallBlock {
-  type: "tool_call";
-  tool_call_id: string;
-  tool: string;
-  description: string;
-  status: string;
-  raw_input?: unknown;
-  raw_output?: unknown;
-  detail?: unknown;
-}
-
-function extractPlanMarkdown(value: unknown): string | null {
-  if (!value || typeof value !== "object") return null;
-  const plan = (value as Record<string, unknown>).plan;
-  return typeof plan === "string" && plan.trim() ? plan : null;
-}
-
-function isSwitchModePlanToolCall(block: ToolCallBlock): boolean {
-  const tool = (block.tool || "").toLowerCase();
-  const description = (block.description || "").toLowerCase();
-  return (
-    (tool === "switchmode" || tool === "switch_mode") &&
-    (description.includes("ready to code") || extractPlanMarkdown(block.raw_input) !== null)
-  );
-}
-
-function isPlanUpdateToolCall(block: ToolCallBlock): boolean {
-  const tool = (block.tool || "").toLowerCase();
-  const description = (block.description || "").toLowerCase();
-  if (tool === "todowrite" || tool === "todo_write") return true;
-  if (description.includes("todo list updated")) return true;
-  if (block.raw_output && typeof block.raw_output === "object") {
-    const text = (block.raw_output as Record<string, unknown>).text;
-    if (typeof text === "string" && text.toLowerCase().includes("todo list updated")) {
-      return true;
-    }
-  }
-  return false;
-}
+import { normalizeSubAgent, type AtmosSubAgentMessage } from "@/lib/agent/subagent";
+import {
+  applyServerMessageToEntries,
+  extractPlanMarkdown,
+  getAllAssistantMessagesCopyText,
+  getAssistantCopyText,
+  isPlanUpdateToolCall,
+  isSwitchModePlanToolCall,
+  type AssistantEntry,
+  type ThreadEntry,
+  type ToolCallBlock,
+} from "@/lib/agent/thread";
 
 function getToolIcon(tool: string): React.ReactNode {
   switch ((tool || "").toLowerCase()) {
@@ -160,43 +128,6 @@ function getToolIcon(tool: string): React.ReactNode {
       return <Wrench />;
   }
 }
-
-function isGenericToolName(name?: string): boolean {
-  const v = (name || "").trim().toLowerCase();
-  return !v || v === "tool" || v === "other";
-}
-
-interface TextBlock {
-  type: "text";
-  content: string;
-}
-
-interface ThinkingBlock {
-  type: "thinking";
-  content: string;
-}
-
-interface PlanBlock {
-  type: "plan";
-  plan: import("@/hooks/use-agent-session").AgentPlan;
-}
-
-type AssistantBlock = TextBlock | ThinkingBlock | ToolCallBlock | PlanBlock;
-
-interface UserEntry {
-  role: "user";
-  content: string;
-  files?: (import("ai").FileUIPart & { id: string })[];
-}
-
-interface AssistantEntry {
-  role: "assistant";
-  blocks: AssistantBlock[];
-  isStreaming?: boolean;
-  usage?: AgentTurnUsage;
-}
-
-type ThreadEntry = UserEntry | AssistantEntry;
 
 interface PendingPermission {
   request_id: string;
@@ -325,212 +256,6 @@ function getTerminalCommandString(raw_input?: unknown): string {
   const o = raw_input as Record<string, unknown>;
   const cmd = o.command ?? o.cmd ?? o.input ?? o.script;
   return typeof cmd === "string" ? cmd : "";
-}
-
-// ---------------------------------------------------------------------------
-// Entry reducer: processes ACP server messages into Zed-style thread entries
-// ---------------------------------------------------------------------------
-
-function reduceEntries(
-  prev: ThreadEntry[],
-  msg: AgentServerMessage,
-): ThreadEntry[] {
-  if (msg.type === "stream") {
-    if (msg.role === "user") {
-      const last = prev[prev.length - 1];
-      if (last?.role === "user") {
-        return [...prev.slice(0, -1), { ...last, content: `${last.content}${msg.delta}` }];
-      }
-      return [...prev, { role: "user", content: msg.delta }];
-    }
-
-    const isThinking = msg.kind === "thinking";
-    const last = prev[prev.length - 1];
-
-    if (last?.role === "assistant") {
-      const blocks = [...last.blocks];
-      const lastBlock = blocks[blocks.length - 1];
-      const expectedType: AssistantBlock["type"] = isThinking ? "thinking" : "text";
-
-      if (lastBlock?.type === expectedType) {
-        blocks[blocks.length - 1] = {
-          ...lastBlock,
-          content: (lastBlock as TextBlock | ThinkingBlock).content + msg.delta,
-        } as TextBlock | ThinkingBlock;
-      } else {
-        blocks.push({ type: expectedType, content: msg.delta } as TextBlock | ThinkingBlock);
-      }
-
-      return [
-        ...prev.slice(0, -1),
-        { ...last, blocks, isStreaming: !msg.done },
-      ];
-    }
-
-    return [
-      ...prev,
-      {
-        role: "assistant",
-        blocks: [{ type: isThinking ? "thinking" : "text", content: msg.delta } as TextBlock | ThinkingBlock],
-        isStreaming: !msg.done,
-      },
-    ];
-  }
-
-  if (msg.type === "tool_call") {
-    const id = msg.tool_call_id ?? "";
-    const isTerminal = msg.status === "completed" || msg.status === "failed";
-    const newBlock: ToolCallBlock = {
-      type: "tool_call",
-      tool_call_id: id,
-      tool: msg.tool,
-      description: msg.description,
-      status: msg.status,
-      raw_input: msg.raw_input,
-      raw_output: msg.raw_output,
-      detail: msg.detail,
-    };
-
-    // Finalize any streaming assistant text accumulator on tool event
-    const entries = [...prev];
-    const lastEntry = entries[entries.length - 1];
-    if (lastEntry?.role === "assistant" && lastEntry.isStreaming) {
-      entries[entries.length - 1] = { ...lastEntry, isStreaming: false };
-    }
-
-    // Only bind tool updates to the current turn's assistant entry (must be last entry).
-    // If latest entry is a user prompt, create a new assistant entry right after it.
-    let assistantIdx = -1;
-    const lastIdx = entries.length - 1;
-    if (lastIdx >= 0 && entries[lastIdx].role === "assistant") {
-      assistantIdx = lastIdx;
-    }
-
-    if (assistantIdx >= 0) {
-      const assistant = entries[assistantIdx] as AssistantEntry;
-      const blocks = [...assistant.blocks];
-
-      // Try to find existing tool call block to update
-      let toolIdx = -1;
-      if (id) {
-        toolIdx = blocks.findIndex(
-          (b) => b.type === "tool_call" && b.tool_call_id === id
-        );
-      }
-      // Fallback for terminal status: match by raw_input or last running
-      if (toolIdx < 0 && isTerminal) {
-        const incoming = msg.raw_input as Record<string, unknown> | undefined;
-        if (incoming && typeof incoming === "object") {
-          toolIdx = blocks.findIndex((b) => {
-            if (b.type !== "tool_call" || b.status?.toLowerCase() !== "running") return false;
-            const r = b.raw_input as Record<string, unknown> | undefined;
-            if (!r || typeof r !== "object") return false;
-            for (const k of ["file_path", "path", "url", "command"]) {
-              if (incoming[k] != null && r[k] != null && String(incoming[k]) === String(r[k])) return true;
-            }
-            return false;
-          });
-        }
-        if (toolIdx < 0) {
-          for (let i = blocks.length - 1; i >= 0; i--) {
-            if (blocks[i].type === "tool_call" && (blocks[i] as ToolCallBlock).status?.toLowerCase() === "running") {
-              toolIdx = i;
-              break;
-            }
-          }
-        }
-      }
-
-      if (toolIdx >= 0) {
-        const prevBlock = blocks[toolIdx] as ToolCallBlock;
-        blocks[toolIdx] = {
-          ...prevBlock,
-          tool: isGenericToolName(msg.tool) ? prevBlock.tool : msg.tool,
-          description: msg.description || prevBlock.description,
-          status: msg.status,
-          raw_input: msg.raw_input ?? prevBlock.raw_input,
-          raw_output: msg.raw_output ?? prevBlock.raw_output,
-          detail: msg.detail ?? prevBlock.detail,
-        };
-      } else {
-        blocks.push(newBlock);
-      }
-
-      entries[assistantIdx] = { ...assistant, blocks };
-      return entries;
-    }
-
-    // No assistant entry yet - create one with the tool call
-    return [
-      ...entries,
-      {
-        role: "assistant",
-        blocks: [newBlock],
-        isStreaming: false,
-      },
-    ];
-  }
-
-  if (msg.type === "error") {
-    return [
-      ...prev,
-      {
-        role: "assistant",
-        blocks: [{ type: "text", content: `Error: ${msg.message}` }],
-        isStreaming: false,
-      },
-    ];
-  }
-
-  if (msg.type === "turn_end") {
-    const entries = [...prev];
-    const lastIdx = entries.length - 1;
-    if (lastIdx >= 0 && entries[lastIdx].role === "assistant") {
-      entries[lastIdx] = {
-        ...(entries[lastIdx] as AssistantEntry),
-        isStreaming: false,
-        usage: msg.usage,
-      };
-    }
-    return entries;
-  }
-
-  if (msg.type === "plan_update") {
-    const newBlock: PlanBlock = {
-      type: "plan",
-      plan: msg.plan,
-    };
-    const entries = [...prev];
-    let assistantIdx = -1;
-    const lastIdx = entries.length - 1;
-    if (lastIdx >= 0 && entries[lastIdx].role === "assistant") {
-      assistantIdx = lastIdx;
-    }
-
-    if (assistantIdx >= 0) {
-      const assistant = entries[assistantIdx] as AssistantEntry;
-      const blocks = [...assistant.blocks];
-      const planIdx = blocks.findIndex((b) => b.type === "plan");
-      if (planIdx >= 0) {
-        blocks[planIdx] = newBlock;
-      } else {
-        blocks.push(newBlock);
-      }
-      entries[assistantIdx] = { ...assistant, blocks };
-      return entries;
-    }
-
-    return [
-      ...entries,
-      {
-        role: "assistant",
-        blocks: [newBlock],
-        isStreaming: false,
-      },
-    ];
-  }
-
-  return prev;
 }
 
 // ---------------------------------------------------------------------------
@@ -769,33 +494,6 @@ function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
   );
 }
 
-function getAssistantCopyText(entry: AssistantEntry): string {
-  const parts: string[] = [];
-  for (const block of entry.blocks) {
-    if (block.type === "text" || block.type === "thinking") {
-      if (block.content?.trim()) parts.push(block.content.trim());
-      continue;
-    }
-    if (block.type === "tool_call") {
-      if (isPlanUpdateToolCall(block)) continue;
-      if (typeof block.raw_output === "string" && block.raw_output.trim()) {
-        parts.push(block.raw_output.trim());
-      } else if (typeof block.description === "string" && block.description.trim()) {
-        parts.push(block.description.trim());
-      }
-    }
-  }
-  return parts.join("\n\n").trim();
-}
-
-function getAllAssistantMessagesCopyText(entries: ThreadEntry[]): string {
-  const all = entries
-    .filter((entry): entry is AssistantEntry => entry.role === "assistant")
-    .map((entry) => getAssistantCopyText(entry))
-    .filter((text) => !!text);
-  return all.join("\n\n").trim();
-}
-
 function TerminalBlock({
   tool,
   description,
@@ -975,6 +673,146 @@ function ToolOrSkillBlock(props: ToolCallBlock) {
         )}
       </ToolContent>
     </Wrapper>
+  );
+}
+
+function SubAgentLabelRow({
+  labels,
+}: {
+  labels: AtmosSubAgentMessage["labels"];
+}) {
+  if (labels.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+      {labels.map((item, idx) => (
+        <span
+          key={`${item.key}-${item.value}-${idx}`}
+          className="rounded-sm border border-border/60 bg-background px-2 py-1"
+        >
+          <span className="text-foreground/80">{item.key}</span>
+          <span className="mx-1 text-muted-foreground/50">:</span>
+          <span>{item.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
+  const [isOpen, setIsOpen] = useState(true);
+  const [isPromptOpen, setIsPromptOpen] = useState(false);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full overflow-hidden rounded-xl border border-border/70 bg-muted/10 shadow-sm">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left"
+        >
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="text-sm font-semibold text-foreground">{message.title}</span>
+            <span className="truncate text-xs text-muted-foreground">{message.description}</span>
+          </div>
+          <span className="shrink-0 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+            {message.status === "running" ? "Running" : message.status === "failed" ? "Failed" : "Completed"}
+          </span>
+          <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+        </button>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>
+        <div className="space-y-3 p-4">
+          {message.prompt ? (
+            <div className="overflow-hidden rounded-lg border border-border/60 bg-background/70">
+              <button
+                type="button"
+                onClick={() => setIsPromptOpen((value) => !value)}
+                className="flex w-full items-center gap-3 px-3 py-2 text-left"
+              >
+                <span className="flex-1 text-sm font-medium text-muted-foreground">Prompt</span>
+                <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isPromptOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isPromptOpen ? (
+                <div className="border-t border-border/50 p-3">
+                  <div className="max-h-56 overflow-auto">
+                    <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
+                      {message.prompt}
+                    </MarkdownRenderer>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {message.contentBlocks.length > 0 ? (
+            <div className="space-y-3">
+              {message.contentBlocks.map((item, idx) => {
+                if (item.type === "markdown") {
+                  return (
+                    <div key={`subagent-text-${idx}`} className="rounded-lg border border-border/60 bg-background/70 p-3">
+                      <div className="max-h-72 overflow-auto">
+                        <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
+                          {item.markdown}
+                        </MarkdownRenderer>
+                      </div>
+                    </div>
+                  );
+                }
+                if (item.type === "diff") {
+                  const diffFiles = {
+                    oldFile: {
+                      name: item.path ?? "file",
+                      contents: item.oldContent ?? "",
+                    },
+                    newFile: {
+                      name: item.path ?? "file",
+                      contents: item.newContent,
+                    },
+                  };
+                  return (
+                    <div key={`subagent-diff-${idx}`} className="overflow-hidden rounded-lg border border-border/60 bg-background/70">
+                      <div className="max-h-[360px] overflow-auto">
+                        <MultiFileDiff
+                          oldFile={diffFiles.oldFile}
+                          newFile={diffFiles.newFile}
+                          options={{
+                            theme: "pierre-dark",
+                            diffStyle: "unified",
+                            overflow: "wrap",
+                            disableLineNumbers: false,
+                            disableFileHeader: false,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={`subagent-terminal-${idx}`} className="rounded-lg border border-dashed border-border/60 bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                    Terminal: {item.terminalId}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {message.resultMarkdown ? (
+            <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+              <div className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Result
+              </div>
+              <div className="max-h-72 overflow-auto">
+                <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
+                  {message.resultMarkdown}
+                </MarkdownRenderer>
+              </div>
+            </div>
+          ) : null}
+
+          {message.labels.length > 0 ? <SubAgentLabelRow labels={message.labels} /> : null}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -1297,7 +1135,13 @@ function useReviewLinkComponents() {
   }, [openFile, effectiveContextId]);
 }
 
-function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
+function AssistantTurnView({
+  entry,
+  registryId,
+}: {
+  entry: AssistantEntry;
+  registryId: string;
+}) {
   const reviewComponents = useReviewLinkComponents();
 
   return (
@@ -1363,6 +1207,12 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
 
         if (block.type === "tool_call" && isPlanUpdateToolCall(block)) return null;
         if (block.type === "tool_call" && isSwitchModePlanToolCall(block)) return null;
+        if (block.type === "tool_call") {
+          const subAgent = normalizeSubAgent(block, registryId);
+          if (subAgent) {
+            return <SubAgentBlockView key={block.tool_call_id || i} message={subAgent} />;
+          }
+        }
 
         return (
           <ToolOrSkillBlock key={block.tool_call_id || i} {...block as ToolCallBlock} />
@@ -1902,11 +1752,11 @@ export function AgentChatPanel() {
     switch (msg.type) {
       case "stream":
         if (stoppedRef.current) return; // user stopped, discard
-        setEntries((prev) => reduceEntries(prev, msg));
+        setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "tool_call":
         if (stoppedRef.current) return; // user stopped, discard
-        setEntries((prev) => reduceEntries(prev, msg));
+        setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "plan_update":
         if (stoppedRef.current) return; // user stopped, discard
@@ -1925,12 +1775,12 @@ export function AgentChatPanel() {
       case "error":
         stoppedRef.current = false;
         setWaitingForResponse(false);
-        setEntries((prev) => reduceEntries(prev, msg));
+        setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "turn_end":
         stoppedRef.current = false;
         setWaitingForResponse(false);
-        setEntries((prev) => reduceEntries(prev, msg));
+        setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "session_ended":
         stoppedRef.current = false;
@@ -3190,7 +3040,7 @@ export function AgentChatPanel() {
                 ) : (
                   <Message from="assistant">
                     <MessageContent>
-                      <AssistantTurnView entry={entry} />
+                      <AssistantTurnView entry={entry} registryId={registryId} />
                       {!entry.isStreaming && (
                         <div className="mt-2 flex items-center gap-2">
                           <MessageCopyButton

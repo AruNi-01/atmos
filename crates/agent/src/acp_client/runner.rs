@@ -17,6 +17,7 @@ use crate::acp_client::types::{
     AgentTurnUsage, AuthMethodSummary, AuthRequiredPayload, PermissionRequest,
 };
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
+use crate::acp_client::logging::append_acp_log;
 use crate::models::AgentLaunchSpec;
 
 use super::process::spawn_agent;
@@ -563,6 +564,15 @@ async fn run_session_inner(
                         if msg.is_empty() {
                             break;
                         }
+                        append_acp_log(
+                            &session_id_acp.to_string(),
+                            "client_to_agent_acp",
+                            "prompt_request",
+                            &serde_json::json!({
+                                "session_id": session_id_acp.to_string(),
+                                "message": msg.clone(),
+                            }),
+                        );
                         match conn
                             .prompt(acp::PromptRequest::new(
                                 session_id_acp.clone(),
