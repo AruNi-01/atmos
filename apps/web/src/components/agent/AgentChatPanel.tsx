@@ -73,6 +73,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  BorderBeam,
 } from "@workspace/ui";
 import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, Gauge, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
@@ -104,6 +105,21 @@ interface ToolCallBlock {
   raw_input?: unknown;
   raw_output?: unknown;
   detail?: unknown;
+}
+
+function extractPlanMarkdown(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const plan = (value as Record<string, unknown>).plan;
+  return typeof plan === "string" && plan.trim() ? plan : null;
+}
+
+function isSwitchModePlanToolCall(block: ToolCallBlock): boolean {
+  const tool = (block.tool || "").toLowerCase();
+  const description = (block.description || "").toLowerCase();
+  return (
+    (tool === "switchmode" || tool === "switch_mode") &&
+    (description.includes("ready to code") || extractPlanMarkdown(block.raw_input) !== null)
+  );
 }
 
 function isPlanUpdateToolCall(block: ToolCallBlock): boolean {
@@ -1151,6 +1167,96 @@ function PlanBlockView({
   );
 }
 
+function HoverScrollableText({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  const animRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopScroll = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (animRef.current) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+    const el = textRef.current;
+    if (el) el.scrollLeft = 0;
+  }, []);
+
+  const startScroll = useCallback(() => {
+    const el = textRef.current;
+    if (!el) return;
+    const overflow = el.scrollWidth - el.clientWidth;
+    if (overflow <= 0) return;
+
+    el.scrollLeft = 0;
+    timeoutRef.current = setTimeout(() => {
+      const duration = overflow * 40;
+      const startTime = performance.now();
+
+      const step = (now: number) => {
+        const progress = Math.min((now - startTime) / duration, 1);
+        el.scrollLeft = overflow * progress;
+        if (progress < 1) {
+          animRef.current = requestAnimationFrame(step);
+        }
+      };
+
+      animRef.current = requestAnimationFrame(step);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, []);
+
+  return (
+    <span
+      ref={textRef}
+      className={className}
+      onMouseEnter={startScroll}
+      onMouseLeave={stopScroll}
+      title={text}
+    >
+      {text}
+    </span>
+  );
+}
+
+function PermissionActionButton({
+  label,
+  variant,
+  onClick,
+}: {
+  label: string;
+  variant?: React.ComponentProps<typeof ConfirmationAction>["variant"];
+  onClick: () => void;
+}) {
+  return (
+    <ConfirmationAction
+      variant={variant}
+      onClick={onClick}
+      className="min-w-0 max-w-[22rem] flex-1 basis-0 justify-start overflow-hidden px-3"
+    >
+      <HoverScrollableText
+        text={label}
+        className="block w-full overflow-hidden whitespace-nowrap"
+      />
+    </ConfirmationAction>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Review path link detection – matches .atmos/reviews/**/*.md paths
 // ---------------------------------------------------------------------------
@@ -1256,6 +1362,7 @@ function AssistantTurnView({ entry }: { entry: AssistantEntry }) {
         if (block.type === "plan") return null;
 
         if (block.type === "tool_call" && isPlanUpdateToolCall(block)) return null;
+        if (block.type === "tool_call" && isSwitchModePlanToolCall(block)) return null;
 
         return (
           <ToolOrSkillBlock key={block.tool_call_id || i} {...block as ToolCallBlock} />
@@ -2593,6 +2700,27 @@ export function AgentChatPanel() {
     [pendingPermission, sendPermissionResponse]
   );
 
+  const pendingPermissionMarkdown = useMemo(() => {
+    if (!pendingPermission) return null;
+    if (pendingPermission.content_markdown?.trim()) {
+      return pendingPermission.content_markdown;
+    }
+
+    for (let entryIdx = entries.length - 1; entryIdx >= 0; entryIdx--) {
+      const entry = entries[entryIdx];
+      if (entry.role !== "assistant") continue;
+      for (let blockIdx = entry.blocks.length - 1; blockIdx >= 0; blockIdx--) {
+        const block = entry.blocks[blockIdx];
+        if (block.type !== "tool_call") continue;
+        if (!isSwitchModePlanToolCall(block)) continue;
+        const markdown = extractPlanMarkdown(block.raw_input);
+        if (markdown) return markdown;
+      }
+    }
+
+    return null;
+  }, [entries, pendingPermission]);
+
   const clearCloseAgentsMenuTimer = useCallback(() => {
     if (closeAgentsMenuTimerRef.current) {
       clearTimeout(closeAgentsMenuTimerRef.current);
@@ -3134,43 +3262,59 @@ export function AgentChatPanel() {
           <Confirmation
             approval={{ id: pendingPermission.request_id }}
             state="approval-requested"
-            className="border-amber-500/50 bg-amber-500/10"
+            className="relative overflow-hidden border-foreground/20 bg-background"
           >
+            <BorderBeam
+              duration={7}
+              delay={0}
+              size={280}
+              borderWidth={1}
+              className="from-transparent via-amber-500 to-transparent"
+            />
+            <BorderBeam
+              duration={7}
+              delay={3.5}
+              size={360}
+              borderWidth={2}
+              className="from-transparent via-amber-500 to-transparent opacity-90"
+              reverse
+            />
             <ConfirmationRequest>
-              <span className="font-medium">Permission requested</span>
+              <span className="font-medium text-amber-500">Permission requested</span>
               <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
                 {pendingPermission.description}
               </p>
-              {pendingPermission.content_markdown ? (
-                <div className="mt-2 max-h-64 overflow-auto rounded-md border border-border bg-muted/20 p-3 text-sm">
-                  <MarkdownRenderer className="prose-sm max-w-none">
-                    {pendingPermission.content_markdown}
-                  </MarkdownRenderer>
+              {pendingPermissionMarkdown ? (
+                <div className="mt-2 min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/20">
+                  <div className="max-h-[45vh] min-w-0 max-w-full overflow-auto p-3 text-sm">
+                    <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
+                    {pendingPermissionMarkdown}
+                    </MarkdownRenderer>
+                  </div>
                 </div>
               ) : null}
             </ConfirmationRequest>
-            <ConfirmationActions>
+            <ConfirmationActions className="w-full min-w-0 flex-nowrap justify-start self-stretch overflow-hidden">
               {pendingPermission.options.length > 0 ? (
                 pendingPermission.options.map((opt) => (
-                  <ConfirmationAction
+                  <PermissionActionButton
                     key={opt.option_id}
+                    label={opt.name}
                     variant={opt.kind.startsWith("allow") ? "default" : "outline"}
                     onClick={() => handlePermission(opt.kind)}
-                  >
-                    {opt.name}
-                  </ConfirmationAction>
+                  />
                 ))
               ) : (
                 <>
-                  <ConfirmationAction
+                  <PermissionActionButton
+                    label="Deny"
                     variant="outline"
                     onClick={() => handlePermission("reject_once")}
-                  >
-                    Deny
-                  </ConfirmationAction>
-                  <ConfirmationAction onClick={() => handlePermission("allow_once")}>
-                    Allow
-                  </ConfirmationAction>
+                  />
+                  <PermissionActionButton
+                    label="Allow"
+                    onClick={() => handlePermission("allow_once")}
+                  />
                 </>
               )}
             </ConfirmationActions>
