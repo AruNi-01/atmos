@@ -167,7 +167,7 @@ export interface WorkspaceModel {
 /**
  * 发送 WebSocket 请求的通用函数
  */
-async function wsRequest<T>(action: WsAction, data: unknown = {}): Promise<T> {
+async function wsRequest<T>(action: WsAction, data: unknown = {}, timeoutMs?: number): Promise<T> {
   const { send, connectionState, connect } = useWebSocketStore.getState();
   
   // 如果未连接，尝试连接
@@ -191,7 +191,7 @@ async function wsRequest<T>(action: WsAction, data: unknown = {}): Promise<T> {
     });
   }
   
-  return send<T>(action, data);
+  return send<T>(action, data, timeoutMs);
 }
 
 // ===== 文件系统 API =====
@@ -845,13 +845,13 @@ export const agentApi = {
     return wsRequest<RegistryInstallResponse>('agent_registry_install', {
       registry_id: registryId,
       force_overwrite: forceOverwrite,
-    });
+    }, 180_000);
   },
 
   removeRegistry: async (registryId: string): Promise<RegistryInstallResponse> => {
     return wsRequest<RegistryInstallResponse>('agent_registry_remove', {
       registry_id: registryId,
-    });
+    }, 180_000);
   },
 
   listCustomAgents: async (): Promise<{ agents: CustomAgent[] }> => {
