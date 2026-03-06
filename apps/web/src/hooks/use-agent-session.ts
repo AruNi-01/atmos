@@ -509,6 +509,7 @@ export function useAgentSession({
             }
             if (msg.type === "usage_update") {
               setSessionUsage(msg.usage);
+              onMessageRef.current?.(msg);
               return;
             }
             if (msg.type === "config_options_update") {
@@ -629,6 +630,7 @@ export function useAgentSession({
             }
             if (msg.type === "usage_update") {
               setSessionUsage(msg.usage);
+              onMessageRef.current?.(msg);
               return;
             }
             if (msg.type === "config_options_update") {
