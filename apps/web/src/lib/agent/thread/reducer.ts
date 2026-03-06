@@ -9,6 +9,28 @@ import type {
   ToolCallBlock,
 } from "./types";
 
+function streamUsageToTurnUsage(usage: unknown): AssistantEntry["usage"] | undefined {
+  if (!usage || typeof usage !== "object") return undefined;
+  const value = usage as Record<string, unknown>;
+  const inputTokens =
+    typeof value.input_tokens === "number" ? value.input_tokens :
+    typeof value.inputTokens === "number" ? value.inputTokens :
+    undefined;
+  const outputTokens =
+    typeof value.output_tokens === "number" ? value.output_tokens :
+    typeof value.outputTokens === "number" ? value.outputTokens :
+    undefined;
+  if (inputTokens == null && outputTokens == null) return undefined;
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens:
+      inputTokens != null || outputTokens != null
+        ? (inputTokens ?? 0) + (outputTokens ?? 0)
+        : undefined,
+  };
+}
+
 export function extractPlanMarkdown(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
   const plan = (value as Record<string, unknown>).plan;
@@ -93,7 +115,12 @@ export function applyServerMessageToEntries(
 
       return [
         ...prev.slice(0, -1),
-        { ...last, blocks, isStreaming: !msg.done },
+        {
+          ...last,
+          blocks,
+          isStreaming: !msg.done,
+          usage: msg.done ? streamUsageToTurnUsage(msg.usage) ?? last.usage : last.usage,
+        },
       ];
     }
 
@@ -103,6 +130,7 @@ export function applyServerMessageToEntries(
         role: "assistant",
         blocks: [{ type: isThinking ? "thinking" : "text", content: msg.delta } as TextBlock | ThinkingBlock],
         isStreaming: !msg.done,
+        usage: msg.done ? streamUsageToTurnUsage(msg.usage) : undefined,
       },
     ];
   }

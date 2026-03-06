@@ -1351,7 +1351,6 @@ function ConfigOptionDropdown({
   setConfigOption,
   setAgentDefaultConfig,
   setInstalledAgents,
-  refreshAgents,
 }: {
   opt: AgentConfigOption;
   registryId: string;
@@ -1359,9 +1358,9 @@ function ConfigOptionDropdown({
   setConfigOption: (id: string, val: string) => void;
   setAgentDefaultConfig: (id: string, val: string) => void;
   setInstalledAgents: React.Dispatch<React.SetStateAction<any[]>>;
-  refreshAgents: () => void;
 }) {
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
 
   const filteredOptions = opt.options.filter(o => {
     if (!search) return true;
@@ -1372,11 +1371,15 @@ function ConfigOptionDropdown({
   return (
     <div className="flex items-center gap-1">
       <Select
+        open={open}
         value={opt.currentValue || ''}
         onValueChange={(val) => {
           setConfigOption(opt.id, val);
+          setOpen(false);
+          setSearch("");
         }}
         onOpenChange={(open) => {
+          setOpen(open);
           if (!open) setSearch("");
         }}
       >
@@ -1408,24 +1411,26 @@ function ConfigOptionDropdown({
                   className="text-xs"
                   onPointerDown={(e) => {
                     if (!e.shiftKey) return;
-                    setTimeout(() => {
-                      setAgentDefaultConfig(opt.id, o.value);
-                      setInstalledAgents((prev) =>
-                        prev.map((a) => {
-                          if (a.id === registryId) {
-                            return {
-                              ...a,
-                              default_config: {
-                                ...(a.default_config || {}),
-                                [opt.id]: o.value,
-                              },
-                            };
-                          }
-                          return a;
-                        })
-                      );
-                      void refreshAgents();
-                    }, 0);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setConfigOption(opt.id, o.value);
+                    setAgentDefaultConfig(opt.id, o.value);
+                    setInstalledAgents((prev) =>
+                      prev.map((a) => {
+                        if (a.id === registryId) {
+                          return {
+                            ...a,
+                            default_config: {
+                              ...(a.default_config || {}),
+                              [opt.id]: o.value,
+                            },
+                          };
+                        }
+                        return a;
+                      })
+                    );
+                    setOpen(false);
+                    setSearch("");
                   }}
                 >
                   <span className="truncate">{o.name || o.value}</span>
@@ -1752,6 +1757,10 @@ export function AgentChatPanel() {
     switch (msg.type) {
       case "stream":
         if (stoppedRef.current) return; // user stopped, discard
+        if (msg.done) {
+          stoppedRef.current = false;
+          setWaitingForResponse(false);
+        }
         setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "tool_call":
@@ -1781,6 +1790,25 @@ export function AgentChatPanel() {
         stoppedRef.current = false;
         setWaitingForResponse(false);
         setEntries((prev) => applyServerMessageToEntries(prev, msg));
+        break;
+      case "usage_update":
+        setEntries((prev) => {
+          let changed = false;
+          const next = prev.map((entry) => {
+            if (entry.role !== "assistant" || !entry.isStreaming) return entry;
+            const hasRunningTool = entry.blocks.some(
+              (block) => block.type === "tool_call" && block.status === "running"
+            );
+            if (hasRunningTool) return entry;
+            changed = true;
+            return { ...entry, isStreaming: false };
+          });
+          if (changed) {
+            stoppedRef.current = false;
+            setWaitingForResponse(false);
+          }
+          return changed ? next : prev;
+        });
         break;
       case "session_ended":
         stoppedRef.current = false;
@@ -3215,7 +3243,6 @@ export function AgentChatPanel() {
                         setConfigOption={setConfigOption}
                         setAgentDefaultConfig={setAgentDefaultConfig}
                         setInstalledAgents={setInstalledAgents}
-                        refreshAgents={refreshAgents}
                       />
                     ))}
                 </div>

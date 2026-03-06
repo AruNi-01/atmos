@@ -407,6 +407,7 @@ async fn run_session_inner(
                 }
             }
 
+            let mut loaded_existing_session = false;
             let create_or_load_result: acp::Result<acp::SessionId> =
                 if let Some(resume_id) = resume_session_id.clone() {
                     let requested = acp::SessionId::new(resume_id.clone());
@@ -416,6 +417,7 @@ async fn run_session_inner(
                     {
                         Ok(response) => {
                             info!("Loaded ACP session: {}", resume_id);
+                            loaded_existing_session = true;
                             (uses_legacy_modes, uses_legacy_models) = emit_session_config(
                                 response.config_options,
                                 response.modes,
@@ -490,8 +492,11 @@ async fn run_session_inner(
                 }
             };
 
-            // Apply default configurations if any
-            if let Some(defaults) = default_config {
+            // Apply default configurations for newly created sessions only.
+            // When resuming an existing ACP session, applying defaults again can
+            // overwrite the live session config (for example, model selection).
+            if !loaded_existing_session {
+                if let Some(defaults) = default_config {
                 for (config_id, value) in defaults {
                     info!(
                         "Applying default config for {}: {}={}",
@@ -540,6 +545,7 @@ async fn run_session_inner(
                         }
                     }
                 }
+            }
             }
 
             // Per ACP spec, the session/load response means all history has been
