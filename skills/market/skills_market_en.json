@@ -1,0 +1,688 @@
+{
+  "locale": "en",
+  "source": "docs/skills/skills.md",
+  "generatedAt": "2026-03-07T16:28:15.258Z",
+  "market": {
+    "totalSkills": 65,
+    "categories": [
+      {
+        "id": "document-processing",
+        "title": "Document Processing",
+        "items": [
+          {
+            "id": "docx",
+            "title": "docx",
+            "description": "Create, edit, analyze Word docs with tracked changes, comments, formatting.",
+            "sourceUrl": "https://github.com/anthropics/skills/tree/main/skills/docx",
+            "downloadUrl": "https://github.com/anthropics/skills/tree/main/skills/docx",
+            "author": null
+          },
+          {
+            "id": "pdf",
+            "title": "pdf",
+            "description": "Extract text, tables, metadata, merge & annotate PDFs.",
+            "sourceUrl": "https://github.com/anthropics/skills/tree/main/skills/pdf",
+            "downloadUrl": "https://github.com/anthropics/skills/tree/main/skills/pdf",
+            "author": null
+          },
+          {
+            "id": "pptx",
+            "title": "pptx",
+            "description": "Read, generate, and adjust slides, layouts, templates.",
+            "sourceUrl": "https://github.com/anthropics/skills/tree/main/skills/pptx",
+            "downloadUrl": "https://github.com/anthropics/skills/tree/main/skills/pptx",
+            "author": null
+          },
+          {
+            "id": "xlsx",
+            "title": "xlsx",
+            "description": "Spreadsheet manipulation: formulas, charts, data transformations.",
+            "sourceUrl": "https://github.com/anthropics/skills/tree/main/skills/xlsx",
+            "downloadUrl": "https://github.com/anthropics/skills/tree/main/skills/xlsx",
+            "author": null
+          },
+          {
+            "id": "markdown-to-epub-converter",
+            "title": "Markdown to EPUB Converter",
+            "description": "Converts markdown documents and chat summaries into professional EPUB ebook files.",
+            "sourceUrl": "https://github.com/smerchek/claude-epub-skill",
+            "downloadUrl": "https://github.com/smerchek/claude-epub-skill",
+            "author": {
+              "handle": "@smerchek",
+              "url": "https://github.com/smerchek"
+            }
+          }
+        ]
+      },
+      {
+        "id": "development-code-tools",
+        "title": "Development & Code Tools",
+        "items": [
+          {
+            "id": "artifacts-builder",
+            "title": "artifacts-builder",
+            "description": "Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui).",
+            "sourceUrl": "https://github.com/anthropics/skills/tree/main/skills/web-artifacts-builder",
+            "downloadUrl": "https://github.com/anthropics/skills/tree/main/skills/web-artifacts-builder",
+            "author": null
+          },
+          {
+            "id": "aws-skills",
+            "title": "aws-skills",
+            "description": "AWS development with CDK best practices, cost optimization MCP servers, and serverless/event-driven architecture patterns.",
+            "sourceUrl": "https://github.com/zxkane/aws-skills",
+            "downloadUrl": "https://github.com/zxkane/aws-skills",
+            "author": null
+          },
+          {
+            "id": "changelog-generator",
+            "title": "Changelog Generator",
+            "description": "Automatically creates user-facing changelogs from git commits by analyzing history and transforming technical commits into customer-friendly release notes.",
+            "sourceUrl": "./changelog-generator/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/changelog-generator/",
+            "author": null
+          },
+          {
+            "id": "claude-code-terminal-title",
+            "title": "Claude Code Terminal Title",
+            "description": "Gives each Claud-Code terminal window a dynamic title that describes the work being done so you don't lose track of what window is doing what.",
+            "sourceUrl": "https://github.com/bluzername/claude-code-terminal-title",
+            "downloadUrl": "https://github.com/bluzername/claude-code-terminal-title",
+            "author": null
+          },
+          {
+            "id": "d3-js-visualization",
+            "title": "D3.js Visualization",
+            "description": "Teaches Claude to produce D3 charts and interactive data visualizations.",
+            "sourceUrl": "https://github.com/chrisvoncsefalvay/claude-d3js-skill",
+            "downloadUrl": "https://github.com/chrisvoncsefalvay/claude-d3js-skill",
+            "author": {
+              "handle": "@chrisvoncsefalvay",
+              "url": "https://github.com/chrisvoncsefalvay"
+            }
+          },
+          {
+            "id": "ffuf-web-fuzzing",
+            "title": "FFUF Web Fuzzing",
+            "description": "Integrates the ffuf web fuzzer so Claude can run fuzzing tasks and analyze results for vulnerabilities.",
+            "sourceUrl": "https://github.com/jthack/ffuf_claude_skill",
+            "downloadUrl": "https://github.com/jthack/ffuf_claude_skill",
+            "author": {
+              "handle": "@jthack",
+              "url": "https://github.com/jthack"
+            }
+          },
+          {
+            "id": "finishing-a-development-branch",
+            "title": "finishing-a-development-branch",
+            "description": "Guides completion of development work by presenting clear options and handling chosen workflow.",
+            "sourceUrl": "https://github.com/obra/superpowers/tree/main/skills/finishing-a-development-branch",
+            "downloadUrl": "https://github.com/obra/superpowers/tree/main/skills/finishing-a-development-branch",
+            "author": null
+          },
+          {
+            "id": "ios-simulator",
+            "title": "iOS Simulator",
+            "description": "Enables Claude to interact with iOS Simulator for testing and debugging iOS applications.",
+            "sourceUrl": "https://github.com/conorluddy/ios-simulator-skill",
+            "downloadUrl": "https://github.com/conorluddy/ios-simulator-skill",
+            "author": {
+              "handle": "@conorluddy",
+              "url": "https://github.com/conorluddy"
+            }
+          },
+          {
+            "id": "jules",
+            "title": "jules",
+            "description": "Delegate coding tasks to Google Jules AI agent for async bug fixes, documentation, tests, and feature implementation on GitHub repos.",
+            "sourceUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/jules",
+            "downloadUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/jules",
+            "author": {
+              "handle": "@sanjay3290",
+              "url": "https://github.com/sanjay3290"
+            }
+          },
+          {
+            "id": "langsmith-fetch",
+            "title": "LangSmith Fetch",
+            "description": "Debug LangChain and LangGraph agents by automatically fetching and analyzing execution traces from LangSmith Studio. First AI observability skill for Claude Code.",
+            "sourceUrl": "./langsmith-fetch/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/langsmith-fetch/",
+            "author": {
+              "handle": "@OthmanAdi",
+              "url": "https://github.com/OthmanAdi"
+            }
+          },
+          {
+            "id": "mcp-builder",
+            "title": "MCP Builder",
+            "description": "Guides creation of high-quality MCP (Model Context Protocol) servers for integrating external APIs and services with LLMs using Python or TypeScript.",
+            "sourceUrl": "./mcp-builder/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/mcp-builder/",
+            "author": null
+          },
+          {
+            "id": "move-code-quality-skill",
+            "title": "move-code-quality-skill",
+            "description": "Analyzes Move language packages against the official Move Book Code Quality Checklist for Move 2024 Edition compliance and best practices.",
+            "sourceUrl": "https://github.com/1NickPappas/move-code-quality-skill",
+            "downloadUrl": "https://github.com/1NickPappas/move-code-quality-skill",
+            "author": null
+          },
+          {
+            "id": "playwright-browser-automation",
+            "title": "Playwright Browser Automation",
+            "description": "Model-invoked Playwright automation for testing and validating web applications.",
+            "sourceUrl": "https://github.com/lackeyjb/playwright-skill",
+            "downloadUrl": "https://github.com/lackeyjb/playwright-skill",
+            "author": {
+              "handle": "@lackeyjb",
+              "url": "https://github.com/lackeyjb"
+            }
+          },
+          {
+            "id": "prompt-engineering",
+            "title": "prompt-engineering",
+            "description": "Teaches well-known prompt engineering techniques and patterns, including Anthropic best practices and agent persuasion principles.",
+            "sourceUrl": "https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/customaize-agent/skills/prompt-engineering",
+            "downloadUrl": "https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/customaize-agent/skills/prompt-engineering",
+            "author": null
+          },
+          {
+            "id": "pypict-claude-skill",
+            "title": "pypict-claude-skill",
+            "description": "Design comprehensive test cases using PICT (Pairwise Independent Combinatorial Testing) for requirements or code, generating optimized test suites with pairwise coverage.",
+            "sourceUrl": "https://github.com/omkamal/pypict-claude-skill",
+            "downloadUrl": "https://github.com/omkamal/pypict-claude-skill",
+            "author": null
+          },
+          {
+            "id": "reddit-fetch",
+            "title": "reddit-fetch",
+            "description": "Fetches Reddit content via Gemini CLI when WebFetch is blocked or returns 403 errors.",
+            "sourceUrl": "https://github.com/ykdojo/claude-code-tips/tree/main/skills/reddit-fetch",
+            "downloadUrl": "https://github.com/ykdojo/claude-code-tips/tree/main/skills/reddit-fetch",
+            "author": null
+          },
+          {
+            "id": "skill-creator",
+            "title": "Skill Creator",
+            "description": "Provides guidance for creating effective Claude Skills that extend capabilities with specialized knowledge, workflows, and tool integrations.",
+            "sourceUrl": "./skill-creator/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/skill-creator/",
+            "author": null
+          },
+          {
+            "id": "skill-seekers",
+            "title": "Skill Seekers",
+            "description": "Automatically converts any documentation website into a Claude AI skill in minutes.",
+            "sourceUrl": "https://github.com/yusufkaraaslan/Skill_Seekers",
+            "downloadUrl": "https://github.com/yusufkaraaslan/Skill_Seekers",
+            "author": {
+              "handle": "@yusufkaraaslan",
+              "url": "https://github.com/yusufkaraaslan"
+            }
+          },
+          {
+            "id": "software-architecture",
+            "title": "software-architecture",
+            "description": "Implements design patterns including Clean Architecture, SOLID principles, and comprehensive software design best practices.",
+            "sourceUrl": "https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/ddd/skills/software-architecture",
+            "downloadUrl": "https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/ddd/skills/software-architecture",
+            "author": null
+          },
+          {
+            "id": "subagent-driven-development",
+            "title": "subagent-driven-development",
+            "description": "Dispatches independent subagents for individual tasks with code review checkpoints between iterations for rapid, controlled development.",
+            "sourceUrl": "https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/sadd/skills/subagent-driven-development",
+            "downloadUrl": "https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/sadd/skills/subagent-driven-development",
+            "author": null
+          },
+          {
+            "id": "test-driven-development",
+            "title": "test-driven-development",
+            "description": "Use when implementing any feature or bugfix, before writing implementation code.",
+            "sourceUrl": "https://github.com/obra/superpowers/tree/main/skills/test-driven-development",
+            "downloadUrl": "https://github.com/obra/superpowers/tree/main/skills/test-driven-development",
+            "author": null
+          },
+          {
+            "id": "using-git-worktrees",
+            "title": "using-git-worktrees",
+            "description": "Creates isolated git worktrees with smart directory selection and safety verification.",
+            "sourceUrl": "https://github.com/obra/superpowers/blob/main/skills/using-git-worktrees/",
+            "downloadUrl": "https://github.com/obra/superpowers/blob/main/skills/using-git-worktrees/",
+            "author": null
+          },
+          {
+            "id": "connect",
+            "title": "Connect",
+            "description": "Connect Claude to any app. Send emails, create issues, post messages, update databases - take real actions across Gmail, Slack, GitHub, Notion, and 1000+ services.",
+            "sourceUrl": "./connect/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/connect/",
+            "author": null
+          },
+          {
+            "id": "webapp-testing",
+            "title": "Webapp Testing",
+            "description": "Tests local web applications using Playwright for verifying frontend functionality, debugging UI behavior, and capturing screenshots.",
+            "sourceUrl": "./webapp-testing/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/webapp-testing/",
+            "author": null
+          }
+        ]
+      },
+      {
+        "id": "data-analysis",
+        "title": "Data & Analysis",
+        "items": [
+          {
+            "id": "csv-data-summarizer",
+            "title": "CSV Data Summarizer",
+            "description": "Automatically analyzes CSV files and generates comprehensive insights with visualizations without requiring user prompts.",
+            "sourceUrl": "https://github.com/coffeefuelbump/csv-data-summarizer-claude-skill",
+            "downloadUrl": "https://github.com/coffeefuelbump/csv-data-summarizer-claude-skill",
+            "author": {
+              "handle": "@coffeefuelbump",
+              "url": "https://github.com/coffeefuelbump"
+            }
+          },
+          {
+            "id": "deep-research",
+            "title": "deep-research",
+            "description": "Execute autonomous multi-step research using Gemini Deep Research Agent for market analysis, competitive landscaping, and literature reviews.",
+            "sourceUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/deep-research",
+            "downloadUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/deep-research",
+            "author": {
+              "handle": "@sanjay3290",
+              "url": "https://github.com/sanjay3290"
+            }
+          },
+          {
+            "id": "postgres",
+            "title": "postgres",
+            "description": "Execute safe read-only SQL queries against PostgreSQL databases with multi-connection support and defense-in-depth security.",
+            "sourceUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/postgres",
+            "downloadUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/postgres",
+            "author": {
+              "handle": "@sanjay3290",
+              "url": "https://github.com/sanjay3290"
+            }
+          },
+          {
+            "id": "root-cause-tracing",
+            "title": "root-cause-tracing",
+            "description": "Use when errors occur deep in execution and you need to trace back to find the original trigger.",
+            "sourceUrl": "https://github.com/obra/superpowers/tree/main/skills/root-cause-tracing",
+            "downloadUrl": "https://github.com/obra/superpowers/tree/main/skills/root-cause-tracing",
+            "author": null
+          }
+        ]
+      },
+      {
+        "id": "business-marketing",
+        "title": "Business & Marketing",
+        "items": [
+          {
+            "id": "brand-guidelines",
+            "title": "Brand Guidelines",
+            "description": "Applies Anthropic's official brand colors and typography to artifacts for consistent visual identity and professional design standards.",
+            "sourceUrl": "./brand-guidelines/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/brand-guidelines/",
+            "author": null
+          },
+          {
+            "id": "competitive-ads-extractor",
+            "title": "Competitive Ads Extractor",
+            "description": "Extracts and analyzes competitors' ads from ad libraries to understand messaging and creative approaches that resonate.",
+            "sourceUrl": "./competitive-ads-extractor/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/competitive-ads-extractor/",
+            "author": null
+          },
+          {
+            "id": "domain-name-brainstormer",
+            "title": "Domain Name Brainstormer",
+            "description": "Generates creative domain name ideas and checks availability across multiple TLDs including .com, .io, .dev, and .ai extensions.",
+            "sourceUrl": "./domain-name-brainstormer/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/domain-name-brainstormer/",
+            "author": null
+          },
+          {
+            "id": "internal-comms",
+            "title": "Internal Comms",
+            "description": "Helps write internal communications including 3P updates, company newsletters, FAQs, status reports, and project updates using company-specific formats.",
+            "sourceUrl": "./internal-comms/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/internal-comms/",
+            "author": null
+          },
+          {
+            "id": "lead-research-assistant",
+            "title": "Lead Research Assistant",
+            "description": "Identifies and qualifies high-quality leads by analyzing your product, searching for target companies, and providing actionable outreach strategies.",
+            "sourceUrl": "./lead-research-assistant/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/lead-research-assistant/",
+            "author": null
+          }
+        ]
+      },
+      {
+        "id": "communication-writing",
+        "title": "Communication & Writing",
+        "items": [
+          {
+            "id": "article-extractor",
+            "title": "article-extractor",
+            "description": "Extract full article text and metadata from web pages.",
+            "sourceUrl": "https://github.com/michalparkola/tapestry-skills-for-claude-code/tree/main/article-extractor",
+            "downloadUrl": "https://github.com/michalparkola/tapestry-skills-for-claude-code/tree/main/article-extractor",
+            "author": null
+          },
+          {
+            "id": "brainstorming",
+            "title": "brainstorming",
+            "description": "Transform rough ideas into fully-formed designs through structured questioning and alternative exploration.",
+            "sourceUrl": "https://github.com/obra/superpowers/tree/main/skills/brainstorming",
+            "downloadUrl": "https://github.com/obra/superpowers/tree/main/skills/brainstorming",
+            "author": null
+          },
+          {
+            "id": "content-research-writer",
+            "title": "Content Research Writer",
+            "description": "Assists in writing high-quality content by conducting research, adding citations, improving hooks, and providing section-by-section feedback.",
+            "sourceUrl": "./content-research-writer/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/content-research-writer/",
+            "author": null
+          },
+          {
+            "id": "family-history-research",
+            "title": "family-history-research",
+            "description": "Provides assistance with planning family history and genealogy research projects.",
+            "sourceUrl": "https://github.com/emaynard/claude-family-history-research-skill",
+            "downloadUrl": "https://github.com/emaynard/claude-family-history-research-skill",
+            "author": null
+          },
+          {
+            "id": "meeting-insights-analyzer",
+            "title": "Meeting Insights Analyzer",
+            "description": "Analyzes meeting transcripts to uncover behavioral patterns including conflict avoidance, speaking ratios, filler words, and leadership style.",
+            "sourceUrl": "./meeting-insights-analyzer/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/meeting-insights-analyzer/",
+            "author": null
+          },
+          {
+            "id": "notebooklm-integration",
+            "title": "NotebookLM Integration",
+            "description": "Lets Claude Code chat directly with NotebookLM for source-grounded answers based exclusively on uploaded documents.",
+            "sourceUrl": "https://github.com/PleasePrompto/notebooklm-skill",
+            "downloadUrl": "https://github.com/PleasePrompto/notebooklm-skill",
+            "author": {
+              "handle": "@PleasePrompto",
+              "url": "https://github.com/PleasePrompto"
+            }
+          },
+          {
+            "id": "twitter-algorithm-optimizer",
+            "title": "Twitter Algorithm Optimizer",
+            "description": "Analyze and optimize tweets for maximum reach using Twitter's open-source algorithm insights. Rewrite and edit tweets to improve engagement and visibility.",
+            "sourceUrl": "./twitter-algorithm-optimizer/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/twitter-algorithm-optimizer/",
+            "author": null
+          }
+        ]
+      },
+      {
+        "id": "creative-media",
+        "title": "Creative & Media",
+        "items": [
+          {
+            "id": "canvas-design",
+            "title": "Canvas Design",
+            "description": "Creates beautiful visual art in PNG and PDF documents using design philosophy and aesthetic principles for posters, designs, and static pieces.",
+            "sourceUrl": "./canvas-design/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/canvas-design/",
+            "author": null
+          },
+          {
+            "id": "imagen",
+            "title": "imagen",
+            "description": "Generate images using Google Gemini's image generation API for UI mockups, icons, illustrations, and visual assets.",
+            "sourceUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/imagen",
+            "downloadUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/imagen",
+            "author": {
+              "handle": "@sanjay3290",
+              "url": "https://github.com/sanjay3290"
+            }
+          },
+          {
+            "id": "image-enhancer",
+            "title": "Image Enhancer",
+            "description": "Improves image and screenshot quality by enhancing resolution, sharpness, and clarity for professional presentations and documentation.",
+            "sourceUrl": "./image-enhancer/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/image-enhancer/",
+            "author": null
+          },
+          {
+            "id": "slack-gif-creator",
+            "title": "Slack GIF Creator",
+            "description": "Creates animated GIFs optimized for Slack with validators for size constraints and composable animation primitives.",
+            "sourceUrl": "./slack-gif-creator/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/slack-gif-creator/",
+            "author": null
+          },
+          {
+            "id": "theme-factory",
+            "title": "Theme Factory",
+            "description": "Applies professional font and color themes to artifacts including slides, docs, reports, and HTML landing pages with 10 pre-set themes.",
+            "sourceUrl": "./theme-factory/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/theme-factory/",
+            "author": null
+          },
+          {
+            "id": "video-downloader",
+            "title": "Video Downloader",
+            "description": "Downloads videos from YouTube and other platforms for offline viewing, editing, or archival with support for various formats and quality options.",
+            "sourceUrl": "./video-downloader/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/video-downloader/",
+            "author": null
+          },
+          {
+            "id": "youtube-transcript",
+            "title": "youtube-transcript",
+            "description": "Fetch transcripts from YouTube videos and prepare summaries.",
+            "sourceUrl": "https://github.com/michalparkola/tapestry-skills-for-claude-code/tree/main/youtube-transcript",
+            "downloadUrl": "https://github.com/michalparkola/tapestry-skills-for-claude-code/tree/main/youtube-transcript",
+            "author": null
+          }
+        ]
+      },
+      {
+        "id": "productivity-organization",
+        "title": "Productivity & Organization",
+        "items": [
+          {
+            "id": "file-organizer",
+            "title": "File Organizer",
+            "description": "Intelligently organizes files and folders by understanding context, finding duplicates, and suggesting better organizational structures.",
+            "sourceUrl": "./file-organizer/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/file-organizer/",
+            "author": null
+          },
+          {
+            "id": "invoice-organizer",
+            "title": "Invoice Organizer",
+            "description": "Automatically organizes invoices and receipts for tax preparation by reading files, extracting information, and renaming consistently.",
+            "sourceUrl": "./invoice-organizer/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/invoice-organizer/",
+            "author": null
+          },
+          {
+            "id": "kaizen",
+            "title": "kaizen",
+            "description": "Applies continuous improvement methodology with multiple analytical approaches, based on Japanese Kaizen philosophy and Lean methodology.",
+            "sourceUrl": "https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/kaizen/skills/kaizen",
+            "downloadUrl": "https://github.com/NeoLabHQ/context-engineering-kit/tree/master/plugins/kaizen/skills/kaizen",
+            "author": null
+          },
+          {
+            "id": "n8n-skills",
+            "title": "n8n-skills",
+            "description": "Enables AI assistants to directly understand and operate n8n workflows.",
+            "sourceUrl": "https://github.com/haunchen/n8n-skills",
+            "downloadUrl": "https://github.com/haunchen/n8n-skills",
+            "author": null
+          },
+          {
+            "id": "raffle-winner-picker",
+            "title": "Raffle Winner Picker",
+            "description": "Randomly selects winners from lists, spreadsheets, or Google Sheets for giveaways and contests with cryptographically secure randomness.",
+            "sourceUrl": "./raffle-winner-picker/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/raffle-winner-picker/",
+            "author": null
+          },
+          {
+            "id": "tailored-resume-generator",
+            "title": "Tailored Resume Generator",
+            "description": "Analyzes job descriptions and generates tailored resumes that highlight relevant experience, skills, and achievements to maximize interview chances.",
+            "sourceUrl": "./tailored-resume-generator/",
+            "downloadUrl": "https://github.com/ComposioHQ/awesome-claude-skills/tree/main/tailored-resume-generator/",
+            "author": null
+          },
+          {
+            "id": "ship-learn-next",
+            "title": "ship-learn-next",
+            "description": "Skill to help iterate on what to build or learn next, based on feedback loops.",
+            "sourceUrl": "https://github.com/michalparkola/tapestry-skills-for-claude-code/tree/main/ship-learn-next",
+            "downloadUrl": "https://github.com/michalparkola/tapestry-skills-for-claude-code/tree/main/ship-learn-next",
+            "author": null
+          },
+          {
+            "id": "tapestry",
+            "title": "tapestry",
+            "description": "Interlink and summarize related documents into knowledge networks.",
+            "sourceUrl": "https://github.com/michalparkola/tapestry-skills-for-claude-code/tree/main/tapestry",
+            "downloadUrl": "https://github.com/michalparkola/tapestry-skills-for-claude-code/tree/main/tapestry",
+            "author": null
+          }
+        ]
+      },
+      {
+        "id": "collaboration-project-management",
+        "title": "Collaboration & Project Management",
+        "items": [
+          {
+            "id": "git-pushing",
+            "title": "git-pushing",
+            "description": "Automate git operations and repository interactions.",
+            "sourceUrl": "https://github.com/mhattingpete/claude-skills-marketplace/tree/main/engineering-workflow-plugin/skills/git-pushing",
+            "downloadUrl": "https://github.com/mhattingpete/claude-skills-marketplace/tree/main/engineering-workflow-plugin/skills/git-pushing",
+            "author": null
+          },
+          {
+            "id": "google-workspace-skills",
+            "title": "google-workspace-skills",
+            "description": "Suite of Google Workspace integrations: Gmail, Calendar, Chat, Docs, Sheets, Slides, and Drive with cross-platform OAuth.",
+            "sourceUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills",
+            "downloadUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills",
+            "author": {
+              "handle": "@sanjay3290",
+              "url": "https://github.com/sanjay3290"
+            }
+          },
+          {
+            "id": "outline",
+            "title": "outline",
+            "description": "Search, read, create, and manage documents in Outline wiki instances (cloud or self-hosted).",
+            "sourceUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/outline",
+            "downloadUrl": "https://github.com/sanjay3290/ai-skills/tree/main/skills/outline",
+            "author": {
+              "handle": "@sanjay3290",
+              "url": "https://github.com/sanjay3290"
+            }
+          },
+          {
+            "id": "review-implementing",
+            "title": "review-implementing",
+            "description": "Evaluate code implementation plans and align with specs.",
+            "sourceUrl": "https://github.com/mhattingpete/claude-skills-marketplace/tree/main/engineering-workflow-plugin/skills/review-implementing",
+            "downloadUrl": "https://github.com/mhattingpete/claude-skills-marketplace/tree/main/engineering-workflow-plugin/skills/review-implementing",
+            "author": null
+          },
+          {
+            "id": "test-fixing",
+            "title": "test-fixing",
+            "description": "Detect failing tests and propose patches or fixes.",
+            "sourceUrl": "https://github.com/mhattingpete/claude-skills-marketplace/tree/main/engineering-workflow-plugin/skills/test-fixing",
+            "downloadUrl": "https://github.com/mhattingpete/claude-skills-marketplace/tree/main/engineering-workflow-plugin/skills/test-fixing",
+            "author": null
+          }
+        ]
+      }
+    ]
+  },
+  "resources": {
+    "totalResources": 8,
+    "categories": [
+      {
+        "id": "official-documentation",
+        "title": "Official Documentation",
+        "items": [
+          {
+            "id": "claude-skills-overview",
+            "title": "Claude Skills Overview",
+            "description": "Official announcement and features",
+            "url": "https://www.anthropic.com/news/skills"
+          },
+          {
+            "id": "skills-user-guide",
+            "title": "Skills User Guide",
+            "description": "How to use skills in Claude",
+            "url": "https://support.claude.com/en/articles/12512180-using-skills-in-claude"
+          },
+          {
+            "id": "creating-custom-skills",
+            "title": "Creating Custom Skills",
+            "description": "Skill development guide",
+            "url": "https://support.claude.com/en/articles/12512198-creating-custom-skills"
+          },
+          {
+            "id": "skills-api-documentation",
+            "title": "Skills API Documentation",
+            "description": "API integration guide",
+            "url": "https://docs.claude.com/en/api/skills-guide"
+          },
+          {
+            "id": "agent-skills-blog-post",
+            "title": "Agent Skills Blog Post",
+            "description": "Engineering deep dive",
+            "url": "https://anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills"
+          }
+        ]
+      },
+      {
+        "id": "community-resources",
+        "title": "Community Resources",
+        "items": [
+          {
+            "id": "anthropic-skills-repository",
+            "title": "Anthropic Skills Repository",
+            "description": "Official example skills",
+            "url": "https://github.com/anthropics/skills"
+          },
+          {
+            "id": "claude-community",
+            "title": "Claude Community",
+            "description": "Discuss skills with other users",
+            "url": "https://community.anthropic.com"
+          },
+          {
+            "id": "skills-marketplace",
+            "title": "Skills Marketplace",
+            "description": "Discover and share skills",
+            "url": "https://claude.ai/marketplace"
+          }
+        ]
+      }
+    ]
+  }
+}
