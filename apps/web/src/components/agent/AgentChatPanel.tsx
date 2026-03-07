@@ -73,7 +73,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  BorderBeam,
+  ShineBorder,
 } from "@workspace/ui";
 import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, Gauge, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
@@ -3214,20 +3214,10 @@ export function AgentChatPanel() {
             state="approval-requested"
             className="relative overflow-hidden border-foreground/20 bg-background"
           >
-            <BorderBeam
+            <ShineBorder
               duration={7}
-              delay={0}
-              size={280}
               borderWidth={1}
-              className="from-transparent via-amber-500 to-transparent"
-            />
-            <BorderBeam
-              duration={7}
-              delay={3.5}
-              size={360}
-              borderWidth={2}
-              className="from-transparent via-amber-500 to-transparent opacity-90"
-              reverse
+              shineColor={["#d97706", "#b45309"]}
             />
             <ConfirmationRequest>
               <span className="font-medium text-amber-500">Permission requested</span>
@@ -3236,7 +3226,7 @@ export function AgentChatPanel() {
               </p>
               {pendingPermissionMarkdown ? (
                 <div className="mt-2 min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/20">
-                  <div className="max-h-[45vh] min-w-0 max-w-full overflow-auto p-3 text-sm">
+                  <div className="max-h-[45vh] min-w-0 max-w-full overflow-auto px-3 py-1.5 text-sm">
                     <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
                     {pendingPermissionMarkdown}
                     </MarkdownRenderer>
@@ -3244,7 +3234,7 @@ export function AgentChatPanel() {
                 </div>
               ) : null}
             </ConfirmationRequest>
-            <ConfirmationActions className="w-full min-w-0 flex-nowrap justify-start self-stretch overflow-hidden">
+            <ConfirmationActions className="mt-1 w-full min-w-0 flex-nowrap justify-start self-stretch overflow-hidden">
               {pendingPermission.options.length > 0 ? (
                 pendingPermission.options.map((opt) => (
                   <PermissionActionButton
