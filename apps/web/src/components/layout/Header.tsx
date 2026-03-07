@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
+import { motion } from 'motion/react';
 import { useParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
 import { useContextParams } from "@/hooks/use-context-params";
@@ -46,6 +47,7 @@ import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { UsagePopover } from './UsagePopover';
 
 const Header: React.FC = () => {
   const params = useParams();
@@ -58,12 +60,35 @@ const Header: React.FC = () => {
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
+  const [actionsCollapsed, setActionsCollapsed] = useState(false);
+  const [actionsWidth, setActionsWidth] = useState(0);
+  const actionsContentRef = useRef<HTMLDivElement | null>(null);
   const chatPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleChatPopoverClose = useCallback(() => {
     chatPopoverTimerRef.current = setTimeout(() => setChatPopoverOpen(false), 200);
   }, []);
   const cancelChatPopoverClose = useCallback(() => {
     if (chatPopoverTimerRef.current) { clearTimeout(chatPopoverTimerRef.current); chatPopoverTimerRef.current = null; }
+  }, []);
+
+  useLayoutEffect(() => {
+    const node = actionsContentRef.current;
+    if (!node) return;
+
+    const updateWidth = () => {
+      setActionsWidth(node.scrollWidth);
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(node);
+    window.addEventListener('resize', updateWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateWidth);
+    };
   }, []);
   const { setCurrentProjectPath } = useEditorStore();
   const {
@@ -505,58 +530,88 @@ const Header: React.FC = () => {
           </kbd>
         </button>
 
-        <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
-          <PopoverTrigger asChild>
-            <button
-              aria-label="Agent Chat"
-              className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-              onClick={() => { setChatPopoverOpen(false); setAgentChatOpen(true); }}
-              onMouseEnter={() => setChatPopoverOpen(true)}
-              onMouseLeave={() => scheduleChatPopoverClose()}
-            >
-              <Bot className="size-4" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            align="end"
-            sideOffset={8}
-            className="w-48 p-3 bg-popover border border-border shadow-md"
-            onOpenAutoFocus={(e) => e.preventDefault()}
-            onMouseEnter={() => cancelChatPopoverClose()}
-            onMouseLeave={() => scheduleChatPopoverClose()}
+        <div className="flex items-center justify-end">
+          <motion.div
+            animate={{
+              width: actionsCollapsed ? 0 : actionsWidth,
+              opacity: actionsCollapsed ? 0 : 1,
+            }}
+            transition={{ type: "spring", stiffness: 360, damping: 34, mass: 0.8 }}
+            className="mr-2 shrink-0 overflow-hidden"
           >
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm text-popover-foreground">Floating Ball</span>
-              <Switch
-                checked={layout.floatingBall}
-                onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
-              />
-            </label>
-            <div className="mt-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-popover-foreground">Opacity</span>
-                <span className="text-xs text-muted-foreground tabular-nums">{layout.opacity}%</span>
-              </div>
-              <input
-                type="range"
-                min={20}
-                max={100}
-                value={layout.opacity}
-                onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
-                className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
-              />
-            </div>
-          </PopoverContent>
-        </Popover>
+            <div
+              ref={actionsContentRef}
+              className={cn(
+                "flex w-max items-center gap-3",
+                actionsCollapsed && "pointer-events-none"
+              )}
+            >
+                <UsagePopover />
 
-        <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
-        <button
-          onClick={toggleFullScreen}
-          aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
-          className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-        >
-          {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-        </button>
+                <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      aria-label="Agent Chat"
+                      className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                      onClick={() => { setChatPopoverOpen(false); setAgentChatOpen(true); }}
+                      onMouseEnter={() => setChatPopoverOpen(true)}
+                      onMouseLeave={() => scheduleChatPopoverClose()}
+                    >
+                      <Bot className="size-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    sideOffset={8}
+                    className="w-48 p-3 bg-popover border border-border shadow-md"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                    onMouseEnter={() => cancelChatPopoverClose()}
+                    onMouseLeave={() => scheduleChatPopoverClose()}
+                  >
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <span className="text-sm text-popover-foreground">Floating Ball</span>
+                      <Switch
+                        checked={layout.floatingBall}
+                        onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
+                      />
+                    </label>
+                    <div className="mt-3 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-popover-foreground">Opacity</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{layout.opacity}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={20}
+                        max={100}
+                        value={layout.opacity}
+                        onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
+                        className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
+                <button
+                  onClick={toggleFullScreen}
+                  aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+                  className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                >
+                  {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+                </button>
+            </div>
+          </motion.div>
+
+          <button
+            type="button"
+            aria-label={actionsCollapsed ? "Expand header actions" : "Collapse header actions"}
+            onClick={() => setActionsCollapsed((value) => !value)}
+            className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+          >
+            {actionsCollapsed ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
+          </button>
+        </div>
       </div>
 
 

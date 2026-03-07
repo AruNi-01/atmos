@@ -36,8 +36,7 @@ fn main() {
                     .filter(|p| p.join("index.html").is_file());
                 let has_static = static_dir.is_some();
 
-                if let Err(err) = spawn_and_wait_sidecar(&app_handle, api_token, static_dir).await
-                {
+                if let Err(err) = spawn_and_wait_sidecar(&app_handle, api_token, static_dir).await {
                     eprintln!("Failed to start sidecar: {err}");
 
                     // Close splashscreen so it doesn't linger behind the dialog

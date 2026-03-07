@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 
-use agent::acp_client::logging::append_acp_log;
 use crate::app_state::AppState;
+use agent::acp_client::logging::append_acp_log;
 
 /// Client -> Server message
 #[derive(Debug, Deserialize)]

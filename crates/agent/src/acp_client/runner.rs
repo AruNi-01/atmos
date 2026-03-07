@@ -12,12 +12,12 @@ use tokio::time::{timeout, Duration};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
+use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
     AgentTurnUsage, AuthMethodSummary, AuthRequiredPayload, PermissionRequest,
 };
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
-use crate::acp_client::logging::append_acp_log;
 use crate::models::AgentLaunchSpec;
 
 use super::process::spawn_agent;
@@ -497,55 +497,65 @@ async fn run_session_inner(
             // overwrite the live session config (for example, model selection).
             if !loaded_existing_session {
                 if let Some(defaults) = default_config {
-                for (config_id, value) in defaults {
-                    info!(
-                        "Applying default config for {}: {}={}",
-                        _session_id, config_id, value
-                    );
-                    if uses_legacy_modes && config_id == "mode" {
-                        match conn
-                            .set_session_mode(acp::SetSessionModeRequest::new(
-                                session_id_acp.clone(),
-                                value,
-                            ))
-                            .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                warn!("Failed to apply default mode for {}: {}", _session_id, e);
-                            }
-                        }
-                    } else if uses_legacy_models && config_id == "model" {
-                        match conn
-                            .set_session_model(acp::SetSessionModelRequest::new(
-                                session_id_acp.clone(),
-                                value,
-                            ))
-                            .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                warn!("Failed to apply default model for {}: {}", _session_id, e);
-                            }
-                        }
-                    } else {
-                        let req = acp::SetSessionConfigOptionRequest::new(
-                            session_id_acp.clone(),
-                            acp::SessionConfigId::new(config_id),
-                            acp::SessionConfigValueId::new(value),
+                    for (config_id, value) in defaults {
+                        info!(
+                            "Applying default config for {}: {}={}",
+                            _session_id, config_id, value
                         );
-                        match conn.set_session_config_option(req).await {
-                            Ok(resp) => {
-                                let out = map_config_options(resp.config_options);
-                                let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                        if uses_legacy_modes && config_id == "mode" {
+                            match conn
+                                .set_session_mode(acp::SetSessionModeRequest::new(
+                                    session_id_acp.clone(),
+                                    value,
+                                ))
+                                .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    warn!(
+                                        "Failed to apply default mode for {}: {}",
+                                        _session_id, e
+                                    );
+                                }
                             }
-                            Err(e) => {
-                                warn!("Failed to apply default config for {}: {}", _session_id, e);
+                        } else if uses_legacy_models && config_id == "model" {
+                            match conn
+                                .set_session_model(acp::SetSessionModelRequest::new(
+                                    session_id_acp.clone(),
+                                    value,
+                                ))
+                                .await
+                            {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    warn!(
+                                        "Failed to apply default model for {}: {}",
+                                        _session_id, e
+                                    );
+                                }
+                            }
+                        } else {
+                            let req = acp::SetSessionConfigOptionRequest::new(
+                                session_id_acp.clone(),
+                                acp::SessionConfigId::new(config_id),
+                                acp::SessionConfigValueId::new(value),
+                            );
+                            match conn.set_session_config_option(req).await {
+                                Ok(resp) => {
+                                    let out = map_config_options(resp.config_options);
+                                    let _ =
+                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                                }
+                                Err(e) => {
+                                    warn!(
+                                        "Failed to apply default config for {}: {}",
+                                        _session_id, e
+                                    );
+                                }
                             }
                         }
                     }
                 }
-            }
             }
 
             // Per ACP spec, the session/load response means all history has been

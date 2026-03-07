@@ -9,6 +9,7 @@ mod utils;
 use std::sync::Arc;
 
 use crate::middleware::require_local_token;
+use ai_usage::UsageService;
 use app_state::AppState;
 use axum::{http::StatusCode, middleware::from_fn, routing::get, Router};
 use clap::Parser;
@@ -74,6 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
+    let usage_service = Arc::new(UsageService::default());
     tokio::spawn({
         let agent = Arc::clone(&agent_service);
         async move {
@@ -90,6 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&project_service),
         Arc::clone(&workspace_service),
         Arc::clone(&agent_service),
+        Arc::clone(&usage_service),
     ));
 
     // Terminal service for PTY management
@@ -154,7 +157,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // route maps to a pre-rendered static page. Unmatched URLs fall back
             // to en/index.html (or root index.html) for client-side resolution.
             let fallback = static_path.join("en").join("index.html");
-            let fallback_file = if fallback.is_file() { &fallback } else { &index };
+            let fallback_file = if fallback.is_file() {
+                &fallback
+            } else {
+                &index
+            };
             let serve_dir = ServeDir::new(&static_path)
                 .append_index_html_on_directories(true)
                 .fallback(ServeFile::new(fallback_file));
