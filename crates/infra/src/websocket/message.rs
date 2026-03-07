@@ -77,6 +77,34 @@ pub struct WsError {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageOverviewRequest {
+    #[serde(default)]
+    pub refresh: bool,
+    #[serde(default)]
+    pub provider_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageProviderSwitchRequest {
+    pub provider_id: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageAllProvidersSwitchRequest {
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageProviderManualSetupRequest {
+    pub provider_id: String,
+    #[serde(default)]
+    pub region: Option<String>,
+    #[serde(default)]
+    pub api_key: Option<String>,
+}
+
 /// 操作类型枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -140,6 +168,16 @@ pub enum WsAction {
     GitSync,
     /// 获取当前分支的提交记录列表
     GitLog,
+
+    // ===== Usage 操作 =====
+    /// 获取 usage 概览
+    UsageGetOverview,
+    /// 更新单个 provider 的刷新开关
+    UsageSetProviderSwitch,
+    /// 更新全部 provider 的刷新开关
+    UsageSetAllProvidersSwitch,
+    /// 更新 provider 的手动配置
+    UsageSetProviderManualSetup,
 
     // ===== Project 操作 =====
     /// 获取所有项目

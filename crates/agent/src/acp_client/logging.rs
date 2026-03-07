@@ -15,12 +15,7 @@ fn acp_log_path() -> PathBuf {
         .join("acp_agent.log")
 }
 
-pub fn append_acp_log<T: Serialize>(
-    session_id: &str,
-    channel: &str,
-    kind: &str,
-    payload: &T,
-) {
+pub fn append_acp_log<T: Serialize>(session_id: &str, channel: &str, kind: &str, payload: &T) {
     let Ok(payload_value) = serde_json::to_value(payload) else {
         return;
     };

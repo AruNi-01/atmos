@@ -869,8 +869,7 @@ pub async fn list_ws_connections(
 /// GET /api/system/review-skills - List code review skill definitions from ~/.atmos/skills/.system/code_review_skills
 pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
     let home = std::env::var("HOME").unwrap_or_default();
-    let base =
-        std::path::PathBuf::from(&home).join(".atmos/skills/.system/code_review_skills");
+    let base = std::path::PathBuf::from(&home).join(".atmos/skills/.system/code_review_skills");
 
     let mut skills: Vec<Value> = Vec::new();
 
@@ -896,8 +895,7 @@ pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
                 .join(" ");
 
             let mut description = format!("Custom review skill for {}", dir_name);
-            let mut best_for =
-                "Code review tasks configured in system skills".to_string();
+            let mut best_for = "Code review tasks configured in system skills".to_string();
 
             if skill_md.is_file() {
                 if let Ok(content) = std::fs::read_to_string(&skill_md) {
@@ -934,8 +932,7 @@ pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
             } else if dir_name == "code-review-expert" {
                 label = "Backend Arch Expert".into();
                 if best_for == "Code review tasks configured in system skills" {
-                    best_for =
-                        "Complex backend logic, API, and DB architectural reviews".into();
+                    best_for = "Complex backend logic, API, and DB architectural reviews".into();
                 }
             } else if dir_name == "typescript-react-reviewer" {
                 label = "TypeScript React Expert".into();

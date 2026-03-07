@@ -442,10 +442,7 @@ impl AgentManager {
         if binary_entry.is_some() {
             let registry = fetch_acp_registry(false).await?;
             let r_entry = registry.agents.iter().find(|a| a.id == registry_id);
-            return self.remove_registry_binary_agent(
-                r_entry.cloned().as_ref(),
-                registry_id,
-            );
+            return self.remove_registry_binary_agent(r_entry.cloned().as_ref(), registry_id);
         }
 
         let manifest_entry = manifest
@@ -1014,10 +1011,7 @@ impl AgentManager {
                 let sub_dir = bin_dir.join(top_dir);
                 if sub_dir != bin_dir && sub_dir.is_dir() && relative.components().count() > 1 {
                     fs::remove_dir_all(&sub_dir).map_err(|e| {
-                        AgentError::Command(format!(
-                            "failed to remove binary directory: {}",
-                            e
-                        ))
+                        AgentError::Command(format!("failed to remove binary directory: {}", e))
                     })?;
                 } else {
                     fs::remove_file(&path).map_err(|e| {
@@ -1602,7 +1596,10 @@ fn extract_zip(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()> {
     let out_path = dest_dir.join(binary_name);
     if let Some(parent) = out_path.parent() {
         fs::create_dir_all(parent).map_err(|e| {
-            AgentError::Command(format!("failed to create directory for extracted binary: {}", e))
+            AgentError::Command(format!(
+                "failed to create directory for extracted binary: {}",
+                e
+            ))
         })?;
     }
     fs::write(&out_path, &buf)
@@ -1656,7 +1653,10 @@ fn extract_tar_gz(data: &[u8], dest_dir: &Path, binary_name: &str) -> Result<()>
     let out_path = dest_dir.join(binary_name);
     if let Some(parent) = out_path.parent() {
         fs::create_dir_all(parent).map_err(|e| {
-            AgentError::Command(format!("failed to create directory for extracted binary: {}", e))
+            AgentError::Command(format!(
+                "failed to create directory for extracted binary: {}",
+                e
+            ))
         })?;
     }
     fs::write(&out_path, &content)
@@ -1687,16 +1687,14 @@ fn extract_tar_gz_all(data: &[u8], dest_dir: &Path) -> Result<()> {
         let out_path = dest_dir.join(&path);
 
         if entry.header().entry_type().is_dir() {
-            fs::create_dir_all(&out_path).map_err(|e| {
-                AgentError::Command(format!("failed to create directory: {}", e))
-            })?;
+            fs::create_dir_all(&out_path)
+                .map_err(|e| AgentError::Command(format!("failed to create directory: {}", e)))?;
             continue;
         }
 
         if let Some(parent) = out_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                AgentError::Command(format!("failed to create directory: {}", e))
-            })?;
+            fs::create_dir_all(parent)
+                .map_err(|e| AgentError::Command(format!("failed to create directory: {}", e)))?;
         }
 
         let mut buf = Vec::new();
@@ -1739,16 +1737,14 @@ fn extract_zip_all(data: &[u8], dest_dir: &Path) -> Result<()> {
         let out_path = dest_dir.join(&name);
 
         if file.is_dir() {
-            fs::create_dir_all(&out_path).map_err(|e| {
-                AgentError::Command(format!("failed to create directory: {}", e))
-            })?;
+            fs::create_dir_all(&out_path)
+                .map_err(|e| AgentError::Command(format!("failed to create directory: {}", e)))?;
             continue;
         }
 
         if let Some(parent) = out_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                AgentError::Command(format!("failed to create directory: {}", e))
-            })?;
+            fs::create_dir_all(parent)
+                .map_err(|e| AgentError::Command(format!("failed to create directory: {}", e)))?;
         }
 
         let mut buf = Vec::new();

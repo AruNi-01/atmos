@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ai-usage = { path = "../ai-usage" }
 infra = { path = "../infra" }
 core-engine = { path = "../core-engine" }
 agent = { path = "../agent" }
@@ -21,4 +22,3 @@ dirs = "5.0"
 rand = "0.8"
 regex = "1.11.1"
 uuid = { version = "1.0", features = ["v4"] }
-

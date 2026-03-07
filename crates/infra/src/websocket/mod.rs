@@ -34,11 +34,12 @@ pub use message::{
     GithubPrReopenRequest, MessagePayload, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillFile, SkillInfo,
-    SkillsGetRequest, SkillsListResponse, SyncSingleSystemSkillRequest, WorkspaceArchiveRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
-    WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsError as WsErrorPayload, WsEvent, WsMessage,
-    WsRequest, WsResponse,
+    SkillsGetRequest, SkillsListResponse, SyncSingleSystemSkillRequest,
+    UsageAllProvidersSwitchRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
+    UsageProviderSwitchRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
+    WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
+    WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
+    WsAction, WsError as WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
 };
 pub use service::{WsService, WsServiceConfig};

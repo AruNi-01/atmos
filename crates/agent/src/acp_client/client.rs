@@ -107,11 +107,11 @@ fn map_tool_call_content(
         .iter()
         .filter_map(|item| match item {
             acp::ToolCallContent::Content(c) => match &c.content {
-                acp::ContentBlock::Text(text) if !text.text.trim().is_empty() => Some(
-                    crate::acp_client::types::AgentToolCallContentItem::Text {
+                acp::ContentBlock::Text(text) if !text.text.trim().is_empty() => {
+                    Some(crate::acp_client::types::AgentToolCallContentItem::Text {
                         text: text.text.clone(),
-                    },
-                ),
+                    })
+                }
                 _ => None,
             },
             acp::ToolCallContent::Diff(diff) => {
@@ -144,13 +144,13 @@ fn extract_parent_tool_use_id<T: Serialize>(value: &T) -> Option<String> {
 use tokio::sync::{mpsc, oneshot};
 use tracing::warn;
 
+use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
     AgentConfigOption, AgentPlan, AgentPlanEntry, AgentTurnUsage, AgentUsage, StreamDelta,
     ToolCallStatus, ToolCallUpdate,
 };
 use crate::acp_client::types::{PermissionOption, PermissionRequest, RiskLevel};
-use crate::acp_client::logging::append_acp_log;
 
 /// Events sent from ACP session to the session manager (for WebSocket forwarding)
 #[derive(Debug)]

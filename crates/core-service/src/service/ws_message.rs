@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use ai_usage::UsageService;
 use agent::{AgentId, CustomAgent};
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
@@ -25,11 +26,13 @@ use infra::{
     GithubPrReadyRequest, GithubPrReopenRequest, ProjectCheckCanDeleteRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest,
-    SyncSingleSystemSkillRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
-    WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
-    WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
-    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
-    WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
+    SyncSingleSystemSkillRequest, UsageAllProvidersSwitchRequest, UsageOverviewRequest,
+    UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
+    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
+    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification,
+    WorkspaceUnarchiveRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage,
+    WsMessageHandler, WsRequest,
 };
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
@@ -48,6 +51,7 @@ pub struct WsMessageService {
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
     agent_service: Arc<AgentService>,
+    usage_service: Arc<UsageService>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
 }
 
@@ -56,6 +60,7 @@ impl WsMessageService {
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
         agent_service: Arc<AgentService>,
+        usage_service: Arc<UsageService>,
     ) -> Self {
         Self {
             fs_engine: FsEngine::new(),
@@ -65,6 +70,7 @@ impl WsMessageService {
             project_service,
             workspace_service,
             agent_service,
+            usage_service,
             ws_manager: OnceCell::new(),
         }
     }
@@ -146,6 +152,24 @@ impl WsMessageService {
             WsAction::GitFetch => self.handle_git_fetch(parse_request(request.data)?),
             WsAction::GitSync => self.handle_git_sync(parse_request(request.data)?),
             WsAction::GitLog => self.handle_git_log(parse_request(request.data)?),
+
+            // Usage
+            WsAction::UsageGetOverview => {
+                self.handle_usage_get_overview(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::UsageSetProviderSwitch => {
+                self.handle_usage_set_provider_switch(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::UsageSetAllProvidersSwitch => {
+                self.handle_usage_set_all_providers_switch(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::UsageSetProviderManualSetup => {
+                self.handle_usage_set_provider_manual_setup(parse_request(request.data)?)
+                    .await
+            }
 
             // Project
             WsAction::ProjectList => self.handle_project_list().await,
@@ -786,6 +810,46 @@ impl WsMessageService {
             .collect();
 
         Ok(json!({ "commits": commits_json }))
+    }
+
+    // ===== Usage Handlers =====
+
+    async fn handle_usage_get_overview(&self, req: UsageOverviewRequest) -> Result<Value> {
+        let overview = self
+            .usage_service
+            .get_overview(req.refresh, req.provider_id.as_deref())
+            .await;
+        Ok(json!(overview))
+    }
+
+    async fn handle_usage_set_provider_switch(
+        &self,
+        req: UsageProviderSwitchRequest,
+    ) -> Result<Value> {
+        let overview = self
+            .usage_service
+            .set_provider_switch(&req.provider_id, req.enabled)
+            .await;
+        Ok(json!(overview))
+    }
+
+    async fn handle_usage_set_all_providers_switch(
+        &self,
+        req: UsageAllProvidersSwitchRequest,
+    ) -> Result<Value> {
+        let overview = self.usage_service.set_all_provider_switch(req.enabled).await;
+        Ok(json!(overview))
+    }
+
+    async fn handle_usage_set_provider_manual_setup(
+        &self,
+        req: UsageProviderManualSetupRequest,
+    ) -> Result<Value> {
+        let overview = self
+            .usage_service
+            .set_provider_manual_setup(&req.provider_id, req.region, req.api_key)
+            .await;
+        Ok(json!(overview))
     }
 
     // ===== Project Handlers =====

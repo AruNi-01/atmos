@@ -363,7 +363,6 @@ export interface ListAgentSessionsResponse {
   has_more: boolean;
 }
 
-
 export const agentApi = {
   /**
    * Create a new Agent chat session.

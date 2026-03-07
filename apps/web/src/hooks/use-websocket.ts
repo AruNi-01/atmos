@@ -39,6 +39,11 @@ export type WsAction =
   | 'git_fetch'
   | 'git_sync'
   | 'git_log'
+  // Usage 操作
+  | 'usage_get_overview'
+  | 'usage_set_provider_switch'
+  | 'usage_set_all_providers_switch'
+  | 'usage_set_provider_manual_setup'
   // Project 操作
   | 'project_list'
   | 'project_create'
