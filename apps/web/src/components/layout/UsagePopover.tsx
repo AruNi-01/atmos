@@ -4,6 +4,7 @@ import React, { startTransition, useCallback, useEffect, useMemo, useState } fro
 import { AnimatePresence, motion } from "motion/react";
 import {
   AlertCircle,
+  BookMarked,
   ChevronDown,
   CircleHelp,
   Blocks,
@@ -942,6 +943,8 @@ export function UsagePopover() {
   const [lastLoadedAt, setLastLoadedAt] = useState<number | null>(null);
   const [switchingProviderId, setSwitchingProviderId] = useState<string | null>(null);
   const [savingManualSetupProviderId, setSavingManualSetupProviderId] = useState<string | null>(null);
+  const [showRefreshAction, setShowRefreshAction] = useState(false);
+  const [refreshSwapDirection, setRefreshSwapDirection] = useState<1 | -1>(1);
 
   const selectedProvider = useMemo(
     () => overview?.providers.find((provider) => provider.id === selectedProviderId) ?? null,
@@ -1057,6 +1060,21 @@ export function UsagePopover() {
       ? overview?.generated_at
       : selectedProvider?.last_updated_at ?? overview?.generated_at;
 
+  const refreshSwapVariants = {
+    initial: (direction: 1 | -1) => ({
+      opacity: 0,
+      x: direction === 1 ? -8 : 8,
+    }),
+    animate: {
+      opacity: 1,
+      x: 0,
+    },
+    exit: (direction: 1 | -1) => ({
+      opacity: 0,
+      x: direction === 1 ? 8 : -8,
+    }),
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -1144,41 +1162,93 @@ export function UsagePopover() {
             </div>
 
             <div className="mt-2 flex items-center justify-between gap-3 px-4 text-xs text-muted-foreground">
-              <div className="group flex items-center gap-2">
-                <span>{error && overview ? error : `Updated ${formatTimestamp(displayedUpdatedAt)}`}</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void loadOverview(
-                      true,
-                      selectedProviderId === ALL_PROVIDER_ID ? null : selectedProviderId
-                    )
-                  }
-                  className="inline-flex items-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:border-foreground/20 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={isRefreshing}
-                  aria-label="Refresh usage"
-                >
-                  <RefreshCcw className={cn("size-3", isRefreshing && "animate-spin")} />
-                  <span className="text-[10px] font-medium uppercase tracking-[0.18em]">Refresh</span>
-                </button>
+              <div
+                className="flex items-center"
+                onMouseEnter={() => {
+                  setRefreshSwapDirection(1);
+                  setShowRefreshAction(true);
+                }}
+                onMouseLeave={() => {
+                  setRefreshSwapDirection(-1);
+                  setShowRefreshAction(false);
+                }}
+              >
+                <div className="relative h-7 w-[148px]">
+                  <AnimatePresence mode="wait" initial={false} custom={refreshSwapDirection}>
+                    {showRefreshAction ? (
+                      <motion.button
+                        key="refresh-button"
+                        custom={refreshSwapDirection}
+                        type="button"
+                        onClick={() =>
+                          void loadOverview(
+                            true,
+                            selectedProviderId === ALL_PROVIDER_ID ? null : selectedProviderId
+                          )
+                        }
+                        variants={refreshSwapVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={{ duration: 0.16, ease: "easeOut" }}
+                        className="absolute left-0 top-0 inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 hover:border-foreground/20 hover:text-foreground cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={isRefreshing}
+                        aria-label="Refresh usage"
+                      >
+                        <RefreshCcw className={cn("size-3", isRefreshing && "animate-spin")} />
+                        <span className="text-[10px] font-medium">Refresh</span>
+                      </motion.button>
+                    ) : (
+                      <motion.span
+                        key="updated-time"
+                        custom={refreshSwapDirection}
+                        variants={refreshSwapVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={{ duration: 0.16, ease: "easeOut" }}
+                        className="absolute inset-0 inline-flex h-7 w-full items-center whitespace-nowrap"
+                      >
+                        {error && overview ? error : `Updated ${formatTimestamp(displayedUpdatedAt)}`}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               <TooltipProvider delayDuration={180}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                      aria-label="Why Keychain Access may be needed"
-                    >
-                      <CircleHelp className="size-3.5" />
-                      <span>Keychain Access</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" align="end" className="max-w-[260px]">
-                    Atmos may use Keychain Access to decrypt browser cookies for providers that only expose usage through signed-in web sessions. Keys stay local and are used only to read usage data.
-                  </TooltipContent>
-                </Tooltip>
+                <div className="inline-flex items-center gap-1.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                        aria-label="Why Keychain Access may be needed"
+                      >
+                        <CircleHelp className="size-3.5" />
+                        <span>Keychain Access</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="end" className="max-w-[260px]">
+                      Atmos may use Keychain Access to decrypt browser cookies for providers that only expose usage through signed-in web sessions. Keys stay local and are used only to read usage data.
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center text-muted-foreground/80 transition-colors hover:text-foreground"
+                        aria-label="Reference sources"
+                      >
+                        <BookMarked className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="end">
+                      Reference CodexBar &amp; OpenUsage
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </TooltipProvider>
             </div>
           </div>
