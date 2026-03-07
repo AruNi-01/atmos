@@ -46,6 +46,7 @@ export * from "./components/ui/switch";
 export * from "./components/ui/accordion";
 export * from "./components/ui/flow-button";
 export * from "./components/ui/border-beam";
+export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
 
 // AI Elements
