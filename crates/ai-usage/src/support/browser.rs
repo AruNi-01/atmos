@@ -144,13 +144,19 @@ pub(crate) fn load_minimax_browser_cookie_source(
 pub(crate) fn load_zai_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
 {
     load_browser_cookie_source_with_session_detection(
-        &["bigmodel.cn", "open.bigmodel.cn", "chat.z.ai", "z.ai", "api.z.ai"],
+        &[
+            "bigmodel.cn",
+            "open.bigmodel.cn",
+            "chat.z.ai",
+            "z.ai",
+            "api.z.ai",
+        ],
         &["bigmodel_token_production", "token", "TDC_itoken"],
     )
 }
 
-pub(crate) fn load_workos_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
-{
+pub(crate) fn load_workos_browser_cookie_source(
+) -> Result<Option<BrowserCookieSource>, ProviderError> {
     load_browser_cookie_source_with_session_detection(
         &["workos.com"],
         &["__wuid", "__kduid", "wos-session"],
@@ -193,12 +199,7 @@ fn load_browser_cookie_source_with_session_detection(
     let mut last_error = None;
 
     for candidate in chromium_cookie_db_candidates() {
-        match load_chromium_cookie_source(
-            &candidate,
-            domains,
-            None,
-            Some(session_cookie_names),
-        ) {
+        match load_chromium_cookie_source(&candidate, domains, None, Some(session_cookie_names)) {
             Ok(Some(source)) => return Ok(Some(source)),
             Ok(None) => {}
             Err(error) => last_error = Some(error),
@@ -206,13 +207,7 @@ fn load_browser_cookie_source_with_session_detection(
     }
 
     for (label, path) in firefox_cookie_db_candidates() {
-        match load_firefox_cookie_source(
-            &label,
-            &path,
-            domains,
-            None,
-            Some(session_cookie_names),
-        ) {
+        match load_firefox_cookie_source(&label, &path, domains, None, Some(session_cookie_names)) {
             Ok(Some(source)) => return Ok(Some(source)),
             Ok(None) => {}
             Err(error) => last_error = Some(error),
@@ -255,7 +250,9 @@ fn load_chromium_cookie_source(
 
     if let Some(required_cookie_names) = required_cookie_names {
         let has_required_cookie = cookie_pairs.iter().any(|(name, _)| {
-            required_cookie_names.iter().any(|required| required == name)
+            required_cookie_names
+                .iter()
+                .any(|required| required == name)
         });
         if !has_required_cookie {
             return Ok(None);
@@ -298,7 +295,9 @@ fn load_firefox_cookie_source(
 
     if let Some(required_cookie_names) = required_cookie_names {
         let has_required_cookie = cookie_pairs.iter().any(|(name, _)| {
-            required_cookie_names.iter().any(|required| required == name)
+            required_cookie_names
+                .iter()
+                .any(|required| required == name)
         });
         if !has_required_cookie {
             return Ok(None);

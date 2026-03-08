@@ -565,7 +565,7 @@ fn provider_specs() -> Vec<ProviderSpec> {
             label: "Factory Droid",
             kind: ProviderKind::Hybrid,
             live_kind: Some(LiveProviderKind::Factory),
-            timeout_millis: 6000,
+            timeout_millis: PROVIDER_TIMEOUT_MILLIS,
             setup_hint: "Sign in to app.factory.ai. Atmos auto-imports supported browser session cookies; FACTORY_COOKIE_HEADER / FACTORY_REFRESH_TOKEN are fallbacks.",
             auth_env_keys: &[
                 "FACTORY_COOKIE_HEADER",

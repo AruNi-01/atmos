@@ -131,7 +131,9 @@ pub(crate) async fn fetch_zai_live(client: &Client) -> Result<LiveFetchResult, P
         .find(|snapshot| matches!(snapshot.region, ZaiRegion::Global))
         .or_else(|| snapshots.first())
         .cloned()
-        .ok_or_else(|| ProviderError::Fetch("Zhipu quota endpoints returned no data".to_string()))?;
+        .ok_or_else(|| {
+            ProviderError::Fetch("Zhipu quota endpoints returned no data".to_string())
+        })?;
 
     let plan_label = snapshots
         .iter()
@@ -151,37 +153,37 @@ pub(crate) async fn fetch_zai_live(client: &Client) -> Result<LiveFetchResult, P
         plan_label,
         usage_summary: Some(build_percent_usage_summary(primary.percent)),
         detail_sections: {
-          let mut sections = vec![
-            DetailSection {
-                title: "Account".to_string(),
-                rows: vec![
-                    DetailRow {
-                        label: "Account".to_string(),
-                        value: "Zhipu AI".to_string(),
-                        tone: RowTone::Default,
-                    },
-                    DetailRow {
-                        label: "Plan".to_string(),
-                        value: primary
-                            .plan_label
-                            .clone()
-                            .unwrap_or_else(|| "Zhipu AI".to_string()),
-                        tone: RowTone::Default,
-                    },
-                    DetailRow {
-                        label: "Level".to_string(),
-                        value: level_label.unwrap_or_else(|| "Unknown".to_string()),
-                        tone: RowTone::Default,
-                    },
-                ],
-            },
-            DetailSection {
-                title: "Usage".to_string(),
-                rows: usage_rows,
-            },
-          ];
-          sections.extend(extra_sections);
-          sections
+            let mut sections = vec![
+                DetailSection {
+                    title: "Account".to_string(),
+                    rows: vec![
+                        DetailRow {
+                            label: "Account".to_string(),
+                            value: "Zhipu AI".to_string(),
+                            tone: RowTone::Default,
+                        },
+                        DetailRow {
+                            label: "Plan".to_string(),
+                            value: primary
+                                .plan_label
+                                .clone()
+                                .unwrap_or_else(|| "Zhipu AI".to_string()),
+                            tone: RowTone::Default,
+                        },
+                        DetailRow {
+                            label: "Level".to_string(),
+                            value: level_label.unwrap_or_else(|| "Unknown".to_string()),
+                            tone: RowTone::Default,
+                        },
+                    ],
+                },
+                DetailSection {
+                    title: "Usage".to_string(),
+                    rows: usage_rows,
+                },
+            ];
+            sections.extend(extra_sections);
+            sections
         },
         warnings,
         fetch_message: format!(
@@ -366,16 +368,18 @@ fn build_extra_sections(region: ZaiRegion, time_limit: Option<&ZaiLimitRaw>) -> 
             tone: RowTone::Default,
         });
     }
-    rows.extend(limit.usage_details.iter().map(|detail| DetailRow {
-        label: detail
-            .model_code
-            .clone()
-            .unwrap_or_else(|| "unknown".to_string()),
-        value: detail
-            .usage
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| "0".to_string()),
-        tone: RowTone::Default,
+    rows.extend(limit.usage_details.iter().map(|detail| {
+        DetailRow {
+            label: detail
+                .model_code
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string()),
+            value: detail
+                .usage
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "0".to_string()),
+            tone: RowTone::Default,
+        }
     }));
 
     vec![DetailSection {

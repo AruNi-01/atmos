@@ -1,15 +1,20 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, RwLock};
+use tokio::task::JoinHandle;
+use tokio::time::MissedTickBehavior;
+use tracing::{debug, info, warn};
 
 use crate::config::persist_provider_manual_setup;
 use crate::constants::CACHE_TTL_SECS;
 use crate::models::{
-    FetchStateStatus, ProviderStatus, UsageAggregate, UsageFetchIssue, UsageOverview,
+    AutoRefreshConfig, FetchStateStatus, ProviderStatus, UsageAggregate, UsageFetchIssue,
+    UsageOverview,
 };
 use crate::refresh::{
-    apply_provider_state, persist_all_provider_switch, persist_provider_state_for_overview,
+    apply_provider_state, load_auto_refresh_interval_minutes, persist_all_provider_switch,
+    persist_auto_refresh_interval_minutes, persist_provider_state_for_overview,
     persist_provider_state_for_provider, persist_provider_switch, provider_switch_enabled,
 };
 use crate::runtime::{default_providers, error_status, UsageProvider};
@@ -26,6 +31,9 @@ pub struct UsageService {
     providers: Vec<Arc<dyn UsageProvider>>,
     cache: Arc<RwLock<Option<CachedOverview>>>,
     cache_ttl: Duration,
+    auto_refresh_interval_minutes: Arc<RwLock<Option<u64>>>,
+    auto_refresh_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    update_tx: broadcast::Sender<UsageOverview>,
 }
 
 impl Default for UsageService {
@@ -36,11 +44,19 @@ impl Default for UsageService {
 
 impl UsageService {
     pub fn new(providers: Vec<Arc<dyn UsageProvider>>) -> Self {
-        Self {
+        let interval_minutes = load_auto_refresh_interval_minutes();
+        let (update_tx, _) = broadcast::channel(32);
+
+        let service = Self {
             providers,
             cache: Arc::new(RwLock::new(None)),
             cache_ttl: Duration::from_secs(CACHE_TTL_SECS),
-        }
+            auto_refresh_interval_minutes: Arc::new(RwLock::new(interval_minutes)),
+            auto_refresh_task: Arc::new(Mutex::new(None)),
+            update_tx,
+        };
+        service.schedule_auto_refresh_task(interval_minutes);
+        service
     }
 
     pub async fn get_overview(&self, refresh: bool, provider_id: Option<&str>) -> UsageOverview {
@@ -48,7 +64,11 @@ impl UsageService {
             let cache = self.cache.read().await;
             if let Some(cache) = cache.as_ref() {
                 if unix_now().saturating_sub(cache.fetched_at) < self.cache_ttl.as_secs() {
-                    return apply_provider_state_and_rebuild(cache.overview.clone());
+                    return self
+                        .with_auto_refresh_config(apply_provider_state_and_rebuild(
+                            cache.overview.clone(),
+                        ))
+                        .await;
                 }
             }
         }
@@ -70,10 +90,12 @@ impl UsageService {
                     providers: vec![],
                     generated_at: unix_now(),
                     partial_failures: vec![],
+                    auto_refresh: AutoRefreshConfig::default(),
                 })
         } else {
             self.refresh_overview(cached_previous.clone(), false).await
         };
+        let fresh = self.with_auto_refresh_config(fresh).await;
 
         let mut cache = self.cache.write().await;
         *cache = Some(CachedOverview {
@@ -100,7 +122,9 @@ impl UsageService {
             provider.switch_enabled = enabled;
         }
 
-        let overview = apply_provider_state_and_rebuild(overview);
+        let overview = self
+            .with_auto_refresh_config(apply_provider_state_and_rebuild(overview))
+            .await;
         let mut cache = self.cache.write().await;
         *cache = Some(CachedOverview {
             fetched_at: unix_now(),
@@ -127,7 +151,9 @@ impl UsageService {
             provider.switch_enabled = enabled;
         }
 
-        let overview = apply_provider_state_and_rebuild(overview);
+        let overview = self
+            .with_auto_refresh_config(apply_provider_state_and_rebuild(overview))
+            .await;
         let mut cache = self.cache.write().await;
         *cache = Some(CachedOverview {
             fetched_at: unix_now(),
@@ -148,6 +174,7 @@ impl UsageService {
         let overview = self
             .refresh_provider_overview(provider_id, cached_previous)
             .await;
+        let overview = self.with_auto_refresh_config(overview).await;
 
         let mut cache = self.cache.write().await;
         *cache = Some(CachedOverview {
@@ -157,18 +184,101 @@ impl UsageService {
         overview
     }
 
+    pub async fn set_auto_refresh_interval(
+        &self,
+        interval_minutes: Option<u64>,
+    ) -> Result<UsageOverview, String> {
+        if let Some(interval_minutes) = interval_minutes {
+            if !matches!(interval_minutes, 1 | 5 | 15 | 30 | 60) {
+                return Err("Unsupported auto-refresh interval".to_string());
+            }
+        }
+
+        persist_auto_refresh_interval_minutes(interval_minutes);
+        {
+            let mut current = self.auto_refresh_interval_minutes.write().await;
+            *current = interval_minutes;
+        }
+
+        let refresh = interval_minutes.is_some();
+        let overview = self.get_overview(refresh, None).await;
+        self.publish_overview_update(&overview);
+        self.schedule_auto_refresh_task(interval_minutes);
+        Ok(overview)
+    }
+
+    pub fn subscribe_updates(&self) -> broadcast::Receiver<UsageOverview> {
+        self.update_tx.subscribe()
+    }
+
+    fn schedule_auto_refresh_task(&self, interval_minutes: Option<u64>) {
+        let mut task = match self.auto_refresh_task.lock() {
+            Ok(task) => task,
+            Err(error) => {
+                warn!(
+                    "Failed to lock AI usage auto-refresh task handle: {}",
+                    error
+                );
+                return;
+            }
+        };
+
+        if let Some(existing) = task.take() {
+            existing.abort();
+        }
+
+        let Some(interval_minutes) = interval_minutes else {
+            info!("AI usage auto-refresh disabled");
+            return;
+        };
+
+        info!(
+            "AI usage auto-refresh scheduled every {} minute(s)",
+            interval_minutes
+        );
+
+        let service = self.clone();
+        *task = Some(tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(Duration::from_secs(interval_minutes * 60));
+            ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+            ticker.tick().await;
+
+            loop {
+                ticker.tick().await;
+                debug!(
+                    "Running scheduled AI usage overview refresh (interval={}m)",
+                    interval_minutes
+                );
+                let overview = service.get_overview(true, None).await;
+                service.publish_overview_update(&overview);
+            }
+        }));
+    }
+
+    async fn with_auto_refresh_config(&self, mut overview: UsageOverview) -> UsageOverview {
+        overview.auto_refresh = AutoRefreshConfig {
+            interval_minutes: *self.auto_refresh_interval_minutes.read().await,
+        };
+        overview
+    }
+
+    fn publish_overview_update(&self, overview: &UsageOverview) {
+        let _ = self.update_tx.send(overview.clone());
+    }
+
     async fn refresh_overview(
         &self,
         cached_previous: Option<CachedOverview>,
         honor_switches: bool,
     ) -> UsageOverview {
-        let mut providers = Vec::with_capacity(self.providers.len());
+        let mut providers = vec![None; self.providers.len()];
         let mut issues = Vec::new();
         let mut success_count = 0usize;
         let mut refreshed_provider_ids = Vec::new();
         let previous_overview = cached_previous.as_ref().map(|cached| &cached.overview);
+        let mut pending_refreshes = Vec::new();
 
-        for provider in &self.providers {
+        for (index, provider) in self.providers.iter().enumerate() {
             let descriptor = provider.descriptor();
             let switch_enabled = if honor_switches {
                 provider_switch_enabled(&descriptor.id)
@@ -178,51 +288,71 @@ impl UsageService {
 
             if !switch_enabled {
                 if let Some(existing) = previous_overview
-                    .and_then(|overview| overview.providers.iter().find(|item| item.id == descriptor.id))
+                    .and_then(|overview| {
+                        overview
+                            .providers
+                            .iter()
+                            .find(|item| item.id == descriptor.id)
+                    })
                     .cloned()
                 {
-                    providers.push(existing);
+                    providers[index] = Some(existing);
                 } else {
                     let mut status =
                         error_status(&descriptor, "Provider refresh is turned off".to_string());
                     status.switch_enabled = false;
                     status.fetch_state.status = FetchStateStatus::Unavailable;
-                    providers.push(status);
+                    providers[index] = Some(status);
                 }
                 continue;
             }
 
-            match tokio::time::timeout(provider.timeout(), provider.collect()).await {
-                Ok(Ok(status)) => {
-                    success_count += 1;
-                    refreshed_provider_ids.push(status.id.clone());
-                    providers.push(status);
-                }
-                Ok(Err(error)) => {
-                    issues.push(UsageFetchIssue {
-                        provider_id: descriptor.id.clone(),
-                        provider_label: descriptor.label.clone(),
-                        message: error.to_string(),
-                    });
-                    providers.push(error_status(&descriptor, error.to_string()));
-                }
-                Err(_) => {
-                    let message = "Usage detection timed out".to_string();
-                    issues.push(UsageFetchIssue {
-                        provider_id: descriptor.id.clone(),
-                        provider_label: descriptor.label.clone(),
-                        message: message.clone(),
-                    });
-                    providers.push(error_status(&descriptor, message));
-                }
-            }
+            pending_refreshes.push((
+                index,
+                descriptor,
+                tokio::spawn(refresh_provider_status(index, Arc::clone(provider))),
+            ));
         }
+
+        for (index, descriptor, handle) in pending_refreshes {
+            let refreshed = match handle.await {
+                Ok(refreshed) => refreshed,
+                Err(error) => {
+                    let message = format!("Usage detection task failed: {error}");
+                    ProviderRefreshResult {
+                        index,
+                        status: error_status(&descriptor, message.clone()),
+                        issue: Some(UsageFetchIssue {
+                            provider_id: descriptor.id.clone(),
+                            provider_label: descriptor.label.clone(),
+                            message,
+                        }),
+                        refreshed_provider_id: None,
+                        succeeded: false,
+                    }
+                }
+            };
+
+            if refreshed.succeeded {
+                success_count += 1;
+            }
+            if let Some(provider_id) = refreshed.refreshed_provider_id {
+                refreshed_provider_ids.push(provider_id);
+            }
+            if let Some(issue) = refreshed.issue {
+                issues.push(issue);
+            }
+            providers[refreshed.index] = Some(refreshed.status);
+        }
+
+        let providers = providers.into_iter().flatten().collect::<Vec<_>>();
 
         let overview = UsageOverview {
             all: build_aggregate(&providers),
             providers,
             generated_at: unix_now(),
             partial_failures: issues,
+            auto_refresh: AutoRefreshConfig::default(),
         };
 
         if success_count == 0 {
@@ -261,6 +391,7 @@ impl UsageService {
                         provider_label: provider_id.to_string(),
                         message: "Unknown usage provider".to_string(),
                     }],
+                    auto_refresh: AutoRefreshConfig::default(),
                 });
         };
 
@@ -271,6 +402,7 @@ impl UsageService {
                 providers: vec![],
                 generated_at: unix_now(),
                 partial_failures: vec![],
+                auto_refresh: AutoRefreshConfig::default(),
             });
 
         if overview.providers.is_empty() {
@@ -331,6 +463,58 @@ impl UsageService {
 
         overview.all = build_aggregate(&overview.providers);
         apply_provider_state_and_rebuild(overview)
+    }
+}
+
+struct ProviderRefreshResult {
+    index: usize,
+    status: ProviderStatus,
+    issue: Option<UsageFetchIssue>,
+    refreshed_provider_id: Option<String>,
+    succeeded: bool,
+}
+
+async fn refresh_provider_status(
+    index: usize,
+    provider: Arc<dyn UsageProvider>,
+) -> ProviderRefreshResult {
+    let descriptor = provider.descriptor();
+    match tokio::time::timeout(provider.timeout(), provider.collect()).await {
+        Ok(Ok(status)) => ProviderRefreshResult {
+            index,
+            refreshed_provider_id: Some(status.id.clone()),
+            status,
+            issue: None,
+            succeeded: true,
+        },
+        Ok(Err(error)) => {
+            let message = error.to_string();
+            ProviderRefreshResult {
+                index,
+                status: error_status(&descriptor, message.clone()),
+                issue: Some(UsageFetchIssue {
+                    provider_id: descriptor.id.clone(),
+                    provider_label: descriptor.label.clone(),
+                    message,
+                }),
+                refreshed_provider_id: None,
+                succeeded: false,
+            }
+        }
+        Err(_) => {
+            let message = "Usage detection timed out".to_string();
+            ProviderRefreshResult {
+                index,
+                status: error_status(&descriptor, message.clone()),
+                issue: Some(UsageFetchIssue {
+                    provider_id: descriptor.id.clone(),
+                    provider_label: descriptor.label.clone(),
+                    message,
+                }),
+                refreshed_provider_id: None,
+                succeeded: false,
+            }
+        }
     }
 }
 
@@ -419,7 +603,10 @@ fn build_aggregate(providers: &[ProviderStatus]) -> UsageAggregate {
     }
 
     UsageAggregate {
-        enabled_count: providers.iter().filter(|provider| provider.switch_enabled).count(),
+        enabled_count: providers
+            .iter()
+            .filter(|provider| provider.switch_enabled)
+            .count(),
         total_count: providers.len(),
         active_subscription_count,
         comparable_credit_currency: if comparable && found_credit_rows > 0 {

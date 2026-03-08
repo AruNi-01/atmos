@@ -105,6 +105,12 @@ pub struct UsageProviderManualSetupRequest {
     pub api_key: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageAutoRefreshRequest {
+    #[serde(default)]
+    pub interval_minutes: Option<u64>,
+}
+
 /// 操作类型枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -178,6 +184,8 @@ pub enum WsAction {
     UsageSetAllProvidersSwitch,
     /// 更新 provider 的手动配置
     UsageSetProviderManualSetup,
+    /// 更新 ALL usage 的自动刷新周期
+    UsageSetAutoRefresh,
 
     // ===== Project 操作 =====
     /// 获取所有项目
@@ -321,6 +329,8 @@ pub enum WsAction {
 pub enum WsEvent {
     /// 工作区安装/初始化进度
     WorkspaceSetupProgress,
+    /// AI usage overview changed and should be refreshed on all clients
+    UsageOverviewUpdated,
 }
 
 // ===== 消息通知数据结构 =====

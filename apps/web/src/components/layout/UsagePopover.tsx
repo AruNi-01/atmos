@@ -4,9 +4,10 @@ import React, { startTransition, useCallback, useEffect, useMemo, useState } fro
 import { AnimatePresence, motion } from "motion/react";
 import {
   AlertCircle,
+  Clock3,
   BookMarked,
   ChevronDown,
-  CircleHelp,
+  KeyRound,
   Blocks,
   Coins,
   Gauge,
@@ -25,6 +26,8 @@ import {
   SelectValue,
   ScrollArea,
   Switch,
+  ToggleGroup,
+  ToggleGroupItem,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -39,10 +42,18 @@ import {
   type UsageOverviewResponse,
   type UsageProviderResponse,
 } from "@/api/ws-api";
+import { useWebSocketStore } from "@/hooks/use-websocket";
 
 const STALE_MS = 3 * 60 * 1000;
 const ALL_PROVIDER_ID = "all";
 const ALL_PROVIDER_SWITCH_ID = "__all_providers_switch__";
+const AUTO_REFRESH_OPTIONS = [
+  { value: "1", label: "1min", shortLabel: "1m" },
+  { value: "5", label: "5min", shortLabel: "5m" },
+  { value: "15", label: "15min", shortLabel: "15m" },
+  { value: "30", label: "30min", shortLabel: "30m" },
+  { value: "60", label: "1H", shortLabel: "1h" },
+] as const;
 
 function formatTimestamp(value?: number | null): string {
   if (!value) return "Unknown";
@@ -67,6 +78,26 @@ function formatRelativeReset(value?: number | null): string {
   }
   const mins = Math.floor((diffMs % 3_600_000) / 60_000);
   return `Resets in ${hours}h ${mins}m`;
+}
+
+function formatNextAutoRefreshHint(
+  generatedAt?: number | null,
+  intervalMinutes?: number | null,
+  nowMs: number = Date.now()
+): { value: string; suffix: string } | null {
+  if (!generatedAt || !intervalMinutes) return null;
+
+  const nextUpdateAtMs = generatedAt * 1000 + intervalMinutes * 60_000;
+  const diffMs = nextUpdateAtMs - nowMs;
+  if (diffMs <= 0) {
+    return { value: "<1min", suffix: "Next update in" };
+  }
+
+  const remainingMinutes = Math.round(diffMs / 60_000);
+  if (remainingMinutes <= 0) {
+    return { value: "<1min", suffix: "Next update in" };
+  }
+  return { value: `${remainingMinutes}min`, suffix: "Next update in" };
 }
 
 function extractPercent(text?: string | null): number | null {
@@ -306,7 +337,7 @@ function ProviderGlyph({ providerId }: { providerId: string }) {
   return (
     <span
       aria-hidden="true"
-      className="size-[26px] shrink-0 select-none bg-current"
+      className="size-6.5 shrink-0 select-none bg-current"
       style={{
         WebkitMaskImage: `url(/ai-provider/${providerId}.svg)`,
         maskImage: `url(/ai-provider/${providerId}.svg)`,
@@ -618,7 +649,7 @@ function AggregateProviderRow({
                   checked={provider.switch_enabled}
                   onCheckedChange={(checked) => onToggleProvider(provider.id, checked)}
                   disabled={isSwitching}
-                  aria-label={`${provider.label} refresh switch`}
+                  ariaLabel={`${provider.label} refresh switch`}
                 />
               </div>
             </div>
@@ -805,7 +836,7 @@ function ProviderDetail({
                 checked={provider.switch_enabled}
                 onCheckedChange={(checked) => onToggleProvider(provider.id, checked)}
                 disabled={isSwitching}
-                aria-label={`${provider.label} refresh switch`}
+                ariaLabel={`${provider.label} refresh switch`}
               />
             </div>
             {periodLabel ? (
@@ -940,11 +971,13 @@ export function UsagePopover() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastLoadedAt, setLastLoadedAt] = useState<number | null>(null);
   const [switchingProviderId, setSwitchingProviderId] = useState<string | null>(null);
   const [savingManualSetupProviderId, setSavingManualSetupProviderId] = useState<string | null>(null);
-  const [showRefreshAction, setShowRefreshAction] = useState(false);
+  const [isFooterHovered, setIsFooterHovered] = useState(false);
+  const [isAutoRefreshPopoverOpen, setIsAutoRefreshPopoverOpen] = useState(false);
+  const [isUpdatingAutoRefresh, setIsUpdatingAutoRefresh] = useState(false);
   const [refreshSwapDirection, setRefreshSwapDirection] = useState<1 | -1>(1);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const selectedProvider = useMemo(
     () => overview?.providers.find((provider) => provider.id === selectedProviderId) ?? null,
@@ -959,7 +992,6 @@ export function UsagePopover() {
     try {
       const next = await usageWsApi.getOverview(refresh, providerId);
       setOverview(next);
-      setLastLoadedAt(Date.now());
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load usage overview");
     } finally {
@@ -975,7 +1007,6 @@ export function UsagePopover() {
     try {
       const next = await usageWsApi.setProviderSwitch(providerId, enabled);
       setOverview(next);
-      setLastLoadedAt(Date.now());
     } catch (switchError) {
       setError(switchError instanceof Error ? switchError.message : "Failed to update provider switch");
     } finally {
@@ -990,7 +1021,6 @@ export function UsagePopover() {
     try {
       const next = await usageWsApi.setAllProvidersSwitch(enabled);
       setOverview(next);
-      setLastLoadedAt(Date.now());
     } catch (switchError) {
       setError(
         switchError instanceof Error ? switchError.message : "Failed to update all provider switches"
@@ -1012,7 +1042,6 @@ export function UsagePopover() {
           apiKey.trim() ? apiKey.trim() : null
         );
         setOverview(next);
-        setLastLoadedAt(Date.now());
       } catch (setupError) {
         setError(
           setupError instanceof Error ? setupError.message : "Failed to save provider setup"
@@ -1026,11 +1055,39 @@ export function UsagePopover() {
 
   useEffect(() => {
     if (!open) return;
-    const stale = !lastLoadedAt || Date.now() - lastLoadedAt > STALE_MS;
-    if (!overview || stale) {
-      void loadOverview(Boolean(overview && stale));
+    if (!overview) {
+      void loadOverview(false);
+      return;
     }
-  }, [open, overview, lastLoadedAt, loadOverview]);
+
+    const stale = !overview.generated_at || Date.now() - overview.generated_at * 1000 > STALE_MS;
+    if (stale) {
+      void loadOverview(false);
+    }
+  }, [open, overview, loadOverview]);
+
+  useEffect(() => {
+    return useWebSocketStore
+      .getState()
+      .onEvent("usage_overview_updated", (data: unknown) => {
+        setOverview(data as UsageOverviewResponse);
+        setError(null);
+        setIsRefreshing(false);
+        setIsLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!isAutoRefreshPopoverOpen || !overview?.auto_refresh.interval_minutes) return;
+
+    setNowMs(Date.now());
+
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 15_000);
+
+    return () => window.clearInterval(timer);
+  }, [isAutoRefreshPopoverOpen, overview?.auto_refresh.interval_minutes]);
 
   useEffect(() => {
     if (selectedProviderId === ALL_PROVIDER_ID) return;
@@ -1059,6 +1116,18 @@ export function UsagePopover() {
     selectedProviderId === ALL_PROVIDER_ID
       ? overview?.generated_at
       : selectedProvider?.last_updated_at ?? overview?.generated_at;
+  const autoRefreshValue = overview?.auto_refresh.interval_minutes?.toString() ?? "";
+  const autoRefreshTriggerLabel = autoRefreshValue
+    ? AUTO_REFRESH_OPTIONS.find((option) => option.value === autoRefreshValue)?.shortLabel ?? "Auto"
+    : "Auto";
+  const nextAutoRefreshHint = formatNextAutoRefreshHint(
+    overview?.generated_at,
+    overview?.auto_refresh.interval_minutes,
+    nowMs
+  );
+  const isAllSelected = selectedProviderId === ALL_PROVIDER_ID;
+  const showFooterActions = isFooterHovered || isAutoRefreshPopoverOpen;
+  const showAutoRefreshAction = isAllSelected;
 
   const refreshSwapVariants = {
     initial: (direction: 1 | -1) => ({
@@ -1074,6 +1143,23 @@ export function UsagePopover() {
       x: direction === 1 ? 8 : -8,
     }),
   };
+
+  const updateAutoRefresh = useCallback(async (nextValue: string) => {
+    setIsUpdatingAutoRefresh(true);
+    setError(null);
+
+    try {
+      const next = await usageWsApi.setAutoRefresh(nextValue ? Number(nextValue) : null);
+      setOverview(next);
+      setIsAutoRefreshPopoverOpen(false);
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error ? updateError.message : "Failed to update auto refresh"
+      );
+    } finally {
+      setIsUpdatingAutoRefresh(false);
+    }
+  }, []);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -1166,38 +1252,116 @@ export function UsagePopover() {
                 className="flex items-center"
                 onMouseEnter={() => {
                   setRefreshSwapDirection(1);
-                  setShowRefreshAction(true);
+                  setIsFooterHovered(true);
                 }}
                 onMouseLeave={() => {
                   setRefreshSwapDirection(-1);
-                  setShowRefreshAction(false);
+                  setIsFooterHovered(false);
                 }}
               >
-                <div className="relative h-7 w-[148px]">
+                <div className={cn("relative h-7", showAutoRefreshAction ? "w-[236px]" : "w-[148px]")}>
                   <AnimatePresence mode="wait" initial={false} custom={refreshSwapDirection}>
-                    {showRefreshAction ? (
-                      <motion.button
-                        key="refresh-button"
+                    {showFooterActions ? (
+                      <motion.div
+                        key="footer-actions"
                         custom={refreshSwapDirection}
-                        type="button"
-                        onClick={() =>
-                          void loadOverview(
-                            true,
-                            selectedProviderId === ALL_PROVIDER_ID ? null : selectedProviderId
-                          )
-                        }
                         variants={refreshSwapVariants}
                         initial="initial"
                         animate="animate"
                         exit="exit"
                         transition={{ duration: 0.16, ease: "easeOut" }}
-                        className="absolute left-0 top-0 inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 hover:border-foreground/20 hover:text-foreground cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={isRefreshing}
-                        aria-label="Refresh usage"
+                        className="absolute left-0 top-0 inline-flex h-7 items-center gap-1"
                       >
-                        <RefreshCcw className={cn("size-3", isRefreshing && "animate-spin")} />
-                        <span className="text-[10px] font-medium">Refresh</span>
-                      </motion.button>
+                        {showAutoRefreshAction ? (
+                          <Popover
+                            open={isAutoRefreshPopoverOpen}
+                            onOpenChange={setIsAutoRefreshPopoverOpen}
+                          >
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 text-[10px] font-medium hover:border-foreground/20 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Configure auto refresh"
+                                disabled={isUpdatingAutoRefresh}
+                              >
+                                <Clock3 className="size-3" />
+                                <span>{autoRefreshTriggerLabel}</span>
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              side="top"
+                              align="start"
+                              sideOffset={8}
+                              className="w-auto min-w-max max-w-none rounded-[18px] border-border/70 p-3"
+                            >
+                              <div className="space-y-3">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="space-y-1">
+                                    <div className="text-xs font-medium text-foreground">
+                                      Auto Refresh ALL
+                                    </div>
+                                  </div>
+                                  {nextAutoRefreshHint ? (
+                                    <div className="flex min-h-4 items-center whitespace-nowrap text-[11px] text-muted-foreground">
+                                      <span>{nextAutoRefreshHint.suffix}&nbsp;</span>
+                                      <span className="font-medium text-foreground">
+                                        {nextAutoRefreshHint.value}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <ToggleGroup
+                                  type="single"
+                                  size="sm"
+                                  variant="outline"
+                                  spacing={2}
+                                  value={autoRefreshValue}
+                                  onValueChange={(value) => {
+                                    if (value === autoRefreshValue) {
+                                      void updateAutoRefresh("");
+                                      return;
+                                    }
+                                    void updateAutoRefresh(value);
+                                  }}
+                                  className="inline-flex flex-nowrap items-center whitespace-nowrap"
+                                >
+                                  {AUTO_REFRESH_OPTIONS.map((option) => (
+                                    <ToggleGroupItem
+                                      key={option.value}
+                                      value={option.value}
+                                      aria-label={`Set auto refresh to ${option.label}`}
+                                      title={option.label}
+                                      className="rounded-md text-[11px]"
+                                      disabled={isUpdatingAutoRefresh}
+                                    >
+                                      {option.shortLabel}
+                                    </ToggleGroupItem>
+                                  ))}
+                                </ToggleGroup>
+                                <div className="text-[11px] text-muted-foreground">
+                                  Click the active interval again to turn it off.
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void loadOverview(
+                              true,
+                              selectedProviderId === ALL_PROVIDER_ID ? null : selectedProviderId
+                            )
+                          }
+                          className="inline-flex h-7 items-center justify-center gap-1 rounded-sm border border-border/70 bg-background/85 px-2 py-1 hover:border-foreground/20 hover:text-foreground cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={isRefreshing}
+                          aria-label="Refresh usage"
+                        >
+                          <RefreshCcw className={cn("size-3", isRefreshing && "animate-spin")} />
+                          <span className="text-[10px] font-medium">Refresh</span>
+                        </button>
+                      </motion.div>
                     ) : (
                       <motion.span
                         key="updated-time"
@@ -1217,7 +1381,7 @@ export function UsagePopover() {
               </div>
 
               <TooltipProvider delayDuration={180}>
-                <div className="inline-flex items-center gap-1.5">
+                <div className="inline-flex items-center gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -1225,11 +1389,10 @@ export function UsagePopover() {
                         className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
                         aria-label="Why Keychain Access may be needed"
                       >
-                        <CircleHelp className="size-3.5" />
-                        <span>Keychain Access</span>
+                        <KeyRound className="size-3.5" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" align="end" className="max-w-[260px]">
+                    <TooltipContent side="top" align="center" className="max-w-65">
                       Atmos may use Keychain Access to decrypt browser cookies for providers that only expose usage through signed-in web sessions. Keys stay local and are used only to read usage data.
                     </TooltipContent>
                   </Tooltip>
@@ -1244,7 +1407,7 @@ export function UsagePopover() {
                         <BookMarked className="size-3.5" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" align="end">
+                    <TooltipContent side="top" align="center">
                       Reference CodexBar &amp; OpenUsage
                     </TooltipContent>
                   </Tooltip>

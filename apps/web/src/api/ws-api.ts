@@ -256,11 +256,16 @@ export interface UsageFetchIssueResponse {
   message: string;
 }
 
+export interface UsageAutoRefreshResponse {
+  interval_minutes: number | null;
+}
+
 export interface UsageOverviewResponse {
   all: UsageAggregateResponse;
   providers: UsageProviderResponse[];
   generated_at: number;
   partial_failures: UsageFetchIssueResponse[];
+  auto_refresh: UsageAutoRefreshResponse;
 }
 
 // ===== WebSocket API 客户端 =====
@@ -456,6 +461,18 @@ export const usageWsApi = {
         provider_id: providerId,
         region,
         api_key: apiKey ?? null,
+      },
+      45_000
+    );
+  },
+
+  setAutoRefresh: async (
+    intervalMinutes?: number | null
+  ): Promise<UsageOverviewResponse> => {
+    return wsRequest<UsageOverviewResponse>(
+      'usage_set_auto_refresh',
+      {
+        interval_minutes: intervalMinutes ?? null,
       },
       45_000
     );

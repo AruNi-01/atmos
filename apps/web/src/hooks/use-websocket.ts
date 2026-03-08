@@ -44,6 +44,7 @@ export type WsAction =
   | 'usage_set_provider_switch'
   | 'usage_set_all_providers_switch'
   | 'usage_set_provider_manual_setup'
+  | 'usage_set_auto_refresh'
   // Project 操作
   | 'project_list'
   | 'project_create'
@@ -181,7 +182,7 @@ interface WebSocketStore {
   // 动作
   connect: () => Promise<void>;
   disconnect: () => void;
-  send: <T = unknown>(action: WsAction, data?: unknown) => Promise<T>;
+  send: <T = unknown>(action: WsAction, data?: unknown, timeoutMs?: number) => Promise<T>;
   onEvent: (event: string, callback: (data: unknown) => void) => () => void;
   
   // 内部方法

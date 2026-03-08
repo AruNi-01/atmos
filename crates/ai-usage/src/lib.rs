@@ -1,5 +1,5 @@
-mod constants;
 mod config;
+mod constants;
 pub mod models;
 mod providers;
 mod refresh;
@@ -10,9 +10,10 @@ mod support;
 mod tests;
 
 pub use models::{
-    AuthState, AuthStateStatus, DetailRow, DetailSection, FetchState, FetchStateStatus,
-    ProviderError, ProviderKind, ProviderManualSetup, ProviderManualSetupOption, ProviderStatus,
-    RowTone, SubscriptionSummary, UsageAggregate, UsageFetchIssue, UsageOverview, UsageSummary,
+    AuthState, AuthStateStatus, AutoRefreshConfig, DetailRow, DetailSection, FetchState,
+    FetchStateStatus, ProviderError, ProviderKind, ProviderManualSetup, ProviderManualSetupOption,
+    ProviderStatus, RowTone, SubscriptionSummary, UsageAggregate, UsageFetchIssue, UsageOverview,
+    UsageSummary,
 };
 pub use runtime::{ProviderDescriptor, UsageProvider};
 pub use service::UsageService;

@@ -106,7 +106,9 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
         Err(error) => return Err(ProviderError::Fetch(error)),
     };
 
-    let plan_info = request_cursor_plan_info(client, &auth.access_token).await.ok();
+    let plan_info = request_cursor_plan_info(client, &auth.access_token)
+        .await
+        .ok();
 
     let reset_at = usage
         .billing_cycle_end
@@ -307,7 +309,9 @@ async fn refresh_cursor_access_token(
     let payload = response
         .json::<CursorRefreshResponse>()
         .await
-        .map_err(|error| ProviderError::Fetch(format!("Invalid Cursor refresh payload: {error}")))?;
+        .map_err(|error| {
+            ProviderError::Fetch(format!("Invalid Cursor refresh payload: {error}"))
+        })?;
 
     if payload.should_logout == Some(true) {
         return Err(ProviderError::Fetch(

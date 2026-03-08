@@ -42,6 +42,8 @@ pub(crate) struct ProviderStateFile {
     all_updated_at_utc: Option<String>,
     #[serde(default)]
     providers: BTreeMap<String, ProviderStateEntry>,
+    #[serde(default)]
+    auto_refresh_interval_minutes: Option<u64>,
 }
 
 fn provider_state_path() -> Option<PathBuf> {
@@ -89,6 +91,7 @@ fn load_provider_state() -> ProviderStateFile {
                         )
                     })
                     .collect(),
+                auto_refresh_interval_minutes: None,
             };
         }
     }
@@ -116,6 +119,16 @@ pub(crate) fn provider_switch_enabled(provider_id: &str) -> bool {
         .unwrap_or(true)
 }
 
+pub(crate) fn load_auto_refresh_interval_minutes() -> Option<u64> {
+    load_provider_state().auto_refresh_interval_minutes
+}
+
+pub(crate) fn persist_auto_refresh_interval_minutes(interval_minutes: Option<u64>) {
+    let mut state = load_provider_state();
+    state.auto_refresh_interval_minutes = interval_minutes;
+    save_provider_state(&state);
+}
+
 pub(crate) fn persist_provider_state_for_overview(
     overview: &UsageOverview,
     refreshed_provider_ids: &[String],
@@ -127,7 +140,10 @@ pub(crate) fn persist_provider_state_for_overview(
     for provider in &overview.providers {
         let entry = state.providers.entry(provider.id.clone()).or_default();
         entry.switch = provider.switch_enabled;
-        if refreshed_provider_ids.iter().any(|provider_id| provider_id == &provider.id) {
+        if refreshed_provider_ids
+            .iter()
+            .any(|provider_id| provider_id == &provider.id)
+        {
             entry.updated_at_utc = Some(now.clone());
         }
     }

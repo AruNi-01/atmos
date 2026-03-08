@@ -19,11 +19,12 @@ use core_service::{
     AgentService, MessagePushService, ProjectService, TerminalService, TestService,
     WorkspaceService, WsMessageService,
 };
-use infra::{DbConnection, Migrator, WsServiceConfig};
+use infra::{DbConnection, Migrator, WsEvent, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
+use serde_json::json;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Parser)]
@@ -135,6 +136,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ws_message_service
         .set_ws_manager(app_state.ws_service.manager())
         .map_err(|e| e.to_string())?;
+
+    {
+        let ws_manager = app_state.ws_service.manager();
+        let mut usage_updates = usage_service.subscribe_updates();
+        tokio::spawn(async move {
+            loop {
+                match usage_updates.recv().await {
+                    Ok(overview) => {
+                        debug!(
+                            "Broadcasting usage overview update to all websocket clients at {}",
+                            overview.generated_at
+                        );
+                        if let Err(error) = ws_manager
+                            .broadcast(&WsMessage::notification(
+                                WsEvent::UsageOverviewUpdated,
+                                json!(overview),
+                            ))
+                            .await
+                        {
+                            warn!("Failed to broadcast usage overview update: {}", error);
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        warn!(
+                            "Lagged on usage overview updates, skipped {} messages",
+                            skipped
+                        );
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        });
+    }
 
     // Start heartbeat monitor
     let _heartbeat_task = app_state.ws_service.start_heartbeat();
