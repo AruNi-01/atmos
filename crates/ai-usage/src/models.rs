@@ -144,12 +144,19 @@ pub struct UsageFetchIssue {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AutoRefreshConfig {
+    pub interval_minutes: Option<u64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct UsageOverview {
     pub all: UsageAggregate,
     pub providers: Vec<ProviderStatus>,
     pub generated_at: u64,
     pub partial_failures: Vec<UsageFetchIssue>,
+    #[serde(default)]
+    pub auto_refresh: AutoRefreshConfig,
 }
 #[derive(Debug, Error)]
 pub enum ProviderError {

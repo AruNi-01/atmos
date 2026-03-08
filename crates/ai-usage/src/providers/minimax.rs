@@ -11,8 +11,7 @@ use crate::support::{
 };
 
 const MINIMAX_GLOBAL_URL: &str = "https://api.minimax.io/v1/api/openplatform/coding_plan/remains";
-const MINIMAX_CHINA_URL: &str =
-    "https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains";
+const MINIMAX_CHINA_URL: &str = "https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains";
 const MINIMAX_GLOBAL_WEB_URL: &str =
     "https://platform.minimax.io/v1/api/openplatform/coding_plan/remains";
 const MINIMAX_CHINA_WEB_URL: &str =
@@ -129,7 +128,14 @@ pub(crate) async fn fetch_minimax_live(client: &Client) -> Result<LiveFetchResul
     let mut warnings = Vec::new();
 
     for region in preferred_regions() {
-        match fetch_region(client, api_token.as_deref(), browser_source.as_ref(), region).await {
+        match fetch_region(
+            client,
+            api_token.as_deref(),
+            browser_source.as_ref(),
+            region,
+        )
+        .await
+        {
             Ok(Some(snapshot)) => snapshots.push(snapshot),
             Ok(None) => {}
             Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
@@ -149,7 +155,9 @@ pub(crate) async fn fetch_minimax_live(client: &Client) -> Result<LiveFetchResul
         .find(|snapshot| matches!(snapshot.region, MiniMaxRegion::Global))
         .or_else(|| snapshots.first())
         .cloned()
-        .ok_or_else(|| ProviderError::Fetch("MiniMax coding-plan endpoints returned no data".to_string()))?;
+        .ok_or_else(|| {
+            ProviderError::Fetch("MiniMax coding-plan endpoints returned no data".to_string())
+        })?;
 
     let plan_label = snapshots
         .iter()
@@ -207,8 +215,7 @@ pub(crate) async fn fetch_minimax_live(client: &Client) -> Result<LiveFetchResul
 }
 
 fn minimax_api_token() -> Option<String> {
-    clean_env_value(env::var("MINIMAX_API_KEY").ok())
-        .or_else(|| provider_config_api_key("minimax"))
+    clean_env_value(env::var("MINIMAX_API_KEY").ok()).or_else(|| provider_config_api_key("minimax"))
 }
 
 async fn fetch_region(
@@ -273,10 +280,9 @@ async fn fetch_region(
 
     if let Some(base_resp) = base_resp {
         if base_resp.status_code.unwrap_or_default() != 0 {
-            let message = base_resp
-                .status_msg
-                .clone()
-                .unwrap_or_else(|| format!("status_code {}", base_resp.status_code.unwrap_or_default()));
+            let message = base_resp.status_msg.clone().unwrap_or_else(|| {
+                format!("status_code {}", base_resp.status_code.unwrap_or_default())
+            });
             return Err(ProviderError::Fetch(message));
         }
     }
@@ -298,14 +304,18 @@ async fn fetch_region(
         _ => None,
     };
     let percent = match (total, remaining) {
-        (Some(total), Some(remaining)) if total > 0 => {
-            Some(round_metric(((total - remaining).max(0) as f64 / total as f64) * 100.0))
-        }
+        (Some(total), Some(remaining)) if total > 0 => Some(round_metric(
+            ((total - remaining).max(0) as f64 / total as f64) * 100.0,
+        )),
         _ => None,
     };
     let reset_at = date_from_epoch(remain.end_time).or_else(|| {
         remain.remains_time.map(|value| {
-            let seconds = if value > 1_000_000 { value / 1000 } else { value };
+            let seconds = if value > 1_000_000 {
+                value / 1000
+            } else {
+                value
+            };
             unix_now().saturating_add(seconds.max(0) as u64)
         })
     });

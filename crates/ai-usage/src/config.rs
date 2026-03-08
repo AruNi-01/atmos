@@ -49,7 +49,10 @@ fn save_provider_config_file(state: &ProviderConfigFile) {
 }
 
 fn provider_entry(provider_id: &str) -> Option<ProviderConfigEntry> {
-    load_provider_config_file().providers.get(provider_id).cloned()
+    load_provider_config_file()
+        .providers
+        .get(provider_id)
+        .cloned()
 }
 
 fn region_options(provider_id: &str) -> Vec<ProviderManualSetupOption> {

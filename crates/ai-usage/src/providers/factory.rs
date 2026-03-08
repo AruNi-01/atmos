@@ -16,8 +16,8 @@ use crate::providers::factory_storage::load_factory_local_storage_tokens;
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     build_percent_usage_summary, format_tokens, load_factory_session_cookie_source,
-    load_workos_browser_cookie_source, normalize_fraction_percent, parse_i64_string,
-    round_metric, unix_now,
+    load_workos_browser_cookie_source, normalize_fraction_percent, parse_i64_string, round_metric,
+    unix_now,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -117,7 +117,14 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
         .ok()
         .filter(|value| !value.trim().is_empty())
     {
-        match fetch_factory_with_bearer(client, &cookie_header, &token, Some("FACTORY_BEARER_TOKEN")).await {
+        match fetch_factory_with_bearer(
+            client,
+            &cookie_header,
+            &token,
+            Some("FACTORY_BEARER_TOKEN"),
+        )
+        .await
+        {
             Ok(result) => return Ok(result),
             Err(error) => last_error = Some(error.to_string()),
         }
@@ -147,7 +154,9 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
             .as_deref()
             .filter(|value| !value.trim().is_empty())
         {
-            match refresh_factory_auth(client, refresh_token, session.organization_id.as_deref()).await {
+            match refresh_factory_auth(client, refresh_token, session.organization_id.as_deref())
+                .await
+            {
                 Ok(auth) => {
                     let state = persist_factory_auth(
                         auth,
@@ -182,8 +191,7 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
     {
         match refresh_factory_auth(client, &refresh_token, None).await {
             Ok(auth) => {
-                let state =
-                    persist_factory_auth(auth, "FACTORY_REFRESH_TOKEN".to_string())?;
+                let state = persist_factory_auth(auth, "FACTORY_REFRESH_TOKEN".to_string())?;
                 match fetch_factory_with_bearer(
                     client,
                     &cookie_header,
@@ -220,7 +228,13 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
             }
         }
 
-        match refresh_factory_auth(client, &token.refresh_token, token.organization_id.as_deref()).await {
+        match refresh_factory_auth(
+            client,
+            &token.refresh_token,
+            token.organization_id.as_deref(),
+        )
+        .await
+        {
             Ok(auth) => {
                 let state = persist_factory_auth(auth, token.source_label.clone())?;
                 match fetch_factory_with_bearer(
@@ -296,7 +310,9 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
                 client,
                 &cookie_header,
                 &token,
-                cookie_source.as_ref().map(|source| source.source_label.as_str()),
+                cookie_source
+                    .as_ref()
+                    .map(|source| source.source_label.as_str()),
             )
             .await
             {
@@ -307,16 +323,14 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
     }
 
     if cookie_header.is_empty() {
-        return Err(ProviderError::Fetch(
-            last_error.unwrap_or_else(|| {
-                "Factory session cookie, WorkOS token, or bearer token not found".to_string()
-            }),
-        ));
+        return Err(ProviderError::Fetch(last_error.unwrap_or_else(|| {
+            "Factory session cookie, WorkOS token, or bearer token not found".to_string()
+        })));
     }
 
-    Err(ProviderError::Fetch(
-        last_error.unwrap_or_else(|| "Factory usage request failed".to_string()),
-    ))
+    Err(ProviderError::Fetch(last_error.unwrap_or_else(|| {
+        "Factory usage request failed".to_string()
+    })))
 }
 
 async fn refresh_factory_auth(
@@ -414,11 +428,15 @@ fn persist_factory_auth(
         .access_token
         .clone()
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| ProviderError::Fetch("Factory WorkOS auth missing access token".to_string()))?;
+        .ok_or_else(|| {
+            ProviderError::Fetch("Factory WorkOS auth missing access token".to_string())
+        })?;
     let state = FactorySessionState {
         bearer_token: Some(bearer_token),
         refresh_token: auth.refresh_token.filter(|value| !value.trim().is_empty()),
-        organization_id: auth.organization_id.filter(|value| !value.trim().is_empty()),
+        organization_id: auth
+            .organization_id
+            .filter(|value| !value.trim().is_empty()),
         source_label: Some(source_label),
         updated_at: Some(unix_now()),
     };
@@ -492,12 +510,22 @@ fn build_factory_live_result(
         .and_then(|usage| usage.end_date)
         .and_then(normalize_factory_timestamp);
     let period_label = match (period_start, period_end) {
-        (Some(start), Some(end)) => Some(format!("{} - {}", format_short_date(start), format_short_date(end))),
+        (Some(start), Some(end)) => Some(format!(
+            "{} - {}",
+            format_short_date(start),
+            format_short_date(end)
+        )),
         _ => None,
     };
 
-    let allocation = usage.usage.as_ref().and_then(|usage| usage.standard.as_ref());
-    let overage = usage.usage.as_ref().and_then(|usage| usage.premium.as_ref());
+    let allocation = usage
+        .usage
+        .as_ref()
+        .and_then(|usage| usage.standard.as_ref());
+    let overage = usage
+        .usage
+        .as_ref()
+        .and_then(|usage| usage.premium.as_ref());
 
     let allocation_percent = allocation
         .and_then(|bucket| bucket.used_ratio)
@@ -506,10 +534,8 @@ fn build_factory_live_result(
     let allocation_used = allocation.and_then(primary_used_tokens);
     let allocation_limit = allocation.and_then(primary_allowance_tokens);
 
-    let overage_used = overage
-        .and_then(overage_used_tokens);
-    let overage_limit = overage
-        .and_then(overage_allowance_tokens);
+    let overage_used = overage.and_then(overage_used_tokens);
+    let overage_limit = overage.and_then(overage_allowance_tokens);
     let overage_percent = overage
         .and_then(|bucket| bucket.used_ratio)
         .map(normalize_fraction_percent)
@@ -620,7 +646,10 @@ async fn factory_request(
         let detail = if snippet.is_empty() {
             format!("Factory endpoint returned {status}")
         } else {
-            format!("Factory endpoint returned {status}: {}", snippet.chars().take(200).collect::<String>())
+            format!(
+                "Factory endpoint returned {status}: {}",
+                snippet.chars().take(200).collect::<String>()
+            )
         };
         return Err(ProviderError::Fetch(detail));
     }
@@ -645,7 +674,9 @@ fn build_factory_plan_label(auth: &FactoryAuthResponse) -> String {
         .and_then(|plan| plan.name.clone());
 
     match (tier, plan) {
-        (Some(tier), Some(plan)) if !plan.is_empty() => format!("Factory {} - {}", titleize(tier), plan),
+        (Some(tier), Some(plan)) if !plan.is_empty() => {
+            format!("Factory {} - {}", titleize(tier), plan)
+        }
         (Some(tier), Some(_)) => format!("Factory {}", titleize(tier)),
         (Some(tier), None) => format!("Factory {}", titleize(tier)),
         (None, Some(plan)) => plan,
@@ -737,7 +768,11 @@ fn format_factory_usage_row(percent: Option<f64>, used: Option<i64>, limit: Opti
     }
     match (used, limit) {
         (Some(used), Some(limit)) if limit > 0 => {
-            parts.push(format!("{} / {}", format_tokens(used as u64), format_tokens(limit as u64)));
+            parts.push(format!(
+                "{} / {}",
+                format_tokens(used as u64),
+                format_tokens(limit as u64)
+            ));
         }
         (Some(used), None) => parts.push(format!("{} used", format_tokens(used as u64))),
         _ => {}

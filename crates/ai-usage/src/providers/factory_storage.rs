@@ -13,8 +13,8 @@ pub(crate) struct FactoryWorkOsToken {
     pub(crate) source_label: String,
 }
 
-pub(crate) fn load_factory_local_storage_tokens(
-) -> Result<Vec<FactoryWorkOsToken>, ProviderError> {
+pub(crate) fn load_factory_local_storage_tokens() -> Result<Vec<FactoryWorkOsToken>, ProviderError>
+{
     let mut tokens = Vec::new();
     let mut last_error = None;
 
@@ -66,7 +66,10 @@ fn chromium_leveldb_candidates() -> Vec<(String, PathBuf)> {
     };
 
     let roots = [
-        ("Google Chrome", home.join("Library/Application Support/Google/Chrome")),
+        (
+            "Google Chrome",
+            home.join("Library/Application Support/Google/Chrome"),
+        ),
         (
             "Google Chrome Beta",
             home.join("Library/Application Support/Google/Chrome Beta"),
@@ -91,7 +94,10 @@ fn chromium_leveldb_candidates() -> Vec<(String, PathBuf)> {
             "Microsoft Edge Canary",
             home.join("Library/Application Support/Microsoft Edge Canary"),
         ),
-        ("Arc", home.join("Library/Application Support/Arc/User Data")),
+        (
+            "Arc",
+            home.join("Library/Application Support/Arc/User Data"),
+        ),
         (
             "Arc Beta",
             home.join("Library/Application Support/Arc Beta/User Data"),
@@ -100,7 +106,10 @@ fn chromium_leveldb_candidates() -> Vec<(String, PathBuf)> {
             "Arc Canary",
             home.join("Library/Application Support/Arc Canary/User Data"),
         ),
-        ("Chromium", home.join("Library/Application Support/Chromium")),
+        (
+            "Chromium",
+            home.join("Library/Application Support/Chromium"),
+        ),
         (
             "Brave",
             home.join("Library/Application Support/BraveSoftware/Brave-Browser"),
@@ -113,7 +122,10 @@ fn chromium_leveldb_candidates() -> Vec<(String, PathBuf)> {
             "Helium",
             home.join("Library/Application Support/net.imput.helium"),
         ),
-        ("Dia", home.join("Library/Application Support/com.electron.dia")),
+        (
+            "Dia",
+            home.join("Library/Application Support/com.electron.dia"),
+        ),
         (
             "ChatGPT Atlas",
             home.join("Library/Application Support/ChatGPT Atlas"),
@@ -140,8 +152,8 @@ fn safari_local_storage_candidates() -> Vec<(String, PathBuf)> {
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
     };
-    let root = home
-        .join("Library/Containers/com.apple.Safari/Data/Library/WebKit/WebsiteData/Default");
+    let root =
+        home.join("Library/Containers/com.apple.Safari/Data/Library/WebKit/WebsiteData/Default");
     if !root.exists() {
         return Vec::new();
     }
@@ -280,7 +292,8 @@ fn read_workos_token_from_safari_sqlite(
         return Ok(None);
     };
 
-    let refresh_token = read_sqlite_local_storage_value(sqlite_path, table, "workos:refresh-token")?;
+    let refresh_token =
+        read_sqlite_local_storage_value(sqlite_path, table, "workos:refresh-token")?;
     let Some(refresh_token) = refresh_token.filter(|value| !value.is_empty()) else {
         return Ok(None);
     };
@@ -299,9 +312,7 @@ fn read_sqlite_local_storage_value(
     key: &str,
 ) -> Result<Option<String>, ProviderError> {
     let escaped_key = key.replace('\'', "''");
-    let query = format!(
-        "select hex(value) from {table} where key = '{escaped_key}' limit 1;"
-    );
+    let query = format!("select hex(value) from {table} where key = '{escaped_key}' limit 1;");
     let output = run_sqlite_query(sqlite_path, &query)?;
     let hex_value = output.lines().next().map(str::trim).unwrap_or_default();
     if hex_value.is_empty() {
@@ -319,18 +330,20 @@ fn extract_workos_token_from_bytes(data: &[u8]) -> Option<WorkOsTokenMatch> {
         return None;
     }
 
-    let refresh_token = regex::Regex::new(r"workos:refresh-token[^A-Za-z0-9_-]*([A-Za-z0-9_-]{20,})")
-        .ok()?
-        .captures_iter(&contents)
-        .filter_map(|captures| captures.get(1))
-        .map(|value| value.as_str().to_string())
-        .last()?;
-    let access_token = regex::Regex::new(r"workos:access-token[^A-Za-z0-9_.-]*([A-Za-z0-9_.-]{20,})")
-        .ok()?
-        .captures_iter(&contents)
-        .filter_map(|captures| captures.get(1))
-        .map(|value| value.as_str().to_string())
-        .last();
+    let refresh_token =
+        regex::Regex::new(r"workos:refresh-token[^A-Za-z0-9_-]*([A-Za-z0-9_-]{20,})")
+            .ok()?
+            .captures_iter(&contents)
+            .filter_map(|captures| captures.get(1))
+            .map(|value| value.as_str().to_string())
+            .last()?;
+    let access_token =
+        regex::Regex::new(r"workos:access-token[^A-Za-z0-9_.-]*([A-Za-z0-9_.-]{20,})")
+            .ok()?
+            .captures_iter(&contents)
+            .filter_map(|captures| captures.get(1))
+            .map(|value| value.as_str().to_string())
+            .last();
     let organization_id = extract_organization_id(access_token.as_deref());
 
     Some(WorkOsTokenMatch {
@@ -340,7 +353,9 @@ fn extract_workos_token_from_bytes(data: &[u8]) -> Option<WorkOsTokenMatch> {
     })
 }
 
-fn extract_workos_token_from_strings(path: &Path) -> Result<Option<WorkOsTokenMatch>, ProviderError> {
+fn extract_workos_token_from_strings(
+    path: &Path,
+) -> Result<Option<WorkOsTokenMatch>, ProviderError> {
     let output = run_command("strings", &["-n", "8", &path.display().to_string()])?;
     let lines = output.lines().collect::<Vec<_>>();
 
@@ -414,7 +429,8 @@ fn decode_bytes(data: &[u8]) -> String {
 
 fn decode_value_bytes(data: &[u8]) -> Option<String> {
     String::from_utf16(
-        &data.chunks_exact(2)
+        &data
+            .chunks_exact(2)
             .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
             .collect::<Vec<_>>(),
     )

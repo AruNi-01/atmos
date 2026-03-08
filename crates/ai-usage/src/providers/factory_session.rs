@@ -52,8 +52,9 @@ pub(crate) fn store_factory_session_state(
             .map_err(|error| ProviderError::Fetch(format!("{}: {error}", parent.display())))?;
     }
 
-    let payload = serde_json::to_string_pretty(state)
-        .map_err(|error| ProviderError::Fetch(format!("Factory session serialize failed: {error}")))?;
+    let payload = serde_json::to_string_pretty(state).map_err(|error| {
+        ProviderError::Fetch(format!("Factory session serialize failed: {error}"))
+    })?;
     fs::write(&path, payload)
         .map_err(|error| ProviderError::Fetch(format!("{}: {error}", path.display())))?;
 

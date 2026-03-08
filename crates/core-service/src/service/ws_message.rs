@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
-use ai_usage::UsageService;
 use agent::{AgentId, CustomAgent};
+use ai_usage::UsageService;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
@@ -26,8 +26,8 @@ use infra::{
     GithubPrReadyRequest, GithubPrReopenRequest, ProjectCheckCanDeleteRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest,
-    SyncSingleSystemSkillRequest, UsageAllProvidersSwitchRequest, UsageOverviewRequest,
-    UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
+    SyncSingleSystemSkillRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
+    UsageOverviewRequest, UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
     WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
     WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification,
     WorkspaceUnarchiveRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
@@ -168,6 +168,10 @@ impl WsMessageService {
             }
             WsAction::UsageSetProviderManualSetup => {
                 self.handle_usage_set_provider_manual_setup(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::UsageSetAutoRefresh => {
+                self.handle_usage_set_auto_refresh(parse_request(request.data)?)
                     .await
             }
 
@@ -837,7 +841,10 @@ impl WsMessageService {
         &self,
         req: UsageAllProvidersSwitchRequest,
     ) -> Result<Value> {
-        let overview = self.usage_service.set_all_provider_switch(req.enabled).await;
+        let overview = self
+            .usage_service
+            .set_all_provider_switch(req.enabled)
+            .await;
         Ok(json!(overview))
     }
 
@@ -849,6 +856,15 @@ impl WsMessageService {
             .usage_service
             .set_provider_manual_setup(&req.provider_id, req.region, req.api_key)
             .await;
+        Ok(json!(overview))
+    }
+
+    async fn handle_usage_set_auto_refresh(&self, req: UsageAutoRefreshRequest) -> Result<Value> {
+        let overview = self
+            .usage_service
+            .set_auto_refresh_interval(req.interval_minutes)
+            .await
+            .map_err(ServiceError::Validation)?;
         Ok(json!(overview))
     }
 

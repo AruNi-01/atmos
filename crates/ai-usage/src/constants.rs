@@ -1,5 +1,5 @@
 pub(crate) const CACHE_TTL_SECS: u64 = 180;
-pub(crate) const PROVIDER_TIMEOUT_MILLIS: u64 = 1800;
+pub(crate) const PROVIDER_TIMEOUT_MILLIS: u64 = 8000;
 pub(crate) const CODEX_USAGE_API_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 pub(crate) const CODEX_REFRESH_URL: &str = "https://auth.openai.com/oauth/token";
 pub(crate) const CODEX_OAUTH_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
