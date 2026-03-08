@@ -136,19 +136,31 @@ function displayMetricUsedText(metric: UsageMetricRow): string {
   if (metric.percent === null || metric.percent === undefined) {
     return metric.value;
   }
+  const amountSuffix = metric.amountText ? ` (${metric.amountText})` : "";
   if (metric.detailText) {
-    return `${metric.percent.toFixed(0)}% used (${metric.detailText})`;
+    return `${metric.percent.toFixed(0)}% used${amountSuffix} (${metric.detailText})`;
   }
-  return `${metric.percent.toFixed(0)}% used`;
+  return `${metric.percent.toFixed(0)}% used${amountSuffix}`;
 }
 
 type UsageMetricRow = {
   label: string;
   value: string;
   percent: number | null;
+  amountText: string | null;
   detailText: string | null;
   resetText: string | null;
 };
+
+function formatUsageAmountText(provider: UsageProviderResponse): string | null {
+  const summary = provider.usage_summary;
+  if (!summary) return null;
+  if (summary.unit !== "dollars") return null;
+  if (summary.used == null || summary.cap == null) return null;
+
+  const currencyPrefix = summary.currency === "USD" ? "$" : "";
+  return `${currencyPrefix}${summary.used.toFixed(2)} / ${currencyPrefix}${summary.cap.toFixed(0)}`;
+}
 
 type ProviderRegion = "global" | "china";
 
@@ -282,6 +294,7 @@ function UsagePortalLink({
 }
 
 function usageMetrics(provider: UsageProviderResponse): UsageMetricRow[] {
+  const amountText = formatUsageAmountText(provider);
   return sectionRows(provider, "Usage")
     .filter((row) => Boolean(row.value?.trim()))
     .map((row, index) => ({
@@ -290,6 +303,7 @@ function usageMetrics(provider: UsageProviderResponse): UsageMetricRow[] {
       percent:
         extractPercent(row.value) ??
         (index === 0 ? (provider.usage_summary?.percent ?? null) : null),
+      amountText: index === 0 ? amountText : null,
       detailText: extractMetricDetail(row.value),
       resetText: extractResetText(row.value),
     }));
