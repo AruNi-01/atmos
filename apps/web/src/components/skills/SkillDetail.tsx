@@ -550,6 +550,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
                       value={fileContent}
                       onChange={(value) => !isReadOnly && setFileContent(value)}
                       isReadOnly={isReadOnly}
+                      lineWrap
                       onSave={handleSave}
                     />
                   )

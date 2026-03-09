@@ -23,7 +23,6 @@ import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
 import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { useContextParams } from "@/hooks/use-context-params";
-import { usePrewarmCodeLanguages } from '@/hooks/use-prewarm-code-languages';
 import { useEditorSettings } from '@/hooks/use-editor-settings';
 
 interface CodeMirrorEditorProps {
@@ -32,8 +31,6 @@ interface CodeMirrorEditorProps {
 }
 
 export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, className }) => {
-  usePrewarmCodeLanguages();
-
   const { workspaceId } = useContextParams();
   const { updateFileContent, saveFile } = useEditorStore();
   const {

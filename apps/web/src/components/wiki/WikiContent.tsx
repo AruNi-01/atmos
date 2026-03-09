@@ -384,6 +384,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
             value={localContent}
             onChange={setLocalContent}
             isReadOnly={false}
+            lineWrap
             onSave={handleSave}
           />
         )}
