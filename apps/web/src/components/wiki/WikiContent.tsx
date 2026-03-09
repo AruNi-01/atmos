@@ -20,9 +20,9 @@ import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
 import { fsApi } from "@/api/ws-api";
 
-const MonacoEditor = dynamic(
+const CodeMirrorEditor = dynamic(
   () =>
-    import("@/components/editor/BaseMonacoEditor").then((mod) => mod.BaseMonacoEditor),
+    import("@/components/editor/BaseCodeMirrorEditor").then((mod) => mod.BaseCodeMirrorEditor),
   {
     ssr: false,
     loading: () => (
@@ -379,17 +379,12 @@ export const WikiContent: React.FC<WikiContentProps> = ({
             </ScrollArea>
           </div>
         ) : (
-          <MonacoEditor
+          <CodeMirrorEditor
             language="markdown"
             value={localContent}
-            onChange={(value) => setLocalContent(value ?? "")}
+            onChange={setLocalContent}
             isReadOnly={false}
-            onMount={(editor, monaco) => {
-              editor.addCommand(
-                monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-                () => handleSave()
-              );
-            }}
+            onSave={handleSave}
           />
         )}
       </div>
