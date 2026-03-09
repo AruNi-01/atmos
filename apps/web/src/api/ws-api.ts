@@ -971,6 +971,30 @@ export interface FunctionSettings {
   [key: string]: unknown;
 }
 
+export type LlmProviderKind = 'openai-compatible' | 'anthropic-compatible';
+
+export interface LlmProviderEntry {
+  enabled: boolean;
+  displayName?: string | null;
+  kind: LlmProviderKind;
+  base_url: string;
+  api_key: string;
+  model: string;
+  timeout_ms?: number | null;
+}
+
+export interface LlmFeatureBindings {
+  session_title?: string | null;
+  git_commit?: string | null;
+}
+
+export interface LlmProvidersFile {
+  version: number;
+  default_provider?: string | null;
+  features: LlmFeatureBindings;
+  providers: Record<string, LlmProviderEntry>;
+}
+
 export const functionSettingsApi = {
   get: async (): Promise<FunctionSettings> => {
     return wsRequest<FunctionSettings>('function_settings_get');
@@ -982,6 +1006,16 @@ export const functionSettingsApi = {
       key,
       value,
     });
+  },
+};
+
+export const llmProvidersApi = {
+  get: async (): Promise<LlmProvidersFile> => {
+    return wsRequest<LlmProvidersFile>('llm_providers_get');
+  },
+
+  update: async (config: LlmProvidersFile): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>('llm_providers_update', { config });
   },
 };
 

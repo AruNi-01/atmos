@@ -83,6 +83,8 @@ export type WsAction =
   // Function settings
   | 'function_settings_get'
   | 'function_settings_update'
+  | 'llm_providers_get'
+  | 'llm_providers_update'
   // Agent 操作
   | 'agent_list'
   | 'agent_install'

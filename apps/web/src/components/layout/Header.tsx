@@ -48,6 +48,7 @@ import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
+import { LlmProvidersModal } from './LlmProvidersModal';
 
 const Header: React.FC = () => {
   const params = useParams();
@@ -134,6 +135,7 @@ const Header: React.FC = () => {
 
   // Skills modal state (URL-persisted via nuqs)
   const [isSkillsModalOpen, setSkillsModalOpen] = useQueryState("skillsModal", skillsModalParams.skillsModal);
+  const [isLlmProvidersOpen, setLlmProvidersOpen] = useState(false);
 
   // Archive modal and delete dialog states
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
@@ -548,6 +550,15 @@ const Header: React.FC = () => {
             >
                 <UsagePopover />
 
+                <button
+                  aria-label="LLM Providers"
+                  className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                  onClick={() => setLlmProvidersOpen(true)}
+                  title="Lightweight AI Providers"
+                >
+                  <Puzzle className="size-4" />
+                </button>
+
                 <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
                   <PopoverTrigger asChild>
                     <button
@@ -664,6 +675,11 @@ const Header: React.FC = () => {
       <SkillsModal
         isOpen={isSkillsModalOpen}
         onClose={() => setSkillsModalOpen(false)}
+      />
+
+      <LlmProvidersModal
+        open={isLlmProvidersOpen}
+        onOpenChange={setLlmProvidersOpen}
       />
     </header>
   );
