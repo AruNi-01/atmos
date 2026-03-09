@@ -62,8 +62,9 @@ import { WikiTab } from "@/components/wiki";
 import { systemApi } from "@/api/rest-api";
 import { PROJECT_WIKI_WINDOW_NAME, CODE_REVIEW_WINDOW_NAME } from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
+import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
 
-// Dynamic import Monaco Editor to avoid SSR issues
+// Dynamic import file viewer to avoid SSR issues
 const FileViewer = dynamic(
   () => import("@/components/editor/FileViewer"),
   {
@@ -116,6 +117,8 @@ function getRelativePath(path: string, basePath?: string): string {
 }
 
 const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
+  usePrewarmCodeLanguages();
+
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const [useRealTerminal, setUseRealTerminal] = React.useState(true);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);

@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { useEffect } from 'react';
 import { fsApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
+import { detectCodeLanguage } from '@/lib/code-language';
 
 // ===== 类型定义 =====
 
@@ -17,6 +18,8 @@ export interface OpenFile {
   isDirty: boolean;
   isLoading: boolean;
   isPreview: boolean; // Preview mode: italic text, replaced on next single-click
+  lastOpenedAt: number;
+  lastFocusedAt: number;
 }
 
 interface WorkspaceState {
@@ -55,16 +58,8 @@ interface EditorStore {
   hasUnsavedChanges: (workspaceId?: string) => boolean;
 }
 
-// 根据文件扩展名获取语言数据省略 (保持原样)
-// 根据文件扩展名获取语言数据省略 (保持原样)
 function getLanguageFromPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase();
-  const languageMap: Record<string, string> = {
-    'js': 'javascript', 'jsx': 'javascript', 'ts': 'typescript', 'tsx': 'typescript',
-    'html': 'html', 'css': 'css', 'json': 'json', 'rs': 'rust', 'py': 'python',
-    'md': 'markdown', 'toml': 'toml', 'yaml': 'yaml',
-  };
-  return languageMap[ext || ''] || 'plaintext';
+  return detectCodeLanguage(path);
 }
 
 function isBinaryFile(path: string): boolean {
@@ -95,6 +90,23 @@ async function readFileWithTimeout(path: string, timeoutMs = 12000) {
       setTimeout(() => reject(new Error(`Read timeout: ${path}`)), timeoutMs)
     ),
   ]);
+}
+
+function nowTimestamp(): number {
+  return Date.now();
+}
+
+function touchOpenFile(
+  file: OpenFile,
+  timestamp: number,
+  updates?: Partial<Pick<OpenFile, 'lastOpenedAt' | 'lastFocusedAt' | 'isPreview'>>
+): OpenFile {
+  return {
+    ...file,
+    lastOpenedAt: updates?.lastOpenedAt ?? file.lastOpenedAt ?? timestamp,
+    lastFocusedAt: updates?.lastFocusedAt ?? file.lastFocusedAt ?? timestamp,
+    isPreview: updates?.isPreview ?? file.isPreview,
+  };
 }
 
 export const useEditorStore = create<EditorStore>()(
@@ -130,6 +142,7 @@ export const useEditorStore = create<EditorStore>()(
       openFile: async (path, workspaceId, options) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
+        const timestamp = nowTimestamp();
 
         const isPreview = options?.preview ?? true; // Default to preview mode
 
@@ -141,7 +154,15 @@ export const useEditorStore = create<EditorStore>()(
           set((state) => ({
             workspaceStates: {
               ...state.workspaceStates,
-              [id]: { ...currentState, activeFilePath: path }
+              [id]: {
+                ...currentState,
+                activeFilePath: path,
+                openFiles: currentState.openFiles.map((file) =>
+                  file.path === path
+                    ? touchOpenFile(file, timestamp, { lastFocusedAt: timestamp })
+                    : file
+                ),
+              }
             }
           }));
           if (existingFile.isLoading) {
@@ -159,6 +180,8 @@ export const useEditorStore = create<EditorStore>()(
           isDirty: false,
           isLoading: true,
           isPreview,
+          lastOpenedAt: timestamp,
+          lastFocusedAt: timestamp,
         };
 
         // If preview mode, replace existing preview tab instead of adding new one
@@ -338,6 +361,7 @@ export const useEditorStore = create<EditorStore>()(
         if (!id) return;
         const ws = get().workspaceStates[id];
         if (!ws) return;
+        const timestamp = nowTimestamp();
 
         set((state) => ({
           workspaceStates: {
@@ -345,7 +369,12 @@ export const useEditorStore = create<EditorStore>()(
             [id]: {
               ...ws,
               openFiles: ws.openFiles.map(f => 
-                f.path === path ? { ...f, isPreview: false } : f
+                f.path === path
+                  ? touchOpenFile(f, timestamp, {
+                      isPreview: false,
+                      lastFocusedAt: timestamp,
+                    })
+                  : f
               )
             }
           }
@@ -357,6 +386,7 @@ export const useEditorStore = create<EditorStore>()(
         if (!id) return;
         const ws = get().workspaceStates[id];
         if (!ws) return;
+        const timestamp = nowTimestamp();
 
         const fileIndex = ws.openFiles.findIndex(f => f.path === path);
         if (fileIndex === -1) return;
@@ -375,7 +405,14 @@ export const useEditorStore = create<EditorStore>()(
         set((state) => ({
           workspaceStates: {
             ...state.workspaceStates,
-            [id]: { openFiles: newOpenFiles, activeFilePath: newActiveFilePath }
+            [id]: {
+              openFiles: newOpenFiles.map((file) =>
+                file.path === newActiveFilePath
+                  ? touchOpenFile(file, timestamp, { lastFocusedAt: timestamp })
+                  : file
+              ),
+              activeFilePath: newActiveFilePath,
+            }
           }
         }));
       },
@@ -383,10 +420,19 @@ export const useEditorStore = create<EditorStore>()(
       setActiveFile: (path, workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
+        const timestamp = nowTimestamp();
         set((state) => ({
           workspaceStates: {
             ...state.workspaceStates,
-            [id]: { ...(state.workspaceStates[id] || { openFiles: [] }), activeFilePath: path }
+            [id]: {
+              ...(state.workspaceStates[id] || { openFiles: [] }),
+              activeFilePath: path,
+              openFiles: (state.workspaceStates[id]?.openFiles || []).map((file) =>
+                file.path === path
+                  ? touchOpenFile(file, timestamp, { lastFocusedAt: timestamp })
+                  : file
+              ),
+            }
           }
         }));
       },
@@ -394,6 +440,7 @@ export const useEditorStore = create<EditorStore>()(
       updateFileContent: (path, content, workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
+        const timestamp = nowTimestamp();
         set((state) => {
           const ws = state.workspaceStates[id];
           if (!ws) return state;
@@ -403,7 +450,18 @@ export const useEditorStore = create<EditorStore>()(
               [id]: {
                 ...ws,
                 // Editing content pins the file (removes preview mode)
-                openFiles: ws.openFiles.map(f => f.path === path ? { ...f, content, isDirty: content !== f.originalContent, isPreview: false } : f)
+                openFiles: ws.openFiles.map(f =>
+                  f.path === path
+                    ? {
+                        ...touchOpenFile(f, timestamp, {
+                          isPreview: false,
+                          lastFocusedAt: timestamp,
+                        }),
+                        content,
+                        isDirty: content !== f.originalContent,
+                      }
+                    : f
+                )
               }
             }
           };
@@ -478,6 +536,8 @@ export const useEditorStore = create<EditorStore>()(
                 originalContent: '',
                 isLoading: true,
                 isDirty: false,
+                lastOpenedAt: f.lastOpenedAt ?? 0,
+                lastFocusedAt: f.lastFocusedAt ?? 0,
               })),
             },
           ])
