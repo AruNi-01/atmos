@@ -61,6 +61,9 @@ const Header: React.FC = () => {
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
   const [actionsCollapsed, setActionsCollapsed] = useState(false);
+  useEffect(() => {
+    try { const v = localStorage.getItem("header-actions-collapsed"); if (v === "true") setActionsCollapsed(true); } catch {}
+  }, []);
   const [actionsWidth, setActionsWidth] = useState(0);
   const actionsContentRef = useRef<HTMLDivElement | null>(null);
   const chatPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -606,7 +609,7 @@ const Header: React.FC = () => {
           <button
             type="button"
             aria-label={actionsCollapsed ? "Expand header actions" : "Collapse header actions"}
-            onClick={() => setActionsCollapsed((value) => !value)}
+            onClick={() => setActionsCollapsed((value) => { const next = !value; try { localStorage.setItem("header-actions-collapsed", String(next)); } catch {} return next; })}
             className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
           >
             {actionsCollapsed ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
