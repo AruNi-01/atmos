@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { fsApi, type FileTreeNode } from '@/api/ws-api';
 import {
+  clearProjectLanguagesPrewarmed,
   detectCodeLanguage,
   markProjectLanguagesPrewarmed,
   normalizeCodeLanguage,
@@ -88,6 +89,7 @@ export function usePrewarmCodeLanguages() {
     if (!markProjectLanguagesPrewarmed(currentProjectPath)) return;
 
     let cancelled = false;
+    let completed = false;
 
     void fsApi
       .listProjectFiles(currentProjectPath, { showHidden: false })
@@ -97,9 +99,14 @@ export function usePrewarmCodeLanguages() {
         const counts = new Map<string, number>();
         collectLanguageCounts(response.tree, counts);
 
+        const editorState = useEditorStore.getState();
+        const activeWorkspaceId = editorState.currentWorkspaceId;
+        const activeWorkspace = activeWorkspaceId
+          ? editorState.workspaceStates[activeWorkspaceId]
+          : undefined;
         const recentLanguages = getRecentWorkspaceLanguages(
-          currentWorkspace?.openFiles || [],
-          currentWorkspace?.activeFilePath || null
+          activeWorkspace?.openFiles || [],
+          activeWorkspace?.activeFilePath || null
         );
 
         const projectLanguages = [...counts.entries()]
@@ -109,15 +116,24 @@ export function usePrewarmCodeLanguages() {
           .map(([language]) => language);
 
         const languages = [...new Set([...recentLanguages, ...projectLanguages])];
-        if (languages.length === 0) return;
+        if (languages.length === 0) {
+          completed = true;
+          return;
+        }
         await preloadCodeLanguages(languages);
+        completed = true;
       })
       .catch(() => {
-        // Best-effort optimization only; ignore scan failures.
+        if (!cancelled) {
+          clearProjectLanguagesPrewarmed(currentProjectPath);
+        }
       });
 
     return () => {
       cancelled = true;
+      if (!completed) {
+        clearProjectLanguagesPrewarmed(currentProjectPath);
+      }
     };
-  }, [currentProjectPath, currentWorkspace?.activeFilePath, currentWorkspace?.openFiles]);
+  }, [currentProjectPath]);
 }

@@ -16,7 +16,7 @@ interface EditorSettingsState {
 
 export const useEditorSettings = create<EditorSettingsState>((set, get) => ({
   autoSave: false,
-  lineWrap: false,
+  lineWrap: true,
   loaded: false,
   loading: false,
 
@@ -29,12 +29,12 @@ export const useEditorSettings = create<EditorSettingsState>((set, get) => ({
       const settings = await functionSettingsApi.get();
       set({
         autoSave: settings.editor?.auto_save ?? false,
-        lineWrap: settings.editor?.line_wrap ?? false,
+        lineWrap: settings.editor?.line_wrap ?? true,
         loaded: true,
         loading: false,
       });
     } catch {
-      set({ loaded: true, loading: false });
+      set({ loaded: false, loading: false });
     }
   },
 

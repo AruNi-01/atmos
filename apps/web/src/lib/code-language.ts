@@ -38,8 +38,8 @@ const EXTENSION_LANGUAGE_MAP: Record<string, string> = {
   json5: 'json',
   html: 'html',
   htm: 'html',
-  vue: 'html',
-  svelte: 'html',
+  vue: 'vue',
+  svelte: 'svelte',
   astro: 'html',
   css: 'css',
   scss: 'css',
@@ -290,6 +290,7 @@ export async function loadCodeLanguageSupport(language?: string): Promise<Extens
 
   const extensionPromise = loader().catch((error) => {
     console.warn(`[CodeMirror] Failed to load language support for "${normalized}"`, error);
+    languageExtensionCache.delete(normalized);
     return [] as Extension;
   });
 
@@ -313,4 +314,8 @@ export function markProjectLanguagesPrewarmed(projectPath: string): boolean {
 
   projectLanguageWarmCache.add(projectPath);
   return true;
+}
+
+export function clearProjectLanguagesPrewarmed(projectPath: string): void {
+  projectLanguageWarmCache.delete(projectPath);
 }
