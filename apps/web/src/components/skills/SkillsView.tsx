@@ -27,6 +27,7 @@ import { useContextParams } from "@/hooks/use-context-params";
 import { AnimatePresence, motion } from "motion/react";
 import {
   BookOpen,
+  ArrowDownToLine,
   ChevronRight,
   Download,
   ExternalLink,
@@ -40,7 +41,6 @@ import {
   Puzzle,
   RefreshCw,
   Search,
-  SquareTerminal,
   Store,
 } from "lucide-react";
 import { SkillDetail } from "./SkillDetail";
@@ -751,20 +751,20 @@ export const SkillsView: React.FC = () => {
                                       {item.description}
                                     </p>
 
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                      <button
-                                        onClick={() => setInstallingSkill(item)}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
-                                      >
-                                        <SquareTerminal className="size-3.5" />
-                                        Install in Terminal
-                                      </button>
+                                    <div className="mt-4 flex items-center justify-between gap-3">
                                       <button
                                         onClick={() => window.open(resolveSkillSourceUrl(item), "_blank", "noopener,noreferrer")}
                                         className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground cursor-pointer"
                                       >
                                         <ExternalLink className="size-3.5" />
                                         View Source
+                                      </button>
+                                      <button
+                                        onClick={() => setInstallingSkill(item)}
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
+                                      >
+                                        <ArrowDownToLine className="size-3.5" />
+                                        Install
                                       </button>
                                     </div>
                                   </div>
