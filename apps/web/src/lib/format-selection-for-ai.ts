@@ -2,6 +2,8 @@
  * Format selection info for AI Agent consumption
  */
 
+import { detectCodeLanguage } from '@/lib/code-language';
+
 export interface SelectionInfo {
   filePath: string;
   startLine: number;
@@ -22,34 +24,11 @@ function formatLineRange(start: number, end: number): string {
 }
 
 function getLanguageFromPath(filePath: string): string {
-  const ext = filePath.split('.').pop()?.toLowerCase();
-  const langMap: Record<string, string> = {
-    ts: 'typescript',
-    tsx: 'tsx',
-    js: 'javascript',
-    jsx: 'jsx',
-    py: 'python',
-    rs: 'rust',
-    go: 'go',
-    java: 'java',
-    cpp: 'cpp',
-    c: 'c',
-    css: 'css',
-    scss: 'scss',
-    html: 'html',
-    json: 'json',
-    yaml: 'yaml',
-    yml: 'yaml',
-    md: 'markdown',
-    sql: 'sql',
-    sh: 'bash',
-    bash: 'bash',
-  };
-  return langMap[ext || ''] || ext || 'text';
+  return detectCodeLanguage(filePath);
 }
 
 /**
- * Format Monaco Editor selection for AI
+ * Format editor selection for AI
  */
 export function formatEditorSelectionForAI(
   info: SelectionInfo,

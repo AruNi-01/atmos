@@ -965,6 +965,10 @@ export const skillsApi = {
 // ===== Function Settings API =====
 
 export interface FunctionSettings {
+  editor?: {
+    auto_save?: boolean;
+    line_wrap?: boolean;
+  };
   git_commit?: {
     acp_new_session_switch?: boolean;
   };

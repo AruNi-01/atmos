@@ -34,11 +34,12 @@ import { useTheme } from 'next-themes';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/components/markdown/MarkdownToc';
 import { SkillInfo, SkillFile, fsApi } from '@/api/ws-api';
+import { detectCodeLanguage } from '@/lib/code-language';
 import { getAgentConfig } from './constants';
 import { QuickOpen } from '@/components/layout/QuickOpen';
 
-const MonacoEditor = dynamic(
-  () => import('@/components/editor/BaseMonacoEditor').then(mod => mod.BaseMonacoEditor),
+const CodeMirrorEditor = dynamic(
+  () => import('@/components/editor/BaseCodeMirrorEditor').then(mod => mod.BaseCodeMirrorEditor),
   {
     ssr: false,
     loading: () => (
@@ -109,30 +110,7 @@ function buildFileTree(files: SkillFile[]): TreeNode[] {
 }
 
 function getLanguageFromFileName(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  const langMap: Record<string, string> = {
-    md: 'markdown',
-    mdx: 'markdown',
-    js: 'javascript',
-    jsx: 'javascript',
-    ts: 'typescript',
-    tsx: 'typescript',
-    json: 'json',
-    yaml: 'yaml',
-    yml: 'yaml',
-    py: 'python',
-    rs: 'rust',
-    go: 'go',
-    sh: 'shell',
-    bash: 'shell',
-    zsh: 'shell',
-    toml: 'toml',
-    css: 'css',
-    html: 'html',
-    xml: 'xml',
-    sql: 'sql',
-  };
-  return langMap[ext] || 'plaintext';
+  return detectCodeLanguage(fileName);
 }
 
 const TreeItem: React.FC<{
@@ -567,16 +545,13 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
                       <MarkdownToc markdown={fileContent} scrollContainerId="skill-content-root" />
                     </>
                   ) : (
-                    <MonacoEditor
+                    <CodeMirrorEditor
                       language={language}
                       value={fileContent}
-                      onChange={(value) => !isReadOnly && setFileContent(value || '')}
+                      onChange={(value) => !isReadOnly && setFileContent(value)}
                       isReadOnly={isReadOnly}
-                      onMount={(editor, monaco) => {
-                        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-                          handleSave();
-                        });
-                      }}
+                      lineWrap
+                      onSave={handleSave}
                     />
                   )
                 ) : (
