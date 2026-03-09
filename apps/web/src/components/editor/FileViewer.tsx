@@ -3,12 +3,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { OpenFile } from '@/hooks/use-editor-store';
-import { Loader2, FileWarning, Download, FileText, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Loader2, FileWarning, Download, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn, Button } from '@workspace/ui';
 
-// Dynamic import MonacoEditor
-const MonacoEditor = dynamic(() => import('./MonacoEditor'), {
+// Dynamic import CodeMirror editor to avoid SSR issues
+const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-full">
@@ -260,7 +260,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className }) => {
     );
   }
 
-  return <MonacoEditor file={file} className={className} />;
+  return <CodeMirrorEditor file={file} className={className} />;
 };
 
 export default FileViewer;

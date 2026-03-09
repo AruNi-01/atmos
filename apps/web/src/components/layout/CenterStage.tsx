@@ -63,7 +63,7 @@ import { systemApi } from "@/api/rest-api";
 import { PROJECT_WIKI_WINDOW_NAME, CODE_REVIEW_WINDOW_NAME } from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
 
-// Dynamic import Monaco Editor to avoid SSR issues
+// Dynamic import file viewer to avoid SSR issues
 const FileViewer = dynamic(
   () => import("@/components/editor/FileViewer"),
   {
