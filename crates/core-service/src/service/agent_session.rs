@@ -14,6 +14,7 @@ use serde::Serialize;
 use tracing::info;
 
 use crate::error::Result;
+use crate::service::session_title::SessionTitleGenerator;
 
 /// DTO for session list - decouples API from infra entity
 #[derive(Debug, Serialize)]
@@ -496,32 +497,39 @@ impl AgentSessionService {
         self.pending_permissions.write().insert(request_id, tx);
     }
 
-    /// Generate and set title from the first user message prefix (max 512 chars).
-    /// Only runs when title is still auto-settable (not user-edited).
-    pub fn spawn_title_generation(&self, session_id: String, first_message: String) {
-        let db = Arc::clone(&self.db);
-        tokio::spawn(async move {
-            let session_repo = AgentChatSessionRepo::new(&db);
-            if session_repo.can_auto_set_title(&session_id).await.ok() != Some(true) {
-                return;
-            }
-            let title = first_message
-                .chars()
-                .take(512)
-                .collect::<String>()
-                .trim()
-                .to_string();
-            let title = if title.is_empty() {
-                "新会话".to_string()
-            } else {
-                title
-            };
-            if let Err(e) = session_repo.update_title(&session_id, &title, "auto").await {
-                tracing::warn!("Failed to auto-set title for session {}: {}", session_id, e);
-            } else {
-                tracing::info!("Auto-set title for session {}: {}", session_id, title);
-            }
-        });
+    /// Generate and persist an automatic title for the first user prompt.
+    /// Returns the stored title when the session was updated, or None when skipped.
+    pub async fn auto_set_title_from_prompt(
+        &self,
+        session_id: &str,
+        first_message: &str,
+    ) -> Option<String> {
+        let session_repo = AgentChatSessionRepo::new(&self.db);
+        if session_repo.can_auto_set_title(session_id).await.ok() != Some(true) {
+            return None;
+        }
+
+        let model = session_repo.find_by_guid(session_id).await.ok().flatten()?;
+        let generator = SessionTitleGenerator::new();
+        let title = generator
+            .generate(first_message, &model.cwd, &model.mode)
+            .await;
+
+        if session_repo.can_auto_set_title(session_id).await.ok() != Some(true) {
+            return None;
+        }
+
+        if let Err(error) = session_repo.update_title(session_id, &title, "auto").await {
+            tracing::warn!(
+                "Failed to auto-set title for session {}: {}",
+                session_id,
+                error
+            );
+            None
+        } else {
+            tracing::info!("Auto-set title for session {}: {}", session_id, title);
+            Some(title)
+        }
     }
 
     /// Get one session summary by id.

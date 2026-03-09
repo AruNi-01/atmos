@@ -23,17 +23,18 @@ use infra::{
     GithubActionsRerunRequest, GithubCiOpenBrowserRequest, GithubCiStatusRequest,
     GithubPrCloseRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest,
     GithubPrDraftRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
-    GithubPrReadyRequest, GithubPrReopenRequest, ProjectCheckCanDeleteRequest,
-    ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest,
-    SyncSingleSystemSkillRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
-    UsageOverviewRequest, UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
-    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
-    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification,
-    WorkspaceUnarchiveRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
-    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage,
-    WsMessageHandler, WsRequest,
+    GithubPrReadyRequest, GithubPrReopenRequest, LlmProvidersUpdateRequest,
+    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
+    ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
+    ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest, SyncSingleSystemSkillRequest,
+    UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest, UsageOverviewRequest,
+    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
+    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
+    WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
+    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
 };
+use llm::{FileLlmConfigStore, LlmProvidersFile};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
 use std::io::Read;
@@ -381,6 +382,11 @@ impl WsMessageService {
             WsAction::FunctionSettingsGet => self.handle_function_settings_get().await,
             WsAction::FunctionSettingsUpdate => {
                 self.handle_function_settings_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LlmProvidersGet => self.handle_llm_providers_get().await,
+            WsAction::LlmProvidersUpdate => {
+                self.handle_llm_providers_update(parse_request(request.data)?)
                     .await
             }
         }
@@ -2294,6 +2300,29 @@ set -x
             ServiceError::Validation(format!("Failed to write function_settings.json: {}", e))
         })?;
 
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_llm_providers_get(&self) -> Result<Value> {
+        let store = FileLlmConfigStore::new()
+            .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
+        let config = store.load().map_err(|e| {
+            ServiceError::Validation(format!("Failed to read llm providers: {}", e))
+        })?;
+        serde_json::to_value(config).map_err(|e| {
+            ServiceError::Validation(format!("Failed to serialize llm providers: {}", e))
+        })
+    }
+
+    async fn handle_llm_providers_update(&self, req: LlmProvidersUpdateRequest) -> Result<Value> {
+        let config: LlmProvidersFile = serde_json::from_value(req.config).map_err(|e| {
+            ServiceError::Validation(format!("Invalid llm providers payload: {}", e))
+        })?;
+        let store = FileLlmConfigStore::new()
+            .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
+        store.save(&config).map_err(|e| {
+            ServiceError::Validation(format!("Failed to save llm providers: {}", e))
+        })?;
         Ok(json!({ "ok": true }))
     }
 }

@@ -2,6 +2,7 @@ pub mod agent;
 pub mod agent_session;
 pub mod message_push;
 pub mod project;
+pub mod session_title;
 pub mod skill;
 pub mod terminal;
 pub mod test;

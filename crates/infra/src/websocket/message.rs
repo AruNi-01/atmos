@@ -321,6 +321,10 @@ pub enum WsAction {
     FunctionSettingsGet,
     /// Update a field in ~/.atmos/function_settings.json
     FunctionSettingsUpdate,
+    /// Read ~/.atmos/llm/providers.json
+    LlmProvidersGet,
+    /// Overwrite ~/.atmos/llm/providers.json
+    LlmProvidersUpdate,
 }
 
 /// 服务端主动推送的事件类型
@@ -1185,6 +1189,11 @@ pub struct FunctionSettingsUpdateRequest {
     pub function_name: String,
     pub key: String,
     pub value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmProvidersUpdateRequest {
+    pub config: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
