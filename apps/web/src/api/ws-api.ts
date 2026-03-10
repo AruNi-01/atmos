@@ -981,6 +981,7 @@ export interface LlmProviderEntry {
   api_key: string;
   model: string;
   timeout_ms?: number | null;
+  max_output_tokens?: number | null;
 }
 
 export interface LlmFeatureBindings {

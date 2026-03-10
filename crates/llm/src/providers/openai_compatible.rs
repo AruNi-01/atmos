@@ -46,7 +46,7 @@ impl LlmClient for OpenAiCompatibleClient {
         if let Some(temperature) = request.temperature {
             body["temperature"] = json!(temperature);
         }
-        if let Some(max_output_tokens) = request.max_output_tokens {
+        if let Some(max_output_tokens) = request.max_output_tokens.or(provider.max_output_tokens) {
             body["max_tokens"] = json!(max_output_tokens);
         }
         if matches!(request.response_format, ResponseFormat::JsonObject) {
