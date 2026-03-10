@@ -154,6 +154,8 @@ pub enum WsAction {
     GitChangedFiles,
     /// 获取单个文件的 diff
     GitFileDiff,
+    /// 生成 git commit message
+    GitGenerateCommitMessage,
     /// 提交更改
     GitCommit,
     /// 推送更改
@@ -707,6 +709,20 @@ pub struct GitCommitRequest {
     /// 仓库路径
     pub path: String,
     /// 提交信息
+    pub message: String,
+}
+
+/// Git commit message 生成请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGenerateCommitMessageRequest {
+    /// 仓库路径
+    pub path: String,
+}
+
+/// Git commit message 生成响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGenerateCommitMessageResponse {
+    /// 生成的 commit message
     pub message: String,
 }
 

@@ -36,11 +36,13 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Textarea,
   cn,
   toastManager,
 } from "@workspace/ui";
 
 import {
+  fsApi,
   llmProvidersApi,
   type LlmFeatureBindings,
   type LlmProviderEntry,
@@ -104,6 +106,74 @@ const KIND_OPTIONS: Array<{
 ];
 
 const DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS = "4096";
+const DEFAULT_GIT_COMMIT_PROMPT = `You generate high-signal Git commit messages using the Conventional Commits format.
+
+Analyze the repository change summary and infer the dominant change. Prefer the
+most meaningful user-facing, architectural, or maintenance change. When changes
+are mixed, pick the clearest umbrella change instead of listing everything.
+
+Return a complete commit message in this format:
+
+<type>[optional scope]: <description>
+
+<body>
+
+[optional footer]
+
+Requirements:
+- Use a valid conventional commit type
+- Keep the first line under 72 characters
+- Use imperative mood
+- The body is required unless the change is truly trivial
+- The body should explain what changed and why it matters
+- Mention the concrete feature, area, or module that changed
+- Do not use bullets, code fences, quotes, or commentary outside the commit
+- Do not mention that the message was generated
+
+Allowed types:
+- feat: new feature or user-visible enhancement
+- fix: bug fix or regression fix
+- refactor: structural change without feature or bug behavior change
+- perf: performance improvement
+- docs: documentation-only change
+- test: test-only change
+- build: dependency or build tooling change
+- ci: CI or automation pipeline change
+- style: formatting or stylistic cleanup with no logic change
+- chore: maintenance, housekeeping, or non-user-facing updates
+- revert: revert a previous change
+
+Scope guidance:
+- Add a scope only when it improves clarity and stays concise
+- Prefer concrete areas such as auth, landing, editor, git, api, ui, workspace
+- Skip the scope if it makes the subject clunky or overly specific
+
+Body guidance:
+- Explain what changed and why, not implementation trivia
+- Use one or two short paragraphs
+- Wrap lines naturally at about 72 characters
+- Contrast with previous behavior when that adds clarity
+- If relevant, mention the most important files or surfaces affected
+
+Decision rules:
+- Prefer what changed over how it changed
+- Prefer specific product or code-area names over vague words like update or changes
+- Ignore local-only noise, caches, generated assets, and transient workspace metadata unless they are the main change
+- If new files indicate a new section or feature, prefer that over incidental config or copy edits
+- If most files are translations or copy edits, use docs or feat depending on product impact
+- If the change is primarily restructuring existing code, use refactor
+
+Good examples:
+
+feat(landing): add problem-solution section
+
+Introduce a dedicated problem-solution section on the landing page to clarify
+the product pitch and improve narrative flow before the feature breakdown.
+
+fix(editor): preserve selection after save
+
+Keep the active selection stable after writes so editing feels predictable.
+This avoids forcing users to manually restore cursor context on each save.`;
 
 function defaultMaxOutputTokens(kind: LlmProviderKind): string {
   return kind === "anthropic-compatible"
@@ -369,6 +439,10 @@ function newProviderDraft(existing: ProviderDraft[]): ProviderDraft {
   };
 }
 
+function gitCommitPromptPath(homeDir: string): string {
+  return `${homeDir.replace(/\/$/, "")}/.atmos/llm/prompt/git-commit-prompt.md`;
+}
+
 export function LlmProvidersModal({
   open,
   onOpenChange,
@@ -388,13 +462,22 @@ export function LlmProvidersModal({
   const [loading, setLoading] = useState(false);
   const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
   const [providerSaveState, setProviderSaveState] = useState<SaveState>("idle");
+  const [promptSaveState, setPromptSaveState] = useState<SaveState>("idle");
   const [providerNameTouched, setProviderNameTouched] = useState(false);
   const [providerSaveAttempted, setProviderSaveAttempted] = useState(false);
   const [routingExpanded, setRoutingExpanded] = useState(false);
+  const [gitCommitPromptOpen, setGitCommitPromptOpen] = useState(false);
+  const [gitCommitPromptPathValue, setGitCommitPromptPathValue] =
+    useState<string>("");
+  const [gitCommitPromptContent, setGitCommitPromptContent] = useState("");
+  const [gitCommitPromptLoading, setGitCommitPromptLoading] = useState(false);
   const routingResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const providerResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const promptResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
 
@@ -421,6 +504,9 @@ export function LlmProvidersModal({
       }
       if (providerResetTimerRef.current) {
         clearTimeout(providerResetTimerRef.current);
+      }
+      if (promptResetTimerRef.current) {
+        clearTimeout(promptResetTimerRef.current);
       }
     },
     [],
@@ -592,6 +678,62 @@ export function LlmProvidersModal({
     }
   };
 
+  const handleOpenGitCommitPrompt = async () => {
+    setGitCommitPromptLoading(true);
+    try {
+      const homeDir = await fsApi.getHomeDir();
+      const path = gitCommitPromptPath(homeDir);
+      setGitCommitPromptPathValue(path);
+
+      const response = await fsApi.readFile(path);
+      if (response.exists) {
+        setGitCommitPromptContent(
+          response.content?.trim()
+            ? response.content
+            : DEFAULT_GIT_COMMIT_PROMPT,
+        );
+      } else {
+        await fsApi.writeFile(path, `${DEFAULT_GIT_COMMIT_PROMPT}\n`);
+        setGitCommitPromptContent(DEFAULT_GIT_COMMIT_PROMPT);
+      }
+
+      setGitCommitPromptOpen(true);
+    } catch (error) {
+      toastManager.add({
+        title: "Failed to open prompt",
+        description:
+          error instanceof Error ? error.message : "Unknown filesystem error",
+        type: "error",
+      });
+    } finally {
+      setGitCommitPromptLoading(false);
+    }
+  };
+
+  const handleSaveGitCommitPrompt = async () => {
+    if (!gitCommitPromptPathValue) return;
+
+    setPromptSaveState("saving");
+    try {
+      await fsApi.writeFile(
+        gitCommitPromptPathValue,
+        gitCommitPromptContent.trimEnd()
+          ? `${gitCommitPromptContent.trimEnd()}\n`
+          : `${DEFAULT_GIT_COMMIT_PROMPT}\n`,
+      );
+      setPromptSaveState("saved");
+      scheduleSaveStateReset(setPromptSaveState, promptResetTimerRef);
+    } catch (error) {
+      setPromptSaveState("idle");
+      toastManager.add({
+        title: "Failed to save prompt",
+        description:
+          error instanceof Error ? error.message : "Unknown filesystem error",
+        type: "error",
+      });
+    }
+  };
+
   const handleDeleteProvider = async () => {
     if (!providerEditor) return;
 
@@ -672,7 +814,8 @@ export function LlmProvidersModal({
               Lightweight AI Providers
             </DialogTitle>
             <DialogDescription className="max-w-2xl">
-              Configure optional providers for short background tasks. such as ACP session title or git commit generation.
+              Configure optional providers for short background tasks. such as
+              ACP session title or git commit generation.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -808,6 +951,17 @@ export function LlmProvidersModal({
                           value={routingDraft.features.git_commit}
                           providerOptions={providerOptions}
                           noneLabel="Disabled"
+                          action={
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={handleOpenGitCommitPrompt}
+                              disabled={gitCommitPromptLoading}
+                            >
+                              {gitCommitPromptLoading ? "Opening..." : "Prompt"}
+                            </Button>
+                          }
                           onChange={(value) =>
                             setRoutingDraft((current) => ({
                               ...current,
@@ -1096,6 +1250,50 @@ export function LlmProvidersModal({
           </div>
         </div>
       </DialogContent>
+
+      <Dialog open={gitCommitPromptOpen} onOpenChange={setGitCommitPromptOpen}>
+        <DialogContent className="w-[min(92vw,860px)] max-w-[860px] border-border bg-background p-0">
+          <DialogHeader className="border-b border-border px-6 py-5">
+            <DialogTitle>Edit Git Commit Prompt</DialogTitle>
+            <DialogDescription>
+              This prompt is read from{" "}
+              <span className="font-mono text-[12px] text-foreground/80">
+                {gitCommitPromptPathValue ||
+                  "~/.atmos/llm/prompt/git-commit-prompt.md"}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-5">
+            <Textarea
+              value={gitCommitPromptContent}
+              onChange={(event) =>
+                setGitCommitPromptContent(event.target.value)
+              }
+              className="min-h-[380px] resize-y rounded-xl border-border bg-background/70 font-mono text-[13px] leading-6"
+              placeholder="Write the system prompt used for git commit message generation."
+            />
+          </div>
+
+          <DialogFooter className="border-t border-border px-6 py-4">
+            <Button
+              variant="ghost"
+              onClick={() => setGitCommitPromptOpen(false)}
+            >
+              Close
+            </Button>
+            <SaveStateButton
+              state={promptSaveState}
+              idleLabel="Save prompt"
+              savingLabel="Saving..."
+              savedLabel="Saved"
+              onClick={handleSaveGitCommitPrompt}
+              disabled={promptSaveState === "saving"}
+              measureLabel="Save prompt"
+            />
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
@@ -1105,17 +1303,22 @@ function FeatureSelect({
   value,
   providerOptions,
   noneLabel,
+  action,
   onChange,
 }: {
   label: string;
   value?: string | null;
   providerOptions: Array<{ value: string; label: string }>;
   noneLabel: string;
+  action?: React.ReactNode;
   onChange: (value: string | null) => void;
 }) {
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <div className="flex items-center justify-between gap-3">
+        <Label>{label}</Label>
+        {action}
+      </div>
       <Select
         value={featureSelectValue(value)}
         onValueChange={(next) => onChange(next === "__none__" ? null : next)}

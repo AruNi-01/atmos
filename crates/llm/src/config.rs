@@ -7,6 +7,8 @@ use crate::error::{LlmError, Result};
 use crate::types::{LlmFeature, LlmProvidersFile, ResolvedLlmProvider};
 
 const DEFAULT_TIMEOUT_MS: u64 = 8_000;
+const DEFAULT_GIT_COMMIT_PROMPT: &str =
+    include_str!("../../../prompt/git-commit/git-commit-generator.md");
 
 #[derive(Debug, Clone)]
 pub struct FileLlmConfigStore {
@@ -23,6 +25,15 @@ impl FileLlmConfigStore {
 
     pub fn path(&self) -> &PathBuf {
         &self.path
+    }
+
+    pub fn llm_dir() -> Result<PathBuf> {
+        let home = dirs::home_dir().ok_or(LlmError::HomeDirNotFound)?;
+        Ok(home.join(".atmos").join("llm"))
+    }
+
+    pub fn git_commit_prompt_path() -> Result<PathBuf> {
+        Ok(Self::llm_dir()?.join("prompt").join("git-commit-prompt.md"))
     }
 
     pub fn load(&self) -> Result<LlmProvidersFile> {
@@ -52,16 +63,35 @@ impl FileLlmConfigStore {
         let config = self.load()?;
         resolve_feature_config(&config, feature)
     }
+
+    pub fn load_git_commit_prompt(&self) -> Result<String> {
+        let path = Self::git_commit_prompt_path()?;
+        match fs::read_to_string(&path) {
+            Ok(contents) => {
+                let trimmed = contents.trim();
+                if trimmed.is_empty() {
+                    Ok(DEFAULT_GIT_COMMIT_PROMPT.to_string())
+                } else {
+                    Ok(trimmed.to_string())
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                Ok(DEFAULT_GIT_COMMIT_PROMPT.to_string())
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+}
+
+pub fn default_git_commit_prompt() -> &'static str {
+    DEFAULT_GIT_COMMIT_PROMPT
 }
 
 pub fn resolve_feature_config(
     config: &LlmProvidersFile,
     feature: LlmFeature,
 ) -> Result<Option<ResolvedLlmProvider>> {
-    let provider_id = config
-        .features
-        .provider_for(feature)
-        .or(config.default_provider.as_deref());
+    let provider_id = config.features.provider_for(feature);
 
     let Some(provider_id) = provider_id else {
         return Ok(None);
@@ -202,7 +232,7 @@ fn set_private_permissions(_path: &PathBuf) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::FileLlmConfigStore;
+    use super::{default_git_commit_prompt, FileLlmConfigStore};
     use crate::types::LlmProvidersFile;
     use std::fs;
 
@@ -234,5 +264,50 @@ mod tests {
 
         let _ = fs::remove_file(&path);
         let _ = fs::remove_dir(path.parent().unwrap());
+    }
+
+    #[test]
+    fn load_git_commit_prompt_uses_default_when_missing() {
+        let path = unique_test_path("providers.json");
+        let store = FileLlmConfigStore { path };
+
+        let prompt = store
+            .load_git_commit_prompt()
+            .expect("load default git commit prompt");
+
+        assert_eq!(prompt, default_git_commit_prompt().trim());
+    }
+
+    #[test]
+    fn load_git_commit_prompt_reads_custom_file() {
+        let home = unique_test_path("home");
+        let llm_dir = home.join(".atmos").join("llm");
+        let prompt_dir = llm_dir.join("prompt");
+        let providers_path = llm_dir.join("providers.json");
+        let prompt_path = prompt_dir.join("git-commit-prompt.md");
+        fs::create_dir_all(&prompt_dir).expect("create temp dir");
+        fs::write(&prompt_path, "custom prompt").expect("write prompt file");
+
+        let store = FileLlmConfigStore {
+            path: providers_path.clone(),
+        };
+
+        let original_home = std::env::var("HOME").ok();
+        unsafe {
+            std::env::set_var("HOME", &home);
+        }
+
+        let prompt = store
+            .load_git_commit_prompt()
+            .expect("load custom git commit prompt");
+
+        match original_home {
+            Some(value) => unsafe { std::env::set_var("HOME", value) },
+            None => unsafe { std::env::remove_var("HOME") },
+        }
+
+        assert_eq!(prompt, "custom prompt");
+
+        let _ = fs::remove_dir_all(home);
     }
 }
