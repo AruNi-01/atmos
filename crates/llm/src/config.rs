@@ -1,4 +1,5 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -43,8 +44,7 @@ impl FileLlmConfigStore {
             fs::create_dir_all(parent)?;
         }
         let contents = serde_json::to_string_pretty(config)?;
-        fs::write(&self.path, contents)?;
-        set_private_permissions(&self.path)?;
+        write_private_file(&self.path, contents.as_bytes())?;
         Ok(())
     }
 
@@ -131,16 +131,107 @@ fn resolve_api_key(provider_id: &str, raw_value: &str) -> Result<String> {
 }
 
 #[cfg(unix)]
-fn set_private_permissions(path: &PathBuf) -> Result<()> {
-    use std::os::unix::fs::PermissionsExt;
+fn write_private_file(path: &PathBuf, contents: &[u8]) -> Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| LlmError::InvalidConfig("Missing parent directory for llm config".into()))?;
 
-    let mut permissions = fs::metadata(path)?.permissions();
-    permissions.set_mode(0o600);
-    fs::set_permissions(path, permissions)?;
+    let (temp_path, mut file) = open_private_temp_file(path)?;
+    file.write_all(contents)?;
+    file.sync_all()?;
+    drop(file);
+
+    if let Err(error) = fs::rename(&temp_path, path) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(error.into());
+    }
+
+    let dir = OpenOptions::new().read(true).open(parent)?;
+    dir.sync_all()?;
     Ok(())
+}
+
+#[cfg(not(unix))]
+fn write_private_file(path: &PathBuf, contents: &[u8]) -> Result<()> {
+    fs::write(path, contents)?;
+    set_private_permissions(path)?;
+    Ok(())
+}
+
+fn temporary_write_path(path: &PathBuf, attempt: u32) -> PathBuf {
+    let pid = std::process::id();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or_default();
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("providers.json");
+    path.with_file_name(format!(".{file_name}.{pid}.{nanos}.{attempt}.tmp"))
+}
+
+#[cfg(unix)]
+fn open_private_temp_file(path: &PathBuf) -> Result<(PathBuf, fs::File)> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    for attempt in 0..8 {
+        let temp_path = temporary_write_path(path, attempt);
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temp_path)
+        {
+            Ok(file) => return Ok((temp_path, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+
+    Err(LlmError::InvalidConfig(
+        "Failed to allocate temporary llm config file".into(),
+    ))
 }
 
 #[cfg(not(unix))]
 fn set_private_permissions(_path: &PathBuf) -> Result<()> {
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FileLlmConfigStore;
+    use crate::types::LlmProvidersFile;
+    use std::fs;
+
+    fn unique_test_path(name: &str) -> std::path::PathBuf {
+        let pid = std::process::id();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|value| value.as_nanos())
+            .unwrap_or_default();
+        std::env::temp_dir()
+            .join(format!("atmos-llm-test-{pid}-{nanos}"))
+            .join(name)
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn save_creates_private_file() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = unique_test_path("providers.json");
+        let store = FileLlmConfigStore { path: path.clone() };
+
+        store
+            .save(&LlmProvidersFile::default())
+            .expect("save config");
+
+        let mode = fs::metadata(&path).expect("metadata").permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_dir(path.parent().unwrap());
+    }
 }
