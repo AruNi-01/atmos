@@ -1,9 +1,26 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { BrainCircuit, Plus, Save, Trash2 } from "lucide-react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  BrainCircuit,
+  Check,
+  ChevronDown,
+  LoaderCircle,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
 import {
   Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -44,12 +61,18 @@ type ProviderDraft = {
   max_output_tokens: string;
 };
 
-type DraftState = {
-  version: number;
+type RoutingDraft = {
   default_provider: string | null;
   features: LlmFeatureBindings;
-  providers: ProviderDraft[];
 };
+
+type ModalDraftState = {
+  version: number;
+  providers: ProviderDraft[];
+  routing: RoutingDraft;
+};
+
+type SaveState = "idle" | "saving" | "saved";
 
 const EMPTY_CONFIG: LlmProvidersFile = {
   version: 1,
@@ -58,7 +81,16 @@ const EMPTY_CONFIG: LlmProvidersFile = {
   providers: {},
 };
 
-const KIND_OPTIONS: Array<{ value: LlmProviderKind; label: string; hint: string }> = [
+const EMPTY_ROUTING: RoutingDraft = {
+  default_provider: null,
+  features: {},
+};
+
+const KIND_OPTIONS: Array<{
+  value: LlmProviderKind;
+  label: string;
+  hint: string;
+}> = [
   {
     value: "openai-compatible",
     label: "OpenAI-compatible",
@@ -74,7 +106,9 @@ const KIND_OPTIONS: Array<{ value: LlmProviderKind; label: string; hint: string 
 const DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS = "4096";
 
 function defaultMaxOutputTokens(kind: LlmProviderKind): string {
-  return kind === "anthropic-compatible" ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS : "";
+  return kind === "anthropic-compatible"
+    ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
+    : "";
 }
 
 function nextProviderClientKey(existing: ProviderDraft[]): string {
@@ -89,12 +123,11 @@ function nextProviderClientKey(existing: ProviderDraft[]): string {
 }
 
 function slugifyProviderId(value: string): string {
-  const slug = value
+  return value
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return slug;
 }
 
 function fallbackProviderName(providerId: string): string {
@@ -107,8 +140,10 @@ function fallbackProviderName(providerId: string): string {
 
 function buildDraftIdMap(providers: ProviderDraft[]): Map<string, string> {
   const mapping = new Map<string, string>();
+
   for (const provider of providers) {
-    const baseId = slugifyProviderId(provider.name) || provider.persistedId.trim();
+    const baseId =
+      slugifyProviderId(provider.name) || provider.persistedId.trim();
     if (!baseId) continue;
 
     let candidate = baseId;
@@ -119,11 +154,14 @@ function buildDraftIdMap(providers: ProviderDraft[]): Map<string, string> {
     }
     mapping.set(provider.clientKey, candidate);
   }
+
   return mapping;
 }
 
-function buildProviderNameIssues(providers: ProviderDraft[]): Record<string, string | null> {
-  const nextIds = new Map<string, string>();
+function buildProviderNameIssues(
+  providers: ProviderDraft[],
+): Record<string, string | null> {
+  const generatedByClientKey = new Map<string, string>();
   const duplicates = new Set<string>();
 
   for (const provider of providers) {
@@ -131,10 +169,10 @@ function buildProviderNameIssues(providers: ProviderDraft[]): Record<string, str
     if (!name) continue;
     const generatedId = slugifyProviderId(name);
     if (!generatedId) continue;
-    if ([...nextIds.values()].includes(generatedId)) {
+    if ([...generatedByClientKey.values()].includes(generatedId)) {
       duplicates.add(generatedId);
     } else {
-      nextIds.set(provider.clientKey, generatedId);
+      generatedByClientKey.set(provider.clientKey, generatedId);
     }
   }
 
@@ -146,145 +184,189 @@ function buildProviderNameIssues(providers: ProviderDraft[]): Record<string, str
       }
       const generatedId = slugifyProviderId(name);
       if (!generatedId) {
-        return [provider.clientKey, "Provider name must contain letters or numbers."];
+        return [
+          provider.clientKey,
+          "Provider name must contain letters or numbers.",
+        ];
       }
       if (duplicates.has(generatedId)) {
         return [provider.clientKey, "Provider name is duplicated."];
       }
       return [provider.clientKey, null];
-    })
+    }),
   );
 }
 
-function fileToDraft(config: LlmProvidersFile): DraftState {
-  const providers = Object.entries(config.providers ?? {}).map(([id, provider], index) => ({
-    clientKey: `provider-${index + 1}-${id}`,
-    persistedId: id,
-    enabled: provider.enabled,
-    name: provider.displayName ?? fallbackProviderName(id),
-    kind: provider.kind,
-    base_url: provider.base_url ?? "",
-    api_key: provider.api_key ?? "",
-    model: provider.model ?? "",
-    timeout_ms: provider.timeout_ms == null ? "" : String(provider.timeout_ms),
-    max_output_tokens:
-      provider.max_output_tokens == null
-        ? defaultMaxOutputTokens(provider.kind)
-        : String(provider.max_output_tokens),
-  }));
-  const persistedToClientKey = new Map(
-    providers.map((provider) => [provider.persistedId, provider.clientKey])
-  );
-
-  return {
-    version: config.version ?? 1,
-    default_provider: config.default_provider
-      ? persistedToClientKey.get(config.default_provider) ?? null
-      : null,
-    features: {
-      session_title: config.features?.session_title
-        ? persistedToClientKey.get(config.features.session_title) ?? null
-        : null,
-      git_commit: config.features?.git_commit
-        ? persistedToClientKey.get(config.features.git_commit) ?? null
-        : null,
-    },
-    providers,
-  };
-}
-
-function draftToFile(draft: DraftState): LlmProvidersFile {
-  const providerIdMap = buildDraftIdMap(draft.providers);
-  const providers = draft.providers.reduce<Record<string, LlmProviderEntry>>((acc, provider) => {
-    const trimmedTimeout = provider.timeout_ms.trim();
-    const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
-    const providerId = providerIdMap.get(provider.clientKey);
-    if (!providerId) {
-      return acc;
-    }
-    acc[providerId] = {
-      enabled: provider.enabled,
-      displayName: provider.name.trim() || null,
-      kind: provider.kind,
-      base_url: provider.base_url.trim(),
-      api_key: provider.api_key.trim(),
-      model: provider.model.trim(),
-      timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
-      max_output_tokens: trimmedMaxOutputTokens ? parseInt(trimmedMaxOutputTokens, 10) : null,
-    };
-    return acc;
-  }, {});
-
-  return {
-    version: draft.version || 1,
-    default_provider: draft.default_provider
-      ? providerIdMap.get(draft.default_provider) ?? null
-      : null,
-    features: {
-      session_title: draft.features.session_title
-        ? providerIdMap.get(draft.features.session_title) ?? null
-        : null,
-      git_commit: draft.features.git_commit
-        ? providerIdMap.get(draft.features.git_commit) ?? null
-        : null,
-    },
-    providers,
-  };
-}
-
-function providerLabel(provider: ProviderDraft): string {
-  return provider.name.trim() || provider.persistedId;
-}
-
-function validateDraft(draft: DraftState): string | null {
-  const nameIssues = buildProviderNameIssues(draft.providers);
-  const clientKeys = new Set<string>();
-  for (const provider of draft.providers) {
-    const issue = nameIssues[provider.clientKey];
-    if (issue) return issue;
-    if (clientKeys.has(provider.clientKey)) return "Duplicate provider entry detected.";
-    const trimmedTimeout = provider.timeout_ms.trim();
-    if (trimmedTimeout) {
-      if (!/^\d+$/.test(trimmedTimeout)) {
-        return `Timeout for provider "${providerLabel(provider)}" must be a whole number in milliseconds.`;
-      }
-      const timeoutMs = Number(trimmedTimeout);
-      if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
-        return `Timeout for provider "${providerLabel(provider)}" is out of range.`;
-      }
-    }
-    const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
-    if (trimmedMaxOutputTokens) {
-      if (!/^\d+$/.test(trimmedMaxOutputTokens)) {
-        return `Max output tokens for provider "${providerLabel(provider)}" must be a whole number.`;
-      }
-      const maxOutputTokens = Number(trimmedMaxOutputTokens);
-      if (
-        !Number.isSafeInteger(maxOutputTokens) ||
-        maxOutputTokens <= 0 ||
-        maxOutputTokens > 4294967295
-      ) {
-        return `Max output tokens for provider "${providerLabel(provider)}" is out of range.`;
-      }
-    } else if (provider.kind === "anthropic-compatible") {
-      return `Anthropic-compatible provider "${providerLabel(provider)}" requires max output tokens.`;
-    }
-    clientKeys.add(provider.clientKey);
+function validateProvider(
+  provider: ProviderDraft,
+  providers: ProviderDraft[],
+): string | null {
+  const nameIssue = buildProviderNameIssues(providers)[provider.clientKey];
+  if (nameIssue) {
+    return nameIssue;
   }
+
+  const trimmedTimeout = provider.timeout_ms.trim();
+  if (trimmedTimeout) {
+    if (!/^\d+$/.test(trimmedTimeout)) {
+      return `Timeout for provider "${providerLabel(provider)}" must be a whole number in milliseconds.`;
+    }
+    const timeoutMs = Number(trimmedTimeout);
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
+      return `Timeout for provider "${providerLabel(provider)}" is out of range.`;
+    }
+  }
+
+  const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
+  if (trimmedMaxOutputTokens) {
+    if (!/^\d+$/.test(trimmedMaxOutputTokens)) {
+      return `Max output tokens for provider "${providerLabel(provider)}" must be a whole number.`;
+    }
+    const maxOutputTokens = Number(trimmedMaxOutputTokens);
+    if (
+      !Number.isSafeInteger(maxOutputTokens) ||
+      maxOutputTokens <= 0 ||
+      maxOutputTokens > 4294967295
+    ) {
+      return `Max output tokens for provider "${providerLabel(provider)}" is out of range.`;
+    }
+  } else if (provider.kind === "anthropic-compatible") {
+    return `Anthropic-compatible provider "${providerLabel(provider)}" requires max output tokens.`;
+  }
+
+  return null;
+}
+
+function validateRouting(
+  routing: RoutingDraft,
+  providers: ProviderDraft[],
+): string | null {
+  const clientKeys = new Set(providers.map((provider) => provider.clientKey));
   for (const selected of [
-    draft.default_provider,
-    draft.features.session_title ?? null,
-    draft.features.git_commit ?? null,
+    routing.default_provider,
+    routing.features.session_title ?? null,
+    routing.features.git_commit ?? null,
   ]) {
     if (selected && !clientKeys.has(selected)) {
-      return `Selected provider "${selected}" no longer exists.`;
+      return "Routing references a provider that does not exist.";
     }
   }
   return null;
 }
 
+function fileToModalState(config: LlmProvidersFile): ModalDraftState {
+  const providers = Object.entries(config.providers ?? {}).map(
+    ([id, provider], index) => ({
+      clientKey: `provider-${index + 1}-${id}`,
+      persistedId: id,
+      enabled: provider.enabled,
+      name: provider.displayName ?? fallbackProviderName(id),
+      kind: provider.kind,
+      base_url: provider.base_url ?? "",
+      api_key: provider.api_key ?? "",
+      model: provider.model ?? "",
+      timeout_ms:
+        provider.timeout_ms == null ? "" : String(provider.timeout_ms),
+      max_output_tokens:
+        provider.max_output_tokens == null
+          ? defaultMaxOutputTokens(provider.kind)
+          : String(provider.max_output_tokens),
+    }),
+  );
+
+  const persistedToClientKey = new Map(
+    providers.map((provider) => [provider.persistedId, provider.clientKey]),
+  );
+
+  return {
+    version: config.version ?? 1,
+    providers,
+    routing: {
+      default_provider: config.default_provider
+        ? (persistedToClientKey.get(config.default_provider) ?? null)
+        : null,
+      features: {
+        session_title: config.features?.session_title
+          ? (persistedToClientKey.get(config.features.session_title) ?? null)
+          : null,
+        git_commit: config.features?.git_commit
+          ? (persistedToClientKey.get(config.features.git_commit) ?? null)
+          : null,
+      },
+    },
+  };
+}
+
+function modalStateToFile(state: ModalDraftState): LlmProvidersFile {
+  const providerIdMap = buildDraftIdMap(state.providers);
+
+  const providers = state.providers.reduce<Record<string, LlmProviderEntry>>(
+    (acc, provider) => {
+      const providerId = providerIdMap.get(provider.clientKey);
+      if (!providerId) {
+        return acc;
+      }
+
+      const trimmedTimeout = provider.timeout_ms.trim();
+      const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
+
+      acc[providerId] = {
+        enabled: provider.enabled,
+        displayName: provider.name.trim() || null,
+        kind: provider.kind,
+        base_url: provider.base_url.trim(),
+        api_key: provider.api_key.trim(),
+        model: provider.model.trim(),
+        timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
+        max_output_tokens: trimmedMaxOutputTokens
+          ? parseInt(trimmedMaxOutputTokens, 10)
+          : null,
+      };
+      return acc;
+    },
+    {},
+  );
+
+  return {
+    version: state.version || 1,
+    default_provider: state.routing.default_provider
+      ? (providerIdMap.get(state.routing.default_provider) ?? null)
+      : null,
+    features: {
+      session_title: state.routing.features.session_title
+        ? (providerIdMap.get(state.routing.features.session_title) ?? null)
+        : null,
+      git_commit: state.routing.features.git_commit
+        ? (providerIdMap.get(state.routing.features.git_commit) ?? null)
+        : null,
+    },
+    providers,
+  };
+}
+
+function providerLabel(
+  provider: Pick<ProviderDraft, "name" | "persistedId">,
+): string {
+  return provider.name.trim() || provider.persistedId;
+}
+
 function featureSelectValue(value?: string | null): string {
   return value || "__none__";
+}
+
+function newProviderDraft(existing: ProviderDraft[]): ProviderDraft {
+  return {
+    clientKey: nextProviderClientKey(existing),
+    persistedId: "",
+    enabled: true,
+    name: "",
+    kind: "openai-compatible",
+    base_url: "",
+    api_key: "",
+    model: "",
+    timeout_ms: "8000",
+    max_output_tokens: "",
+  };
 }
 
 export function LlmProvidersModal({
@@ -294,108 +376,293 @@ export function LlmProvidersModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [draft, setDraft] = useState<DraftState>(fileToDraft(EMPTY_CONFIG));
+  const [version, setVersion] = useState(1);
+  const [providers, setProviders] = useState<ProviderDraft[]>([]);
+  const [routingDraft, setRoutingDraft] = useState<RoutingDraft>(EMPTY_ROUTING);
+  const [selectedProviderKey, setSelectedProviderKey] = useState<string | null>(
+    null,
+  );
+  const [providerEditor, setProviderEditor] = useState<ProviderDraft | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [touchedProviderNames, setTouchedProviderNames] = useState<Set<string>>(new Set());
-  const [saveAttempted, setSaveAttempted] = useState(false);
+  const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
+  const [providerSaveState, setProviderSaveState] = useState<SaveState>("idle");
+  const [providerNameTouched, setProviderNameTouched] = useState(false);
+  const [providerSaveAttempted, setProviderSaveAttempted] = useState(false);
+  const [routingExpanded, setRoutingExpanded] = useState(false);
+  const routingResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const providerResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
-  useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    setTouchedProviderNames(new Set());
-    setSaveAttempted(false);
-    llmProvidersApi
-      .get()
-      .then((config) => setDraft(fileToDraft(config)))
-      .catch((error) => {
+  const scheduleSaveStateReset = useCallback(
+    (
+      setState: React.Dispatch<React.SetStateAction<SaveState>>,
+      timerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
+    ) => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      timerRef.current = setTimeout(() => {
+        setState("idle");
+        timerRef.current = null;
+      }, 3000);
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      if (routingResetTimerRef.current) {
+        clearTimeout(routingResetTimerRef.current);
+      }
+      if (providerResetTimerRef.current) {
+        clearTimeout(providerResetTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const loadConfig = useCallback(
+    async (preferredPersistedId?: string | null) => {
+      setLoading(true);
+      try {
+        const config = await llmProvidersApi.get();
+        const nextState = fileToModalState(config);
+        setVersion(nextState.version);
+        setProviders(nextState.providers);
+        setRoutingDraft(nextState.routing);
+
+        const selected =
+          (preferredPersistedId
+            ? nextState.providers.find(
+                (provider) => provider.persistedId === preferredPersistedId,
+              )
+            : null) ??
+          nextState.providers[0] ??
+          null;
+
+        setSelectedProviderKey(selected?.clientKey ?? null);
+        setProviderEditor(selected ? { ...selected } : null);
+        setProviderNameTouched(false);
+        setProviderSaveAttempted(false);
+      } catch (error) {
         toastManager.add({
           title: "Failed to load LLM settings",
           description: error instanceof Error ? error.message : "Unknown error",
           type: "error",
         });
-      })
-      .finally(() => setLoading(false));
-  }, [open]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    setRoutingExpanded(false);
+    void loadConfig();
+  }, [open, loadConfig]);
 
   const providerOptions = useMemo(
     () =>
-      draft.providers.map((provider) => ({
+      providers.map((provider) => ({
         value: provider.clientKey,
         label: providerLabel(provider),
       })),
-    [draft.providers]
-  );
-  const providerNameIssues = useMemo(
-    () => buildProviderNameIssues(draft.providers),
-    [draft.providers]
+    [providers],
   );
 
-  const updateProvider = (index: number, patch: Partial<ProviderDraft>) => {
-    setDraft((current) => ({
-      ...current,
-      providers: current.providers.map((provider, providerIndex) =>
-        providerIndex === index ? { ...provider, ...patch } : provider
+  const providerEditorCandidates = useMemo(() => {
+    if (!providerEditor) return providers;
+    return [
+      ...providers.filter(
+        (provider) => provider.clientKey !== providerEditor.clientKey,
       ),
-    }));
+      providerEditor,
+    ];
+  }, [providers, providerEditor]);
+
+  const providerNameIssue = useMemo(() => {
+    if (!providerEditor) return null;
+    return buildProviderNameIssues(providerEditorCandidates)[
+      providerEditor.clientKey
+    ];
+  }, [providerEditor, providerEditorCandidates]);
+
+  const showProviderNameIssue =
+    !!providerNameIssue && (providerNameTouched || providerSaveAttempted);
+
+  const selectProvider = (provider: ProviderDraft) => {
+    setSelectedProviderKey(provider.clientKey);
+    setProviderEditor({ ...provider });
+    setProviderNameTouched(false);
+    setProviderSaveAttempted(false);
   };
 
-  const removeProvider = (index: number) => {
-    const removedId = draft.providers[index]?.clientKey ?? null;
-    setDraft((current) => {
-      const clearIfRemoved = (value?: string | null) =>
-        value === removedId ? null : value ?? null;
-      return {
-        ...current,
-        providers: current.providers.filter((_, providerIndex) => providerIndex !== index),
-        default_provider: clearIfRemoved(current.default_provider),
-        features: {
-          session_title: clearIfRemoved(current.features.session_title),
-          git_commit: clearIfRemoved(current.features.git_commit),
-        },
-      };
-    });
-    setTouchedProviderNames((current) => {
-      const next = new Set(current);
-      if (removedId) {
-        next.delete(removedId);
-      }
-      return next;
-    });
+  const handleAddProvider = () => {
+    const draft = newProviderDraft(providers);
+    setSelectedProviderKey(draft.clientKey);
+    setProviderEditor(draft);
+    setProviderNameTouched(false);
+    setProviderSaveAttempted(false);
   };
 
-  const handleSave = async () => {
-    setSaveAttempted(true);
-    const validationError = validateDraft(draft);
+  const handleSaveRouting = async () => {
+    const validationError = validateRouting(routingDraft, providers);
     if (validationError) {
       toastManager.add({
-        title: "Invalid LLM settings",
+        title: "Invalid routing settings",
         description: validationError,
         type: "error",
       });
       return;
     }
 
-    setSaving(true);
+    setRoutingSaveState("saving");
     try {
-      await llmProvidersApi.update(draftToFile(draft));
-      toastManager.add({ title: "LLM settings saved", type: "success" });
-      setSaveAttempted(false);
-      onOpenChange(false);
+      await llmProvidersApi.update(
+        modalStateToFile({
+          version,
+          providers,
+          routing: routingDraft,
+        }),
+      );
+      setRoutingSaveState("saved");
+      scheduleSaveStateReset(setRoutingSaveState, routingResetTimerRef);
     } catch (error) {
+      setRoutingSaveState("idle");
       toastManager.add({
-        title: "Failed to save LLM settings",
+        title: "Failed to save routing settings",
+        description: error instanceof Error ? error.message : "Unknown error",
+        type: "error",
+      });
+    }
+  };
+
+  const handleSaveProvider = async () => {
+    if (!providerEditor) return;
+
+    setProviderSaveAttempted(true);
+    const validationError = validateProvider(
+      providerEditor,
+      providerEditorCandidates,
+    );
+    if (validationError) {
+      toastManager.add({
+        title: "Invalid provider settings",
+        description: validationError,
+        type: "error",
+      });
+      return;
+    }
+
+    const nextProviders = [
+      ...providers.filter(
+        (provider) => provider.clientKey !== providerEditor.clientKey,
+      ),
+      providerEditor,
+    ];
+    const nextPersistedId =
+      buildDraftIdMap(nextProviders).get(providerEditor.clientKey) ?? null;
+
+    setProviderSaveState("saving");
+    try {
+      await llmProvidersApi.update(
+        modalStateToFile({
+          version,
+          providers: nextProviders,
+          routing: routingDraft,
+        }),
+      );
+      setProviderSaveState("saved");
+      scheduleSaveStateReset(setProviderSaveState, providerResetTimerRef);
+      await loadConfig(nextPersistedId);
+    } catch (error) {
+      setProviderSaveState("idle");
+      toastManager.add({
+        title: "Failed to save provider",
+        description: error instanceof Error ? error.message : "Unknown error",
+        type: "error",
+      });
+    }
+  };
+
+  const handleDeleteProvider = async () => {
+    if (!providerEditor) return;
+
+    if (!providerEditor.persistedId) {
+      const fallback = providers[0] ?? null;
+      setSelectedProviderKey(fallback?.clientKey ?? null);
+      setProviderEditor(fallback ? { ...fallback } : null);
+      setProviderNameTouched(false);
+      setProviderSaveAttempted(false);
+      return;
+    }
+
+    const nextProviders = providers.filter(
+      (provider) => provider.clientKey !== providerEditor.clientKey,
+    );
+    const nextRouting: RoutingDraft = {
+      default_provider:
+        routingDraft.default_provider === providerEditor.clientKey
+          ? null
+          : routingDraft.default_provider,
+      features: {
+        session_title:
+          routingDraft.features.session_title === providerEditor.clientKey
+            ? null
+            : routingDraft.features.session_title,
+        git_commit:
+          routingDraft.features.git_commit === providerEditor.clientKey
+            ? null
+            : routingDraft.features.git_commit,
+      },
+    };
+
+    setProviderSaveState("saving");
+    try {
+      await llmProvidersApi.update(
+        modalStateToFile({
+          version,
+          providers: nextProviders,
+          routing: nextRouting,
+        }),
+      );
+      toastManager.add({ title: "Provider deleted", type: "success" });
+      const nextPersistedId = nextProviders[0]?.persistedId ?? null;
+      await loadConfig(nextPersistedId);
+    } catch (error) {
+      setProviderSaveState("idle");
+      toastManager.add({
+        title: "Failed to delete provider",
         description: error instanceof Error ? error.message : "Unknown error",
         type: "error",
       });
     } finally {
-      setSaving(false);
+      if (providerResetTimerRef.current) {
+        clearTimeout(providerResetTimerRef.current);
+        providerResetTimerRef.current = null;
+      }
+      setProviderSaveState("idle");
     }
   };
 
+  const selectedProviderIsUnsaved =
+    !!providerEditor && !providerEditor.persistedId;
+  const selectedProviderHint = selectedProviderIsUnsaved
+    ? "New provider"
+    : providerEditor
+      ? KIND_OPTIONS.find((item) => item.value === providerEditor.kind)?.hint
+      : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(96vw,1280px)] max-w-[min(96vw,1280px)] overflow-hidden p-0 sm:max-w-[min(96vw,1280px)]">
+      <DialogContent className="grid h-[min(900px,calc(100vh-2.5rem))] w-[min(96vw,1280px)] max-h-[calc(100vh-2.5rem)] max-w-[min(96vw,1280px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:h-[min(900px,calc(100vh-4rem))] sm:max-h-[calc(100vh-4rem)] sm:max-w-[min(96vw,1280px)]">
         <div className="relative overflow-hidden rounded-t-xl border-b border-border bg-[radial-gradient(circle_at_top_right,_hsl(var(--primary)/0.12),_transparent_40%),linear-gradient(135deg,_hsl(var(--muted)/0.9),_transparent)] px-6 py-5">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-[18px]">
@@ -405,302 +672,429 @@ export function LlmProvidersModal({
               Lightweight AI Providers
             </DialogTitle>
             <DialogDescription className="max-w-2xl">
-              Configure optional providers for short background tasks such as ACP session titles and git commit generation.
-              Settings are stored locally in <code>~/.atmos/llm/providers.json</code>.
+              Configure optional providers for short background tasks. such as ACP session title or git commit generation.
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
-          <div className="border-b border-border bg-muted/20 p-5 lg:border-b-0 lg:border-r">
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-border bg-background/80 p-4 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  Routing
-                </p>
-                <div className="mt-4 space-y-4">
-                  <FeatureSelect
-                    label="Default provider"
-                    value={draft.default_provider}
-                    providerOptions={providerOptions}
-                    noneLabel="None"
-                    onChange={(value) =>
-                      setDraft((current) => ({
-                        ...current,
-                        default_provider: value,
-                      }))
-                    }
-                  />
+        <div className="grid min-h-0 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="min-h-0 border-b border-border bg-muted/20 lg:border-b-0 lg:border-r">
+            <ScrollArea className="h-full">
+              <div className="space-y-5 px-5 py-2">
+                <div className="rounded-2xl border border-border bg-background/80 p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                        Providers
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Select a saved provider to edit it, or add a new one.
+                      </p>
+                    </div>
+                  </div>
 
-                  <FeatureSelect
-                    label="Session title generator"
-                    value={draft.features.session_title}
-                    providerOptions={providerOptions}
-                    noneLabel="Disabled"
-                    onChange={(value) =>
-                      setDraft((current) => ({
-                        ...current,
-                        features: { ...current.features, session_title: value },
-                      }))
-                    }
-                  />
+                  <div className="mt-4 space-y-2">
+                    {providers.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                        No saved providers yet.
+                      </div>
+                    ) : (
+                      providers.map((provider) => (
+                        <button
+                          key={provider.clientKey}
+                          type="button"
+                          onClick={() => selectProvider(provider)}
+                          className={cn(
+                            "w-full rounded-2xl border px-3 py-3 text-left transition-colors",
+                            selectedProviderKey === provider.clientKey
+                              ? "border-primary/40 bg-primary/10"
+                              : "border-border bg-background hover:bg-accent/40",
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {providerLabel(provider)}
+                              </p>
+                              <p className="mt-1 truncate text-xs text-muted-foreground">
+                                {provider.persistedId}
+                              </p>
+                            </div>
+                            <span
+                              className={cn(
+                                "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em]",
+                                provider.enabled
+                                  ? "border-emerald-500/30 text-emerald-400"
+                                  : "border-border text-muted-foreground",
+                              )}
+                            >
+                              {provider.enabled ? "Enabled" : "Disabled"}
+                            </span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
 
-                  <FeatureSelect
-                    label="Git commit generator"
-                    value={draft.features.git_commit}
-                    providerOptions={providerOptions}
-                    noneLabel="Disabled"
-                    onChange={(value) =>
-                      setDraft((current) => ({
-                        ...current,
-                        features: { ...current.features, git_commit: value },
-                      }))
-                    }
-                  />
+                  <Button
+                    variant="outline"
+                    className="mt-4 w-full justify-start gap-2"
+                    onClick={handleAddProvider}
+                  >
+                    <Plus className="size-4" />
+                    Add provider
+                  </Button>
                 </div>
-              </div>
 
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => {
-                  setDraft((current) => ({
-                    ...current,
-                    providers: [
-                      ...current.providers,
-                      {
-                        clientKey: nextProviderClientKey(current.providers),
-                        persistedId: "",
-                        enabled: true,
-                        name: "",
-                        kind: "openai-compatible",
-                        base_url: "",
-                        api_key: "",
-                        model: "",
-                        timeout_ms: "8000",
-                        max_output_tokens: "",
-                      },
-                    ],
-                  }));
-                }}
-              >
-                <Plus className="size-4" />
-                Add provider
-              </Button>
-            </div>
+                <Collapsible
+                  open={routingExpanded}
+                  onOpenChange={setRoutingExpanded}
+                  className="rounded-2xl border border-border bg-background/80 shadow-sm"
+                >
+                  <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 p-4 text-left">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                        Routing
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Choose which provider powers each lightweight task.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+                      {routingExpanded ? "Collapse" : "Expand"}
+                      <ChevronDown
+                        className={cn(
+                          "size-4 transition-transform duration-200",
+                          routingExpanded && "rotate-180",
+                        )}
+                      />
+                    </div>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent>
+                    <div className="border-t border-border px-4 pb-4">
+                      <div className="mt-4 space-y-4">
+                        <FeatureSelect
+                          label="Default provider"
+                          value={routingDraft.default_provider}
+                          providerOptions={providerOptions}
+                          noneLabel="None"
+                          onChange={(value) =>
+                            setRoutingDraft((current) => ({
+                              ...current,
+                              default_provider: value,
+                            }))
+                          }
+                        />
+
+                        <FeatureSelect
+                          label="Session title generator"
+                          value={routingDraft.features.session_title}
+                          providerOptions={providerOptions}
+                          noneLabel="Disabled"
+                          onChange={(value) =>
+                            setRoutingDraft((current) => ({
+                              ...current,
+                              features: {
+                                ...current.features,
+                                session_title: value,
+                              },
+                            }))
+                          }
+                        />
+
+                        <FeatureSelect
+                          label="Git commit generator"
+                          value={routingDraft.features.git_commit}
+                          providerOptions={providerOptions}
+                          noneLabel="Disabled"
+                          onChange={(value) =>
+                            setRoutingDraft((current) => ({
+                              ...current,
+                              features: {
+                                ...current.features,
+                                git_commit: value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div className="mt-4 flex justify-end">
+                        <SaveStateButton
+                          state={routingSaveState}
+                          idleLabel="Save routing"
+                          savingLabel="Saving..."
+                          savedLabel="Saved"
+                          onClick={handleSaveRouting}
+                          disabled={routingSaveState === "saving"}
+                          variant="outline"
+                          measureLabel="Save routing"
+                        />
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            </ScrollArea>
           </div>
 
-          <div className="min-w-0 bg-background">
-            <ScrollArea className="h-[68vh]">
-              <div className="space-y-4 p-5">
+          <div className="min-h-0 min-w-0 bg-background">
+            <ScrollArea className="h-full">
+              <div className="px-5 py-2">
                 {loading ? (
                   <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-sm text-muted-foreground">
                     Loading local LLM settings...
                   </div>
-                ) : draft.providers.length === 0 ? (
+                ) : providerEditor ? (
+                  <section className="rounded-3xl border border-border bg-[linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--muted)/0.18))] p-5 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                          Provider
+                        </p>
+                        <h3 className="mt-1 text-lg font-semibold text-foreground">
+                          {providerLabel(providerEditor) || "New provider"}
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {selectedProviderHint ??
+                            "Configure and save a lightweight provider"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1.5">
+                          <span className="text-xs text-muted-foreground">
+                            Enabled
+                          </span>
+                          <Switch
+                            checked={providerEditor.enabled}
+                            onCheckedChange={(checked) =>
+                              setProviderEditor((current) =>
+                                current
+                                  ? { ...current, enabled: checked }
+                                  : current,
+                              )
+                            }
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={handleDeleteProvider}
+                          disabled={providerSaveState === "saving"}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <Field
+                        label="Provider name"
+                        description={
+                          showProviderNameIssue && providerNameIssue
+                            ? providerNameIssue
+                            : "Used to generate the internal provider key automatically."
+                        }
+                        error={showProviderNameIssue}
+                      >
+                        <Input
+                          value={providerEditor.name}
+                          onChange={(event) => {
+                            setProviderNameTouched(true);
+                            setProviderEditor((current) =>
+                              current
+                                ? { ...current, name: event.target.value }
+                                : current,
+                            );
+                          }}
+                          placeholder="OpenRouter Fast"
+                          className={cn(
+                            showProviderNameIssue &&
+                              "border-destructive focus-visible:ring-destructive/30",
+                          )}
+                        />
+                      </Field>
+
+                      <Field
+                        label="Provider key"
+                        description={
+                          providerEditor.name.trim()
+                            ? slugifyProviderId(providerEditor.name) ||
+                              "Will be generated from the provider name"
+                            : "Will be generated from the provider name"
+                        }
+                      >
+                        <Input
+                          value={
+                            providerEditor.name.trim()
+                              ? slugifyProviderId(providerEditor.name)
+                              : ""
+                          }
+                          placeholder="auto-generated"
+                          disabled
+                        />
+                      </Field>
+
+                      <Field label="Compatibility">
+                        <Select
+                          value={providerEditor.kind}
+                          onValueChange={(value) => {
+                            const kind = value as LlmProviderKind;
+                            const shouldSeedAnthropicDefault =
+                              !providerEditor.max_output_tokens.trim() &&
+                              kind === "anthropic-compatible";
+                            setProviderEditor((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    kind,
+                                    max_output_tokens:
+                                      shouldSeedAnthropicDefault
+                                        ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
+                                        : current.max_output_tokens,
+                                  }
+                                : current,
+                            );
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {KIND_OPTIONS.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+
+                      <Field label="Timeout (ms)">
+                        <Input
+                          value={providerEditor.timeout_ms}
+                          onChange={(event) =>
+                            setProviderEditor((current) =>
+                              current
+                                ? { ...current, timeout_ms: event.target.value }
+                                : current,
+                            )
+                          }
+                          placeholder="8000"
+                        />
+                      </Field>
+
+                      <Field label="Max output tokens">
+                        <Input
+                          value={providerEditor.max_output_tokens}
+                          onChange={(event) =>
+                            setProviderEditor((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    max_output_tokens: event.target.value,
+                                  }
+                                : current,
+                            )
+                          }
+                          placeholder={
+                            providerEditor.kind === "anthropic-compatible"
+                              ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
+                              : "Optional"
+                          }
+                        />
+                      </Field>
+
+                      <Field label="Base URL" className="md:col-span-2">
+                        <Input
+                          value={providerEditor.base_url}
+                          onChange={(event) =>
+                            setProviderEditor((current) =>
+                              current
+                                ? { ...current, base_url: event.target.value }
+                                : current,
+                            )
+                          }
+                          placeholder={
+                            providerEditor.kind === "anthropic-compatible"
+                              ? "https://api.anthropic.com"
+                              : "https://openrouter.ai/api/v1"
+                          }
+                        />
+                      </Field>
+
+                      <Field label="API key" className="md:col-span-2">
+                        <Input
+                          type="password"
+                          value={providerEditor.api_key}
+                          onChange={(event) =>
+                            setProviderEditor((current) =>
+                              current
+                                ? { ...current, api_key: event.target.value }
+                                : current,
+                            )
+                          }
+                          placeholder="sk-... or env:OPENROUTER_API_KEY"
+                        />
+                      </Field>
+
+                      <Field label="Model" className="md:col-span-2">
+                        <Input
+                          value={providerEditor.model}
+                          onChange={(event) =>
+                            setProviderEditor((current) =>
+                              current
+                                ? { ...current, model: event.target.value }
+                                : current,
+                            )
+                          }
+                          placeholder={
+                            providerEditor.kind === "anthropic-compatible"
+                              ? "claude-3-5-haiku-latest"
+                              : "openrouter/auto"
+                          }
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="mt-6 flex justify-end">
+                      <SaveStateButton
+                        state={providerSaveState}
+                        idleLabel="Save provider"
+                        savingLabel="Saving..."
+                        savedLabel="Saved"
+                        onClick={handleSaveProvider}
+                        disabled={providerSaveState === "saving"}
+                        measureLabel="Save provider"
+                      />
+                    </div>
+                  </section>
+                ) : (
                   <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-border bg-[linear-gradient(135deg,_hsl(var(--muted)/0.6),_transparent)] p-10 text-center">
                     <div className="flex max-w-sm flex-col items-center">
                       <div className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-border bg-background/80 shadow-sm">
                         <BrainCircuit className="size-5 text-primary" />
                       </div>
-                      <p className="mt-4 text-sm font-medium text-foreground">No lightweight provider configured</p>
+                      <p className="mt-4 text-sm font-medium text-foreground">
+                        Select a provider
+                      </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Add one to enable optional AI-powered session titles and short-form generation.
+                        Choose a saved provider from the list, or add a new one
+                        to configure it.
                       </p>
                     </div>
                   </div>
-                ) : (
-                  draft.providers.map((provider, index) => {
-                    const kindMeta = KIND_OPTIONS.find((item) => item.value === provider.kind);
-                    const providerNameIssue = providerNameIssues[provider.clientKey];
-                    const showProviderNameIssue =
-                      !!providerNameIssue &&
-                      (saveAttempted || touchedProviderNames.has(provider.clientKey));
-                    return (
-                      <section
-                        key={provider.clientKey}
-                        className="rounded-3xl border border-border bg-[linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--muted)/0.18))] p-5 shadow-sm"
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                              Provider
-                            </p>
-                            <h3 className="mt-1 text-lg font-semibold text-foreground">
-                              {providerLabel(provider)}
-                            </h3>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {kindMeta?.hint ?? "Compatible provider endpoint"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1.5">
-                              <span className="text-xs text-muted-foreground">Enabled</span>
-                              <Switch
-                                checked={provider.enabled}
-                                onCheckedChange={(checked) => updateProvider(index, { enabled: checked })}
-                              />
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={() => removeProvider(index)}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 grid gap-4 md:grid-cols-2">
-                          <Field
-                            label="Provider name"
-                            description={
-                              showProviderNameIssue && providerNameIssue
-                                ? providerNameIssue
-                                : "Used to generate the internal provider key automatically."
-                            }
-                            error={showProviderNameIssue}
-                          >
-                            <Input
-                              value={provider.name}
-                              onChange={(event) => {
-                                setTouchedProviderNames((current) => {
-                                  const next = new Set(current);
-                                  next.add(provider.clientKey);
-                                  return next;
-                                });
-                                updateProvider(index, { name: event.target.value });
-                              }}
-                              placeholder="OpenRouter Fast"
-                              className={cn(
-                                showProviderNameIssue &&
-                                  "border-destructive focus-visible:ring-destructive/30"
-                              )}
-                            />
-                          </Field>
-                          <Field
-                            label="Provider key"
-                            description={
-                              provider.name.trim()
-                                ? slugifyProviderId(provider.name) || "Will be generated from the provider name"
-                                : "Will be generated from the provider name"
-                            }
-                          >
-                            <Input
-                              value={provider.name.trim() ? slugifyProviderId(provider.name) : ""}
-                              placeholder="auto-generated"
-                              disabled
-                            />
-                          </Field>
-                          <Field label="Compatibility">
-                            <Select
-                              value={provider.kind}
-                              onValueChange={(value) => {
-                                const kind = value as LlmProviderKind;
-                                const shouldSeedAnthropicDefault =
-                                  !provider.max_output_tokens.trim() &&
-                                  kind === "anthropic-compatible";
-                                updateProvider(index, {
-                                  kind,
-                                  max_output_tokens: shouldSeedAnthropicDefault
-                                    ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
-                                    : provider.max_output_tokens,
-                                });
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {KIND_OPTIONS.map((option) => (
-                                  <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </Field>
-                          <Field label="Timeout (ms)">
-                            <Input
-                              value={provider.timeout_ms}
-                              onChange={(event) =>
-                                updateProvider(index, { timeout_ms: event.target.value })
-                              }
-                              placeholder="8000"
-                            />
-                          </Field>
-                          <Field label="Max output tokens">
-                            <Input
-                              value={provider.max_output_tokens}
-                              onChange={(event) =>
-                                updateProvider(index, { max_output_tokens: event.target.value })
-                              }
-                              placeholder={
-                                provider.kind === "anthropic-compatible"
-                                  ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
-                                  : "Optional"
-                              }
-                            />
-                          </Field>
-                          <Field label="Base URL" className="md:col-span-2">
-                            <Input
-                              value={provider.base_url}
-                              onChange={(event) =>
-                                updateProvider(index, { base_url: event.target.value })
-                              }
-                              placeholder={
-                                provider.kind === "anthropic-compatible"
-                                  ? "https://api.anthropic.com"
-                                  : "https://openrouter.ai/api/v1"
-                              }
-                            />
-                          </Field>
-                          <Field label="API key" className="md:col-span-2">
-                            <Input
-                              type="password"
-                              value={provider.api_key}
-                              onChange={(event) =>
-                                updateProvider(index, { api_key: event.target.value })
-                              }
-                              placeholder="sk-... or env:OPENROUTER_API_KEY"
-                            />
-                          </Field>
-                          <Field label="Model" className="md:col-span-2">
-                            <Input
-                              value={provider.model}
-                              onChange={(event) =>
-                                updateProvider(index, { model: event.target.value })
-                              }
-                              placeholder={
-                                provider.kind === "anthropic-compatible"
-                                  ? "claude-3-5-haiku-latest"
-                                  : "openrouter/auto"
-                              }
-                            />
-                          </Field>
-                        </div>
-                      </section>
-                    );
-                  })
                 )}
               </div>
             </ScrollArea>
           </div>
         </div>
-
-        <DialogFooter className="border-t border-border bg-muted/15 px-6 py-4">
-          <div className="mr-auto text-xs text-muted-foreground">
-            Unconfigured or failing providers automatically fall back to the built-in heuristic title generator.
-          </div>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
-            <Save className={cn("size-4", saving && "animate-pulse")} />
-            Save settings
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -742,6 +1136,85 @@ function FeatureSelect({
   );
 }
 
+function SaveStateButton({
+  state,
+  idleLabel,
+  savingLabel,
+  savedLabel,
+  measureLabel,
+  variant,
+  disabled,
+  onClick,
+}: {
+  state: SaveState;
+  idleLabel: string;
+  savingLabel: string;
+  savedLabel: string;
+  measureLabel: string;
+  variant?: React.ComponentProps<typeof Button>["variant"];
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const states = [
+    {
+      key: "idle" as const,
+      label: idleLabel,
+      icon: <Save className="size-4" />,
+      className: "opacity-100 translate-y-0 scale-100",
+    },
+    {
+      key: "saving" as const,
+      label: savingLabel,
+      icon: <LoaderCircle className="size-4 animate-spin" />,
+      className: "opacity-100 translate-y-0 scale-100",
+    },
+    {
+      key: "saved" as const,
+      label: savedLabel,
+      icon: <Check className="size-4" />,
+      className: "opacity-100 translate-y-0 scale-100",
+    },
+  ];
+
+  return (
+    <Button
+      onClick={onClick}
+      disabled={disabled}
+      variant={variant}
+      className={cn(
+        "relative min-w-[9.5rem] justify-center overflow-hidden transition-[background-color,border-color,color,box-shadow] duration-300",
+        state === "saved" &&
+          !variant &&
+          "bg-emerald-600 text-white hover:bg-emerald-600",
+        state === "saved" &&
+          variant === "outline" &&
+          "border-emerald-500/50 bg-emerald-500/12 text-emerald-200 hover:bg-emerald-500/12",
+      )}
+    >
+      <span className="pointer-events-none invisible inline-flex items-center gap-2">
+        <Save className="size-4" />
+        {measureLabel}
+      </span>
+
+      {states.map((item) => {
+        const active = state === item.key;
+        return (
+          <span
+            key={item.key}
+            className={cn(
+              "pointer-events-none absolute inset-0 inline-flex items-center justify-center gap-2 transition-all duration-250",
+              active ? item.className : "translate-y-1 scale-95 opacity-0",
+            )}
+          >
+            {item.icon}
+            {item.label}
+          </span>
+        );
+      })}
+    </Button>
+  );
+}
+
 function Field({
   label,
   className,
@@ -760,14 +1233,19 @@ function Field({
       <Label
         className={cn(
           "text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground",
-          error && "text-destructive"
+          error && "text-destructive",
         )}
       >
         {label}
       </Label>
       {children}
       {description ? (
-        <p className={cn("text-xs text-muted-foreground", error && "text-destructive")}>
+        <p
+          className={cn(
+            "text-xs text-muted-foreground",
+            error && "text-destructive",
+          )}
+        >
           {description}
         </p>
       ) : null}
