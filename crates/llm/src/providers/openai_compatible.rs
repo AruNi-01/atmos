@@ -3,6 +3,7 @@ use serde_json::{json, Value};
 
 use crate::client::LlmClient;
 use crate::error::{LlmError, Result};
+use crate::providers::build_endpoint;
 use crate::types::{
     GenerateTextRequest, GenerateTextResponse, ResolvedLlmProvider, ResponseFormat,
 };
@@ -94,14 +95,5 @@ impl LlmClient for OpenAiCompatibleClient {
             text,
             finish_reason,
         })
-    }
-}
-
-fn build_endpoint(base_url: &str, suffix: &str) -> String {
-    let trimmed = base_url.trim_end_matches('/');
-    if trimmed.ends_with(suffix) {
-        trimmed.to_string()
-    } else {
-        format!("{trimmed}{suffix}")
     }
 }
