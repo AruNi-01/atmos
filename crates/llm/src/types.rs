@@ -53,6 +53,8 @@ pub struct LlmProviderEntry {
     pub model: String,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub max_output_tokens: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +87,7 @@ pub struct ResolvedLlmProvider {
     pub api_key: String,
     pub model: String,
     pub timeout: Duration,
+    pub max_output_tokens: Option<u32>,
 }
 
 #[derive(Debug, Clone)]

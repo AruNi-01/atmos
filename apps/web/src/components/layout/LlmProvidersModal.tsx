@@ -40,6 +40,7 @@ type ProviderDraft = {
   api_key: string;
   model: string;
   timeout_ms: string;
+  max_output_tokens: string;
 };
 
 type DraftState = {
@@ -69,6 +70,12 @@ const KIND_OPTIONS: Array<{ value: LlmProviderKind; label: string; hint: string 
   },
 ];
 
+const DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS = "4096";
+
+function defaultMaxOutputTokens(kind: LlmProviderKind): string {
+  return kind === "anthropic-compatible" ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS : "";
+}
+
 function fileToDraft(config: LlmProvidersFile): DraftState {
   return {
     version: config.version ?? 1,
@@ -86,6 +93,10 @@ function fileToDraft(config: LlmProvidersFile): DraftState {
       api_key: provider.api_key ?? "",
       model: provider.model ?? "",
       timeout_ms: provider.timeout_ms == null ? "" : String(provider.timeout_ms),
+      max_output_tokens:
+        provider.max_output_tokens == null
+          ? defaultMaxOutputTokens(provider.kind)
+          : String(provider.max_output_tokens),
     })),
   };
 }
@@ -93,6 +104,7 @@ function fileToDraft(config: LlmProvidersFile): DraftState {
 function draftToFile(draft: DraftState): LlmProvidersFile {
   const providers = draft.providers.reduce<Record<string, LlmProviderEntry>>((acc, provider) => {
     const trimmedTimeout = provider.timeout_ms.trim();
+    const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
     acc[provider.id.trim()] = {
       enabled: provider.enabled,
       displayName: provider.displayName.trim() || null,
@@ -101,6 +113,7 @@ function draftToFile(draft: DraftState): LlmProvidersFile {
       api_key: provider.api_key.trim(),
       model: provider.model.trim(),
       timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
+      max_output_tokens: trimmedMaxOutputTokens ? parseInt(trimmedMaxOutputTokens, 10) : null,
     };
     return acc;
   }, {});
@@ -146,6 +159,22 @@ function validateDraft(draft: DraftState): string | null {
       if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
         return `Timeout for provider "${id}" is out of range.`;
       }
+    }
+    const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
+    if (trimmedMaxOutputTokens) {
+      if (!/^\d+$/.test(trimmedMaxOutputTokens)) {
+        return `Max output tokens for provider "${id}" must be a whole number.`;
+      }
+      const maxOutputTokens = Number(trimmedMaxOutputTokens);
+      if (
+        !Number.isSafeInteger(maxOutputTokens) ||
+        maxOutputTokens <= 0 ||
+        maxOutputTokens > 4294967295
+      ) {
+        return `Max output tokens for provider "${id}" is out of range.`;
+      }
+    } else if (provider.kind === "anthropic-compatible") {
+      return `Anthropic-compatible provider "${id}" requires max output tokens.`;
     }
     ids.add(id);
   }
@@ -338,6 +367,7 @@ export function LlmProvidersModal({
                         api_key: "",
                         model: "",
                         timeout_ms: "8000",
+                        max_output_tokens: "",
                       },
                     ],
                   }))
@@ -425,9 +455,18 @@ export function LlmProvidersModal({
                           <Field label="Compatibility">
                             <Select
                               value={provider.kind}
-                              onValueChange={(value) =>
-                                updateProvider(index, { kind: value as LlmProviderKind })
-                              }
+                              onValueChange={(value) => {
+                                const kind = value as LlmProviderKind;
+                                const shouldSeedAnthropicDefault =
+                                  !provider.max_output_tokens.trim() &&
+                                  kind === "anthropic-compatible";
+                                updateProvider(index, {
+                                  kind,
+                                  max_output_tokens: shouldSeedAnthropicDefault
+                                    ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
+                                    : provider.max_output_tokens,
+                                });
+                              }}
                             >
                               <SelectTrigger>
                                 <SelectValue />
@@ -448,6 +487,19 @@ export function LlmProvidersModal({
                                 updateProvider(index, { timeout_ms: event.target.value })
                               }
                               placeholder="8000"
+                            />
+                          </Field>
+                          <Field label="Max output tokens">
+                            <Input
+                              value={provider.max_output_tokens}
+                              onChange={(event) =>
+                                updateProvider(index, { max_output_tokens: event.target.value })
+                              }
+                              placeholder={
+                                provider.kind === "anthropic-compatible"
+                                  ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
+                                  : "Optional"
+                              }
                             />
                           </Field>
                           <Field label="Base URL" className="md:col-span-2">

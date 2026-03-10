@@ -104,6 +104,7 @@ pub fn resolve_feature_config(
         api_key,
         model: model.to_string(),
         timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
+        max_output_tokens: entry.max_output_tokens,
     }))
 }
 

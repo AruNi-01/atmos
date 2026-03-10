@@ -15,6 +15,15 @@ impl LlmClient for AnthropicCompatibleClient {
         provider: &ResolvedLlmProvider,
         request: GenerateTextRequest,
     ) -> Result<GenerateTextResponse> {
+        let max_output_tokens = request
+            .max_output_tokens
+            .or(provider.max_output_tokens)
+            .ok_or_else(|| {
+            LlmError::InvalidConfig(format!(
+                "Anthropic-compatible provider `{}` requires max_output_tokens either in the request or provider config",
+                provider.id
+            ))
+        })?;
         let endpoint = build_endpoint(&provider.base_url, "/v1/messages");
         let client = reqwest::Client::builder()
             .timeout(provider.timeout)
@@ -28,7 +37,7 @@ impl LlmClient for AnthropicCompatibleClient {
                     "content": request.prompt,
                 }
             ],
-            "max_tokens": request.max_output_tokens.unwrap_or(256),
+            "max_tokens": max_output_tokens,
         });
 
         if let Some(system) = request
