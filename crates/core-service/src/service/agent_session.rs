@@ -11,7 +11,7 @@ use infra::db::repo::AgentChatSessionRepo;
 use infra::DatabaseConnection;
 use parking_lot::RwLock;
 use serde::Serialize;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::Result;
 use crate::service::session_title::SessionTitleGenerator;
@@ -505,25 +505,50 @@ impl AgentSessionService {
         first_message: &str,
     ) -> Option<String> {
         let session_repo = AgentChatSessionRepo::new(&self.db);
-        if session_repo.can_auto_set_title(session_id).await.ok() != Some(true) {
-            return None;
+        match session_repo.can_auto_set_title(session_id).await {
+            Ok(true) => {}
+            Ok(false) => return None,
+            Err(error) => {
+                warn!(
+                    "Failed to check auto-title eligibility for session {}: {}",
+                    session_id, error
+                );
+                return None;
+            }
         }
 
-        let model = session_repo.find_by_guid(session_id).await.ok().flatten()?;
+        let model = match session_repo.find_by_guid(session_id).await {
+            Ok(Some(model)) => model,
+            Ok(None) => return None,
+            Err(error) => {
+                warn!(
+                    "Failed to load session {} before auto-title generation: {}",
+                    session_id, error
+                );
+                return None;
+            }
+        };
         let generator = SessionTitleGenerator::new();
         let title = generator
             .generate(first_message, &model.cwd, &model.mode)
             .await;
 
-        if session_repo.can_auto_set_title(session_id).await.ok() != Some(true) {
-            return None;
+        match session_repo.can_auto_set_title(session_id).await {
+            Ok(true) => {}
+            Ok(false) => return None,
+            Err(error) => {
+                warn!(
+                    "Failed to re-check auto-title eligibility for session {}: {}",
+                    session_id, error
+                );
+                return None;
+            }
         }
 
         if let Err(error) = session_repo.update_title(session_id, &title, "auto").await {
-            tracing::warn!(
+            warn!(
                 "Failed to auto-set title for session {}: {}",
-                session_id,
-                error
+                session_id, error
             );
             None
         } else {
