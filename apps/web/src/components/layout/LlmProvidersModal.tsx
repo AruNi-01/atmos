@@ -92,6 +92,7 @@ function fileToDraft(config: LlmProvidersFile): DraftState {
 
 function draftToFile(draft: DraftState): LlmProvidersFile {
   const providers = draft.providers.reduce<Record<string, LlmProviderEntry>>((acc, provider) => {
+    const trimmedTimeout = provider.timeout_ms.trim();
     acc[provider.id.trim()] = {
       enabled: provider.enabled,
       displayName: provider.displayName.trim() || null,
@@ -99,7 +100,7 @@ function draftToFile(draft: DraftState): LlmProvidersFile {
       base_url: provider.base_url.trim(),
       api_key: provider.api_key.trim(),
       model: provider.model.trim(),
-      timeout_ms: provider.timeout_ms.trim() ? Number(provider.timeout_ms.trim()) : null,
+      timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
     };
     return acc;
   }, {});
@@ -136,6 +137,16 @@ function validateDraft(draft: DraftState): string | null {
     const id = provider.id.trim();
     if (!id) return "Provider ID cannot be empty.";
     if (ids.has(id)) return `Provider ID "${id}" is duplicated.`;
+    const trimmedTimeout = provider.timeout_ms.trim();
+    if (trimmedTimeout) {
+      if (!/^\d+$/.test(trimmedTimeout)) {
+        return `Timeout for provider "${id}" must be a whole number in milliseconds.`;
+      }
+      const timeoutMs = Number(trimmedTimeout);
+      if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
+        return `Timeout for provider "${id}" is out of range.`;
+      }
+    }
     ids.add(id);
   }
   for (const selected of [
