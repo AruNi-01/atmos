@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::LazyLock;
 
 use llm::{generate_text, FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat};
 use regex::Regex;
@@ -7,6 +8,14 @@ use tracing::warn;
 
 const DEFAULT_TITLE: &str = "新会话";
 const MAX_TITLE_CHARS: usize = 64;
+static CODE_BLOCK_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?s)```.*?```").expect("valid code block regex"));
+static LEADING_NOISE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)^\s*(please|pls|can you|could you|would you|help me|i need you to|i want you to|let's|帮我|请)\s+",
+    )
+    .expect("valid leading noise regex")
+});
 
 pub struct SessionTitleGenerator {
     store: Option<FileLlmConfigStore>,
@@ -114,16 +123,11 @@ fn heuristic_title(first_prompt: &str, cwd_name: Option<&str>, mode: &str) -> St
         return DEFAULT_TITLE.to_string();
     }
 
-    let code_block_re = Regex::new(r"(?s)```.*?```").expect("valid code block regex");
-    text = code_block_re.replace_all(&text, " ").into_owned();
+    text = CODE_BLOCK_RE.replace_all(&text, " ").into_owned();
     text = text.replace('\n', " ");
 
-    let leading_noise_re = Regex::new(
-        r"(?i)^\s*(please|pls|can you|could you|would you|help me|i need you to|i want you to|let's|帮我|请)\s+",
-    )
-    .expect("valid leading noise regex");
     loop {
-        let next = leading_noise_re.replace(&text, "").into_owned();
+        let next = LEADING_NOISE_RE.replace(&text, "").into_owned();
         if next == text {
             break;
         }
