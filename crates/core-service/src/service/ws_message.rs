@@ -16,23 +16,24 @@ use infra::{
     FsListProjectFilesRequest, FsReadFileRequest, FsSearchContentRequest, FsSearchDirsRequest,
     FsValidateGitPathRequest, FsWriteFileRequest, FunctionSettingsUpdateRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
-    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitGetCommitCountRequest,
-    GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitLogRequest,
-    GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitSyncRequest,
-    GitUnstageRequest, GithubActionsDetailRequest, GithubActionsListRequest,
-    GithubActionsRerunRequest, GithubCiOpenBrowserRequest, GithubCiStatusRequest,
-    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest,
-    GithubPrDraftRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
-    GithubPrReadyRequest, GithubPrReopenRequest, LlmProvidersUpdateRequest,
-    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
-    ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
-    ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest, SyncSingleSystemSkillRequest,
-    UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest, UsageOverviewRequest,
-    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
-    WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
+    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
+    GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
+    GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest,
+    GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
+    GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest,
+    GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
+    GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
+    GithubPrReopenRequest, LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest,
+    ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
+    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest,
+    SyncSingleSystemSkillRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
+    UsageOverviewRequest, UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
+    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
+    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification,
+    WorkspaceUnarchiveRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage,
+    WsMessageHandler, WsRequest,
 };
 use llm::{FileLlmConfigStore, LlmProvidersFile};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
@@ -41,6 +42,7 @@ use std::io::Read;
 use tokio::sync::OnceCell;
 
 use crate::error::{Result, ServiceError};
+use crate::service::git_commit_message::GitCommitMessageGenerator;
 use crate::{AgentService, ProjectService, WorkspaceService};
 
 /// WebSocket message service for handling all business logic via WebSocket.
@@ -139,6 +141,10 @@ impl WsMessageService {
                 self.handle_git_changed_files(parse_request(request.data)?)
             }
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
+            WsAction::GitGenerateCommitMessage => {
+                self.handle_git_generate_commit_message(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GitCommit => self.handle_git_commit(parse_request(request.data)?),
             WsAction::GitPush => self.handle_git_push(parse_request(request.data)?),
             WsAction::GitStage => self.handle_git_stage(parse_request(request.data)?),
@@ -703,6 +709,25 @@ impl WsMessageService {
             "old_content": diff.old_content,
             "new_content": diff.new_content,
             "status": diff.status,
+        }))
+    }
+
+    async fn handle_git_generate_commit_message(
+        &self,
+        req: GitGenerateCommitMessageRequest,
+    ) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let changes = self
+            .git_engine
+            .get_changed_files(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
+
+        let repo_name = path.file_name().and_then(|value| value.to_str());
+        let generator = GitCommitMessageGenerator::new()?;
+        let message = generator.generate(repo_name, &changes).await?;
+
+        Ok(json!({
+            "message": message,
         }))
     }
 

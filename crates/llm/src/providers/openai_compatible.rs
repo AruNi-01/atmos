@@ -17,6 +17,7 @@ impl LlmClient for OpenAiCompatibleClient {
         provider: &ResolvedLlmProvider,
         request: GenerateTextRequest,
     ) -> Result<GenerateTextResponse> {
+        let prompt_chars = request.prompt.chars().count();
         let endpoint = build_endpoint(&provider.base_url, "/chat/completions");
         let client = reqwest::Client::builder()
             .timeout(provider.timeout)
@@ -54,7 +55,7 @@ impl LlmClient for OpenAiCompatibleClient {
         }
 
         let response = client
-            .post(endpoint)
+            .post(&endpoint)
             .bearer_auth(&provider.api_key)
             .json(&body)
             .send()
@@ -64,8 +65,8 @@ impl LlmClient for OpenAiCompatibleClient {
         let response_body = response.text().await?;
         if !status.is_success() {
             return Err(LlmError::Provider(format!(
-                "OpenAI-compatible provider `{}` returned {}: {}",
-                provider.id, status, response_body
+                "OpenAI-compatible provider `{}` returned {} at {} (model={}, prompt_chars={}): {}",
+                provider.id, status, endpoint, provider.model, prompt_chars, response_body
             )));
         }
         let value: Value = serde_json::from_str(&response_body)?;

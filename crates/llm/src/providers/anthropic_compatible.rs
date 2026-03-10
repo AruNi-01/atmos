@@ -15,6 +15,7 @@ impl LlmClient for AnthropicCompatibleClient {
         provider: &ResolvedLlmProvider,
         request: GenerateTextRequest,
     ) -> Result<GenerateTextResponse> {
+        let prompt_chars = request.prompt.chars().count();
         let max_output_tokens = request
             .max_output_tokens
             .or(provider.max_output_tokens)
@@ -29,45 +30,34 @@ impl LlmClient for AnthropicCompatibleClient {
             .timeout(provider.timeout)
             .build()?;
 
-        let mut body = json!({
-            "model": provider.model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": request.prompt,
-                }
-            ],
-            "max_tokens": max_output_tokens,
-        });
-
-        if let Some(system) = request
-            .system
-            .as_ref()
-            .filter(|value| !value.trim().is_empty())
-        {
-            body["system"] = json!(system);
-        }
-        if let Some(temperature) = request.temperature {
-            body["temperature"] = json!(temperature);
-        }
-
-        let response = client
-            .post(endpoint)
-            .header("x-api-key", &provider.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .json(&body)
-            .send()
-            .await?;
-
-        let status = response.status();
-        let response_body = response.text().await?;
-        if !status.is_success() {
+        let primary_body = build_primary_body(provider, &request, max_output_tokens);
+        let (status, response_body) =
+            send_request(&client, provider, &endpoint, &primary_body).await?;
+        let value: Value = if status.is_success() {
+            serde_json::from_str(&response_body)?
+        } else if status == reqwest::StatusCode::BAD_REQUEST {
+            let fallback_body = build_fallback_body(provider, &request, max_output_tokens);
+            let (fallback_status, fallback_response_body) =
+                send_request(&client, provider, &endpoint, &fallback_body).await?;
+            if !fallback_status.is_success() {
+                return Err(LlmError::Provider(format!(
+                    "Anthropic-compatible provider `{}` returned {} at {} (model={}, prompt_chars={}, max_tokens={}) after fallback retry: {}",
+                    provider.id,
+                    fallback_status,
+                    endpoint,
+                    provider.model,
+                    prompt_chars,
+                    max_output_tokens,
+                    fallback_response_body
+                )));
+            }
+            serde_json::from_str(&fallback_response_body)?
+        } else {
             return Err(LlmError::Provider(format!(
-                "Anthropic-compatible provider `{}` returned {}: {}",
-                provider.id, status, response_body
+                "Anthropic-compatible provider `{}` returned {} at {} (model={}, prompt_chars={}, max_tokens={}): {}",
+                provider.id, status, endpoint, provider.model, prompt_chars, max_output_tokens, response_body
             )));
-        }
-        let value: Value = serde_json::from_str(&response_body)?;
+        };
 
         let content = value
             .get("content")
@@ -103,4 +93,87 @@ impl LlmClient for AnthropicCompatibleClient {
             finish_reason,
         })
     }
+}
+
+fn build_primary_body(
+    provider: &ResolvedLlmProvider,
+    request: &GenerateTextRequest,
+    max_output_tokens: u32,
+) -> Value {
+    let mut body = json!({
+        "model": provider.model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": request.prompt,
+                    }
+                ],
+            }
+        ],
+        "max_tokens": max_output_tokens,
+    });
+
+    if let Some(system) = request
+        .system
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        body["system"] = json!(system);
+    }
+    if let Some(temperature) = request.temperature {
+        body["temperature"] = json!(temperature);
+    }
+
+    body
+}
+
+fn build_fallback_body(
+    provider: &ResolvedLlmProvider,
+    request: &GenerateTextRequest,
+    max_output_tokens: u32,
+) -> Value {
+    let prompt = request
+        .system
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .map(|system| format!("{system}\n\nUser request:\n{}", request.prompt))
+        .unwrap_or_else(|| request.prompt.clone());
+
+    json!({
+        "model": provider.model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    }
+                ],
+            }
+        ],
+        "max_tokens": max_output_tokens,
+    })
+}
+
+async fn send_request(
+    client: &reqwest::Client,
+    provider: &ResolvedLlmProvider,
+    endpoint: &str,
+    body: &Value,
+) -> Result<(reqwest::StatusCode, String)> {
+    let response = client
+        .post(endpoint)
+        .header("x-api-key", &provider.api_key)
+        .header("anthropic-version", "2023-06-01")
+        .json(body)
+        .send()
+        .await?;
+
+    let status = response.status();
+    let response_body = response.text().await?;
+    Ok((status, response_body))
 }
