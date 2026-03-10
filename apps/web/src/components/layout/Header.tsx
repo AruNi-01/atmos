@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { useParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
 import { useContextParams } from "@/hooks/use-context-params";
-import { skillsModalParams } from "@/lib/nuqs/searchParams";
+import { llmProvidersModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
 import {
   ArrowRight,
   Archive,
@@ -25,7 +25,6 @@ import {
   ScrollArea,
   Maximize,
   Minimize,
-  Puzzle,
   Bot,
   PopoverTrigger,
   PopoverContent,
@@ -46,7 +45,7 @@ import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialo
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { BrainCircuit, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { LlmProvidersModal } from './LlmProvidersModal';
 
@@ -135,7 +134,10 @@ const Header: React.FC = () => {
 
   // Skills modal state (URL-persisted via nuqs)
   const [isSkillsModalOpen, setSkillsModalOpen] = useQueryState("skillsModal", skillsModalParams.skillsModal);
-  const [isLlmProvidersOpen, setLlmProvidersOpen] = useState(false);
+  const [isLlmProvidersOpen, setLlmProvidersOpen] = useQueryState(
+    "llmProvidersModal",
+    llmProvidersModalParams.llmProvidersModal
+  );
 
   // Archive modal and delete dialog states
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
@@ -556,7 +558,7 @@ const Header: React.FC = () => {
                   onClick={() => setLlmProvidersOpen(true)}
                   title="Lightweight AI Providers"
                 >
-                  <Puzzle className="size-4" />
+                  <BrainCircuit className="size-4" />
                 </button>
 
                 <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>

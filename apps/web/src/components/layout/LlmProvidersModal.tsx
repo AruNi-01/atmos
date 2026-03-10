@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { BrainCircuit, Plus, Save, Trash2 } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -32,9 +32,10 @@ import {
 } from "@/api/ws-api";
 
 type ProviderDraft = {
-  id: string;
+  clientKey: string;
+  persistedId: string;
   enabled: boolean;
-  displayName: string;
+  name: string;
   kind: LlmProviderKind;
   base_url: string;
   api_key: string;
@@ -76,38 +77,134 @@ function defaultMaxOutputTokens(kind: LlmProviderKind): string {
   return kind === "anthropic-compatible" ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS : "";
 }
 
+function nextProviderClientKey(existing: ProviderDraft[]): string {
+  const used = new Set(existing.map((provider) => provider.clientKey));
+  let index = existing.length + 1;
+  let candidate = `provider-${index}`;
+  while (used.has(candidate)) {
+    index += 1;
+    candidate = `provider-${index}`;
+  }
+  return candidate;
+}
+
+function slugifyProviderId(value: string): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug;
+}
+
+function fallbackProviderName(providerId: string): string {
+  return providerId
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function buildDraftIdMap(providers: ProviderDraft[]): Map<string, string> {
+  const mapping = new Map<string, string>();
+  for (const provider of providers) {
+    const baseId = slugifyProviderId(provider.name) || provider.persistedId.trim();
+    if (!baseId) continue;
+
+    let candidate = baseId;
+    let suffix = 2;
+    while ([...mapping.values()].includes(candidate)) {
+      candidate = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
+    mapping.set(provider.clientKey, candidate);
+  }
+  return mapping;
+}
+
+function buildProviderNameIssues(providers: ProviderDraft[]): Record<string, string | null> {
+  const nextIds = new Map<string, string>();
+  const duplicates = new Set<string>();
+
+  for (const provider of providers) {
+    const name = provider.name.trim();
+    if (!name) continue;
+    const generatedId = slugifyProviderId(name);
+    if (!generatedId) continue;
+    if ([...nextIds.values()].includes(generatedId)) {
+      duplicates.add(generatedId);
+    } else {
+      nextIds.set(provider.clientKey, generatedId);
+    }
+  }
+
+  return Object.fromEntries(
+    providers.map((provider) => {
+      const name = provider.name.trim();
+      if (!name) {
+        return [provider.clientKey, "Provider name is required."];
+      }
+      const generatedId = slugifyProviderId(name);
+      if (!generatedId) {
+        return [provider.clientKey, "Provider name must contain letters or numbers."];
+      }
+      if (duplicates.has(generatedId)) {
+        return [provider.clientKey, "Provider name is duplicated."];
+      }
+      return [provider.clientKey, null];
+    })
+  );
+}
+
 function fileToDraft(config: LlmProvidersFile): DraftState {
+  const providers = Object.entries(config.providers ?? {}).map(([id, provider], index) => ({
+    clientKey: `provider-${index + 1}-${id}`,
+    persistedId: id,
+    enabled: provider.enabled,
+    name: provider.displayName ?? fallbackProviderName(id),
+    kind: provider.kind,
+    base_url: provider.base_url ?? "",
+    api_key: provider.api_key ?? "",
+    model: provider.model ?? "",
+    timeout_ms: provider.timeout_ms == null ? "" : String(provider.timeout_ms),
+    max_output_tokens:
+      provider.max_output_tokens == null
+        ? defaultMaxOutputTokens(provider.kind)
+        : String(provider.max_output_tokens),
+  }));
+  const persistedToClientKey = new Map(
+    providers.map((provider) => [provider.persistedId, provider.clientKey])
+  );
+
   return {
     version: config.version ?? 1,
-    default_provider: config.default_provider ?? null,
+    default_provider: config.default_provider
+      ? persistedToClientKey.get(config.default_provider) ?? null
+      : null,
     features: {
-      session_title: config.features?.session_title ?? null,
-      git_commit: config.features?.git_commit ?? null,
+      session_title: config.features?.session_title
+        ? persistedToClientKey.get(config.features.session_title) ?? null
+        : null,
+      git_commit: config.features?.git_commit
+        ? persistedToClientKey.get(config.features.git_commit) ?? null
+        : null,
     },
-    providers: Object.entries(config.providers ?? {}).map(([id, provider]) => ({
-      id,
-      enabled: provider.enabled,
-      displayName: provider.displayName ?? "",
-      kind: provider.kind,
-      base_url: provider.base_url ?? "",
-      api_key: provider.api_key ?? "",
-      model: provider.model ?? "",
-      timeout_ms: provider.timeout_ms == null ? "" : String(provider.timeout_ms),
-      max_output_tokens:
-        provider.max_output_tokens == null
-          ? defaultMaxOutputTokens(provider.kind)
-          : String(provider.max_output_tokens),
-    })),
+    providers,
   };
 }
 
 function draftToFile(draft: DraftState): LlmProvidersFile {
+  const providerIdMap = buildDraftIdMap(draft.providers);
   const providers = draft.providers.reduce<Record<string, LlmProviderEntry>>((acc, provider) => {
     const trimmedTimeout = provider.timeout_ms.trim();
     const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
-    acc[provider.id.trim()] = {
+    const providerId = providerIdMap.get(provider.clientKey);
+    if (!providerId) {
+      return acc;
+    }
+    acc[providerId] = {
       enabled: provider.enabled,
-      displayName: provider.displayName.trim() || null,
+      displayName: provider.name.trim() || null,
       kind: provider.kind,
       base_url: provider.base_url.trim(),
       api_key: provider.api_key.trim(),
@@ -120,50 +217,46 @@ function draftToFile(draft: DraftState): LlmProvidersFile {
 
   return {
     version: draft.version || 1,
-    default_provider: draft.default_provider || null,
+    default_provider: draft.default_provider
+      ? providerIdMap.get(draft.default_provider) ?? null
+      : null,
     features: {
-      session_title: draft.features.session_title || null,
-      git_commit: draft.features.git_commit || null,
+      session_title: draft.features.session_title
+        ? providerIdMap.get(draft.features.session_title) ?? null
+        : null,
+      git_commit: draft.features.git_commit
+        ? providerIdMap.get(draft.features.git_commit) ?? null
+        : null,
     },
     providers,
   };
 }
 
-function nextProviderId(existing: ProviderDraft[]): string {
-  const used = new Set(existing.map((provider) => provider.id));
-  let index = existing.length + 1;
-  let candidate = `provider-${index}`;
-  while (used.has(candidate)) {
-    index += 1;
-    candidate = `provider-${index}`;
-  }
-  return candidate;
-}
-
 function providerLabel(provider: ProviderDraft): string {
-  return provider.displayName.trim() || provider.id;
+  return provider.name.trim() || provider.persistedId;
 }
 
 function validateDraft(draft: DraftState): string | null {
-  const ids = new Set<string>();
+  const nameIssues = buildProviderNameIssues(draft.providers);
+  const clientKeys = new Set<string>();
   for (const provider of draft.providers) {
-    const id = provider.id.trim();
-    if (!id) return "Provider ID cannot be empty.";
-    if (ids.has(id)) return `Provider ID "${id}" is duplicated.`;
+    const issue = nameIssues[provider.clientKey];
+    if (issue) return issue;
+    if (clientKeys.has(provider.clientKey)) return "Duplicate provider entry detected.";
     const trimmedTimeout = provider.timeout_ms.trim();
     if (trimmedTimeout) {
       if (!/^\d+$/.test(trimmedTimeout)) {
-        return `Timeout for provider "${id}" must be a whole number in milliseconds.`;
+        return `Timeout for provider "${providerLabel(provider)}" must be a whole number in milliseconds.`;
       }
       const timeoutMs = Number(trimmedTimeout);
       if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
-        return `Timeout for provider "${id}" is out of range.`;
+        return `Timeout for provider "${providerLabel(provider)}" is out of range.`;
       }
     }
     const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
     if (trimmedMaxOutputTokens) {
       if (!/^\d+$/.test(trimmedMaxOutputTokens)) {
-        return `Max output tokens for provider "${id}" must be a whole number.`;
+        return `Max output tokens for provider "${providerLabel(provider)}" must be a whole number.`;
       }
       const maxOutputTokens = Number(trimmedMaxOutputTokens);
       if (
@@ -171,19 +264,19 @@ function validateDraft(draft: DraftState): string | null {
         maxOutputTokens <= 0 ||
         maxOutputTokens > 4294967295
       ) {
-        return `Max output tokens for provider "${id}" is out of range.`;
+        return `Max output tokens for provider "${providerLabel(provider)}" is out of range.`;
       }
     } else if (provider.kind === "anthropic-compatible") {
-      return `Anthropic-compatible provider "${id}" requires max output tokens.`;
+      return `Anthropic-compatible provider "${providerLabel(provider)}" requires max output tokens.`;
     }
-    ids.add(id);
+    clientKeys.add(provider.clientKey);
   }
   for (const selected of [
     draft.default_provider,
     draft.features.session_title ?? null,
     draft.features.git_commit ?? null,
   ]) {
-    if (selected && !ids.has(selected)) {
+    if (selected && !clientKeys.has(selected)) {
       return `Selected provider "${selected}" no longer exists.`;
     }
   }
@@ -204,10 +297,14 @@ export function LlmProvidersModal({
   const [draft, setDraft] = useState<DraftState>(fileToDraft(EMPTY_CONFIG));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [touchedProviderNames, setTouchedProviderNames] = useState<Set<string>>(new Set());
+  const [saveAttempted, setSaveAttempted] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
+    setTouchedProviderNames(new Set());
+    setSaveAttempted(false);
     llmProvidersApi
       .get()
       .then((config) => setDraft(fileToDraft(config)))
@@ -224,9 +321,13 @@ export function LlmProvidersModal({
   const providerOptions = useMemo(
     () =>
       draft.providers.map((provider) => ({
-        value: provider.id,
+        value: provider.clientKey,
         label: providerLabel(provider),
       })),
+    [draft.providers]
+  );
+  const providerNameIssues = useMemo(
+    () => buildProviderNameIssues(draft.providers),
     [draft.providers]
   );
 
@@ -240,8 +341,8 @@ export function LlmProvidersModal({
   };
 
   const removeProvider = (index: number) => {
+    const removedId = draft.providers[index]?.clientKey ?? null;
     setDraft((current) => {
-      const removedId = current.providers[index]?.id ?? null;
       const clearIfRemoved = (value?: string | null) =>
         value === removedId ? null : value ?? null;
       return {
@@ -254,9 +355,17 @@ export function LlmProvidersModal({
         },
       };
     });
+    setTouchedProviderNames((current) => {
+      const next = new Set(current);
+      if (removedId) {
+        next.delete(removedId);
+      }
+      return next;
+    });
   };
 
   const handleSave = async () => {
+    setSaveAttempted(true);
     const validationError = validateDraft(draft);
     if (validationError) {
       toastManager.add({
@@ -271,6 +380,7 @@ export function LlmProvidersModal({
     try {
       await llmProvidersApi.update(draftToFile(draft));
       toastManager.add({ title: "LLM settings saved", type: "success" });
+      setSaveAttempted(false);
       onOpenChange(false);
     } catch (error) {
       toastManager.add({
@@ -285,12 +395,12 @@ export function LlmProvidersModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl overflow-hidden p-0">
+      <DialogContent className="w-[min(96vw,1280px)] max-w-[min(96vw,1280px)] overflow-hidden p-0 sm:max-w-[min(96vw,1280px)]">
         <div className="relative overflow-hidden rounded-t-xl border-b border-border bg-[radial-gradient(circle_at_top_right,_hsl(var(--primary)/0.12),_transparent_40%),linear-gradient(135deg,_hsl(var(--muted)/0.9),_transparent)] px-6 py-5">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-[18px]">
               <div className="flex size-10 items-center justify-center rounded-2xl border border-primary/20 bg-background/70 shadow-sm backdrop-blur">
-                <Sparkles className="size-4 text-primary" />
+                <BrainCircuit className="size-4 text-primary" />
               </div>
               Lightweight AI Providers
             </DialogTitle>
@@ -301,8 +411,8 @@ export function LlmProvidersModal({
           </DialogHeader>
         </div>
 
-        <div className="grid gap-0 md:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="border-b border-border bg-muted/20 p-5 md:border-b-0 md:border-r">
+        <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="border-b border-border bg-muted/20 p-5 lg:border-b-0 lg:border-r">
             <div className="space-y-5">
               <div className="rounded-2xl border border-border bg-background/80 p-4 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
@@ -353,15 +463,16 @@ export function LlmProvidersModal({
               <Button
                 variant="outline"
                 className="w-full justify-start gap-2"
-                onClick={() =>
+                onClick={() => {
                   setDraft((current) => ({
                     ...current,
                     providers: [
                       ...current.providers,
                       {
-                        id: nextProviderId(current.providers),
+                        clientKey: nextProviderClientKey(current.providers),
+                        persistedId: "",
                         enabled: true,
-                        displayName: "",
+                        name: "",
                         kind: "openai-compatible",
                         base_url: "",
                         api_key: "",
@@ -370,8 +481,8 @@ export function LlmProvidersModal({
                         max_output_tokens: "",
                       },
                     ],
-                  }))
-                }
+                  }));
+                }}
               >
                 <Plus className="size-4" />
                 Add provider
@@ -387,21 +498,27 @@ export function LlmProvidersModal({
                     Loading local LLM settings...
                   </div>
                 ) : draft.providers.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-border bg-[linear-gradient(135deg,_hsl(var(--muted)/0.6),_transparent)] p-10 text-center">
-                    <div className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-border bg-background/80 shadow-sm">
-                      <Sparkles className="size-5 text-primary" />
+                  <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-border bg-[linear-gradient(135deg,_hsl(var(--muted)/0.6),_transparent)] p-10 text-center">
+                    <div className="flex max-w-sm flex-col items-center">
+                      <div className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-border bg-background/80 shadow-sm">
+                        <BrainCircuit className="size-5 text-primary" />
+                      </div>
+                      <p className="mt-4 text-sm font-medium text-foreground">No lightweight provider configured</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Add one to enable optional AI-powered session titles and short-form generation.
+                      </p>
                     </div>
-                    <p className="mt-4 text-sm font-medium text-foreground">No lightweight provider configured</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Add one to enable optional AI-powered session titles and short-form generation.
-                    </p>
                   </div>
                 ) : (
                   draft.providers.map((provider, index) => {
                     const kindMeta = KIND_OPTIONS.find((item) => item.value === provider.kind);
+                    const providerNameIssue = providerNameIssues[provider.clientKey];
+                    const showProviderNameIssue =
+                      !!providerNameIssue &&
+                      (saveAttempted || touchedProviderNames.has(provider.clientKey));
                     return (
                       <section
-                        key={`${provider.id}-${index}`}
+                        key={provider.clientKey}
                         className="rounded-3xl border border-border bg-[linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--muted)/0.18))] p-5 shadow-sm"
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -436,20 +553,44 @@ export function LlmProvidersModal({
                         </div>
 
                         <div className="mt-5 grid gap-4 md:grid-cols-2">
-                          <Field label="Provider ID">
+                          <Field
+                            label="Provider name"
+                            description={
+                              showProviderNameIssue && providerNameIssue
+                                ? providerNameIssue
+                                : "Used to generate the internal provider key automatically."
+                            }
+                            error={showProviderNameIssue}
+                          >
                             <Input
-                              value={provider.id}
-                              onChange={(event) => updateProvider(index, { id: event.target.value })}
-                              placeholder="openrouter"
+                              value={provider.name}
+                              onChange={(event) => {
+                                setTouchedProviderNames((current) => {
+                                  const next = new Set(current);
+                                  next.add(provider.clientKey);
+                                  return next;
+                                });
+                                updateProvider(index, { name: event.target.value });
+                              }}
+                              placeholder="OpenRouter Fast"
+                              className={cn(
+                                showProviderNameIssue &&
+                                  "border-destructive focus-visible:ring-destructive/30"
+                              )}
                             />
                           </Field>
-                          <Field label="Display name">
+                          <Field
+                            label="Provider key"
+                            description={
+                              provider.name.trim()
+                                ? slugifyProviderId(provider.name) || "Will be generated from the provider name"
+                                : "Will be generated from the provider name"
+                            }
+                          >
                             <Input
-                              value={provider.displayName}
-                              onChange={(event) =>
-                                updateProvider(index, { displayName: event.target.value })
-                              }
-                              placeholder="OpenRouter Fast"
+                              value={provider.name.trim() ? slugifyProviderId(provider.name) : ""}
+                              placeholder="auto-generated"
+                              disabled
                             />
                           </Field>
                           <Field label="Compatibility">
@@ -604,18 +745,32 @@ function FeatureSelect({
 function Field({
   label,
   className,
+  description,
+  error = false,
   children,
 }: {
   label: string;
   className?: string;
+  description?: string;
+  error?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className={cn("space-y-2", className)}>
-      <Label className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+      <Label
+        className={cn(
+          "text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground",
+          error && "text-destructive"
+        )}
+      >
         {label}
       </Label>
       {children}
+      {description ? (
+        <p className={cn("text-xs text-muted-foreground", error && "text-destructive")}>
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }
