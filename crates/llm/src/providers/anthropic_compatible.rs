@@ -50,13 +50,14 @@ impl LlmClient for AnthropicCompatibleClient {
             .await?;
 
         let status = response.status();
-        let value: Value = response.json().await?;
+        let response_body = response.text().await?;
         if !status.is_success() {
             return Err(LlmError::Provider(format!(
                 "Anthropic-compatible provider `{}` returned {}: {}",
-                provider.id, status, value
+                provider.id, status, response_body
             )));
         }
+        let value: Value = serde_json::from_str(&response_body)?;
 
         let content = value
             .get("content")
