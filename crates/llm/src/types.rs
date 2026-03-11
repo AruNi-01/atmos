@@ -32,6 +32,8 @@ pub struct SessionTitleFormatConfig {
     pub include_agent_name: bool,
     #[serde(default)]
     pub include_project_name: bool,
+    #[serde(default)]
+    pub include_intent_emoji: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
