@@ -470,7 +470,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                   {installedAcpAgents.map((opt) => (
                     <SelectItem key={opt.id} value={opt.id}>
                       <div className="flex items-center gap-2">
-                        <AgentIcon registryId={opt.id} name={opt.name} size={16} />
+                        <AgentIcon registryId={opt.id} name={opt.name} size={16} registryIcon={opt.icon} />
                         {opt.name}
                       </div>
                     </SelectItem>

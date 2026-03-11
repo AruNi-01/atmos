@@ -2771,6 +2771,7 @@ export function AgentChatPanel() {
                       name={activeAgent.name}
                       size={16}
                       isCustom={activeAgent.install_method === "custom"}
+                      registryIcon={activeAgent.icon}
                     />
                   ) : (
                     <Bot className="size-4 shrink-0 text-foreground" />
@@ -2826,6 +2827,7 @@ export function AgentChatPanel() {
                                 name={agent.name}
                                 size={14}
                                 isCustom={agent.install_method === "custom"}
+                                registryIcon={agent.icon}
                               />
                               <span className="truncate">{agent.name}</span>
                             </button>
