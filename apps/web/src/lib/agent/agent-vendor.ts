@@ -1,4 +1,4 @@
-export type AgentVendor = "claude" | "opencode" | "unknown";
+export type AgentVendor = "claude" | "opencode" | "cursor" | "unknown";
 
 const REGISTRY_VENDOR_MAP: Record<string, AgentVendor> = {
   claude_code: "claude",
@@ -7,6 +7,8 @@ const REGISTRY_VENDOR_MAP: Record<string, AgentVendor> = {
   "claude-acp": "claude",
   anthropic_claude_code: "claude",
   opencode: "opencode",
+  cursor: "cursor",
+  "cursor-agent": "cursor",
 };
 
 export function resolveAgentVendor(registryId: string): AgentVendor {
@@ -18,6 +20,7 @@ export function resolveAgentVendor(registryId: string): AgentVendor {
 
   if (normalized.includes("claude")) return "claude";
   if (normalized.includes("opencode")) return "opencode";
+  if (normalized.includes("cursor")) return "cursor";
 
   return "unknown";
 }

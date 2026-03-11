@@ -41,6 +41,7 @@ export interface AtmosSubAgentMessage {
   description: string;
   prompt?: string | null;
   status: "running" | "completed" | "failed";
+  detailMode?: "full" | "status_only";
   contentBlocks: AtmosSubAgentContentBlock[];
   resultMarkdown?: string | null;
   labels: AtmosSubAgentLabel[];

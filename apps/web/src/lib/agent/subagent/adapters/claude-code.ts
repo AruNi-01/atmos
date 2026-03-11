@@ -8,7 +8,7 @@ import type {
 import {
   capitalizeWord,
   escapeUnknownXmlLikeTags,
-  looksLikeSubAgent,
+  looksLikeStructuredSubAgent,
   rawInputObject,
   sanitizeSubAgentMarkdown,
   toStatus,
@@ -80,10 +80,10 @@ function parseClaudeContent(block: SubAgentToolCallBlock): {
 
 export const claudeCodeSubAgentAdapter: SubAgentAdapter = {
   canHandle(block, vendor) {
-    return vendor === "claude" && looksLikeSubAgent(block);
+    return vendor === "claude" && looksLikeStructuredSubAgent(block);
   },
   normalize(block, vendor, childToolCalls): AtmosSubAgentMessage | null {
-    if (!looksLikeSubAgent(block)) return null;
+    if (!looksLikeStructuredSubAgent(block)) return null;
     const input = rawInputObject(block);
     const description = String(input.description ?? block.description ?? "");
     const prompt = typeof input.prompt === "string" ? input.prompt : null;
@@ -97,6 +97,7 @@ export const claudeCodeSubAgentAdapter: SubAgentAdapter = {
       description,
       prompt,
       status: toStatus(block.status),
+      detailMode: "full",
       contentBlocks: parsed.contentBlocks,
       resultMarkdown: null,
       labels: parsed.labels,
