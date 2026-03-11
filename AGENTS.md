@@ -68,6 +68,16 @@ atmos/
 
 ---
 
+## 🔌 Transport Rules
+
+- **WebSocket-first by default**: This project primarily uses WebSocket-driven flows, especially for chat, session state, streaming updates, and interactive app behavior.
+- **Do not add new REST APIs by default**: Before introducing a new REST endpoint, first check whether the feature should be implemented on the existing WebSocket/event channel.
+- **REST is the exception**: Use REST only for clearly non-streaming cases such as startup/bootstrap data, explicit settings persistence, one-off admin actions, or when an existing module is already REST-based.
+- **Avoid duplicate transports**: Do not build a new REST path for a capability that already has, or should naturally have, a WebSocket message flow.
+- **When unsure, prefer extending WS messages**: For new interactive product behavior, extend the existing WebSocket protocol rather than creating parallel REST endpoints.
+
+---
+
 ## 🚀 Quick Commands
 
 ```bash
