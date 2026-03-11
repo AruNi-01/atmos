@@ -58,6 +58,7 @@ import {
   DialogTitle,
   Button,
   TextShimmer,
+  TextScramble,
   AcpTerminal,
   AcpTerminalHeader,
   AcpTerminalTitle,
@@ -1385,10 +1386,10 @@ function ConfigOptionDropdown({
 }: {
   opt: AgentConfigOption;
   registryId: string;
-  activeAgent: any;
+  activeAgent: RegistryAgent | null;
   setConfigOption: (id: string, val: string) => void;
   setAgentDefaultConfig: (id: string, val: string) => void;
-  setInstalledAgents: React.Dispatch<React.SetStateAction<any[]>>;
+  setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
 }) {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -1527,6 +1528,9 @@ export function AgentChatPanel() {
   const [isManualLoadingMessages, setIsManualLoadingMessages] = useState(false);
   const [isResumedSession, setIsResumedSession] = useState(false);
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
+  const [sessionTitleSource, setSessionTitleSource] = useState<string | null>(null);
+  const [isAutoGeneratingTitle, setIsAutoGeneratingTitle] = useState(false);
+  const [shouldScrambleAutoTitle, setShouldScrambleAutoTitle] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitleValue, setEditingTitleValue] = useState("");
   const [headerHovered, setHeaderHovered] = useState(false);
@@ -1538,6 +1542,7 @@ export function AgentChatPanel() {
   const entriesByContextRef = useRef<Record<string, ThreadEntry[]>>({});
   const planByContextRef = useRef<Record<string, AgentPlan | null>>({});
   const sessionTitleByContextRef = useRef<Record<string, string | null>>({});
+  const sessionTitleSourceByContextRef = useRef<Record<string, string | null>>({});
   const { projects, fetchProjects } = useProjectStore();
   const restoreAttemptedRef = useRef(false);
   const autoResumeTriedRef = useRef<string | null>(null);
@@ -1882,6 +1887,9 @@ export function AgentChatPanel() {
         break;
       case "session_title_updated":
         setSessionTitle(msg.title);
+        setSessionTitleSource(msg.title_source);
+        setIsAutoGeneratingTitle(false);
+        setShouldScrambleAutoTitle(msg.title_source === "auto");
         break;
       case "session_ended":
         flushPendingStreamMessages();
@@ -2021,6 +2029,7 @@ export function AgentChatPanel() {
     entriesByContextRef.current[previousContextKey] = entries;
     planByContextRef.current[previousContextKey] = currentPlan;
     sessionTitleByContextRef.current[previousContextKey] = sessionTitle;
+    sessionTitleSourceByContextRef.current[previousContextKey] = sessionTitleSource;
 
     // Stash the live WS connection (stays open in background).
     stashSession(previousContextKey);
@@ -2030,6 +2039,9 @@ export function AgentChatPanel() {
     setCurrentPlan(planByContextRef.current[nextContextKey] ?? null);
     setPendingPermission(null);
     setSessionTitle(sessionTitleByContextRef.current[nextContextKey] ?? null);
+    setSessionTitleSource(sessionTitleSourceByContextRef.current[nextContextKey] ?? null);
+    setIsAutoGeneratingTitle(false);
+    setShouldScrambleAutoTitle(false);
     setWaitingForResponse(false);
     stoppedRef.current = false;
 
@@ -2093,7 +2105,7 @@ export function AgentChatPanel() {
         }
       })();
     }
-  }, [chatMode, getEffectiveIds, stashSession, unstashSession, entries, currentPlan, resumeSession, sessionId, sessionTitle, startSession]);
+  }, [chatMode, currentPlan, entries, getEffectiveIds, resumeSession, sessionId, sessionTitle, sessionTitleSource, stashSession, startSession, unstashSession]);
 
   useEffect(() => {
     if (!sessionId || !isConnected) return;
@@ -2117,6 +2129,10 @@ export function AgentChatPanel() {
   }, [contextKey, sessionTitle]);
 
   useEffect(() => {
+    sessionTitleSourceByContextRef.current[contextKey] = sessionTitleSource;
+  }, [contextKey, sessionTitleSource]);
+
+  useEffect(() => {
     if (!isConnected || !sessionId) {
       connectedContextKeyRef.current = null;
       return;
@@ -2133,6 +2149,9 @@ export function AgentChatPanel() {
     setCurrentPlan(null);
     setPendingPermission(null);
     setSessionTitle(null);
+    setSessionTitleSource(null);
+    setIsAutoGeneratingTitle(false);
+    setShouldScrambleAutoTitle(false);
     setIsEditingTitle(false);
     setIsResumedSession(false);
     setWaitingForResponse(false);
@@ -2159,6 +2178,9 @@ export function AgentChatPanel() {
       stoppedRef.current = false;
       setRegistryId(s.registry_id);
       setSessionTitle(s.title || null);
+      setSessionTitleSource(s.title_source ?? null);
+      setIsAutoGeneratingTitle(false);
+      setShouldScrambleAutoTitle(false);
       setIsResumedSession(true);
       setActiveSessionByContext((prev) => ({ ...prev, [contextKey]: s.guid }));
       setIsResumingHistory(true);
@@ -2188,6 +2210,9 @@ export function AgentChatPanel() {
     setCurrentPlan(null);
     setPendingPermission(null);
     setSessionTitle(null);
+    setSessionTitleSource(null);
+    setIsAutoGeneratingTitle(false);
+    setShouldScrambleAutoTitle(false);
     setIsEditingTitle(false);
     setIsResumedSession(false);
     setWaitingForResponse(false);
@@ -2319,6 +2344,9 @@ export function AgentChatPanel() {
         setCurrentPlan(null);
         setPendingPermission(null);
         setSessionTitle(null);
+        setSessionTitleSource(null);
+        setIsAutoGeneratingTitle(false);
+        setShouldScrambleAutoTitle(false);
         setIsResumedSession(false);
         setWaitingForResponse(false);
         stoppedRef.current = false;
@@ -2353,6 +2381,9 @@ export function AgentChatPanel() {
         setCurrentPlan(null);
         setPendingPermission(null);
         setSessionTitle(pendingPrompt?.sessionTitle ?? null);
+        setSessionTitleSource(pendingPrompt?.sessionTitle ? "user" : null);
+        setIsAutoGeneratingTitle(false);
+        setShouldScrambleAutoTitle(false);
         if (registryId !== forcedRegistryId) {
           setRegistryId(forcedRegistryId);
         }
@@ -2412,6 +2443,10 @@ export function AgentChatPanel() {
               autoResumeTriedRef.current = latestSession.guid;
               setIsResumedSession(true);
               setRegistryId(latestSession.registry_id);
+              setSessionTitle(latestSession.title ?? null);
+              setSessionTitleSource(latestSession.title_source ?? null);
+              setIsAutoGeneratingTitle(false);
+              setShouldScrambleAutoTitle(false);
               autoStartHandledRef.current = true;
               setIsResumingHistory(true);
               const success = await resumeSession(latestSession.guid);
@@ -2489,6 +2524,9 @@ export function AgentChatPanel() {
         // Persist sessionTitle from the pending prompt (e.g. CodeReview / GitCommit titles)
         if (data.sessionTitle && sessionId) {
           setSessionTitle(data.sessionTitle);
+          setSessionTitleSource("user");
+          setIsAutoGeneratingTitle(false);
+          setShouldScrambleAutoTitle(false);
           void agentRestApi.updateSessionTitle(sessionId, data.sessionTitle).catch(() => { });
         }
         setEntries((prev) => [
@@ -2503,6 +2541,9 @@ export function AgentChatPanel() {
   useEffect(() => {
     if (!sessionId) {
       setSessionTitle(null);
+      setSessionTitleSource(null);
+      setIsAutoGeneratingTitle(false);
+      setShouldScrambleAutoTitle(false);
       return;
     }
     if (activeSessionTitle != null) {
@@ -2522,6 +2563,9 @@ export function AgentChatPanel() {
     const trimmed = editingTitleValue.trim();
     if (!trimmed || trimmed === sessionTitle) return;
     setSessionTitle(trimmed);
+    setSessionTitleSource("user");
+    setIsAutoGeneratingTitle(false);
+    setShouldScrambleAutoTitle(false);
     if (sessionId) {
       void agentRestApi.updateSessionTitle(sessionId, trimmed).catch(() => { });
     }
@@ -2590,9 +2634,17 @@ export function AgentChatPanel() {
           const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
           const title = `${projName}_WikiAsk_${ts}`;
           setSessionTitle(title);
+          setSessionTitleSource("user");
+          setIsAutoGeneratingTitle(false);
+          setShouldScrambleAutoTitle(false);
           if (sessionId) {
             void agentRestApi.updateSessionTitle(sessionId, title).catch(() => { });
           }
+        } else if (!sessionTitle || sessionTitle === "新会话") {
+          setSessionTitle(null);
+          setSessionTitleSource("auto");
+          setIsAutoGeneratingTitle(true);
+          setShouldScrambleAutoTitle(false);
         }
       }
       setWaitingForResponse(true);
@@ -2633,7 +2685,7 @@ export function AgentChatPanel() {
 
       sendPrompt(finalPrompt);
     },
-    [chatMode, isConnected, sendPrompt, localPath, wikiPath, sessionCwd, entries.length, sessionId]
+    [chatMode, entries.length, isConnected, localPath, sendPrompt, sessionCwd, sessionId, sessionTitle, wikiPath]
   );
 
   const handleClose = useCallback(() => {
@@ -2732,6 +2784,8 @@ export function AgentChatPanel() {
   })();
 
   const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
+  const displaySessionTitle =
+    sessionTitle && sessionTitle !== "新会话" ? sessionTitle : null;
 
   return (
     <div
@@ -3030,7 +3084,7 @@ export function AgentChatPanel() {
             </button>
           </div>
         </div>
-        {sessionTitle && (
+        {(displaySessionTitle || isAutoGeneratingTitle) && (
           isEditingTitle ? (
             <input
               ref={titleInputRef}
@@ -3048,15 +3102,36 @@ export function AgentChatPanel() {
                 <TooltipTrigger asChild>
                   <div
                     className="group/title flex w-fit items-center gap-1 max-w-full cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
-                    onClick={handleStartEditTitle}
+                    onClick={displaySessionTitle ? handleStartEditTitle : undefined}
                     onMouseDown={(e) => e.stopPropagation()}
                   >
-                    <span className="truncate text-xs text-muted-foreground">{sessionTitle}</span>
-                    <Pencil className="size-3 shrink-0 text-muted-foreground/0 group-hover/title:text-muted-foreground transition-colors" />
+                    {isAutoGeneratingTitle ? (
+                      <span className="truncate text-xs">
+                        <TextShimmer as="span" duration={1.5}>
+                          Generating title...
+                        </TextShimmer>
+                      </span>
+                    ) : shouldScrambleAutoTitle && displaySessionTitle && sessionTitleSource === "auto" ? (
+                      <TextScramble
+                        key={`auto-title-${sessionId ?? "session"}-${displaySessionTitle}`}
+                        as="span"
+                        className="truncate text-xs text-muted-foreground"
+                        duration={0.6}
+                        speed={0.025}
+                        onScrambleComplete={() => setShouldScrambleAutoTitle(false)}
+                      >
+                        {displaySessionTitle}
+                      </TextScramble>
+                    ) : (
+                      <span className="truncate text-xs text-muted-foreground">{displaySessionTitle}</span>
+                    )}
+                    {displaySessionTitle ? (
+                      <Pencil className="size-3 shrink-0 text-muted-foreground/0 group-hover/title:text-muted-foreground transition-colors" />
+                    ) : null}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" align="start" className="z-100 max-w-[300px] break-words text-xs">
-                  {sessionTitle}
+                  {displaySessionTitle ?? "Generating title..."}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

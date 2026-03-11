@@ -49,6 +49,7 @@ export * from "./components/ui/flow-button";
 export * from "./components/ui/border-beam";
 export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
+export { TextScramble } from "./components/ui/text-scramble";
 
 // AI Elements
 export * from "./components/ai-elements/message";

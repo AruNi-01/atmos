@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useQueryStates } from "nuqs";
-import { agentManagerParams, type AgentTab } from "@/lib/nuqs/searchParams";
+import { agentManagerParams, type AgentManagerView as AgentManagerMode, type AgentTab } from "@/lib/nuqs/searchParams";
 import {
   Button,
   Input,
@@ -81,8 +81,7 @@ function needsUpdate(installedVersion: string, latestVersion: string): boolean {
 }
 
 export const AgentManagerView: React.FC = () => {
-  const [{ agentTab: activeTab, agentQ: query }, setAgentParams] = useQueryStates(agentManagerParams);
-  const [isSessionsView, setIsSessionsView] = React.useState(false);
+  const [{ agentView, agentTab: activeTab, agentQ: query }, setAgentParams] = useQueryStates(agentManagerParams);
   const [iconHovered, setIconHovered] = React.useState(false);
   const [registryAgents, setRegistryAgents] = React.useState<RegistryAgent[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -678,13 +677,19 @@ export const AgentManagerView: React.FC = () => {
     </div>
   );
 
+  const isSessionsView = agentView === "sessions";
+  const handleViewChange = React.useCallback(() => {
+    const nextView: AgentManagerMode = isSessionsView ? "manager" : "sessions";
+    void setAgentParams({ agentView: nextView });
+  }, [isSessionsView, setAgentParams]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <div
         className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10 cursor-pointer"
         onMouseEnter={() => setIconHovered(true)}
         onMouseLeave={() => setIconHovered(false)}
-        onClick={() => setIsSessionsView(prev => !prev)}
+        onClick={handleViewChange}
       >
         <div className="flex items-center justify-between gap-6 max-w-5xl mx-auto w-full">
           <div className="flex items-center gap-4 shrink-0">

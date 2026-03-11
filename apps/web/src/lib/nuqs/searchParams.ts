@@ -66,8 +66,10 @@ export const skillsParams = {
 // AgentManager – tab & search
 // ---------------------------------------------------------------------------
 export type AgentTab = "installed" | "registry" | "custom";
+export type AgentManagerView = "manager" | "sessions";
 
 export const agentManagerParams = {
+  agentView: parseAsStringEnum<AgentManagerView>(["manager", "sessions"]).withDefault("manager"),
   agentTab: parseAsStringEnum<AgentTab>(["installed", "registry", "custom"]).withDefault("installed"),
   agentQ: parseAsString.withDefault(""),
 };
