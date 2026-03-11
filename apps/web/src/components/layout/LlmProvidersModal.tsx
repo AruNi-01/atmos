@@ -16,6 +16,7 @@ import {
   LoaderCircle,
   Plus,
   Save,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import {
@@ -54,6 +55,7 @@ import {
   type LlmProviderEntry,
   type LlmProviderKind,
   type LlmProvidersFile,
+  type SessionTitleFormatConfig,
 } from "@/api/ws-api";
 
 type ProviderDraft = {
@@ -81,15 +83,15 @@ type ModalDraftState = {
 
 type SaveState = "idle" | "saving" | "saved";
 
-const EMPTY_CONFIG: LlmProvidersFile = {
-  version: 1,
-  default_provider: null,
-  features: {},
-  providers: {},
+const DEFAULT_SESSION_TITLE_FORMAT: SessionTitleFormatConfig = {
+  include_agent_name: false,
+  include_project_name: false,
 };
 
 const EMPTY_ROUTING: RoutingDraft = {
-  features: {},
+  features: {
+    session_title_format: DEFAULT_SESSION_TITLE_FORMAT,
+  },
 };
 
 const KIND_OPTIONS: Array<{
@@ -362,6 +364,9 @@ function fileToModalState(config: LlmProvidersFile): ModalDraftState {
         git_commit: config.features?.git_commit
           ? (persistedToClientKey.get(config.features.git_commit) ?? null)
           : null,
+        session_title_format: normalizeSessionTitleFormat(
+          config.features?.session_title_format,
+        ),
       },
     },
   };
@@ -407,6 +412,9 @@ function modalStateToFile(state: ModalDraftState): LlmProvidersFile {
       git_commit: state.routing.features.git_commit
         ? (providerIdMap.get(state.routing.features.git_commit) ?? null)
         : null,
+      session_title_format: normalizeSessionTitleFormat(
+        state.routing.features.session_title_format,
+      ),
     },
     providers,
   };
@@ -441,6 +449,23 @@ function gitCommitPromptPath(homeDir: string): string {
   return `${homeDir.replace(/\/$/, "")}/.atmos/llm/prompt/git-commit-prompt.md`;
 }
 
+function normalizeSessionTitleFormat(
+  value?: SessionTitleFormatConfig | null,
+): SessionTitleFormatConfig {
+  return {
+    include_agent_name: !!value?.include_agent_name,
+    include_project_name: !!value?.include_project_name,
+  };
+}
+
+function sessionTitleFormatPreview(format: SessionTitleFormatConfig): string {
+  const segments: string[] = [];
+  if (format.include_agent_name) segments.push("[agentName]");
+  if (format.include_project_name) segments.push("[projectName]");
+  segments.push("title desc");
+  return segments.join(" | ");
+}
+
 export function LlmProvidersModal({
   open,
   onOpenChange,
@@ -461,12 +486,17 @@ export function LlmProvidersModal({
   const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
   const [providerSaveState, setProviderSaveState] = useState<SaveState>("idle");
   const [promptSaveState, setPromptSaveState] = useState<SaveState>("idle");
+  const [titleFormatSaveState, setTitleFormatSaveState] =
+    useState<SaveState>("idle");
   const [providerNameTouched, setProviderNameTouched] = useState(false);
   const [providerSaveAttempted, setProviderSaveAttempted] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [providersExpanded, setProvidersExpanded] = useState(true);
   const [routingExpanded, setRoutingExpanded] = useState(true);
   const [gitCommitPromptOpen, setGitCommitPromptOpen] = useState(false);
+  const [sessionTitleFormatOpen, setSessionTitleFormatOpen] = useState(false);
+  const [sessionTitleFormatDraft, setSessionTitleFormatDraft] =
+    useState<SessionTitleFormatConfig>(DEFAULT_SESSION_TITLE_FORMAT);
   const [gitCommitPromptPathValue, setGitCommitPromptPathValue] =
     useState<string>("");
   const [gitCommitPromptContent, setGitCommitPromptContent] = useState("");
@@ -478,6 +508,9 @@ export function LlmProvidersModal({
     null,
   );
   const promptResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const titleFormatResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
 
@@ -508,6 +541,9 @@ export function LlmProvidersModal({
       if (promptResetTimerRef.current) {
         clearTimeout(promptResetTimerRef.current);
       }
+      if (titleFormatResetTimerRef.current) {
+        clearTimeout(titleFormatResetTimerRef.current);
+      }
     },
     [],
   );
@@ -521,6 +557,11 @@ export function LlmProvidersModal({
         setVersion(nextState.version);
         setProviders(nextState.providers);
         setRoutingDraft(nextState.routing);
+        setSessionTitleFormatDraft(
+          normalizeSessionTitleFormat(
+            nextState.routing.features.session_title_format,
+          ),
+        );
 
         const selected =
           (preferredPersistedId
@@ -707,6 +748,48 @@ export function LlmProvidersModal({
       });
     } finally {
       setGitCommitPromptLoading(false);
+    }
+  };
+
+  const handleOpenSessionTitleFormat = () => {
+    setSessionTitleFormatDraft(
+      normalizeSessionTitleFormat(routingDraft.features.session_title_format),
+    );
+    setSessionTitleFormatOpen(true);
+  };
+
+  const handleSaveSessionTitleFormat = async () => {
+    const normalized = normalizeSessionTitleFormat(sessionTitleFormatDraft);
+    const nextRouting: RoutingDraft = {
+      features: {
+        ...routingDraft.features,
+        session_title_format: normalized,
+      },
+    };
+
+    setTitleFormatSaveState("saving");
+    try {
+      await llmProvidersApi.update(
+        modalStateToFile({
+          version,
+          providers,
+          routing: nextRouting,
+        }),
+      );
+      setRoutingDraft(nextRouting);
+      setSessionTitleFormatDraft(normalized);
+      setTitleFormatSaveState("saved");
+      scheduleSaveStateReset(
+        setTitleFormatSaveState,
+        titleFormatResetTimerRef,
+      );
+    } catch (error) {
+      setTitleFormatSaveState("idle");
+      toastManager.add({
+        title: "Failed to save title format",
+        description: error instanceof Error ? error.message : "Unknown error",
+        type: "error",
+      });
     }
   };
 
@@ -1010,6 +1093,18 @@ export function LlmProvidersModal({
                           value={routingDraft.features.session_title}
                           providerOptions={providerOptions}
                           noneLabel="Disabled"
+                          action={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={handleOpenSessionTitleFormat}
+                              title="Edit session title format"
+                              aria-label="Edit session title format"
+                            >
+                              <SlidersHorizontal className="h-4 w-4" />
+                            </Button>
+                          }
                           onChange={(value) =>
                             setRoutingDraft((current) => ({
                               ...current,
@@ -1367,6 +1462,100 @@ export function LlmProvidersModal({
             onClick={handleSaveGitCommitPrompt}
             disabled={promptSaveState === "saving"}
             measureLabel="Save prompt"
+          />
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog
+      open={sessionTitleFormatOpen}
+      onOpenChange={setSessionTitleFormatOpen}
+    >
+      <DialogContent className="w-[min(94vw,640px)] max-w-[640px] border-border bg-background p-0">
+        <DialogHeader className="border-b border-border px-6 py-5">
+          <DialogTitle>Session Title Format</DialogTitle>
+          <DialogDescription>
+            The final title is assembled as a structured format. Temporary
+            sessions automatically skip the project segment even when enabled.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 px-6 py-5">
+          <div className="rounded-2xl border border-border bg-muted/20 p-4">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Final format
+            </p>
+            <p className="mt-2 font-mono text-sm text-foreground">
+              {sessionTitleFormatPreview(sessionTitleFormatDraft)}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              `projectName` comes from the current working directory basename.
+              Temp sessions skip this segment automatically.
+            </p>
+          </div>
+
+          <Field
+            label="Include Agent Name"
+            description="Prefix titles with the current ACP agent display name."
+          >
+            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
+              <div>
+                <p className="text-sm text-foreground">Agent segment</p>
+                <p className="text-xs text-muted-foreground">
+                  Example: Claude Agent | title desc
+                </p>
+              </div>
+              <Switch
+                checked={!!sessionTitleFormatDraft.include_agent_name}
+                onCheckedChange={(checked) =>
+                  setSessionTitleFormatDraft((current) => ({
+                    ...current,
+                    include_agent_name: !!checked,
+                  }))
+                }
+              />
+            </div>
+          </Field>
+
+          <Field
+            label="Include Project Name"
+            description="Prefix titles with the current project or workspace directory name when available."
+          >
+            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
+              <div>
+                <p className="text-sm text-foreground">Project segment</p>
+                <p className="text-xs text-muted-foreground">
+                  Example: my-project | title desc
+                </p>
+              </div>
+              <Switch
+                checked={!!sessionTitleFormatDraft.include_project_name}
+                onCheckedChange={(checked) =>
+                  setSessionTitleFormatDraft((current) => ({
+                    ...current,
+                    include_project_name: !!checked,
+                  }))
+                }
+              />
+            </div>
+          </Field>
+        </div>
+
+        <DialogFooter className="border-t border-border px-6 py-4">
+          <Button
+            variant="ghost"
+            onClick={() => setSessionTitleFormatOpen(false)}
+          >
+            Close
+          </Button>
+          <SaveStateButton
+            state={titleFormatSaveState}
+            idleLabel="Save format"
+            savingLabel="Saving..."
+            savedLabel="Saved"
+            onClick={handleSaveSessionTitleFormat}
+            disabled={titleFormatSaveState === "saving"}
+            measureLabel="Save format"
           />
         </DialogFooter>
       </DialogContent>

@@ -10,4 +10,5 @@ pub use error::{LlmError, Result};
 pub use types::{
     GenerateTextRequest, GenerateTextResponse, LlmFeature, LlmFeatureBindings, LlmProviderEntry,
     LlmProvidersFile, ProviderKind, ResolvedLlmProvider, ResponseFormat,
+    SessionTitleFormatConfig,
 };
