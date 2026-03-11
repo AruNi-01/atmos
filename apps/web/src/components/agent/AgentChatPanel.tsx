@@ -75,11 +75,32 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   ShineBorder,
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  SortableContext,
+  closestCenter,
+  CSS,
+  KeyboardSensor,
+  MouseSensor,
+  PointerSensor,
+  restrictToVerticalAxis,
+  sortableKeyboardCoordinates,
+  useSensor,
+  useSensors,
+  useSortable,
+  verticalListSortingStrategy,
   cn,
 } from "@workspace/ui";
-import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, Gauge, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, GripVertical, Heart, History, Loader2, Gauge, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
-import { useDialogStore } from "@/hooks/use-dialog-store";
+import {
+  buildQueuedAgentPromptContent,
+  getAgentPromptQueueKey,
+  useDialogStore,
+  type QueuedAgentPrompt,
+} from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatLayout } from "@/hooks/use-agent-chat-layout";
 import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
@@ -895,106 +916,38 @@ function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
 function PlanBlockView({
   plan,
   docked = false,
+  embedded = false,
   defaultOpen = true,
 }: {
   plan: import("@/hooks/use-agent-session").AgentPlan;
   docked?: boolean;
+  embedded?: boolean;
   defaultOpen?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-
-  if (!plan || !plan.entries || plan.entries.length === 0) return null;
-
-  const completedCount = plan.entries.filter((e) => e.status === "completed").length;
-  const totalCount = plan.entries.length;
+  const planEntries = plan?.entries ?? [];
+  const completedCount = planEntries.filter((e) => e.status === "completed").length;
+  const totalCount = planEntries.length;
   const allCompleted = totalCount > 0 && completedCount === totalCount;
-  const currentIndex = plan.entries.findIndex(
+  const currentIndex = planEntries.findIndex(
     (e) => e.status === "in_progress" || e.status === "running"
   );
+  const currentRunningEntry = currentIndex >= 0 ? planEntries[currentIndex] : undefined;
 
-  const currentRunningEntry = plan.entries[currentIndex];
-
-  const PlanEntryScrollableText = ({
-    text,
-    className,
-    shimmer = false,
-  }: {
-    text: string;
-    className: string;
-    shimmer?: boolean;
-  }) => {
-    const textRef = useRef<HTMLSpanElement>(null);
-    const animRef = useRef<number | null>(null);
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const stopScroll = useCallback(() => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      if (animRef.current) {
-        cancelAnimationFrame(animRef.current);
-        animRef.current = null;
-      }
-      const el = textRef.current;
-      if (el) el.scrollLeft = 0;
-    }, []);
-
-    const startScroll = useCallback(() => {
-      const el = textRef.current;
-      if (!el) return;
-      const overflow = el.scrollWidth - el.clientWidth;
-      if (overflow <= 0) return;
-
-      el.scrollLeft = 0;
-      timeoutRef.current = setTimeout(() => {
-        const duration = overflow * 40;
-        const startTime = performance.now();
-
-        const step = (now: number) => {
-          const progress = Math.min((now - startTime) / duration, 1);
-          el.scrollLeft = overflow * progress;
-          if (progress < 1) {
-            animRef.current = requestAnimationFrame(step);
-          }
-        };
-        animRef.current = requestAnimationFrame(step);
-      }, 300);
-    }, []);
-
-    useEffect(() => {
-      return () => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        if (animRef.current) cancelAnimationFrame(animRef.current);
-      };
-    }, []);
-
-    return (
-      <span
-        ref={textRef}
-        className={className}
-        onMouseEnter={startScroll}
-        onMouseLeave={stopScroll}
-      >
-        {shimmer ? (
-          <TextShimmer as="span" className="inline" duration={1.5}>
-            {text}
-          </TextShimmer>
-        ) : (
-          text
-        )}
-      </span>
-    );
-  };
+  if (!plan || planEntries.length === 0) return null;
 
   return (
     <div
-      className={`w-full flex-col border border-dashed border-border bg-background flex overflow-hidden shadow-sm ${docked ? "rounded-t-xl rounded-b-none border-b-0" : "rounded-md"}`}
+      className={`w-full flex-col bg-background flex overflow-hidden ${
+        embedded
+          ? ""
+          : `border border-dashed border-border shadow-sm ${docked ? "rounded-t-xl rounded-b-none border-b-0" : "rounded-md"}`
+      }`}
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         {(isOpen || allCompleted) && (
           <CollapsibleTrigger asChild>
-            <div className="flex items-center gap-2 p-3 hover:bg-muted/10 cursor-pointer transition-colors group">
+            <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/10 cursor-pointer transition-colors group">
               <span className="text-muted-foreground group-hover:text-foreground transition-colors">
                 {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </span>
@@ -1008,14 +961,14 @@ function PlanBlockView({
         )}
         <CollapsibleContent>
           <div className="flex flex-col border-t border-border/40">
-            {plan.entries.map((entry, idx) => {
+            {planEntries.map((entry, idx) => {
               const isCompleted = entry.status === "completed";
               const isRunning = entry.status === "in_progress" || entry.status === "running";
 
               return (
                 <div
                   key={idx}
-                  className="flex items-center gap-3 p-3 px-4 border-b border-border/20 last:border-b-0"
+                  className="flex items-center gap-2 px-3 py-1.5 border-b border-border/20 last:border-b-0"
                 >
                   <div className="shrink-0 flex items-center justify-center w-4 h-4">
                     {isCompleted ? (
@@ -1048,23 +1001,23 @@ function PlanBlockView({
 
       {!isOpen && currentRunningEntry && (
         <div
-          className={`flex items-center gap-3 p-3 px-4 border-t border-border/40 bg-background overflow-hidden cursor-pointer ${docked ? "rounded-none" : "rounded-b-md"}`}
+          className={`flex items-center gap-2 px-3 py-1.5 border-t border-border/40 bg-background overflow-hidden cursor-pointer ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
           onClick={() => setIsOpen(true)}
         >
           <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
           <div className="flex flex-1 items-center h-5 relative overflow-hidden">
             <span className="text-sm text-muted-foreground mr-1 font-normal shrink-0">Current:</span>
             <div className="flex-1 relative h-full overflow-hidden">
-              <AnimatePresence mode="popLayout" initial={false}>
+              <AnimatePresence mode="popLayout">
                 <motion.div
-                  key={currentIndex}
+                  key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${currentRunningEntry.content}`}
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   exit={{ y: -20, opacity: 0 }}
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   className="absolute inset-0 text-sm font-medium text-foreground truncate"
                 >
-                  <TextShimmer as="span" className="inline" duration={1.5}>
+                  <TextShimmer key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${currentRunningEntry.content}`} as="span" className="inline" duration={1.5}>
                     {currentRunningEntry.content}
                   </TextShimmer>
                 </motion.div>
@@ -1078,6 +1031,378 @@ function PlanBlockView({
       )}
 
     </div>
+  );
+}
+
+const NOOP_QUEUE_ACTION = () => { };
+
+function PlanEntryScrollableText({
+  text,
+  className,
+  shimmer = false,
+}: {
+  text: string;
+  className: string;
+  shimmer?: boolean;
+}) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  const animRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopScroll = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (animRef.current) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+    const el = textRef.current;
+    if (el) el.scrollLeft = 0;
+  }, []);
+
+  const startScroll = useCallback(() => {
+    const el = textRef.current;
+    if (!el) return;
+    const overflow = el.scrollWidth - el.clientWidth;
+    if (overflow <= 0) return;
+
+    el.scrollLeft = 0;
+    timeoutRef.current = setTimeout(() => {
+      const duration = overflow * 40;
+      const startTime = performance.now();
+
+      const step = (now: number) => {
+        const progress = Math.min((now - startTime) / duration, 1);
+        el.scrollLeft = overflow * progress;
+        if (progress < 1) {
+          animRef.current = requestAnimationFrame(step);
+        }
+      };
+      animRef.current = requestAnimationFrame(step);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, []);
+
+  return (
+    <span
+      ref={textRef}
+      className={className}
+      onMouseEnter={startScroll}
+      onMouseLeave={stopScroll}
+    >
+      {shimmer ? (
+        <TextShimmer as="span" className="inline" duration={1.5}>
+          {text}
+        </TextShimmer>
+      ) : (
+        text
+      )}
+    </span>
+  );
+}
+
+function MessageQueueDock({
+  items,
+  onRemove,
+  onUpdatePrompt,
+  onMove,
+}: {
+  items: QueuedAgentPrompt[];
+  onRemove: (id: string) => void;
+  onUpdatePrompt: (id: string, prompt: string) => void;
+  onMove: (id: string, toIndex: number) => void;
+}) {
+  const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
+  const [editingPromptValue, setEditingPromptValue] = useState("");
+  const [draggingPromptId, setDraggingPromptId] = useState<string | null>(null);
+
+  const draggingPrompt = draggingPromptId
+    ? items.find((item) => item.id === draggingPromptId) ?? null
+    : null;
+  const activeEditingPromptId = editingPromptId && items.some((item) => item.id === editingPromptId)
+    ? editingPromptId
+    : null;
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleStartEdit = useCallback((item: QueuedAgentPrompt) => {
+    setEditingPromptId(item.id);
+    setEditingPromptValue(item.displayPrompt ?? item.prompt);
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingPromptId(null);
+    setEditingPromptValue("");
+  }, []);
+
+  const handleSaveEdit = useCallback((id: string) => {
+    const trimmed = editingPromptValue.trim();
+    if (!trimmed) return;
+    onUpdatePrompt(id, trimmed);
+    setEditingPromptId(null);
+    setEditingPromptValue("");
+  }, [editingPromptValue, onUpdatePrompt]);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setDraggingPromptId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setDraggingPromptId(null);
+    if (!over || active.id === over.id) return;
+    const fromIndex = items.findIndex((item) => item.id === String(active.id));
+    const toIndex = items.findIndex((item) => item.id === String(over.id));
+    if (fromIndex < 0 || toIndex < 0) return;
+    onMove(String(active.id), toIndex);
+  }, [items, onMove]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="bg-muted/20">
+      <div className="flex items-center justify-between border-b border-border/70 px-3 py-1.5">
+        <div className="text-xs font-medium text-foreground/90">Message Queue</div>
+        <div className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+          {items.length}
+        </div>
+      </div>
+      <div className="px-2 py-0.5">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={items.map((item) => item.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="divide-y divide-border/60">
+              <AnimatePresence initial={false}>
+                {items.map((item) => (
+                  <SortableQueueCard
+                    key={item.id}
+                    item={item}
+                    editingPromptId={activeEditingPromptId}
+                    editingPromptValue={editingPromptValue}
+                    onEditingPromptValueChange={setEditingPromptValue}
+                    onStartEdit={handleStartEdit}
+                    onCancelEdit={handleCancelEdit}
+                    onSaveEdit={handleSaveEdit}
+                    onRemove={(id) => {
+                      onRemove(id);
+                      if (activeEditingPromptId === id) {
+                        handleCancelEdit();
+                      }
+                    }}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          </SortableContext>
+          <DragOverlay>
+            {draggingPrompt ? (
+              <div className="w-[min(560px,calc(100vw-96px))]">
+                <QueueCard
+                  item={draggingPrompt}
+                  isDragging
+                  onStartEdit={NOOP_QUEUE_ACTION}
+                  onCancelEdit={NOOP_QUEUE_ACTION}
+                  onSaveEdit={NOOP_QUEUE_ACTION}
+                  onRemove={NOOP_QUEUE_ACTION}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+    </div>
+  );
+}
+
+function SortableQueueCard({
+  item,
+  editingPromptId,
+  editingPromptValue,
+  onEditingPromptValueChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onRemove,
+}: {
+  item: QueuedAgentPrompt;
+  editingPromptId: string | null;
+  editingPromptValue: string;
+  onEditingPromptValueChange: (value: string) => void;
+  onStartEdit: (item: QueuedAgentPrompt) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const isEditing = editingPromptId === item.id;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: item.id,
+    disabled: isEditing,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <QueueCard
+        item={item}
+        isDragging={isDragging}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        isEditing={isEditing}
+        editValue={isEditing ? editingPromptValue : item.prompt}
+        onEditValueChange={onEditingPromptValueChange}
+        onStartEdit={() => onStartEdit(item)}
+        onCancelEdit={onCancelEdit}
+        onSaveEdit={() => onSaveEdit(item.id)}
+        onRemove={() => onRemove(item.id)}
+      />
+    </div>
+  );
+}
+
+function QueueCard({
+  item,
+  isDragging = false,
+  dragHandleProps,
+  isEditing = false,
+  editValue,
+  onEditValueChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onRemove,
+}: {
+  item: QueuedAgentPrompt;
+  isDragging?: boolean;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
+  isEditing?: boolean;
+  editValue?: string;
+  onEditValueChange?: (value: string) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onRemove: () => void;
+}) {
+  const trimmedValue = (editValue ?? "").trim();
+
+  return (
+    <motion.div
+      layout
+      className={`group/queue transition-colors ${
+        isDragging
+          ? "bg-background/95 shadow-sm"
+          : "bg-transparent"
+      }`}
+    >
+      <div className="flex items-center gap-1 px-1.5 py-1">
+        <button
+          type="button"
+          aria-label="Reorder queued prompt"
+          className={`flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors ${
+            isEditing
+              ? "cursor-not-allowed opacity-40"
+              : "cursor-grab hover:bg-muted hover:text-foreground active:cursor-grabbing"
+          }`}
+          disabled={isEditing}
+          {...dragHandleProps}
+        >
+          <GripVertical className="size-3" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs text-foreground">
+            {item.displayPrompt ?? item.prompt}
+          </p>
+        </div>
+        <div className={`flex shrink-0 items-center gap-0 transition-opacity ${isEditing ? "opacity-100" : "opacity-0 group-hover/queue:opacity-100"}`}>
+          <Popover open={isEditing} onOpenChange={(open) => {
+            if (open) {
+              onStartEdit();
+            } else {
+              onCancelEdit();
+            }
+          }}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant={isEditing ? "secondary" : "ghost"}
+                size="icon-sm"
+                className="size-6 text-muted-foreground hover:text-foreground"
+                aria-label="Edit queued prompt"
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              side="top"
+              className="w-[min(420px,calc(100vw-64px))] border-border/80 p-3"
+            >
+              <div className="space-y-3">
+                <textarea
+                  autoFocus
+                  value={editValue}
+                  onChange={(e) => onEditValueChange?.(e.target.value)}
+                  className="min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-ring"
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={onSaveEdit}
+                    disabled={!trimmedValue}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onRemove}
+            className="size-6 text-muted-foreground hover:text-destructive"
+            aria-label="Delete queued prompt"
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -1551,11 +1876,12 @@ export function AgentChatPanel() {
   const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
   const {
-    pendingAgentChatPrompt,
-    setPendingAgentChatPrompt,
-    consumePendingAgentChatPrompt,
-    peekPendingAgentChatPrompt,
     consumePendingAgentChatMode,
+    agentChatPromptQueues,
+    enqueueAgentChatPrompt,
+    removeQueuedAgentChatPrompt,
+    updateQueuedAgentChatPrompt,
+    moveQueuedAgentChatPrompt,
   } = useDialogStore();
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const [chatMode, setChatMode] = useState<AgentChatMode>(DEFAULT_AGENT_CHAT_MODE);
@@ -1599,6 +1925,7 @@ export function AgentChatPanel() {
   const restoreAttemptedRef = useRef(false);
   const autoResumeTriedRef = useRef<string | null>(null);
   const autoStartHandledRef = useRef(false);
+  const dispatchingQueuedPromptIdRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
   const forcedDisconnectDoneRef = useRef(false);
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2008,6 +2335,11 @@ export function AgentChatPanel() {
   useEffect(() => { setStatusConnected(isConnected); }, [isConnected, setStatusConnected]);
   useEffect(() => { setStatusBusy(waitingForResponse); }, [waitingForResponse, setStatusBusy]);
 
+  const agentActivity = useMemo(
+    () => deriveAgentActivity(entries, waitingForResponse),
+    [entries, waitingForResponse]
+  );
+
   const loadHistorySessions = useCallback(
     async (cursor?: string) => {
       setHistoryLoading(true);
@@ -2050,6 +2382,15 @@ export function AgentChatPanel() {
     () => getSessionContextKey(sessionWorkspaceId, sessionProjectId, chatMode),
     [sessionWorkspaceId, sessionProjectId, chatMode]
   );
+  const queueKey = React.useMemo(
+    () => getAgentPromptQueueKey(sessionWorkspaceId, sessionProjectId, chatMode),
+    [sessionWorkspaceId, sessionProjectId, chatMode]
+  );
+  const queuedPrompts = useMemo(
+    () => agentChatPromptQueues[queueKey] ?? [],
+    [agentChatPromptQueues, queueKey]
+  );
+  const queuedPromptHead = queuedPrompts[0] ?? null;
 
   // Compute effective session IDs for a given mode (wiki_ask in workspace → project context)
   const getEffectiveIds = useCallback((mode: AgentChatMode) => {
@@ -2382,37 +2723,77 @@ export function AgentChatPanel() {
     }
   }, [isAgentChatOpen, isConnecting, loadingAgents, hasLoadedAgents, installedAgents.length, registryId, refreshAgents]);
 
-  // Handle forced new session even if already connected (e.g. from Code Review Dialog)
-  useEffect(() => {
-    if (isAgentChatOpen && isConnected) {
-      const pendingPrompt = peekPendingAgentChatPrompt();
-      if (pendingPrompt?.forceNewSession && !forcedDisconnectDoneRef.current) {
-        // Mark that we've handled this forced disconnect so we don't fire again
-        // when the NEW session connects (the prompt is still in the store until consumed).
-        forcedDisconnectDoneRef.current = true;
-        // Disconnect and clear state so the auto-connect effect can start a fresh session.
-        disconnect();
-        setEntries([]);
-        setCurrentPlan(null);
-        setPendingPermission(null);
-        setSessionTitle(null);
-        setSessionTitleSource(null);
-        setIsAutoGeneratingTitle(false);
-        setShouldScrambleAutoTitle(false);
-        setIsResumedSession(false);
-        setWaitingForResponse(false);
-        stoppedRef.current = false;
-        autoResumeTriedRef.current = null;
-        autoStartHandledRef.current = false;
-        restoreAttemptedRef.current = true; // Don't try to restore the old session
-      }
+  const sendQueuedPrompt = useCallback((item: QueuedAgentPrompt) => {
+    let finalPrompt = item.prompt;
+    if (item.mode === "wiki_ask") {
+      finalPrompt = `You are in Wiki Ask mode. Prioritize information from the project's generated wiki content under .atmos/wiki. If the wiki does not contain enough context, state that clearly.\n\nUser question:\n${item.prompt}`;
     }
-  }, [isAgentChatOpen, isConnected, pendingAgentChatPrompt, peekPendingAgentChatPrompt, disconnect]);
+
+    const sent = sendPrompt(finalPrompt);
+    if (!sent) return false;
+
+    removeQueuedAgentChatPrompt(item.id);
+    dispatchingQueuedPromptIdRef.current = null;
+    forcedDisconnectDoneRef.current = false;
+    stoppedRef.current = false;
+    setWaitingForResponse(true);
+    setCurrentPlan(null);
+    setEntries((prev) => [
+      ...prev,
+      {
+        role: "user" as const,
+        content: item.displayPrompt ?? item.prompt,
+        files: item.files,
+      },
+    ]);
+
+    if (item.sessionTitle && sessionId) {
+      setSessionTitle(item.sessionTitle);
+      setSessionTitleSource("user");
+      setIsAutoGeneratingTitle(false);
+      setShouldScrambleAutoTitle(false);
+      void agentRestApi.updateSessionTitle(sessionId, item.sessionTitle).catch(() => { });
+    }
+    return true;
+  }, [removeQueuedAgentChatPrompt, sendPrompt, sessionId]);
 
   useEffect(() => {
+    if (!isAgentChatOpen || !isConnected || !queuedPromptHead?.forceNewSession) return;
+    if (agentActivity.busy || waitingForResponse || pendingPermission || isConnecting) return;
+    if (forcedDisconnectDoneRef.current) return;
+
+    dispatchingQueuedPromptIdRef.current = queuedPromptHead.id;
+    forcedDisconnectDoneRef.current = true;
+    disconnect();
+    setEntries([]);
+    setCurrentPlan(null);
+    setPendingPermission(null);
+    setSessionTitle(null);
+    setSessionTitleSource(null);
+    setIsAutoGeneratingTitle(false);
+    setShouldScrambleAutoTitle(false);
+    setIsResumedSession(false);
+    setWaitingForResponse(false);
+    stoppedRef.current = false;
+    autoResumeTriedRef.current = null;
+    autoStartHandledRef.current = false;
+    restoreAttemptedRef.current = true;
+  }, [
+    agentActivity.busy,
+    disconnect,
+    isAgentChatOpen,
+    isConnected,
+    isConnecting,
+    pendingPermission,
+    queuedPromptHead,
+    waitingForResponse,
+  ]);
+
+  useEffect(() => {
+    const effectiveRegistryId = queuedPromptHead?.registryId || defaultRegistryId || registryId;
     if (
       isAgentChatOpen &&
-      registryId &&
+      effectiveRegistryId &&
       installedAgents.length > 0 &&
       !isConnected &&
       !isConnecting
@@ -2422,8 +2803,9 @@ export function AgentChatPanel() {
         return;
       }
 
-      const pendingPrompt = peekPendingAgentChatPrompt();
-      const forcedRegistryId = pendingPrompt?.forceNewSession ? pendingPrompt.registryId : undefined;
+      const forcedRegistryId = queuedPromptHead?.forceNewSession
+        ? effectiveRegistryId
+        : undefined;
 
       if (forcedRegistryId) {
         autoStartHandledRef.current = true;
@@ -2432,8 +2814,8 @@ export function AgentChatPanel() {
         setEntries([]);
         setCurrentPlan(null);
         setPendingPermission(null);
-        setSessionTitle(pendingPrompt?.sessionTitle ?? null);
-        setSessionTitleSource(pendingPrompt?.sessionTitle ? "user" : null);
+        setSessionTitle(queuedPromptHead?.sessionTitle ?? null);
+        setSessionTitleSource(queuedPromptHead?.sessionTitle ? "user" : null);
         setIsAutoGeneratingTitle(false);
         setShouldScrambleAutoTitle(false);
         if (registryId !== forcedRegistryId) {
@@ -2535,6 +2917,7 @@ export function AgentChatPanel() {
     activeSessionByContext,
     chatMode,
     contextKey,
+    defaultRegistryId,
     isAgentChatOpen,
     sessionProjectId,
     registryId,
@@ -2543,9 +2926,8 @@ export function AgentChatPanel() {
     isConnecting,
     resumeSession,
     startSession,
-    peekPendingAgentChatPrompt,
-    pendingAgentChatPrompt,
     sessionWorkspaceId,
+    queuedPromptHead,
   ]);
 
   // When we successfully connect to a session, mark it as "already tried" so
@@ -2557,38 +2939,31 @@ export function AgentChatPanel() {
     }
   }, [isConnected, sessionId]);
 
-  // Handle auto-starting a pending prompt (e.g. from Code Review Dialog) once connected.
-  // Also fires when pendingAgentChatPrompt changes while already connected (e.g. commit
-  // message generation reusing the existing session).
   useEffect(() => {
-    if (isConnected && connectionPhase === "connected") {
-      const data = consumePendingAgentChatPrompt();
-      if (data && data.prompt) {
-        // Try to send – if the WebSocket was already torn down by a concurrent
-        // forced-disconnect effect (race condition), restore the prompt so it
-        // can be picked up once the new session connects.
-        const sent = sendPrompt(data.prompt);
-        if (!sent) {
-          setPendingAgentChatPrompt(data);
-          return;
-        }
-        forcedDisconnectDoneRef.current = false;
-        // Persist sessionTitle from the pending prompt (e.g. CodeReview / GitCommit titles)
-        if (data.sessionTitle && sessionId) {
-          setSessionTitle(data.sessionTitle);
-          setSessionTitleSource("user");
-          setIsAutoGeneratingTitle(false);
-          setShouldScrambleAutoTitle(false);
-          void agentRestApi.updateSessionTitle(sessionId, data.sessionTitle).catch(() => { });
-        }
-        setEntries((prev) => [
-          ...prev,
-          { role: "user" as const, content: data.prompt },
-        ]);
-        setWaitingForResponse(true);
-      }
+    if (!isAgentChatOpen || !queuedPromptHead) {
+      dispatchingQueuedPromptIdRef.current = null;
+      return;
     }
-  }, [isConnected, connectionPhase, sendPrompt, consumePendingAgentChatPrompt, setPendingAgentChatPrompt, pendingAgentChatPrompt, sessionId]);
+    if (!isConnected || connectionPhase !== "connected") return;
+    if (agentActivity.busy || waitingForResponse || pendingPermission || isConnecting) return;
+    if (queuedPromptHead.forceNewSession && !forcedDisconnectDoneRef.current) return;
+
+    dispatchingQueuedPromptIdRef.current = queuedPromptHead.id;
+    const sent = sendQueuedPrompt(queuedPromptHead);
+    if (!sent) {
+      dispatchingQueuedPromptIdRef.current = null;
+    }
+  }, [
+    agentActivity.busy,
+    connectionPhase,
+    isAgentChatOpen,
+    isConnected,
+    isConnecting,
+    pendingPermission,
+    queuedPromptHead,
+    sendQueuedPrompt,
+    waitingForResponse,
+  ]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -2637,11 +3012,6 @@ export function AgentChatPanel() {
     [entries]
   );
 
-  const agentActivity = useMemo(
-    () => deriveAgentActivity(entries, waitingForResponse),
-    [entries, waitingForResponse]
-  );
-
   const scrollToMessage = useCallback((messageIndex: number) => {
     const el = conversationRef.current?.querySelector(
       `[data-entry-index="${messageIndex}"]`
@@ -2679,41 +3049,27 @@ export function AgentChatPanel() {
       const text = message.text.trim();
       if (!text || !isConnected) return;
       stoppedRef.current = false;
-      if (entries.length === 0) {
+      const displayFiles = message.files?.map((f, i) => ({ ...f, id: `f-${Date.now()}-${i}` }));
+      let sessionTitleForPrompt: string | undefined;
+      if (entries.length === 0 && queuedPrompts.length === 0) {
         if (chatMode === "wiki_ask") {
           const projName = (wikiPath ?? localPath)?.split("/").pop() ?? "Project";
           const now = new Date();
           const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-          const title = `${projName}_WikiAsk_${ts}`;
-          setSessionTitle(title);
+          sessionTitleForPrompt = `${projName}_WikiAsk_${ts}`;
+          setSessionTitle(sessionTitleForPrompt);
           setSessionTitleSource("user");
           setIsAutoGeneratingTitle(false);
           setShouldScrambleAutoTitle(false);
-          if (sessionId) {
-            void agentRestApi.updateSessionTitle(sessionId, title).catch(() => { });
-          }
-        } else if (!sessionTitle || sessionTitle === "新会话") {
+        } else {
           setSessionTitle(null);
           setSessionTitleSource("auto");
           setIsAutoGeneratingTitle(true);
           setShouldScrambleAutoTitle(false);
         }
       }
-      setWaitingForResponse(true);
-      setCurrentPlan(null);
-      setEntries((prev) => [
-        ...prev,
-        {
-          role: "user" as const,
-          content: text,
-          files: message.files?.map((f, i) => ({ ...f, id: `f-${Date.now()}-${i}` })),
-        },
-      ]);
-
-      const modeWrappedPrompt = chatMode === "wiki_ask"
-        ? `You are in Wiki Ask mode. Prioritize information from the project's generated wiki content under .atmos/wiki. If the wiki does not contain enough context, state that clearly.\n\nUser question:\n${text}`
-        : text;
-      let finalPrompt = modeWrappedPrompt;
+      let finalPrompt = text;
+      let attachmentPaths: string[] | undefined;
 
       const uploadPath = localPath ?? sessionCwd;
       if (message.files && message.files.length > 0 && uploadPath) {
@@ -2726,18 +3082,37 @@ export function AgentChatPanel() {
               mediaType: f.mediaType,
             }))
           );
-          if (paths.length > 0) {
-            const attachmentInfo = paths.map((p) => `- ${p}`).join("\n");
-            finalPrompt = `${modeWrappedPrompt}\n\n[Attached files have been saved to the following paths, please read them to understand the content:]\n${attachmentInfo}`;
-          }
+          attachmentPaths = paths.length > 0 ? paths : undefined;
+          finalPrompt = buildQueuedAgentPromptContent(text, attachmentPaths);
         } catch (err) {
           console.error("Failed to upload attachments:", err);
         }
       }
 
-      sendPrompt(finalPrompt);
+      enqueueAgentChatPrompt({
+        prompt: finalPrompt,
+        displayPrompt: text,
+        attachmentPaths,
+        files: displayFiles,
+        workspaceId: sessionWorkspaceId,
+        projectId: sessionProjectId,
+        mode: chatMode,
+        sessionTitle: sessionTitleForPrompt,
+        origin: "panel",
+      });
     },
-    [chatMode, entries.length, isConnected, localPath, sendPrompt, sessionCwd, sessionId, sessionTitle, wikiPath]
+    [
+      chatMode,
+      enqueueAgentChatPrompt,
+      entries.length,
+      isConnected,
+      localPath,
+      queuedPrompts.length,
+      sessionCwd,
+      sessionProjectId,
+      sessionWorkspaceId,
+      wikiPath,
+    ]
   );
 
   const handleClose = useCallback(() => {
@@ -2842,7 +3217,7 @@ export function AgentChatPanel() {
   return (
     <div
       ref={panelRef}
-      className="fixed z-50 flex flex-col rounded-xl border border-border bg-background shadow-lg"
+      className="fixed z-50 flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-lg"
       style={{ left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }}
     >
       {/* Resize handles */}
@@ -3336,148 +3711,160 @@ export function AgentChatPanel() {
         </Conversation>
       </div>
 
-      {pendingPermission && (
-        <div className="shrink-0 border-t border-border p-3">
-          <Confirmation
-            approval={{ id: pendingPermission.request_id }}
-            state="approval-requested"
-            className="relative overflow-hidden border-foreground/20 bg-background"
-          >
-            <ShineBorder
-              duration={7}
-              borderWidth={1}
-              shineColor={["#d97706", "#b45309"]}
-            />
-            <ConfirmationRequest>
-              <span className="font-medium text-amber-500">Permission requested</span>
-              <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
-                {pendingPermission.description}
-              </p>
-              {pendingPermissionMarkdown ? (
-                <div className="mt-2 min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/20">
-                  <div className="max-h-[45vh] min-w-0 max-w-full overflow-auto px-3 py-1.5 text-sm">
-                    <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
-                    {pendingPermissionMarkdown}
-                    </MarkdownRenderer>
+      <div className="flex min-h-0 shrink flex-col overflow-y-auto overscroll-contain">
+        {pendingPermission && (
+          <div className="shrink-0 border-t border-border p-3">
+            <Confirmation
+              approval={{ id: pendingPermission.request_id }}
+              state="approval-requested"
+              className="relative overflow-hidden border-foreground/20 bg-background"
+            >
+              <ShineBorder
+                duration={7}
+                borderWidth={1}
+                shineColor={["#d97706", "#b45309"]}
+              />
+              <ConfirmationRequest>
+                <span className="font-medium text-amber-500">Permission requested</span>
+                <p className="mt-1 text-sm text-muted-foreground break-all max-w-full">
+                  {pendingPermission.description}
+                </p>
+                {pendingPermissionMarkdown ? (
+                  <div className="mt-2 min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/20">
+                    <div className="max-h-[45vh] min-w-0 max-w-full overflow-auto px-3 py-1.5 text-sm">
+                      <MarkdownRenderer className="prose-sm min-w-0 max-w-full overflow-hidden [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre [&_.not-prose]:max-w-full [&_.not-prose]:overflow-x-auto">
+                      {pendingPermissionMarkdown}
+                      </MarkdownRenderer>
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </ConfirmationRequest>
-            <ConfirmationActions className="mt-1 w-full min-w-0 flex-nowrap justify-start self-stretch overflow-hidden">
-              {pendingPermission.options.length > 0 ? (
-                pendingPermission.options.map((opt) => (
-                  <PermissionActionButton
-                    key={opt.option_id}
-                    label={opt.name}
-                    variant={opt.kind.startsWith("allow") ? "default" : "outline"}
-                    onClick={() => handlePermission(opt.kind)}
-                  />
-                ))
-              ) : (
-                <>
-                  <PermissionActionButton
-                    label="Deny"
-                    variant="outline"
-                    onClick={() => handlePermission("reject_once")}
-                  />
-                  <PermissionActionButton
-                    label="Allow"
-                    onClick={() => handlePermission("allow_once")}
-                  />
-                </>
-              )}
-            </ConfirmationActions>
-          </Confirmation>
-        </div>
-      )}
-
-      <div className="shrink-0 px-3 pb-3 pt-px select-none">
-        {currentPlan && (
-          <div className="mx-auto w-[96%]">
-            <PlanBlockView plan={currentPlan} docked defaultOpen={!isResumedSession} />
+                ) : null}
+              </ConfirmationRequest>
+              <ConfirmationActions className="mt-1 w-full min-w-0 flex-nowrap justify-start self-stretch overflow-hidden">
+                {pendingPermission.options.length > 0 ? (
+                  pendingPermission.options.map((opt) => (
+                    <PermissionActionButton
+                      key={opt.option_id}
+                      label={opt.name}
+                      variant={opt.kind.startsWith("allow") ? "default" : "outline"}
+                      onClick={() => handlePermission(opt.kind)}
+                    />
+                  ))
+                ) : (
+                  <>
+                    <PermissionActionButton
+                      label="Deny"
+                      variant="outline"
+                      onClick={() => handlePermission("reject_once")}
+                    />
+                    <PermissionActionButton
+                      label="Allow"
+                      onClick={() => handlePermission("allow_once")}
+                    />
+                  </>
+                )}
+              </ConfirmationActions>
+            </Confirmation>
           </div>
         )}
-        <PromptInput
-          onSubmit={(msg) => handleSubmit({ text: msg.text, files: msg.files })}
-          className={`w-full border-0 shadow-none rounded-none ${currentPlan ? "rounded-t-none" : "rounded-t-xl"}`}
-          multiple
-        >
-          <PromptInputAttachmentsSection />
-          <PromptInputBody>
-            <PromptInputTextarea
-              placeholder={
-                isConnected && !pendingAgentChatPrompt?.forceNewSession
-                  ? (chatMode === "wiki_ask" ? "Ask about this wiki..." : "Type a message...")
-                  : "Select agent to connect"
-              }
-              disabled={!isConnected || !!pendingAgentChatPrompt?.forceNewSession}
-            />
-          </PromptInputBody>
-          <PromptInputFooter>
-            <PromptInputTools>
-              <PromptInputAddAttachmentsButton />
-              {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
-                <span className="px-2 text-xs text-muted-foreground">No agent</span>
-              ) : null}
-            </PromptInputTools>
-            <div className="flex items-center gap-2">
-              {configOptions?.length > 0 && isConnected && (
-                <div className="flex items-center gap-2">
-                  {configOptions
-                    .filter(opt => opt.type === 'select' && opt.options.length > 0)
-                    .map(opt => (
-                      <ConfigOptionDropdown
-                        key={opt.id}
-                        opt={opt}
-                        registryId={registryId}
-                        activeAgent={activeAgent}
-                        setConfigOption={setConfigOption}
-                        setAgentDefaultConfig={setAgentDefaultConfig}
-                        setInstalledAgents={setInstalledAgents}
-                      />
-                    ))}
+
+        <div className="shrink-0 px-3 pb-3 pt-px select-none">
+          {(currentPlan || queuedPrompts.length > 0) && (
+            <div className="mx-auto w-[96%] overflow-hidden rounded-t-2xl border border-border/70 border-b-0 bg-background/95">
+              {currentPlan && (
+                <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
+                  <PlanBlockView plan={currentPlan} embedded defaultOpen={!isResumedSession} />
                 </div>
               )}
-              <PromptInputSubmit
-                status={agentActivity.busy ? "streaming" : undefined}
-                onStop={
-                  agentActivity.busy
-                    ? () => {
-                      // Stop receiving output and send cancel to agent
-                      stoppedRef.current = true;
-                      sendCancel();
-                      setWaitingForResponse(false);
-                      // Mark streaming done and any running tool calls as completed
-                      setEntries((prev) => {
-                        const last = prev[prev.length - 1];
-                        if (last?.role === "assistant") {
-                          const updatedBlocks = last.blocks.map((block) =>
-                            block.type === "tool_call" && block.status === "running"
-                              ? { ...block, status: "completed" as const }
-                              : block
-                          );
-                          return [
-                            ...prev.slice(0, -1),
-                            { ...last, isStreaming: false, blocks: updatedBlocks },
-                          ];
-                        }
-                        return prev;
-                      });
-                    }
-                    : undefined
+              {queuedPrompts.length > 0 && (
+                <MessageQueueDock
+                  items={queuedPrompts}
+                  onRemove={removeQueuedAgentChatPrompt}
+                  onUpdatePrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}
+                  onMove={moveQueuedAgentChatPrompt}
+                />
+              )}
+            </div>
+          )}
+          <PromptInput
+            onSubmit={(msg) => handleSubmit({ text: msg.text, files: msg.files })}
+            className={`w-full border-0 shadow-none rounded-none ${(currentPlan || queuedPrompts.length > 0) ? "rounded-t-none" : "rounded-t-xl"}`}
+            multiple
+          >
+            <PromptInputAttachmentsSection />
+            <PromptInputBody>
+              <PromptInputTextarea
+                placeholder={
+                  isConnected
+                    ? (chatMode === "wiki_ask" ? "Ask about this wiki..." : "Type a message...")
+                    : "Select agent to connect"
                 }
                 disabled={!isConnected}
-                size={agentActivity.busy ? "sm" : "icon-sm"}
-              >
-                {agentActivity.busy ? (
-                  <span className="flex items-center gap-1.5">
-                    <Square className="size-4 shrink-0" />
-                  </span>
-                ) : undefined}
-              </PromptInputSubmit>
-            </div>
-          </PromptInputFooter>
-        </PromptInput>
+              />
+            </PromptInputBody>
+            <PromptInputFooter>
+              <PromptInputTools>
+                <PromptInputAddAttachmentsButton />
+                {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
+                  <span className="px-2 text-xs text-muted-foreground">No agent</span>
+                ) : null}
+              </PromptInputTools>
+              <div className="flex items-center gap-2">
+                {configOptions?.length > 0 && isConnected && (
+                  <div className="flex items-center gap-2">
+                    {configOptions
+                      .filter(opt => opt.type === 'select' && opt.options.length > 0)
+                      .map(opt => (
+                        <ConfigOptionDropdown
+                          key={opt.id}
+                          opt={opt}
+                          registryId={registryId}
+                          activeAgent={activeAgent}
+                          setConfigOption={setConfigOption}
+                          setAgentDefaultConfig={setAgentDefaultConfig}
+                          setInstalledAgents={setInstalledAgents}
+                        />
+                      ))}
+                  </div>
+                )}
+                <PromptInputSubmit
+                  status={agentActivity.busy ? "streaming" : undefined}
+                  onStop={
+                    agentActivity.busy
+                      ? () => {
+                        stoppedRef.current = true;
+                        sendCancel();
+                        setWaitingForResponse(false);
+                        setEntries((prev) => {
+                          const last = prev[prev.length - 1];
+                          if (last?.role === "assistant") {
+                            const updatedBlocks = last.blocks.map((block) =>
+                              block.type === "tool_call" && block.status === "running"
+                                ? { ...block, status: "completed" as const }
+                                : block
+                            );
+                            return [
+                              ...prev.slice(0, -1),
+                              { ...last, isStreaming: false, blocks: updatedBlocks },
+                            ];
+                          }
+                          return prev;
+                        });
+                      }
+                      : undefined
+                  }
+                  disabled={!isConnected}
+                  size={agentActivity.busy ? "sm" : "icon-sm"}
+                >
+                  {agentActivity.busy ? (
+                    <span className="flex items-center gap-1.5">
+                      <Square className="size-4 shrink-0" />
+                    </span>
+                  ) : undefined}
+                </PromptInputSubmit>
+              </div>
+            </PromptInputFooter>
+          </PromptInput>
+        </div>
       </div>
       <Dialog open={!!authRequest} onOpenChange={(open) => !open && clearAuthRequest()}>
         <DialogContent className="sm:max-w-md">

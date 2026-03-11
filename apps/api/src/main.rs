@@ -57,10 +57,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting ATMOS API Server...");
 
-    // Sync bundled skills and prompts to ~/.atmos on startup.
+    // Sync bundled skills to ~/.atmos on startup.
     tokio::task::spawn_blocking(|| {
         infra::utils::system_skill_sync::sync_system_skills_on_startup();
-        infra::utils::system_prompt_sync::sync_prompts_on_startup();
     });
 
     let db_connection = DbConnection::new().await?;
