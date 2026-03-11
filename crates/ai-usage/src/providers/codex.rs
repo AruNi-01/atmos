@@ -20,6 +20,8 @@ struct CodexUsageResponse {
     rate_limit: Option<CodexRateLimit>,
     #[serde(default, rename = "code_review_rate_limit")]
     code_review_rate_limit: Option<CodexRateLimit>,
+    #[serde(default, rename = "additional_rate_limits")]
+    additional_rate_limits: Option<Vec<CodexAdditionalRateLimit>>,
     #[serde(default)]
     credits: Option<CodexCredits>,
 }
@@ -38,8 +40,18 @@ struct CodexWindow {
     used_percent: Option<f64>,
     #[serde(default, rename = "reset_at")]
     reset_at: Option<u64>,
+    #[serde(default, rename = "reset_after_seconds")]
+    reset_after_seconds: Option<u64>,
     #[serde(default, rename = "limit_window_seconds")]
     limit_window_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CodexAdditionalRateLimit {
+    #[serde(default, rename = "limit_name")]
+    limit_name: Option<String>,
+    #[serde(default, rename = "rate_limit")]
+    rate_limit: Option<CodexRateLimit>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -67,6 +79,7 @@ struct RefreshResponse {
 }
 
 pub(crate) async fn fetch_codex_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
+    let now = unix_now();
     let mut auth = load_codex_auth()?;
     let response = match request_usage(client, &auth).await {
         Ok(payload) => payload,
@@ -96,15 +109,15 @@ pub(crate) async fn fetch_codex_live(client: &Client) -> Result<LiveFetchResult,
         .as_ref()
         .and_then(|value| value.secondary_window.as_ref());
     let session_percent = session.and_then(|value| value.used_percent);
-    let session_reset = session.and_then(|value| value.reset_at);
+    let session_reset = session.and_then(|value| effective_reset_at(value, now));
     let weekly_percent = weekly.and_then(|value| value.used_percent);
-    let weekly_reset = weekly.and_then(|value| value.reset_at);
+    let weekly_reset = weekly.and_then(|value| effective_reset_at(value, now));
     let reviews = response
         .code_review_rate_limit
         .as_ref()
         .and_then(|value| value.primary_window.as_ref());
     let reviews_percent = reviews.and_then(|value| value.used_percent);
-    let reviews_reset = reviews.and_then(|value| value.reset_at);
+    let reviews_reset = reviews.and_then(|value| effective_reset_at(value, now));
 
     let plan_label = response.plan_type.clone().map(titleize);
     let credits_label = credits_label(response.credits.as_ref());
@@ -153,6 +166,16 @@ pub(crate) async fn fetch_codex_live(client: &Client) -> Result<LiveFetchResult,
                 tone: RowTone::Default,
             });
         }
+    }
+
+    if let Some(section) = detail_sections
+        .iter_mut()
+        .find(|section| section.title == "Usage")
+    {
+        section.rows.extend(build_additional_rate_limit_rows(
+            response.additional_rate_limits.as_deref(),
+            now,
+        ));
     }
 
     if let Some(credits_label) = credits_label.clone() {
@@ -345,6 +368,66 @@ fn titleize(raw: String) -> String {
         .join(" ")
 }
 
+fn build_additional_rate_limit_rows(
+    limits: Option<&[CodexAdditionalRateLimit]>,
+    now: u64,
+) -> Vec<DetailRow> {
+    let Some(limits) = limits else {
+        return Vec::new();
+    };
+
+    let mut rows = Vec::new();
+    for limit in limits {
+        let Some(rate_limit) = limit.rate_limit.as_ref() else {
+            continue;
+        };
+        let base_label = additional_limit_label(limit.limit_name.as_deref());
+
+        if let Some(window) = rate_limit.primary_window.as_ref() {
+            if let Some(percent) = window.used_percent {
+                rows.push(DetailRow {
+                    label: base_label.clone(),
+                    value: format_window(Some(percent), effective_reset_at(window, now)),
+                    tone: RowTone::Default,
+                });
+            }
+        }
+
+        if let Some(window) = rate_limit.secondary_window.as_ref() {
+            if let Some(percent) = window.used_percent {
+                rows.push(DetailRow {
+                    label: format!("{base_label} Weekly"),
+                    value: format_window(Some(percent), effective_reset_at(window, now)),
+                    tone: RowTone::Default,
+                });
+            }
+        }
+    }
+
+    rows
+}
+
+fn additional_limit_label(limit_name: Option<&str>) -> String {
+    let Some(limit_name) = limit_name.map(str::trim).filter(|value| !value.is_empty()) else {
+        return "Model".to_string();
+    };
+
+    let normalized = limit_name
+        .split_once("-Codex-")
+        .map(|(_, suffix)| suffix)
+        .unwrap_or(limit_name);
+
+    titleize(normalized.to_string())
+}
+
+fn effective_reset_at(window: &CodexWindow, now: u64) -> Option<u64> {
+    window.reset_at.or_else(|| {
+        window
+            .reset_after_seconds
+            .map(|seconds| now.saturating_add(seconds))
+    })
+}
+
 fn credits_label(credits: Option<&CodexCredits>) -> Option<String> {
     let credits = credits?;
     if credits.unlimited == Some(true) {
@@ -370,4 +453,54 @@ fn format_window(percent: Option<f64>, reset_at: Option<u64>) -> String {
         "{percent:.0}% used · {}",
         format_reset_relative_text(reset_at)
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        additional_limit_label, build_additional_rate_limit_rows, CodexAdditionalRateLimit,
+        CodexRateLimit, CodexWindow,
+    };
+
+    #[test]
+    fn normalizes_spark_additional_limit_names() {
+        assert_eq!(additional_limit_label(Some("GPT-5.3-Codex-Spark")), "Spark");
+        assert_eq!(additional_limit_label(Some("GPT-5-Codex-Spark")), "Spark");
+    }
+
+    #[test]
+    fn falls_back_for_missing_additional_limit_name() {
+        assert_eq!(additional_limit_label(Some("")), "Model");
+        assert_eq!(additional_limit_label(None), "Model");
+    }
+
+    #[test]
+    fn builds_spark_rows_from_additional_rate_limits() {
+        let rows = build_additional_rate_limit_rows(
+            Some(&[CodexAdditionalRateLimit {
+                limit_name: Some("GPT-5.3-Codex-Spark".to_string()),
+                rate_limit: Some(CodexRateLimit {
+                    primary_window: Some(CodexWindow {
+                        used_percent: Some(12.0),
+                        reset_at: Some(1_800_000_000),
+                        reset_after_seconds: None,
+                        limit_window_seconds: Some(18_000),
+                    }),
+                    secondary_window: Some(CodexWindow {
+                        used_percent: Some(34.0),
+                        reset_at: Some(1_800_600_000),
+                        reset_after_seconds: None,
+                        limit_window_seconds: Some(604_800),
+                    }),
+                }),
+            }]),
+            1_700_000_000,
+        );
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].label, "Spark");
+        assert!(rows[0].value.contains("12% used"));
+        assert_eq!(rows[1].label, "Spark Weekly");
+        assert!(rows[1].value.contains("34% used"));
+    }
 }
