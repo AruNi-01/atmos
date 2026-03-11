@@ -733,6 +733,30 @@ function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [isToolUsesOpen, setIsToolUsesOpen] = useState(false);
   const toolUsesLabel = `${message.childToolCalls.length} tool use${message.childToolCalls.length === 1 ? "" : "s"}`;
+  const hasDetails = message.detailMode !== "status_only" && (
+    !!message.prompt ||
+    message.childToolCalls.length > 0 ||
+    message.contentBlocks.length > 0 ||
+    !!message.resultMarkdown ||
+    message.labels.length > 0
+  );
+  const statusLabel = message.status === "running" ? "Running" : message.status === "failed" ? "Failed" : "Completed";
+
+  if (!hasDetails) {
+    return (
+      <div className="w-full overflow-hidden rounded-xl border border-border/70 bg-muted/10 shadow-sm">
+        <div className="flex items-center gap-3 px-4 py-3 text-left">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="text-sm font-semibold text-foreground">{message.title}</span>
+            <span className="truncate text-xs text-muted-foreground">{message.description}</span>
+          </div>
+          <span className="shrink-0 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full overflow-hidden rounded-xl border border-border/70 bg-muted/10 shadow-sm">
@@ -746,7 +770,7 @@ function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
             <span className="truncate text-xs text-muted-foreground">{message.description}</span>
           </div>
           <span className="shrink-0 rounded-full border border-border/60 bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-            {message.status === "running" ? "Running" : message.status === "failed" ? "Failed" : "Completed"}
+            {statusLabel}
           </span>
           <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
         </button>
