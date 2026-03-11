@@ -9,6 +9,7 @@ import {
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { useAppStorage } from "@atmos/shared";
+import { useContextParams } from "@/hooks/use-context-params";
 
 interface PanelLayoutProps {
   leftSidebar: React.ReactNode;
@@ -22,8 +23,10 @@ export function PanelLayout({
   centerStage,
 }: PanelLayoutProps) {
   const storage = useAppStorage();
+  const { currentView } = useContextParams();
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
+  const showRightSidebar = currentView === "project" || currentView === "workspace";
 
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
@@ -60,32 +63,36 @@ export function PanelLayout({
       />
 
       {/* Center Stage */}
-      <Panel defaultSize={60} minSize={25} className="h-full">
+      <Panel defaultSize={showRightSidebar ? 60 : 80} minSize={25} className="h-full">
         {centerStage}
       </Panel>
 
-      <ResizeHandle
-        onDragging={setIsDragging}
-      />
+      {showRightSidebar ? (
+        <>
+          <ResizeHandle
+            onDragging={setIsDragging}
+          />
 
-      {/* Right Sidebar */}
-      <Panel
-        ref={rightPanelRef}
-        collapsible
-        defaultSize={20}
-        minSize={10}
-        maxSize={75}
-        collapsedSize={0}
-        onCollapse={() => setIsRightCollapsed(true)}
-        onExpand={() => setIsRightCollapsed(false)}
-        className={cn(
-          "h-full flex flex-col",
-          !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
-          isRightCollapsed && "min-w-0!"
-        )}
-      >
-        {rightSidebar}
-      </Panel>
+          {/* Right Sidebar */}
+          <Panel
+            ref={rightPanelRef}
+            collapsible
+            defaultSize={20}
+            minSize={10}
+            maxSize={75}
+            collapsedSize={0}
+            onCollapse={() => setIsRightCollapsed(true)}
+            onExpand={() => setIsRightCollapsed(false)}
+            className={cn(
+              "h-full flex flex-col",
+              !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
+              isRightCollapsed && "min-w-0!"
+            )}
+          >
+            {rightSidebar}
+          </Panel>
+        </>
+      ) : null}
     </PanelGroup>
   );
 }
