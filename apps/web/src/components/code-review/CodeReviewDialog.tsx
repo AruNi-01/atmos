@@ -163,7 +163,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   const [isStarting, setIsStarting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [, setAgentChatOpen] = useAgentChatUrl();
-  const { setPendingAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
+  const { enqueueAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
 
   // Fetch ACP agents, skills list, and system status
   useEffect(() => {
@@ -219,7 +219,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     }).finally(() => {
       setLoadingAcpAgents(false);
     });
-  }, [open]);
+  }, [acpAgentId, open]);
 
   // Auto-infer skill from changed files when dialog opens
   useEffect(() => {
@@ -319,13 +319,21 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
       const titleName = projectName || "Project";
       const sessionTitle = `${titleName}_CodeReview_${timeStr}`;
-      setPendingAgentChatPrompt({ prompt, registryId: acpAgentId, forceNewSession: true, sessionTitle });
+      enqueueAgentChatPrompt({
+        prompt,
+        workspaceId,
+        mode: "default",
+        registryId: acpAgentId,
+        forceNewSession: true,
+        sessionTitle,
+        origin: "code_review",
+      });
       setPendingAgentChatMode("default");
       onOpenChange(false);
       setAgentChatOpen(true);
       toastManager.add({
-        title: "Code Review Sent to Agent",
-        description: `Agent chat opened to run the review.`,
+        title: "Code Review Queued",
+        description: "The ACP code review prompt was added to the chat queue.",
         type: "success",
       });
     } catch (err) {
@@ -335,7 +343,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         type: "error",
       });
     }
-  }, [isStarting, buildReportPath, buildCodeReviewPrompt, skillId, acpAgentId, onOpenChange, setPendingAgentChatPrompt, setPendingAgentChatMode, setAgentChatOpen]);
+  }, [isStarting, buildReportPath, skillId, acpAgentId, enqueueAgentChatPrompt, onOpenChange, setPendingAgentChatMode, setAgentChatOpen, projectName, workspaceId]);
 
   const handleSyncSkills = useCallback(async () => {
     if (isSyncing) return;
