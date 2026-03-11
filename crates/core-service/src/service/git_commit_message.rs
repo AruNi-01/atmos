@@ -1,6 +1,10 @@
 use core_engine::{ChangedFileInfo, ChangedFilesInfo};
-use llm::{generate_text, FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat};
-use tracing::warn;
+use llm::{
+    generate_text, generate_text_stream, FileLlmConfigStore, GenerateTextRequest, LlmFeature,
+    ResponseFormat,
+};
+use tokio::sync::mpsc;
+use tracing::{info, warn};
 
 use crate::error::{Result, ServiceError};
 
@@ -9,6 +13,7 @@ const MAX_COMMIT_MESSAGE_CHARS: usize = 1_200;
 const MAX_FILES_IN_PROMPT: usize = 48;
 const MAX_FILE_PATH_CHARS: usize = 120;
 const MAX_FILES_SUMMARY_CHARS: usize = 4_000;
+const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 4096;
 
 pub struct GitCommitMessageGenerator {
     store: FileLlmConfigStore,
@@ -61,7 +66,7 @@ impl GitCommitMessageGenerator {
             system: Some(system_prompt),
             prompt,
             temperature: Some(0.1),
-            max_output_tokens: Some(120),
+            max_output_tokens: Some(resolve_max_output_tokens(provider.max_output_tokens)),
             response_format: ResponseFormat::Text,
         };
 
@@ -84,6 +89,67 @@ impl GitCommitMessageGenerator {
             )
         })
     }
+
+    pub async fn generate_stream(
+        &self,
+        repo_name: Option<&str>,
+        changes: &ChangedFilesInfo,
+    ) -> Result<mpsc::Receiver<std::result::Result<String, llm::LlmError>>> {
+        if let Err(error) = tokio::task::spawn_blocking(
+            infra::utils::system_prompt_sync::sync_git_commit_prompt_if_missing,
+        )
+        .await
+        .map_err(|join_error| {
+            ServiceError::Processing(format!(
+                "Failed to join git commit prompt sync task: {join_error}"
+            ))
+        })? {
+            warn!("git commit prompt sync failed: {}", error);
+        }
+
+        let provider = self
+            .store
+            .resolve_for_feature(LlmFeature::GitCommit)
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to resolve git commit provider: {error}"))
+            })?
+            .ok_or_else(|| {
+                ServiceError::Validation(
+                    "No LLM provider is enabled for git commit message generation".to_string(),
+                )
+            })?;
+
+        info!(
+            provider_id = %provider.id,
+            model = %provider.model,
+            kind = ?provider.kind,
+            repo_name = %sanitize_prompt_text(repo_name.unwrap_or("unknown")),
+            "resolved git commit message provider"
+        );
+
+        let prompt = build_generation_prompt(repo_name, changes);
+        let system_prompt = self.store.load_git_commit_prompt().map_err(|error| {
+            ServiceError::Validation(format!("Failed to load git commit prompt: {error}"))
+        })?;
+        let request = GenerateTextRequest {
+            system: Some(system_prompt),
+            prompt,
+            temperature: Some(0.1),
+            max_output_tokens: Some(resolve_max_output_tokens(provider.max_output_tokens)),
+            response_format: ResponseFormat::Text,
+        };
+
+        let rx = generate_text_stream(&provider, request)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!(
+                    "Failed to start streaming git commit message: {error}"
+                ))
+            })?;
+
+        Ok(rx)
+    }
+
 }
 
 fn build_generation_prompt(repo_name: Option<&str>, changes: &ChangedFilesInfo) -> String {
@@ -280,9 +346,16 @@ fn truncate_commit_message(value: &str) -> String {
     truncated.trim_end().to_string()
 }
 
+fn resolve_max_output_tokens(provider_max_output_tokens: Option<u32>) -> u32 {
+    provider_max_output_tokens.unwrap_or(DEFAULT_MAX_OUTPUT_TOKENS)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{prompt_preview, sanitize_commit_message, sanitize_prompt_text, summarize_files};
+    use super::{
+        prompt_preview, resolve_max_output_tokens, sanitize_commit_message, sanitize_prompt_text,
+        summarize_files, DEFAULT_MAX_OUTPUT_TOKENS,
+    };
     use core_engine::ChangedFileInfo;
 
     #[test]
@@ -337,5 +410,14 @@ mod tests {
         let preview = prompt_preview("line 1\nline 2\tline 3");
         assert_eq!(preview, "line 1 line 2 line 3");
         assert!(!preview.contains('…'));
+    }
+
+    #[test]
+    fn resolve_max_output_tokens_prefers_provider_config() {
+        assert_eq!(resolve_max_output_tokens(Some(1024)), 1024);
+        assert_eq!(
+            resolve_max_output_tokens(None),
+            DEFAULT_MAX_OUTPUT_TOKENS
+        );
     }
 }

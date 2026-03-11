@@ -4,7 +4,7 @@ pub mod error;
 pub mod providers;
 pub mod types;
 
-pub use client::{generate_text, LlmClient};
+pub use client::{generate_text, generate_text_stream, LlmClient};
 pub use config::{default_git_commit_prompt, FileLlmConfigStore};
 pub use error::{LlmError, Result};
 pub use types::{

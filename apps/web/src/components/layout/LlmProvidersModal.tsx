@@ -11,6 +11,8 @@ import {
   BrainCircuit,
   Check,
   ChevronDown,
+  Copy,
+  FilePenLine,
   LoaderCircle,
   Plus,
   Save,
@@ -29,6 +31,9 @@ import {
   DialogTitle,
   Input,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   ScrollArea,
   Select,
   SelectContent,
@@ -36,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Skeleton,
   Textarea,
   cn,
   toastManager,
@@ -64,7 +70,6 @@ type ProviderDraft = {
 };
 
 type RoutingDraft = {
-  default_provider: string | null;
   features: LlmFeatureBindings;
 };
 
@@ -84,7 +89,6 @@ const EMPTY_CONFIG: LlmProvidersFile = {
 };
 
 const EMPTY_ROUTING: RoutingDraft = {
-  default_provider: null,
   features: {},
 };
 
@@ -196,7 +200,7 @@ function slugifyProviderId(value: string): string {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/[^a-z0-9.]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
 
@@ -313,7 +317,6 @@ function validateRouting(
 ): string | null {
   const clientKeys = new Set(providers.map((provider) => provider.clientKey));
   for (const selected of [
-    routing.default_provider,
     routing.features.session_title ?? null,
     routing.features.git_commit ?? null,
   ]) {
@@ -352,9 +355,6 @@ function fileToModalState(config: LlmProvidersFile): ModalDraftState {
     version: config.version ?? 1,
     providers,
     routing: {
-      default_provider: config.default_provider
-        ? (persistedToClientKey.get(config.default_provider) ?? null)
-        : null,
       features: {
         session_title: config.features?.session_title
           ? (persistedToClientKey.get(config.features.session_title) ?? null)
@@ -399,9 +399,7 @@ function modalStateToFile(state: ModalDraftState): LlmProvidersFile {
 
   return {
     version: state.version || 1,
-    default_provider: state.routing.default_provider
-      ? (providerIdMap.get(state.routing.default_provider) ?? null)
-      : null,
+    default_provider: null,
     features: {
       session_title: state.routing.features.session_title
         ? (providerIdMap.get(state.routing.features.session_title) ?? null)
@@ -465,7 +463,9 @@ export function LlmProvidersModal({
   const [promptSaveState, setPromptSaveState] = useState<SaveState>("idle");
   const [providerNameTouched, setProviderNameTouched] = useState(false);
   const [providerSaveAttempted, setProviderSaveAttempted] = useState(false);
-  const [routingExpanded, setRoutingExpanded] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [providersExpanded, setProvidersExpanded] = useState(true);
+  const [routingExpanded, setRoutingExpanded] = useState(true);
   const [gitCommitPromptOpen, setGitCommitPromptOpen] = useState(false);
   const [gitCommitPromptPathValue, setGitCommitPromptPathValue] =
     useState<string>("");
@@ -513,8 +513,8 @@ export function LlmProvidersModal({
   );
 
   const loadConfig = useCallback(
-    async (preferredPersistedId?: string | null) => {
-      setLoading(true);
+    async (preferredPersistedId?: string | null, silent = false) => {
+      if (!silent) setLoading(true);
       try {
         const config = await llmProvidersApi.get();
         const nextState = fileToModalState(config);
@@ -550,7 +550,7 @@ export function LlmProvidersModal({
 
   useEffect(() => {
     if (!open) return;
-    setRoutingExpanded(false);
+    setRoutingExpanded(true);
     void loadConfig();
   }, [open, loadConfig]);
 
@@ -667,7 +667,7 @@ export function LlmProvidersModal({
       );
       setProviderSaveState("saved");
       scheduleSaveStateReset(setProviderSaveState, providerResetTimerRef);
-      await loadConfig(nextPersistedId);
+      await loadConfig(nextPersistedId, true);
     } catch (error) {
       setProviderSaveState("idle");
       toastManager.add({
@@ -734,6 +734,24 @@ export function LlmProvidersModal({
     }
   };
 
+  const handleDuplicateProvider = (provider: ProviderDraft) => {
+    const duplicatedProvider: ProviderDraft = {
+      ...provider,
+      clientKey: nextProviderClientKey(providers),
+      persistedId: "",
+      name: provider.name.trim()
+        ? `${provider.name.trim()}_duplicate`
+        : `${fallbackProviderName(provider.persistedId || "provider")}_duplicate`,
+    };
+
+    setProviders((current) => [...current, duplicatedProvider]);
+    setSelectedProviderKey(duplicatedProvider.clientKey);
+    setProviderEditor({ ...duplicatedProvider });
+    setProviderNameTouched(false);
+    setProviderSaveAttempted(false);
+    setProviderSaveState("idle");
+  };
+
   const handleDeleteProvider = async () => {
     if (!providerEditor) return;
 
@@ -750,10 +768,6 @@ export function LlmProvidersModal({
       (provider) => provider.clientKey !== providerEditor.clientKey,
     );
     const nextRouting: RoutingDraft = {
-      default_provider:
-        routingDraft.default_provider === providerEditor.clientKey
-          ? null
-          : routingDraft.default_provider,
       features: {
         session_title:
           routingDraft.features.session_title === providerEditor.clientKey
@@ -777,7 +791,7 @@ export function LlmProvidersModal({
       );
       toastManager.add({ title: "Provider deleted", type: "success" });
       const nextPersistedId = nextProviders[0]?.persistedId ?? null;
-      await loadConfig(nextPersistedId);
+      await loadConfig(nextPersistedId, true);
     } catch (error) {
       setProviderSaveState("idle");
       toastManager.add({
@@ -803,6 +817,7 @@ export function LlmProvidersModal({
       : null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="grid h-[min(900px,calc(100vh-2.5rem))] w-[min(96vw,1280px)] max-h-[calc(100vh-2.5rem)] max-w-[min(96vw,1280px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:h-[min(900px,calc(100vh-4rem))] sm:max-h-[calc(100vh-4rem)] sm:max-w-[min(96vw,1280px)]">
         <div className="relative overflow-hidden rounded-t-xl border-b border-border bg-[radial-gradient(circle_at_top_right,_hsl(var(--primary)/0.12),_transparent_40%),linear-gradient(135deg,_hsl(var(--muted)/0.9),_transparent)] px-6 py-5">
@@ -811,7 +826,7 @@ export function LlmProvidersModal({
               <div className="flex size-10 items-center justify-center rounded-2xl border border-primary/20 bg-background/70 shadow-sm backdrop-blur">
                 <BrainCircuit className="size-4 text-primary" />
               </div>
-              Lightweight AI Providers
+              LLM Providers
             </DialogTitle>
             <DialogDescription className="max-w-2xl">
               Configure optional providers for short background tasks. such as
@@ -821,115 +836,175 @@ export function LlmProvidersModal({
         </div>
 
         <div className="grid min-h-0 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)]">
+          {loading ? (
+            <>
+              {/* Left sidebar skeleton */}
+              <div className="min-h-0 border-b border-border bg-muted/20 lg:border-b-0 lg:border-r">
+                <div className="space-y-5 px-5 py-4">
+                  <div className="rounded-2xl border border-border bg-background/80 p-4 shadow-sm">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="mt-3 h-3 w-40" />
+                    <Skeleton className="mt-4 h-9 w-full rounded-lg" />
+                    <div className="mt-4 space-y-2">
+                      <Skeleton className="h-16 w-full rounded-2xl" />
+                      <Skeleton className="h-16 w-full rounded-2xl" />
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-background/80 p-4 shadow-sm">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="mt-3 h-3 w-48" />
+                    <div className="mt-4 space-y-4">
+                      <Skeleton className="h-9 w-full rounded-lg" />
+                      <Skeleton className="h-9 w-full rounded-lg" />
+                      <Skeleton className="h-9 w-full rounded-lg" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Right content skeleton */}
+              <div className="flex min-h-[420px] items-center justify-center p-10">
+                <div className="flex flex-col items-center gap-3">
+                  <Skeleton className="size-12 rounded-2xl" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
           <div className="min-h-0 border-b border-border bg-muted/20 lg:border-b-0 lg:border-r">
             <ScrollArea className="h-full">
               <div className="space-y-5 px-5 py-2">
-                <div className="rounded-2xl border border-border bg-background/80 p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                        Providers
-                      </p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Select a saved provider to edit it, or add a new one.
-                      </p>
-                    </div>
-                  </div>
+                <Collapsible
+                  open={providersExpanded}
+                  onOpenChange={setProvidersExpanded}
+                  className="rounded-2xl border border-border bg-background/80 shadow-sm"
+                >
+                  <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-2 p-4 text-left">
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                        providersExpanded && "rotate-180",
+                      )}
+                    />
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Providers
+                    </p>
+                  </CollapsibleTrigger>
 
-                  <div className="mt-4 space-y-2">
-                    {providers.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                        No saved providers yet.
-                      </div>
-                    ) : (
-                      providers.map((provider) => (
-                        <button
-                          key={provider.clientKey}
-                          type="button"
-                          onClick={() => selectProvider(provider)}
-                          className={cn(
-                            "w-full rounded-2xl border px-3 py-3 text-left transition-colors",
-                            selectedProviderKey === provider.clientKey
-                              ? "border-primary/40 bg-primary/10"
-                              : "border-border bg-background hover:bg-accent/40",
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-foreground">
-                                {providerLabel(provider)}
-                              </p>
-                              <p className="mt-1 truncate text-xs text-muted-foreground">
-                                {provider.persistedId}
-                              </p>
-                            </div>
-                            <span
-                              className={cn(
-                                "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em]",
-                                provider.enabled
-                                  ? "border-emerald-500/30 text-emerald-400"
-                                  : "border-border text-muted-foreground",
-                              )}
-                            >
-                              {provider.enabled ? "Enabled" : "Disabled"}
-                            </span>
+                  <CollapsibleContent>
+                    <div className="border-t border-border px-4 pb-4">
+                      <Button
+                        variant="outline"
+                        className="mt-4 w-full justify-start gap-2"
+                        onClick={handleAddProvider}
+                      >
+                        <Plus className="size-4" />
+                        Add provider
+                      </Button>
+
+                      <div className="mt-4 space-y-2">
+                        {providers.length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                            No saved providers yet.
                           </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    className="mt-4 w-full justify-start gap-2"
-                    onClick={handleAddProvider}
-                  >
-                    <Plus className="size-4" />
-                    Add provider
-                  </Button>
-                </div>
+                        ) : (
+                          providers.map((provider) => (
+                            <div
+                              key={provider.clientKey}
+                              className="flex items-center gap-2"
+                            >
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => selectProvider(provider)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    selectProvider(provider);
+                                  }
+                                }}
+                                className={cn(
+                                  "min-w-0 flex-1 cursor-pointer rounded-2xl border px-3 py-3 text-left transition-colors",
+                                  selectedProviderKey === provider.clientKey
+                                    ? "border-primary/40 bg-primary/10"
+                                    : "border-border bg-background hover:bg-accent/40",
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium text-foreground">
+                                      {providerLabel(provider)}
+                                    </p>
+                                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                                      {provider.persistedId}
+                                    </p>
+                                  </div>
+                                  <div
+                                    className="flex items-center gap-1.5"
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    <Switch
+                                      checked={provider.enabled}
+                                      onCheckedChange={(checked) => {
+                                        setProviders((current) =>
+                                          current.map((item) =>
+                                            item.clientKey ===
+                                            provider.clientKey
+                                              ? { ...item, enabled: checked }
+                                              : item,
+                                          ),
+                                        );
+                                        setProviderEditor((current) =>
+                                          current?.clientKey ===
+                                          provider.clientKey
+                                            ? { ...current, enabled: checked }
+                                            : current,
+                                        );
+                                      }}
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-8 shrink-0 rounded-xl text-muted-foreground hover:text-foreground"
+                                      onClick={() =>
+                                        handleDuplicateProvider(provider)
+                                      }
+                                    >
+                                      <Copy className="size-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
 
                 <Collapsible
                   open={routingExpanded}
                   onOpenChange={setRoutingExpanded}
                   className="rounded-2xl border border-border bg-background/80 shadow-sm"
                 >
-                  <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 p-4 text-left">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                        Routing
-                      </p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        Choose which provider powers each lightweight task.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                      {routingExpanded ? "Collapse" : "Expand"}
-                      <ChevronDown
-                        className={cn(
-                          "size-4 transition-transform duration-200",
-                          routingExpanded && "rotate-180",
-                        )}
-                      />
-                    </div>
+                  <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-2 p-4 text-left">
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                        routingExpanded && "rotate-180",
+                      )}
+                    />
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Routing
+                    </p>
                   </CollapsibleTrigger>
 
                   <CollapsibleContent>
                     <div className="border-t border-border px-4 pb-4">
                       <div className="mt-4 space-y-4">
-                        <FeatureSelect
-                          label="Default provider"
-                          value={routingDraft.default_provider}
-                          providerOptions={providerOptions}
-                          noneLabel="None"
-                          onChange={(value) =>
-                            setRoutingDraft((current) => ({
-                              ...current,
-                              default_provider: value,
-                            }))
-                          }
-                        />
-
                         <FeatureSelect
                           label="Session title generator"
                           value={routingDraft.features.session_title}
@@ -954,12 +1029,16 @@ export function LlmProvidersModal({
                           action={
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
+                              size="icon"
+                              className="h-7 w-7"
                               onClick={handleOpenGitCommitPrompt}
                               disabled={gitCommitPromptLoading}
                             >
-                              {gitCommitPromptLoading ? "Opening..." : "Prompt"}
+                              {gitCommitPromptLoading ? (
+                                <LoaderCircle className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <FilePenLine className="h-4 w-4" />
+                              )}
                             </Button>
                           }
                           onChange={(value) =>
@@ -977,13 +1056,12 @@ export function LlmProvidersModal({
                       <div className="mt-4 flex justify-end">
                         <SaveStateButton
                           state={routingSaveState}
-                          idleLabel="Save routing"
+                          idleLabel="Save"
                           savingLabel="Saving..."
                           savedLabel="Saved"
                           onClick={handleSaveRouting}
                           disabled={routingSaveState === "saving"}
-                          variant="outline"
-                          measureLabel="Save routing"
+                          measureLabel="Save"
                         />
                       </div>
                     </div>
@@ -996,15 +1074,11 @@ export function LlmProvidersModal({
           <div className="min-h-0 min-w-0 bg-background">
             <ScrollArea className="h-full">
               <div className="px-5 py-2">
-                {loading ? (
-                  <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-sm text-muted-foreground">
-                    Loading local LLM settings...
-                  </div>
-                ) : providerEditor ? (
+                {providerEditor ? (
                   <section className="rounded-3xl border border-border bg-[linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--muted)/0.18))] p-5 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                        <p className="text-xs font-semibold text-muted-foreground">
                           Provider
                         </p>
                         <h3 className="mt-1 text-lg font-semibold text-foreground">
@@ -1017,40 +1091,48 @@ export function LlmProvidersModal({
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1.5">
-                          <span className="text-xs text-muted-foreground">
-                            Enabled
-                          </span>
-                          <Switch
-                            checked={providerEditor.enabled}
-                            onCheckedChange={(checked) =>
-                              setProviderEditor((current) =>
-                                current
-                                  ? { ...current, enabled: checked }
-                                  : current,
-                              )
-                            }
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={handleDeleteProvider}
-                          disabled={providerSaveState === "saving"}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
+                        <Popover open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-muted-foreground hover:text-destructive"
+                              disabled={providerSaveState === "saving"}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 space-y-3 p-4" side="bottom" align="end">
+                            <p className="text-sm text-foreground">Delete this provider?</p>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmOpen(false)}>
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setDeleteConfirmOpen(false);
+                                  handleDeleteProvider();
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
                       <Field
                         label="Provider name"
-                        description={
-                          showProviderNameIssue && providerNameIssue
-                            ? providerNameIssue
-                            : "Used to generate the internal provider key automatically."
+                        labelAccessory={
+                          showProviderNameIssue && providerNameIssue ? (
+                            <span className="text-xs font-medium text-destructive">
+                              {providerNameIssue}
+                            </span>
+                          ) : null
                         }
                         error={showProviderNameIssue}
                       >
@@ -1072,22 +1154,14 @@ export function LlmProvidersModal({
                         />
                       </Field>
 
-                      <Field
-                        label="Provider key"
-                        description={
-                          providerEditor.name.trim()
-                            ? slugifyProviderId(providerEditor.name) ||
-                              "Will be generated from the provider name"
-                            : "Will be generated from the provider name"
-                        }
-                      >
+                      <Field label="Provider key">
                         <Input
                           value={
                             providerEditor.name.trim()
                               ? slugifyProviderId(providerEditor.name)
                               : ""
                           }
-                          placeholder="auto-generated"
+                          placeholder="Will be generated from the provider name"
                           disabled
                         />
                       </Field>
@@ -1248,53 +1322,56 @@ export function LlmProvidersModal({
               </div>
             </ScrollArea>
           </div>
+            </>
+          )}
         </div>
       </DialogContent>
-
-      <Dialog open={gitCommitPromptOpen} onOpenChange={setGitCommitPromptOpen}>
-        <DialogContent className="w-[min(92vw,860px)] max-w-[860px] border-border bg-background p-0">
-          <DialogHeader className="border-b border-border px-6 py-5">
-            <DialogTitle>Edit Git Commit Prompt</DialogTitle>
-            <DialogDescription>
-              This prompt is read from{" "}
-              <span className="font-mono text-[12px] text-foreground/80">
-                {gitCommitPromptPathValue ||
-                  "~/.atmos/llm/prompt/git-commit-prompt.md"}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="px-6 py-5">
-            <Textarea
-              value={gitCommitPromptContent}
-              onChange={(event) =>
-                setGitCommitPromptContent(event.target.value)
-              }
-              className="min-h-[380px] resize-y rounded-xl border-border bg-background/70 font-mono text-[13px] leading-6"
-              placeholder="Write the system prompt used for git commit message generation."
-            />
-          </div>
-
-          <DialogFooter className="border-t border-border px-6 py-4">
-            <Button
-              variant="ghost"
-              onClick={() => setGitCommitPromptOpen(false)}
-            >
-              Close
-            </Button>
-            <SaveStateButton
-              state={promptSaveState}
-              idleLabel="Save prompt"
-              savingLabel="Saving..."
-              savedLabel="Saved"
-              onClick={handleSaveGitCommitPrompt}
-              disabled={promptSaveState === "saving"}
-              measureLabel="Save prompt"
-            />
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Dialog>
+
+    <Dialog open={gitCommitPromptOpen} onOpenChange={setGitCommitPromptOpen}>
+      <DialogContent className="grid h-[min(780px,calc(100vh-4rem))] w-[min(94vw,960px)] max-h-[calc(100vh-4rem)] max-w-[960px] sm:max-w-[960px] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 border-border bg-background p-0">
+        <DialogHeader className="border-b border-border px-6 py-5">
+          <DialogTitle>Edit Git Commit Prompt</DialogTitle>
+          <DialogDescription>
+            This prompt is read from{" "}
+            <span className="font-mono text-[12px] text-foreground/80">
+              {gitCommitPromptPathValue ||
+                "~/.atmos/llm/prompt/git-commit-prompt.md"}
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 px-6 py-5">
+          <Textarea
+            value={gitCommitPromptContent}
+            onChange={(event) =>
+              setGitCommitPromptContent(event.target.value)
+            }
+            className="h-full resize-none rounded-xl border-border bg-background/70 font-mono text-[13px] leading-6"
+            placeholder="Write the system prompt used for git commit message generation."
+          />
+        </div>
+
+        <DialogFooter className="border-t border-border px-6 py-4">
+          <Button
+            variant="ghost"
+            onClick={() => setGitCommitPromptOpen(false)}
+          >
+            Close
+          </Button>
+          <SaveStateButton
+            state={promptSaveState}
+            idleLabel="Save prompt"
+            savingLabel="Saving..."
+            savedLabel="Saved"
+            onClick={handleSaveGitCommitPrompt}
+            disabled={promptSaveState === "saving"}
+            measureLabel="Save prompt"
+          />
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
@@ -1385,7 +1462,7 @@ function SaveStateButton({
       disabled={disabled}
       variant={variant}
       className={cn(
-        "relative min-w-[9.5rem] justify-center overflow-hidden transition-[background-color,border-color,color,box-shadow] duration-300",
+        "relative justify-center overflow-hidden transition-[background-color,border-color,color,box-shadow] duration-300",
         state === "saved" &&
           !variant &&
           "bg-emerald-600 text-white hover:bg-emerald-600",
@@ -1420,12 +1497,14 @@ function SaveStateButton({
 
 function Field({
   label,
+  labelAccessory,
   className,
   description,
   error = false,
   children,
 }: {
   label: string;
+  labelAccessory?: React.ReactNode;
   className?: string;
   description?: string;
   error?: boolean;
@@ -1433,14 +1512,17 @@ function Field({
 }) {
   return (
     <div className={cn("space-y-2", className)}>
-      <Label
-        className={cn(
-          "text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground",
-          error && "text-destructive",
-        )}
-      >
-        {label}
-      </Label>
+      <div className="flex items-center justify-between gap-3">
+        <Label
+          className={cn(
+            "text-xs font-semibold text-muted-foreground",
+            error && "text-destructive",
+          )}
+        >
+          {label}
+        </Label>
+        {labelAccessory}
+      </div>
       {children}
       {description ? (
         <p
