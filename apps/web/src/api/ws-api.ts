@@ -1120,9 +1120,15 @@ export interface LlmProviderEntry {
   max_output_tokens?: number | null;
 }
 
+export interface SessionTitleFormatConfig {
+  include_agent_name?: boolean;
+  include_project_name?: boolean;
+}
+
 export interface LlmFeatureBindings {
   session_title?: string | null;
   git_commit?: string | null;
+  session_title_format?: SessionTitleFormatConfig | null;
 }
 
 export interface LlmProvidersFile {

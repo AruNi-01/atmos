@@ -14,7 +14,7 @@ use serde::Serialize;
 use tracing::{info, warn};
 
 use crate::error::Result;
-use crate::service::session_title::SessionTitleGenerator;
+use crate::service::session_title::{SessionTitleGenerationContext, SessionTitleGenerator};
 
 /// DTO for session list - decouples API from infra entity
 #[derive(Debug, Serialize)]
@@ -528,9 +528,18 @@ impl AgentSessionService {
                 return None;
             }
         };
+        let agent_name = self.resolve_agent_display_name(&model.registry_id).await;
         let generator = SessionTitleGenerator::new();
         let title = generator
-            .generate(first_message, &model.cwd, &model.mode)
+            .generate(
+                first_message,
+                &SessionTitleGenerationContext {
+                    cwd: &model.cwd,
+                    mode: &model.mode,
+                    context_type: &model.context_type,
+                    agent_name: agent_name.as_deref(),
+                },
+            )
             .await;
 
         match session_repo.can_auto_set_title(session_id).await {
@@ -555,6 +564,25 @@ impl AgentSessionService {
             tracing::info!("Auto-set title for session {}: {}", session_id, title);
             Some(title)
         }
+    }
+
+    async fn resolve_agent_display_name(&self, registry_id: &str) -> Option<String> {
+        if let Ok(custom_agents) = self.agent_service.list_custom_agents() {
+            if let Some(agent) = custom_agents.into_iter().find(|agent| agent.name == registry_id) {
+                return Some(agent.name);
+            }
+        }
+
+        if let Ok(registry_agents) = self.agent_service.list_registry_agents(false).await {
+            if let Some(agent) = registry_agents
+                .into_iter()
+                .find(|agent| agent.id == registry_id)
+            {
+                return Some(agent.name);
+            }
+        }
+
+        None
     }
 
     /// Get one session summary by id.

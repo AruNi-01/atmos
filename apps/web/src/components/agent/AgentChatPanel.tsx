@@ -75,6 +75,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   ShineBorder,
+  cn,
 } from "@workspace/ui";
 import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, Heart, History, Loader2, Gauge, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
@@ -380,11 +381,16 @@ function MessageCopyButton({
 }
 
 function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
-  const used = usage.used ?? 0;
-  const size = usage.size ?? 1;
-  const percent = Math.min(100, (used / size) * 100);
+  const hasContextWindow = usage.used != null && usage.size != null && usage.size > 0;
+  const hasCost = usage.cost?.amount != null;
+  const used = hasContextWindow ? usage.used : null;
+  const size = hasContextWindow ? usage.size : null;
+  const percent =
+    hasContextWindow && used != null && size != null
+      ? Math.min(100, (used / size) * 100)
+      : null;
 
-  if (usage.used === undefined || usage.size === undefined) return null;
+  if (!hasContextWindow && !hasCost) return null;
 
   return (
     <TooltipProvider>
@@ -392,44 +398,59 @@ function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
         <TooltipTrigger asChild>
           <div className="group absolute left-3 bottom-1 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out origin-[left_center] hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help">
             <span className="inline-flex size-4 shrink-0 items-center justify-center">
-              <Gauge className="size-3.5 text-primary/80" />
+              {hasContextWindow ? (
+                <Gauge className="size-3.5 text-primary/80" />
+              ) : (
+                <Coins className="size-3.5 text-primary/80" />
+              )}
             </span>
             <span className="max-w-0 flex whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-300 ease-out group-hover:max-w-[150px] group-hover:opacity-100 items-center overflow-hidden">
-              {percent.toFixed(0)}%
-              {usage.cost && (
-                <span className="ml-1.5 border-l border-border/40 pl-1.5">
-                  ${(usage.cost.amount ?? 0).toFixed(2)}
+              {hasContextWindow && percent != null ? (
+                <>{percent.toFixed(0)}%</>
+              ) : null}
+              {hasCost ? (
+                <span
+                  className={cn(
+                    hasContextWindow && "ml-1.5 border-l border-border pl-1.5",
+                  )}
+                >
+                  ${(usage.cost?.amount ?? 0).toFixed(2)}
                 </span>
-              )}
+              ) : null}
             </span>
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" align="start" className="p-3 w-52 z-100">
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold">Context Window</span>
-              <span className="font-mono">{percent.toFixed(1)}%</span>
-            </div>
-            <div className="space-y-1">
-              <div className="h-1.5 w-full bg-primary rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-muted transition-all duration-500"
-                  style={{ width: `${percent}%` }}
-                />
+            {hasContextWindow && used != null && size != null && percent != null ? (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold">Context Window</span>
+                  <span className="font-mono">{percent.toFixed(1)}%</span>
+                </div>
+                <div className="space-y-1">
+                  <div className="h-1.5 w-full bg-primary rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-muted transition-all duration-500"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] pt-0.5">
+                    <span className="font-mono">{used.toLocaleString()}</span>
+                    <span className="font-mono">{size.toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-[10px] pt-0.5">
-                <span className="font-mono">{used.toLocaleString()}</span>
-                <span className="font-mono">{size.toLocaleString()}</span>
-              </div>
-            </div>
-            {usage.cost && (
-              <div className="flex flex-col pt-2 border-t border-border/50">
+            ) : null}
+            {hasCost ? (
+              <div className="flex flex-col">
+                {hasContextWindow ? <div className="mb-2 h-px w-full bg-background/20" /> : null}
                 <span className="text-[10px] uppercase">Estimated Cost</span>
                 <span className="text-xs font-mono font-semibold">
-                  {(usage.cost.amount ?? 0).toFixed(4)} {usage.cost.currency ?? "USD"}
+                  {(usage.cost?.amount ?? 0).toFixed(4)} {usage.cost?.currency ?? "USD"}
                 </span>
               </div>
-            )}
+            ) : null}
           </div>
         </TooltipContent>
       </Tooltip>
@@ -454,7 +475,10 @@ function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
         </TooltipTrigger>
         <TooltipContent side="top" align="center" className="p-3 w-52 z-100">
           <div className="space-y-1.5">
-            <div className="text-xs font-semibold border-b border-border/50 pb-1 mb-1">Turn Token Usage</div>
+            <div className="mb-1 pb-1 text-xs font-semibold">
+              Turn Token Usage
+            </div>
+            <div className="h-px w-full bg-background/20" />
             <div className="flex justify-between text-[11px]">
               <span>Input</span>
               <span className="font-mono">{(usage.inputTokens ?? 0).toLocaleString()}</span>
@@ -470,7 +494,8 @@ function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
               </div>
             )}
             {(usage.cachedReadTokens != null || usage.cachedWriteTokens != null) && (
-              <div className="pt-1 mt-1 border-t border-border/50 space-y-1">
+              <div className="mt-1 space-y-1 pt-1">
+                <div className="h-px w-full bg-background/20" />
                 {usage.cachedReadTokens != null && (
                   <div className="flex justify-between text-[11px]">
                     <span>Cache Read</span>
@@ -485,9 +510,12 @@ function MessageTurnUsageBadge({ usage }: { usage: AgentTurnUsage }) {
                 )}
               </div>
             )}
-            <div className="pt-1 mt-1 border-t border-border/50 flex justify-between text-[11px] font-bold">
-              <span>Total</span>
-              <span className="font-mono">{(usage.totalTokens ?? 0).toLocaleString()}</span>
+            <div className="mt-1 pt-1 text-[11px] font-bold">
+              <div className="mb-1 h-px w-full bg-background/20" />
+              <div className="flex justify-between">
+                <span>Total</span>
+                <span className="font-mono">{(usage.totalTokens ?? 0).toLocaleString()}</span>
+              </div>
             </div>
           </div>
         </TooltipContent>

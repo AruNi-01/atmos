@@ -12,3 +12,12 @@ resolver = "2"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.0", features = ["full"] }
 clap = { version = "4.0", features = ["derive"] }
+
+[patch.crates-io]
+# Temporary ACP compatibility patch:
+# Claude ACP may emit `sessionUpdate=usage_update` with `"used": null`.
+# Upstream `agent-client-protocol-schema 0.10.8` requires `used/size: u64`,
+# which crashes during decode before our agent layer can handle it.
+# Remove this patch after upgrading ACP once upstream accepts nullable usage
+# fields (or otherwise tolerates null here), then re-run `cargo check -p agent`.
+agent-client-protocol-schema = { path = "vendor/agent-client-protocol-schema" }

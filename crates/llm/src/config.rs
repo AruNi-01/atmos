@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::error::{LlmError, Result};
-use crate::types::{LlmFeature, LlmProvidersFile, ResolvedLlmProvider};
+use crate::types::{
+    LlmFeature, LlmProvidersFile, ResolvedLlmProvider, SessionTitleFormatConfig,
+};
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =
@@ -80,6 +82,10 @@ impl FileLlmConfigStore {
             }
             Err(error) => Err(error.into()),
         }
+    }
+
+    pub fn load_session_title_format(&self) -> Result<SessionTitleFormatConfig> {
+        Ok(self.load()?.features.session_title_format)
     }
 }
 

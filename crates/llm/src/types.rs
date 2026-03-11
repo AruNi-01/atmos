@@ -27,11 +27,21 @@ impl LlmFeature {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SessionTitleFormatConfig {
+    #[serde(default)]
+    pub include_agent_name: bool,
+    #[serde(default)]
+    pub include_project_name: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LlmFeatureBindings {
     #[serde(default)]
     pub session_title: Option<String>,
     #[serde(default)]
     pub git_commit: Option<String>,
+    #[serde(default)]
+    pub session_title_format: SessionTitleFormatConfig,
 }
 
 impl LlmFeatureBindings {
