@@ -6,7 +6,7 @@ use std::time::Duration;
 use crate::error::{LlmError, Result};
 use crate::types::{LlmFeature, LlmProvidersFile, ResolvedLlmProvider};
 
-const DEFAULT_TIMEOUT_MS: u64 = 8_000;
+const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =
     include_str!("../../../prompt/git-commit/git-commit-generator.md");
 

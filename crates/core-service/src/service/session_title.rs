@@ -8,6 +8,7 @@ use tracing::warn;
 
 const DEFAULT_TITLE: &str = "新会话";
 const MAX_TITLE_CHARS: usize = 64;
+const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 80;
 static CODE_BLOCK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?s)```.*?```").expect("valid code block regex"));
 static LEADING_NOISE_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -39,7 +40,9 @@ impl SessionTitleGenerator {
                         system: Some(TITLE_SYSTEM_PROMPT.to_string()),
                         prompt,
                         temperature: Some(0.2),
-                        max_output_tokens: Some(80),
+                        max_output_tokens: Some(resolve_max_output_tokens(
+                            provider.max_output_tokens,
+                        )),
                         response_format: ResponseFormat::JsonObject,
                     };
 
@@ -185,9 +188,16 @@ fn cwd_basename(cwd: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+fn resolve_max_output_tokens(provider_max_output_tokens: Option<u32>) -> u32 {
+    provider_max_output_tokens.unwrap_or(DEFAULT_MAX_OUTPUT_TOKENS)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{heuristic_title, parse_title_response};
+    use super::{
+        heuristic_title, parse_title_response, resolve_max_output_tokens,
+        DEFAULT_MAX_OUTPUT_TOKENS,
+    };
 
     #[test]
     fn parses_json_title_payload() {
@@ -203,5 +213,14 @@ mod tests {
             "default",
         );
         assert_eq!(title, "debug the authentication flow");
+    }
+
+    #[test]
+    fn resolve_max_output_tokens_prefers_provider_config() {
+        assert_eq!(resolve_max_output_tokens(Some(256)), 256);
+        assert_eq!(
+            resolve_max_output_tokens(None),
+            DEFAULT_MAX_OUTPUT_TOKENS
+        );
     }
 }

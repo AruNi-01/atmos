@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { useGitStore } from "@/hooks/use-git-store";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import { useProjectStore } from "@/hooks/use-project-store";
@@ -350,9 +356,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [acpNewSession, setAcpNewSession] = useState(false);
   const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
   const aiPopoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const commitMessageStreamTimerRef = useRef<ReturnType<
-    typeof setInterval
-  > | null>(null);
+  const commitMessageStreamUnsubscribeRef = useRef<(() => void) | null>(null);
+  const commitMessageTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     functionSettingsApi
@@ -381,8 +386,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   useEffect(
     () => () => {
-      if (commitMessageStreamTimerRef.current) {
-        clearInterval(commitMessageStreamTimerRef.current);
+      if (commitMessageStreamUnsubscribeRef.current) {
+        commitMessageStreamUnsubscribeRef.current();
+        commitMessageStreamUnsubscribeRef.current = null;
       }
     },
     [],
@@ -441,41 +447,19 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   >(null);
   const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
 
-  const streamCommitMessageIntoInput = useCallback((message: string) => {
-    if (commitMessageStreamTimerRef.current) {
-      clearInterval(commitMessageStreamTimerRef.current);
-      commitMessageStreamTimerRef.current = null;
-    }
+  useLayoutEffect(() => {
+    if (!isGeneratingCommitMessage) return;
+    const textarea = commitMessageTextareaRef.current;
+    if (!textarea) return;
 
-    return new Promise<void>((resolve) => {
-      const characters = Array.from(message);
-      if (characters.length === 0) {
-        setCommitMessage("");
-        resolve();
-        return;
-      }
-
-      setCommitMessage("");
-
-      const intervalMs = 22;
-      const maxSteps = Math.max(10, Math.min(28, characters.length));
-      const chunkSize = Math.max(1, Math.ceil(characters.length / maxSteps));
-      let index = 0;
-
-      commitMessageStreamTimerRef.current = setInterval(() => {
-        index = Math.min(characters.length, index + chunkSize);
-        setCommitMessage(characters.slice(0, index).join(""));
-
-        if (index >= characters.length) {
-          if (commitMessageStreamTimerRef.current) {
-            clearInterval(commitMessageStreamTimerRef.current);
-            commitMessageStreamTimerRef.current = null;
-          }
-          resolve();
-        }
-      }, intervalMs);
+    textarea.scrollTop = textarea.scrollHeight;
+    const frameId = requestAnimationFrame(() => {
+      textarea.scrollTop = textarea.scrollHeight;
     });
-  }, []);
+
+    return () => cancelAnimationFrame(frameId);
+  }, [commitMessage, isGeneratingCommitMessage]);
+
   const [{ rsTab: activeTab, rsView: changesView }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
   const [
@@ -699,9 +683,36 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     if (resolvedGitCommitLlmProviderLabel) {
       setAiPopoverOpen(false);
       setIsGeneratingCommitMessage(true);
+      let streamedMessage = "";
+
+      if (commitMessageStreamUnsubscribeRef.current) {
+        commitMessageStreamUnsubscribeRef.current();
+        commitMessageStreamUnsubscribeRef.current = null;
+      }
+
+      setCommitMessage("");
+      commitMessageStreamUnsubscribeRef.current = useWebSocketStore
+        .getState()
+        .onEvent("git_commit_message_chunk", (payload) => {
+          const chunk =
+            typeof payload === "object" && payload !== null
+              ? (payload as { chunk?: unknown }).chunk
+              : undefined;
+
+          if (typeof chunk !== "string" || chunk.length === 0) return;
+
+          streamedMessage += chunk;
+          setCommitMessage(streamedMessage);
+        });
+
       try {
         const result = await gitApi.generateCommitMessage(currentProjectPath);
-        await streamCommitMessageIntoInput(result.message);
+        const finalMessage = result.message?.trim();
+        if (finalMessage) {
+          setCommitMessage(finalMessage);
+        } else if (streamedMessage.trim()) {
+          setCommitMessage(streamedMessage.trim());
+        }
       } catch (error) {
         toastManager.add({
           title: "Failed to generate commit message",
@@ -709,6 +720,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           type: "error",
         });
       } finally {
+        if (commitMessageStreamUnsubscribeRef.current) {
+          commitMessageStreamUnsubscribeRef.current();
+          commitMessageStreamUnsubscribeRef.current = null;
+        }
         setIsGeneratingCommitMessage(false);
       }
       return;
@@ -1212,6 +1227,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 {/* Input with AI generate button */}
                 <div className="relative">
                   <textarea
+                    ref={commitMessageTextareaRef}
                     placeholder={
                       isGeneratingCommitMessage
                         ? ""

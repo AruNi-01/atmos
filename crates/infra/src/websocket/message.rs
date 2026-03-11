@@ -337,6 +337,8 @@ pub enum WsEvent {
     WorkspaceSetupProgress,
     /// AI usage overview changed and should be refreshed on all clients
     UsageOverviewUpdated,
+    /// Git commit message 流式生成 chunk
+    GitCommitMessageChunk,
 }
 
 // ===== 消息通知数据结构 =====
