@@ -553,17 +553,6 @@ const Header: React.FC = () => {
                 actionsCollapsed && "pointer-events-none"
               )}
             >
-                <UsagePopover />
-
-                <button
-                  aria-label="LLM Providers"
-                  className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                  onClick={() => setLlmProvidersOpen(true)}
-                  title="Lightweight AI Providers"
-                >
-                  <BrainCircuit className="size-4" />
-                </button>
-
                 <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
                   <PopoverTrigger asChild>
                     <button
@@ -607,6 +596,22 @@ const Header: React.FC = () => {
                     </div>
                   </PopoverContent>
                 </Popover>
+
+                <button
+                  aria-label="LLM Providers"
+                  className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                  onClick={() => setLlmProvidersOpen(true)}
+                  title="Lightweight AI Providers"
+                >
+                  <BrainCircuit className="size-4" />
+                </button>
+
+                <UsagePopover />
+
+                <div
+                  aria-hidden="true"
+                  className="h-4 w-px rounded-full bg-border"
+                />
 
                 <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
                 <button
