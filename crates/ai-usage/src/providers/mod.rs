@@ -4,8 +4,6 @@ pub(crate) mod claude;
 pub(crate) mod codex;
 pub(crate) mod cursor;
 pub(crate) mod factory;
-pub(crate) mod factory_session;
-pub(crate) mod factory_storage;
 pub(crate) mod gemini;
 pub(crate) mod kimi;
 pub(crate) mod minimax;
