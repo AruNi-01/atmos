@@ -348,6 +348,7 @@ export const AgentManagerView: React.FC = () => {
               registryId={item.id}
               name={item.name}
               isCustom={item.install_method === "custom"}
+              registryIcon={item.icon}
             />
           </div>
           <div className="min-w-0">

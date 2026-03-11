@@ -18,6 +18,7 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
 // Unlike aliases (which append fallback candidates after the registryId),
 // this replaces the primary candidate to avoid a guaranteed 404.
 const AGENT_ICON_REMAP: Record<string, string> = {
+  "amp-acp": "amp",
   "claude": "claude-code",
   "kilocode": "kilo",
   "kiro": "kiro-cli",
@@ -51,20 +52,33 @@ export const AgentIcon: React.FC<{
   name: string;
   size?: number;
   isCustom?: boolean;
-}> = ({ registryId, name, size = 18, isCustom = false }) => {
+  registryIcon?: string | null;
+}> = ({ registryId, name, size = 18, isCustom = false, registryIcon = null }) => {
   const isLikelyCustom = React.useMemo(
     () => isCustom || registryId.includes(" ") || registryId.includes("%20"),
     [isCustom, registryId]
   );
 
-  const candidates = React.useMemo(
-    () => (isLikelyCustom ? [] : getAgentIconCandidates(registryId)),
-    [registryId, isLikelyCustom]
+  const sources = React.useMemo(
+    () => {
+      const localCandidates = isLikelyCustom ? [] : getAgentIconCandidates(registryId);
+      const normalizedRegistryIcon = registryIcon?.trim() || null;
+      const out = [...localCandidates];
+      if (normalizedRegistryIcon && !out.includes(normalizedRegistryIcon)) {
+        out.push(normalizedRegistryIcon);
+      }
+      return out;
+    },
+    [registryId, isLikelyCustom, registryIcon]
   );
   const [idx, setIdx] = React.useState(0);
   const invertedTheme = shouldInvertTheme(registryId);
 
-  if (isLikelyCustom || idx >= candidates.length) {
+  React.useEffect(() => {
+    setIdx(0);
+  }, [sources]);
+
+  if (idx >= sources.length) {
     return (
       <Bot
         className="text-muted-foreground shrink-0"
@@ -73,13 +87,29 @@ export const AgentIcon: React.FC<{
     );
   }
 
+  const currentSrc = sources[idx]!;
+  const isLocalSrc = currentSrc.startsWith("/");
+
+  if (isLocalSrc) {
+    return (
+      <Image
+        src={currentSrc}
+        alt={`${name} icon`}
+        width={size}
+        height={size}
+        className={`shrink-0 opacity-95 ${invertedTheme ? "dark:invert invert-0" : "invert dark:invert-0"}`}
+        onError={() => setIdx((v) => v + 1)}
+      />
+    );
+  }
+
   return (
-    <Image
-      src={candidates[idx]}
+    <img
+      src={currentSrc}
       alt={`${name} icon`}
       width={size}
       height={size}
-      className={`shrink-0 opacity-95 ${invertedTheme ? "dark:invert invert-0" : "invert dark:invert-0"}`}
+      className="shrink-0 opacity-95 invert-0 dark:invert"
       onError={() => setIdx((v) => v + 1)}
     />
   );
