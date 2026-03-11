@@ -82,6 +82,10 @@ export const skillsModalParams = {
   skillsModalTab: parseAsStringEnum<SkillsModalTab>(["my-skills", "marketplace"]).withDefault("my-skills"),
 };
 
+export const llmProvidersModalParams = {
+  llmProvidersModal: parseAsBoolean.withDefault(false),
+};
+
 // ---------------------------------------------------------------------------
 // OverviewTab – PR detail modal
 // ---------------------------------------------------------------------------
