@@ -86,6 +86,7 @@ type SaveState = "idle" | "saving" | "saved";
 const DEFAULT_SESSION_TITLE_FORMAT: SessionTitleFormatConfig = {
   include_agent_name: false,
   include_project_name: false,
+  include_intent_emoji: false,
 };
 
 const EMPTY_ROUTING: RoutingDraft = {
@@ -455,6 +456,7 @@ function normalizeSessionTitleFormat(
   return {
     include_agent_name: !!value?.include_agent_name,
     include_project_name: !!value?.include_project_name,
+    include_intent_emoji: !!value?.include_intent_emoji,
   };
 }
 
@@ -462,7 +464,9 @@ function sessionTitleFormatPreview(format: SessionTitleFormatConfig): string {
   const segments: string[] = [];
   if (format.include_agent_name) segments.push("[agentName]");
   if (format.include_project_name) segments.push("[projectName]");
-  segments.push("title desc");
+  segments.push(
+    format.include_intent_emoji ? "🎨 title desc" : "title desc",
+  );
   return segments.join(" | ");
 }
 
@@ -1493,6 +1497,29 @@ export function LlmProvidersModal({
               Temp sessions skip this segment automatically.
             </p>
           </div>
+
+          <Field
+            label="Include Intent Emoji"
+            description="Prefix the title description with a single inferred intent emoji, such as 🎨 or 🐞."
+          >
+            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
+              <div>
+                <p className="text-sm text-foreground">Intent segment</p>
+                <p className="text-xs text-muted-foreground">
+                  Example: 🎨 design a retry mechanism
+                </p>
+              </div>
+              <Switch
+                checked={!!sessionTitleFormatDraft.include_intent_emoji}
+                onCheckedChange={(checked) =>
+                  setSessionTitleFormatDraft((current) => ({
+                    ...current,
+                    include_intent_emoji: !!checked,
+                  }))
+                }
+              />
+            </div>
+          </Field>
 
           <Field
             label="Include Agent Name"

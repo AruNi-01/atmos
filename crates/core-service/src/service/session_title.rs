@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use llm::{
-    generate_text, FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat,
+    generate_text, render_prompt_template, FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat,
     SessionTitleFormatConfig,
 };
 use regex::Regex;
@@ -13,6 +13,12 @@ const DEFAULT_TITLE: &str = "新会话";
 const MAX_TITLE_CHARS: usize = 64;
 const MAX_TITLE_DESC_CHARS: usize = 40;
 const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 80;
+const SESSION_TITLE_SYSTEM_PROMPT_TEMPLATE: &str =
+    include_str!("../../../../prompt/session-title/session-title-system.md");
+const SESSION_TITLE_USER_PROMPT_TEMPLATE: &str =
+    include_str!("../../../../prompt/session-title/session-title-user.md");
+const INTENT_CLASSIFIER_PROMPT: &str =
+    include_str!("../../../../prompt/session-title/intent-classifier.md");
 static CODE_BLOCK_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?s)```.*?```").expect("valid code block regex"));
 static LEADING_NOISE_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -118,30 +124,54 @@ fn build_system_prompt(first_prompt: &str, format: &SessionTitleFormatConfig) ->
     } else {
         "Use the same primary language as the user's first prompt."
     };
+    let duplicate_instruction = match (
+        format.include_agent_name,
+        format.include_project_name,
+    ) {
+        (true, true) => {
+            "- do not repeat the enabled agent name or project name inside `title_desc`"
+        }
+        (true, false) => "- do not repeat the enabled agent name inside `title_desc`",
+        (false, true) => "- do not repeat the enabled project name inside `title_desc`",
+        (false, false) => "",
+    };
+    let intent_instruction = if format.include_intent_emoji {
+        format!(
+            r#"
+Intent emoji mode is enabled.
+- First infer the user's single primary intent using the classifier rubric below.
+- Prefix `title_desc` with exactly one emoji, then a space, then the concise description.
+- Example: "🎨 design a retry mechanism"
+- Do not return the emoji alone. You must still return JSON in the form {{"title_desc":"..."}}.
 
-    format!(
-        r#"You generate concise ACP chat session title descriptions for developer tasks.
-Return JSON only in the form {{"title_desc":"..."}}.
+Intent classifier rubric:
+{}"#,
+            intent_classifier_rules()
+        )
+    } else {
+        String::new()
+    };
 
-The app will assemble the final title using this exact format:
-{}
+    let format_preview = format_preview(format);
+    let duplicate_instruction_block = if duplicate_instruction.is_empty() {
+        String::new()
+    } else {
+        format!("{duplicate_instruction}\n")
+    };
+    let intent_instruction_block = if intent_instruction.is_empty() {
+        String::new()
+    } else {
+        format!("\n{}", intent_instruction.trim())
+    };
 
-Generate only the `title_desc` segment.
-
-Rules:
-- {}
-- make `title_desc` structured and scannable, not a full sentence or question
-- the final title uses ` | ` as the only segment separator
-- if `title_desc` needs two compact facets, separate them with ` | ` instead of commas, dashes, or brackets
-- prefer a compact task label such as "认证流程排查", "Codex vs Claude 对比", "Auth flow debug", or "Landing page copy update"
-- do not repeat the agent name or project name inside `title_desc`
-- avoid filler words and politeness
-- no surrounding quotes
-- no trailing punctuation
-- use plain language
-- if the mode is wiki_ask, reflect that briefly in `title_desc`"#,
-        format_preview(format),
-        language_instruction,
+    render_prompt_template(
+        SESSION_TITLE_SYSTEM_PROMPT_TEMPLATE,
+        &[
+            ("formatPreview", &format_preview),
+            ("languageInstruction", language_instruction),
+            ("duplicateInstructionBlock", &duplicate_instruction_block),
+            ("intentInstructionBlock", &intent_instruction_block),
+        ],
     )
 }
 
@@ -152,11 +182,27 @@ fn build_generation_prompt(
     project_name: Option<&str>,
     format: &SessionTitleFormatConfig,
 ) -> String {
-    let agent_name = agent_name.unwrap_or("none");
-    let project_name = project_name.unwrap_or("none");
-    format!(
-        "Mode: {mode}\nFinal title format: {}\nAgent name: {agent_name}\nProject name: {project_name}\n\nUser prompt:\n{first_prompt}",
-        format_preview(format)
+    let format_preview = format_preview(format);
+    let agent_name_block = if format.include_agent_name {
+        format!("Agent name: {}\n", agent_name.unwrap_or("none"))
+    } else {
+        String::new()
+    };
+    let project_name_block = if format.include_project_name {
+        format!("Project name: {}\n", project_name.unwrap_or("none"))
+    } else {
+        String::new()
+    };
+
+    render_prompt_template(
+        SESSION_TITLE_USER_PROMPT_TEMPLATE,
+        &[
+            ("mode", mode),
+            ("formatPreview", &format_preview),
+            ("agentNameBlock", &agent_name_block),
+            ("projectNameBlock", &project_name_block),
+            ("firstPrompt", first_prompt),
+        ],
     )
 }
 
@@ -190,18 +236,23 @@ fn heuristic_title(
     project_name: Option<&str>,
     format: &SessionTitleFormatConfig,
 ) -> String {
-    let title_desc = heuristic_title_desc(first_prompt, mode);
+    let title_desc = heuristic_title_desc(first_prompt, mode, format);
     assemble_title(&title_desc, agent_name, project_name, format)
 }
 
-fn heuristic_title_desc(first_prompt: &str, mode: &str) -> String {
+fn heuristic_title_desc(
+    first_prompt: &str,
+    mode: &str,
+    format: &SessionTitleFormatConfig,
+) -> String {
     if mode == "wiki_ask" {
         let wiki_label = if contains_cjk(first_prompt) {
             "Wiki 问答"
         } else {
             "Wiki Ask"
         };
-        return sanitize_title_desc(wiki_label).unwrap_or_else(|| DEFAULT_TITLE.to_string());
+        let title_desc = sanitize_title_desc(wiki_label).unwrap_or_else(|| DEFAULT_TITLE.to_string());
+        return maybe_prefix_intent_emoji(title_desc, first_prompt, format);
     }
 
     let mut text = first_prompt.trim().to_string();
@@ -220,7 +271,8 @@ fn heuristic_title_desc(first_prompt: &str, mode: &str) -> String {
         text = next;
     }
 
-    sanitize_title_desc(&text).unwrap_or_else(|| DEFAULT_TITLE.to_string())
+    let title_desc = sanitize_title_desc(&text).unwrap_or_else(|| DEFAULT_TITLE.to_string());
+    maybe_prefix_intent_emoji(title_desc, first_prompt, format)
 }
 
 fn assemble_title(
@@ -257,6 +309,22 @@ fn sanitize_title_desc(raw: &str) -> Option<String> {
 
 fn sanitize_final_title(raw: &str) -> Option<String> {
     sanitize_with_limit(raw, MAX_TITLE_CHARS, true)
+}
+
+fn maybe_prefix_intent_emoji(
+    title_desc: String,
+    first_prompt: &str,
+    format: &SessionTitleFormatConfig,
+) -> String {
+    if !format.include_intent_emoji {
+        return title_desc;
+    }
+
+    let Some(emoji) = heuristic_intent_emoji(first_prompt) else {
+        return title_desc;
+    };
+
+    format!("{emoji} {title_desc}")
 }
 
 fn sanitize_segment(raw: Option<&str>, max_chars: usize) -> Option<String> {
@@ -341,6 +409,100 @@ fn contains_cjk(value: &str) -> bool {
     })
 }
 
+fn heuristic_intent_emoji(first_prompt: &str) -> Option<&'static str> {
+    let lower = first_prompt.to_lowercase();
+    let text = lower.as_str();
+
+    if text.contains("don't write code yet")
+        || text.contains("do not write code yet")
+        || text.contains("start with a plan")
+        || text.contains("design ")
+        || text.contains("方案")
+        || text.contains("先别写代码")
+        || text.contains("设计")
+    {
+        return Some("🎨");
+    }
+
+    if text.contains("debug")
+        || text.contains("bug")
+        || text.contains("error")
+        || text.contains("exception")
+        || text.contains("报错")
+        || text.contains("异常")
+        || text.contains("排查")
+    {
+        return Some("🐞");
+    }
+
+    if text.contains("review")
+        || text.contains("code review")
+        || text.contains("审查")
+        || text.contains("评审")
+    {
+        return Some("👀");
+    }
+
+    if text.contains("test") || text.contains("单测") || text.contains("测试") {
+        return Some("✅");
+    }
+
+    if text.contains("refactor") || text.contains("重构") {
+        return Some("♻️");
+    }
+
+    if text.contains("optimize") || text.contains("performance") || text.contains("优化") {
+        return Some("🚀");
+    }
+
+    if text.contains("summarize") || text.contains("summary") || text.contains("总结") {
+        return Some("📝");
+    }
+
+    if text.contains("compare") || text.contains("vs") || text.contains("区别") || text.contains("对比")
+    {
+        return Some("⚖️");
+    }
+
+    if text.contains("explain")
+        || text.contains("what is")
+        || text.contains("为什么")
+        || text.contains("解释")
+        || text.contains("是什么")
+    {
+        return Some("💡");
+    }
+
+    if text.contains("explore") || text.contains("看看") || text.contains("结构") {
+        return Some("🔎");
+    }
+
+    if text.contains("discuss") || text.contains("聊聊") || text.contains("讨论") {
+        return Some("🗣️");
+    }
+
+    if text.contains("implement")
+        || text.contains("add ")
+        || text.contains("build")
+        || text.contains("write ")
+        || text.contains("实现")
+        || text.contains("添加")
+        || text.contains("增加")
+    {
+        return Some("🧩");
+    }
+
+    None
+}
+
+fn intent_classifier_rules() -> &'static str {
+    INTENT_CLASSIFIER_PROMPT
+        .split("Output requirements:")
+        .next()
+        .map(str::trim)
+        .unwrap_or(INTENT_CLASSIFIER_PROMPT.trim())
+}
+
 fn format_preview(format: &SessionTitleFormatConfig) -> String {
     let mut segments = Vec::new();
     if format.include_agent_name {
@@ -349,7 +511,11 @@ fn format_preview(format: &SessionTitleFormatConfig) -> String {
     if format.include_project_name {
         segments.push("[projectName]");
     }
-    segments.push("title desc");
+    if format.include_intent_emoji {
+        segments.push("🎨 title desc");
+    } else {
+        segments.push("title desc");
+    }
     segments.join(" | ")
 }
 
@@ -399,6 +565,7 @@ mod tests {
             &SessionTitleFormatConfig {
                 include_agent_name: true,
                 include_project_name: true,
+                include_intent_emoji: false,
             },
         );
         assert_eq!(title, "Claude Agent | atmos | 认证流程排查");

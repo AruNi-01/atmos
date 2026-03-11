@@ -1123,6 +1123,7 @@ export interface LlmProviderEntry {
 export interface SessionTitleFormatConfig {
   include_agent_name?: boolean;
   include_project_name?: boolean;
+  include_intent_emoji?: boolean;
 }
 
 export interface LlmFeatureBindings {

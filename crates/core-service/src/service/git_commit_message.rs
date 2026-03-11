@@ -1,7 +1,7 @@
 use core_engine::{ChangedFileInfo, ChangedFilesInfo};
 use llm::{
-    generate_text, generate_text_stream, FileLlmConfigStore, GenerateTextRequest, LlmFeature,
-    ResponseFormat,
+    generate_text, generate_text_stream, render_prompt_template, FileLlmConfigStore,
+    GenerateTextRequest, LlmFeature, ResponseFormat,
 };
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -14,6 +14,8 @@ const MAX_FILES_IN_PROMPT: usize = 48;
 const MAX_FILE_PATH_CHARS: usize = 120;
 const MAX_FILES_SUMMARY_CHARS: usize = 4_000;
 const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 4096;
+const GIT_COMMIT_USER_PROMPT_TEMPLATE: &str =
+    include_str!("../../../../prompt/git-commit/git-commit-user.md");
 
 pub struct GitCommitMessageGenerator {
     store: FileLlmConfigStore,
@@ -155,10 +157,18 @@ impl GitCommitMessageGenerator {
 fn build_generation_prompt(repo_name: Option<&str>, changes: &ChangedFilesInfo) -> String {
     let repo_name = sanitize_prompt_text(repo_name.unwrap_or("unknown"));
     let (scope_label, files_summary) = generation_scope_and_summary(changes);
+    let total_additions = changes.total_additions.to_string();
+    let total_deletions = changes.total_deletions.to_string();
 
-    format!(
-        "Repository: {repo_name}\nCommit scope: {scope_label}\nTotal additions: {}\nTotal deletions: {}\n\nFiles:\n{}",
-        changes.total_additions, changes.total_deletions, files_summary
+    render_prompt_template(
+        GIT_COMMIT_USER_PROMPT_TEMPLATE,
+        &[
+            ("repoName", &repo_name),
+            ("scopeLabel", scope_label),
+            ("totalAdditions", &total_additions),
+            ("totalDeletions", &total_deletions),
+            ("filesSummary", &files_summary),
+        ],
     )
 }
 
