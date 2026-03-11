@@ -69,6 +69,11 @@ export type AgentServerMessage =
   | {
       type: "usage_update";
       usage: AgentUsage;
+    }
+  | {
+      type: "session_title_updated";
+      title: string;
+      title_source: string;
     };
 
 export interface AgentCost {
@@ -521,6 +526,11 @@ export function useAgentSession({
               }
               return;
             }
+            if (msg.type === "session_title_updated") {
+              setSessionTitle(msg.title);
+              onMessageRef.current?.(msg);
+              return;
+            }
             // Handle auth-required error from ACP connection phase
             if (msg.type === "error" && msg.code === "ACP_AUTH_REQUIRED") {
               setIsConnecting(false);
@@ -640,6 +650,11 @@ export function useAgentSession({
                   mergeConfigOptions(prev, msg.configOptions as AgentConfigOption[])
                 );
               }
+              return;
+            }
+            if (msg.type === "session_title_updated") {
+              setSessionTitle(msg.title);
+              onMessageRef.current?.(msg);
               return;
             }
             if (msg.type === "error" && msg.code === "ACP_AUTH_REQUIRED") {

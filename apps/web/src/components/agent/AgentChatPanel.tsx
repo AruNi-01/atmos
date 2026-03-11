@@ -1880,6 +1880,9 @@ export function AgentChatPanel() {
           return changed ? next : prev;
         });
         break;
+      case "session_title_updated":
+        setSessionTitle(msg.title);
+        break;
       case "session_ended":
         flushPendingStreamMessages();
         stoppedRef.current = false;
@@ -2581,18 +2584,15 @@ export function AgentChatPanel() {
       if (!text || !isConnected) return;
       stoppedRef.current = false;
       if (entries.length === 0) {
-        let title: string;
         if (chatMode === "wiki_ask") {
           const projName = (wikiPath ?? localPath)?.split("/").pop() ?? "Project";
           const now = new Date();
           const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-          title = `${projName}_WikiAsk_${ts}`;
-        } else {
-          title = text.slice(0, 512).trim() || "新会话";
-        }
-        setSessionTitle(title);
-        if (sessionId) {
-          void agentRestApi.updateSessionTitle(sessionId, title).catch(() => { });
+          const title = `${projName}_WikiAsk_${ts}`;
+          setSessionTitle(title);
+          if (sessionId) {
+            void agentRestApi.updateSessionTitle(sessionId, title).catch(() => { });
+          }
         }
       }
       setWaitingForResponse(true);
