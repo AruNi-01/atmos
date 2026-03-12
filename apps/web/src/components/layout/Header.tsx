@@ -48,6 +48,7 @@ import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { BrainCircuit, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { LlmProvidersModal } from './LlmProvidersModal';
+import { TokenUsageDialog } from './TokenUsageDialog';
 
 const Header: React.FC = () => {
   const params = useParams();
@@ -607,6 +608,7 @@ const Header: React.FC = () => {
                 </button>
 
                 <UsagePopover />
+                <TokenUsageDialog />
 
                 <div
                   aria-hidden="true"
