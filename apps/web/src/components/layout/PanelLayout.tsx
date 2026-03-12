@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   Panel,
   PanelGroup,
   PanelResizeHandle,
   ImperativePanelHandle,
-  ChevronLeft,
-  ChevronRight,
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { useAppStorage } from "@atmos/shared";
+import { useContextParams } from "@/hooks/use-context-params";
 
 interface PanelLayoutProps {
   leftSidebar: React.ReactNode;
@@ -24,8 +23,10 @@ export function PanelLayout({
   centerStage,
 }: PanelLayoutProps) {
   const storage = useAppStorage();
+  const { currentView } = useContextParams();
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
+  const showRightSidebar = currentView === "project" || currentView === "workspace";
 
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
@@ -58,70 +59,50 @@ export function PanelLayout({
       </Panel>
 
       <ResizeHandle
-        onCollapse={() => {
-          if (isLeftCollapsed) {
-            leftPanelRef.current?.expand();
-          } else {
-            leftPanelRef.current?.collapse();
-          }
-        }}
-        isCollapsed={isLeftCollapsed}
-        side="left"
         onDragging={setIsDragging}
       />
 
       {/* Center Stage */}
-      <Panel defaultSize={60} minSize={25} className="h-full">
+      <Panel defaultSize={showRightSidebar ? 60 : 80} minSize={25} className="h-full">
         {centerStage}
       </Panel>
 
-      <ResizeHandle
-        onCollapse={() => {
-          if (isRightCollapsed) {
-            rightPanelRef.current?.expand();
-          } else {
-            rightPanelRef.current?.collapse();
-          }
-        }}
-        isCollapsed={isRightCollapsed}
-        side="right"
-        onDragging={setIsDragging}
-      />
+      {showRightSidebar ? (
+        <>
+          <ResizeHandle
+            onDragging={setIsDragging}
+          />
 
-      {/* Right Sidebar */}
-      <Panel
-        ref={rightPanelRef}
-        collapsible
-        defaultSize={20}
-        minSize={10}
-        maxSize={75}
-        collapsedSize={0}
-        onCollapse={() => setIsRightCollapsed(true)}
-        onExpand={() => setIsRightCollapsed(false)}
-        className={cn(
-          "h-full flex flex-col",
-          !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
-          isRightCollapsed && "min-w-0!"
-        )}
-      >
-        {rightSidebar}
-      </Panel>
+          {/* Right Sidebar */}
+          <Panel
+            ref={rightPanelRef}
+            collapsible
+            defaultSize={20}
+            minSize={10}
+            maxSize={75}
+            collapsedSize={0}
+            onCollapse={() => setIsRightCollapsed(true)}
+            onExpand={() => setIsRightCollapsed(false)}
+            className={cn(
+              "h-full flex flex-col",
+              !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
+              isRightCollapsed && "min-w-0!"
+            )}
+          >
+            {rightSidebar}
+          </Panel>
+        </>
+      ) : null}
     </PanelGroup>
   );
 }
 
 interface ResizeHandleProps {
-  onCollapse: () => void;
-  isCollapsed: boolean;
-  side: "left" | "right";
   onDragging: (isDragging: boolean) => void;
   className?: string;
 }
 
 function ResizeHandle({
-  onCollapse,
-  isCollapsed,
-  side,
   onDragging,
   className,
 }: ResizeHandleProps) {
@@ -133,34 +114,6 @@ function ResizeHandle({
         "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10", // Expand hit area
         className
       )}
-    >
-      {/* Visual Line (1px inherited from w-px parent) */}
-
-      {/* Collapse Hint Button */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onCollapse();
-        }}
-        title={isCollapsed ? "Expand" : "Collapse"}
-        className={cn(
-          "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
-          "left-1/2 -translate-x-1/2",
-          isCollapsed && "hover:opacity-100! hover:bg-accent!"
-        )}
-      >
-        {side === "left" ? (
-          isCollapsed ? (
-            <ChevronRight className="size-3 text-muted-foreground" />
-          ) : (
-            <ChevronLeft className="size-3 text-muted-foreground" />
-          )
-        ) : isCollapsed ? (
-          <ChevronLeft className="size-3 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="size-3 text-muted-foreground" />
-        )}
-      </button>
-    </PanelResizeHandle>
+    />
   );
 }

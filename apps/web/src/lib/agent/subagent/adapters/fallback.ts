@@ -3,7 +3,7 @@ import {
   capitalizeWord,
   convertContentBlocks,
   escapeUnknownXmlLikeTags,
-  looksLikeSubAgent,
+  looksLikeStructuredSubAgent,
   rawInputObject,
   sanitizeSubAgentMarkdown,
   toStatus,
@@ -24,10 +24,10 @@ function fallbackResult(rawOutput: unknown): string | null {
 
 export const fallbackSubAgentAdapter: SubAgentAdapter = {
   canHandle(block) {
-    return looksLikeSubAgent(block);
+    return looksLikeStructuredSubAgent(block);
   },
   normalize(block, vendor, _childToolCalls): AtmosSubAgentMessage | null {
-    if (!looksLikeSubAgent(block)) return null;
+    if (!looksLikeStructuredSubAgent(block)) return null;
     const input = rawInputObject(block);
     const description = String(input.description ?? block.description ?? "");
     const prompt = typeof input.prompt === "string" ? input.prompt : null;
@@ -39,6 +39,7 @@ export const fallbackSubAgentAdapter: SubAgentAdapter = {
       description,
       prompt,
       status: toStatus(block.status),
+      detailMode: "full",
       contentBlocks: convertContentBlocks(block.content),
       resultMarkdown: fallbackResult(block.raw_output),
       labels: [],

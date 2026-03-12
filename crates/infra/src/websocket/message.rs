@@ -154,6 +154,8 @@ pub enum WsAction {
     GitChangedFiles,
     /// 获取单个文件的 diff
     GitFileDiff,
+    /// 生成 git commit message
+    GitGenerateCommitMessage,
     /// 提交更改
     GitCommit,
     /// 推送更改
@@ -325,6 +327,10 @@ pub enum WsAction {
     FunctionSettingsGet,
     /// Update a field in ~/.atmos/function_settings.json
     FunctionSettingsUpdate,
+    /// Read ~/.atmos/llm/providers.json
+    LlmProvidersGet,
+    /// Overwrite ~/.atmos/llm/providers.json
+    LlmProvidersUpdate,
 }
 
 /// 服务端主动推送的事件类型
@@ -335,6 +341,8 @@ pub enum WsEvent {
     WorkspaceSetupProgress,
     /// AI usage overview changed and should be refreshed on all clients
     UsageOverviewUpdated,
+    /// Git commit message 流式生成 chunk
+    GitCommitMessageChunk,
 }
 
 // ===== 消息通知数据结构 =====
@@ -707,6 +715,20 @@ pub struct GitCommitRequest {
     /// 仓库路径
     pub path: String,
     /// 提交信息
+    pub message: String,
+}
+
+/// Git commit message 生成请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGenerateCommitMessageRequest {
+    /// 仓库路径
+    pub path: String,
+}
+
+/// Git commit message 生成响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitGenerateCommitMessageResponse {
+    /// 生成的 commit message
     pub message: String,
 }
 
@@ -1243,6 +1265,11 @@ pub struct FunctionSettingsUpdateRequest {
     pub function_name: String,
     pub key: String,
     pub value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmProvidersUpdateRequest {
+    pub config: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -66,8 +66,10 @@ export const skillsParams = {
 // AgentManager – tab & search
 // ---------------------------------------------------------------------------
 export type AgentTab = "installed" | "registry" | "custom";
+export type AgentManagerView = "manager" | "sessions";
 
 export const agentManagerParams = {
+  agentView: parseAsStringEnum<AgentManagerView>(["manager", "sessions"]).withDefault("manager"),
   agentTab: parseAsStringEnum<AgentTab>(["installed", "registry", "custom"]).withDefault("installed"),
   agentQ: parseAsString.withDefault(""),
 };
@@ -80,6 +82,10 @@ export type SkillsModalTab = "my-skills" | "marketplace";
 export const skillsModalParams = {
   skillsModal: parseAsBoolean.withDefault(false),
   skillsModalTab: parseAsStringEnum<SkillsModalTab>(["my-skills", "marketplace"]).withDefault("my-skills"),
+};
+
+export const llmProvidersModalParams = {
+  llmProvidersModal: parseAsBoolean.withDefault(false),
 };
 
 // ---------------------------------------------------------------------------

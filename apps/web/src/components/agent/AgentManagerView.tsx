@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useQueryStates } from "nuqs";
-import { agentManagerParams, type AgentTab } from "@/lib/nuqs/searchParams";
+import { agentManagerParams, type AgentManagerView as AgentManagerMode, type AgentTab } from "@/lib/nuqs/searchParams";
 import {
   Button,
   Input,
@@ -29,11 +29,21 @@ import {
   type RegistryAgent,
   type CustomAgent,
 } from "@/api/ws-api";
-import { Bot, Github, Loader2, Search, Trash2, ArrowDownToLine, AlertCircle, RefreshCw, CircleFadingArrowUp, Plus, Terminal, Download, Globe, FileCode, MessageSquare } from "lucide-react";
+import { Bot, Github, Loader2, Search, Trash2, ArrowDownToLine, AlertCircle, RefreshCw, CircleFadingArrowUp, Plus, Terminal, Download, Globe, FileCode, MessageSquare, Pencil } from "lucide-react";
 import { ChatSessionsManagementView } from "@/components/chat-sessions/ChatSessionsManagementView";
 import { AgentIcon } from "./AgentIcon";
 import { Skeleton } from "@workspace/ui";
 import { motion, AnimatePresence } from "motion/react";
+
+const EMPTY_CUSTOM_FORM = { name: "", command: "", args: "", env: "" };
+
+type CustomAgentManifestEntry = {
+  type?: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  default_option_configs?: Record<string, string>;
+};
 
 /**
  * Compare two semantic version strings.
@@ -71,8 +81,7 @@ function needsUpdate(installedVersion: string, latestVersion: string): boolean {
 }
 
 export const AgentManagerView: React.FC = () => {
-  const [{ agentTab: activeTab, agentQ: query }, setAgentParams] = useQueryStates(agentManagerParams);
-  const [isSessionsView, setIsSessionsView] = React.useState(false);
+  const [{ agentView, agentTab: activeTab, agentQ: query }, setAgentParams] = useQueryStates(agentManagerParams);
   const [iconHovered, setIconHovered] = React.useState(false);
   const [registryAgents, setRegistryAgents] = React.useState<RegistryAgent[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -89,8 +98,9 @@ export const AgentManagerView: React.FC = () => {
   } | null>(null);
   const [customAgents, setCustomAgents] = React.useState<CustomAgent[]>([]);
   const [addCustomDialogOpen, setAddCustomDialogOpen] = React.useState(false);
-  const [customForm, setCustomForm] = React.useState({ name: "", command: "", args: "", env: "" });
+  const [customForm, setCustomForm] = React.useState(EMPTY_CUSTOM_FORM);
   const [addingCustom, setAddingCustom] = React.useState(false);
+  const [editingCustomAgentName, setEditingCustomAgentName] = React.useState<string | null>(null);
   const [removingCustomName, setRemovingCustomName] = React.useState<string | null>(null);
   const [removeCustomConfirmDialog, setRemoveCustomConfirmDialog] = React.useState<{
     name: string;
@@ -123,6 +133,38 @@ export const AgentManagerView: React.FC = () => {
   React.useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const resetCustomDialog = React.useCallback(() => {
+    setAddCustomDialogOpen(false);
+    setEditingCustomAgentName(null);
+    setCustomForm(EMPTY_CUSTOM_FORM);
+    setCustomEditMode("form");
+    setCustomJsonText("");
+    setCustomJsonError(null);
+  }, []);
+
+  const openAddCustomDialog = React.useCallback(() => {
+    setEditingCustomAgentName(null);
+    setCustomForm(EMPTY_CUSTOM_FORM);
+    setCustomEditMode("form");
+    setCustomJsonText("");
+    setCustomJsonError(null);
+    setAddCustomDialogOpen(true);
+  }, []);
+
+  const openEditCustomDialog = React.useCallback((agent: CustomAgent) => {
+    setEditingCustomAgentName(agent.name);
+    setCustomForm({
+      name: agent.name,
+      command: agent.command,
+      args: agent.args.length > 0 ? JSON.stringify(agent.args) : "",
+      env: Object.keys(agent.env).length > 0 ? JSON.stringify(agent.env) : "",
+    });
+    setCustomEditMode("form");
+    setCustomJsonText("");
+    setCustomJsonError(null);
+    setAddCustomDialogOpen(true);
+  }, []);
 
   const filteredRegistry = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -224,7 +266,8 @@ export const AgentManagerView: React.FC = () => {
       setAddCustomDialogOpen(false);
       setCustomEditMode("form");
       setCustomJsonText("");
-      setCustomForm({ name: "", command: "", args: "", env: "" });
+      setCustomForm(EMPTY_CUSTOM_FORM);
+      setEditingCustomAgentName(null);
       await loadData();
     } catch (error) {
       toastManager.add({
@@ -237,7 +280,7 @@ export const AgentManagerView: React.FC = () => {
     }
   };
 
-  const handleAddCustomAgent = async () => {
+  const handleSaveCustomAgent = async () => {
     if (!customForm.name.trim() || !customForm.command.trim()) return;
     setAddingCustom(true);
     try {
@@ -257,23 +300,58 @@ export const AgentManagerView: React.FC = () => {
           // ignore invalid env
         }
       }
-      await agentApi.addCustomAgent({
-        name: customForm.name.trim(),
+
+      const nextName = customForm.name.trim();
+      const payload = {
+        name: nextName,
         command: customForm.command.trim(),
         args: parsedArgs,
         env: parsedEnv,
-      });
+      };
+
+      if (editingCustomAgentName) {
+        const { json } = await agentApi.getCustomAgentsJson();
+        const manifest = JSON.parse(json) as Record<string, CustomAgentManifestEntry>;
+        const existingEntry = manifest[editingCustomAgentName];
+
+        if (!existingEntry) {
+          throw new Error("This custom agent no longer exists. Refresh and try again.");
+        }
+        if (nextName !== editingCustomAgentName && manifest[nextName]) {
+          throw new Error(`A custom agent named "${nextName}" already exists.`);
+        }
+
+        if (nextName !== editingCustomAgentName) {
+          delete manifest[editingCustomAgentName];
+        }
+
+        manifest[nextName] = {
+          ...existingEntry,
+          type: existingEntry.type ?? "custom",
+          command: payload.command,
+          args: payload.args,
+          env: payload.env,
+        };
+
+        await agentApi.setCustomAgentsJson(JSON.stringify(manifest, null, 2));
+      } else {
+        await agentApi.addCustomAgent(payload);
+      }
+
       toastManager.add({
-        title: "Custom agent added",
-        description: `"${customForm.name.trim()}" has been added`,
+        title: editingCustomAgentName ? "Custom agent updated" : "Custom agent added",
+        description: editingCustomAgentName
+          ? `"${nextName}" has been updated`
+          : `"${nextName}" has been added`,
         type: "success",
       });
-      setAddCustomDialogOpen(false);
-      setCustomForm({ name: "", command: "", args: "", env: "" });
+      resetCustomDialog();
       await loadData();
     } catch (error) {
       toastManager.add({
-        title: "Failed to add custom agent",
+        title: editingCustomAgentName
+          ? "Failed to update custom agent"
+          : "Failed to add custom agent",
         description: error instanceof Error ? error.message : "Unknown error",
         type: "error",
       });
@@ -348,6 +426,7 @@ export const AgentManagerView: React.FC = () => {
               registryId={item.id}
               name={item.name}
               isCustom={item.install_method === "custom"}
+              registryIcon={item.icon}
             />
           </div>
           <div className="min-w-0">
@@ -511,7 +590,17 @@ export const AgentManagerView: React.FC = () => {
 
       <div className="mt-auto">
         <div className="h-px bg-border/40 mt-4" />
-        <div className="flex items-center justify-end pt-3">
+        <div className="flex items-center justify-end gap-2 pt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openEditCustomDialog(agent)}
+            disabled={removingCustomName === agent.name}
+            className="h-8 rounded-lg px-4 text-xs border-border/60 bg-background opacity-0 pointer-events-none translate-x-1 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-x-0 focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:translate-x-0 hover:bg-muted/50 transition-all"
+          >
+            <Pencil className="mr-1 size-3.5" />
+            Edit
+          </Button>
           <Button
             variant="secondary"
             size="sm"
@@ -588,13 +677,19 @@ export const AgentManagerView: React.FC = () => {
     </div>
   );
 
+  const isSessionsView = agentView === "sessions";
+  const handleViewChange = React.useCallback(() => {
+    const nextView: AgentManagerMode = isSessionsView ? "manager" : "sessions";
+    void setAgentParams({ agentView: nextView });
+  }, [isSessionsView, setAgentParams]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <div
         className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10 cursor-pointer"
         onMouseEnter={() => setIconHovered(true)}
         onMouseLeave={() => setIconHovered(false)}
-        onClick={() => setIsSessionsView(prev => !prev)}
+        onClick={handleViewChange}
       >
         <div className="flex items-center justify-between gap-6 max-w-5xl mx-auto w-full">
           <div className="flex items-center gap-4 shrink-0">
@@ -676,7 +771,7 @@ export const AgentManagerView: React.FC = () => {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setAddCustomDialogOpen(true)}
+                    onClick={openAddCustomDialog}
                     className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
                     title="Add Custom Agent"
                   >
@@ -828,7 +923,7 @@ export const AgentManagerView: React.FC = () => {
                       </p>
                       <Button
                         variant="outline"
-                        onClick={() => setAddCustomDialogOpen(true)}
+                        onClick={openAddCustomDialog}
                         className="mt-4 cursor-pointer"
                       >
                         <Plus className="mr-1.5 size-4" />
@@ -953,11 +1048,7 @@ export const AgentManagerView: React.FC = () => {
         open={addCustomDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setAddCustomDialogOpen(false);
-            setCustomForm({ name: "", command: "", args: "", env: "" });
-            setCustomEditMode("form");
-            setCustomJsonText("");
-            setCustomJsonError(null);
+            resetCustomDialog();
           }
         }}
       >
@@ -966,9 +1057,11 @@ export const AgentManagerView: React.FC = () => {
             <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
               <Terminal className="size-5 text-primary" />
             </div>
-            <DialogTitle>Add Custom Agent</DialogTitle>
+            <DialogTitle>{editingCustomAgentName ? "Edit Custom Agent" : "Add Custom Agent"}</DialogTitle>
             <DialogDescription className="text-pretty">
-              Add an ACP-compatible agent by filling in the form, or edit the raw JSON directly.
+              {editingCustomAgentName
+                ? "Update this ACP-compatible agent by editing the form, or switch to the raw JSON editor."
+                : "Add an ACP-compatible agent by filling in the form, or edit the raw JSON directly."}
             </DialogDescription>
             <p className="text-sm text-muted-foreground">
               Reference available ACP agents at{" "}
@@ -1044,27 +1137,30 @@ export const AgentManagerView: React.FC = () => {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setAddCustomDialogOpen(false);
-                    setCustomForm({ name: "", command: "", args: "", env: "" });
+                    resetCustomDialog();
                   }}
                   className="cursor-pointer"
                 >
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => void handleAddCustomAgent()}
+                  onClick={() => void handleSaveCustomAgent()}
                   disabled={addingCustom || !customForm.name.trim() || !customForm.command.trim()}
                   className="cursor-pointer"
                 >
                   {addingCustom ? (
                     <>
                       <Loader2 className="mr-1 size-3 animate-spin" />
-                      Adding
+                      {editingCustomAgentName ? "Saving" : "Adding"}
                     </>
                   ) : (
                     <>
-                      <Plus className="mr-1 size-3.5" />
-                      Add Agent
+                      {editingCustomAgentName ? (
+                        <Pencil className="mr-1 size-3.5" />
+                      ) : (
+                        <Plus className="mr-1 size-3.5" />
+                      )}
+                      {editingCustomAgentName ? "Save Changes" : "Add Agent"}
                     </>
                   )}
                 </Button>
@@ -1109,11 +1205,7 @@ export const AgentManagerView: React.FC = () => {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setAddCustomDialogOpen(false);
-                    setCustomEditMode("form");
-                    setCustomJsonText("");
-                    setCustomJsonError(null);
-                    setCustomForm({ name: "", command: "", args: "", env: "" });
+                    resetCustomDialog();
                   }}
                   className="cursor-pointer"
                 >

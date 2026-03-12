@@ -8,7 +8,7 @@ import {
   capitalizeWord,
   convertContentBlocks,
   escapeUnknownXmlLikeTags,
-  looksLikeSubAgent,
+  looksLikeStructuredSubAgent,
   rawInputObject,
   sanitizeSubAgentMarkdown,
   toStatus,
@@ -68,10 +68,10 @@ function filterOpenCodeContent(block: SubAgentToolCallBlock) {
 
 export const opencodeSubAgentAdapter: SubAgentAdapter = {
   canHandle(block, vendor) {
-    return vendor === "opencode" && looksLikeSubAgent(block);
+    return vendor === "opencode" && looksLikeStructuredSubAgent(block);
   },
   normalize(block, vendor, _childToolCalls): AtmosSubAgentMessage | null {
-    if (!looksLikeSubAgent(block)) return null;
+    if (!looksLikeStructuredSubAgent(block)) return null;
     const input = rawInputObject(block);
     const description = String(input.description ?? block.description ?? "");
     const prompt = typeof input.prompt === "string" ? input.prompt : null;
@@ -85,6 +85,7 @@ export const opencodeSubAgentAdapter: SubAgentAdapter = {
       description,
       prompt,
       status: toStatus(block.status),
+      detailMode: "full",
       contentBlocks: convertContentBlocks(filterOpenCodeContent(block)),
       resultMarkdown: parsed.resultMarkdown,
       labels: parsed.labels,

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useWebSocketStore, WsAction } from '@/hooks/use-websocket';
+import { useWebSocketStore, WsAction } from "@/hooks/use-websocket";
 
 // ===== 类型定义 =====
 
@@ -135,6 +135,10 @@ export interface GitCommitResponse {
   commit_hash: string | null;
 }
 
+export interface GitGenerateCommitMessageResponse {
+  message: string;
+}
+
 // Archived Workspace 类型
 export interface ArchivedWorkspace {
   guid: string;
@@ -162,10 +166,20 @@ export interface WorkspaceModel {
   local_path: string;
 }
 
-export type UsageDetailRowTone = 'default' | 'muted' | 'success' | 'warning' | 'danger';
-export type UsageProviderKind = 'cli' | 'desktop' | 'api' | 'hybrid';
-export type UsageAuthStateStatus = 'detected' | 'missing' | 'unsupported';
-export type UsageFetchStateStatus = 'ready' | 'unavailable' | 'partial' | 'error' | 'unsupported';
+export type UsageDetailRowTone =
+  | "default"
+  | "muted"
+  | "success"
+  | "warning"
+  | "danger";
+export type UsageProviderKind = "cli" | "desktop" | "api" | "hybrid";
+export type UsageAuthStateStatus = "detected" | "missing" | "unsupported";
+export type UsageFetchStateStatus =
+  | "ready"
+  | "unavailable"
+  | "partial"
+  | "error"
+  | "unsupported";
 
 export interface UsageDetailRowResponse {
   label: string;
@@ -273,22 +287,26 @@ export interface UsageOverviewResponse {
 /**
  * 发送 WebSocket 请求的通用函数
  */
-async function wsRequest<T>(action: WsAction, data: unknown = {}, timeoutMs?: number): Promise<T> {
+async function wsRequest<T>(
+  action: WsAction,
+  data: unknown = {},
+  timeoutMs?: number,
+): Promise<T> {
   const { send, connectionState, connect } = useWebSocketStore.getState();
-  
+
   // 如果未连接，尝试连接
-  if (connectionState !== 'connected') {
+  if (connectionState !== "connected") {
     connect();
-    
+
     // 等待连接建立
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error('WebSocket connection timeout'));
+        reject(new Error("WebSocket connection timeout"));
       }, 5000);
-      
+
       const checkConnection = setInterval(() => {
         const state = useWebSocketStore.getState();
-        if (state.connectionState === 'connected') {
+        if (state.connectionState === "connected") {
           clearInterval(checkConnection);
           clearTimeout(timeout);
           resolve();
@@ -296,7 +314,7 @@ async function wsRequest<T>(action: WsAction, data: unknown = {}, timeoutMs?: nu
       }, 100);
     });
   }
-  
+
   return send<T>(action, data, timeoutMs);
 }
 
@@ -307,44 +325,53 @@ export const fsApi = {
    * 获取用户主目录
    */
   getHomeDir: async (): Promise<string> => {
-    const result = await wsRequest<{ path: string }>('fs_get_home_dir');
+    const result = await wsRequest<{ path: string }>("fs_get_home_dir");
     return result.path;
   },
-  
+
   /**
    * 列出目录内容
    */
   listDir: async (
     path: string,
-    options?: { dirsOnly?: boolean; showHidden?: boolean; ignoreNotFound?: boolean }
+    options?: {
+      dirsOnly?: boolean;
+      showHidden?: boolean;
+      ignoreNotFound?: boolean;
+    },
   ): Promise<FsListDirResponse> => {
-    return wsRequest<FsListDirResponse>('fs_list_dir', {
+    return wsRequest<FsListDirResponse>("fs_list_dir", {
       path,
-      dirs_only: options?.dirsOnly ?? true,  // 默认只显示目录
+      dirs_only: options?.dirsOnly ?? true, // 默认只显示目录
       show_hidden: options?.showHidden ?? false,
       ignore_not_found: options?.ignoreNotFound ?? false,
     });
   },
-  
+
   /**
    * 验证 Git 仓库路径
    */
   validateGitPath: async (path: string): Promise<FsValidateGitPathResponse> => {
-    return wsRequest<FsValidateGitPathResponse>('fs_validate_git_path', { path });
+    return wsRequest<FsValidateGitPathResponse>("fs_validate_git_path", {
+      path,
+    });
   },
 
   /**
    * 读取文件内容
    */
   readFile: async (path: string): Promise<FsReadFileResponse> => {
-    return wsRequest<FsReadFileResponse>('fs_read_file', { path });
+    return wsRequest<FsReadFileResponse>("fs_read_file", { path });
   },
 
   /**
    * 写入文件内容
    */
-  writeFile: async (path: string, content: string): Promise<FsWriteFileResponse> => {
-    return wsRequest<FsWriteFileResponse>('fs_write_file', { path, content });
+  writeFile: async (
+    path: string,
+    content: string,
+  ): Promise<FsWriteFileResponse> => {
+    return wsRequest<FsWriteFileResponse>("fs_write_file", { path, content });
   },
 
   /**
@@ -352,9 +379,9 @@ export const fsApi = {
    */
   listProjectFiles: async (
     rootPath: string,
-    options?: { showHidden?: boolean }
+    options?: { showHidden?: boolean },
   ): Promise<FsListProjectFilesResponse> => {
-    return wsRequest<FsListProjectFilesResponse>('fs_list_project_files', {
+    return wsRequest<FsListProjectFilesResponse>("fs_list_project_files", {
       root_path: rootPath,
       show_hidden: options?.showHidden ?? false,
     });
@@ -366,9 +393,9 @@ export const fsApi = {
   searchContent: async (
     rootPath: string,
     query: string,
-    options?: { maxResults?: number; caseSensitive?: boolean }
+    options?: { maxResults?: number; caseSensitive?: boolean },
   ): Promise<FsSearchContentResponse> => {
-    return wsRequest<FsSearchContentResponse>('fs_search_content', {
+    return wsRequest<FsSearchContentResponse>("fs_search_content", {
       root_path: rootPath,
       query,
       max_results: options?.maxResults ?? 50,
@@ -382,9 +409,9 @@ export const fsApi = {
   searchDirs: async (
     rootPath: string,
     query: string,
-    options?: { maxResults?: number; maxDepth?: number }
+    options?: { maxResults?: number; maxDepth?: number },
   ): Promise<FsSearchDirsResponse> => {
-    return wsRequest<FsSearchDirsResponse>('fs_search_dirs', {
+    return wsRequest<FsSearchDirsResponse>("fs_search_dirs", {
       root_path: rootPath,
       query,
       max_results: options?.maxResults ?? 50,
@@ -406,7 +433,7 @@ export const appApi = {
    * 使用外部应用打开路径
    */
   openWith: async (appName: string, path: string): Promise<AppOpenResponse> => {
-    return wsRequest<AppOpenResponse>('app_open', {
+    return wsRequest<AppOpenResponse>("app_open", {
       app_name: appName,
       path,
     });
@@ -416,65 +443,67 @@ export const appApi = {
 export const usageWsApi = {
   getOverview: async (
     refresh = false,
-    providerId?: string | null
+    providerId?: string | null,
   ): Promise<UsageOverviewResponse> => {
     return wsRequest<UsageOverviewResponse>(
-      'usage_get_overview',
+      "usage_get_overview",
       {
         refresh,
         provider_id: providerId ?? null,
       },
-      45_000
+      45_000,
     );
   },
 
   setProviderSwitch: async (
     providerId: string,
-    enabled: boolean
+    enabled: boolean,
   ): Promise<UsageOverviewResponse> => {
     return wsRequest<UsageOverviewResponse>(
-      'usage_set_provider_switch',
+      "usage_set_provider_switch",
       {
         provider_id: providerId,
         enabled,
       },
-      45_000
+      45_000,
     );
   },
 
-  setAllProvidersSwitch: async (enabled: boolean): Promise<UsageOverviewResponse> => {
+  setAllProvidersSwitch: async (
+    enabled: boolean,
+  ): Promise<UsageOverviewResponse> => {
     return wsRequest<UsageOverviewResponse>(
-      'usage_set_all_providers_switch',
+      "usage_set_all_providers_switch",
       { enabled },
-      45_000
+      45_000,
     );
   },
 
   setProviderManualSetup: async (
     providerId: string,
     region: string | null,
-    apiKey?: string | null
+    apiKey?: string | null,
   ): Promise<UsageOverviewResponse> => {
     return wsRequest<UsageOverviewResponse>(
-      'usage_set_provider_manual_setup',
+      "usage_set_provider_manual_setup",
       {
         provider_id: providerId,
         region,
         api_key: apiKey ?? null,
       },
-      45_000
+      45_000,
     );
   },
 
   setAutoRefresh: async (
-    intervalMinutes?: number | null
+    intervalMinutes?: number | null,
   ): Promise<UsageOverviewResponse> => {
     return wsRequest<UsageOverviewResponse>(
-      'usage_set_auto_refresh',
+      "usage_set_auto_refresh",
       {
         interval_minutes: intervalMinutes ?? null,
       },
-      45_000
+      45_000,
     );
   },
 };
@@ -486,22 +515,22 @@ export const gitApi = {
    * 获取 Git 状态（未提交/未推送的更改）
    */
   getStatus: async (path: string): Promise<GitStatusResponse> => {
-    return wsRequest<GitStatusResponse>('git_get_status', { path });
+    return wsRequest<GitStatusResponse>("git_get_status", { path });
   },
 
   /**
    * 获取当前 HEAD 提交 hash
    */
   getHeadCommit: async (path: string): Promise<{ commit_hash: string }> => {
-    return wsRequest<{ commit_hash: string }>('git_get_head_commit', { path });
+    return wsRequest<{ commit_hash: string }>("git_get_head_commit", { path });
   },
 
   getCommitCount: async (
     path: string,
     baseCommit: string,
-    headCommit: string
+    headCommit: string,
   ): Promise<{ count: number }> => {
-    return wsRequest<{ count: number }>('git_get_commit_count', {
+    return wsRequest<{ count: number }>("git_get_commit_count", {
       path,
       base_commit: baseCommit,
       head_commit: headCommit,
@@ -512,7 +541,10 @@ export const gitApi = {
    * 列出仓库所有分支
    */
   listBranches: async (path: string): Promise<string[]> => {
-    const result = await wsRequest<{ branches: string[] }>('git_list_branches', { path });
+    const result = await wsRequest<{ branches: string[] }>(
+      "git_list_branches",
+      { path },
+    );
     return result.branches;
   },
 
@@ -520,15 +552,22 @@ export const gitApi = {
    * 列出仓库所有远程分支
    */
   listRemoteBranches: async (path: string): Promise<string[]> => {
-    const result = await wsRequest<{ branches: string[] }>('git_list_remote_branches', { path });
+    const result = await wsRequest<{ branches: string[] }>(
+      "git_list_remote_branches",
+      { path },
+    );
     return result.branches;
   },
 
   /**
    * 重命名 Git 分支
    */
-  renameBranch: async (path: string, oldName: string, newName: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_rename_branch', {
+  renameBranch: async (
+    path: string,
+    oldName: string,
+    newName: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("git_rename_branch", {
       path,
       old_name: oldName,
       new_name: newName,
@@ -539,14 +578,17 @@ export const gitApi = {
    * 获取变更文件列表
    */
   getChangedFiles: async (path: string): Promise<GitChangedFilesResponse> => {
-    return wsRequest<GitChangedFilesResponse>('git_changed_files', { path });
+    return wsRequest<GitChangedFilesResponse>("git_changed_files", { path });
   },
 
   /**
    * 获取单个文件的 diff
    */
-  getFileDiff: async (path: string, filePath: string): Promise<GitFileDiffResponse> => {
-    return wsRequest<GitFileDiffResponse>('git_file_diff', {
+  getFileDiff: async (
+    path: string,
+    filePath: string,
+  ): Promise<GitFileDiffResponse> => {
+    return wsRequest<GitFileDiffResponse>("git_file_diff", {
       path,
       file_path: filePath,
     });
@@ -556,66 +598,96 @@ export const gitApi = {
    * 提交更改
    */
   commit: async (path: string, message: string): Promise<GitCommitResponse> => {
-    return wsRequest<GitCommitResponse>('git_commit', {
+    return wsRequest<GitCommitResponse>("git_commit", {
       path,
       message,
     });
   },
 
   /**
+   * 生成 Git commit message
+   */
+  generateCommitMessage: async (
+    path: string,
+  ): Promise<GitGenerateCommitMessageResponse> => {
+    return wsRequest<GitGenerateCommitMessageResponse>(
+      "git_generate_commit_message",
+      { path },
+    );
+  },
+
+  /**
    * 推送到远程
    */
   push: async (path: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_push', { path });
+    return wsRequest<{ success: boolean }>("git_push", { path });
   },
 
   /**
    * 暂存文件
    */
-  stage: async (path: string, files: string[]): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_stage', { path, files });
+  stage: async (
+    path: string,
+    files: string[],
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("git_stage", { path, files });
   },
 
   /**
    * 取消暂存
    */
-  unstage: async (path: string, files: string[]): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_unstage', { path, files });
+  unstage: async (
+    path: string,
+    files: string[],
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("git_unstage", { path, files });
   },
 
   /**
    * 放弃工作区更改
    */
-  discardUnstaged: async (path: string, files: string[]): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_discard_unstaged', { path, files });
+  discardUnstaged: async (
+    path: string,
+    files: string[],
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("git_discard_unstaged", {
+      path,
+      files,
+    });
   },
 
   /**
    * 放弃未追踪文件
    */
-  discardUntracked: async (path: string, files: string[]): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_discard_untracked', { path, files });
+  discardUntracked: async (
+    path: string,
+    files: string[],
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("git_discard_untracked", {
+      path,
+      files,
+    });
   },
 
   /**
    * 拉取变更
    */
   pull: async (path: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_pull', { path });
+    return wsRequest<{ success: boolean }>("git_pull", { path });
   },
 
   /**
    * 获取远程变更
    */
   fetch: async (path: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_fetch', { path });
+    return wsRequest<{ success: boolean }>("git_fetch", { path });
   },
 
   /**
    * 同步 (fetch + pull)
    */
   sync: async (path: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('git_sync', { path });
+    return wsRequest<{ success: boolean }>("git_sync", { path });
   },
 };
 
@@ -626,9 +698,9 @@ export const wsProjectApi = {
    * 获取所有项目
    */
   list: async (): Promise<ProjectModel[]> => {
-    return wsRequest<ProjectModel[]>('project_list');
+    return wsRequest<ProjectModel[]>("project_list");
   },
-  
+
   /**
    * 创建项目
    */
@@ -638,14 +710,14 @@ export const wsProjectApi = {
     sidebarOrder?: number;
     borderColor?: string;
   }): Promise<ProjectModel> => {
-    return wsRequest<ProjectModel>('project_create', {
+    return wsRequest<ProjectModel>("project_create", {
       name: data.name,
       main_file_path: data.mainFilePath,
       sidebar_order: data.sidebarOrder ?? 0,
       border_color: data.borderColor,
     });
   },
-  
+
   /**
    * 更新项目
    */
@@ -655,33 +727,38 @@ export const wsProjectApi = {
     borderColor?: string;
     sidebarOrder?: number;
   }): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('project_update', {
+    return wsRequest<{ success: boolean }>("project_update", {
       guid: data.guid,
       name: data.name,
       border_color: data.borderColor,
       sidebar_order: data.sidebarOrder,
     });
   },
-  
+
   /**
    * 删除项目
    */
   delete: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('project_delete', { guid });
+    return wsRequest<{ success: boolean }>("project_delete", { guid });
   },
-  
+
   /**
    * 验证项目路径
    */
   validatePath: async (path: string): Promise<FsValidateGitPathResponse> => {
-    return wsRequest<FsValidateGitPathResponse>('project_validate_path', { path });
+    return wsRequest<FsValidateGitPathResponse>("project_validate_path", {
+      path,
+    });
   },
 
   /**
    * 更新项目目标分支
    */
-  updateTargetBranch: async (guid: string, targetBranch: string | null): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('project_update_target_branch', {
+  updateTargetBranch: async (
+    guid: string,
+    targetBranch: string | null,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("project_update_target_branch", {
       guid,
       target_branch: targetBranch,
     });
@@ -690,8 +767,11 @@ export const wsProjectApi = {
   /**
    * 更新项目排序
    */
-  updateOrder: async (guid: string, sidebarOrder: number): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('project_update_order', {
+  updateOrder: async (
+    guid: string,
+    sidebarOrder: number,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("project_update_order", {
       guid,
       sidebar_order: sidebarOrder,
     });
@@ -700,8 +780,13 @@ export const wsProjectApi = {
   /**
    * 检查项目是否可以删除
    */
-  checkCanDelete: async (guid: string): Promise<{ can_delete: boolean; active_workspace_count: number }> => {
-    return wsRequest<{ can_delete: boolean; active_workspace_count: number }>('project_check_can_delete', { guid });
+  checkCanDelete: async (
+    guid: string,
+  ): Promise<{ can_delete: boolean; active_workspace_count: number }> => {
+    return wsRequest<{ can_delete: boolean; active_workspace_count: number }>(
+      "project_check_can_delete",
+      { guid },
+    );
   },
 };
 
@@ -712,9 +797,11 @@ export const wsWorkspaceApi = {
    * 获取项目下的所有 Workspace
    */
   listByProject: async (projectGuid: string): Promise<WorkspaceModel[]> => {
-    return wsRequest<WorkspaceModel[]>('workspace_list', { project_guid: projectGuid });
+    return wsRequest<WorkspaceModel[]>("workspace_list", {
+      project_guid: projectGuid,
+    });
   },
-  
+
   /**
    * 创建 Workspace
    */
@@ -724,75 +811,96 @@ export const wsWorkspaceApi = {
     branch: string;
     sidebarOrder?: number;
   }): Promise<WorkspaceModel> => {
-    return wsRequest<WorkspaceModel>('workspace_create', {
+    return wsRequest<WorkspaceModel>("workspace_create", {
       project_guid: data.projectGuid,
       name: data.name,
       branch: data.branch,
       sidebar_order: data.sidebarOrder ?? 0,
     });
   },
-  
+
   /**
    * 更新 Workspace 名称
    */
-  updateName: async (guid: string, name: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('workspace_update_name', { guid, name });
+  updateName: async (
+    guid: string,
+    name: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_name", {
+      guid,
+      name,
+    });
   },
-  
+
   /**
    * 更新 Workspace 分支
    */
-  updateBranch: async (guid: string, branch: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('workspace_update_branch', { guid, branch });
+  updateBranch: async (
+    guid: string,
+    branch: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_branch", {
+      guid,
+      branch,
+    });
   },
-  
+
   /**
    * 更新 Workspace 排序
    */
-  updateOrder: async (guid: string, sidebarOrder: number): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('workspace_update_order', { guid, sidebar_order: sidebarOrder });
+  updateOrder: async (
+    guid: string,
+    sidebarOrder: number,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_order", {
+      guid,
+      sidebar_order: sidebarOrder,
+    });
   },
-  
+
   /**
    * 删除 Workspace
    */
   delete: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('workspace_delete', { guid });
+    return wsRequest<{ success: boolean }>("workspace_delete", { guid });
   },
 
   /**
    * 置顶 Workspace
    */
   pin: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('workspace_pin', { guid });
+    return wsRequest<{ success: boolean }>("workspace_pin", { guid });
   },
 
   /**
    * 取消置顶 Workspace
    */
   unpin: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('workspace_unpin', { guid });
+    return wsRequest<{ success: boolean }>("workspace_unpin", { guid });
   },
 
   /**
    * 归档 Workspace
    */
   archive: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('workspace_archive', { guid });
+    return wsRequest<{ success: boolean }>("workspace_archive", { guid });
   },
 
   /**
    * 获取所有归档的 Workspace
    */
   listArchived: async (): Promise<{ workspaces: ArchivedWorkspace[] }> => {
-    return wsRequest<{ workspaces: ArchivedWorkspace[] }>('workspace_list_archived', {});
+    return wsRequest<{ workspaces: ArchivedWorkspace[] }>(
+      "workspace_list_archived",
+      {},
+    );
   },
 
   /**
    * 取消归档 Workspace
    */
   unarchive: async (guid: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('workspace_unarchive', { guid });
+    return wsRequest<{ success: boolean }>("workspace_unarchive", { guid });
   },
 };
 
@@ -803,14 +911,22 @@ export const wsScriptApi = {
    * 获取项目脚本
    */
   get: async (projectGuid: string): Promise<Record<string, string>> => {
-    return wsRequest<Record<string, string>>('script_get', { project_guid: projectGuid });
+    return wsRequest<Record<string, string>>("script_get", {
+      project_guid: projectGuid,
+    });
   },
-  
+
   /**
    * 保存项目脚本
    */
-  save: async (projectGuid: string, scripts: Record<string, string>): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('script_save', { project_guid: projectGuid, scripts });
+  save: async (
+    projectGuid: string,
+    scripts: Record<string, string>,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("script_save", {
+      project_guid: projectGuid,
+      scripts,
+    });
   },
 };
 
@@ -845,7 +961,7 @@ export interface SkillInfo {
   name: string;
   description: string;
   agents: string[];
-  scope: 'global' | 'project' | 'inside_project';
+  scope: "global" | "project" | "inside_project";
   project_id: string | null;
   project_name: string | null;
   path: string;
@@ -858,7 +974,7 @@ export interface SkillInfo {
   placements: SkillPlacement[];
 }
 
-export type AgentId = 'claude_code' | 'codex' | 'gemini_cli';
+export type AgentId = "claude_code" | "codex" | "gemini_cli";
 
 export interface AgentStatus {
   id: AgentId;
@@ -926,14 +1042,14 @@ export const skillsApi = {
    * 获取已安装的 Skills 列表
    */
   list: async (): Promise<{ skills: SkillInfo[] }> => {
-    return wsRequest<{ skills: SkillInfo[] }>('skills_list');
+    return wsRequest<{ skills: SkillInfo[] }>("skills_list");
   },
 
   /**
    * 获取单个 Skill 详情
    */
   get: async (scope: string, id: string): Promise<SkillInfo> => {
-    return wsRequest<SkillInfo>('skills_get', { scope, id });
+    return wsRequest<SkillInfo>("skills_get", { scope, id });
   },
 
   setEnabled: async (id: string, enabled: boolean): Promise<{ success: boolean }> => {
@@ -947,8 +1063,14 @@ export const skillsApi = {
   /**
    * Install project-wiki skill to ~/.atmos/skills/.system/project-wiki
    */
-  installProjectWiki: async (): Promise<{ success: boolean; path: string; message: string }> => {
-    return wsRequest<{ success: boolean; path: string; message: string }>('wiki_skill_install');
+  installProjectWiki: async (): Promise<{
+    success: boolean;
+    path: string;
+    message: string;
+  }> => {
+    return wsRequest<{ success: boolean; path: string; message: string }>(
+      "wiki_skill_install",
+    );
   },
 
   /**
@@ -956,7 +1078,9 @@ export const skillsApi = {
    * in ~/.atmos/skills/.system/
    */
   isProjectWikiInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest<{ installed: boolean }>('wiki_skill_system_status');
+    const res = await wsRequest<{ installed: boolean }>(
+      "wiki_skill_system_status",
+    );
     return res.installed;
   },
 
@@ -965,7 +1089,9 @@ export const skillsApi = {
    * are installed in ~/.atmos/skills/.system/
    */
   isCodeReviewSkillsInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest<{ installed: boolean }>('code_review_skill_system_status');
+    const res = await wsRequest<{ installed: boolean }>(
+      "code_review_skill_system_status",
+    );
     return res.installed;
   },
 
@@ -973,22 +1099,28 @@ export const skillsApi = {
    * Check if git-commit skill is installed in ~/.atmos/skills/.system/git-commit/
    */
   isGitCommitSkillInstalledInSystem: async (): Promise<boolean> => {
-    const res = await wsRequest<{ installed: boolean }>('git_commit_skill_system_status');
+    const res = await wsRequest<{ installed: boolean }>(
+      "git_commit_skill_system_status",
+    );
     return res.installed;
   },
 
   /**
    * Sync a single system skill by name
    */
-  syncSingleSystemSkill: async (skillName: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('sync_single_system_skill', { skill_name: skillName });
+  syncSingleSystemSkill: async (
+    skillName: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("sync_single_system_skill", {
+      skill_name: skillName,
+    });
   },
 
   /**
    * Manually trigger sync of all system skills from project/GitHub
    */
   syncSystemSkills: async (): Promise<{ initiated: boolean }> => {
-    return wsRequest<{ initiated: boolean }>('skills_system_sync');
+    return wsRequest<{ initiated: boolean }>("skills_system_sync");
   },
 };
 
@@ -1005,13 +1137,49 @@ export interface FunctionSettings {
   [key: string]: unknown;
 }
 
+export type LlmProviderKind = "openai-compatible" | "anthropic-compatible";
+
+export interface LlmProviderEntry {
+  enabled: boolean;
+  displayName?: string | null;
+  kind: LlmProviderKind;
+  base_url: string;
+  api_key: string;
+  model: string;
+  timeout_ms?: number | null;
+  max_output_tokens?: number | null;
+}
+
+export interface SessionTitleFormatConfig {
+  include_agent_name?: boolean;
+  include_project_name?: boolean;
+  include_intent_emoji?: boolean;
+}
+
+export interface LlmFeatureBindings {
+  session_title?: string | null;
+  git_commit?: string | null;
+  session_title_format?: SessionTitleFormatConfig | null;
+}
+
+export interface LlmProvidersFile {
+  version: number;
+  default_provider?: string | null;
+  features: LlmFeatureBindings;
+  providers: Record<string, LlmProviderEntry>;
+}
+
 export const functionSettingsApi = {
   get: async (): Promise<FunctionSettings> => {
-    return wsRequest<FunctionSettings>('function_settings_get');
+    return wsRequest<FunctionSettings>("function_settings_get");
   },
 
-  update: async (functionName: string, key: string, value: unknown): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>('function_settings_update', {
+  update: async (
+    functionName: string,
+    key: string,
+    value: unknown,
+  ): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("function_settings_update", {
       function_name: functionName,
       key,
       value,
@@ -1019,49 +1187,77 @@ export const functionSettingsApi = {
   },
 };
 
+export const llmProvidersApi = {
+  get: async (): Promise<LlmProvidersFile> => {
+    return wsRequest<LlmProvidersFile>("llm_providers_get");
+  },
+
+  update: async (config: LlmProvidersFile): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("llm_providers_update", { config });
+  },
+};
+
 // ===== Agent API =====
 
 export const agentApi = {
   list: async (): Promise<{ agents: AgentStatus[] }> => {
-    return wsRequest<{ agents: AgentStatus[] }>('agent_list');
+    return wsRequest<{ agents: AgentStatus[] }>("agent_list");
   },
 
   install: async (id: AgentId): Promise<AgentInstallResponse> => {
-    return wsRequest<AgentInstallResponse>('agent_install', { id });
+    return wsRequest<AgentInstallResponse>("agent_install", { id });
   },
 
   getConfig: async (id: AgentId): Promise<AgentConfigState> => {
-    return wsRequest<AgentConfigState>('agent_config_get', { id });
+    return wsRequest<AgentConfigState>("agent_config_get", { id });
   },
 
-  setConfig: async (id: AgentId, apiKey: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('agent_config_set', { id, api_key: apiKey });
+  setConfig: async (
+    id: AgentId,
+    apiKey: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("agent_config_set", {
+      id,
+      api_key: apiKey,
+    });
   },
 
-  listRegistry: async (forceRefresh = false): Promise<{ agents: RegistryAgent[] }> => {
-    return wsRequest<{ agents: RegistryAgent[] }>('agent_registry_list', {
+  listRegistry: async (
+    forceRefresh = false,
+  ): Promise<{ agents: RegistryAgent[] }> => {
+    return wsRequest<{ agents: RegistryAgent[] }>("agent_registry_list", {
       force_refresh: forceRefresh,
     });
   },
 
   installRegistry: async (
     registryId: string,
-    forceOverwrite = false
+    forceOverwrite = false,
   ): Promise<RegistryInstallResponse> => {
-    return wsRequest<RegistryInstallResponse>('agent_registry_install', {
-      registry_id: registryId,
-      force_overwrite: forceOverwrite,
-    }, 180_000);
+    return wsRequest<RegistryInstallResponse>(
+      "agent_registry_install",
+      {
+        registry_id: registryId,
+        force_overwrite: forceOverwrite,
+      },
+      180_000,
+    );
   },
 
-  removeRegistry: async (registryId: string): Promise<RegistryInstallResponse> => {
-    return wsRequest<RegistryInstallResponse>('agent_registry_remove', {
-      registry_id: registryId,
-    }, 180_000);
+  removeRegistry: async (
+    registryId: string,
+  ): Promise<RegistryInstallResponse> => {
+    return wsRequest<RegistryInstallResponse>(
+      "agent_registry_remove",
+      {
+        registry_id: registryId,
+      },
+      180_000,
+    );
   },
 
   listCustomAgents: async (): Promise<{ agents: CustomAgent[] }> => {
-    return wsRequest<{ agents: CustomAgent[] }>('custom_agent_list');
+    return wsRequest<{ agents: CustomAgent[] }>("custom_agent_list");
   },
 
   addCustomAgent: async (agent: {
@@ -1070,22 +1266,22 @@ export const agentApi = {
     args: string[];
     env: Record<string, string>;
   }): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('custom_agent_add', agent);
+    return wsRequest<{ success: boolean }>("custom_agent_add", agent);
   },
 
   removeCustomAgent: async (name: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('custom_agent_remove', { name });
+    return wsRequest<{ success: boolean }>("custom_agent_remove", { name });
   },
 
   getCustomAgentsJson: async (): Promise<{ json: string }> => {
-    return wsRequest<{ json: string }>('custom_agent_get_json');
+    return wsRequest<{ json: string }>("custom_agent_get_json");
   },
 
   setCustomAgentsJson: async (json: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('custom_agent_set_json', { json });
+    return wsRequest<{ success: boolean }>("custom_agent_set_json", { json });
   },
 
   getManifestPath: async (): Promise<{ path: string }> => {
-    return wsRequest<{ path: string }>('custom_agent_get_manifest_path');
+    return wsRequest<{ path: string }>("custom_agent_get_manifest_path");
   },
 };

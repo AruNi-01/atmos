@@ -102,3 +102,24 @@ async fn get_overview_refreshes_all_providers_in_parallel_and_preserves_order() 
         "expected concurrent refresh under 240ms, got {elapsed:?}"
     );
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn provider_specific_refresh_updates_generated_at() {
+    let service = UsageService::new(vec![Arc::new(MockProvider {
+        id: "factory",
+        label: "Factory",
+        latency: Duration::from_millis(10),
+        timeout: Duration::from_millis(500),
+    })]);
+
+    let initial = service.get_overview(false, None).await;
+    tokio::time::sleep(Duration::from_millis(1_200)).await;
+    let refreshed = service.get_overview(true, Some("factory")).await;
+
+    assert!(
+        refreshed.generated_at > initial.generated_at,
+        "expected provider refresh to advance generated_at (initial={}, refreshed={})",
+        initial.generated_at,
+        refreshed.generated_at
+    );
+}

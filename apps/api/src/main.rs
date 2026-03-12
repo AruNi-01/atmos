@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                "api=debug,infra=debug,core_service=debug,core_engine=debug,agent=debug,tower_http=debug".into()
+                "api=debug,infra=debug,core_service=debug,core_engine=debug,agent=debug,llm=debug,tower_http=debug".into()
             }),
         )
         .with(tracing_subscriber::fmt::layer())
@@ -57,8 +57,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting ATMOS API Server...");
 
-    // Sync system skills (wiki + code review) to ~/.atmos/skills/.system/ on startup
-    tokio::task::spawn_blocking(infra::utils::system_skill_sync::sync_system_skills_on_startup);
+    // Sync bundled skills to ~/.atmos on startup.
+    tokio::task::spawn_blocking(|| {
+        infra::utils::system_skill_sync::sync_system_skills_on_startup();
+    });
 
     let db_connection = DbConnection::new().await?;
     info!("Database connected");
