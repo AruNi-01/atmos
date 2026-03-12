@@ -87,9 +87,14 @@ async fn get_overview_publishes_updates_for_fresh_fetches() {
     let update = updates.recv().await.unwrap();
 
     assert_eq!(overview.summary.total_messages, 3);
-    assert_eq!(update.query.year.as_deref(), Some("2026"));
+    assert_eq!(update.overview.query.year.as_deref(), Some("2026"));
     assert_eq!(update.overview.by_model.len(), 2);
-    assert_eq!(update.overview.by_day[1].by_client[0].breakdown.total_tokens, 210);
+    assert_eq!(
+        update.overview.by_day[1].by_client[0]
+            .breakdown
+            .total_tokens,
+        210
+    );
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 

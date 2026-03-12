@@ -129,7 +129,6 @@ impl TokenUsageService {
         }
 
         self.publish_update(TokenUsageUpdate {
-            query,
             overview: overview.clone(),
         });
 
@@ -281,20 +280,27 @@ fn build_monthly_usage(report: &tokscale_core::MonthlyReport) -> Vec<MonthlyToke
     report
         .entries
         .iter()
-        .map(|entry| MonthlyTokenUsage {
-            month: entry.month.clone(),
-            breakdown: TokenBreakdown {
+        .map(|entry| {
+            let total_tokens = entry.input + entry.output + entry.cache_read + entry.cache_write;
+            let breakdown = TokenBreakdown {
                 input_tokens: entry.input,
                 output_tokens: entry.output,
                 cache_read_tokens: entry.cache_read,
                 cache_write_tokens: entry.cache_write,
+                // tokscale_core::MonthlyUsage does not currently expose reasoning tokens.
+                // Keep this explicit so a future upstream field addition is easy to spot.
                 reasoning_tokens: 0,
-                total_tokens: entry.input + entry.output + entry.cache_read + entry.cache_write,
-            },
-            total_tokens: entry.input + entry.output + entry.cache_read + entry.cache_write,
-            total_cost_usd: finite_cost(entry.cost),
-            message_count: entry.message_count,
-            models: entry.models.clone(),
+                total_tokens,
+            };
+
+            MonthlyTokenUsage {
+                month: entry.month.clone(),
+                total_tokens,
+                breakdown,
+                total_cost_usd: finite_cost(entry.cost),
+                message_count: entry.message_count,
+                models: entry.models.clone(),
+            }
         })
         .collect()
 }
