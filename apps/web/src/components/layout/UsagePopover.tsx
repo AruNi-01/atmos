@@ -1,11 +1,13 @@
 "use client";
 
-import React, { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   AlertCircle,
   Clock3,
   BookMarked,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
   KeyRound,
   Blocks,
@@ -26,13 +28,17 @@ import {
   SelectValue,
   ScrollArea,
   Switch,
+  TimerDisplay,
+  TimerRoot,
   ToggleGroup,
   ToggleGroupItem,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  UiTimerIcon,
   cn,
+  useTimer,
 } from "@workspace/ui";
 
 import {
@@ -98,6 +104,17 @@ function formatNextAutoRefreshHint(
     return { value: "<1min", suffix: "Next update in" };
   }
   return { value: `${remainingMinutes}min`, suffix: "Next update in" };
+}
+
+function formatCountdownDisplay(remainingMs: number): string {
+  const safeRemainingMs = Math.max(0, remainingMs);
+  const totalMinutes = Math.floor(safeRemainingMs / 60_000);
+  const seconds = Math.floor((safeRemainingMs % 60_000) / 1_000);
+  const centiseconds = Math.floor((safeRemainingMs % 1_000) / 10);
+
+  return `${totalMinutes.toString().padStart(2, "0")}.${seconds.toString().padStart(2, "0")}.${centiseconds
+    .toString()
+    .padStart(2, "0")}`;
 }
 
 function extractPercent(text?: string | null): number | null {
@@ -415,9 +432,9 @@ function ProviderSwitch({
       aria-label={label}
       title={label}
       className={cn(
-        "group relative flex w-[64px] shrink-0 flex-col items-center gap-1.5 rounded-[16px] px-1.5 py-2.5 transition-all duration-200",
+        "group relative flex w-[64px] shrink-0 flex-col items-center gap-1.5 rounded-[16px] border border-transparent px-1.5 py-2.5 transition-all duration-200",
         selected
-          ? "bg-foreground text-background shadow-[0_14px_30px_-18px_rgba(0,0,0,0.45)]"
+          ? "border-border/75 bg-accent/75 text-foreground shadow-[0_14px_30px_-22px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.06)]"
           : active
             ? "text-foreground/85 hover:bg-muted/55"
             : "text-muted-foreground/55 hover:bg-muted/45 hover:text-muted-foreground"
@@ -427,7 +444,7 @@ function ProviderSwitch({
         className={cn(
           "flex size-9 items-center justify-center rounded-[14px] border transition-all duration-200",
           selected
-            ? "border-background/20 bg-background/12 text-background"
+            ? "border-border/80 bg-background/92 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
             : active
               ? "border-border/70 bg-background/80 text-foreground/90"
               : "border-border/45 bg-background/55 text-muted-foreground/55"
@@ -438,7 +455,7 @@ function ProviderSwitch({
       <div
         className={cn(
           "max-w-full truncate text-[10px] font-semibold leading-none",
-          selected ? "text-background" : active ? "text-foreground/85" : "text-muted-foreground/55"
+          selected ? "text-foreground" : active ? "text-foreground/85" : "text-muted-foreground/55"
         )}
       >
         {label}
@@ -456,6 +473,37 @@ function UsageBar({ percent }: { percent?: number | null }) {
         style={{ width: `${safePercent}%` }}
       />
     </div>
+  );
+}
+
+function AutoRefreshCountdownBadge({ targetTimeMs }: { targetTimeMs: number }) {
+  const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
+
+  const { milliseconds } = useTimer({
+    loading: true,
+    format: "MM.SS.MS",
+    onTick: () => {
+      setCurrentTimeMs(Date.now());
+    },
+  });
+  const time = formatCountdownDisplay(targetTimeMs - currentTimeMs);
+
+  return (
+    <TimerRoot
+      variant="ghost"
+      size="sm"
+      loading
+      data-tick={milliseconds}
+      className="h-7 gap-1.5 rounded-sm px-1 text-[10px] font-medium text-foreground shadow-none"
+    >
+      <UiTimerIcon size="sm" loading className="text-muted-foreground" />
+      <TimerDisplay
+        size="sm"
+        time={time}
+        label="Time until next auto refresh"
+        className="text-[10px] text-foreground"
+      />
+    </TimerRoot>
   );
 }
 
@@ -979,6 +1027,9 @@ const EMPTY_AGGREGATE: UsageAggregateResponse = {
 };
 
 export function UsagePopover() {
+  const providerScrollRef = useRef<HTMLDivElement | null>(null);
+  const providerAutoScrollFrameRef = useRef<number | null>(null);
+  const providerAutoScrollDirectionRef = useRef<-1 | 0 | 1>(0);
   const [open, setOpen] = useState(false);
   const [overview, setOverview] = useState<UsageOverviewResponse | null>(null);
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
@@ -990,8 +1041,14 @@ export function UsagePopover() {
   const [isFooterHovered, setIsFooterHovered] = useState(false);
   const [isAutoRefreshPopoverOpen, setIsAutoRefreshPopoverOpen] = useState(false);
   const [isUpdatingAutoRefresh, setIsUpdatingAutoRefresh] = useState(false);
+  const [footerInfoMode, setFooterInfoMode] = useState<"updated" | "countdown">("updated");
   const [refreshSwapDirection, setRefreshSwapDirection] = useState<1 | -1>(1);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [providerScrollState, setProviderScrollState] = useState({
+    hasOverflow: false,
+    canScrollLeft: false,
+    canScrollRight: false,
+  });
 
   const selectedProvider = useMemo(
     () => overview?.providers.find((provider) => provider.id === selectedProviderId) ?? null,
@@ -1092,16 +1149,16 @@ export function UsagePopover() {
   }, []);
 
   useEffect(() => {
-    if (!isAutoRefreshPopoverOpen || !overview?.auto_refresh.interval_minutes) return;
+    if (!open || !overview?.auto_refresh.interval_minutes) return;
 
     setNowMs(Date.now());
 
     const timer = window.setInterval(() => {
       setNowMs(Date.now());
-    }, 15_000);
+    }, 1_000);
 
     return () => window.clearInterval(timer);
-  }, [isAutoRefreshPopoverOpen, overview?.auto_refresh.interval_minutes]);
+  }, [open, overview?.auto_refresh.interval_minutes]);
 
   useEffect(() => {
     if (selectedProviderId === ALL_PROVIDER_ID) return;
@@ -1126,6 +1183,122 @@ export function UsagePopover() {
     [overview]
   );
 
+  const updateProviderScrollState = useCallback(() => {
+    const el = providerScrollRef.current;
+    if (!el) return;
+
+    const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
+    const nextState = {
+      hasOverflow: maxScrollLeft > 1,
+      canScrollLeft: el.scrollLeft > 1,
+      canScrollRight: el.scrollLeft < maxScrollLeft - 1,
+    };
+
+    setProviderScrollState((current) =>
+      current.hasOverflow === nextState.hasOverflow &&
+      current.canScrollLeft === nextState.canScrollLeft &&
+      current.canScrollRight === nextState.canScrollRight
+        ? current
+        : nextState
+    );
+  }, []);
+
+  const stopProviderAutoScroll = useCallback(() => {
+    providerAutoScrollDirectionRef.current = 0;
+    if (providerAutoScrollFrameRef.current !== null) {
+      cancelAnimationFrame(providerAutoScrollFrameRef.current);
+      providerAutoScrollFrameRef.current = null;
+    }
+  }, []);
+
+  const startProviderAutoScroll = useCallback(
+    (direction: -1 | 1) => {
+      providerAutoScrollDirectionRef.current = direction;
+
+      if (providerAutoScrollFrameRef.current !== null) return;
+
+      let lastFrameTime = 0;
+
+      const step = (timestamp: number) => {
+        const el = providerScrollRef.current;
+        if (!el) {
+          stopProviderAutoScroll();
+          return;
+        }
+
+        if (lastFrameTime === 0) {
+          lastFrameTime = timestamp;
+        }
+
+        const delta = timestamp - lastFrameTime;
+        lastFrameTime = timestamp;
+        el.scrollLeft += direction * delta * 0.42;
+        updateProviderScrollState();
+
+        const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
+        const reachedBoundary =
+          direction === -1 ? el.scrollLeft <= 1 : el.scrollLeft >= maxScrollLeft - 1;
+
+        if (providerAutoScrollDirectionRef.current !== direction || reachedBoundary) {
+          providerAutoScrollFrameRef.current = null;
+          if (reachedBoundary) {
+            providerAutoScrollDirectionRef.current = 0;
+            updateProviderScrollState();
+          }
+          return;
+        }
+
+        providerAutoScrollFrameRef.current = requestAnimationFrame(step);
+      };
+
+      providerAutoScrollFrameRef.current = requestAnimationFrame(step);
+    },
+    [stopProviderAutoScroll, updateProviderScrollState]
+  );
+
+  useEffect(() => {
+    if (!open) {
+      stopProviderAutoScroll();
+      return;
+    }
+
+    const el = providerScrollRef.current;
+    if (!el) return;
+
+    updateProviderScrollState();
+    const frameId = requestAnimationFrame(() => {
+      updateProviderScrollState();
+      requestAnimationFrame(() => {
+        updateProviderScrollState();
+      });
+    });
+    const timeoutId = window.setTimeout(() => {
+      updateProviderScrollState();
+    }, 160);
+
+    const handleScroll = () => updateProviderScrollState();
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    const handleWindowResize = () => updateProviderScrollState();
+    window.addEventListener("resize", handleWindowResize);
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateProviderScrollState();
+    });
+    resizeObserver.observe(el);
+    if (el.firstElementChild instanceof HTMLElement) {
+      resizeObserver.observe(el.firstElementChild);
+    }
+
+    return () => {
+      stopProviderAutoScroll();
+      cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+      el.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleWindowResize);
+      resizeObserver.disconnect();
+    };
+  }, [open, switches, stopProviderAutoScroll, updateProviderScrollState]);
+
   const displayedUpdatedAt =
     selectedProviderId === ALL_PROVIDER_ID
       ? overview?.generated_at
@@ -1134,6 +1307,10 @@ export function UsagePopover() {
   const autoRefreshTriggerLabel = autoRefreshValue
     ? AUTO_REFRESH_OPTIONS.find((option) => option.value === autoRefreshValue)?.shortLabel ?? "Auto"
     : "Auto";
+  const autoRefreshTargetMs =
+    overview?.generated_at && overview?.auto_refresh.interval_minutes
+      ? overview.generated_at * 1000 + overview.auto_refresh.interval_minutes * 60_000
+      : null;
   const nextAutoRefreshHint = formatNextAutoRefreshHint(
     overview?.generated_at,
     overview?.auto_refresh.interval_minutes,
@@ -1142,19 +1319,45 @@ export function UsagePopover() {
   const isAllSelected = selectedProviderId === ALL_PROVIDER_ID;
   const showFooterActions = isFooterHovered || isAutoRefreshPopoverOpen;
   const showAutoRefreshAction = isAllSelected;
+  const canCycleFooterInfo = Boolean(autoRefreshTargetMs) && !error;
+  const footerInfoWidthClass =
+    showAutoRefreshAction || Boolean(autoRefreshTargetMs) ? "w-[236px]" : "w-[148px]";
+  const showProviderArrows = providerScrollState.hasOverflow || switches.length > 7;
+
+  useEffect(() => {
+    if (!open || showFooterActions || !canCycleFooterInfo) {
+      setFooterInfoMode("updated");
+      return;
+    }
+
+    setFooterInfoMode("updated");
+
+    const timer = window.setInterval(() => {
+      setRefreshSwapDirection(1);
+      setFooterInfoMode((current) => (current === "updated" ? "countdown" : "updated"));
+    }, 5_000);
+
+    return () => window.clearInterval(timer);
+  }, [
+    open,
+    showFooterActions,
+    canCycleFooterInfo,
+    overview?.generated_at,
+    overview?.auto_refresh.interval_minutes,
+  ]);
 
   const refreshSwapVariants = {
     initial: (direction: 1 | -1) => ({
       opacity: 0,
-      x: direction === 1 ? -8 : 8,
+      y: direction === 1 ? 10 : -10,
     }),
     animate: {
       opacity: 1,
-      x: 0,
+      y: 0,
     },
     exit: (direction: 1 | -1) => ({
       opacity: 0,
-      x: direction === 1 ? 8 : -8,
+      y: direction === 1 ? -10 : 10,
     }),
   };
 
@@ -1191,21 +1394,62 @@ export function UsagePopover() {
         className="w-[min(92vw,560px)] rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]"
       >
         <div className="overflow-hidden rounded-[24px] border border-border/60">
-          <div className="px-3 pb-1.5 pt-2.5">
-            <ScrollArea className="w-full" scrollbarGutter>
-              <div className="flex w-max items-start gap-1 pb-0.5">
-                {switches.map((item) => (
-                  <ProviderSwitch
-                    key={item.id}
-                    id={item.id}
-                    label={item.label}
-                    active={item.active}
-                    selected={selectedProviderId === item.id}
-                    onClick={() => startTransition(() => setSelectedProviderId(item.id))}
-                  />
-                ))}
+          <div className="px-3 pb-1.5 pt-2.5 dark:bg-background/72 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="relative -mx-3 px-3">
+              <div
+                ref={providerScrollRef}
+                className="no-scrollbar w-full overflow-x-auto overflow-y-hidden scroll-smooth"
+              >
+                <div className="flex w-max items-start gap-1 px-6 pb-0.5">
+                  {switches.map((item) => (
+                    <ProviderSwitch
+                      key={item.id}
+                      id={item.id}
+                      label={item.label}
+                      active={item.active}
+                      selected={selectedProviderId === item.id}
+                      onClick={() => startTransition(() => setSelectedProviderId(item.id))}
+                    />
+                  ))}
+                </div>
               </div>
-            </ScrollArea>
+              {showProviderArrows ? (
+                <>
+                  <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
+                  <button
+                    type="button"
+                    aria-label="Scroll providers left"
+                    onMouseEnter={() => startProviderAutoScroll(-1)}
+                    onMouseLeave={stopProviderAutoScroll}
+                    onFocus={() => startProviderAutoScroll(-1)}
+                    onBlur={stopProviderAutoScroll}
+                    className={cn(
+                      "absolute inset-y-0 left-0 z-10 inline-flex w-6 items-center justify-center text-foreground/92 transition-opacity",
+                      providerScrollState.canScrollLeft ? "opacity-100" : "cursor-default opacity-28"
+                    )}
+                    disabled={!providerScrollState.canScrollLeft}
+                  >
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Scroll providers right"
+                    onMouseEnter={() => startProviderAutoScroll(1)}
+                    onMouseLeave={stopProviderAutoScroll}
+                    onFocus={() => startProviderAutoScroll(1)}
+                    onBlur={stopProviderAutoScroll}
+                    className={cn(
+                      "absolute inset-y-0 right-0 z-10 inline-flex w-6 items-center justify-center text-foreground/92 transition-opacity",
+                      providerScrollState.canScrollRight ? "opacity-100" : "cursor-default opacity-28"
+                    )}
+                    disabled={!providerScrollState.canScrollRight}
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
 
           <div className="px-0 pb-2.5 pt-2">
@@ -1273,7 +1517,7 @@ export function UsagePopover() {
                   setIsFooterHovered(false);
                 }}
               >
-                <div className={cn("relative h-7", showAutoRefreshAction ? "w-[236px]" : "w-[148px]")}>
+                <div className={cn("relative h-7", footerInfoWidthClass)}>
                   <AnimatePresence mode="wait" initial={false} custom={refreshSwapDirection}>
                     {showFooterActions ? (
                       <motion.div
@@ -1376,15 +1620,31 @@ export function UsagePopover() {
                           <span className="text-[10px] font-medium">Refresh</span>
                         </button>
                       </motion.div>
-                    ) : (
-                      <motion.span
-                        key="updated-time"
+                    ) : canCycleFooterInfo &&
+                      footerInfoMode === "countdown" &&
+                      autoRefreshTargetMs ? (
+                      <motion.div
+                        key="footer-countdown"
                         custom={refreshSwapDirection}
                         variants={refreshSwapVariants}
                         initial="initial"
                         animate="animate"
                         exit="exit"
-                        transition={{ duration: 0.16, ease: "easeOut" }}
+                        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                        className="absolute inset-0 inline-flex h-7 w-full items-center gap-1 whitespace-nowrap"
+                      >
+                        <span className="text-[11px] text-muted-foreground">Next update</span>
+                        <AutoRefreshCountdownBadge targetTimeMs={autoRefreshTargetMs} />
+                      </motion.div>
+                    ) : (
+                      <motion.span
+                        key={error && overview ? "footer-error" : "updated-time"}
+                        custom={refreshSwapDirection}
+                        variants={refreshSwapVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                         className="absolute inset-0 inline-flex h-7 w-full items-center whitespace-nowrap"
                       >
                         {error && overview ? error : `Updated ${formatTimestamp(displayedUpdatedAt)}`}
