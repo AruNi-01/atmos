@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability report
+    url: mailto:hello@0x3f4.run
+    about: Please report security issues privately by email.

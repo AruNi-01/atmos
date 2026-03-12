@@ -8,5 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Repository OSS governance baseline: `LICENSE`, `CODE_OF_CONDUCT.md`, `SECURITY.md`.
+- GitHub contribution templates: issue forms and pull request template.
+- README and CONTRIBUTING updates for open-source onboarding and community labels.
 - Standardized documentation structure (`docs/`, `specs/`).
 - Initial Monorepo setup with Apps and Packages.

@@ -19,9 +19,10 @@ just fmt
 
 ## Pull Request Process
 
-1.  Ensure all local tests pass.
-2.  Update documentation if you change logic.
-3.  Add a line to `CHANGELOG.md` describing your changes.
+1. Ensure all local tests pass.
+2. Update documentation if you change logic.
+3. Add a line to `CHANGELOG.md` describing your changes.
+4. Use the PR template and include validation commands/results.
 
 ## Code Style
 
@@ -33,3 +34,18 @@ just fmt
 
 - **Shared Packages**: If you modify `packages/*`, ensure dependent apps (`apps/*`) are updated.
 - **Rust Crates**: Changes in `crates/*` generally require checking `apps/api` or `apps/cli`.
+
+## Community Standards
+
+By participating, you agree to follow:
+
+- [Code of Conduct](./CODE_OF_CONDUCT.md)
+- [Security Policy](./SECURITY.md)
+
+## Finding Work to Contribute
+
+Look for issues labeled:
+
+- `good first issue`: beginner-friendly tasks
+- `help wanted`: community support requested
+- `needs-triage`: new reports awaiting maintainer review
