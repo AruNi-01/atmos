@@ -2,7 +2,6 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
-import { TerminalLine } from "@/types/types";
 import {
   SquareTerminal as TerminalIcon,
   X,
@@ -102,10 +101,6 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
   return <img {...iconProps} />;
 }
 
-interface CenterStageProps {
-  logs: TerminalLine[];
-}
-
 const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki", "project-wiki", "code-review"]);
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
 
@@ -116,11 +111,10 @@ function getRelativePath(path: string, basePath?: string): string {
   return path.startsWith(normalizedBase) ? path.slice(normalizedBase.length) : path;
 }
 
-const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
+const CenterStage: React.FC = () => {
   usePrewarmCodeLanguages();
 
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
-  const [useRealTerminal, setUseRealTerminal] = React.useState(true);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
   const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
   const terminalLabelRef = React.useRef<HTMLSpanElement>(null);
@@ -855,65 +849,13 @@ const CenterStage: React.FC<CenterStageProps> = ({ logs }) => {
             activeValue !== "terminal" && "hidden"
           )}
         >
-          {useRealTerminal ? (
-            /* Real xterm.js Terminal - Always mounted, visibility controlled by parent */
-            <div className="h-full w-full">
-              <TerminalGrid
-                ref={terminalGridRef}
-                workspaceId={effectiveContextId || ""}
-                className="h-full"
-              />
-            </div>
-          ) : (
-            /* Fallback Mock Terminal View */
-            <div className="flex-1 flex flex-col h-full bg-background">
-              {/* Pane 1 */}
-              <div className="flex-1 flex flex-col border-b border-sidebar-border">
-                <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
-                  <span className="text-[11px] text-muted-foreground font-medium tabular-nums text-pretty">
-                    Local: 3030 (Server)
-                  </span>
-                  <div className="flex space-x-2">
-                    <div className="size-2 rounded-full bg-emerald-500"></div>
-                  </div>
-                </div>
-                <div className="flex-1 p-4 font-mono text-[13px] overflow-y-auto no-scrollbar">
-                  {logs.map((log) => (
-                    <div key={log.id} className="mb-1 leading-relaxed break-all">
-                      <span
-                        className={cn(`
-                                        ${log.type === "command" ? "text-muted-foreground" : ""}
-                                        ${log.type === "success" ? "text-emerald-600 dark:text-emerald-400" : ""}
-                                        ${log.type === "error" ? "text-rose-600 dark:text-rose-400" : ""}
-                                        ${log.type === "info" ? "text-blue-600 dark:text-blue-300" : ""}
-                                    `)}
-                      >
-                        {log.content}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Pane 2 */}
-              <div className="flex-1 flex flex-col">
-                <div className="h-8 flex items-center justify-between px-3 bg-muted/30">
-                  <span className="text-[11px] text-muted-foreground font-medium text-pretty">
-                    Build: Watch Mode
-                  </span>
-                </div>
-                <div className="flex-1 p-4 font-mono text-[13px] text-muted-foreground overflow-y-auto no-scrollbar">
-                  <div className="text-pretty"> build started...</div>
-                  <div className="text-emerald-600 dark:text-emerald-500 tabular-nums text-pretty">
-                    build completed in 420ms
-                  </div>
-                  <div className="flex items-center mt-2 animate-pulse">
-                    <span className="text-muted-foreground mr-2">➜</span>
-                    <span className="text-muted-foreground">_</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="h-full w-full">
+            <TerminalGrid
+              ref={terminalGridRef}
+              workspaceId={effectiveContextId || ""}
+              className="h-full"
+            />
+          </div>
         </div>
 
         {/* Project Wiki Tab Content - Same TerminalGrid/Mosaic UI, separate panes from main Terminal */}

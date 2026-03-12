@@ -30,6 +30,19 @@ export {
 } from "./components/ui/command";
 export * from "./components/ui/collapsible";
 export * from "./components/ui/textarea";
+export {
+  Timer as UiTimer,
+  TimerDisplay,
+  TimerIcon as UiTimerIcon,
+  TimerRoot,
+  useTimer,
+  type TimerDisplayProps,
+  type TimerIconProps,
+  type TimerProps,
+  type TimerRootProps,
+  type UseTimerOptions,
+  type UseTimerReturn,
+} from "./components/ui/timer";
 export * from "./components/ui/tooltip";
 export * from "./components/ui/toggle-group";
 export * from "./components/ui/skeleton";
