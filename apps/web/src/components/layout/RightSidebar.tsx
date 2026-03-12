@@ -345,7 +345,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { projects } = useProjectStore();
   const {
     setCodeReviewDialogOpen,
-    setPendingAgentChatPrompt,
+    enqueueAgentChatPrompt,
     setPendingAgentChatMode,
   } = useDialogStore();
   const [, setAgentChatOpen] = useAgentChatUrl();
@@ -787,16 +787,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       return;
     }
 
-    if (!acpNewSession && agentIsConnected && agentIsBusy) {
-      toastManager.add({
-        title: "Agent Chat Busy",
-        description:
-          "The agent is currently processing. Please wait and try again.",
-        type: "warning",
-      });
-      return;
-    }
-
     setAiPopoverOpen(false);
     const shouldForceNewSession = acpNewSession || !agentIsConnected;
     const skillPath = "~/.atmos/skills/.system/git-commit/SKILL.md";
@@ -807,9 +797,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       "Project";
     const now = new Date();
     const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    setPendingAgentChatPrompt({
+    enqueueAgentChatPrompt({
       prompt,
+      workspaceId,
+      projectId: workspaceId ? undefined : projectIdFromUrl,
+      mode: "default",
       forceNewSession: shouldForceNewSession,
+      origin: "git_commit",
       ...(shouldForceNewSession
         ? { sessionTitle: `${contextName}_GitCommit_${timeStr}` }
         : {}),
@@ -817,9 +811,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     setPendingAgentChatMode("default");
     setAgentChatOpen(true);
     toastManager.add({
-      title: "Generating Commit Message",
+      title: "Commit Prompt Queued",
       description:
-        "Prompt sent to Agent. It will analyze changes and auto-commit. No further action needed.",
+        agentIsBusy && !shouldForceNewSession
+          ? "The ACP git-commit prompt was added to the chat queue."
+          : "The ACP git-commit prompt was queued and will run in Agent Chat.",
       type: "success",
     });
   };

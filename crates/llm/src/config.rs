@@ -34,10 +34,6 @@ impl FileLlmConfigStore {
         Ok(home.join(".atmos").join("llm"))
     }
 
-    pub fn git_commit_prompt_path() -> Result<PathBuf> {
-        Ok(Self::llm_dir()?.join("prompt").join("git-commit-prompt.md"))
-    }
-
     pub fn load(&self) -> Result<LlmProvidersFile> {
         let contents = match fs::read_to_string(&self.path) {
             Ok(contents) => contents,
@@ -64,24 +60,6 @@ impl FileLlmConfigStore {
     pub fn resolve_for_feature(&self, feature: LlmFeature) -> Result<Option<ResolvedLlmProvider>> {
         let config = self.load()?;
         resolve_feature_config(&config, feature)
-    }
-
-    pub fn load_git_commit_prompt(&self) -> Result<String> {
-        let path = Self::git_commit_prompt_path()?;
-        match fs::read_to_string(&path) {
-            Ok(contents) => {
-                let trimmed = contents.trim();
-                if trimmed.is_empty() {
-                    Ok(DEFAULT_GIT_COMMIT_PROMPT.to_string())
-                } else {
-                    Ok(trimmed.to_string())
-                }
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                Ok(DEFAULT_GIT_COMMIT_PROMPT.to_string())
-            }
-            Err(error) => Err(error.into()),
-        }
     }
 
     pub fn load_session_title_format(&self) -> Result<SessionTitleFormatConfig> {
@@ -273,47 +251,10 @@ mod tests {
     }
 
     #[test]
-    fn load_git_commit_prompt_uses_default_when_missing() {
-        let path = unique_test_path("providers.json");
-        let store = FileLlmConfigStore { path };
+    fn default_git_commit_prompt_is_non_empty() {
+        let prompt = default_git_commit_prompt().trim().to_string();
 
-        let prompt = store
-            .load_git_commit_prompt()
-            .expect("load default git commit prompt");
-
-        assert_eq!(prompt, default_git_commit_prompt().trim());
-    }
-
-    #[test]
-    fn load_git_commit_prompt_reads_custom_file() {
-        let home = unique_test_path("home");
-        let llm_dir = home.join(".atmos").join("llm");
-        let prompt_dir = llm_dir.join("prompt");
-        let providers_path = llm_dir.join("providers.json");
-        let prompt_path = prompt_dir.join("git-commit-prompt.md");
-        fs::create_dir_all(&prompt_dir).expect("create temp dir");
-        fs::write(&prompt_path, "custom prompt").expect("write prompt file");
-
-        let store = FileLlmConfigStore {
-            path: providers_path.clone(),
-        };
-
-        let original_home = std::env::var("HOME").ok();
-        unsafe {
-            std::env::set_var("HOME", &home);
-        }
-
-        let prompt = store
-            .load_git_commit_prompt()
-            .expect("load custom git commit prompt");
-
-        match original_home {
-            Some(value) => unsafe { std::env::set_var("HOME", value) },
-            None => unsafe { std::env::remove_var("HOME") },
-        }
-
-        assert_eq!(prompt, "custom prompt");
-
-        let _ = fs::remove_dir_all(home);
+        assert!(!prompt.is_empty());
+        assert!(prompt.contains("Conventional Commits format"));
     }
 }
