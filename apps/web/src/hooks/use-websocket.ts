@@ -74,6 +74,8 @@ export type WsAction =
   // Skills 操作
   | 'skills_list'
   | 'skills_get'
+  | 'skills_set_enabled'
+  | 'skills_delete'
   | 'wiki_skill_install'
   | 'wiki_skill_system_status'
   | 'code_review_skill_system_status'
@@ -314,7 +316,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     }
     
     // 拒绝所有待处理的请求
-    pendingRequests.forEach((pending, requestId) => {
+    pendingRequests.forEach((pending) => {
       clearTimeout(pending.timeout);
       pending.reject(new Error('WebSocket disconnected'));
     });
