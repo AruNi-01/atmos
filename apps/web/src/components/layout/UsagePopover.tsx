@@ -1028,8 +1028,6 @@ const EMPTY_AGGREGATE: UsageAggregateResponse = {
 
 export function UsagePopover() {
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
-  const providerAutoScrollFrameRef = useRef<number | null>(null);
-  const providerAutoScrollDirectionRef = useRef<-1 | 0 | 1>(0);
   const [open, setOpen] = useState(false);
   const [overview, setOverview] = useState<UsageOverviewResponse | null>(null);
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
@@ -1203,62 +1201,8 @@ export function UsagePopover() {
     );
   }, []);
 
-  const stopProviderAutoScroll = useCallback(() => {
-    providerAutoScrollDirectionRef.current = 0;
-    if (providerAutoScrollFrameRef.current !== null) {
-      cancelAnimationFrame(providerAutoScrollFrameRef.current);
-      providerAutoScrollFrameRef.current = null;
-    }
-  }, []);
-
-  const startProviderAutoScroll = useCallback(
-    (direction: -1 | 1) => {
-      providerAutoScrollDirectionRef.current = direction;
-
-      if (providerAutoScrollFrameRef.current !== null) return;
-
-      let lastFrameTime = 0;
-
-      const step = (timestamp: number) => {
-        const el = providerScrollRef.current;
-        if (!el) {
-          stopProviderAutoScroll();
-          return;
-        }
-
-        if (lastFrameTime === 0) {
-          lastFrameTime = timestamp;
-        }
-
-        const delta = timestamp - lastFrameTime;
-        lastFrameTime = timestamp;
-        el.scrollLeft += direction * delta * 0.42;
-        updateProviderScrollState();
-
-        const maxScrollLeft = Math.max(0, el.scrollWidth - el.clientWidth);
-        const reachedBoundary =
-          direction === -1 ? el.scrollLeft <= 1 : el.scrollLeft >= maxScrollLeft - 1;
-
-        if (providerAutoScrollDirectionRef.current !== direction || reachedBoundary) {
-          providerAutoScrollFrameRef.current = null;
-          if (reachedBoundary) {
-            providerAutoScrollDirectionRef.current = 0;
-            updateProviderScrollState();
-          }
-          return;
-        }
-
-        providerAutoScrollFrameRef.current = requestAnimationFrame(step);
-      };
-
-      providerAutoScrollFrameRef.current = requestAnimationFrame(step);
-    },
-    [stopProviderAutoScroll, updateProviderScrollState]
-  );
-
   useEffect(() => {
     if (!open) {
-      stopProviderAutoScroll();
       return;
     }
 
@@ -1290,14 +1234,13 @@ export function UsagePopover() {
     }
 
     return () => {
-      stopProviderAutoScroll();
       cancelAnimationFrame(frameId);
       window.clearTimeout(timeoutId);
       el.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleWindowResize);
       resizeObserver.disconnect();
     };
-  }, [open, switches, stopProviderAutoScroll, updateProviderScrollState]);
+  }, [open, switches, updateProviderScrollState]);
 
   const displayedUpdatedAt =
     selectedProviderId === ALL_PROVIDER_ID
@@ -1394,76 +1337,77 @@ export function UsagePopover() {
         className="w-[min(92vw,560px)] rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]"
       >
         <div className="overflow-hidden rounded-[24px] border border-border/60">
-          <div className="px-3 pb-1.5 pt-2.5 dark:bg-background/72 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            <div className="relative -mx-3 px-3">
-              <div
-                ref={providerScrollRef}
-                className="no-scrollbar w-full overflow-x-auto overflow-y-hidden scroll-smooth"
-              >
-                <div className="flex w-max items-start gap-1 px-6 pb-0.5">
-                  {switches.map((item) => (
-                    <ProviderSwitch
-                      key={item.id}
-                      id={item.id}
-                      label={item.label}
-                      active={item.active}
-                      selected={selectedProviderId === item.id}
-                      onClick={() => startTransition(() => setSelectedProviderId(item.id))}
-                    />
-                  ))}
+          <div className="rounded-b-[20px] bg-background/95 pb-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-background">
+            <div className="px-3 pb-2.5 pt-2.5">
+              <div className="relative -mx-3 px-3">
+                <div
+                  ref={providerScrollRef}
+                  className="no-scrollbar w-full overflow-x-auto overflow-y-hidden scroll-smooth"
+                >
+                  <div className="flex w-max items-start gap-1 px-6 pb-0.5">
+                    {switches.map((item) => (
+                      <ProviderSwitch
+                        key={item.id}
+                        id={item.id}
+                        label={item.label}
+                        active={item.active}
+                        selected={selectedProviderId === item.id}
+                        onClick={() => startTransition(() => setSelectedProviderId(item.id))}
+                      />
+                    ))}
+                  </div>
                 </div>
+                {showProviderArrows ? (
+                  <>
+                    <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
+                    <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
+                    <button
+                      type="button"
+                      aria-label="Scroll providers left"
+                      onClick={() => {
+                        providerScrollRef.current?.scrollBy({ left: -240, behavior: "smooth" });
+                      }}
+                      className={cn(
+                        "absolute inset-y-0 left-0 z-10 inline-flex w-6 items-center justify-center text-foreground/92 transition-opacity",
+                        providerScrollState.canScrollLeft ? "opacity-100" : "cursor-default opacity-28"
+                      )}
+                      disabled={!providerScrollState.canScrollLeft}
+                    >
+                      <ChevronLeft className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Scroll providers right"
+                      onClick={() => {
+                        providerScrollRef.current?.scrollBy({ left: 240, behavior: "smooth" });
+                      }}
+                      className={cn(
+                        "absolute inset-y-0 right-0 z-10 inline-flex w-6 items-center justify-center text-foreground/92 transition-opacity",
+                        providerScrollState.canScrollRight ? "opacity-100" : "cursor-default opacity-28"
+                      )}
+                      disabled={!providerScrollState.canScrollRight}
+                    >
+                      <ChevronRight className="size-3.5" />
+                    </button>
+                  </>
+                ) : null}
               </div>
-              {showProviderArrows ? (
-                <>
-                  <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
-                  <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background/95 via-background/72 to-transparent dark:from-background/88 dark:via-background/58" />
-                  <button
-                    type="button"
-                    aria-label="Scroll providers left"
-                    onMouseEnter={() => startProviderAutoScroll(-1)}
-                    onMouseLeave={stopProviderAutoScroll}
-                    onFocus={() => startProviderAutoScroll(-1)}
-                    onBlur={stopProviderAutoScroll}
-                    className={cn(
-                      "absolute inset-y-0 left-0 z-10 inline-flex w-6 items-center justify-center text-foreground/92 transition-opacity",
-                      providerScrollState.canScrollLeft ? "opacity-100" : "cursor-default opacity-28"
-                    )}
-                    disabled={!providerScrollState.canScrollLeft}
-                  >
-                    <ChevronLeft className="size-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Scroll providers right"
-                    onMouseEnter={() => startProviderAutoScroll(1)}
-                    onMouseLeave={stopProviderAutoScroll}
-                    onFocus={() => startProviderAutoScroll(1)}
-                    onBlur={stopProviderAutoScroll}
-                    className={cn(
-                      "absolute inset-y-0 right-0 z-10 inline-flex w-6 items-center justify-center text-foreground/92 transition-opacity",
-                      providerScrollState.canScrollRight ? "opacity-100" : "cursor-default opacity-28"
-                    )}
-                    disabled={!providerScrollState.canScrollRight}
-                  >
-                    <ChevronRight className="size-3.5" />
-                  </button>
-                </>
-              ) : null}
             </div>
-          </div>
 
-          <div className="px-0 pb-2.5 pt-2">
-            {overview?.partial_failures.length ? (
-              <div className="mx-4 mb-2.5 flex items-start gap-3 rounded-[16px] bg-muted/45 px-4 py-3 text-sm text-foreground">
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                <div className="line-clamp-2">
-                  {overview.partial_failures.map((issue) => `${issue.provider_label}: ${issue.message}`).join(" · ")}
+            <div className="mx-5 border-t border-border/40" />
+
+            <div className="px-0 pb-1 pt-2.5">
+              {overview?.partial_failures.length ? (
+                <div className="mx-4 mb-2.5 flex items-start gap-3 rounded-[16px] bg-muted/45 px-4 py-3 text-sm text-foreground">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  <div className="line-clamp-2">
+                    {overview.partial_failures.map((issue) => `${issue.provider_label}: ${issue.message}`).join(" · ")}
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
 
-            <div className="rounded-[20px] bg-background/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-              <ScrollArea className="h-[min(62vh,560px)]" scrollbarGutter>
+              <div>
+                <ScrollArea className="h-[min(62vh,560px)]" scrollbarGutter>
                 <div className="px-0 py-3">
                   {isLoading && !overview ? (
                     <div className="px-4">
@@ -1502,10 +1446,13 @@ export function UsagePopover() {
                     <div className="px-4 text-sm text-muted-foreground">Select a provider to inspect usage.</div>
                   )}
                 </div>
-              </ScrollArea>
+                </ScrollArea>
+              </div>
             </div>
+          </div>
 
-            <div className="mt-2 flex items-center justify-between gap-3 px-4 text-xs text-muted-foreground">
+          <div className="px-0 pb-3 pt-3">
+            <div className="flex items-center justify-between gap-3 px-4 text-xs text-muted-foreground">
               <div
                 className="flex items-center"
                 onMouseEnter={() => {
