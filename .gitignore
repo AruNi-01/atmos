@@ -93,6 +93,7 @@ apps/desktop/src-tauri/binaries/web-out/*
 .temp/
 .tmp/
 tmp/
+scripts/open-source/
 
 # ===== other =====
 .vercel/
