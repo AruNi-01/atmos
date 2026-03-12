@@ -1,6 +1,12 @@
 "use client"
 
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Clock } from "lucide-react"
 
@@ -234,6 +240,9 @@ export function useTimer({
   const [isRunning, setIsRunning] = useState(false)
   const startTimeRef = useRef<number>(0)
   const rafRef = useRef<number | null>(null)
+  const emitTick = useEffectEvent((seconds: number, nextMilliseconds: number) => {
+    onTick?.(seconds, nextMilliseconds)
+  })
 
   const reset = useCallback(() => {
     setElapsedTime(0)
@@ -290,10 +299,8 @@ export function useTimer({
   }, [loading, resetOnLoadingChange, reset, start, stop])
 
   useEffect(() => {
-    if (onTick) {
-      onTick(elapsedTime, milliseconds)
-    }
-  }, [elapsedTime, milliseconds, onTick])
+    emitTick(elapsedTime, milliseconds)
+  }, [elapsedTime, milliseconds])
 
   const formatTime = useCallback(
     (totalSeconds: number, ms: number) => {
