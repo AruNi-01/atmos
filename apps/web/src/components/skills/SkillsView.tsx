@@ -27,15 +27,18 @@ import { useContextParams } from "@/hooks/use-context-params";
 import { AnimatePresence, motion } from "motion/react";
 import {
   BookOpen,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
   ArrowDownToLine,
   ChevronRight,
   Download,
   ExternalLink,
-  FileText,
   Filter,
   Folder,
   FolderOpen,
   Globe,
+  EyeOff,
   Link2,
   Loader2,
   Puzzle,
@@ -44,8 +47,9 @@ import {
   Store,
 } from "lucide-react";
 import { SkillDetail } from "./SkillDetail";
+import { SkillActionsMenu } from "./SkillActionsMenu";
 import { SkillInstallTerminalDialog } from "./SkillInstallTerminalDialog";
-import { getAgentConfig } from "./constants";
+import { getAgentConfig, getAgentStatus } from "./constants";
 import {
   marketCategories,
   resourceCategories,
@@ -154,45 +158,116 @@ function renderSkeletonGrid() {
   );
 }
 
+function getScopeMeta(scope: SkillInfo["scope"]) {
+  switch (scope) {
+    case "global":
+      return {
+        label: "Global",
+        icon: Globe,
+        className: "bg-muted text-foreground",
+      };
+    case "project":
+      return {
+        label: "Project",
+        icon: Folder,
+        className: "bg-muted text-foreground",
+      };
+    default:
+      return {
+        label: "InsideTheProject",
+        icon: FolderOpen,
+        className: "bg-muted text-foreground",
+      };
+  }
+}
+
+function getStatusMeta(status: SkillInfo["status"]) {
+  switch (status) {
+    case "enabled":
+      return {
+        label: "Enabled",
+        icon: CircleCheck,
+        className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      };
+    case "disabled":
+      return {
+        label: "Disabled",
+        icon: CircleX,
+        className: "border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
+      };
+    default:
+      return {
+        label: "Partial",
+        icon: CircleMinus,
+        className: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      };
+  }
+}
+
 function InstalledSkillListCard({
   skill,
   onClick,
+  onUpdated,
+  onDeleted,
 }: {
   skill: SkillInfo;
   onClick: () => void;
+  onUpdated: (skill: SkillInfo) => void | Promise<void>;
+  onDeleted: (skillId: string) => void | Promise<void>;
 }) {
-  const fileCount = skill.files?.length || 0;
+  const scopeMeta = getScopeMeta(skill.scope);
+  const ScopeIcon = scopeMeta.icon;
+  const statusMeta = getStatusMeta(skill.status);
+  const StatusIcon = statusMeta.icon;
+  const isDisabled = skill.status === "disabled";
 
   return (
     <div
       onClick={onClick}
-      className="group flex h-full cursor-pointer flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:shadow-md"
+      className={cn(
+        "group flex h-full cursor-pointer flex-col rounded-xl border p-5 transition-all duration-200",
+        isDisabled
+          ? "border-border/70 bg-muted/25 hover:bg-muted/35"
+          : "border-border bg-card hover:shadow-md",
+      )}
     >
       <div className="flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex items-start gap-3">
-            <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary transition-colors group-hover:bg-primary/5">
+            <div
+              className={cn(
+                "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                isDisabled
+                  ? "border-border/40 bg-muted/40 text-muted-foreground"
+                  : "border-border/50 bg-muted/20 text-primary group-hover:bg-primary/5",
+              )}
+            >
               <Puzzle className="size-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold tracking-tight text-foreground">{skill.title || skill.name}</h3>
-              <div className="mt-1 flex items-center gap-1.5">
+              <h3
+                className={cn(
+                  "truncate text-sm font-semibold tracking-tight",
+                  isDisabled ? "text-foreground/80" : "text-foreground",
+                )}
+              >
+                {skill.title || skill.name}
+              </h3>
+              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
                         className={cn(
                           "flex items-center gap-1 rounded px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider cursor-default",
-                          skill.scope === "global"
-                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                          scopeMeta.className,
                         )}
                       >
-                        {skill.scope === "global" ? <Globe className="size-2" /> : <Folder className="size-2" />}
-                        {skill.scope}
+                        <ScopeIcon className="size-2" />
+                        {scopeMeta.label}
                       </span>
                     </TooltipTrigger>
-                    {skill.scope === "project" && skill.project_name && (
+                    {(skill.scope === "project" || skill.scope === "inside_project") && skill.project_name && (
                       <TooltipContent side="top">
                         <p className="text-xs">From: {skill.project_name}</p>
                       </TooltipContent>
@@ -200,19 +275,30 @@ function InstalledSkillListCard({
                   </Tooltip>
                 </TooltipProvider>
 
-                {fileCount > 0 && (
-                  <span className="flex items-center gap-1 rounded bg-muted px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-                    <FileText className="size-2" />
-                    {fileCount}
-                  </span>
-                )}
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider",
+                    statusMeta.className,
+                  )}
+                >
+                  <StatusIcon className="size-2.5" />
+                  {statusMeta.label}
+                </span>
+
               </div>
             </div>
           </div>
+
+          <SkillActionsMenu skill={skill} onUpdated={onUpdated} onDeleted={onDeleted} />
         </div>
 
         {skill.description ? (
-          <p className="mt-4 flex-1 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+          <p
+            className={cn(
+              "mt-4 flex-1 line-clamp-3 text-[13px] leading-relaxed text-pretty",
+              isDisabled ? "text-muted-foreground/75" : "text-muted-foreground",
+            )}
+          >
             {skill.description}
           </p>
         ) : (
@@ -220,13 +306,20 @@ function InstalledSkillListCard({
         )}
 
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {skill.agents.map((agent) => {
+          {skill.agents.filter((agent) => agent !== "in-project").map((agent) => {
             const config = getAgentConfig(agent);
+            const agentStatus = getAgentStatus(skill, agent);
             const label = (
               <span
                 key={agent}
-                className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium shrink-0", config.color)}
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[10px] font-medium shrink-0 inline-flex items-center gap-1",
+                  agentStatus === "disabled"
+                    ? "bg-muted text-muted-foreground"
+                    : config.color,
+                )}
               >
+                {agentStatus === "disabled" && <EyeOff className="size-2.5" />}
                 {config.name}
               </span>
             );
@@ -238,19 +331,6 @@ function InstalledSkillListCard({
                     <TooltipTrigger asChild>{label}</TooltipTrigger>
                     <TooltipContent side="top">
                       <p className="text-xs">From: .agents/skills</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
-            }
-
-            if (agent === "in-project") {
-              return (
-                <TooltipProvider key={agent} delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>{label}</TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p className="text-xs">{`skills/${skill.name}`}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -312,7 +392,11 @@ export const SkillsView: React.FC = () => {
   const projects = useMemo(() => {
     const projectMap = new Map<string, string>();
     skills.forEach((skill) => {
-      if (skill.scope === "project" && skill.project_id && skill.project_name) {
+      if (
+        (skill.scope === "project" || skill.scope === "inside_project") &&
+        skill.project_id &&
+        skill.project_name
+      ) {
         projectMap.set(skill.project_id, skill.project_name);
       }
     });
@@ -333,8 +417,14 @@ export const SkillsView: React.FC = () => {
       if (scopeFilter === "all") return true;
       if (scopeFilter === "global") return skill.scope === "global";
       if (scopeFilter === "project") {
-        if (selectedProjectIds.length === 0) return skill.scope === "project";
-        return skill.scope === "project" && !!skill.project_id && selectedProjectIds.includes(skill.project_id);
+        const isProjectScoped =
+          skill.scope === "project" || skill.scope === "inside_project";
+        if (selectedProjectIds.length === 0) return isProjectScoped;
+        return (
+          isProjectScoped &&
+          !!skill.project_id &&
+          selectedProjectIds.includes(skill.project_id)
+        );
       }
       return true;
     });
@@ -366,6 +456,11 @@ export const SkillsView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  const handleSkillUpdated = useCallback((nextSkill: SkillInfo) => {
+    setSkills((current) => current.map((skill) => (skill.id === nextSkill.id ? nextSkill : skill)));
+    setSelectedSkill((current) => (current?.id === nextSkill.id ? nextSkill : current));
   }, []);
 
   useEffect(() => {
@@ -406,7 +501,7 @@ export const SkillsView: React.FC = () => {
     void setParams({ filter: "project", projects: newIds.join(",") || "" });
   };
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     router.push(
       buildSkillListUrl({
         activeTab,
@@ -416,7 +511,18 @@ export const SkillsView: React.FC = () => {
       }),
     );
     setSelectedSkill(null);
-  };
+  }, [activeTab, projectsParam, query, router, scopeFilter]);
+
+  const handleSkillDeleted = useCallback(
+    (skillIdToRemove: string) => {
+      setSkills((current) => current.filter((skill) => skill.id !== skillIdToRemove));
+      setSelectedSkill((current) => (current?.id === skillIdToRemove ? null : current));
+      if (selectedSkill?.id === skillIdToRemove || skillId === skillIdToRemove) {
+        handleBack();
+      }
+    },
+    [handleBack, selectedSkill?.id, skillId],
+  );
 
   const handleOpenInstalledSkill = (skill: SkillInfo) => {
     const searchParams = new URLSearchParams();
@@ -433,7 +539,7 @@ export const SkillsView: React.FC = () => {
       searchParams.set("q", query.trim());
     }
     searchParams.set("scope", skill.scope);
-    searchParams.set("skillId", skill.title || skill.name);
+    searchParams.set("skillId", skill.id);
     router.push(`/skills?${searchParams.toString()}`);
   };
 
@@ -463,7 +569,12 @@ export const SkillsView: React.FC = () => {
     if (selectedSkill) {
       return (
         <div className="h-full overflow-hidden bg-background">
-          <SkillDetail skill={selectedSkill} onBack={handleBack} />
+          <SkillDetail
+            skill={selectedSkill}
+            onBack={handleBack}
+            onUpdated={handleSkillUpdated}
+            onDeleted={handleSkillDeleted}
+          />
         </div>
       );
     }
@@ -625,7 +736,7 @@ export const SkillsView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto px-8 pb-8 pt-4 scrollbar-on-hover">
+          <div className="flex-1 overflow-auto px-8 pb-8 pt-4">
             <div className="mx-auto w-full max-w-5xl">
               <TabsContent value="installed">
                 {isLoading ? (
@@ -666,7 +777,12 @@ export const SkillsView: React.FC = () => {
                           exit={{ opacity: 0, scale: 0.94 }}
                           transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.24), ease: "easeOut" }}
                         >
-                          <InstalledSkillListCard skill={skill} onClick={() => handleOpenInstalledSkill(skill)} />
+                          <InstalledSkillListCard
+                            skill={skill}
+                            onClick={() => handleOpenInstalledSkill(skill)}
+                            onUpdated={handleSkillUpdated}
+                            onDeleted={handleSkillDeleted}
+                          />
                         </motion.div>
                       ))}
                     </AnimatePresence>
