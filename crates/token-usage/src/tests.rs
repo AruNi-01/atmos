@@ -55,6 +55,9 @@ async fn get_overview_uses_cache_for_normalized_queries() {
     assert_eq!(overview.by_client[0].total_tokens, 500);
     assert_eq!(overview.by_client[1].client_id, "claude");
     assert_eq!(overview.by_client[1].total_tokens, 210);
+    assert_eq!(overview.by_day[0].breakdown.reasoning_tokens, 20);
+    assert_eq!(overview.by_month[0].breakdown.total_tokens, 685);
+    assert_eq!(overview.available_years, vec!["2026"]);
 
     let cached = service.get_overview(second, false).await.unwrap();
     assert_eq!(cached.summary.total_messages, 3);
@@ -86,13 +89,14 @@ async fn get_overview_publishes_updates_for_fresh_fetches() {
     assert_eq!(overview.summary.total_messages, 3);
     assert_eq!(update.query.year.as_deref(), Some("2026"));
     assert_eq!(update.overview.by_model.len(), 2);
+    assert_eq!(update.overview.by_day[1].by_client[0].breakdown.total_tokens, 210);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 fn sample_reports() -> CollectedTokenUsageReports {
     use tokscale_core::{
         ClientContribution, DailyContribution, DailyTotals, DataSummary, GraphMeta, GraphResult,
-        ModelReport, ModelUsage, MonthlyReport, MonthlyUsage, TokenBreakdown,
+        ModelReport, ModelUsage, MonthlyReport, MonthlyUsage, TokenBreakdown, YearSummary,
     };
 
     let graph = GraphResult {
@@ -113,7 +117,13 @@ fn sample_reports() -> CollectedTokenUsageReports {
             clients: vec!["codex".into(), "claude".into()],
             models: vec!["gpt-5".into(), "claude-3-7-sonnet".into()],
         },
-        years: vec![],
+        years: vec![YearSummary {
+            year: "2026".into(),
+            total_tokens: 710,
+            total_cost: 1.23,
+            range_start: "2026-03-10".into(),
+            range_end: "2026-03-11".into(),
+        }],
         contributions: vec![
             DailyContribution {
                 date: "2026-03-10".into(),

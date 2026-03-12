@@ -9,7 +9,7 @@ use tokio::sync::{broadcast, RwLock};
 
 use crate::models::{
     ClientTokenUsage, DailyClientTokenUsage, DailyTokenUsage, ModelTokenUsage, MonthlyTokenUsage,
-    TokenUsageOverview, TokenUsageQuery, TokenUsageSummary, TokenUsageUpdate,
+    TokenBreakdown, TokenUsageOverview, TokenUsageQuery, TokenUsageSummary, TokenUsageUpdate,
 };
 
 const DEFAULT_CACHE_TTL_SECS: u64 = 60;
@@ -179,6 +179,12 @@ fn build_overview(
         by_model: build_model_usage(&reports.model_report),
         by_day: build_daily_usage(&reports.graph),
         by_month: build_monthly_usage(&reports.monthly_report),
+        available_years: reports
+            .graph
+            .years
+            .iter()
+            .map(|year| year.year.clone())
+            .collect(),
         generated_at: unix_now(),
         partial_warnings: vec![],
     }
@@ -250,6 +256,7 @@ fn build_daily_usage(graph: &tokscale_core::GraphResult) -> Vec<DailyTokenUsage>
         .iter()
         .map(|day| DailyTokenUsage {
             date: day.date.clone(),
+            breakdown: token_breakdown_from_tokscale(&day.token_breakdown),
             total_tokens: day.totals.tokens,
             total_cost_usd: finite_cost(day.totals.cost),
             message_count: day.totals.messages,
@@ -260,6 +267,7 @@ fn build_daily_usage(graph: &tokscale_core::GraphResult) -> Vec<DailyTokenUsage>
                     client_id: client.client.clone(),
                     model_id: client.model_id.clone(),
                     provider_id: client.provider_id.clone(),
+                    breakdown: token_breakdown_from_tokscale(&client.tokens),
                     total_tokens: client.tokens.total(),
                     cost_usd: finite_cost(client.cost),
                     message_count: client.messages,
@@ -275,12 +283,31 @@ fn build_monthly_usage(report: &tokscale_core::MonthlyReport) -> Vec<MonthlyToke
         .iter()
         .map(|entry| MonthlyTokenUsage {
             month: entry.month.clone(),
+            breakdown: TokenBreakdown {
+                input_tokens: entry.input,
+                output_tokens: entry.output,
+                cache_read_tokens: entry.cache_read,
+                cache_write_tokens: entry.cache_write,
+                reasoning_tokens: 0,
+                total_tokens: entry.input + entry.output + entry.cache_read + entry.cache_write,
+            },
             total_tokens: entry.input + entry.output + entry.cache_read + entry.cache_write,
             total_cost_usd: finite_cost(entry.cost),
             message_count: entry.message_count,
             models: entry.models.clone(),
         })
         .collect()
+}
+
+fn token_breakdown_from_tokscale(value: &tokscale_core::TokenBreakdown) -> TokenBreakdown {
+    TokenBreakdown {
+        input_tokens: value.input,
+        output_tokens: value.output,
+        cache_read_tokens: value.cache_read,
+        cache_write_tokens: value.cache_write,
+        reasoning_tokens: value.reasoning,
+        total_tokens: value.total(),
+    }
 }
 
 fn finite_cost(value: f64) -> Option<f64> {

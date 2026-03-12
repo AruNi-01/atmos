@@ -108,10 +108,21 @@ pub struct ModelTokenUsage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TokenBreakdown {
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+    pub cache_write_tokens: i64,
+    pub reasoning_tokens: i64,
+    pub total_tokens: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DailyClientTokenUsage {
     pub client_id: String,
     pub model_id: String,
     pub provider_id: String,
+    pub breakdown: TokenBreakdown,
     pub total_tokens: i64,
     pub cost_usd: Option<f64>,
     pub message_count: i32,
@@ -120,6 +131,7 @@ pub struct DailyClientTokenUsage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DailyTokenUsage {
     pub date: String,
+    pub breakdown: TokenBreakdown,
     pub total_tokens: i64,
     pub total_cost_usd: Option<f64>,
     pub message_count: i32,
@@ -129,6 +141,7 @@ pub struct DailyTokenUsage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MonthlyTokenUsage {
     pub month: String,
+    pub breakdown: TokenBreakdown,
     pub total_tokens: i64,
     pub total_cost_usd: Option<f64>,
     pub message_count: i32,
@@ -143,6 +156,7 @@ pub struct TokenUsageOverview {
     pub by_model: Vec<ModelTokenUsage>,
     pub by_day: Vec<DailyTokenUsage>,
     pub by_month: Vec<MonthlyTokenUsage>,
+    pub available_years: Vec<String>,
     pub generated_at: u64,
     pub partial_warnings: Vec<String>,
 }

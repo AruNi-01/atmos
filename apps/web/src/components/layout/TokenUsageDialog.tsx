@@ -1,12 +1,26 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
+import {
+  addDays,
+  addMonths,
+  endOfWeek,
+  endOfYear,
+  eachDayOfInterval,
+  format,
+  parseISO,
+  startOfWeek,
+  startOfYear,
+} from "date-fns";
 import {
   Activity,
   CalendarRange,
   ChartColumnBig,
-  Flame,
+  Coins,
+  RefreshCcw,
   Sparkles,
+  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -15,9 +29,11 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -37,9 +53,24 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  ScrollArea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TextScramble,
 } from "@workspace/ui";
 
+import {
+  tokenUsageApi,
+  type DailyTokenUsageResponse,
+  type TokenUsageOverviewResponse,
+  type TokenUsageUpdateResponse,
+} from "@/api/rest-api";
 import {
   ChartContainer,
   ChartLegend,
@@ -48,29 +79,80 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import {
-  agentUsage,
-  heatmapWeeks,
-  monthlyTrend,
-  tokenMix,
-  tokenUsageStats,
-} from "./token-usage-mock";
+import { useWebSocketStore } from "@/hooks/use-websocket";
 
-const monthlyChartConfig = {
+type Resolution = "month" | "day";
+
+type HeatmapCell = {
+  date: string;
+  count: number | null;
+  level: 0 | 1 | 2 | 3 | 4;
+  detail: DailyTokenUsageResponse | null;
+};
+
+type HeatmapWeek = {
+  cells: HeatmapCell[];
+};
+
+type HeatmapMonthLabel = {
+  label: string;
+  offset: number;
+};
+
+type HeatmapHoverState = {
+  cell: HeatmapCell;
+  weekIndex: number;
+  dayIndex: number;
+  anchorRect: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+};
+
+type TimelinePoint = {
+  key: string;
+  label: string;
+  tokens: number;
+  messages: number;
+  input: number;
+  output: number;
+  cache: number;
+  reasoning: number;
+};
+
+type AgentSeries = {
+  data: Array<Record<string, string | number>>;
+  keys: string[];
+};
+
+type YearBreakdownSummary = {
+  totalTokens: number;
+  totalMessages: number;
+  activeDays: number;
+  input: number;
+  output: number;
+  cache: number;
+  reasoning: number;
+};
+
+type YearAgentShare = {
+  clientId: string;
+  label: string;
+  tokens: number;
+  share: number;
+  sharePercent: number;
+};
+
+const curveChartConfig = {
   tokens: {
     label: "Tokens",
     color: "var(--color-chart-1)",
   },
-  sessions: {
-    label: "Sessions",
+  messages: {
+    label: "Messages",
     color: "var(--color-chart-3)",
-  },
-} satisfies ChartConfig;
-
-const agentChartConfig = {
-  tokens: {
-    label: "Tokens",
-    color: "var(--color-chart-2)",
   },
 } satisfies ChartConfig;
 
@@ -84,7 +166,7 @@ const tokenMixChartConfig = {
     color: "var(--color-chart-2)",
   },
   cache: {
-    label: "Cache read",
+    label: "Cache",
     color: "var(--color-chart-3)",
   },
   reasoning: {
@@ -93,10 +175,250 @@ const tokenMixChartConfig = {
   },
 } satisfies ChartConfig;
 
-const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
+const heatmapAgentRadarChartConfig = {
+  share: {
+    label: "Share",
+    color: "var(--color-chart-2)",
+  },
+} satisfies ChartConfig;
+
+const heatmapDayLabels = [
+  { label: "Mon", row: 1 },
+  { label: "Wed", row: 3 },
+  { label: "Fri", row: 5 },
+] as const;
+
+const HEATMAP_CELL_SIZE = 12;
+const HEATMAP_GAP = 5;
+const HEATMAP_DAY_LABEL_WIDTH = 52;
+const HEATMAP_COLUMN_GAP = 16;
+const HEATMAP_HEADER_HEIGHT = 28;
+const HEATMAP_POPOVER_WIDTH = 244;
+const HEATMAP_POPOVER_OFFSET = 64;
+const HEATMAP_POPOVER_HEIGHT = 184;
+
+const agentPalette = [
+  "var(--color-chart-1)",
+  "var(--color-chart-2)",
+  "var(--color-chart-3)",
+  "var(--color-chart-4)",
+  "color-mix(in oklch, var(--color-chart-1) 62%, var(--color-chart-2))",
+  "color-mix(in oklch, var(--color-chart-2) 58%, var(--color-chart-3))",
+];
 
 export function TokenUsageDialog() {
   const [open, setOpen] = React.useState(false);
+  const [overview, setOverview] = React.useState<TokenUsageOverviewResponse | null>(null);
+  const [availableYears, setAvailableYears] = React.useState<string[]>([]);
+  const [selectedYear, setSelectedYear] = React.useState("");
+  const [resolution, setResolution] = React.useState<Resolution>("month");
+  const [loading, setLoading] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [hoveredHeatmapCell, setHoveredHeatmapCell] = React.useState<HeatmapHoverState | null>(null);
+  const requestRef = React.useRef(0);
+  const onEvent = useWebSocketStore((state) => state.onEvent);
+
+  const loadOverview = React.useCallback(
+    async ({ refresh = false }: { refresh?: boolean } = {}) => {
+      const requestId = requestRef.current + 1;
+      requestRef.current = requestId;
+
+      setError(null);
+      if (refresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const next = await tokenUsageApi.getOverview({
+          refresh,
+        });
+
+        if (requestRef.current !== requestId) {
+          return;
+        }
+
+        setOverview(next);
+        setAvailableYears((current) => mergeYearLists(current, next.available_years, next.by_day));
+      } catch (loadError) {
+        if (requestRef.current !== requestId) {
+          return;
+        }
+
+        setError(
+          loadError instanceof Error ? loadError.message : "Failed to load token usage overview",
+        );
+      } finally {
+        if (requestRef.current === requestId) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    },
+    [],
+  );
+
+  React.useEffect(() => {
+    if (!overview) {
+      return;
+    }
+
+    setAvailableYears((current) => mergeYearLists(current, overview.available_years, overview.by_day));
+  }, [overview]);
+
+  React.useEffect(() => {
+    if (selectedYear) {
+      return;
+    }
+
+    const latestYear = availableYears[availableYears.length - 1];
+    if (latestYear) {
+      setSelectedYear(latestYear);
+    }
+  }, [availableYears, selectedYear]);
+
+  React.useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    void loadOverview();
+  }, [loadOverview, open]);
+
+  React.useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    return onEvent("token_usage_updated", (payload: unknown) => {
+      const update = payload as TokenUsageUpdateResponse | null;
+      if (!update?.overview) {
+        return;
+      }
+
+      setAvailableYears((current) =>
+        mergeYearLists(current, update.overview.available_years, update.overview.by_day),
+      );
+
+      const eventYear = update.query.year ?? update.overview.query.year ?? "";
+      if (!eventYear) {
+        setOverview(update.overview);
+        return;
+      }
+
+      void loadOverview({ refresh: true });
+    });
+  }, [loadOverview, onEvent, open]);
+
+  const heatmapYear = selectedYear || availableYears[availableYears.length - 1] || "";
+
+  React.useEffect(() => {
+    setHoveredHeatmapCell(null);
+  }, [heatmapYear, overview?.generated_at]);
+
+  const timelineSeries = React.useMemo(
+    () => buildTimelineSeries(overview?.by_day ?? [], resolution),
+    [overview?.by_day, resolution],
+  );
+
+  const heatmapWeeks = React.useMemo(
+    () => buildHeatmapWeeks(overview?.by_day ?? [], heatmapYear),
+    [heatmapYear, overview?.by_day],
+  );
+  const heatmapMonthLabels = React.useMemo(
+    () => buildHeatmapMonthLabels(heatmapWeeks, heatmapYear),
+    [heatmapWeeks, heatmapYear],
+  );
+  const heatmapGridWidth = React.useMemo(
+    () =>
+      heatmapWeeks.length > 0
+        ? heatmapWeeks.length * HEATMAP_CELL_SIZE + (heatmapWeeks.length - 1) * HEATMAP_GAP
+        : 0,
+    [heatmapWeeks.length],
+  );
+  const heatmapPopoverPosition = React.useMemo(
+    () =>
+      hoveredHeatmapCell
+        ? calculateHeatmapPopoverPosition(hoveredHeatmapCell.anchorRect)
+        : null,
+    [hoveredHeatmapCell],
+  );
+
+  const agentSeries = React.useMemo(
+    () => buildAgentSeries(overview?.by_day ?? [], resolution),
+    [overview?.by_day, resolution],
+  );
+
+  const heatmapSummary = React.useMemo(
+    () => summarizeYear(overview?.by_day ?? [], heatmapYear),
+    [heatmapYear, overview?.by_day],
+  );
+  const yearlyAgentShares = React.useMemo(
+    () => buildYearAgentShares(overview?.by_day ?? [], heatmapYear),
+    [heatmapYear, overview?.by_day],
+  );
+  const yearlyAgentRadarMax = React.useMemo(
+    () => calculateYearAgentRadarMax(yearlyAgentShares),
+    [yearlyAgentShares],
+  );
+
+  const agentChartConfig = React.useMemo(
+    () =>
+      Object.fromEntries(
+        agentSeries.keys.map((key, index) => [
+          key,
+          {
+            label: key === "other" ? "Other" : humanizeId(key),
+            color: agentPalette[index % agentPalette.length],
+          },
+        ]),
+      ) satisfies ChartConfig,
+    [agentSeries.keys],
+  );
+  const generatedAtLabel = overview ? formatGeneratedAt(overview.generated_at) : "Not loaded";
+  const rangeLabel =
+    overview?.summary.range_start && overview.summary.range_end
+      ? `${overview.summary.range_start} -> ${overview.summary.range_end}`
+      : "No range";
+
+  const statCards = React.useMemo(
+    () => [
+      {
+        label: "Total tokens",
+        value: formatCompactNumber(overview?.summary.total_tokens ?? 0),
+        note: rangeLabel,
+        icon: Sparkles,
+      },
+      {
+        label: "Messages",
+        value: formatCompactNumber(overview?.summary.total_messages ?? 0),
+        note: `${overview?.by_client.length ?? 0} agents detected`,
+        icon: Coins,
+      },
+      {
+        label: "Active days",
+        value: formatCompactNumber(overview?.summary.active_days ?? 0),
+        note: "All-time contribution footprint",
+        icon: CalendarRange,
+      },
+      {
+        label: "Est. cost",
+        value: formatCurrencyCompact(overview?.summary.total_cost_usd ?? null),
+        note: "Estimated from local session history",
+        icon: Wallet,
+      },
+    ],
+    [overview, rangeLabel],
+  );
+
+  const handleRefresh = React.useCallback(() => {
+    void loadOverview({ refresh: true });
+  }, [loadOverview]);
+
+  const showInitialSkeleton = loading && !overview;
+  const emptyState = !loading && !error && !!overview && heatmapSummary.activeDays === 0;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -117,39 +439,53 @@ export function TokenUsageDialog() {
         <DialogHeader className="sr-only">
           <DialogTitle>Token usage</DialogTitle>
           <DialogDescription>
-            Full-screen token usage dashboard preview with mock data.
+            Full-screen token usage dashboard based on local session history.
           </DialogDescription>
         </DialogHeader>
 
         <div
-          className="relative flex h-full flex-col bg-background"
+          className="relative flex h-full min-h-0 flex-col bg-background"
           style={{
             backgroundImage: [
-              "radial-gradient(circle at top left, color-mix(in oklch, var(--color-chart-1) 24%, transparent), transparent 28%)",
-              "radial-gradient(circle at top right, color-mix(in oklch, var(--color-chart-2) 18%, transparent), transparent 26%)",
-              "linear-gradient(180deg, color-mix(in oklch, var(--muted) 65%, transparent), transparent 24%)",
+              "radial-gradient(circle at top left, color-mix(in oklch, var(--color-chart-1) 18%, transparent), transparent 28%)",
+              "radial-gradient(circle at top right, color-mix(in oklch, var(--color-chart-2) 15%, transparent), transparent 26%)",
+              "linear-gradient(180deg, color-mix(in oklch, var(--muted) 62%, transparent), transparent 24%)",
             ].join(", "),
           }}
         >
-          <div className="border-b border-border/60 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="shrink-0 border-b border-border/60 px-4 py-4 sm:px-6 sm:py-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-                    Mock Data
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground"
+                  >
+                    Local session data
                   </Badge>
-                  <Badge variant="outline" className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-                    26-week sample
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground"
+                  >
+                    All time overview
                   </Badge>
+                  {overview?.partial_warnings.length ? (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-amber-700 dark:text-amber-300"
+                    >
+                      Partial data
+                    </Badge>
+                  ) : null}
                 </div>
+
                 <div className="space-y-2">
                   <h1 className="text-left text-2xl font-semibold tracking-tight sm:text-4xl">
                     Token usage cockpit
                   </h1>
-                  <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-                    A full-screen preview of the local token history surface. The heatmap keeps the
-                    GitHub cadence, while the rest of the panel leans on shadcn-style charts for
-                    trend, source, and token-shape breakdowns.
+                  <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+                    The heatmap is filtered by year. Summary cards and the charts below stay on
+                    all-time local session history rather than provider quota APIs.
                   </p>
                 </div>
               </div>
@@ -157,17 +493,23 @@ export function TokenUsageDialog() {
               <div className="flex items-center gap-2 self-start">
                 <div className="hidden rounded-2xl border border-border/70 bg-background/80 px-3 py-2 text-right backdrop-blur sm:block">
                   <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                    Status
+                    Last refresh
                   </div>
-                  <div className="mt-1 flex items-center justify-end gap-2 text-sm font-medium">
-                    <span className="size-2 rounded-full bg-[var(--color-chart-2)]" />
-                    Demo dashboard ready
-                  </div>
+                  <div className="mt-1 text-sm font-medium">{generatedAtLabel}</div>
                 </div>
                 <Button
                   variant="outline"
                   size="icon"
-                  className="size-10 rounded-2xl border-border/70 bg-background/80 backdrop-blur"
+                  className="size-10 rounded-lg border-border/70 bg-background/80 backdrop-blur"
+                  onClick={handleRefresh}
+                  disabled={loading || refreshing}
+                >
+                  <RefreshCcw className={refreshing ? "size-4 animate-spin" : "size-4"} />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-10 rounded-lg border-border/70 bg-background/80 backdrop-blur"
                   onClick={() => setOpen(false)}
                 >
                   <X className="size-4" />
@@ -176,280 +518,972 @@ export function TokenUsageDialog() {
             </div>
           </div>
 
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
-              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {tokenUsageStats.map((stat, index) => (
-                  <Card
-                    key={stat.label}
-                    className="overflow-hidden border-border/70 bg-card/85 shadow-none backdrop-blur"
-                  >
-                    <CardHeader className="space-y-3 pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          {stat.label}
-                        </CardDescription>
-                        <div
-                          className="rounded-full border border-border/70 p-2"
-                          style={{ backgroundColor: statAccent(index, 0.14) }}
-                        >
-                          {index === 0 ? (
-                            <Sparkles className="size-4 text-[var(--color-chart-1)]" />
-                          ) : index === 1 ? (
-                            <CalendarRange className="size-4 text-[var(--color-chart-2)]" />
-                          ) : index === 2 ? (
-                            <Activity className="size-4 text-[var(--color-chart-3)]" />
-                          ) : (
-                            <Flame className="size-4 text-[var(--color-chart-4)]" />
-                          )}
-                        </div>
-                      </div>
-                      <CardTitle className="text-3xl font-semibold tracking-tight">
-                        {stat.value}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex items-center justify-between gap-3">
-                      <span className="rounded-full border border-border/70 px-2.5 py-1 text-xs font-medium text-foreground">
-                        {stat.change}
-                      </span>
-                      <span className="text-right text-xs text-muted-foreground">{stat.note}</span>
-                    </CardContent>
-                  </Card>
-                ))}
-              </section>
-
-              <section className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-                <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
-                  <CardHeader className="pb-2">
-                    <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                      Trend
-                    </CardDescription>
-                    <CardTitle className="text-xl">Monthly token curve</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-2">
-                    <ChartContainer config={monthlyChartConfig} className="h-[280px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={monthlyTrend} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="tokens-fill" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--color-chart-1)" stopOpacity={0.42} />
-                              <stop offset="95%" stopColor="var(--color-chart-1)" stopOpacity={0.02} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid vertical={false} />
-                          <XAxis
-                            dataKey="month"
-                            axisLine={false}
-                            tickLine={false}
-                            tickMargin={10}
-                          />
-                          <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tickFormatter={(value) => `${Math.round(value / 1_000_000)}M`}
-                            width={42}
-                          />
-                          <ChartTooltip
-                            cursor={false}
-                            content={
-                              <ChartTooltipContent
-                                formatter={(value, name) =>
-                                  name === "Sessions"
-                                    ? `${value} sessions`
-                                    : `${(Number(value) / 1_000_000).toFixed(1)}M`
-                                }
-                              />
-                            }
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="tokens"
-                            stroke="var(--color-chart-1)"
-                            strokeWidth={2.5}
-                            fill="url(#tokens-fill)"
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="sessions"
-                            stroke="var(--color-chart-3)"
-                            strokeDasharray="4 4"
-                            strokeWidth={2}
-                            fillOpacity={0}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </ChartContainer>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="space-y-6 px-4 py-5 pb-10 sm:px-6 sm:py-6 sm:pb-12">
+              {error ? (
+                <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+                  <CardContent className="flex items-center gap-3 py-6">
+                    <Activity className="size-4 text-destructive" />
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium">Failed to load token usage</div>
+                      <div className="text-sm text-muted-foreground">{error}</div>
+                    </div>
                   </CardContent>
                 </Card>
+              ) : null}
 
-                <div className="grid gap-4">
-                  <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
-                    <CardHeader className="pb-2">
-                      <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                        Sources
-                      </CardDescription>
-                      <CardTitle className="text-xl">Agent distribution</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-2">
-                      <ChartContainer config={agentChartConfig} className="h-[220px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={agentUsage} layout="vertical" margin={{ left: 0, right: 10, top: 0, bottom: 0 }}>
-                            <CartesianGrid horizontal={false} />
-                            <XAxis
-                              type="number"
-                              axisLine={false}
-                              tickLine={false}
-                              tickFormatter={(value) => `${Math.round(value / 1_000_000)}M`}
-                            />
-                            <YAxis
-                              type="category"
-                              dataKey="agent"
-                              axisLine={false}
-                              tickLine={false}
-                              width={58}
-                            />
-                            <ChartTooltip
-                              cursor={false}
-                              content={
-                                <ChartTooltipContent
-                                  labelFormatter={(label) => `${label}`}
-                                  formatter={(value) => `${(Number(value) / 1_000_000).toFixed(1)}M`}
-                                />
-                              }
-                            />
-                            <Bar
-                              dataKey="tokens"
-                              radius={[8, 8, 8, 8]}
-                              fill="var(--color-chart-2)"
-                            />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </ChartContainer>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
-                    <CardHeader className="pb-2">
-                      <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                        Shape
-                      </CardDescription>
-                      <CardTitle className="text-xl">Token mix</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-2">
-                      <ChartContainer config={tokenMixChartConfig} className="h-[250px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <ChartTooltip
-                              cursor={false}
-                              content={
-                                <ChartTooltipContent
-                                  hideLabel
-                                  formatter={(value) => `${(Number(value) / 1_000_000).toFixed(1)}M`}
-                                />
-                              }
-                            />
-                            <Pie
-                              data={tokenMix}
-                              dataKey="value"
-                              nameKey="key"
-                              innerRadius={62}
-                              outerRadius={86}
-                              paddingAngle={3}
-                              strokeWidth={0}
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {showInitialSkeleton
+                  ? Array.from({ length: 4 }, (_, index) => (
+                      <Card
+                        key={`stat-skeleton-${index}`}
+                        className="overflow-hidden border-border/70 bg-card/85 shadow-none backdrop-blur"
+                      >
+                        <CardHeader className="space-y-3 pb-3">
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-3 w-20 rounded-sm" />
+                            <Skeleton className="size-9 rounded-full" />
+                          </div>
+                          <Skeleton className="h-9 w-28 rounded-md" />
+                        </CardHeader>
+                        <CardContent>
+                          <Skeleton className="h-3 w-32 rounded-sm" />
+                        </CardContent>
+                      </Card>
+                    ))
+                  : statCards.map((stat, index) => (
+                      <Card
+                        key={stat.label}
+                        className="overflow-hidden border-border/70 bg-card/85 shadow-none backdrop-blur"
+                      >
+                        <CardHeader className="space-y-3 pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                              {stat.label}
+                            </CardDescription>
+                            <div
+                              className="rounded-full border border-border/70 p-2"
+                              style={{ backgroundColor: statAccent(index, 0.14) }}
                             >
-                              {tokenMix.map((entry) => (
-                                <Cell key={entry.key} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <ChartLegend content={<ChartLegendContent />} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </ChartContainer>
-                    </CardContent>
-                  </Card>
-                </div>
+                              <stat.icon
+                                className="size-4"
+                                style={{
+                                  color: `var(--color-chart-${Math.min(index + 1, 4)})`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <CardTitle className="text-3xl font-semibold tracking-tight">
+                            {stat.value}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <span className="text-xs text-muted-foreground">{stat.note}</span>
+                        </CardContent>
+                      </Card>
+                    ))}
               </section>
 
               <section>
                 <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
                   <CardHeader className="gap-3">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="space-y-1">
                         <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                          Daily activity
+                          Contribution heatmap
                         </CardDescription>
-                        <CardTitle className="text-xl">GitHub-style token heatmap</CardTitle>
+                        <CardTitle className="text-2xl font-semibold tracking-tight">
+                          {showInitialSkeleton
+                            ? "Loading yearly contribution..."
+                            : `${formatCompactNumber(heatmapSummary.totalTokens)} tokens in ${heatmapYear || "the selected year"}`}
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                          {showInitialSkeleton
+                            ? "Building heatmap from local session history"
+                            : `${formatCompactNumber(heatmapSummary.activeDays)} active days · ${formatCompactNumber(heatmapSummary.totalMessages)} messages`}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Less</span>
-                        {([0, 1, 2, 3, 4] as const).map((level) => (
-                          <span
-                            key={level}
-                            className="size-3 rounded-[4px] border border-border/60"
-                            style={{ backgroundColor: heatmapColor(level) }}
-                          />
-                        ))}
-                        <span>More</span>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {showInitialSkeleton ? (
+                          <Skeleton className="h-10 w-[140px] rounded-sm" />
+                        ) : (
+                          <Select
+                            value={heatmapYear || undefined}
+                            onValueChange={(value) => setSelectedYear(value)}
+                          >
+                            <SelectTrigger className="h-10 w-[140px] rounded-sm border-border/70 bg-background/80 text-sm">
+                              <SelectValue placeholder="Select year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[...availableYears].reverse().map((year) => (
+                                <SelectItem key={year} value={year}>
+                                  {year}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
+
                   <CardContent className="pt-2">
-                    <div className="overflow-x-auto">
-                      <div className="min-w-[860px]">
-                        <div className="grid grid-cols-[auto_1fr] gap-3">
-                          <div />
-                          <div
-                            className="grid gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground"
-                            style={{ gridTemplateColumns: `repeat(${heatmapWeeks.length}, minmax(0, 1fr))` }}
-                          >
-                            {heatmapWeeks.map((week, index) => (
-                              <div key={`${week.label}-${index}`} className="min-h-4">
-                                {week.label}
-                              </div>
-                            ))}
+                    <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                      <div className="rounded-[22px] border border-border/70 bg-background/82 p-4 sm:p-6">
+                        {showInitialSkeleton ? (
+                          <HeatmapSkeleton />
+                        ) : emptyState ? (
+                          <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
+                            No local token activity found for this year.
                           </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <div
+                              className="relative mx-auto w-max min-w-fit"
+                              onMouseLeave={() => setHoveredHeatmapCell(null)}
+                            >
+                              <div
+                                className="grid gap-x-4 gap-y-4"
+                                style={{ gridTemplateColumns: `${HEATMAP_DAY_LABEL_WIDTH}px max-content` }}
+                              >
+                                <div />
+                                <div
+                                  className="relative h-7 text-sm text-muted-foreground"
+                                  style={{ width: heatmapGridWidth }}
+                                >
+                                  {heatmapMonthLabels.map((month) => (
+                                    <div
+                                      key={month.label}
+                                      className="pointer-events-none absolute top-0 whitespace-nowrap"
+                                      style={{ left: month.offset }}
+                                    >
+                                      {month.label}
+                                    </div>
+                                  ))}
+                                </div>
 
-                          <div className="grid gap-2 pt-[2px] text-[11px] text-muted-foreground">
-                            {dayLabels.map((label, index) => (
-                              <div key={`${label}-${index}`} className="flex h-3 items-center">
-                                {index % 2 === 1 ? label : ""}
-                              </div>
-                            ))}
-                          </div>
+                                <div className="relative h-[106px] text-sm text-muted-foreground">
+                                  {heatmapDayLabels.map((day) => (
+                                    <div
+                                      key={day.label}
+                                      className="absolute left-0 -translate-y-1/2"
+                                      style={{ top: `${day.row * 18}px` }}
+                                    >
+                                      {day.label}
+                                    </div>
+                                  ))}
+                                </div>
 
-                          <div
-                            className="grid gap-2"
-                            style={{ gridTemplateColumns: `repeat(${heatmapWeeks.length}, minmax(0, 1fr))` }}
-                          >
-                            {heatmapWeeks.map((week, weekIndex) => (
-                              <div key={`week-${weekIndex}`} className="grid gap-2">
-                                {week.cells.map((cell) => (
-                                  <div
-                                    key={cell.date}
-                                    className="size-3 rounded-[4px] border border-border/60 transition-transform duration-150 hover:scale-125"
-                                    style={{ backgroundColor: heatmapColor(cell.level) }}
-                                    title={
-                                      cell.count === null
-                                        ? cell.date
-                                        : `${cell.date}: ${cell.count.toLocaleString()} tokens`
-                                    }
-                                  />
-                                ))}
+                                <div
+                                  className="grid gap-[5px]"
+                                  style={{
+                                    gridTemplateColumns: `repeat(${heatmapWeeks.length}, ${HEATMAP_CELL_SIZE}px)`,
+                                  }}
+                                >
+                                  {heatmapWeeks.map((week, weekIndex) => (
+                                    <div key={`week-${weekIndex}`} className="grid gap-[5px]">
+                                      {week.cells.map((cell, dayIndex) =>
+                                        cell.count === null ? (
+                                          <div
+                                            key={cell.date}
+                                            className="size-[12px] rounded-[3px] border border-border/50"
+                                            style={{ backgroundColor: heatmapColor(cell.level) }}
+                                          />
+                                        ) : (
+                                          <button
+                                            key={cell.date}
+                                            type="button"
+                                            className="size-[12px] rounded-[3px] border border-border/50 outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring"
+                                            style={{ backgroundColor: heatmapColor(cell.level) }}
+                                            aria-label={formatHeatmapAriaLabel(cell)}
+                                            onMouseEnter={(event) =>
+                                              setHoveredHeatmapCell({
+                                                cell,
+                                                weekIndex,
+                                                dayIndex,
+                                                anchorRect: getAnchorRect(event.currentTarget),
+                                              })
+                                            }
+                                            onFocus={(event) =>
+                                              setHoveredHeatmapCell({
+                                                cell,
+                                                weekIndex,
+                                                dayIndex,
+                                                anchorRect: getAnchorRect(event.currentTarget),
+                                              })
+                                            }
+                                          />
+                                        ),
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div />
+                                <div className="flex items-center justify-end gap-2 pt-2 text-sm text-muted-foreground">
+                                  <span>Less</span>
+                                  {([0, 1, 2, 3, 4] as const).map((level) => (
+                                    <span
+                                      key={level}
+                                      className="size-[14px] rounded-[4px] border border-border/50"
+                                      style={{ backgroundColor: heatmapColor(level) }}
+                                    />
+                                  ))}
+                                  <span>More</span>
+                                </div>
                               </div>
-                            ))}
+
+                              <HeatmapHoverPopover
+                                hoveredCell={hoveredHeatmapCell}
+                                position={heatmapPopoverPosition}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
+                      </div>
+
+                      <div className="flex h-full rounded-[22px] border border-border/70 bg-background/82 p-4 sm:p-6">
+                        {showInitialSkeleton ? (
+                          <ChartSkeleton />
+                        ) : yearlyAgentShares.length > 0 ? (
+                          <ChartContainer
+                            config={heatmapAgentRadarChartConfig}
+                            className="h-full min-h-0 w-full"
+                          >
+                            <ResponsiveContainer width="100%" height="100%">
+                              <RadarChart data={yearlyAgentShares} outerRadius="68%">
+                                <PolarGrid className="stroke-border/50" />
+                                <PolarAngleAxis
+                                  dataKey="label"
+                                  tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                                />
+                                <PolarRadiusAxis
+                                  angle={90}
+                                  domain={[0, yearlyAgentRadarMax]}
+                                  tick={false}
+                                  axisLine={false}
+                                />
+                                <ChartTooltip
+                                  cursor={false}
+                                  content={
+                                    <ChartTooltipContent
+                                      labelFormatter={(label) => label}
+                                      formatter={(value) => formatPercent(Number(value) / 100)}
+                                    />
+                                  }
+                                />
+                                <Radar
+                                  dataKey="sharePercent"
+                                  name="Share"
+                                  stroke="var(--color-chart-2)"
+                                  fill="var(--color-chart-2)"
+                                  fillOpacity={0.26}
+                                  strokeWidth={2.25}
+                                />
+                              </RadarChart>
+                            </ResponsiveContainer>
+                          </ChartContainer>
+                        ) : (
+                          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border/60 bg-background/35 text-sm text-muted-foreground">
+                            No agent activity found for this year.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </section>
+
+              <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    Chart resolution
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Switch between daily and monthly aggregation for the all-time charts below.
+                  </div>
+                </div>
+
+                <Tabs
+                  value={resolution}
+                  onValueChange={(value) => {
+                    if (value === "day" || value === "month") {
+                      setResolution(value);
+                    }
+                  }}
+                >
+                  <TabsList className="border border-border/70 bg-background/70 p-1">
+                    <TabsTrigger value="month" className="px-4">
+                      By month
+                    </TabsTrigger>
+                    <TabsTrigger value="day" className="px-4">
+                      By day
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </section>
+
+              <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+                <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Trend
+                    </CardDescription>
+                    <CardTitle className="text-xl">
+                      Token curve by {resolution === "month" ? "month" : "day"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-2">
+                    {showInitialSkeleton ? (
+                      <ChartSkeleton />
+                    ) : (
+                      <ChartContainer config={curveChartConfig} className="h-[320px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={timelineSeries} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="token-curve-fill" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="var(--color-chart-1)" stopOpacity={0.36} />
+                                <stop offset="95%" stopColor="var(--color-chart-1)" stopOpacity={0.03} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              axisLine={false}
+                              tickLine={false}
+                              tickMargin={10}
+                              minTickGap={resolution === "day" ? 28 : 12}
+                            />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              tickFormatter={(value) => formatAxisTokens(Number(value))}
+                              width={46}
+                            />
+                            <ChartTooltip
+                              cursor={false}
+                              content={
+                                <ChartTooltipContent
+                                  formatter={(value, name) =>
+                                    name === "Messages"
+                                      ? `${Number(value).toLocaleString()}`
+                                      : formatTooltipTokens(Number(value))
+                                  }
+                                />
+                              }
+                            />
+                            <ChartLegend content={<ChartLegendContent />} />
+                            <Area
+                              type="monotone"
+                              dataKey="tokens"
+                              stroke="var(--color-chart-1)"
+                              strokeWidth={2.5}
+                              fill="url(#token-curve-fill)"
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="messages"
+                              stroke="var(--color-chart-3)"
+                              strokeDasharray="4 4"
+                              strokeWidth={2}
+                              fillOpacity={0}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Sources
+                    </CardDescription>
+                    <CardTitle className="text-xl">
+                      Agent distribution by {resolution === "month" ? "month" : "day"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-2">
+                    {showInitialSkeleton ? (
+                      <ChartSkeleton />
+                    ) : (
+                      <ChartContainer config={agentChartConfig} className="h-[320px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={agentSeries.data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                            <CartesianGrid vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              axisLine={false}
+                              tickLine={false}
+                              tickMargin={10}
+                              minTickGap={resolution === "day" ? 28 : 12}
+                            />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              tickFormatter={(value) => formatAxisTokens(Number(value))}
+                              width={46}
+                            />
+                            <ChartTooltip
+                              cursor={false}
+                              content={
+                                <ChartTooltipContent
+                                  formatter={(value) => formatTooltipTokens(Number(value))}
+                                />
+                              }
+                            />
+                            <ChartLegend content={<ChartLegendContent />} />
+                            {agentSeries.keys.map((key, index) => (
+                              <Bar
+                                key={key}
+                                dataKey={key}
+                                stackId="agents"
+                                fill={agentPalette[index % agentPalette.length]}
+                                radius={index === agentSeries.keys.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                              />
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              </section>
+
+              <section>
+                <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
+                  <CardHeader className="pb-2">
+                    <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Shape
+                    </CardDescription>
+                    <CardTitle className="text-xl">
+                      Token mix by {resolution === "month" ? "month" : "day"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-2">
+                    {showInitialSkeleton ? (
+                      <ChartSkeleton />
+                    ) : (
+                      <ChartContainer config={tokenMixChartConfig} className="h-[320px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={timelineSeries} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
+                            <CartesianGrid vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              axisLine={false}
+                              tickLine={false}
+                              tickMargin={10}
+                              minTickGap={resolution === "day" ? 28 : 12}
+                            />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              tickFormatter={(value) => formatAxisTokens(Number(value))}
+                              width={46}
+                            />
+                            <ChartTooltip
+                              cursor={false}
+                              content={
+                                <ChartTooltipContent
+                                  formatter={(value) => formatTooltipTokens(Number(value))}
+                                />
+                              }
+                            />
+                            <ChartLegend content={<ChartLegendContent />} />
+                            <Area
+                              type="monotone"
+                              dataKey="input"
+                              stackId="mix"
+                              stroke="var(--color-chart-1)"
+                              fill="var(--color-chart-1)"
+                              fillOpacity={0.85}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="output"
+                              stackId="mix"
+                              stroke="var(--color-chart-2)"
+                              fill="var(--color-chart-2)"
+                              fillOpacity={0.82}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="cache"
+                              stackId="mix"
+                              stroke="var(--color-chart-3)"
+                              fill="var(--color-chart-3)"
+                              fillOpacity={0.8}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="reasoning"
+                              stackId="mix"
+                              stroke="var(--color-chart-4)"
+                              fill="var(--color-chart-4)"
+                              fillOpacity={0.75}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              </section>
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
+}
+
+function HeatmapSkeleton() {
+  return (
+    <div className="overflow-x-auto">
+      <div className="mx-auto w-max min-w-fit">
+        <div
+          className="grid gap-x-4 gap-y-4"
+          style={{ gridTemplateColumns: `${HEATMAP_DAY_LABEL_WIDTH}px max-content` }}
+        >
+          <div />
+          <div className="flex h-7 items-start gap-8">
+            {Array.from({ length: 8 }, (_, index) => (
+              <Skeleton key={`month-skeleton-${index}`} className="h-4 w-8 rounded-sm" />
+            ))}
+          </div>
+
+          <div className="flex h-[106px] flex-col justify-around py-[2px]">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Skeleton key={`day-label-skeleton-${index}`} className="h-4 w-9 rounded-sm" />
+            ))}
+          </div>
+
+          <div className="grid gap-[5px]" style={{ gridTemplateColumns: "repeat(53, 12px)" }}>
+            {Array.from({ length: 53 }, (_, weekIndex) => (
+              <div key={`heatmap-week-skeleton-${weekIndex}`} className="grid gap-[5px]">
+                {Array.from({ length: 7 }, (_, dayIndex) => (
+                  <Skeleton
+                    key={`heatmap-cell-skeleton-${weekIndex}-${dayIndex}`}
+                    className="size-[12px] rounded-[3px]"
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <div />
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Skeleton className="h-4 w-8 rounded-sm" />
+            {Array.from({ length: 5 }, (_, index) => (
+              <Skeleton key={`legend-skeleton-${index}`} className="size-[14px] rounded-[4px]" />
+            ))}
+            <Skeleton className="h-4 w-8 rounded-sm" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="h-[320px] w-full rounded-[18px] border border-border/50 bg-background/35 p-4">
+      <div className="flex h-full gap-4">
+        <div className="flex w-10 flex-col justify-between py-2">
+          {Array.from({ length: 5 }, (_, index) => (
+            <Skeleton key={`chart-axis-${index}`} className="h-3 w-8 rounded-sm" />
+          ))}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex-1 space-y-5 py-2">
+            {Array.from({ length: 5 }, (_, index) => (
+              <Skeleton key={`chart-line-${index}`} className="h-px w-full rounded-sm" />
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton key={`chart-tick-${index}`} className="h-3 w-10 rounded-sm" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HeatmapHoverPopover({
+  hoveredCell,
+  position,
+}: {
+  hoveredCell: HeatmapHoverState | null;
+  position: { x: number; y: number } | null;
+}) {
+  if (!hoveredCell || !position || !hoveredCell.cell.detail) {
+    return null;
+  }
+
+  const { cell } = hoveredCell;
+  const detail = cell.detail;
+  if (!detail) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      className="pointer-events-none fixed top-0 left-0 z-[140] transition-[transform,opacity] duration-200 ease-out"
+      style={{
+        transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+        opacity: 1,
+      }}
+    >
+      <div className="w-60 rounded-xl border border-background/12 bg-foreground p-3 text-background shadow-xl">
+        <div className="space-y-2 text-xs">
+          <div className="font-medium text-background">{formatHeatmapDate(cell.date)}</div>
+          <HeatmapPopoverRow label="Tokens" value={cell.count ?? 0} />
+          <HeatmapPopoverRow label="Messages" value={detail.message_count} />
+          <div className="h-px bg-background/18" />
+          <HeatmapPopoverRow label="Input" value={detail.breakdown.input_tokens} />
+          <HeatmapPopoverRow label="Output" value={detail.breakdown.output_tokens} />
+          <HeatmapPopoverRow
+            label="Cache"
+            value={
+              detail.breakdown.cache_read_tokens + detail.breakdown.cache_write_tokens
+            }
+          />
+          <HeatmapPopoverRow label="Reasoning" value={detail.breakdown.reasoning_tokens} />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function HeatmapPopoverRow({ label, value }: { label: string; value: number }) {
+  const displayValue = formatDetailedNumber(value);
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-background/65">{label}</span>
+      <TextScramble
+        key={`${label}-${displayValue}`}
+        as="span"
+        duration={0.42}
+        speed={0.022}
+        className="text-background tabular-nums"
+      >
+        {displayValue}
+      </TextScramble>
+    </div>
+  );
+}
+
+function buildTimelineSeries(
+  days: DailyTokenUsageResponse[],
+  resolution: Resolution,
+): TimelinePoint[] {
+  const buckets = new Map<string, TimelinePoint>(
+    periodKeysForRange(days, resolution).map((key) => [
+      key,
+      {
+        key,
+        label: formatPeriodLabel(key, resolution),
+        tokens: 0,
+        messages: 0,
+        input: 0,
+        output: 0,
+        cache: 0,
+        reasoning: 0,
+      },
+    ]),
+  );
+
+  for (const day of sortDailyUsage(days)) {
+    const key = resolution === "day" ? day.date : day.date.slice(0, 7);
+    const existing = buckets.get(key) ?? {
+      key,
+      label: formatPeriodLabel(key, resolution),
+      tokens: 0,
+      messages: 0,
+      input: 0,
+      output: 0,
+      cache: 0,
+      reasoning: 0,
+    };
+
+    existing.tokens += day.total_tokens;
+    existing.messages += day.message_count;
+    existing.input += day.breakdown.input_tokens;
+    existing.output += day.breakdown.output_tokens;
+    existing.cache += day.breakdown.cache_read_tokens + day.breakdown.cache_write_tokens;
+    existing.reasoning += day.breakdown.reasoning_tokens;
+
+    buckets.set(key, existing);
+  }
+
+  return Array.from(buckets.values()).sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function buildAgentSeries(
+  days: DailyTokenUsageResponse[],
+  resolution: Resolution,
+): AgentSeries {
+  const totals = new Map<string, number>();
+  const periods = new Map<string, Record<string, number>>(
+    periodKeysForRange(days, resolution).map((key) => [key, {}]),
+  );
+
+  for (const day of sortDailyUsage(days)) {
+    const periodKey = resolution === "day" ? day.date : day.date.slice(0, 7);
+    const bucket = periods.get(periodKey) ?? {};
+
+    for (const client of day.by_client) {
+      bucket[client.client_id] = (bucket[client.client_id] ?? 0) + client.total_tokens;
+      totals.set(client.client_id, (totals.get(client.client_id) ?? 0) + client.total_tokens);
+    }
+
+    periods.set(periodKey, bucket);
+  }
+
+  const rankedClients = Array.from(totals.entries())
+    .sort((left, right) => right[1] - left[1])
+    .map(([clientId]) => clientId);
+
+  const topClients = rankedClients.slice(0, 5);
+  const hasOther = rankedClients.length > topClients.length;
+  const keys = hasOther ? [...topClients, "other"] : topClients;
+
+  const data = Array.from(periods.entries())
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([periodKey, bucket]) => {
+      const point: Record<string, string | number> = {
+        label: formatPeriodLabel(periodKey, resolution),
+      };
+
+      let other = 0;
+      for (const [clientId, value] of Object.entries(bucket)) {
+        if (topClients.includes(clientId)) {
+          point[clientId] = value;
+        } else {
+          other += value;
+        }
+      }
+
+      for (const clientId of topClients) {
+        if (!(clientId in point)) {
+          point[clientId] = 0;
+        }
+      }
+
+      if (hasOther) {
+        point.other = other;
+      }
+
+      return point;
+    });
+
+  return { data, keys };
+}
+
+function buildHeatmapWeeks(days: DailyTokenUsageResponse[], year: string): HeatmapWeek[] {
+  if (!year) {
+    return [];
+  }
+
+  const start = startOfWeek(startOfYear(new Date(Number(year), 0, 1)), { weekStartsOn: 0 });
+  const end = endOfWeek(endOfYear(new Date(Number(year), 0, 1)), { weekStartsOn: 0 });
+  const dayMap = new Map(days.map((day) => [day.date, day]));
+  const maxTokens = Math.max(
+    ...days.filter((day) => day.date.startsWith(`${year}-`)).map((day) => day.total_tokens),
+    0,
+  );
+  const calendarDays = eachDayOfInterval({ start, end });
+
+  const weeks: HeatmapWeek[] = [];
+  for (let index = 0; index < calendarDays.length; index += 7) {
+    const weekDays = calendarDays.slice(index, index + 7);
+
+    weeks.push({
+      cells: weekDays.map((day) => {
+        const isoDate = format(day, "yyyy-MM-dd");
+        const isTargetYear = format(day, "yyyy") === year;
+        const detail = isTargetYear ? (dayMap.get(isoDate) ?? null) : null;
+        const count = isTargetYear ? (detail?.total_tokens ?? 0) : null;
+
+        return {
+          date: isoDate,
+          count,
+          level: heatmapLevel(count, maxTokens),
+          detail,
+        };
+      }),
+    });
+  }
+
+  return weeks;
+}
+
+function buildHeatmapMonthLabels(weeks: HeatmapWeek[], year: string): HeatmapMonthLabel[] {
+  if (!year) {
+    return [];
+  }
+
+  return Array.from({ length: 12 }, (_, monthIndex) => {
+    const weekIndex = weeks.findIndex((week) =>
+      week.cells.some(
+        (cell) =>
+          cell.count !== null &&
+          parseISO(cell.date).getFullYear() === Number(year) &&
+          parseISO(cell.date).getMonth() === monthIndex,
+      ),
+    );
+
+    if (weekIndex < 0) {
+      return null;
+    }
+
+    return {
+      label: format(new Date(Number(year), monthIndex, 1), "MMM"),
+      offset: weekIndex * (HEATMAP_CELL_SIZE + HEATMAP_GAP),
+    };
+  }).filter((value): value is HeatmapMonthLabel => value !== null);
+}
+
+function calculateHeatmapPopoverPosition(anchorRect: HeatmapHoverState["anchorRect"]) {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const anchorCenterX = anchorRect.left + anchorRect.width / 2;
+  const prefersRight = anchorCenterX < viewportWidth / 2;
+  const unclampedX = prefersRight
+    ? anchorRect.left + anchorRect.width + HEATMAP_POPOVER_OFFSET
+    : anchorRect.left - HEATMAP_POPOVER_WIDTH - HEATMAP_POPOVER_OFFSET;
+  const unclampedY = anchorRect.top - HEATMAP_POPOVER_HEIGHT - 18;
+
+  return {
+    x: Math.max(16, Math.min(unclampedX, viewportWidth - HEATMAP_POPOVER_WIDTH - 16)),
+    y: Math.max(16, Math.min(unclampedY, viewportHeight - HEATMAP_POPOVER_HEIGHT - 16)),
+  };
+}
+
+function getAnchorRect(target: HTMLElement) {
+  const rect = target.getBoundingClientRect();
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function summarizeYear(days: DailyTokenUsageResponse[], year: string): YearBreakdownSummary {
+  if (!year) {
+    return {
+      totalTokens: 0,
+      totalMessages: 0,
+      activeDays: 0,
+      input: 0,
+      output: 0,
+      cache: 0,
+      reasoning: 0,
+    };
+  }
+
+  return days.reduce(
+    (summary, day) => {
+      if (!day.date.startsWith(`${year}-`)) {
+        return summary;
+      }
+
+      summary.totalTokens += day.total_tokens;
+      summary.totalMessages += day.message_count;
+      summary.activeDays += 1;
+      summary.input += day.breakdown.input_tokens;
+      summary.output += day.breakdown.output_tokens;
+      summary.cache += day.breakdown.cache_read_tokens + day.breakdown.cache_write_tokens;
+      summary.reasoning += day.breakdown.reasoning_tokens;
+      return summary;
+    },
+    {
+      totalTokens: 0,
+      totalMessages: 0,
+      activeDays: 0,
+      input: 0,
+      output: 0,
+      cache: 0,
+      reasoning: 0,
+    },
+  );
+}
+
+function buildYearAgentShares(days: DailyTokenUsageResponse[], year: string): YearAgentShare[] {
+  if (!year) {
+    return [];
+  }
+
+  const totals = new Map<string, number>();
+
+  for (const day of days) {
+    if (!day.date.startsWith(`${year}-`)) {
+      continue;
+    }
+
+    for (const client of day.by_client) {
+      totals.set(client.client_id, (totals.get(client.client_id) ?? 0) + client.total_tokens);
+    }
+  }
+
+  const totalTokens = Array.from(totals.values()).reduce((sum, value) => sum + value, 0);
+  if (totalTokens <= 0) {
+    return [];
+  }
+
+  return Array.from(totals.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 5)
+    .map(([clientId, tokens]) => ({
+      clientId,
+      label: humanizeId(clientId),
+      tokens,
+      share: tokens / totalTokens,
+      sharePercent: (tokens / totalTokens) * 100,
+    }));
+}
+
+function calculateYearAgentRadarMax(data: YearAgentShare[]) {
+  const maxShare = Math.max(...data.map((item) => item.sharePercent), 0);
+  if (maxShare <= 0) {
+    return 100;
+  }
+
+  return Math.max(20, Math.ceil((maxShare * 1.15) / 5) * 5);
+}
+
+function mergeYearLists(
+  current: string[],
+  incoming: string[],
+  byDay: DailyTokenUsageResponse[],
+): string[] {
+  const inferred = byDay.map((day) => day.date.slice(0, 4));
+  return Array.from(new Set([...current, ...incoming, ...inferred])).sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
+function heatmapLevel(count: number | null, maxTokens: number): 0 | 1 | 2 | 3 | 4 {
+  if (count === null) {
+    return 0;
+  }
+
+  if (maxTokens <= 0 || count <= 0) {
+    return 0;
+  }
+
+  const ratio = count / maxTokens;
+  if (ratio < 0.2) return 1;
+  if (ratio < 0.45) return 2;
+  if (ratio < 0.7) return 3;
+  return 4;
 }
 
 function heatmapColor(level: 0 | 1 | 2 | 3 | 4) {
@@ -458,18 +1492,136 @@ function heatmapColor(level: 0 | 1 | 2 | 3 | 4) {
   }
 
   if (level === 1) {
-    return "color-mix(in oklch, var(--color-chart-2) 28%, var(--background))";
+    return "color-mix(in oklch, var(--color-chart-2) 22%, var(--background))";
   }
 
   if (level === 2) {
-    return "color-mix(in oklch, var(--color-chart-2) 48%, var(--background))";
+    return "color-mix(in oklch, var(--color-chart-2) 40%, var(--background))";
   }
 
   if (level === 3) {
-    return "color-mix(in oklch, var(--color-chart-2) 66%, var(--background))";
+    return "color-mix(in oklch, var(--color-chart-2) 62%, var(--background))";
   }
 
-  return "color-mix(in oklch, var(--color-chart-2) 84%, var(--background))";
+  return "color-mix(in oklch, var(--color-chart-2) 82%, var(--background))";
+}
+
+function formatHeatmapDate(value: string) {
+  return format(parseISO(value), "EEE, MMM d, yyyy");
+}
+
+function formatHeatmapAriaLabel(cell: HeatmapCell) {
+  return `${formatHeatmapDate(cell.date)}: ${formatDetailedNumber(cell.count ?? 0)} tokens, ${formatDetailedNumber(cell.detail?.message_count ?? 0)} messages`;
+}
+
+function formatDetailedNumber(value: number) {
+  return value.toLocaleString();
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat("en", {
+    style: "percent",
+    maximumFractionDigits: value >= 0.1 ? 0 : 1,
+  }).format(value);
+}
+
+function sortDailyUsage(days: DailyTokenUsageResponse[]) {
+  return [...days].sort((left, right) => left.date.localeCompare(right.date));
+}
+
+function periodKeysForRange(days: DailyTokenUsageResponse[], resolution: Resolution) {
+  const sortedDays = sortDailyUsage(days);
+  const firstDay = sortedDays[0];
+  const lastDay = sortedDays[sortedDays.length - 1];
+
+  if (!firstDay || !lastDay) {
+    return [];
+  }
+
+  if (resolution === "month") {
+    const keys: string[] = [];
+    let cursor = parseISO(`${firstDay.date.slice(0, 7)}-01`);
+    const end = parseISO(`${lastDay.date.slice(0, 7)}-01`);
+
+    while (cursor <= end) {
+      keys.push(format(cursor, "yyyy-MM"));
+      cursor = addMonths(cursor, 1);
+    }
+
+    return keys;
+  }
+
+  const keys: string[] = [];
+  let cursor = parseISO(firstDay.date);
+  const end = parseISO(lastDay.date);
+
+  while (cursor <= end) {
+    keys.push(format(cursor, "yyyy-MM-dd"));
+    cursor = addDays(cursor, 1);
+  }
+
+  return keys;
+}
+
+function formatPeriodLabel(key: string, resolution: Resolution) {
+  return resolution === "day"
+    ? format(parseISO(key), "MMM d")
+    : format(parseISO(`${key}-01`), "MMM yyyy");
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: value >= 1_000_000 ? 1 : 0,
+  }).format(value);
+}
+
+function formatCurrencyCompact(value: number | null) {
+  if (value === null) {
+    return "--";
+  }
+
+  if (value < 1) {
+    return `$${value.toFixed(2)}`;
+  }
+
+  return new Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+    style: "currency",
+    currency: "USD",
+  }).format(value);
+}
+
+function formatAxisTokens(value: number) {
+  if (value >= 1_000_000) {
+    return `${Math.round(value / 1_000_000)}M`;
+  }
+  if (value >= 1_000) {
+    return `${Math.round(value / 1_000)}k`;
+  }
+  return `${Math.round(value)}`;
+}
+
+function formatTooltipTokens(value: number) {
+  return `${value.toLocaleString()} tokens`;
+}
+
+function formatGeneratedAt(value: number) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value * 1000));
+}
+
+function humanizeId(value: string) {
+  return value
+    .split(/[-_]/g)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
 }
 
 function statAccent(index: number, amount: number) {
