@@ -213,13 +213,13 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       }));
       const allInstalled = [...installed, ...customAsRegistry];
       setInstalledAcpAgents(allInstalled);
-      if (allInstalled.length > 0 && !acpAgentId) {
-        setAcpAgentId(allInstalled[0].id);
+      if (allInstalled.length > 0) {
+        setAcpAgentId((current) => current || allInstalled[0].id);
       }
     }).finally(() => {
       setLoadingAcpAgents(false);
     });
-  }, [acpAgentId, open]);
+  }, [open]);
 
   // Auto-infer skill from changed files when dialog opens
   useEffect(() => {

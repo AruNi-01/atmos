@@ -251,9 +251,10 @@ mod tests {
     }
 
     #[test]
-    fn load_git_commit_prompt_uses_default_when_missing() {
+    fn default_git_commit_prompt_is_non_empty() {
         let prompt = default_git_commit_prompt().trim().to_string();
 
-        assert_eq!(prompt, default_git_commit_prompt().trim());
+        assert!(!prompt.is_empty());
+        assert!(prompt.contains("Conventional Commits format"));
     }
 }
