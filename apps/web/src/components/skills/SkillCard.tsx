@@ -35,7 +35,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
   };
 
   const isProjectScoped = skill.scope === 'project' || skill.scope === 'inside_project';
-  const scopeLabel = skill.scope === 'inside_project' ? 'InsideTheProject' : skill.scope;
+  const scopeLabel = skill.scope === 'inside_project' ? 'Inside Project' : skill.scope;
 
   return (
     <div
