@@ -405,7 +405,11 @@ export const SkillsView: React.FC = () => {
   const projects = useMemo(() => {
     const projectMap = new Map<string, string>();
     skills.forEach((skill) => {
-      if (skill.scope === "project" && skill.project_id && skill.project_name) {
+      if (
+        (skill.scope === "project" || skill.scope === "inside_project") &&
+        skill.project_id &&
+        skill.project_name
+      ) {
         projectMap.set(skill.project_id, skill.project_name);
       }
     });
@@ -426,8 +430,14 @@ export const SkillsView: React.FC = () => {
       if (scopeFilter === "all") return true;
       if (scopeFilter === "global") return skill.scope === "global";
       if (scopeFilter === "project") {
-        if (selectedProjectIds.length === 0) return skill.scope === "project";
-        return skill.scope === "project" && !!skill.project_id && selectedProjectIds.includes(skill.project_id);
+        const isProjectScoped =
+          skill.scope === "project" || skill.scope === "inside_project";
+        if (selectedProjectIds.length === 0) return isProjectScoped;
+        return (
+          isProjectScoped &&
+          !!skill.project_id &&
+          selectedProjectIds.includes(skill.project_id)
+        );
       }
       return true;
     });
@@ -740,7 +750,7 @@ export const SkillsView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto px-8 pb-8 pt-4 scrollbar-on-hover">
+          <div className="flex-1 overflow-auto px-8 pb-8 pt-4">
             <div className="mx-auto w-full max-w-5xl">
               <TabsContent value="installed">
                 {isLoading ? (

@@ -51,9 +51,8 @@ const AGENT_SKILL_DIRS: &[(&str, &str)] = &[
     ("adal", ".adal/skills"),
 ];
 
-/// Main file candidates (in priority order)
-const MAIN_FILE_CANDIDATES: &[&str] =
-    &["SKILL.md", "README.md", "skill.md", "readme.md", "index.md"];
+/// Canonical skill entry file
+const MAIN_FILE_CANDIDATES: &[&str] = &["SKILL.md"];
 
 /// Text file extensions to read content
 const TEXT_EXTENSIONS: &[&str] = &[
@@ -168,92 +167,125 @@ impl SkillScanner {
                 continue;
             }
 
-            let entries = match fs::read_dir(&skills_path) {
-                Ok(entries) => entries,
+            Self::scan_skill_entries_recursive(
+                &skills_path,
+                scan_base,
+                scope_root,
+                scope,
+                skill_dir,
+                agent,
+                project_id.clone(),
+                project_name.clone(),
+                status,
+                &mut skills,
+            );
+        }
+
+        skills
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn scan_skill_entries_recursive(
+        current_dir: &Path,
+        scan_base: &Path,
+        scope_root: &Path,
+        scope: &str,
+        skill_dir: &str,
+        agent: &str,
+        project_id: Option<String>,
+        project_name: Option<String>,
+        status: ScanStatus,
+        skills: &mut Vec<SkillInfo>,
+    ) {
+        let entries = match fs::read_dir(current_dir) {
+            Ok(entries) => entries,
+            Err(_) => return,
+        };
+
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            let entry_name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if entry_name.starts_with('.') {
+                continue;
+            }
+
+            let metadata = match fs::symlink_metadata(&path) {
+                Ok(metadata) => metadata,
                 Err(_) => continue,
             };
 
-            for entry in entries.filter_map(|e| e.ok()) {
-                let path = entry.path();
-                let entry_name = path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                if entry_name.starts_with('.') {
+            let current_scope = Self::normalize_scope(scope, skill_dir);
+            let original_path = Self::derive_original_path(&path, scan_base, scope_root, status)
+                .unwrap_or_else(|| path.clone());
+            let resolved_path = Self::resolve_entry_path(&path, &original_path, &metadata);
+            let entry_kind = Self::classify_entry_kind(&path, &metadata);
+            let symlink_target = if metadata.file_type().is_symlink() {
+                fs::read_link(&path)
+                    .ok()
+                    .map(|target| target.to_string_lossy().to_string())
+            } else {
+                None
+            };
+
+            if Self::entry_behaves_like_directory(&path, &original_path, &metadata) {
+                if Self::directory_contains_main_file(&path, resolved_path.as_deref()) {
+                    if let Some(mut skill) = Self::parse_skill_dir(
+                        &path,
+                        agent,
+                        current_scope.as_str(),
+                        project_id.clone(),
+                        project_name.clone(),
+                        status,
+                        original_path,
+                        resolved_path,
+                        entry_kind,
+                        symlink_target,
+                    ) {
+                        Self::apply_unified_label(&mut skill, skill_dir);
+                        skills.push(skill);
+                    }
                     continue;
                 }
 
-                let metadata = match fs::symlink_metadata(&path) {
-                    Ok(metadata) => metadata,
-                    Err(_) => continue,
-                };
+                if Self::entry_can_contain_nested_skills(&path, resolved_path.as_deref(), &metadata)
+                {
+                    Self::scan_skill_entries_recursive(
+                        &path,
+                        scan_base,
+                        scope_root,
+                        scope,
+                        skill_dir,
+                        agent,
+                        project_id.clone(),
+                        project_name.clone(),
+                        status,
+                        skills,
+                    );
+                }
+                continue;
+            }
 
-                let current_scope = Self::normalize_scope(scope, skill_dir);
-                let original_path = Self::derive_original_path(
+            if Self::entry_behaves_like_markdown_file(&path, &original_path, &metadata) {
+                if let Some(mut skill) = Self::parse_skill_file(
                     &path,
-                    scan_base,
-                    scope_root,
+                    agent,
+                    current_scope.as_str(),
+                    project_id.clone(),
+                    project_name.clone(),
                     status,
-                )
-                .unwrap_or_else(|| path.clone());
-                let resolved_path = Self::resolve_entry_path(&path, &original_path, &metadata);
-                let entry_kind = Self::classify_entry_kind(&path, &metadata);
-                let symlink_target = if metadata.file_type().is_symlink() {
-                    fs::read_link(&path)
-                        .ok()
-                        .map(|target| target.to_string_lossy().to_string())
-                } else {
-                    None
-                };
-
-                let behaves_like_markdown_file = Self::entry_behaves_like_markdown_file(
-                    &path,
-                    &original_path,
-                    &metadata,
-                );
-
-                let parsed = if Self::entry_behaves_like_directory(
-                    &path,
-                    &original_path,
-                    &metadata,
+                    original_path,
+                    resolved_path,
+                    entry_kind,
+                    symlink_target,
                 ) {
-                    Self::parse_skill_dir(
-                        &path,
-                        agent,
-                        current_scope.as_str(),
-                        project_id.clone(),
-                        project_name.clone(),
-                        status,
-                        original_path,
-                        resolved_path,
-                        entry_kind,
-                        symlink_target,
-                    )
-                } else if behaves_like_markdown_file {
-                    Self::parse_skill_file(
-                        &path,
-                        agent,
-                        current_scope.as_str(),
-                        project_id.clone(),
-                        project_name.clone(),
-                        status,
-                        original_path,
-                        resolved_path,
-                        entry_kind,
-                        symlink_target,
-                    )
-                } else {
-                    None
-                };
-
-                if let Some(mut skill) = parsed {
                     Self::apply_unified_label(&mut skill, skill_dir);
                     skills.push(skill);
                 }
             }
         }
-
-        skills
     }
 
     /// Merge skills that have the same name, scope, and project.
@@ -428,6 +460,31 @@ impl SkillScanner {
         }
 
         metadata.file_type().is_symlink() && !Self::entry_behaves_like_markdown_file(path, original_path, metadata)
+    }
+
+    fn directory_contains_main_file(path: &Path, resolved_path: Option<&Path>) -> bool {
+        if MAIN_FILE_CANDIDATES
+            .iter()
+            .any(|candidate| path.join(candidate).is_file())
+        {
+            return true;
+        }
+
+        resolved_path.is_some_and(|resolved| {
+            MAIN_FILE_CANDIDATES
+                .iter()
+                .any(|candidate| resolved.join(candidate).is_file())
+        })
+    }
+
+    fn entry_can_contain_nested_skills(
+        path: &Path,
+        resolved_path: Option<&Path>,
+        metadata: &fs::Metadata,
+    ) -> bool {
+        metadata.is_dir()
+            || path.is_dir()
+            || resolved_path.is_some_and(|resolved| resolved.is_dir())
     }
 
     /// Parse a skill directory.
