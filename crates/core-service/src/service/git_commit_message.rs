@@ -1,7 +1,7 @@
 use core_engine::{ChangedFileInfo, ChangedFilesInfo};
 use llm::{
-    generate_text, generate_text_stream, render_prompt_template, FileLlmConfigStore,
-    GenerateTextRequest, LlmFeature, ResponseFormat,
+    default_git_commit_prompt, generate_text, generate_text_stream, render_prompt_template,
+    FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat,
 };
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -35,18 +35,6 @@ impl GitCommitMessageGenerator {
         repo_name: Option<&str>,
         changes: &ChangedFilesInfo,
     ) -> Result<String> {
-        if let Err(error) = tokio::task::spawn_blocking(
-            infra::utils::system_prompt_sync::sync_git_commit_prompt_if_missing,
-        )
-        .await
-        .map_err(|join_error| {
-            ServiceError::Processing(format!(
-                "Failed to join git commit prompt sync task: {join_error}"
-            ))
-        })? {
-            warn!("git commit prompt sync failed: {}", error);
-        }
-
         let provider = self
             .store
             .resolve_for_feature(LlmFeature::GitCommit)
@@ -61,9 +49,7 @@ impl GitCommitMessageGenerator {
 
         let prompt = build_generation_prompt(repo_name, changes);
         let prompt_chars = prompt.chars().count();
-        let system_prompt = self.store.load_git_commit_prompt().map_err(|error| {
-            ServiceError::Validation(format!("Failed to load git commit prompt: {error}"))
-        })?;
+        let system_prompt = default_git_commit_prompt().trim().to_string();
         let request = GenerateTextRequest {
             system: Some(system_prompt),
             prompt,
@@ -97,18 +83,6 @@ impl GitCommitMessageGenerator {
         repo_name: Option<&str>,
         changes: &ChangedFilesInfo,
     ) -> Result<mpsc::Receiver<std::result::Result<String, llm::LlmError>>> {
-        if let Err(error) = tokio::task::spawn_blocking(
-            infra::utils::system_prompt_sync::sync_git_commit_prompt_if_missing,
-        )
-        .await
-        .map_err(|join_error| {
-            ServiceError::Processing(format!(
-                "Failed to join git commit prompt sync task: {join_error}"
-            ))
-        })? {
-            warn!("git commit prompt sync failed: {}", error);
-        }
-
         let provider = self
             .store
             .resolve_for_feature(LlmFeature::GitCommit)
@@ -130,9 +104,7 @@ impl GitCommitMessageGenerator {
         );
 
         let prompt = build_generation_prompt(repo_name, changes);
-        let system_prompt = self.store.load_git_commit_prompt().map_err(|error| {
-            ServiceError::Validation(format!("Failed to load git commit prompt: {error}"))
-        })?;
+        let system_prompt = default_git_commit_prompt().trim().to_string();
         let request = GenerateTextRequest {
             system: Some(system_prompt),
             prompt,
