@@ -27,16 +27,18 @@ import { useContextParams } from "@/hooks/use-context-params";
 import { AnimatePresence, motion } from "motion/react";
 import {
   BookOpen,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
   ArrowDownToLine,
   ChevronRight,
   Download,
   ExternalLink,
-  FileText,
   Filter,
   Folder,
   FolderOpen,
   Globe,
-  Link2Off,
+  EyeOff,
   Link2,
   Loader2,
   Puzzle,
@@ -47,7 +49,7 @@ import {
 import { SkillDetail } from "./SkillDetail";
 import { SkillActionsMenu } from "./SkillActionsMenu";
 import { SkillInstallTerminalDialog } from "./SkillInstallTerminalDialog";
-import { getAgentConfig } from "./constants";
+import { getAgentConfig, getAgentStatus } from "./constants";
 import {
   marketCategories,
   resourceCategories,
@@ -162,19 +164,19 @@ function getScopeMeta(scope: SkillInfo["scope"]) {
       return {
         label: "Global",
         icon: Globe,
-        className: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+        className: "bg-muted text-foreground",
       };
     case "project":
       return {
         label: "Project",
         icon: Folder,
-        className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+        className: "bg-muted text-foreground",
       };
     default:
       return {
         label: "InsideTheProject",
         icon: FolderOpen,
-        className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
+        className: "bg-muted text-foreground",
       };
   }
 }
@@ -184,16 +186,19 @@ function getStatusMeta(status: SkillInfo["status"]) {
     case "enabled":
       return {
         label: "Enabled",
+        icon: CircleCheck,
         className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
       };
     case "disabled":
       return {
         label: "Disabled",
+        icon: CircleX,
         className: "border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
       };
     default:
       return {
         label: "Partial",
+        icon: CircleMinus,
         className: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
       };
   }
@@ -210,25 +215,44 @@ function InstalledSkillListCard({
   onUpdated: (skill: SkillInfo) => void | Promise<void>;
   onDeleted: (skillId: string) => void | Promise<void>;
 }) {
-  const fileCount = skill.files?.length || 0;
   const scopeMeta = getScopeMeta(skill.scope);
   const ScopeIcon = scopeMeta.icon;
   const statusMeta = getStatusMeta(skill.status);
-  const hasSymlink = skill.placements.some((placement) => placement.entry_kind === "symlink");
+  const StatusIcon = statusMeta.icon;
+  const isDisabled = skill.status === "disabled";
 
   return (
     <div
       onClick={onClick}
-      className="group flex h-full cursor-pointer flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:shadow-md"
+      className={cn(
+        "group flex h-full cursor-pointer flex-col rounded-xl border p-5 transition-all duration-200",
+        isDisabled
+          ? "border-border/70 bg-muted/25 hover:bg-muted/35"
+          : "border-border bg-card hover:shadow-md",
+      )}
     >
       <div className="flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex items-start gap-3">
-            <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary transition-colors group-hover:bg-primary/5">
+            <div
+              className={cn(
+                "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                isDisabled
+                  ? "border-border/40 bg-muted/40 text-muted-foreground"
+                  : "border-border/50 bg-muted/20 text-primary group-hover:bg-primary/5",
+              )}
+            >
               <Puzzle className="size-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold tracking-tight text-foreground">{skill.title || skill.name}</h3>
+              <h3
+                className={cn(
+                  "truncate text-sm font-semibold tracking-tight",
+                  isDisabled ? "text-foreground/80" : "text-foreground",
+                )}
+              >
+                {skill.title || skill.name}
+              </h3>
               <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
@@ -253,32 +277,14 @@ function InstalledSkillListCard({
 
                 <span
                   className={cn(
-                    "rounded border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider",
+                    "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider",
                     statusMeta.className,
                   )}
                 >
+                  <StatusIcon className="size-2.5" />
                   {statusMeta.label}
                 </span>
 
-                {!skill.manageable && (
-                  <span className="rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
-                    Read-only
-                  </span>
-                )}
-
-                {hasSymlink && (
-                  <span className="flex items-center gap-1 rounded bg-muted px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-                    <Link2Off className="size-2" />
-                    Symlink
-                  </span>
-                )}
-
-                {fileCount > 0 && (
-                  <span className="flex items-center gap-1 rounded bg-muted px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-                    <FileText className="size-2" />
-                    {fileCount}
-                  </span>
-                )}
               </div>
             </div>
           </div>
@@ -287,7 +293,12 @@ function InstalledSkillListCard({
         </div>
 
         {skill.description ? (
-          <p className="mt-4 flex-1 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+          <p
+            className={cn(
+              "mt-4 flex-1 line-clamp-3 text-[13px] leading-relaxed text-pretty",
+              isDisabled ? "text-muted-foreground/75" : "text-muted-foreground",
+            )}
+          >
             {skill.description}
           </p>
         ) : (
@@ -295,13 +306,20 @@ function InstalledSkillListCard({
         )}
 
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {skill.agents.map((agent) => {
+          {skill.agents.filter((agent) => agent !== "in-project").map((agent) => {
             const config = getAgentConfig(agent);
+            const agentStatus = getAgentStatus(skill, agent);
             const label = (
               <span
                 key={agent}
-                className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium shrink-0", config.color)}
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[10px] font-medium shrink-0 inline-flex items-center gap-1",
+                  agentStatus === "disabled"
+                    ? "bg-muted text-muted-foreground"
+                    : config.color,
+                )}
               >
+                {agentStatus === "disabled" && <EyeOff className="size-2.5" />}
                 {config.name}
               </span>
             );

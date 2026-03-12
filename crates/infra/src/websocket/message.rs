@@ -1010,11 +1010,13 @@ pub struct SkillsGetRequest {
 pub struct SkillsSetEnabledRequest {
     pub id: String,
     pub enabled: bool,
+    pub placement_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillsDeleteRequest {
     pub id: String,
+    pub placement_ids: Option<Vec<String>>,
 }
 
 // ===== Agent 操作数据结构 =====

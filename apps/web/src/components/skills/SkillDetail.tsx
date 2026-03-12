@@ -9,6 +9,9 @@ import {
   Folder,
   Globe,
   ArrowLeft,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
   ChevronRight,
   ChevronLeft,
   Loader2,
@@ -28,14 +31,14 @@ import {
   toastManager,
   Circle,
   Save,
-  Link2Off,
+  EyeOff,
 } from '@workspace/ui';
 import { useAppStorage } from "@atmos/shared";
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/components/markdown/MarkdownToc';
 import { SkillInfo, SkillFile, fsApi } from '@/api/ws-api';
 import { detectCodeLanguage } from '@/lib/code-language';
-import { getAgentConfig } from './constants';
+import { getAgentConfig, getAgentStatus } from './constants';
 import { QuickOpen } from '@/components/layout/QuickOpen';
 import { SkillActionsMenu } from './SkillActionsMenu';
 
@@ -124,19 +127,19 @@ function getScopeMeta(scope: SkillInfo['scope']) {
       return {
         label: 'Global',
         icon: Globe,
-        className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+        className: 'bg-muted text-foreground',
       };
     case 'project':
       return {
         label: 'Project',
         icon: Folder,
-        className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        className: 'bg-muted text-foreground',
       };
     default:
       return {
         label: 'InsideTheProject',
         icon: Folder,
-        className: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
+        className: 'bg-muted text-foreground',
       };
   }
 }
@@ -146,16 +149,19 @@ function getStatusMeta(status: SkillInfo['status']) {
     case 'enabled':
       return {
         label: 'Enabled',
+        icon: CircleCheck,
         className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
       };
     case 'disabled':
       return {
         label: 'Disabled',
+        icon: CircleX,
         className: 'border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
       };
     default:
       return {
         label: 'Partial',
+        icon: CircleMinus,
         className: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
       };
     }
@@ -278,11 +284,10 @@ function ResizeHandle({
 
 export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdated, onDeleted }) => {
   const storage = useAppStorage();
-  const fileCount = skill.files?.length || 0;
   const scopeMeta = getScopeMeta(skill.scope);
   const ScopeIcon = scopeMeta.icon;
   const statusMeta = getStatusMeta(skill.status);
-  const hasSymlink = skill.placements.some((placement) => placement.entry_kind === 'symlink');
+  const StatusIcon = statusMeta.icon;
   
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(
     skill.files?.find(f => f.is_main) || skill.files?.[0] || null
@@ -406,32 +411,13 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                   {scopeMeta.label}
                 </span>
 
-                {fileCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-1 uppercase tracking-wider font-medium h-5">
-                    <FileText className="size-2.5" />
-                    {fileCount}
-                  </span>
-                )}
-
                 <span className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase tracking-wider h-5 inline-flex items-center",
+                  "text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase tracking-wider h-5 inline-flex items-center gap-1",
                   statusMeta.className,
                 )}>
+                  <StatusIcon className="size-2.5" />
                   {statusMeta.label}
                 </span>
-
-                {!skill.manageable && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 font-medium uppercase tracking-wider h-5 inline-flex items-center">
-                    Read-only
-                  </span>
-                )}
-
-                {hasSymlink && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium uppercase tracking-wider h-5 inline-flex items-center gap-1">
-                    <Link2Off className="size-2.5" />
-                    Symlink
-                  </span>
-                )}
 
                 {skill.description && (
                   <PreviewCard>
@@ -459,13 +445,20 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
             </div>
             
             <div className="flex items-center gap-1.5 flex-wrap overflow-hidden h-[22px]">
-              {skill.agents.map((agent) => {
+              {skill.agents.filter((agent) => agent !== 'in-project').map((agent) => {
                 const config = getAgentConfig(agent);
+                const agentStatus = getAgentStatus(skill, agent);
                 return (
                   <span 
                     key={agent} 
-                    className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0", config.color)}
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 inline-flex items-center gap-1",
+                      agentStatus === 'disabled'
+                        ? 'bg-muted text-muted-foreground'
+                        : config.color,
+                    )}
                   >
+                    {agentStatus === 'disabled' && <EyeOff className="size-2.5" />}
                     {config.name}
                   </span>
                 );
