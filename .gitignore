@@ -92,6 +92,7 @@ apps/desktop/src-tauri/binaries/web-out/*
 *.temp
 .temp/
 .tmp/
+tmp/
 
 # ===== other =====
 .vercel/
@@ -101,3 +102,5 @@ apps/desktop/src-tauri/binaries/web-out/*
 
 # ===== Agent =====
 .claude/settings.local.json
+.cursor/settings.local.json
+.codex/settings.local.json
