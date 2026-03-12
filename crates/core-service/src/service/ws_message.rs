@@ -1580,7 +1580,12 @@ set -x
             .map(|p| (p.guid.clone(), p.name.clone(), p.main_file_path.clone()))
             .collect();
 
-        SkillManager::set_enabled(&project_paths, &req.id, req.enabled)?;
+        SkillManager::set_enabled(
+            &project_paths,
+            &req.id,
+            req.enabled,
+            req.placement_ids.as_deref(),
+        )?;
 
         Ok(json!({ "success": true }))
     }
@@ -1594,7 +1599,7 @@ set -x
             .map(|p| (p.guid.clone(), p.name.clone(), p.main_file_path.clone()))
             .collect();
 
-        SkillManager::delete(&project_paths, &req.id)?;
+        SkillManager::delete(&project_paths, &req.id, req.placement_ids.as_deref())?;
 
         Ok(json!({ "success": true }))
     }

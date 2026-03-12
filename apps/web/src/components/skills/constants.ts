@@ -1,3 +1,5 @@
+import type { SkillInfo } from '@/api/ws-api';
+
 // Agent display names and colors
 export const AGENT_CONFIG: Record<string, { name: string; color: string }> = {
   unified: { name: 'Unified', color: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },
@@ -44,4 +46,28 @@ export const AGENT_CONFIG: Record<string, { name: string; color: string }> = {
 
 export function getAgentConfig(agent: string) {
   return AGENT_CONFIG[agent] || { name: agent, color: 'bg-gray-500/20 text-gray-600 dark:text-gray-400' };
+}
+
+function isUnifiedPath(path: string) {
+  return path.includes('/.agents/skills/') || path.includes('\\.agents\\skills\\');
+}
+
+export function getAgentStatus(skill: SkillInfo, agent: string): 'enabled' | 'disabled' | 'partial' {
+  const placements = skill.placements.filter((placement) => {
+    if (agent === 'unified') {
+      return isUnifiedPath(placement.original_path) || isUnifiedPath(placement.path);
+    }
+    return placement.agent === agent;
+  });
+
+  const hasEnabled = placements.some((placement) => placement.status === 'enabled');
+  const hasDisabled = placements.some((placement) => placement.status === 'disabled');
+
+  if (hasEnabled && hasDisabled) {
+    return 'partial';
+  }
+  if (hasEnabled) {
+    return 'enabled';
+  }
+  return 'disabled';
 }

@@ -1052,12 +1052,23 @@ export const skillsApi = {
     return wsRequest<SkillInfo>("skills_get", { scope, id });
   },
 
-  setEnabled: async (id: string, enabled: boolean): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('skills_set_enabled', { id, enabled });
+  setEnabled: async (
+    id: string,
+    enabled: boolean,
+    placementIds?: string[],
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('skills_set_enabled', {
+      id,
+      enabled,
+      placement_ids: placementIds,
+    });
   },
 
-  delete: async (id: string): Promise<{ success: boolean }> => {
-    return wsRequest<{ success: boolean }>('skills_delete', { id });
+  delete: async (id: string, placementIds?: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('skills_delete', {
+      id,
+      placement_ids: placementIds,
+    });
   },
 
   /**

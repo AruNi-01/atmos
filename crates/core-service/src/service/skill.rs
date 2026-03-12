@@ -188,7 +188,6 @@ impl SkillScanner {
                     Err(_) => continue,
                 };
 
-                let resolved_path = fs::canonicalize(&path).ok();
                 let current_scope = Self::normalize_scope(scope, skill_dir);
                 let original_path = Self::derive_original_path(
                     &path,
@@ -197,6 +196,7 @@ impl SkillScanner {
                     status,
                 )
                 .unwrap_or_else(|| path.clone());
+                let resolved_path = Self::resolve_entry_path(&path, &original_path, &metadata);
                 let entry_kind = Self::classify_entry_kind(&path, &metadata);
                 let symlink_target = if metadata.file_type().is_symlink() {
                     fs::read_link(&path)
@@ -206,7 +206,17 @@ impl SkillScanner {
                     None
                 };
 
-                let parsed = if path.is_dir() {
+                let behaves_like_markdown_file = Self::entry_behaves_like_markdown_file(
+                    &path,
+                    &original_path,
+                    &metadata,
+                );
+
+                let parsed = if Self::entry_behaves_like_directory(
+                    &path,
+                    &original_path,
+                    &metadata,
+                ) {
                     Self::parse_skill_dir(
                         &path,
                         agent,
@@ -219,11 +229,7 @@ impl SkillScanner {
                         entry_kind,
                         symlink_target,
                     )
-                } else if path
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
-                {
+                } else if behaves_like_markdown_file {
                     Self::parse_skill_file(
                         &path,
                         agent,
@@ -368,6 +374,60 @@ impl SkillScanner {
         } else {
             "file".to_string()
         }
+    }
+
+    fn resolve_entry_path(
+        path: &Path,
+        original_path: &Path,
+        metadata: &fs::Metadata,
+    ) -> Option<PathBuf> {
+        if metadata.file_type().is_symlink() {
+            let target = fs::read_link(path).ok()?;
+            let base_dir = original_path.parent().or_else(|| path.parent())?;
+            let resolved = if target.is_absolute() {
+                target
+            } else {
+                base_dir.join(target)
+            };
+
+            return fs::canonicalize(&resolved).ok().or(Some(resolved));
+        }
+
+        fs::canonicalize(path).ok()
+    }
+
+    fn entry_behaves_like_markdown_file(
+        path: &Path,
+        original_path: &Path,
+        metadata: &fs::Metadata,
+    ) -> bool {
+        if metadata.is_file() {
+            return path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("md"));
+        }
+
+        if metadata.file_type().is_symlink() {
+            return original_path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("md"));
+        }
+
+        false
+    }
+
+    fn entry_behaves_like_directory(
+        path: &Path,
+        original_path: &Path,
+        metadata: &fs::Metadata,
+    ) -> bool {
+        if metadata.is_dir() || path.is_dir() {
+            return true;
+        }
+
+        metadata.file_type().is_symlink() && !Self::entry_behaves_like_markdown_file(path, original_path, metadata)
     }
 
     /// Parse a skill directory.
@@ -711,16 +771,22 @@ impl SkillManager {
         project_paths: &[(String, String, String)],
         skill_id: &str,
         enabled: bool,
+        placement_ids: Option<&[String]>,
     ) -> Result<()> {
         let project_records = project_records(project_paths);
         let skill = Self::load_managed_skill(project_paths, skill_id)?;
         let desired_status = if enabled { "enabled" } else { "disabled" };
+        let selected_placement_ids = selected_placement_ids(placement_ids)?;
 
         let mut seen_paths = HashSet::new();
         for placement in skill
             .placements
             .iter()
-            .filter(|placement| placement.can_toggle && placement.status != desired_status)
+            .filter(|placement| {
+                placement.can_toggle
+                    && placement.status != desired_status
+                    && placement_matches_selection(placement, &selected_placement_ids)
+            })
         {
             if !seen_paths.insert(placement.path.clone()) {
                 continue;
@@ -736,19 +802,32 @@ impl SkillManager {
             move_entry_without_following_symlink(&from, &to)?;
         }
 
+        ensure_selection_applied(&skill, &selected_placement_ids, |placement| {
+            placement.can_toggle && placement.status != desired_status
+        })?;
+
         Ok(())
     }
 
-    pub fn delete(project_paths: &[(String, String, String)], skill_id: &str) -> Result<()> {
+    pub fn delete(
+        project_paths: &[(String, String, String)],
+        skill_id: &str,
+        placement_ids: Option<&[String]>,
+    ) -> Result<()> {
         let skill = Self::load_managed_skill(project_paths, skill_id)?;
+        let selected_placement_ids = selected_placement_ids(placement_ids)?;
         let mut seen_paths = HashSet::new();
 
-        for placement in skill.placements.iter().filter(|placement| placement.can_delete) {
+        for placement in skill.placements.iter().filter(|placement| {
+            placement.can_delete && placement_matches_selection(placement, &selected_placement_ids)
+        }) {
             if !seen_paths.insert(placement.path.clone()) {
                 continue;
             }
             delete_entry_without_following_symlink(Path::new(&placement.path))?;
         }
+
+        ensure_selection_applied(&skill, &selected_placement_ids, |placement| placement.can_delete)?;
 
         Ok(())
     }
@@ -837,6 +916,57 @@ fn project_records(project_paths: &[(String, String, String)]) -> Vec<ProjectPat
             root_path: PathBuf::from(root_path),
         })
         .collect()
+}
+
+fn selected_placement_ids(placement_ids: Option<&[String]>) -> Result<Option<HashSet<&str>>> {
+    let Some(placement_ids) = placement_ids else {
+        return Ok(None);
+    };
+
+    if placement_ids.is_empty() {
+        return Err(ServiceError::Validation(
+            "Please choose at least one skill location".to_string(),
+        ));
+    }
+
+    Ok(Some(
+        placement_ids
+            .iter()
+            .map(std::string::String::as_str)
+            .collect(),
+    ))
+}
+
+fn placement_matches_selection(
+    placement: &SkillPlacement,
+    selected_placement_ids: &Option<HashSet<&str>>,
+) -> bool {
+    selected_placement_ids
+        .as_ref()
+        .is_none_or(|selected| selected.contains(placement.id.as_str()))
+}
+
+fn ensure_selection_applied(
+    skill: &SkillInfo,
+    selected_placement_ids: &Option<HashSet<&str>>,
+    predicate: impl Fn(&SkillPlacement) -> bool,
+) -> Result<()> {
+    if selected_placement_ids.is_none() {
+        return Ok(());
+    }
+
+    let matched = skill
+        .placements
+        .iter()
+        .any(|placement| predicate(placement) && placement_matches_selection(placement, selected_placement_ids));
+
+    if matched {
+        Ok(())
+    } else {
+        Err(ServiceError::Validation(
+            "No matching skill locations were available for this action".to_string(),
+        ))
+    }
 }
 
 fn move_entry_without_following_symlink(from: &Path, to: &Path) -> Result<()> {
