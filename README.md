@@ -42,6 +42,21 @@ just dev-api    # Start Backend API
 just dev-cli    # Run CLI tool
 ```
 
+## 🤝 Contributing
+
+We welcome community contributions.
+
+1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) for coding and PR workflow.
+2. Pick issues labeled `good first issue` or `help wanted`.
+3. Open a PR using our template and include validation results.
+
+## 📜 Open Source & Governance
+
+- License: [MIT](./LICENSE)
+- Code of Conduct: [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
+- Security reporting: [SECURITY.md](./SECURITY.md)
+
+
 ---
 
 ## 📚 Navigation for AI Agents

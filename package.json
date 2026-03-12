@@ -1,6 +1,6 @@
 {
   "name": "atmos",
-  "private": true,
+  "private": false,
   "workspaces": [
     "apps/*",
     "packages/*"
