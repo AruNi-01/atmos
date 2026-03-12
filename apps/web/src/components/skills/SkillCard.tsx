@@ -29,10 +29,13 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
     if (onClick) {
       onClick();
     } else {
-      const identifier = encodeURIComponent(skill.title || skill.name);
+      const identifier = encodeURIComponent(skill.id);
       router.push(`/skills?scope=${skill.scope}&skillId=${identifier}`);
     }
   };
+
+  const isProjectScoped = skill.scope === 'project' || skill.scope === 'inside_project';
+  const scopeLabel = skill.scope === 'inside_project' ? 'InsideTheProject' : skill.scope;
 
   return (
     <div
@@ -56,13 +59,15 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
                       "text-[9px] px-1 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider",
                       skill.scope === 'global'
                         ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        : skill.scope === 'project'
+                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
                     )}>
                       {skill.scope === 'global' ? <Globe className="size-2" /> : <Folder className="size-2" />}
-                      {skill.scope}
+                      {scopeLabel}
                     </span>
                   </TooltipTrigger>
-                  {skill.scope === 'project' && skill.project_name && (
+                  {isProjectScoped && skill.project_name && (
                     <TooltipContent side="top">
                       <p className="text-xs">From: {skill.project_name}</p>
                     </TooltipContent>

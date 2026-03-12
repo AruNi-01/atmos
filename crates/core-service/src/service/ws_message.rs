@@ -25,14 +25,14 @@ use infra::{
     GithubPrDraftRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
     GithubPrReadyRequest, GithubPrReopenRequest, ProjectCheckCanDeleteRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsGetRequest,
-    SyncSingleSystemSkillRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
-    UsageOverviewRequest, UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
-    WorkspaceArchiveRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
-    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification,
-    WorkspaceUnarchiveRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
-    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage,
-    WsMessageHandler, WsRequest,
+    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
+    SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
+    UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest, UsageOverviewRequest,
+    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
+    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
+    WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
+    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
 };
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
@@ -259,6 +259,13 @@ impl WsMessageService {
             // Skills
             WsAction::SkillsList => self.handle_skills_list().await,
             WsAction::SkillsGet => self.handle_skills_get(parse_request(request.data)?).await,
+            WsAction::SkillsSetEnabled => {
+                self.handle_skills_set_enabled(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::SkillsDelete => {
+                self.handle_skills_delete(parse_request(request.data)?).await
+            }
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,
             WsAction::CodeReviewSkillSystemStatus => {
@@ -1434,6 +1441,34 @@ set -x
         } else {
             Err(ServiceError::Validation("Skill not found".to_string()))
         }
+    }
+
+    async fn handle_skills_set_enabled(&self, req: SkillsSetEnabledRequest) -> Result<Value> {
+        use crate::service::skill::SkillManager;
+
+        let projects = self.project_service.list_projects().await?;
+        let project_paths: Vec<(String, String, String)> = projects
+            .iter()
+            .map(|p| (p.guid.clone(), p.name.clone(), p.main_file_path.clone()))
+            .collect();
+
+        SkillManager::set_enabled(&project_paths, &req.id, req.enabled)?;
+
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_skills_delete(&self, req: SkillsDeleteRequest) -> Result<Value> {
+        use crate::service::skill::SkillManager;
+
+        let projects = self.project_service.list_projects().await?;
+        let project_paths: Vec<(String, String, String)> = projects
+            .iter()
+            .map(|p| (p.guid.clone(), p.name.clone(), p.main_file_path.clone()))
+            .collect();
+
+        SkillManager::delete(&project_paths, &req.id)?;
+
+        Ok(json!({ "success": true }))
     }
 
     /// Install project-wiki and project-wiki-update skills to ~/.atmos/skills/.system/.

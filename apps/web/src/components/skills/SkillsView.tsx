@@ -36,6 +36,7 @@ import {
   Folder,
   FolderOpen,
   Globe,
+  Link2Off,
   Link2,
   Loader2,
   Puzzle,
@@ -44,6 +45,7 @@ import {
   Store,
 } from "lucide-react";
 import { SkillDetail } from "./SkillDetail";
+import { SkillActionsMenu } from "./SkillActionsMenu";
 import { SkillInstallTerminalDialog } from "./SkillInstallTerminalDialog";
 import { getAgentConfig } from "./constants";
 import {
@@ -154,14 +156,65 @@ function renderSkeletonGrid() {
   );
 }
 
+function getScopeMeta(scope: SkillInfo["scope"]) {
+  switch (scope) {
+    case "global":
+      return {
+        label: "Global",
+        icon: Globe,
+        className: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+      };
+    case "project":
+      return {
+        label: "Project",
+        icon: Folder,
+        className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      };
+    default:
+      return {
+        label: "InsideTheProject",
+        icon: FolderOpen,
+        className: "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
+      };
+  }
+}
+
+function getStatusMeta(status: SkillInfo["status"]) {
+  switch (status) {
+    case "enabled":
+      return {
+        label: "Enabled",
+        className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      };
+    case "disabled":
+      return {
+        label: "Disabled",
+        className: "border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
+      };
+    default:
+      return {
+        label: "Partial",
+        className: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      };
+  }
+}
+
 function InstalledSkillListCard({
   skill,
   onClick,
+  onUpdated,
+  onDeleted,
 }: {
   skill: SkillInfo;
   onClick: () => void;
+  onUpdated: (skill: SkillInfo) => void | Promise<void>;
+  onDeleted: (skillId: string) => void | Promise<void>;
 }) {
   const fileCount = skill.files?.length || 0;
+  const scopeMeta = getScopeMeta(skill.scope);
+  const ScopeIcon = scopeMeta.icon;
+  const statusMeta = getStatusMeta(skill.status);
+  const hasSymlink = skill.placements.some((placement) => placement.entry_kind === "symlink");
 
   return (
     <div
@@ -176,29 +229,49 @@ function InstalledSkillListCard({
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-semibold tracking-tight text-foreground">{skill.title || skill.name}</h3>
-              <div className="mt-1 flex items-center gap-1.5">
+              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                 <TooltipProvider delayDuration={200}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
                         className={cn(
                           "flex items-center gap-1 rounded px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider cursor-default",
-                          skill.scope === "global"
-                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                          scopeMeta.className,
                         )}
                       >
-                        {skill.scope === "global" ? <Globe className="size-2" /> : <Folder className="size-2" />}
-                        {skill.scope}
+                        <ScopeIcon className="size-2" />
+                        {scopeMeta.label}
                       </span>
                     </TooltipTrigger>
-                    {skill.scope === "project" && skill.project_name && (
+                    {(skill.scope === "project" || skill.scope === "inside_project") && skill.project_name && (
                       <TooltipContent side="top">
                         <p className="text-xs">From: {skill.project_name}</p>
                       </TooltipContent>
                     )}
                   </Tooltip>
                 </TooltipProvider>
+
+                <span
+                  className={cn(
+                    "rounded border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider",
+                    statusMeta.className,
+                  )}
+                >
+                  {statusMeta.label}
+                </span>
+
+                {!skill.manageable && (
+                  <span className="rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
+                    Read-only
+                  </span>
+                )}
+
+                {hasSymlink && (
+                  <span className="flex items-center gap-1 rounded bg-muted px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <Link2Off className="size-2" />
+                    Symlink
+                  </span>
+                )}
 
                 {fileCount > 0 && (
                   <span className="flex items-center gap-1 rounded bg-muted px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -209,6 +282,8 @@ function InstalledSkillListCard({
               </div>
             </div>
           </div>
+
+          <SkillActionsMenu skill={skill} onUpdated={onUpdated} onDeleted={onDeleted} />
         </div>
 
         {skill.description ? (
@@ -368,6 +443,11 @@ export const SkillsView: React.FC = () => {
     }
   }, []);
 
+  const handleSkillUpdated = useCallback((nextSkill: SkillInfo) => {
+    setSkills((current) => current.map((skill) => (skill.id === nextSkill.id ? nextSkill : skill)));
+    setSelectedSkill((current) => (current?.id === nextSkill.id ? nextSkill : current));
+  }, []);
+
   useEffect(() => {
     if (!skillId && skills.length === 0 && !isLoading) {
       void loadSkills();
@@ -406,7 +486,7 @@ export const SkillsView: React.FC = () => {
     void setParams({ filter: "project", projects: newIds.join(",") || "" });
   };
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     router.push(
       buildSkillListUrl({
         activeTab,
@@ -416,7 +496,19 @@ export const SkillsView: React.FC = () => {
       }),
     );
     setSelectedSkill(null);
-  };
+  }, [activeTab, projectsParam, query, router, scopeFilter]);
+
+  const handleSkillDeleted = useCallback(
+    async (skillIdToRemove: string) => {
+      setSkills((current) => current.filter((skill) => skill.id !== skillIdToRemove));
+      setSelectedSkill((current) => (current?.id === skillIdToRemove ? null : current));
+      if (selectedSkill?.id === skillIdToRemove || skillId === skillIdToRemove) {
+        handleBack();
+      }
+      await loadSkills();
+    },
+    [handleBack, loadSkills, selectedSkill?.id, skillId],
+  );
 
   const handleOpenInstalledSkill = (skill: SkillInfo) => {
     const searchParams = new URLSearchParams();
@@ -433,7 +525,7 @@ export const SkillsView: React.FC = () => {
       searchParams.set("q", query.trim());
     }
     searchParams.set("scope", skill.scope);
-    searchParams.set("skillId", skill.title || skill.name);
+    searchParams.set("skillId", skill.id);
     router.push(`/skills?${searchParams.toString()}`);
   };
 
@@ -463,7 +555,12 @@ export const SkillsView: React.FC = () => {
     if (selectedSkill) {
       return (
         <div className="h-full overflow-hidden bg-background">
-          <SkillDetail skill={selectedSkill} onBack={handleBack} />
+          <SkillDetail
+            skill={selectedSkill}
+            onBack={handleBack}
+            onUpdated={handleSkillUpdated}
+            onDeleted={handleSkillDeleted}
+          />
         </div>
       );
     }
@@ -666,7 +763,12 @@ export const SkillsView: React.FC = () => {
                           exit={{ opacity: 0, scale: 0.94 }}
                           transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.24), ease: "easeOut" }}
                         >
-                          <InstalledSkillListCard skill={skill} onClick={() => handleOpenInstalledSkill(skill)} />
+                          <InstalledSkillListCard
+                            skill={skill}
+                            onClick={() => handleOpenInstalledSkill(skill)}
+                            onUpdated={handleSkillUpdated}
+                            onDeleted={handleSkillDeleted}
+                          />
                         </motion.div>
                       ))}
                     </AnimatePresence>
