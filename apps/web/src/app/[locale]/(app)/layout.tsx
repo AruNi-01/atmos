@@ -7,7 +7,6 @@ import RightSidebar from "@/components/layout/RightSidebar";
 import GlobalSearch from "@/components/layout/GlobalSearch";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 import { AgentFloatingBall } from "@/components/agent/AgentFloatingBall";
-import { TERMINAL_LOGS } from "@/constants";
 import Footer from "@/components/layout/Footer";
 import { PanelLayout } from "@/components/layout/PanelLayout";
 import { DocumentTitle } from "@/components/layout/DocumentTitle";
@@ -28,7 +27,7 @@ export default async function AppLayout({ children, params }: Props) {
 
         <PanelLayout
           leftSidebar={<LeftSidebar />}
-          centerStage={<CenterStage logs={TERMINAL_LOGS} />}
+          centerStage={<CenterStage />}
           rightSidebar={<RightSidebar />}
         />
 

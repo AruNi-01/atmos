@@ -55,12 +55,6 @@ export interface FileChange {
   status: 'M' | 'A' | 'D'; // Modified, Added, Deleted
 }
 
-export interface TerminalLine {
-  id: number;
-  content: string;
-  type: 'info' | 'error' | 'success' | 'command';
-}
-
 export interface FileNode {
   id: string;
   name: string;
