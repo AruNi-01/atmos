@@ -527,15 +527,14 @@ export const SkillsView: React.FC = () => {
   }, [activeTab, projectsParam, query, router, scopeFilter]);
 
   const handleSkillDeleted = useCallback(
-    async (skillIdToRemove: string) => {
+    (skillIdToRemove: string) => {
       setSkills((current) => current.filter((skill) => skill.id !== skillIdToRemove));
       setSelectedSkill((current) => (current?.id === skillIdToRemove ? null : current));
       if (selectedSkill?.id === skillIdToRemove || skillId === skillIdToRemove) {
         handleBack();
       }
-      await loadSkills();
     },
-    [handleBack, loadSkills, selectedSkill?.id, skillId],
+    [handleBack, selectedSkill?.id, skillId],
   );
 
   const handleOpenInstalledSkill = (skill: SkillInfo) => {
