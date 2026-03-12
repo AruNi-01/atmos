@@ -58,8 +58,6 @@ Desktop.ini
 
 # ===== IDE =====
 .vscode/
-!.vscode/extensions.json
-!.vscode/settings.json
 .idea/
 *.suo
 *.ntvs*
