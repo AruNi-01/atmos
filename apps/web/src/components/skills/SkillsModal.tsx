@@ -43,6 +43,16 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
     }
   }, []);
 
+  const handleSkillUpdated = useCallback((nextSkill: SkillInfo) => {
+    setSkills((current) => current.map((skill) => (skill.id === nextSkill.id ? nextSkill : skill)));
+    setSelectedSkill((current) => (current?.id === nextSkill.id ? nextSkill : current));
+  }, []);
+
+  const handleSkillDeleted = useCallback((skillId: string) => {
+    setSkills((current) => current.filter((skill) => skill.id !== skillId));
+    setSelectedSkill((current) => (current?.id === skillId ? null : current));
+  }, []);
+
   useEffect(() => {
     if (isOpen && activeTab === 'my-skills' && !selectedSkill) {
       loadSkills();
@@ -79,7 +89,12 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
   if (selectedSkill) {
     return (
       <div className="fixed inset-0 z-50 bg-background flex flex-col">
-        <SkillDetail skill={selectedSkill} onBack={() => setSelectedSkill(null)} />
+        <SkillDetail
+          skill={selectedSkill}
+          onBack={() => setSelectedSkill(null)}
+          onUpdated={handleSkillUpdated}
+          onDeleted={handleSkillDeleted}
+        />
       </div>
     );
   }

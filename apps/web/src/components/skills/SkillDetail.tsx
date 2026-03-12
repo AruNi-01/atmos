@@ -9,6 +9,9 @@ import {
   Folder,
   Globe,
   ArrowLeft,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
   ChevronRight,
   ChevronLeft,
   Loader2,
@@ -28,15 +31,16 @@ import {
   toastManager,
   Circle,
   Save,
+  EyeOff,
 } from '@workspace/ui';
 import { useAppStorage } from "@atmos/shared";
-import { useTheme } from 'next-themes';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/components/markdown/MarkdownToc';
 import { SkillInfo, SkillFile, fsApi } from '@/api/ws-api';
 import { detectCodeLanguage } from '@/lib/code-language';
-import { getAgentConfig } from './constants';
+import { getAgentConfig, getAgentStatus } from './constants';
 import { QuickOpen } from '@/components/layout/QuickOpen';
+import { SkillActionsMenu } from './SkillActionsMenu';
 
 const CodeMirrorEditor = dynamic(
   () => import('@/components/editor/BaseCodeMirrorEditor').then(mod => mod.BaseCodeMirrorEditor),
@@ -53,6 +57,8 @@ const CodeMirrorEditor = dynamic(
 interface SkillDetailProps {
   skill: SkillInfo;
   onBack: () => void;
+  onUpdated?: (skill: SkillInfo) => void | Promise<void>;
+  onDeleted?: (skillId: string) => void | Promise<void>;
 }
 
 interface TreeNode {
@@ -65,7 +71,9 @@ interface TreeNode {
 
 function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boolean; isOpen?: boolean; className?: string }) {
   const iconProps = getFileIconProps({ name, isDir, isOpen, className });
-  return <img {...iconProps} />;
+  // These icons come from the shared file-icon pack and need raw img rendering.
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img {...iconProps} alt="" />;
 }
 
 function buildFileTree(files: SkillFile[]): TreeNode[] {
@@ -111,6 +119,52 @@ function buildFileTree(files: SkillFile[]): TreeNode[] {
 
 function getLanguageFromFileName(fileName: string): string {
   return detectCodeLanguage(fileName);
+}
+
+function getScopeMeta(scope: SkillInfo['scope']) {
+  switch (scope) {
+    case 'global':
+      return {
+        label: 'Global',
+        icon: Globe,
+        className: 'bg-muted text-foreground',
+      };
+    case 'project':
+      return {
+        label: 'Project',
+        icon: Folder,
+        className: 'bg-muted text-foreground',
+      };
+    default:
+      return {
+        label: 'InsideTheProject',
+        icon: Folder,
+        className: 'bg-muted text-foreground',
+      };
+  }
+}
+
+function getStatusMeta(status: SkillInfo['status']) {
+  switch (status) {
+    case 'enabled':
+      return {
+        label: 'Enabled',
+        icon: CircleCheck,
+        className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      };
+    case 'disabled':
+      return {
+        label: 'Disabled',
+        icon: CircleX,
+        className: 'border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
+      };
+    default:
+      return {
+        label: 'Partial',
+        icon: CircleMinus,
+        className: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      };
+    }
 }
 
 const TreeItem: React.FC<{
@@ -228,10 +282,12 @@ function ResizeHandle({
   );
 }
 
-export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
-  const { resolvedTheme } = useTheme();
+export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdated, onDeleted }) => {
   const storage = useAppStorage();
-  const fileCount = skill.files?.length || 0;
+  const scopeMeta = getScopeMeta(skill.scope);
+  const ScopeIcon = scopeMeta.icon;
+  const statusMeta = getStatusMeta(skill.status);
+  const StatusIcon = statusMeta.icon;
   
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(
     skill.files?.find(f => f.is_main) || skill.files?.[0] || null
@@ -311,7 +367,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
       } else {
         throw new Error('Failed to write file');
       }
-    } catch (err) {
+    } catch {
       toastManager.add({
         title: 'Save Failed',
         description: `Failed to save ${selectedFile.name}`,
@@ -332,35 +388,38 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-4 px-4 py-3 border-b border-border shrink-0">
-        <button
-          onClick={onBack}
-          className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="size-5" />
-        </button>
-
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="size-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <Puzzle className="size-4 text-muted-foreground" />
-          </div>
+          <button
+            onClick={onBack}
+            className="group/icon relative size-9 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 transition-colors duration-200 hover:bg-accent cursor-pointer"
+            title="Back"
+          >
+            <div className="absolute inset-0 flex items-center justify-center transition-all duration-200 group-hover/icon:-translate-x-1 group-hover/icon:opacity-0">
+              <Puzzle className="size-4 text-muted-foreground" />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center translate-x-1 opacity-0 transition-all duration-200 group-hover/icon:translate-x-0 group-hover/icon:opacity-100">
+              <ArrowLeft className="size-4 text-foreground" />
+            </div>
+          </button>
           <div className="min-w-0 flex flex-col gap-0.5">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-base truncate">{skill.title || skill.name}</h2>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                 <span className={cn(
                   "text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider h-5",
-                  "bg-muted text-muted-foreground"
+                  scopeMeta.className
                 )}>
-                  {skill.scope === 'global' ? <Globe className="size-2.5" /> : <Folder className="size-2.5" />}
-                  {skill.scope}
+                  <ScopeIcon className="size-2.5" />
+                  {scopeMeta.label}
                 </span>
 
-                {fileCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-1 uppercase tracking-wider font-medium h-5">
-                    <FileText className="size-2.5" />
-                    {fileCount}
-                  </span>
-                )}
+                <span className={cn(
+                  "text-[10px] px-1.5 py-0.5 rounded border font-medium uppercase tracking-wider h-5 inline-flex items-center gap-1",
+                  statusMeta.className,
+                )}>
+                  <StatusIcon className="size-2.5" />
+                  {statusMeta.label}
+                </span>
 
                 {skill.description && (
                   <PreviewCard>
@@ -388,13 +447,20 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
             </div>
             
             <div className="flex items-center gap-1.5 flex-wrap overflow-hidden h-[22px]">
-              {skill.agents.map((agent) => {
+              {skill.agents.filter((agent) => agent !== 'in-project').map((agent) => {
                 const config = getAgentConfig(agent);
+                const agentStatus = getAgentStatus(skill, agent);
                 return (
                   <span 
                     key={agent} 
-                    className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0", config.color)}
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 inline-flex items-center gap-1",
+                      agentStatus === 'disabled'
+                        ? 'bg-muted text-muted-foreground'
+                        : config.color,
+                    )}
                   >
+                    {agentStatus === 'disabled' && <EyeOff className="size-2.5" />}
                     {config.name}
                   </span>
                 );
@@ -403,8 +469,10 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
           </div>
         </div>
 
-        {/* QuickOpen for skill folder */}
-        <QuickOpen path={selectedFile?.absolute_path || skill.path} />
+        <div className="flex items-center gap-2 shrink-0">
+          <SkillActionsMenu skill={skill} onUpdated={onUpdated} onDeleted={onDeleted} />
+          <QuickOpen path={selectedFile?.absolute_path || skill.path} />
+        </div>
       </div>
 
       {/* Content */}

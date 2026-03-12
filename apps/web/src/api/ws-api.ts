@@ -940,16 +940,38 @@ export interface SkillFile {
   is_main: boolean;
 }
 
+export interface SkillPlacement {
+  id: string;
+  agent: string;
+  scope: 'global' | 'project' | 'inside_project';
+  project_id: string | null;
+  project_name: string | null;
+  path: string;
+  original_path: string;
+  resolved_path: string | null;
+  status: 'enabled' | 'disabled';
+  entry_kind: 'directory' | 'file' | 'symlink';
+  symlink_target: string | null;
+  can_delete: boolean;
+  can_toggle: boolean;
+}
+
 export interface SkillInfo {
+  id: string;
   name: string;
   description: string;
   agents: string[];
-  scope: "global" | "project";
+  scope: "global" | "project" | "inside_project";
   project_id: string | null;
   project_name: string | null;
   path: string;
   files: SkillFile[];
   title: string | null;
+  status: 'enabled' | 'disabled' | 'partial';
+  manageable: boolean;
+  can_delete: boolean;
+  can_toggle: boolean;
+  placements: SkillPlacement[];
 }
 
 export type AgentId = "claude_code" | "codex" | "gemini_cli";
@@ -1028,6 +1050,25 @@ export const skillsApi = {
    */
   get: async (scope: string, id: string): Promise<SkillInfo> => {
     return wsRequest<SkillInfo>("skills_get", { scope, id });
+  },
+
+  setEnabled: async (
+    id: string,
+    enabled: boolean,
+    placementIds?: string[],
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('skills_set_enabled', {
+      id,
+      enabled,
+      placement_ids: placementIds,
+    });
+  },
+
+  delete: async (id: string, placementIds?: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>('skills_delete', {
+      id,
+      placement_ids: placementIds,
+    });
   },
 
   /**
