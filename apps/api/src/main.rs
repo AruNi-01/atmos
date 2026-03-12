@@ -22,6 +22,7 @@ use core_service::{
 use infra::{DbConnection, Migrator, WsEvent, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
+use token_usage::TokenUsageService;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info, warn};
@@ -79,6 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
     let usage_service = Arc::new(UsageService::default());
+    let token_usage_service = Arc::new(TokenUsageService::default());
     tokio::spawn({
         let agent = Arc::clone(&agent_service);
         async move {
@@ -130,6 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ws_message_service.clone(),
         message_push_service,
         terminal_service,
+        Arc::clone(&token_usage_service),
         ws_config,
         db,
     );
@@ -163,6 +166,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
                         warn!(
                             "Lagged on usage overview updates, skipped {} messages",
+                            skipped
+                        );
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        });
+    }
+
+    {
+        let ws_manager = app_state.ws_service.manager();
+        let mut token_usage_updates = token_usage_service.subscribe_updates();
+        tokio::spawn(async move {
+            loop {
+                match token_usage_updates.recv().await {
+                    Ok(update) => {
+                        debug!(
+                            "Broadcasting token usage update to all websocket clients at {}",
+                            update.overview.generated_at
+                        );
+                        if let Err(error) = ws_manager
+                            .broadcast(&WsMessage::notification(
+                                WsEvent::TokenUsageUpdated,
+                                json!(update),
+                            ))
+                            .await
+                        {
+                            warn!("Failed to broadcast token usage update: {}", error);
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        warn!(
+                            "Lagged on token usage updates, skipped {} messages",
                             skipped
                         );
                     }
