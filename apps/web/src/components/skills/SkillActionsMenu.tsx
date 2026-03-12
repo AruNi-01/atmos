@@ -41,8 +41,14 @@ interface SkillActionsMenuProps {
   className?: string;
 }
 
-function buildDeleteMessage(skill: SkillInfo, selectedCount: number, totalCount: number) {
-  const hasSymlink = skill.placements.some((placement) => placement.entry_kind === "symlink");
+function buildDeleteMessage(
+  selectedPlacements: SkillPlacement[],
+  selectedCount: number,
+  totalCount: number,
+) {
+  const hasSymlink = selectedPlacements.some(
+    (placement) => placement.entry_kind === "symlink",
+  );
   const scopeText =
     selectedCount === totalCount
       ? "this skill from all selected managed locations"
@@ -56,10 +62,10 @@ function buildDeleteMessage(skill: SkillInfo, selectedCount: number, totalCount:
 }
 
 function buildConfirmCopy(
-  skill: SkillInfo,
   action: SkillAction,
   selectedCount: number,
   totalCount: number,
+  selectedPlacements: SkillPlacement[],
 ) {
   const scopeText =
     selectedCount === totalCount
@@ -84,7 +90,7 @@ function buildConfirmCopy(
     case "delete":
       return {
         title: "Delete this skill?",
-        description: buildDeleteMessage(skill, selectedCount, totalCount),
+        description: buildDeleteMessage(selectedPlacements, selectedCount, totalCount),
         confirmLabel: "Delete",
         confirmVariant: "destructive" as const,
       };
@@ -287,13 +293,17 @@ export function SkillActionsMenu({
         group.placements.map((placement) => placement.id),
       )
     : flattenGroupPlacementIds(actionableGroups, selectedLocationKeys);
+  const selectedPlacementIdSet = new Set(selectedPlacementIds);
+  const selectedActionablePlacements = actionablePlacements.filter((placement) =>
+    selectedPlacementIdSet.has(placement.id),
+  );
   const canConfirm = selectedCount > 0;
   const confirmCopy = confirmAction
     ? buildConfirmCopy(
-        skill,
         confirmAction,
         selectedCount,
         actionableGroups.length,
+        selectedActionablePlacements,
       )
     : null;
   const isBusy = pendingAction !== null;

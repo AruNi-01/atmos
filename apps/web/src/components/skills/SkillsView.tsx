@@ -337,19 +337,6 @@ function InstalledSkillListCard({
               );
             }
 
-            if (agent === "in-project") {
-              return (
-                <TooltipProvider key={agent} delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>{label}</TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p className="text-xs">{`skills/${skill.name}`}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
-            }
-
             return label;
           })}
         </div>

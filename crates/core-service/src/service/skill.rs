@@ -160,6 +160,7 @@ impl SkillScanner {
         status: ScanStatus,
     ) -> Vec<SkillInfo> {
         let mut skills = Vec::new();
+        let mut visited_dirs = HashSet::new();
 
         for (agent, skill_dir) in AGENT_SKILL_DIRS {
             let skills_path = scan_base.join(skill_dir);
@@ -177,6 +178,7 @@ impl SkillScanner {
                 project_id.clone(),
                 project_name.clone(),
                 status,
+                &mut visited_dirs,
                 &mut skills,
             );
         }
@@ -195,8 +197,14 @@ impl SkillScanner {
         project_id: Option<String>,
         project_name: Option<String>,
         status: ScanStatus,
+        visited_dirs: &mut HashSet<PathBuf>,
         skills: &mut Vec<SkillInfo>,
     ) {
+        let visit_key = fs::canonicalize(current_dir).unwrap_or_else(|_| current_dir.to_path_buf());
+        if !visited_dirs.insert(visit_key) {
+            return;
+        }
+
         let entries = match fs::read_dir(current_dir) {
             Ok(entries) => entries,
             Err(_) => return,
@@ -262,6 +270,7 @@ impl SkillScanner {
                         project_id.clone(),
                         project_name.clone(),
                         status,
+                        visited_dirs,
                         skills,
                     );
                 }
