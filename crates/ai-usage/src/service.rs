@@ -461,8 +461,12 @@ impl UsageService {
             }
         }
 
+        let generated_at = unix_now();
+        overview.generated_at = generated_at;
         overview.all = build_aggregate(&overview.providers);
-        apply_provider_state_and_rebuild(overview)
+        let mut overview = apply_provider_state_and_rebuild(overview);
+        overview.generated_at = generated_at;
+        overview
     }
 }
 

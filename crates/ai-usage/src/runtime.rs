@@ -16,9 +16,7 @@ use crate::models::{
     AuthState, AuthStateStatus, DetailRow, DetailSection, FetchState, FetchStateStatus,
     ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, UsageSummary,
 };
-use crate::providers::{
-    amp, antigravity, claude, codex, cursor, factory, factory_storage, minimax, opencode, zai,
-};
+use crate::providers::{amp, antigravity, claude, codex, cursor, factory, minimax, opencode, zai};
 use crate::support::{
     expand_home, load_amp_browser_cookie_source, load_factory_browser_cookie_source,
     load_minimax_browser_cookie_source, unix_now,
@@ -242,7 +240,7 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
     }
 
     if spec.id == "factory" {
-        if let Ok(tokens) = factory_storage::load_factory_local_storage_tokens() {
+        if let Ok(tokens) = factory::storage::load_factory_local_storage_tokens() {
             if let Some(token) = tokens.first() {
                 return AuthState {
                     status: AuthStateStatus::Detected,

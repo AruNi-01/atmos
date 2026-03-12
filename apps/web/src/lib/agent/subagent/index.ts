@@ -1,15 +1,16 @@
 import type { AgentVendor } from "@/lib/agent/agent-vendor";
 import { resolveAgentVendor } from "@/lib/agent/agent-vendor";
 import { claudeCodeSubAgentAdapter } from "./adapters/claude-code";
+import { cursorSubAgentAdapter } from "./adapters/cursor";
 import { fallbackSubAgentAdapter } from "./adapters/fallback";
 import { opencodeSubAgentAdapter } from "./adapters/opencode";
 import type { AtmosSubAgentMessage, SubAgentToolCallBlock } from "./types";
-import { looksLikeSubAgent } from "./utils";
 
 const adaptersByVendor: Record<AgentVendor, typeof claudeCodeSubAgentAdapter[]> = {
   claude: [claudeCodeSubAgentAdapter, fallbackSubAgentAdapter],
   opencode: [opencodeSubAgentAdapter, fallbackSubAgentAdapter],
-  unknown: [fallbackSubAgentAdapter],
+  cursor: [cursorSubAgentAdapter],
+  unknown: [cursorSubAgentAdapter, fallbackSubAgentAdapter],
 };
 
 export type { AtmosSubAgentMessage, SubAgentToolCallBlock } from "./types";
@@ -19,7 +20,6 @@ export function normalizeSubAgent(
   registryId: string,
   childToolCalls: SubAgentToolCallBlock[] = [],
 ): AtmosSubAgentMessage | null {
-  if (!looksLikeSubAgent(block)) return null;
   const vendor = resolveAgentVendor(registryId);
   const adapters = adaptersByVendor[vendor];
 

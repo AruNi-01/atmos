@@ -11,9 +11,10 @@ use infra::db::repo::AgentChatSessionRepo;
 use infra::DatabaseConnection;
 use parking_lot::RwLock;
 use serde::Serialize;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::Result;
+use crate::service::session_title::{SessionTitleGenerationContext, SessionTitleGenerator};
 
 /// DTO for session list - decouples API from infra entity
 #[derive(Debug, Serialize)]
@@ -496,32 +497,92 @@ impl AgentSessionService {
         self.pending_permissions.write().insert(request_id, tx);
     }
 
-    /// Generate and set title from the first user message prefix (max 512 chars).
-    /// Only runs when title is still auto-settable (not user-edited).
-    pub fn spawn_title_generation(&self, session_id: String, first_message: String) {
-        let db = Arc::clone(&self.db);
-        tokio::spawn(async move {
-            let session_repo = AgentChatSessionRepo::new(&db);
-            if session_repo.can_auto_set_title(&session_id).await.ok() != Some(true) {
-                return;
+    /// Generate and persist an automatic title for the first user prompt.
+    /// Returns the stored title when the session was updated, or None when skipped.
+    pub async fn auto_set_title_from_prompt(
+        &self,
+        session_id: &str,
+        first_message: &str,
+    ) -> Option<String> {
+        let session_repo = AgentChatSessionRepo::new(&self.db);
+        match session_repo.can_auto_set_title(session_id).await {
+            Ok(true) => {}
+            Ok(false) => return None,
+            Err(error) => {
+                warn!(
+                    "Failed to check auto-title eligibility for session {}: {}",
+                    session_id, error
+                );
+                return None;
             }
-            let title = first_message
-                .chars()
-                .take(512)
-                .collect::<String>()
-                .trim()
-                .to_string();
-            let title = if title.is_empty() {
-                "新会话".to_string()
-            } else {
-                title
-            };
-            if let Err(e) = session_repo.update_title(&session_id, &title, "auto").await {
-                tracing::warn!("Failed to auto-set title for session {}: {}", session_id, e);
-            } else {
-                tracing::info!("Auto-set title for session {}: {}", session_id, title);
+        }
+
+        let model = match session_repo.find_by_guid(session_id).await {
+            Ok(Some(model)) => model,
+            Ok(None) => return None,
+            Err(error) => {
+                warn!(
+                    "Failed to load session {} before auto-title generation: {}",
+                    session_id, error
+                );
+                return None;
             }
-        });
+        };
+        let agent_name = self.resolve_agent_display_name(&model.registry_id).await;
+        let generator = SessionTitleGenerator::new();
+        let title = generator
+            .generate(
+                first_message,
+                &SessionTitleGenerationContext {
+                    cwd: &model.cwd,
+                    mode: &model.mode,
+                    context_type: &model.context_type,
+                    agent_name: agent_name.as_deref(),
+                },
+            )
+            .await;
+
+        match session_repo.can_auto_set_title(session_id).await {
+            Ok(true) => {}
+            Ok(false) => return None,
+            Err(error) => {
+                warn!(
+                    "Failed to re-check auto-title eligibility for session {}: {}",
+                    session_id, error
+                );
+                return None;
+            }
+        }
+
+        if let Err(error) = session_repo.update_title(session_id, &title, "auto").await {
+            warn!(
+                "Failed to auto-set title for session {}: {}",
+                session_id, error
+            );
+            None
+        } else {
+            tracing::info!("Auto-set title for session {}: {}", session_id, title);
+            Some(title)
+        }
+    }
+
+    async fn resolve_agent_display_name(&self, registry_id: &str) -> Option<String> {
+        if let Ok(custom_agents) = self.agent_service.list_custom_agents() {
+            if let Some(agent) = custom_agents.into_iter().find(|agent| agent.name == registry_id) {
+                return Some(agent.name);
+            }
+        }
+
+        if let Ok(registry_agents) = self.agent_service.list_registry_agents(false).await {
+            if let Some(agent) = registry_agents
+                .into_iter()
+                .find(|agent| agent.id == registry_id)
+            {
+                return Some(agent.name);
+            }
+        }
+
+        None
     }
 
     /// Get one session summary by id.

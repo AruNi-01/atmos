@@ -1,7 +1,49 @@
 "use client";
 
 import { create } from 'zustand';
+import type { FileUIPart } from "ai";
 import type { AgentChatMode } from '@/types/agent-chat';
+
+export interface QueuedAgentPrompt {
+  id: string;
+  prompt: string;
+  displayPrompt?: string;
+  attachmentPaths?: string[];
+  files?: (FileUIPart & { id: string })[];
+  workspaceId?: string | null;
+  projectId?: string | null;
+  mode: AgentChatMode;
+  registryId?: string;
+  forceNewSession?: boolean;
+  sessionTitle?: string;
+  origin: string;
+  createdAt: number;
+}
+
+type AgentPromptQueueMap = Record<string, QueuedAgentPrompt[]>;
+
+export function getAgentPromptQueueKey(
+  workspaceId: string | null | undefined,
+  projectId: string | null | undefined,
+  mode: AgentChatMode,
+): string {
+  if (workspaceId) return `workspace:${workspaceId}:${mode}`;
+  if (projectId) return `project:${projectId}:${mode}`;
+  return `temp:${mode}`;
+}
+
+export function buildQueuedAgentPromptContent(prompt: string, attachmentPaths?: string[]): string {
+  if (!attachmentPaths || attachmentPaths.length === 0) return prompt;
+  const attachmentInfo = attachmentPaths.map((path) => `- ${path}`).join("\n");
+  return `${prompt}\n\n[Attached files have been saved to the following paths, please read them to understand the content:]\n${attachmentInfo}`;
+}
+
+function createQueuedAgentPromptId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `queued-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 interface DialogStore {
   isCreateProjectOpen: boolean;
@@ -23,13 +65,26 @@ interface DialogStore {
   peekPendingAgentChatMode: () => AgentChatMode | null;
   consumePendingAgentChatMode: () => AgentChatMode | null;
 
-  /** A prompt queued for the Agent Chat Panel (e.g. from Code Review Dialog). */
-  pendingAgentChatPrompt: { prompt: string; registryId?: string; forceNewSession?: boolean; sessionTitle?: string } | null;
-  setPendingAgentChatPrompt: (data: { prompt: string; registryId?: string; forceNewSession?: boolean; sessionTitle?: string } | null) => void;
-  /** Peek at the pending prompt without consuming it. */
-  peekPendingAgentChatPrompt: () => { prompt: string; registryId?: string; forceNewSession?: boolean; sessionTitle?: string } | null;
-  /** Consume (read & clear) the pending prompt. */
-  consumePendingAgentChatPrompt: () => { prompt: string; registryId?: string; forceNewSession?: boolean; sessionTitle?: string } | null;
+  agentChatPromptQueues: AgentPromptQueueMap;
+  enqueueAgentChatPrompt: (data: Omit<QueuedAgentPrompt, "id" | "createdAt">) => string;
+  peekQueuedAgentChatPrompt: (
+    workspaceId: string | null | undefined,
+    projectId: string | null | undefined,
+    mode: AgentChatMode,
+  ) => QueuedAgentPrompt | null;
+  shiftQueuedAgentChatPrompt: (
+    workspaceId: string | null | undefined,
+    projectId: string | null | undefined,
+    mode: AgentChatMode,
+  ) => QueuedAgentPrompt | null;
+  removeQueuedAgentChatPrompt: (id: string) => void;
+  updateQueuedAgentChatPrompt: (
+    id: string,
+    patch: Partial<Pick<QueuedAgentPrompt, "prompt" | "displayPrompt" | "sessionTitle" | "registryId" | "forceNewSession">>,
+  ) => void;
+  moveQueuedAgentChatPrompt: (id: string, toIndex: number) => void;
+  moveQueuedAgentChatPromptUp: (id: string) => void;
+  moveQueuedAgentChatPromptDown: (id: string) => void;
 
   isCodeReviewDialogOpen: boolean;
   setCodeReviewDialogOpen: (open: boolean) => void;
@@ -78,24 +133,128 @@ export const useDialogStore = create<DialogStore>((set) => ({
     return mode;
   },
 
-  pendingAgentChatPrompt: null,
-  setPendingAgentChatPrompt: (data) => set({ pendingAgentChatPrompt: data }),
-  peekPendingAgentChatPrompt: () => {
-    let data = null;
+  agentChatPromptQueues: {},
+  enqueueAgentChatPrompt: (data) => {
+    const item: QueuedAgentPrompt = {
+      ...data,
+      id: createQueuedAgentPromptId(),
+      createdAt: Date.now(),
+    };
     set((state) => {
-      data = state.pendingAgentChatPrompt;
-      return state; // No-op, just read
+      const queueKey = getAgentPromptQueueKey(item.workspaceId, item.projectId, item.mode);
+      const existing = state.agentChatPromptQueues[queueKey] ?? [];
+      return {
+        agentChatPromptQueues: {
+          ...state.agentChatPromptQueues,
+          [queueKey]: [...existing, item],
+        },
+      };
     });
-    return data;
+    return item.id;
   },
-  consumePendingAgentChatPrompt: () => {
-    let data: { prompt: string; registryId?: string; forceNewSession?: boolean; sessionTitle?: string } | null = null;
+  peekQueuedAgentChatPrompt: (workspaceId, projectId, mode) => {
+    let item: QueuedAgentPrompt | null = null;
     set((state) => {
-      data = state.pendingAgentChatPrompt;
-      return { pendingAgentChatPrompt: null };
+      const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode);
+      item = state.agentChatPromptQueues[queueKey]?.[0] ?? null;
+      return state;
     });
-    return data;
+    return item;
   },
+  shiftQueuedAgentChatPrompt: (workspaceId, projectId, mode) => {
+    let item: QueuedAgentPrompt | null = null;
+    set((state) => {
+      const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode);
+      const queue = state.agentChatPromptQueues[queueKey] ?? [];
+      item = queue[0] ?? null;
+      if (!item) return state;
+      const nextQueue = queue.slice(1);
+      const nextQueues = { ...state.agentChatPromptQueues };
+      if (nextQueue.length > 0) {
+        nextQueues[queueKey] = nextQueue;
+      } else {
+        delete nextQueues[queueKey];
+      }
+      return { agentChatPromptQueues: nextQueues };
+    });
+    return item;
+  },
+  removeQueuedAgentChatPrompt: (id) => set((state) => {
+    const nextQueues: AgentPromptQueueMap = {};
+    for (const [queueKey, queue] of Object.entries(state.agentChatPromptQueues)) {
+      const nextQueue = queue.filter((item) => item.id !== id);
+      if (nextQueue.length > 0) nextQueues[queueKey] = nextQueue;
+    }
+    return { agentChatPromptQueues: nextQueues };
+  }),
+  updateQueuedAgentChatPrompt: (id, patch) => set((state) => {
+    const nextQueues: AgentPromptQueueMap = {};
+    for (const [queueKey, queue] of Object.entries(state.agentChatPromptQueues)) {
+      const nextQueue = queue.map((item) => {
+        if (item.id !== id) return item;
+        if (typeof patch.prompt !== "string") {
+          return { ...item, ...patch };
+        }
+        const displayPrompt = patch.displayPrompt ?? patch.prompt;
+        return {
+          ...item,
+          ...patch,
+          displayPrompt,
+          prompt: buildQueuedAgentPromptContent(patch.prompt, item.attachmentPaths),
+        };
+      });
+      if (nextQueue.length > 0) nextQueues[queueKey] = nextQueue;
+    }
+    return { agentChatPromptQueues: nextQueues };
+  }),
+  moveQueuedAgentChatPrompt: (id, toIndex) => set((state) => {
+    const nextQueues: AgentPromptQueueMap = {};
+    for (const [queueKey, queue] of Object.entries(state.agentChatPromptQueues)) {
+      const fromIndex = queue.findIndex((item) => item.id === id);
+      if (fromIndex < 0) {
+        if (queue.length > 0) nextQueues[queueKey] = queue;
+        continue;
+      }
+      const boundedIndex = Math.max(0, Math.min(toIndex, queue.length - 1));
+      if (fromIndex === boundedIndex) {
+        nextQueues[queueKey] = queue;
+        continue;
+      }
+      const nextQueue = [...queue];
+      const [item] = nextQueue.splice(fromIndex, 1);
+      nextQueue.splice(boundedIndex, 0, item);
+      nextQueues[queueKey] = nextQueue;
+    }
+    return { agentChatPromptQueues: nextQueues };
+  }),
+  moveQueuedAgentChatPromptUp: (id) => set((state) => {
+    const nextQueues: AgentPromptQueueMap = {};
+    for (const [queueKey, queue] of Object.entries(state.agentChatPromptQueues)) {
+      const fromIndex = queue.findIndex((item) => item.id === id);
+      if (fromIndex <= 0) {
+        if (queue.length > 0) nextQueues[queueKey] = queue;
+        continue;
+      }
+      const nextQueue = [...queue];
+      [nextQueue[fromIndex - 1], nextQueue[fromIndex]] = [nextQueue[fromIndex], nextQueue[fromIndex - 1]];
+      nextQueues[queueKey] = nextQueue;
+    }
+    return { agentChatPromptQueues: nextQueues };
+  }),
+  moveQueuedAgentChatPromptDown: (id) => set((state) => {
+    const nextQueues: AgentPromptQueueMap = {};
+    for (const [queueKey, queue] of Object.entries(state.agentChatPromptQueues)) {
+      const fromIndex = queue.findIndex((item) => item.id === id);
+      if (fromIndex < 0 || fromIndex >= queue.length - 1) {
+        if (queue.length > 0) nextQueues[queueKey] = queue;
+        continue;
+      }
+      const nextQueue = [...queue];
+      [nextQueue[fromIndex], nextQueue[fromIndex + 1]] = [nextQueue[fromIndex + 1], nextQueue[fromIndex]];
+      nextQueues[queueKey] = nextQueue;
+    }
+    return { agentChatPromptQueues: nextQueues };
+  }),
 
   isCodeReviewDialogOpen: false,
   setCodeReviewDialogOpen: (open) => set({ isCodeReviewDialogOpen: open }),

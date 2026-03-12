@@ -42,6 +42,11 @@ function isGenericToolName(name?: string): boolean {
   return !v || v === "tool" || v === "other";
 }
 
+function isGenericToolDescription(description?: string): boolean {
+  const v = (description || "").trim().toLowerCase();
+  return !v || v === "tool" || v === "other";
+}
+
 function hasMeaningfulToolInput(value: unknown): boolean {
   if (value == null) return false;
   if (typeof value === "string") return value.trim().length > 0;
@@ -202,7 +207,10 @@ export function applyServerMessageToEntries(
           ...prevBlock,
           parent_tool_call_id: msg.parent_tool_call_id ?? prevBlock.parent_tool_call_id,
           tool: isGenericToolName(msg.tool) ? prevBlock.tool : msg.tool,
-          description: msg.description || prevBlock.description,
+          description:
+            isGenericToolDescription(msg.description) && prevBlock.description
+              ? prevBlock.description
+              : (msg.description || prevBlock.description),
           status: msg.status,
           raw_input: hasMeaningfulToolInput(msg.raw_input) ? msg.raw_input : prevBlock.raw_input,
           content: mergeToolCallContent(prevBlock.content, msg.content),

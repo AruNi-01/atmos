@@ -46,7 +46,7 @@ export function capitalizeWord(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function looksLikeSubAgent(block: SubAgentToolCallBlock): boolean {
+export function looksLikeStructuredSubAgent(block: SubAgentToolCallBlock): boolean {
   if (!block.raw_input || typeof block.raw_input !== "object") return false;
   const input = block.raw_input as Record<string, unknown>;
   return (
@@ -54,6 +54,20 @@ export function looksLikeSubAgent(block: SubAgentToolCallBlock): boolean {
     typeof input.prompt === "string" &&
     typeof input.subagent_type === "string"
   );
+}
+
+export function looksLikeCursorTaskSubAgent(block: SubAgentToolCallBlock): boolean {
+  const input = rawInputObject(block);
+  const description = block.description.trim().toLowerCase();
+  return (
+    typeof input._toolName === "string" &&
+    input._toolName.toLowerCase() === "task" &&
+    description.includes("subagent")
+  );
+}
+
+export function looksLikeSubAgent(block: SubAgentToolCallBlock): boolean {
+  return looksLikeStructuredSubAgent(block) || looksLikeCursorTaskSubAgent(block);
 }
 
 export function rawInputObject(block: SubAgentToolCallBlock): Record<string, unknown> {

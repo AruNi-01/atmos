@@ -4,6 +4,7 @@
 //! All communication uses the Request/Response pattern with JSON messages.
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use agent::{AgentId, CustomAgent};
 use ai_usage::UsageService;
@@ -16,14 +17,15 @@ use infra::{
     FsListProjectFilesRequest, FsReadFileRequest, FsSearchContentRequest, FsSearchDirsRequest,
     FsValidateGitPathRequest, FsWriteFileRequest, FunctionSettingsUpdateRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
-    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitGetCommitCountRequest,
-    GitGetHeadCommitRequest, GitGetStatusRequest, GitListBranchesRequest, GitLogRequest,
-    GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitSyncRequest,
-    GitUnstageRequest, GithubActionsDetailRequest, GithubActionsListRequest,
-    GithubActionsRerunRequest, GithubCiOpenBrowserRequest, GithubCiStatusRequest,
-    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest,
-    GithubPrDraftRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
-    GithubPrReadyRequest, GithubPrReopenRequest, ProjectCheckCanDeleteRequest,
+    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
+    GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
+    GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest,
+    GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
+    GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest,
+    GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
+    GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
+    GithubPrReopenRequest, LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
     SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
@@ -34,12 +36,14 @@ use infra::{
     WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
     WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
 };
+use llm::{FileLlmConfigStore, LlmProvidersFile};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
 use std::io::Read;
 use tokio::sync::OnceCell;
 
 use crate::error::{Result, ServiceError};
+use crate::service::git_commit_message::GitCommitMessageGenerator;
 use crate::{AgentService, ProjectService, WorkspaceService};
 
 /// WebSocket message service for handling all business logic via WebSocket.
@@ -138,6 +142,13 @@ impl WsMessageService {
                 self.handle_git_changed_files(parse_request(request.data)?)
             }
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
+            WsAction::GitGenerateCommitMessage => {
+                self.handle_git_generate_commit_message(
+                    conn_id,
+                    parse_request(request.data)?,
+                )
+                .await
+            }
             WsAction::GitCommit => self.handle_git_commit(parse_request(request.data)?),
             WsAction::GitPush => self.handle_git_push(parse_request(request.data)?),
             WsAction::GitStage => self.handle_git_stage(parse_request(request.data)?),
@@ -388,6 +399,11 @@ impl WsMessageService {
             WsAction::FunctionSettingsGet => self.handle_function_settings_get().await,
             WsAction::FunctionSettingsUpdate => {
                 self.handle_function_settings_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LlmProvidersGet => self.handle_llm_providers_get().await,
+            WsAction::LlmProvidersUpdate => {
+                self.handle_llm_providers_update(parse_request(request.data)?)
                     .await
             }
         }
@@ -704,6 +720,118 @@ impl WsMessageService {
             "old_content": diff.old_content,
             "new_content": diff.new_content,
             "status": diff.status,
+        }))
+    }
+
+    async fn handle_git_generate_commit_message(
+        &self,
+        conn_id: &str,
+        req: GitGenerateCommitMessageRequest,
+    ) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        let changes = self
+            .git_engine
+            .get_changed_files(&path)
+            .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
+
+        let repo_name = path.file_name().and_then(|value| value.to_str());
+        let generator = GitCommitMessageGenerator::new()?;
+
+        tracing::info!(
+            conn_id,
+            repo_path = %path.display(),
+            repo_name = repo_name.unwrap_or("unknown"),
+            staged_files = changes.staged_files.len(),
+            unstaged_files = changes.unstaged_files.len(),
+            untracked_files = changes.untracked_files.len(),
+            "starting git commit message generation"
+        );
+
+        let ws_manager = self.ws_manager.get().cloned();
+
+        let mut rx = match generator.generate_stream(repo_name, &changes).await {
+            Ok(rx) => rx,
+            Err(error) => {
+                tracing::error!(
+                    conn_id,
+                    repo_path = %path.display(),
+                    repo_name = repo_name.unwrap_or("unknown"),
+                    "failed to start git commit message stream: {}",
+                    error
+                );
+                return Err(error);
+            }
+        };
+        let mut full_message = String::new();
+        let started_at = Instant::now();
+        let mut chunk_count = 0usize;
+
+        tracing::info!(
+            conn_id,
+            repo_path = %path.display(),
+            repo_name = repo_name.unwrap_or("unknown"),
+            "git commit message stream receiver ready"
+        );
+
+        while let Some(chunk_result) = rx.recv().await {
+            match chunk_result {
+                Ok(chunk) => {
+                    chunk_count += 1;
+                    full_message.push_str(&chunk);
+                    if let Some(ref mgr) = ws_manager {
+                        let notification = infra::WsMessage::notification(
+                            infra::WsEvent::GitCommitMessageChunk,
+                            json!({ "chunk": chunk }),
+                        );
+                        let _ = mgr.send_to(conn_id, &notification).await;
+                    }
+                }
+                Err(e) => {
+                    tracing::error!(
+                        conn_id,
+                        repo_path = %path.display(),
+                        repo_name = repo_name.unwrap_or("unknown"),
+                        chunk_count,
+                        partial_chars = full_message.chars().count(),
+                        elapsed_ms = started_at.elapsed().as_millis(),
+                        "git commit message streaming failed: {}",
+                        e
+                    );
+                    return Err(ServiceError::Validation(format!(
+                        "Failed to generate git commit message: {e}"
+                    )));
+                }
+            }
+        }
+
+        let message = full_message.trim().to_string();
+        if message.is_empty() {
+            tracing::error!(
+                conn_id,
+                repo_path = %path.display(),
+                repo_name = repo_name.unwrap_or("unknown"),
+                chunk_count,
+                partial_chars = full_message.chars().count(),
+                elapsed_ms = started_at.elapsed().as_millis(),
+                "git commit message stream completed with empty output"
+            );
+            return Err(ServiceError::Validation(
+                "LLM provider returned an empty git commit message".to_string(),
+            ));
+        }
+
+        tracing::info!(
+            conn_id,
+            repo_path = %path.display(),
+            repo_name = repo_name.unwrap_or("unknown"),
+            chunk_count,
+            message_chars = message.chars().count(),
+            elapsed_ms = started_at.elapsed().as_millis(),
+            "git commit message stream completed"
+        );
+
+        Ok(json!({
+            "message": message,
         }))
     }
 
@@ -2329,6 +2457,29 @@ set -x
             ServiceError::Validation(format!("Failed to write function_settings.json: {}", e))
         })?;
 
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_llm_providers_get(&self) -> Result<Value> {
+        let store = FileLlmConfigStore::new()
+            .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
+        let config = store.load().map_err(|e| {
+            ServiceError::Validation(format!("Failed to read llm providers: {}", e))
+        })?;
+        serde_json::to_value(config).map_err(|e| {
+            ServiceError::Validation(format!("Failed to serialize llm providers: {}", e))
+        })
+    }
+
+    async fn handle_llm_providers_update(&self, req: LlmProvidersUpdateRequest) -> Result<Value> {
+        let config: LlmProvidersFile = serde_json::from_value(req.config).map_err(|e| {
+            ServiceError::Validation(format!("Invalid llm providers payload: {}", e))
+        })?;
+        let store = FileLlmConfigStore::new()
+            .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
+        store.save(&config).map_err(|e| {
+            ServiceError::Validation(format!("Failed to save llm providers: {}", e))
+        })?;
         Ok(json!({ "ok": true }))
     }
 }

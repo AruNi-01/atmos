@@ -41,6 +41,7 @@ import {
 interface RegistryAgentInfo {
   id: string;
   name: string;
+  icon?: string | null;
 }
 
 type TimeGroup = 
@@ -63,6 +64,7 @@ const GROUP_ORDER: TimeGroup[] = [
 interface EnrichedSession extends AgentChatSessionItem {
   displayTitle: string;
   displayAgent: string;
+  registryIcon: string | null;
   contextLabel: string;
   cwdDisplay: string;
 }
@@ -97,8 +99,8 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
           wsAgentApi.listCustomAgents(),
         ]);
         const agents: RegistryAgentInfo[] = [
-          ...registry.agents.map(a => ({ id: a.id, name: a.name })),
-          ...custom.agents.map(a => ({ id: a.name, name: a.name })),
+          ...registry.agents.map(a => ({ id: a.id, name: a.name, icon: a.icon })),
+          ...custom.agents.map(a => ({ id: a.name, name: a.name, icon: null })),
         ];
         setRegistryAgents(agents);
       } catch (e) {
@@ -182,6 +184,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
       // Agent: map registry_id to display name
       const agent = registryAgents.find(a => a.id === s.registry_id);
       const displayAgent = agent?.name || s.registry_id;
+      const registryIcon = agent?.icon || null;
       
       // Context label
       let contextLabel = s.context_type;
@@ -196,6 +199,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
         ...s,
         displayTitle,
         displayAgent,
+        registryIcon,
         contextLabel,
         cwdDisplay,
       };
@@ -356,7 +360,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
               {registryAgents.map(agent => (
                 <SelectItem key={agent.id} value={agent.id}>
                   <span className="flex items-center gap-2">
-                    <AgentIcon registryId={agent.id} name={agent.name} size={14} />
+                    <AgentIcon registryId={agent.id} name={agent.name} size={14} registryIcon={agent.icon} />
                     {agent.name}
                   </span>
                 </SelectItem>
@@ -503,7 +507,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                                   <div className="flex items-center gap-4 min-w-0 flex-1">
                                     {/* Agent Icon */}
                                     <div className="size-10 rounded-lg flex items-center justify-center bg-muted/30 border border-border/50 shrink-0 overflow-hidden">
-                                      <AgentIcon registryId={session.registry_id} name={session.displayAgent} size={22} />
+                                      <AgentIcon registryId={session.registry_id} name={session.displayAgent} size={22} registryIcon={session.registryIcon} />
                                     </div>
 
                                     {/* Session Info */}

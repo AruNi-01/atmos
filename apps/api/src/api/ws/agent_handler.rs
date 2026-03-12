@@ -97,6 +97,10 @@ enum AgentServerMessage {
     UsageUpdate {
         usage: agent::acp_client::types::AgentUsage,
     },
+    SessionTitleUpdated {
+        title: String,
+        title_source: String,
+    },
 }
 
 fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
@@ -267,7 +271,7 @@ async fn run_bridge(
     let mut pending_permissions: HashMap<String, tokio::sync::oneshot::Sender<bool>> =
         HashMap::new();
 
-    let ws_tx_clone = ws_tx.clone();
+    let bridge_ws_tx = ws_tx.clone();
     let session_id_for_bridge = session_id.clone();
     let bridge_task = tokio::spawn(async move {
         loop {
@@ -289,7 +293,7 @@ async fn run_bridge(
                         while let Some((req, tx)) = handle.try_recv_permission() {
                             pending_permissions.insert(req.request_id.clone(), tx);
                             if let Ok(msg) = serde_json::to_string(&AgentServerMessage::PermissionRequest(req)) {
-                                let _ = ws_tx_clone.send(msg);
+                                let _ = bridge_ws_tx.send(msg);
                             }
                         }
                         if let Some(msg) = event_to_message(ev) {
@@ -302,7 +306,7 @@ async fn run_bridge(
                                         "raw_text": json,
                                     }),
                                 );
-                                let _ = ws_tx_clone.send(json);
+                                let _ = bridge_ws_tx.send(json);
                             }
                         }
                     }
@@ -310,7 +314,7 @@ async fn run_bridge(
                 },
             }
         }
-        let _ = ws_tx_clone
+        let _ = bridge_ws_tx
             .send(serde_json::to_string(&AgentServerMessage::SessionEnded).unwrap_or_default());
     });
 
@@ -332,9 +336,26 @@ async fn run_bridge(
                 );
                 match msg {
                     AgentClientMessage::Prompt { message } => {
-                        state
-                            .agent_session_service
-                            .spawn_title_generation(session_id.clone(), message.clone());
+                        let title_state = state.clone();
+                        let title_ws_tx = ws_tx.clone();
+                        let title_session_id = session_id.clone();
+                        let title_message = message.clone();
+                        tokio::spawn(async move {
+                            if let Some(title) = title_state
+                                .agent_session_service
+                                .auto_set_title_from_prompt(&title_session_id, &title_message)
+                                .await
+                            {
+                                if let Ok(json) = serde_json::to_string(
+                                    &AgentServerMessage::SessionTitleUpdated {
+                                        title,
+                                        title_source: "auto".to_string(),
+                                    },
+                                ) {
+                                    let _ = title_ws_tx.send(json);
+                                }
+                            }
+                        });
                         let _ = cmd_tx_clone.send(AgentCommand::Prompt(message));
                     }
                     AgentClientMessage::PermissionResponse {

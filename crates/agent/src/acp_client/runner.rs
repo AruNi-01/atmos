@@ -139,6 +139,21 @@ pub(crate) fn map_config_options(
         .collect()
 }
 
+fn current_value_only_config_option(
+    id: &str,
+    value: String,
+) -> crate::acp_client::types::AgentConfigOption {
+    crate::acp_client::types::AgentConfigOption {
+        id: id.to_string(),
+        name: None,
+        description: None,
+        category: None,
+        r#type: "select".to_string(),
+        current_value: Some(value),
+        options: Vec::new(),
+    }
+}
+
 /// Handle to an active ACP session - used to send prompts, receive events, and handle permissions
 pub struct AcpSessionHandle {
     pub session_id: String,
@@ -506,11 +521,15 @@ async fn run_session_inner(
                             match conn
                                 .set_session_mode(acp::SetSessionModeRequest::new(
                                     session_id_acp.clone(),
-                                    value,
+                                    value.clone(),
                                 ))
                                 .await
                             {
-                                Ok(_) => {}
+                                Ok(_) => {
+                                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                                        current_value_only_config_option("mode", value),
+                                    ]));
+                                }
                                 Err(e) => {
                                     warn!(
                                         "Failed to apply default mode for {}: {}",
@@ -522,11 +541,15 @@ async fn run_session_inner(
                             match conn
                                 .set_session_model(acp::SetSessionModelRequest::new(
                                     session_id_acp.clone(),
-                                    value,
+                                    value.clone(),
                                 ))
                                 .await
                             {
-                                Ok(_) => {}
+                                Ok(_) => {
+                                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                                        current_value_only_config_option("model", value),
+                                    ]));
+                                }
                                 Err(e) => {
                                     warn!(
                                         "Failed to apply default model for {}: {}",
@@ -632,11 +655,15 @@ async fn run_session_inner(
                             match conn
                                 .set_session_mode(acp::SetSessionModeRequest::new(
                                     session_id_acp.clone(),
-                                    value,
+                                    value.clone(),
                                 ))
                                 .await
                             {
-                                Ok(_) => {}
+                                Ok(_) => {
+                                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                                        current_value_only_config_option("mode", value),
+                                    ]));
+                                }
                                 Err(e) => warn!("Set session mode failed: {}", e),
                             }
                         } else if uses_legacy_models && config_id == "model" {
@@ -644,11 +671,15 @@ async fn run_session_inner(
                             match conn
                                 .set_session_model(acp::SetSessionModelRequest::new(
                                     session_id_acp.clone(),
-                                    value,
+                                    value.clone(),
                                 ))
                                 .await
                             {
-                                Ok(_) => {}
+                                Ok(_) => {
+                                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                                        current_value_only_config_option("model", value),
+                                    ]));
+                                }
                                 Err(e) => warn!("Set session model failed: {}", e),
                             }
                         } else {
