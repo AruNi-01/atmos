@@ -388,17 +388,19 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-4 px-4 py-3 border-b border-border shrink-0">
-        <button
-          onClick={onBack}
-          className="size-8 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="size-5" />
-        </button>
-
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="size-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <Puzzle className="size-4 text-muted-foreground" />
-          </div>
+          <button
+            onClick={onBack}
+            className="group/icon relative size-9 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 transition-colors duration-200 hover:bg-accent cursor-pointer"
+            title="Back"
+          >
+            <div className="absolute inset-0 flex items-center justify-center transition-all duration-200 group-hover/icon:-translate-x-1 group-hover/icon:opacity-0">
+              <Puzzle className="size-4 text-muted-foreground" />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center translate-x-1 opacity-0 transition-all duration-200 group-hover/icon:translate-x-0 group-hover/icon:opacity-100">
+              <ArrowLeft className="size-4 text-foreground" />
+            </div>
+          </button>
           <div className="min-w-0 flex flex-col gap-0.5">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-base truncate">{skill.title || skill.name}</h2>
