@@ -33,6 +33,7 @@ export function ChartContainer({
   className,
   children,
   config,
+  ...props
 }: React.ComponentProps<"div"> & {
   config: ChartConfig;
 }) {
@@ -47,6 +48,7 @@ export function ChartContainer({
           "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/70 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-default-legend]:flex [&_.recharts-default-legend]:flex-wrap [&_.recharts-default-legend]:gap-4 [&_.recharts-layer:focus-visible]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-text]:fill-foreground [&_.recharts-tooltip-label]:text-muted-foreground",
           className
         )}
+        {...props}
       >
         {children}
       </div>
@@ -151,4 +153,3 @@ export function ChartLegendContent({
     </div>
   );
 }
-

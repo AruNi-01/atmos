@@ -163,6 +163,5 @@ pub struct TokenUsageOverview {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TokenUsageUpdate {
-    pub query: TokenUsageQuery,
     pub overview: TokenUsageOverview,
 }

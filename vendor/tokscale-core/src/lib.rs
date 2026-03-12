@@ -1,0 +1,1665 @@
+#![deny(clippy::all)]
+
+mod aggregator;
+pub mod clients;
+mod parser;
+pub mod pricing;
+pub mod scanner;
+pub mod sessions;
+
+pub use aggregator::*;
+pub use clients::{ClientCounts, ClientDef, ClientId, PathRoot};
+pub use parser::*;
+pub use scanner::*;
+pub use sessions::UnifiedMessage;
+
+use rayon::prelude::*;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+use std::time::Instant;
+
+pub fn normalize_model_for_grouping(model_id: &str) -> String {
+    let mut name = model_id.to_lowercase();
+
+    if name.len() > 9 {
+        let potential_date = &name[name.len() - 8..];
+        if potential_date.chars().all(|c| c.is_ascii_digit())
+            && name.as_bytes()[name.len() - 9] == b'-'
+        {
+            name = name[..name.len() - 9].to_string();
+        }
+    }
+
+    if name.contains("claude") {
+        let chars: Vec<char> = name.chars().collect();
+        let mut result = String::with_capacity(name.len());
+        for i in 0..chars.len() {
+            if chars[i] == '.'
+                && i > 0
+                && i < chars.len() - 1
+                && chars[i - 1].is_ascii_digit()
+                && chars[i + 1].is_ascii_digit()
+            {
+                result.push('-');
+            } else {
+                result.push(chars[i]);
+            }
+        }
+        name = result;
+    }
+
+    name
+}
+
+fn retain_for_requested_clients(
+    client: &str,
+    model_id: &str,
+    provider_id: &str,
+    requested: &HashSet<&str>,
+) -> bool {
+    requested.contains(client)
+        || (requested.contains("synthetic")
+            && sessions::synthetic::matches_synthetic_filter(client, model_id, provider_id))
+}
+
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize)]
+pub enum GroupBy {
+    Model,
+    #[default]
+    ClientModel,
+    ClientProviderModel,
+}
+
+impl std::fmt::Display for GroupBy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GroupBy::Model => write!(f, "model"),
+            GroupBy::ClientModel => write!(f, "client,model"),
+            GroupBy::ClientProviderModel => write!(f, "client,provider,model"),
+        }
+    }
+}
+
+impl std::str::FromStr for GroupBy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let normalized: String = s.split(',').map(|p| p.trim()).collect::<Vec<_>>().join(",");
+        match normalized.to_lowercase().as_str() {
+            "model" => Ok(GroupBy::Model),
+            "client,model" | "client-model" => Ok(GroupBy::ClientModel),
+            "client,provider,model" | "client-provider-model" => Ok(GroupBy::ClientProviderModel),
+            _ => Err(format!(
+                "Invalid group-by value: '{}'. Valid options: model, client,model, client,provider,model",
+                s
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct TokenBreakdown {
+    pub input: i64,
+    pub output: i64,
+    pub cache_read: i64,
+    pub cache_write: i64,
+    pub reasoning: i64,
+}
+
+impl TokenBreakdown {
+    pub fn total(&self) -> i64 {
+        self.input + self.output + self.cache_read + self.cache_write + self.reasoning
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ParsedMessage {
+    pub client: String,
+    pub model_id: String,
+    pub provider_id: String,
+    pub session_id: String,
+    pub timestamp: i64,
+    pub date: String,
+    pub input: i64,
+    pub output: i64,
+    pub cache_read: i64,
+    pub cache_write: i64,
+    pub reasoning: i64,
+    pub agent: Option<String>,
+}
+
+pub struct ParsedMessages {
+    pub messages: Vec<ParsedMessage>,
+    pub counts: ClientCounts,
+    pub processing_time_ms: u32,
+}
+
+impl Clone for ParsedMessages {
+    fn clone(&self) -> Self {
+        let mut counts = ClientCounts::new();
+        for client in ClientId::iter() {
+            counts.set(client, self.counts.get(client));
+        }
+
+        Self {
+            messages: self.messages.clone(),
+            counts,
+            processing_time_ms: self.processing_time_ms,
+        }
+    }
+}
+
+impl std::fmt::Debug for ParsedMessages {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("ParsedMessages");
+        debug.field("messages", &self.messages);
+        for client in ClientId::iter() {
+            debug.field(client.as_str(), &self.counts.get(client));
+        }
+        debug.field("processing_time_ms", &self.processing_time_ms);
+        debug.finish()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LocalParseOptions {
+    pub home_dir: Option<String>,
+    pub clients: Option<Vec<String>>,
+    pub since: Option<String>,
+    pub until: Option<String>,
+    pub year: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct DailyTotals {
+    pub tokens: i64,
+    pub cost: f64,
+    pub messages: i32,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ClientContribution {
+    pub client: String,
+    pub model_id: String,
+    pub provider_id: String,
+    pub tokens: TokenBreakdown,
+    pub cost: f64,
+    pub messages: i32,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct DailyContribution {
+    pub date: String,
+    pub totals: DailyTotals,
+    pub intensity: u8,
+    pub token_breakdown: TokenBreakdown,
+    pub clients: Vec<ClientContribution>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct YearSummary {
+    pub year: String,
+    pub total_tokens: i64,
+    pub total_cost: f64,
+    pub range_start: String,
+    pub range_end: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct DataSummary {
+    pub total_tokens: i64,
+    pub total_cost: f64,
+    pub total_days: i32,
+    pub active_days: i32,
+    pub average_per_day: f64,
+    pub max_cost_in_single_day: f64,
+    pub clients: Vec<String>,
+    pub models: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct GraphMeta {
+    pub generated_at: String,
+    pub version: String,
+    pub date_range_start: String,
+    pub date_range_end: String,
+    pub processing_time_ms: u32,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct GraphResult {
+    pub meta: GraphMeta,
+    pub summary: DataSummary,
+    pub years: Vec<YearSummary>,
+    pub contributions: Vec<DailyContribution>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ReportOptions {
+    pub home_dir: Option<String>,
+    pub clients: Option<Vec<String>>,
+    pub since: Option<String>,
+    pub until: Option<String>,
+    pub year: Option<String>,
+    pub group_by: GroupBy,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ModelUsage {
+    pub client: String,
+    pub merged_clients: Option<String>,
+    pub model: String,
+    pub provider: String,
+    pub input: i64,
+    pub output: i64,
+    pub cache_read: i64,
+    pub cache_write: i64,
+    pub reasoning: i64,
+    pub message_count: i32,
+    pub cost: f64,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct MonthlyUsage {
+    pub month: String,
+    pub models: Vec<String>,
+    pub input: i64,
+    pub output: i64,
+    pub cache_read: i64,
+    pub cache_write: i64,
+    pub message_count: i32,
+    pub cost: f64,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ModelReport {
+    pub entries: Vec<ModelUsage>,
+    pub total_input: i64,
+    pub total_output: i64,
+    pub total_cache_read: i64,
+    pub total_cache_write: i64,
+    pub total_messages: i32,
+    pub total_cost: f64,
+    pub processing_time_ms: u32,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct MonthlyReport {
+    pub entries: Vec<MonthlyUsage>,
+    pub total_cost: f64,
+    pub processing_time_ms: u32,
+}
+
+pub fn get_home_dir_string(home_dir_option: &Option<String>) -> Result<String, String> {
+    home_dir_option
+        .clone()
+        .or_else(|| std::env::var("HOME").ok())
+        .or_else(|| dirs::home_dir().map(|p| p.to_string_lossy().into_owned()))
+        .ok_or_else(|| {
+            "HOME directory not specified and could not determine home directory".to_string()
+        })
+}
+
+fn parse_all_messages_with_pricing(
+    home_dir: &str,
+    clients: &[String],
+    pricing: Option<&pricing::PricingService>,
+) -> Vec<UnifiedMessage> {
+    let scan_result = scanner::scan_all_clients(home_dir, clients);
+    let headless_roots = scanner::headless_roots(home_dir);
+    let mut all_messages: Vec<UnifiedMessage> = Vec::new();
+    let include_all = clients.is_empty();
+    let include_synthetic = include_all || clients.iter().any(|c| c == "synthetic");
+
+    // Parse OpenCode: read both SQLite (1.2+) and legacy JSON, deduplicate by message ID
+    let mut opencode_seen: HashSet<String> = HashSet::new();
+
+    if let Some(db_path) = &scan_result.opencode_db {
+        let sqlite_messages: Vec<UnifiedMessage> =
+            sessions::opencode::parse_opencode_sqlite(db_path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    if let Some(ref key) = msg.dedup_key {
+                        opencode_seen.insert(key.clone());
+                    }
+                    msg
+                })
+                .collect();
+        all_messages.extend(sqlite_messages);
+    }
+
+    let opencode_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::OpenCode)
+        .par_iter()
+        .filter_map(|path| {
+            let mut msg = sessions::opencode::parse_opencode_file(path)?;
+            apply_pricing_if_available(&mut msg, pricing);
+            Some(msg)
+        })
+        .collect();
+    all_messages.extend(opencode_messages.into_iter().filter(|msg| {
+        msg.dedup_key
+            .as_ref()
+            .is_none_or(|key| opencode_seen.insert(key.clone()))
+    }));
+
+    let claude_messages_raw: Vec<(String, UnifiedMessage)> = scan_result
+        .get(ClientId::Claude)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::claudecode::parse_claude_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    let dedup_key = msg.dedup_key.clone().unwrap_or_default();
+                    apply_pricing_if_available(&mut msg, pricing);
+                    (dedup_key, msg)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    let mut seen_keys: HashSet<String> = HashSet::new();
+    let claude_messages: Vec<UnifiedMessage> = claude_messages_raw
+        .into_iter()
+        .filter(|(key, _)| key.is_empty() || seen_keys.insert(key.clone()))
+        .map(|(_, msg)| msg)
+        .collect();
+    all_messages.extend(claude_messages);
+
+    let codex_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Codex)
+        .par_iter()
+        .flat_map(|path| {
+            let is_headless = is_headless_path(path, &headless_roots);
+            sessions::codex::parse_codex_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_headless_agent(&mut msg, is_headless);
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(codex_messages);
+
+    let gemini_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Gemini)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::gemini::parse_gemini_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(gemini_messages);
+
+    let cursor_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Cursor)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::cursor::parse_cursor_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(cursor_messages);
+
+    let amp_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Amp)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::amp::parse_amp_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(amp_messages);
+
+    let droid_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Droid)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::droid::parse_droid_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(droid_messages);
+
+    let openclaw_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::OpenClaw)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::openclaw::parse_openclaw_transcript(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(openclaw_messages);
+
+    let pi_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Pi)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::pi::parse_pi_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(pi_messages);
+
+    let kimi_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Kimi)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::kimi::parse_kimi_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(kimi_messages);
+
+    // Parse Qwen files
+    let qwen_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Qwen)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::qwen::parse_qwen_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(qwen_messages);
+
+    let roocode_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::RooCode)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::roocode::parse_roocode_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(roocode_messages);
+
+    let kilocode_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::KiloCode)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::kilocode::parse_kilocode_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(kilocode_messages);
+
+    let mux_messages: Vec<UnifiedMessage> = scan_result
+        .get(ClientId::Mux)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::mux::parse_mux_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_pricing_if_available(&mut msg, pricing);
+                    msg
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    all_messages.extend(mux_messages);
+
+    if include_synthetic {
+        if let Some(db_path) = &scan_result.synthetic_db {
+            let synthetic_messages: Vec<UnifiedMessage> =
+                sessions::synthetic::parse_octofriend_sqlite(db_path)
+                    .into_iter()
+                    .map(|mut msg| {
+                        apply_pricing_if_available(&mut msg, pricing);
+                        msg
+                    })
+                    .collect();
+            all_messages.extend(synthetic_messages);
+        }
+    }
+
+    // Filter BEFORE normalization so retain_for_requested_clients can see
+    // original model/provider prefixes (e.g. "accounts/fireworks/models/…")
+    // that is_synthetic_gateway relies on for gateway detection.
+    if !include_all {
+        let requested: HashSet<&str> = clients.iter().map(String::as_str).collect();
+        all_messages.retain(|msg| {
+            retain_for_requested_clients(&msg.client, &msg.model_id, &msg.provider_id, &requested)
+        });
+    }
+
+    if include_synthetic {
+        for msg in &mut all_messages {
+            sessions::synthetic::normalize_synthetic_gateway_fields(
+                &mut msg.model_id,
+                &mut msg.provider_id,
+            );
+        }
+    }
+
+    all_messages
+}
+
+fn filter_unified_messages(
+    messages: Vec<UnifiedMessage>,
+    options: &LocalParseOptions,
+) -> Vec<UnifiedMessage> {
+    let mut filtered = messages;
+
+    if let Some(year) = &options.year {
+        let year_prefix = format!("{}-", year);
+        filtered.retain(|m| m.date.starts_with(&year_prefix));
+    }
+
+    if let Some(since) = &options.since {
+        filtered.retain(|m| m.date.as_str() >= since.as_str());
+    }
+
+    if let Some(until) = &options.until {
+        filtered.retain(|m| m.date.as_str() <= until.as_str());
+    }
+
+    filtered
+}
+
+pub async fn get_model_report(options: ReportOptions) -> Result<ModelReport, String> {
+    let start = Instant::now();
+
+    let home_dir = get_home_dir_string(&options.home_dir)?;
+
+    let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
+        let mut clients: Vec<String> = ClientId::ALL
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect();
+        clients.push("synthetic".to_string());
+        clients
+    });
+
+    let pricing = pricing::PricingService::get_or_init().await?;
+    let all_messages = parse_all_messages_with_pricing(&home_dir, &clients, Some(&pricing));
+
+    let filtered = filter_messages_for_report(all_messages, &options);
+
+    let mut model_map: HashMap<String, ModelUsage> = HashMap::new();
+    let group_by = &options.group_by;
+
+    for msg in filtered {
+        let normalized = normalize_model_for_grouping(&msg.model_id);
+        let key = match group_by {
+            GroupBy::Model => normalized.clone(),
+            GroupBy::ClientModel => format!("{}:{}", msg.client, normalized),
+            GroupBy::ClientProviderModel => {
+                format!("{}:{}:{}", msg.client, msg.provider_id, normalized)
+            }
+        };
+        let entry = model_map.entry(key).or_insert_with(|| ModelUsage {
+            client: msg.client.clone(),
+            merged_clients: if *group_by == GroupBy::Model {
+                Some(msg.client.clone())
+            } else {
+                None
+            },
+            model: normalized.clone(),
+            provider: msg.provider_id.clone(),
+            input: 0,
+            output: 0,
+            cache_read: 0,
+            cache_write: 0,
+            reasoning: 0,
+            message_count: 0,
+            cost: 0.0,
+        });
+
+        if *group_by == GroupBy::Model {
+            if !entry.client.split(", ").any(|s| s == msg.client) {
+                entry.client = format!("{}, {}", entry.client, msg.client);
+            }
+
+            if let Some(merged_clients) = &mut entry.merged_clients {
+                if !merged_clients.split(", ").any(|s| s == msg.client) {
+                    *merged_clients = format!("{}, {}", merged_clients, msg.client);
+                }
+            }
+        }
+
+        if *group_by != GroupBy::ClientProviderModel
+            && !entry.provider.split(", ").any(|p| p == msg.provider_id)
+        {
+            entry.provider = format!("{}, {}", entry.provider, msg.provider_id);
+        }
+
+        entry.input += msg.tokens.input;
+        entry.output += msg.tokens.output;
+        entry.cache_read += msg.tokens.cache_read;
+        entry.cache_write += msg.tokens.cache_write;
+        entry.reasoning += msg.tokens.reasoning;
+        entry.message_count += 1;
+        entry.cost += msg.cost;
+    }
+
+    let mut entries: Vec<ModelUsage> = model_map
+        .into_values()
+        .map(|mut entry| {
+            // Normalize provider order for deterministic output
+            let mut providers: Vec<&str> = entry.provider.split(", ").collect();
+            providers.sort_unstable();
+            providers.dedup();
+            entry.provider = providers.join(", ");
+            entry
+        })
+        .collect();
+    entries.sort_by(|a, b| match (a.cost.is_nan(), b.cost.is_nan()) {
+        (true, true) => std::cmp::Ordering::Equal,
+        (true, false) => std::cmp::Ordering::Greater,
+        (false, true) => std::cmp::Ordering::Less,
+        (false, false) => b
+            .cost
+            .partial_cmp(&a.cost)
+            .unwrap_or(std::cmp::Ordering::Equal),
+    });
+
+    let total_input: i64 = entries.iter().map(|e| e.input).sum();
+    let total_output: i64 = entries.iter().map(|e| e.output).sum();
+    let total_cache_read: i64 = entries.iter().map(|e| e.cache_read).sum();
+    let total_cache_write: i64 = entries.iter().map(|e| e.cache_write).sum();
+    let total_messages: i32 = entries.iter().map(|e| e.message_count).sum();
+    let total_cost: f64 = entries.iter().map(|e| e.cost).sum();
+
+    Ok(ModelReport {
+        entries,
+        total_input,
+        total_output,
+        total_cache_read,
+        total_cache_write,
+        total_messages,
+        total_cost,
+        processing_time_ms: start.elapsed().as_millis() as u32,
+    })
+}
+
+#[derive(Default)]
+struct MonthAggregator {
+    models: HashSet<String>,
+    input: i64,
+    output: i64,
+    cache_read: i64,
+    cache_write: i64,
+    message_count: i32,
+    cost: f64,
+}
+
+pub async fn get_monthly_report(options: ReportOptions) -> Result<MonthlyReport, String> {
+    let start = Instant::now();
+
+    let home_dir = get_home_dir_string(&options.home_dir)?;
+
+    let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
+        let mut clients: Vec<String> = ClientId::ALL
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect();
+        clients.push("synthetic".to_string());
+        clients
+    });
+
+    let pricing = pricing::PricingService::get_or_init().await?;
+    let all_messages = parse_all_messages_with_pricing(&home_dir, &clients, Some(&pricing));
+
+    let filtered = filter_messages_for_report(all_messages, &options);
+
+    let mut month_map: HashMap<String, MonthAggregator> = HashMap::new();
+
+    for msg in filtered {
+        let month = if msg.date.len() >= 7 {
+            msg.date[..7].to_string()
+        } else {
+            continue;
+        };
+
+        let entry = month_map.entry(month).or_default();
+
+        entry
+            .models
+            .insert(normalize_model_for_grouping(&msg.model_id));
+        entry.input += msg.tokens.input;
+        entry.output += msg.tokens.output;
+        entry.cache_read += msg.tokens.cache_read;
+        entry.cache_write += msg.tokens.cache_write;
+        entry.message_count += 1;
+        entry.cost += msg.cost;
+    }
+
+    let mut entries: Vec<MonthlyUsage> = month_map
+        .into_iter()
+        .map(|(month, agg)| MonthlyUsage {
+            month,
+            models: agg.models.into_iter().collect(),
+            input: agg.input,
+            output: agg.output,
+            cache_read: agg.cache_read,
+            cache_write: agg.cache_write,
+            message_count: agg.message_count,
+            cost: agg.cost,
+        })
+        .collect();
+
+    entries.sort_by(|a, b| a.month.cmp(&b.month));
+
+    let total_cost: f64 = entries.iter().map(|e| e.cost).sum();
+
+    Ok(MonthlyReport {
+        entries,
+        total_cost,
+        processing_time_ms: start.elapsed().as_millis() as u32,
+    })
+}
+
+pub async fn generate_graph(options: ReportOptions) -> Result<GraphResult, String> {
+    let start = Instant::now();
+
+    let home_dir = get_home_dir_string(&options.home_dir)?;
+
+    let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
+        let mut clients: Vec<String> = ClientId::ALL
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect();
+        clients.push("synthetic".to_string());
+        clients
+    });
+
+    let pricing = pricing::PricingService::get_or_init().await?;
+    let all_messages = parse_all_messages_with_pricing(&home_dir, &clients, Some(&pricing));
+
+    let filtered = filter_messages_for_report(all_messages, &options);
+
+    let contributions = aggregator::aggregate_by_date(filtered);
+
+    let processing_time_ms = start.elapsed().as_millis() as u32;
+    let result = aggregator::generate_graph_result(contributions, processing_time_ms);
+
+    Ok(result)
+}
+
+fn filter_messages_for_report(
+    messages: Vec<UnifiedMessage>,
+    options: &ReportOptions,
+) -> Vec<UnifiedMessage> {
+    let mut filtered = messages;
+
+    if let Some(year) = &options.year {
+        let year_prefix = format!("{}-", year);
+        filtered.retain(|m| m.date.starts_with(&year_prefix));
+    }
+
+    if let Some(since) = &options.since {
+        filtered.retain(|m| m.date.as_str() >= since.as_str());
+    }
+
+    if let Some(until) = &options.until {
+        filtered.retain(|m| m.date.as_str() <= until.as_str());
+    }
+
+    filtered
+}
+
+fn is_headless_path(path: &Path, headless_roots: &[PathBuf]) -> bool {
+    headless_roots.iter().any(|root| path.starts_with(root))
+}
+
+fn apply_headless_agent(message: &mut UnifiedMessage, is_headless: bool) {
+    if is_headless && message.agent.is_none() {
+        message.agent = Some("headless".to_string());
+    }
+}
+
+fn apply_pricing_if_available(
+    message: &mut UnifiedMessage,
+    pricing: Option<&pricing::PricingService>,
+) {
+    let Some(pricing) = pricing else {
+        return;
+    };
+
+    let calculated_cost = if message.client.eq_ignore_ascii_case("gemini") {
+        pricing.calculate_cost(
+            &message.model_id,
+            message.tokens.input,
+            message.tokens.output + message.tokens.reasoning,
+            0,
+            0,
+            0,
+        )
+    } else {
+        pricing.calculate_cost(
+            &message.model_id,
+            message.tokens.input,
+            message.tokens.output,
+            message.tokens.cache_read,
+            message.tokens.cache_write,
+            message.tokens.reasoning,
+        )
+    };
+
+    if calculated_cost > 0.0 {
+        message.cost = calculated_cost;
+    }
+}
+
+pub fn parse_local_clients(options: LocalParseOptions) -> Result<ParsedMessages, String> {
+    let start = Instant::now();
+
+    let home_dir = get_home_dir_string(&options.home_dir)?;
+
+    let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
+        let mut clients: Vec<String> = ClientId::iter()
+            .filter(|c| c.parse_local())
+            .map(|c| c.as_str().to_string())
+            .collect();
+        clients.push("synthetic".to_string());
+        clients
+    });
+    let include_all = clients.is_empty();
+    let include_synthetic = include_all || clients.iter().any(|c| c == "synthetic");
+
+    let scan_result = scanner::scan_all_clients(&home_dir, &clients);
+    let headless_roots = scanner::headless_roots(&home_dir);
+
+    let mut messages: Vec<ParsedMessage> = Vec::new();
+
+    // Parse OpenCode: read both SQLite (1.2+) and legacy JSON, deduplicate by message ID
+    let mut counts = ClientCounts::new();
+
+    let opencode_count: i32 = {
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut count: i32 = 0;
+
+        if let Some(db_path) = &scan_result.opencode_db {
+            let sqlite_msgs: Vec<(String, ParsedMessage)> =
+                sessions::opencode::parse_opencode_sqlite(db_path)
+                    .into_iter()
+                    .map(|msg| {
+                        let key = msg.dedup_key.clone().unwrap_or_default();
+                        (key, unified_to_parsed(&msg))
+                    })
+                    .collect();
+            count += sqlite_msgs.len() as i32;
+            for (key, parsed) in sqlite_msgs {
+                if !key.is_empty() {
+                    seen.insert(key);
+                }
+                messages.push(parsed);
+            }
+        }
+
+        let json_msgs: Vec<(String, ParsedMessage)> = scan_result
+            .get(ClientId::OpenCode)
+            .par_iter()
+            .filter_map(|path| {
+                let msg = sessions::opencode::parse_opencode_file(path)?;
+                let key = msg.dedup_key.clone().unwrap_or_default();
+                Some((key, unified_to_parsed(&msg)))
+            })
+            .collect();
+        let deduped: Vec<ParsedMessage> = json_msgs
+            .into_iter()
+            .filter(|(key, _)| key.is_empty() || seen.insert(key.clone()))
+            .map(|(_, msg)| msg)
+            .collect();
+        count += deduped.len() as i32;
+        messages.extend(deduped);
+
+        count
+    };
+    counts.set(ClientId::OpenCode, opencode_count);
+
+    let claude_msgs_raw: Vec<(String, ParsedMessage)> = scan_result
+        .get(ClientId::Claude)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::claudecode::parse_claude_file(path)
+                .into_iter()
+                .map(|msg| {
+                    let dedup_key = msg.dedup_key.clone().unwrap_or_default();
+                    (dedup_key, unified_to_parsed(&msg))
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    let mut seen_keys: HashSet<String> = HashSet::new();
+    let claude_msgs: Vec<ParsedMessage> = claude_msgs_raw
+        .into_iter()
+        .filter(|(key, _)| key.is_empty() || seen_keys.insert(key.clone()))
+        .map(|(_, msg)| msg)
+        .collect();
+    let claude_count = claude_msgs.len() as i32;
+    counts.set(ClientId::Claude, claude_count);
+    messages.extend(claude_msgs);
+
+    let codex_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::Codex)
+        .par_iter()
+        .flat_map(|path| {
+            let is_headless = is_headless_path(path, &headless_roots);
+            sessions::codex::parse_codex_file(path)
+                .into_iter()
+                .map(|mut msg| {
+                    apply_headless_agent(&mut msg, is_headless);
+                    unified_to_parsed(&msg)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let codex_count = codex_msgs.len() as i32;
+    counts.set(ClientId::Codex, codex_count);
+    messages.extend(codex_msgs);
+
+    let gemini_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::Gemini)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::gemini::parse_gemini_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let gemini_count = gemini_msgs.len() as i32;
+    counts.set(ClientId::Gemini, gemini_count);
+    messages.extend(gemini_msgs);
+
+    let amp_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::Amp)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::amp::parse_amp_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let amp_count = amp_msgs.len() as i32;
+    counts.set(ClientId::Amp, amp_count);
+    messages.extend(amp_msgs);
+
+    let droid_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::Droid)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::droid::parse_droid_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let droid_count = droid_msgs.len() as i32;
+    counts.set(ClientId::Droid, droid_count);
+    messages.extend(droid_msgs);
+
+    let openclaw_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::OpenClaw)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::openclaw::parse_openclaw_transcript(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let openclaw_count = openclaw_msgs.len() as i32;
+    counts.set(ClientId::OpenClaw, openclaw_count);
+    messages.extend(openclaw_msgs);
+
+    let pi_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::Pi)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::pi::parse_pi_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let pi_count = pi_msgs.len() as i32;
+    counts.set(ClientId::Pi, pi_count);
+    messages.extend(pi_msgs);
+
+    // Parse Kimi wire.jsonl files in parallel
+    let kimi_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::Kimi)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::kimi::parse_kimi_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let kimi_count = kimi_msgs.len() as i32;
+    counts.set(ClientId::Kimi, kimi_count);
+    messages.extend(kimi_msgs);
+
+    // Parse Qwen JSONL files in parallel
+    let qwen_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::Qwen)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::qwen::parse_qwen_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let qwen_count = qwen_msgs.len() as i32;
+    counts.set(ClientId::Qwen, qwen_count);
+    messages.extend(qwen_msgs);
+
+    let roocode_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::RooCode)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::roocode::parse_roocode_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let roocode_count = roocode_msgs.len() as i32;
+    counts.set(ClientId::RooCode, roocode_count);
+    messages.extend(roocode_msgs);
+
+    let kilocode_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::KiloCode)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::kilocode::parse_kilocode_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let kilocode_count = kilocode_msgs.len() as i32;
+    counts.set(ClientId::KiloCode, kilocode_count);
+    messages.extend(kilocode_msgs);
+
+    let mux_msgs: Vec<ParsedMessage> = scan_result
+        .get(ClientId::Mux)
+        .par_iter()
+        .flat_map(|path| {
+            sessions::mux::parse_mux_file(path)
+                .into_iter()
+                .map(|msg| unified_to_parsed(&msg))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let mux_count = mux_msgs.len() as i32;
+    counts.set(ClientId::Mux, mux_count);
+    messages.extend(mux_msgs);
+
+    if include_synthetic {
+        if let Some(db_path) = &scan_result.synthetic_db {
+            let synthetic_msgs: Vec<ParsedMessage> =
+                sessions::synthetic::parse_octofriend_sqlite(db_path)
+                    .into_iter()
+                    .map(|msg| unified_to_parsed(&msg))
+                    .collect();
+            messages.extend(synthetic_msgs);
+        }
+    }
+
+    // Filter BEFORE normalization (see parse_all_messages_with_pricing).
+    if !include_all {
+        let requested: HashSet<&str> = clients.iter().map(String::as_str).collect();
+        messages.retain(|msg| {
+            retain_for_requested_clients(&msg.client, &msg.model_id, &msg.provider_id, &requested)
+        });
+    }
+
+    if include_synthetic {
+        for msg in &mut messages {
+            sessions::synthetic::normalize_synthetic_gateway_fields(
+                &mut msg.model_id,
+                &mut msg.provider_id,
+            );
+        }
+    }
+
+    let filtered = filter_parsed_messages(messages, &options);
+
+    Ok(ParsedMessages {
+        messages: filtered,
+        counts,
+        processing_time_ms: start.elapsed().as_millis() as u32,
+    })
+}
+
+pub async fn parse_local_unified_messages(
+    options: LocalParseOptions,
+) -> Result<Vec<UnifiedMessage>, String> {
+    let home_dir = get_home_dir_string(&options.home_dir)?;
+
+    let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
+        let mut clients: Vec<String> = ClientId::iter()
+            .filter(|c| c.parse_local())
+            .map(|c| c.as_str().to_string())
+            .collect();
+        clients.push("synthetic".to_string());
+        clients
+    });
+
+    let pricing = pricing::PricingService::load_cached_any_age();
+    let messages = parse_all_messages_with_pricing(&home_dir, &clients, pricing.as_ref());
+
+    Ok(filter_unified_messages(messages, &options))
+}
+
+fn unified_to_parsed(msg: &UnifiedMessage) -> ParsedMessage {
+    ParsedMessage {
+        client: msg.client.clone(),
+        model_id: msg.model_id.clone(),
+        provider_id: msg.provider_id.clone(),
+        session_id: msg.session_id.clone(),
+        timestamp: msg.timestamp,
+        date: msg.date.clone(),
+        input: msg.tokens.input,
+        output: msg.tokens.output,
+        cache_read: msg.tokens.cache_read,
+        cache_write: msg.tokens.cache_write,
+        reasoning: msg.tokens.reasoning,
+        agent: msg.agent.clone(),
+    }
+}
+
+fn filter_parsed_messages(
+    messages: Vec<ParsedMessage>,
+    options: &LocalParseOptions,
+) -> Vec<ParsedMessage> {
+    let mut filtered = messages;
+
+    if let Some(year) = &options.year {
+        let year_prefix = format!("{}-", year);
+        filtered.retain(|m| m.date.starts_with(&year_prefix));
+    }
+
+    if let Some(since) = &options.since {
+        filtered.retain(|m| m.date.as_str() >= since.as_str());
+    }
+
+    if let Some(until) = &options.until {
+        filtered.retain(|m| m.date.as_str() <= until.as_str());
+    }
+
+    filtered
+}
+
+pub fn parsed_to_unified(msg: &ParsedMessage, cost: f64) -> UnifiedMessage {
+    UnifiedMessage {
+        client: msg.client.clone(),
+        model_id: msg.model_id.clone(),
+        provider_id: msg.provider_id.clone(),
+        session_id: msg.session_id.clone(),
+        timestamp: msg.timestamp,
+        date: msg.date.clone(),
+        tokens: TokenBreakdown {
+            input: msg.input,
+            output: msg.output,
+            cache_read: msg.cache_read,
+            cache_write: msg.cache_write,
+            reasoning: msg.reasoning,
+        },
+        cost,
+        agent: msg.agent.clone(),
+        dedup_key: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        apply_pricing_if_available, normalize_model_for_grouping, parse_all_messages_with_pricing,
+        parse_local_clients, pricing, retain_for_requested_clients, ClientId, GroupBy,
+        LocalParseOptions, TokenBreakdown, UnifiedMessage,
+    };
+    use std::collections::{HashMap, HashSet};
+    use std::str::FromStr;
+
+    #[test]
+    fn test_normalize_model_for_grouping() {
+        assert_eq!(
+            normalize_model_for_grouping("claude-opus-4-5-20251101"),
+            "claude-opus-4-5"
+        );
+        assert_eq!(
+            normalize_model_for_grouping("claude-sonnet-4-5-20250929"),
+            "claude-sonnet-4-5"
+        );
+        assert_eq!(
+            normalize_model_for_grouping("claude-sonnet-4-20250514"),
+            "claude-sonnet-4"
+        );
+
+        assert_eq!(
+            normalize_model_for_grouping("claude-opus-4.5"),
+            "claude-opus-4-5"
+        );
+        assert_eq!(
+            normalize_model_for_grouping("claude-sonnet-4.5"),
+            "claude-sonnet-4-5"
+        );
+        assert_eq!(
+            normalize_model_for_grouping("claude-opus-4.6"),
+            "claude-opus-4-6"
+        );
+
+        assert_eq!(normalize_model_for_grouping("gpt-5.2"), "gpt-5.2");
+        assert_eq!(
+            normalize_model_for_grouping("gemini-2.5-pro"),
+            "gemini-2.5-pro"
+        );
+
+        assert_eq!(
+            normalize_model_for_grouping("claude-opus-4-5-high"),
+            "claude-opus-4-5-high"
+        );
+        assert_eq!(
+            normalize_model_for_grouping("claude-opus-4-5-thinking-high"),
+            "claude-opus-4-5-thinking-high"
+        );
+        assert_eq!(
+            normalize_model_for_grouping("claude-sonnet-4-5-high"),
+            "claude-sonnet-4-5-high"
+        );
+
+        assert_eq!(
+            normalize_model_for_grouping("claude-4-sonnet"),
+            "claude-4-sonnet"
+        );
+        assert_eq!(
+            normalize_model_for_grouping("claude-4-opus-thinking"),
+            "claude-4-opus-thinking"
+        );
+
+        assert_eq!(normalize_model_for_grouping("big-pickle"), "big-pickle");
+        assert_eq!(normalize_model_for_grouping("grok-code"), "grok-code");
+
+        assert_eq!(
+            normalize_model_for_grouping("claude-opus-4.5-20251101"),
+            "claude-opus-4-5"
+        );
+    }
+
+    #[test]
+    fn test_group_by_from_str_valid_values() {
+        assert_eq!(GroupBy::from_str("model").unwrap(), GroupBy::Model);
+        assert_eq!(
+            GroupBy::from_str("client,model").unwrap(),
+            GroupBy::ClientModel
+        );
+        assert_eq!(
+            GroupBy::from_str("client-model").unwrap(),
+            GroupBy::ClientModel
+        );
+        assert_eq!(
+            GroupBy::from_str("client,provider,model").unwrap(),
+            GroupBy::ClientProviderModel
+        );
+        assert_eq!(
+            GroupBy::from_str("client-provider-model").unwrap(),
+            GroupBy::ClientProviderModel
+        );
+        assert!(GroupBy::from_str("unknown").is_err());
+    }
+
+    #[test]
+    fn test_group_by_default_is_client_model() {
+        assert_eq!(GroupBy::default(), GroupBy::ClientModel);
+    }
+
+    #[test]
+    fn test_group_by_display_round_trips_with_from_str() {
+        let variants = [
+            GroupBy::Model,
+            GroupBy::ClientModel,
+            GroupBy::ClientProviderModel,
+        ];
+
+        for variant in variants {
+            let rendered = variant.to_string();
+            let parsed = GroupBy::from_str(&rendered).unwrap();
+            assert_eq!(parsed, variant);
+        }
+    }
+
+    #[test]
+    fn test_group_by_from_str_whitespace_handling() {
+        assert_eq!(
+            GroupBy::from_str("client, model").unwrap(),
+            GroupBy::ClientModel
+        );
+        assert_eq!(GroupBy::from_str(" model ").unwrap(), GroupBy::Model);
+        assert_eq!(
+            GroupBy::from_str("client , provider , model").unwrap(),
+            GroupBy::ClientProviderModel
+        );
+    }
+
+    #[test]
+    fn test_retain_for_requested_clients_keeps_original_client_matches() {
+        let requested: HashSet<&str> = HashSet::from(["opencode"]);
+        assert!(retain_for_requested_clients(
+            "opencode",
+            "gpt-4o",
+            "anthropic",
+            &requested
+        ));
+        assert!(!retain_for_requested_clients(
+            "claude",
+            "gpt-4o",
+            "anthropic",
+            &requested
+        ));
+    }
+
+    #[test]
+    fn test_retain_for_requested_clients_accepts_synthetic_gateway_traffic() {
+        let requested: HashSet<&str> = HashSet::from(["synthetic"]);
+        assert!(retain_for_requested_clients(
+            "opencode",
+            "hf:deepseek-ai/DeepSeek-V3-0324",
+            "unknown",
+            &requested
+        ));
+        assert!(retain_for_requested_clients(
+            "synthetic",
+            "deepseek-v3-0324",
+            "synthetic",
+            &requested
+        ));
+        assert!(!retain_for_requested_clients(
+            "opencode",
+            "gpt-4o",
+            "anthropic",
+            &requested
+        ));
+    }
+
+    #[test]
+    fn test_cursor_parse_path_reprices_zero_cost_composer_1_5_rows() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let cursor_cache_dir = temp_dir.path().join(".config/tokscale/cursor-cache");
+        std::fs::create_dir_all(&cursor_cache_dir).unwrap();
+
+        let csv = r#"Date,Kind,Model,Max Mode,Input (w/ Cache Write),Input (w/o Cache Write),Cache Read,Output Tokens,Total Tokens,Cost
+"2026-03-04T12:00:00.000Z","Included","Composer 1.5","No","1200","1000","5000","2000","8000","0""#;
+        std::fs::write(cursor_cache_dir.join("usage.csv"), csv).unwrap();
+
+        let pricing = pricing::PricingService::new(HashMap::new(), HashMap::new());
+        let messages = parse_all_messages_with_pricing(
+            temp_dir.path().to_str().unwrap(),
+            &["cursor".to_string()],
+            Some(&pricing),
+        );
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].client, "cursor");
+        assert_eq!(messages[0].model_id, "Composer 1.5");
+        assert!(messages[0].cost > 0.0);
+    }
+
+    #[test]
+    fn test_apply_pricing_if_available_keeps_existing_cost_without_pricing() {
+        let mut msg = UnifiedMessage::new_with_agent(
+            "roocode",
+            "gpt-4o",
+            "provider",
+            "session-1",
+            1_733_011_200_000,
+            TokenBreakdown {
+                input: 10,
+                output: 5,
+                cache_read: 0,
+                cache_write: 0,
+                reasoning: 0,
+            },
+            0.42,
+            Some("planner".to_string()),
+        );
+
+        apply_pricing_if_available(&mut msg, None);
+
+        assert_eq!(msg.cost, 0.42);
+    }
+
+    #[test]
+    fn test_apply_pricing_if_available_overrides_cost_when_pricing_exists() {
+        let mut litellm = HashMap::new();
+        litellm.insert(
+            "gpt-4o".into(),
+            pricing::ModelPricing {
+                input_cost_per_token: Some(0.001),
+                output_cost_per_token: Some(0.002),
+                ..Default::default()
+            },
+        );
+        let pricing = pricing::PricingService::new(litellm, HashMap::new());
+
+        let mut msg = UnifiedMessage::new(
+            "codex",
+            "gpt-4o",
+            "provider",
+            "session-1",
+            1_733_011_200_000,
+            TokenBreakdown {
+                input: 10,
+                output: 5,
+                cache_read: 0,
+                cache_write: 0,
+                reasoning: 0,
+            },
+            0.0,
+        );
+
+        apply_pricing_if_available(&mut msg, Some(&pricing));
+
+        assert_eq!(msg.cost, 0.02);
+    }
+
+    #[test]
+    fn test_apply_pricing_if_available_uses_reasoning_for_gemini() {
+        let mut litellm = HashMap::new();
+        litellm.insert(
+            "gemini-2.5-pro".into(),
+            pricing::ModelPricing {
+                input_cost_per_token: Some(0.001),
+                output_cost_per_token: Some(0.002),
+                ..Default::default()
+            },
+        );
+        let pricing = pricing::PricingService::new(litellm, HashMap::new());
+
+        let mut msg = UnifiedMessage::new(
+            "gemini",
+            "gemini-2.5-pro",
+            "google",
+            "session-1",
+            1_733_011_200_000,
+            TokenBreakdown {
+                input: 10,
+                output: 5,
+                cache_read: 0,
+                cache_write: 0,
+                reasoning: 7,
+            },
+            0.0,
+        );
+
+        apply_pricing_if_available(&mut msg, Some(&pricing));
+
+        assert_eq!(msg.cost, 0.034);
+    }
+
+    #[test]
+    fn test_parse_all_messages_with_pricing_keeps_gateway_message_under_synthetic_filter() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let message_dir = temp_dir
+            .path()
+            .join(".local/share/opencode/storage/message/project-1");
+        std::fs::create_dir_all(&message_dir).unwrap();
+        std::fs::write(
+            message_dir.join("msg_001.json"),
+            r#"{"id":"msg-1","sessionID":"session-1","role":"assistant","modelID":"hf:deepseek-ai/DeepSeek-V3-0324","providerID":"unknown","cost":0,"tokens":{"input":10,"output":5,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1733011200000}}"#,
+        )
+        .unwrap();
+
+        let pricing = pricing::PricingService::new(HashMap::new(), HashMap::new());
+        let messages = parse_all_messages_with_pricing(
+            temp_dir.path().to_str().unwrap(),
+            &["synthetic".to_string()],
+            Some(&pricing),
+        );
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].client, "opencode");
+        assert_eq!(messages[0].model_id, "deepseek-v3-0324");
+        assert_eq!(messages[0].provider_id, "synthetic");
+    }
+
+    #[test]
+    fn test_parse_local_clients_preserves_gateway_message_client_counts() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let message_dir = temp_dir
+            .path()
+            .join(".local/share/opencode/storage/message/project-1");
+        std::fs::create_dir_all(&message_dir).unwrap();
+        std::fs::write(
+            message_dir.join("msg_001.json"),
+            r#"{"id":"msg-1","sessionID":"session-1","role":"assistant","modelID":"accounts/fireworks/models/deepseek-v3-0324","providerID":"fireworks","cost":0,"tokens":{"input":10,"output":5,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1733011200000}}"#,
+        )
+        .unwrap();
+
+        let parsed = parse_local_clients(LocalParseOptions {
+            home_dir: Some(temp_dir.path().to_str().unwrap().to_string()),
+            clients: Some(vec!["opencode".to_string(), "synthetic".to_string()]),
+            since: None,
+            until: None,
+            year: None,
+        })
+        .unwrap();
+
+        assert_eq!(parsed.counts.get(ClientId::OpenCode), 1);
+        assert_eq!(parsed.messages.len(), 1);
+        assert_eq!(parsed.messages[0].client, "opencode");
+        assert_eq!(parsed.messages[0].model_id, "deepseek-v3-0324");
+        assert_eq!(parsed.messages[0].provider_id, "fireworks");
+    }
+
+    #[test]
+    fn test_parse_all_messages_fireworks_provider_kept_under_synthetic_only_filter() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let message_dir = temp_dir
+            .path()
+            .join(".local/share/opencode/storage/message/project-1");
+        std::fs::create_dir_all(&message_dir).unwrap();
+        std::fs::write(
+            message_dir.join("msg_001.json"),
+            r#"{"id":"msg-1","sessionID":"session-1","role":"assistant","modelID":"accounts/fireworks/models/deepseek-v3-0324","providerID":"fireworks","cost":0.1,"tokens":{"input":10,"output":5,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1733011200000}}"#,
+        )
+        .unwrap();
+
+        let pricing = pricing::PricingService::new(HashMap::new(), HashMap::new());
+        let messages = parse_all_messages_with_pricing(
+            temp_dir.path().to_str().unwrap(),
+            &["synthetic".to_string()],
+            Some(&pricing),
+        );
+
+        assert_eq!(
+            messages.len(),
+            1,
+            "fireworks gateway message must not be dropped when filtering for synthetic"
+        );
+        assert_eq!(messages[0].client, "opencode");
+        assert_eq!(messages[0].model_id, "deepseek-v3-0324");
+        assert_eq!(messages[0].provider_id, "fireworks");
+    }
+
+    #[test]
+    fn test_parse_local_clients_fireworks_provider_kept_under_synthetic_only_filter() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let message_dir = temp_dir
+            .path()
+            .join(".local/share/opencode/storage/message/project-1");
+        std::fs::create_dir_all(&message_dir).unwrap();
+        std::fs::write(
+            message_dir.join("msg_001.json"),
+            r#"{"id":"msg-1","sessionID":"session-1","role":"assistant","modelID":"accounts/fireworks/models/deepseek-v3-0324","providerID":"fireworks","cost":0.1,"tokens":{"input":10,"output":5,"reasoning":0,"cache":{"read":0,"write":0}},"time":{"created":1733011200000}}"#,
+        )
+        .unwrap();
+
+        let parsed = parse_local_clients(LocalParseOptions {
+            home_dir: Some(temp_dir.path().to_str().unwrap().to_string()),
+            clients: Some(vec!["synthetic".to_string()]),
+            since: None,
+            until: None,
+            year: None,
+        })
+        .unwrap();
+
+        assert_eq!(
+            parsed.messages.len(),
+            1,
+            "fireworks gateway message must not be dropped when filtering for synthetic only"
+        );
+        assert_eq!(parsed.messages[0].client, "opencode");
+        assert_eq!(parsed.messages[0].model_id, "deepseek-v3-0324");
+        assert_eq!(parsed.messages[0].provider_id, "fireworks");
+    }
+}

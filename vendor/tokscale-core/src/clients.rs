@@ -1,0 +1,400 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PathRoot {
+    Home,
+    XdgData,
+    EnvVar {
+        var: &'static str,
+        fallback_relative: &'static str,
+    },
+}
+
+impl PathRoot {
+    pub fn resolve(&self, home_dir: &str) -> String {
+        match self {
+            PathRoot::Home => home_dir.to_string(),
+            PathRoot::XdgData => std::env::var("XDG_DATA_HOME")
+                .unwrap_or_else(|_| format!("{}/.local/share", home_dir)),
+            PathRoot::EnvVar {
+                var,
+                fallback_relative,
+            } => {
+                std::env::var(var).unwrap_or_else(|_| format!("{}/{}", home_dir, fallback_relative))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ClientDef {
+    pub id: &'static str,
+    pub root: PathRoot,
+    pub relative_path: &'static str,
+    pub pattern: &'static str,
+    pub headless: bool,
+    pub parse_local: bool,
+}
+
+impl ClientDef {
+    pub fn resolve_path(&self, home_dir: &str) -> String {
+        format!("{}/{}", self.root.resolve(home_dir), self.relative_path)
+    }
+}
+
+macro_rules! define_clients {
+    ( $( $variant:ident = $index:expr => { id: $id:expr, root: $root:expr, relative: $rel:expr, pattern: $pat:expr, headless: $hl:expr, parse_local: $pl:expr } ),+ $(,)? ) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[repr(usize)]
+        pub enum ClientId {
+            $( $variant = $index ),+
+        }
+
+        impl ClientId {
+            pub const COUNT: usize = [ $( $index ),+ ].len();
+            pub const ALL: [ClientId; Self::COUNT] = [ $( ClientId::$variant ),+ ];
+
+            pub fn data(&self) -> &'static ClientDef {
+                &CLIENTS[*self as usize]
+            }
+
+            pub fn as_str(&self) -> &'static str {
+                self.data().id
+            }
+
+            pub fn file_pattern(&self) -> &'static str {
+                self.data().pattern
+            }
+
+            pub fn supports_headless(&self) -> bool {
+                self.data().headless
+            }
+
+            pub fn parse_local(&self) -> bool {
+                self.data().parse_local
+            }
+
+            pub fn iter() -> impl Iterator<Item = ClientId> {
+                Self::ALL.iter().copied()
+            }
+
+            #[allow(clippy::should_implement_trait)]
+            pub fn from_str(s: &str) -> Option<ClientId> {
+                Self::ALL.iter().copied().find(|c| c.as_str() == s)
+            }
+        }
+
+        pub const CLIENTS: [ClientDef; ClientId::COUNT] = [
+            $( ClientDef {
+                id: $id,
+                root: $root,
+                relative_path: $rel,
+                pattern: $pat,
+                headless: $hl,
+                parse_local: $pl,
+            } ),+
+        ];
+
+        const _: () = {
+            let mut i = 0;
+            $(
+                assert!($index == i, "ClientId indices must be sequential");
+                i += 1;
+                let _ = i;
+            )+
+        };
+    };
+}
+
+define_clients!(
+    OpenCode = 0 => {
+        id: "opencode",
+        root: PathRoot::XdgData,
+        relative: "opencode/storage/message",
+        pattern: "*.json",
+        headless: false,
+        parse_local: true
+    },
+    Claude = 1 => {
+        id: "claude",
+        root: PathRoot::Home,
+        relative: ".claude/projects",
+        pattern: "*.jsonl",
+        headless: false,
+        parse_local: true
+    },
+    Codex = 2 => {
+        id: "codex",
+        root: PathRoot::EnvVar {
+            var: "CODEX_HOME",
+            fallback_relative: ".codex",
+        },
+        relative: "sessions",
+        pattern: "*.jsonl",
+        headless: true,
+        parse_local: true
+    },
+    Cursor = 3 => {
+        id: "cursor",
+        root: PathRoot::Home,
+        relative: ".config/tokscale/cursor-cache",
+        pattern: "usage*.csv",
+        headless: false,
+        parse_local: false
+    },
+    Gemini = 4 => {
+        id: "gemini",
+        root: PathRoot::Home,
+        relative: ".gemini/tmp",
+        pattern: "*.json",
+        headless: false,
+        parse_local: true
+    },
+    Amp = 5 => {
+        id: "amp",
+        root: PathRoot::XdgData,
+        relative: "amp/threads",
+        pattern: "T-*.json",
+        headless: false,
+        parse_local: true
+    },
+    Droid = 6 => {
+        id: "droid",
+        root: PathRoot::Home,
+        relative: ".factory/sessions",
+        pattern: "*.settings.json",
+        headless: false,
+        parse_local: true
+    },
+    OpenClaw = 7 => {
+        id: "openclaw",
+        root: PathRoot::Home,
+        relative: ".openclaw/agents",
+        pattern: "*.jsonl",
+        headless: false,
+        parse_local: true
+    },
+    Pi = 8 => {
+        id: "pi",
+        root: PathRoot::Home,
+        relative: ".pi/agent/sessions",
+        pattern: "*.jsonl",
+        headless: false,
+        parse_local: true
+    },
+    Kimi = 9 => {
+        id: "kimi",
+        root: PathRoot::Home,
+        relative: ".kimi/sessions",
+        pattern: "wire.jsonl",
+        headless: false,
+        parse_local: true
+    },
+    Qwen = 10 => {
+        id: "qwen",
+        root: PathRoot::Home,
+        relative: ".qwen/projects",
+        pattern: "*.jsonl",
+        headless: false,
+        parse_local: true
+    },
+    RooCode = 11 => {
+        id: "roocode",
+        root: PathRoot::Home,
+        relative: ".config/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks",
+        pattern: "ui_messages.json",
+        headless: false,
+        parse_local: true
+    },
+    KiloCode = 12 => {
+        id: "kilocode",
+        root: PathRoot::Home,
+        relative: ".config/Code/User/globalStorage/kilocode.kilo-code/tasks",
+        pattern: "ui_messages.json",
+        headless: false,
+        parse_local: true
+    },
+    Mux = 13 => {
+        id: "mux",
+        root: PathRoot::Home,
+        relative: ".mux/sessions",
+        pattern: "session-usage.json",
+        headless: false,
+        parse_local: true
+    }
+);
+
+pub struct ClientCounts {
+    counts: [i32; ClientId::COUNT],
+}
+
+impl ClientCounts {
+    pub fn new() -> Self {
+        Self {
+            counts: [0; ClientId::COUNT],
+        }
+    }
+
+    pub fn get(&self, client: ClientId) -> i32 {
+        self.counts[client as usize]
+    }
+
+    pub fn set(&mut self, client: ClientId, value: i32) {
+        self.counts[client as usize] = value;
+    }
+
+    pub fn add(&mut self, client: ClientId, value: i32) {
+        self.counts[client as usize] += value;
+    }
+}
+
+impl Default for ClientCounts {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn restore_env(var: &str, previous: Option<String>) {
+        match previous {
+            Some(value) => unsafe { std::env::set_var(var, value) },
+            None => unsafe { std::env::remove_var(var) },
+        }
+    }
+
+    #[test]
+    fn test_client_id_count() {
+        assert_eq!(ClientId::COUNT, 14);
+    }
+
+    #[test]
+    fn test_client_id_all_len_matches_count() {
+        assert_eq!(ClientId::ALL.len(), ClientId::COUNT);
+    }
+
+    #[test]
+    fn test_client_id_string_round_trip() {
+        for client in ClientId::iter() {
+            let id = client.as_str();
+            assert_eq!(ClientId::from_str(id), Some(client));
+        }
+    }
+
+    #[test]
+    fn test_path_root_home_resolves_to_home_dir() {
+        let home = "/tmp/home";
+        assert_eq!(PathRoot::Home.resolve(home), home);
+    }
+
+    #[test]
+    fn test_path_root_xdg_data_uses_env_var_when_set() {
+        let _guard = env_lock().lock().unwrap();
+        let previous = std::env::var("XDG_DATA_HOME").ok();
+        unsafe { std::env::set_var("XDG_DATA_HOME", "/tmp/xdg-data-home") };
+
+        let resolved = PathRoot::XdgData.resolve("/tmp/home");
+        assert_eq!(resolved, "/tmp/xdg-data-home");
+
+        restore_env("XDG_DATA_HOME", previous);
+    }
+
+    #[test]
+    fn test_path_root_xdg_data_falls_back_when_unset() {
+        let _guard = env_lock().lock().unwrap();
+        let previous = std::env::var("XDG_DATA_HOME").ok();
+        unsafe { std::env::remove_var("XDG_DATA_HOME") };
+
+        let resolved = PathRoot::XdgData.resolve("/tmp/home");
+        assert_eq!(resolved, "/tmp/home/.local/share");
+
+        restore_env("XDG_DATA_HOME", previous);
+    }
+
+    #[test]
+    fn test_path_root_env_var_uses_env_when_set() {
+        let _guard = env_lock().lock().unwrap();
+        let var = "TOKSCALE_TEST_PATH_ROOT";
+        let previous = std::env::var(var).ok();
+        unsafe { std::env::set_var(var, "/tmp/custom-root") };
+
+        let root = PathRoot::EnvVar {
+            var,
+            fallback_relative: ".fallback",
+        };
+        let resolved = root.resolve("/tmp/home");
+        assert_eq!(resolved, "/tmp/custom-root");
+
+        restore_env(var, previous);
+    }
+
+    #[test]
+    fn test_path_root_env_var_falls_back_when_unset() {
+        let _guard = env_lock().lock().unwrap();
+        let var = "TOKSCALE_TEST_PATH_ROOT";
+        let previous = std::env::var(var).ok();
+        unsafe { std::env::remove_var(var) };
+
+        let root = PathRoot::EnvVar {
+            var,
+            fallback_relative: ".fallback",
+        };
+        let resolved = root.resolve("/tmp/home");
+        assert_eq!(resolved, "/tmp/home/.fallback");
+
+        restore_env(var, previous);
+    }
+
+    #[test]
+    fn test_client_def_resolve_path_combines_root_and_relative() {
+        let client = ClientDef {
+            id: "test",
+            root: PathRoot::Home,
+            relative_path: ".test/sessions",
+            pattern: "*.jsonl",
+            headless: false,
+            parse_local: true,
+        };
+
+        assert_eq!(client.resolve_path("/tmp/home"), "/tmp/home/.test/sessions");
+    }
+
+    #[test]
+    fn test_client_id_iter_yields_all_in_order() {
+        let all: Vec<ClientId> = ClientId::iter().collect();
+        assert_eq!(all, ClientId::ALL);
+    }
+
+    #[test]
+    fn test_client_counts_get_set_add_work() {
+        let mut counts = ClientCounts::new();
+
+        assert_eq!(counts.get(ClientId::Claude), 0);
+        counts.set(ClientId::Claude, 3);
+        assert_eq!(counts.get(ClientId::Claude), 3);
+        counts.add(ClientId::Claude, 2);
+        assert_eq!(counts.get(ClientId::Claude), 5);
+    }
+
+    #[test]
+    fn test_codex_root_uses_codex_home_env_var() {
+        assert_eq!(
+            ClientId::Codex.data().root,
+            PathRoot::EnvVar {
+                var: "CODEX_HOME",
+                fallback_relative: ".codex",
+            }
+        );
+    }
+
+    #[test]
+    fn test_cursor_parse_local_is_false() {
+        assert!(!ClientId::Cursor.data().parse_local);
+    }
+}
