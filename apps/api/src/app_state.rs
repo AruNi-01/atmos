@@ -5,6 +5,7 @@ use core_service::{
     TestService, WorkspaceService, WsMessageService,
 };
 use infra::{WsService, WsServiceConfig};
+use token_usage::TokenUsageService;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -15,6 +16,7 @@ pub struct AppState {
     pub agent_session_service: Arc<AgentSessionService>,
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
+    pub token_usage_service: Arc<TokenUsageService>,
     pub ws_service: Arc<WsService>,
 }
 
@@ -28,6 +30,7 @@ impl AppState {
         ws_message_service: Arc<WsMessageService>,
         message_push_service: Arc<MessagePushService>,
         terminal_service: Arc<TerminalService>,
+        token_usage_service: Arc<TokenUsageService>,
         ws_service_config: WsServiceConfig,
         db: Arc<infra::DatabaseConnection>,
     ) -> Self {
@@ -46,6 +49,7 @@ impl AppState {
             agent_session_service,
             message_push_service,
             terminal_service,
+            token_usage_service,
             ws_service: Arc::new(ws_service),
         }
     }

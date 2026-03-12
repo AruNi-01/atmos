@@ -341,6 +341,8 @@ pub enum WsEvent {
     WorkspaceSetupProgress,
     /// AI usage overview changed and should be refreshed on all clients
     UsageOverviewUpdated,
+    /// Local token usage overview changed and should be refreshed on all clients
+    TokenUsageUpdated,
     /// Git commit message 流式生成 chunk
     GitCommitMessageChunk,
 }

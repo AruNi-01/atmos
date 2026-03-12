@@ -13,6 +13,7 @@ agent = { path = "../../crates/agent" }
 infra = { path = "../../crates/infra" }
 core-engine = { path = "../../crates/core-engine" }
 core-service = { path = "../../crates/core-service" }
+token-usage = { path = "../../crates/token-usage" }
 
 axum = { version = "0.8", features = ["ws", "multipart"] }
 tokio = { version = "1.0", features = ["full"] }
