@@ -1265,7 +1265,7 @@ export function UsagePopover() {
   const canCycleFooterInfo = Boolean(autoRefreshTargetMs) && !error;
   const footerInfoWidthClass =
     showAutoRefreshAction || Boolean(autoRefreshTargetMs) ? "w-[236px]" : "w-[148px]";
-  const showProviderArrows = providerScrollState.hasOverflow || switches.length > 7;
+  const showProviderArrows = providerScrollState.hasOverflow;
 
   useEffect(() => {
     if (!open || showFooterActions || !canCycleFooterInfo) {
@@ -1366,12 +1366,13 @@ export function UsagePopover() {
                       aria-label="Scroll providers left"
                       onClick={() => {
                         providerScrollRef.current?.scrollBy({ left: -240, behavior: "smooth" });
+                        requestAnimationFrame(updateProviderScrollState);
                       }}
                       className={cn(
-                        "absolute inset-y-0 left-0 z-10 inline-flex w-6 items-center justify-center text-foreground/92 transition-opacity",
+                        "absolute inset-y-0 left-0 z-10 inline-flex w-8 items-center justify-center text-foreground/92 transition-opacity",
                         providerScrollState.canScrollLeft ? "opacity-100" : "cursor-default opacity-28"
                       )}
-                      disabled={!providerScrollState.canScrollLeft}
+                      aria-disabled={!providerScrollState.canScrollLeft}
                     >
                       <ChevronLeft className="size-3.5" />
                     </button>
@@ -1380,12 +1381,13 @@ export function UsagePopover() {
                       aria-label="Scroll providers right"
                       onClick={() => {
                         providerScrollRef.current?.scrollBy({ left: 240, behavior: "smooth" });
+                        requestAnimationFrame(updateProviderScrollState);
                       }}
                       className={cn(
-                        "absolute inset-y-0 right-0 z-10 inline-flex w-6 items-center justify-center text-foreground/92 transition-opacity",
+                        "absolute inset-y-0 right-0 z-10 inline-flex w-8 items-center justify-center text-foreground/92 transition-opacity",
                         providerScrollState.canScrollRight ? "opacity-100" : "cursor-default opacity-28"
                       )}
-                      disabled={!providerScrollState.canScrollRight}
+                      aria-disabled={!providerScrollState.canScrollRight}
                     >
                       <ChevronRight className="size-3.5" />
                     </button>
