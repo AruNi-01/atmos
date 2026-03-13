@@ -143,11 +143,8 @@ impl WsMessageService {
             }
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
             WsAction::GitGenerateCommitMessage => {
-                self.handle_git_generate_commit_message(
-                    conn_id,
-                    parse_request(request.data)?,
-                )
-                .await
+                self.handle_git_generate_commit_message(conn_id, parse_request(request.data)?)
+                    .await
             }
             WsAction::GitCommit => self.handle_git_commit(parse_request(request.data)?),
             WsAction::GitPush => self.handle_git_push(parse_request(request.data)?),
@@ -275,7 +272,8 @@ impl WsMessageService {
                     .await
             }
             WsAction::SkillsDelete => {
-                self.handle_skills_delete(parse_request(request.data)?).await
+                self.handle_skills_delete(parse_request(request.data)?)
+                    .await
             }
             WsAction::WikiSkillInstall => self.handle_wiki_skill_install().await,
             WsAction::WikiSkillSystemStatus => self.handle_wiki_skill_system_status().await,

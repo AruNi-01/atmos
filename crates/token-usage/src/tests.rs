@@ -98,6 +98,32 @@ async fn get_overview_publishes_updates_for_fresh_fetches() {
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
+#[tokio::test]
+async fn get_overview_does_not_publish_updates_for_regular_reads() {
+    let service = TokenUsageService::new(
+        Arc::new(FakeCollector {
+            calls: Arc::new(AtomicUsize::new(0)),
+        }),
+        Duration::from_secs(300),
+    );
+    let mut updates = service.subscribe_updates();
+
+    let query = TokenUsageQuery {
+        clients: None,
+        since: None,
+        until: None,
+        year: None,
+        group_by: TokenUsageGroupBy::ClientModel,
+    };
+
+    let _ = service.get_overview(query, false).await.unwrap();
+
+    assert!(matches!(
+        updates.try_recv(),
+        Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+    ));
+}
+
 fn sample_reports() -> CollectedTokenUsageReports {
     use tokscale_core::{
         ClientContribution, DailyContribution, DailyTotals, DataSummary, GraphMeta, GraphResult,
@@ -250,5 +276,6 @@ fn sample_reports() -> CollectedTokenUsageReports {
         graph,
         model_report,
         monthly_report,
+        processing_time_ms: 23,
     }
 }

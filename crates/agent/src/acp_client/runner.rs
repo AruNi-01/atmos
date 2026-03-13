@@ -526,9 +526,10 @@ async fn run_session_inner(
                                 .await
                             {
                                 Ok(_) => {
-                                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                                        current_value_only_config_option("mode", value),
-                                    ]));
+                                    let _ =
+                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                                            current_value_only_config_option("mode", value),
+                                        ]));
                                 }
                                 Err(e) => {
                                     warn!(
@@ -546,9 +547,10 @@ async fn run_session_inner(
                                 .await
                             {
                                 Ok(_) => {
-                                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                                        current_value_only_config_option("model", value),
-                                    ]));
+                                    let _ =
+                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                                            current_value_only_config_option("model", value),
+                                        ]));
                                 }
                                 Err(e) => {
                                     warn!(
@@ -660,9 +662,10 @@ async fn run_session_inner(
                                 .await
                             {
                                 Ok(_) => {
-                                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                                        current_value_only_config_option("mode", value),
-                                    ]));
+                                    let _ =
+                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                                            current_value_only_config_option("mode", value),
+                                        ]));
                                 }
                                 Err(e) => warn!("Set session mode failed: {}", e),
                             }
@@ -676,9 +679,10 @@ async fn run_session_inner(
                                 .await
                             {
                                 Ok(_) => {
-                                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                                        current_value_only_config_option("model", value),
-                                    ]));
+                                    let _ =
+                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                                            current_value_only_config_option("model", value),
+                                        ]));
                                 }
                                 Err(e) => warn!("Set session model failed: {}", e),
                             }

@@ -290,6 +290,14 @@ pub struct MonthlyReport {
     pub processing_time_ms: u32,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct UsageReports {
+    pub graph: GraphResult,
+    pub model_report: ModelReport,
+    pub monthly_report: MonthlyReport,
+    pub processing_time_ms: u32,
+}
+
 pub fn get_home_dir_string(home_dir_option: &Option<String>) -> Result<String, String> {
     home_dir_option
         .clone()
@@ -586,31 +594,7 @@ fn parse_all_messages_with_pricing(
     all_messages
 }
 
-fn filter_unified_messages(
-    messages: Vec<UnifiedMessage>,
-    options: &LocalParseOptions,
-) -> Vec<UnifiedMessage> {
-    let mut filtered = messages;
-
-    if let Some(year) = &options.year {
-        let year_prefix = format!("{}-", year);
-        filtered.retain(|m| m.date.starts_with(&year_prefix));
-    }
-
-    if let Some(since) = &options.since {
-        filtered.retain(|m| m.date.as_str() >= since.as_str());
-    }
-
-    if let Some(until) = &options.until {
-        filtered.retain(|m| m.date.as_str() <= until.as_str());
-    }
-
-    filtered
-}
-
-pub async fn get_model_report(options: ReportOptions) -> Result<ModelReport, String> {
-    let start = Instant::now();
-
+async fn load_filtered_messages(options: &ReportOptions) -> Result<Vec<UnifiedMessage>, String> {
     let home_dir = get_home_dir_string(&options.home_dir)?;
 
     let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
@@ -625,12 +609,16 @@ pub async fn get_model_report(options: ReportOptions) -> Result<ModelReport, Str
     let pricing = pricing::PricingService::get_or_init().await?;
     let all_messages = parse_all_messages_with_pricing(&home_dir, &clients, Some(&pricing));
 
-    let filtered = filter_messages_for_report(all_messages, &options);
+    Ok(filter_messages_for_report(all_messages, options))
+}
 
+fn build_model_report_from_messages(
+    messages: &[UnifiedMessage],
+    group_by: &GroupBy,
+) -> ModelReport {
     let mut model_map: HashMap<String, ModelUsage> = HashMap::new();
-    let group_by = &options.group_by;
 
-    for msg in filtered {
+    for msg in messages {
         let normalized = normalize_model_for_grouping(&msg.model_id);
         let key = match group_by {
             GroupBy::Model => normalized.clone(),
@@ -687,7 +675,6 @@ pub async fn get_model_report(options: ReportOptions) -> Result<ModelReport, Str
     let mut entries: Vec<ModelUsage> = model_map
         .into_values()
         .map(|mut entry| {
-            // Normalize provider order for deterministic output
             let mut providers: Vec<&str> = entry.provider.split(", ").collect();
             providers.sort_unstable();
             providers.dedup();
@@ -712,7 +699,7 @@ pub async fn get_model_report(options: ReportOptions) -> Result<ModelReport, Str
     let total_messages: i32 = entries.iter().map(|e| e.message_count).sum();
     let total_cost: f64 = entries.iter().map(|e| e.cost).sum();
 
-    Ok(ModelReport {
+    ModelReport {
         entries,
         total_input,
         total_output,
@@ -720,43 +707,14 @@ pub async fn get_model_report(options: ReportOptions) -> Result<ModelReport, Str
         total_cache_write,
         total_messages,
         total_cost,
-        processing_time_ms: start.elapsed().as_millis() as u32,
-    })
+        processing_time_ms: 0,
+    }
 }
 
-#[derive(Default)]
-struct MonthAggregator {
-    models: HashSet<String>,
-    input: i64,
-    output: i64,
-    cache_read: i64,
-    cache_write: i64,
-    message_count: i32,
-    cost: f64,
-}
-
-pub async fn get_monthly_report(options: ReportOptions) -> Result<MonthlyReport, String> {
-    let start = Instant::now();
-
-    let home_dir = get_home_dir_string(&options.home_dir)?;
-
-    let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
-        let mut clients: Vec<String> = ClientId::ALL
-            .iter()
-            .map(|c| c.as_str().to_string())
-            .collect();
-        clients.push("synthetic".to_string());
-        clients
-    });
-
-    let pricing = pricing::PricingService::get_or_init().await?;
-    let all_messages = parse_all_messages_with_pricing(&home_dir, &clients, Some(&pricing));
-
-    let filtered = filter_messages_for_report(all_messages, &options);
-
+fn build_monthly_report_from_messages(messages: &[UnifiedMessage]) -> MonthlyReport {
     let mut month_map: HashMap<String, MonthAggregator> = HashMap::new();
 
-    for msg in filtered {
+    for msg in messages {
         let month = if msg.date.len() >= 7 {
             msg.date[..7].to_string()
         } else {
@@ -794,11 +752,124 @@ pub async fn get_monthly_report(options: ReportOptions) -> Result<MonthlyReport,
 
     let total_cost: f64 = entries.iter().map(|e| e.cost).sum();
 
-    Ok(MonthlyReport {
+    MonthlyReport {
         entries,
         total_cost,
-        processing_time_ms: start.elapsed().as_millis() as u32,
+        processing_time_ms: 0,
+    }
+}
+
+/// Atmos-only additive API that builds all token usage reports from a single
+/// local scan/parse pass. Keep upstream public APIs unchanged when possible so
+/// vendored upgrades are easier to rebase.
+pub async fn generate_usage_reports(options: ReportOptions) -> Result<UsageReports, String> {
+    let start = Instant::now();
+
+    let filtered = load_filtered_messages(&options).await?;
+
+    let graph_start = Instant::now();
+    let contributions = aggregator::aggregate_by_date(filtered.clone());
+    let mut graph =
+        aggregator::generate_graph_result(contributions, graph_start.elapsed().as_millis() as u32);
+
+    let model_start = Instant::now();
+    let mut model_report = build_model_report_from_messages(&filtered, &options.group_by);
+    model_report.processing_time_ms = model_start.elapsed().as_millis() as u32;
+
+    let monthly_start = Instant::now();
+    let mut monthly_report = build_monthly_report_from_messages(&filtered);
+    monthly_report.processing_time_ms = monthly_start.elapsed().as_millis() as u32;
+
+    let processing_time_ms = start.elapsed().as_millis() as u32;
+    graph.meta.processing_time_ms = processing_time_ms;
+
+    Ok(UsageReports {
+        graph,
+        model_report,
+        monthly_report,
+        processing_time_ms,
     })
+}
+
+fn filter_unified_messages(
+    messages: Vec<UnifiedMessage>,
+    options: &LocalParseOptions,
+) -> Vec<UnifiedMessage> {
+    let mut filtered = messages;
+
+    if let Some(year) = &options.year {
+        let year_prefix = format!("{}-", year);
+        filtered.retain(|m| m.date.starts_with(&year_prefix));
+    }
+
+    if let Some(since) = &options.since {
+        filtered.retain(|m| m.date.as_str() >= since.as_str());
+    }
+
+    if let Some(until) = &options.until {
+        filtered.retain(|m| m.date.as_str() <= until.as_str());
+    }
+
+    filtered
+}
+
+pub async fn get_model_report(options: ReportOptions) -> Result<ModelReport, String> {
+    let start = Instant::now();
+
+    let home_dir = get_home_dir_string(&options.home_dir)?;
+
+    let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
+        let mut clients: Vec<String> = ClientId::ALL
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect();
+        clients.push("synthetic".to_string());
+        clients
+    });
+
+    let pricing = pricing::PricingService::get_or_init().await?;
+    let all_messages = parse_all_messages_with_pricing(&home_dir, &clients, Some(&pricing));
+
+    let filtered = filter_messages_for_report(all_messages, &options);
+    let mut report = build_model_report_from_messages(&filtered, &options.group_by);
+    report.processing_time_ms = start.elapsed().as_millis() as u32;
+
+    Ok(report)
+}
+
+#[derive(Default)]
+struct MonthAggregator {
+    models: HashSet<String>,
+    input: i64,
+    output: i64,
+    cache_read: i64,
+    cache_write: i64,
+    message_count: i32,
+    cost: f64,
+}
+
+pub async fn get_monthly_report(options: ReportOptions) -> Result<MonthlyReport, String> {
+    let start = Instant::now();
+
+    let home_dir = get_home_dir_string(&options.home_dir)?;
+
+    let clients: Vec<String> = options.clients.clone().unwrap_or_else(|| {
+        let mut clients: Vec<String> = ClientId::ALL
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect();
+        clients.push("synthetic".to_string());
+        clients
+    });
+
+    let pricing = pricing::PricingService::get_or_init().await?;
+    let all_messages = parse_all_messages_with_pricing(&home_dir, &clients, Some(&pricing));
+
+    let filtered = filter_messages_for_report(all_messages, &options);
+    let mut report = build_monthly_report_from_messages(&filtered);
+    report.processing_time_ms = start.elapsed().as_millis() as u32;
+
+    Ok(report)
 }
 
 pub async fn generate_graph(options: ReportOptions) -> Result<GraphResult, String> {
@@ -819,7 +890,6 @@ pub async fn generate_graph(options: ReportOptions) -> Result<GraphResult, Strin
     let all_messages = parse_all_messages_with_pricing(&home_dir, &clients, Some(&pricing));
 
     let filtered = filter_messages_for_report(all_messages, &options);
-
     let contributions = aggregator::aggregate_by_date(filtered);
 
     let processing_time_ms = start.elapsed().as_millis() as u32;

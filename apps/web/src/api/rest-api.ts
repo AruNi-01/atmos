@@ -293,7 +293,6 @@ export interface TokenUsageOverviewResponse {
 }
 
 export interface TokenUsageUpdateResponse {
-  query: TokenUsageQueryResponse;
   overview: TokenUsageOverviewResponse;
 }
 

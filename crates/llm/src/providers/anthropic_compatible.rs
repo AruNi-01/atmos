@@ -122,7 +122,8 @@ impl LlmClient for AnthropicCompatibleClient {
             .timeout(provider.timeout)
             .build()?;
 
-        let primary_body = build_stream_body(build_primary_body(provider, &request, max_output_tokens));
+        let primary_body =
+            build_stream_body(build_primary_body(provider, &request, max_output_tokens));
         match stream_once(&client, provider, &endpoint, &primary_body, &tx).await {
             Ok(()) => Ok(()),
             Err(StreamAttemptFailure::Retryable(error)) => {
@@ -203,7 +204,10 @@ fn extract_stream_text_from_data(data: &str, provider: &ResolvedLlmProvider) -> 
         }
     };
 
-    let event_type = parsed.get("type").and_then(Value::as_str).unwrap_or("unknown");
+    let event_type = parsed
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
 
     let text = parsed
         .get("delta")
@@ -480,7 +484,10 @@ fn parse_stream_error_message(data: &str) -> String {
         .ok()
         .and_then(|v| {
             let error = v.get("error")?;
-            let code = error.get("code").and_then(Value::as_str).unwrap_or("unknown");
+            let code = error
+                .get("code")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
             let message = error
                 .get("message")
                 .and_then(Value::as_str)

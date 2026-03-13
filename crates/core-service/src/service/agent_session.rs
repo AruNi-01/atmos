@@ -568,7 +568,10 @@ impl AgentSessionService {
 
     async fn resolve_agent_display_name(&self, registry_id: &str) -> Option<String> {
         if let Ok(custom_agents) = self.agent_service.list_custom_agents() {
-            if let Some(agent) = custom_agents.into_iter().find(|agent| agent.name == registry_id) {
+            if let Some(agent) = custom_agents
+                .into_iter()
+                .find(|agent| agent.name == registry_id)
+            {
                 return Some(agent.name);
             }
         }

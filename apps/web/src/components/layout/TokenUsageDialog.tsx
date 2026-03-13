@@ -18,6 +18,7 @@ import {
   CalendarRange,
   ChartColumnBig,
   Coins,
+  MessagesSquare,
   RefreshCcw,
   Sparkles,
   Wallet,
@@ -209,13 +210,13 @@ const agentPalette = [
 export function TokenUsageDialog() {
   const [open, setOpen] = React.useState(false);
   const [overview, setOverview] = React.useState<TokenUsageOverviewResponse | null>(null);
-  const [availableYears, setAvailableYears] = React.useState<string[]>([]);
   const [selectedYear, setSelectedYear] = React.useState("");
   const [resolution, setResolution] = React.useState<Resolution>("month");
   const [loading, setLoading] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [hoveredHeatmapCell, setHoveredHeatmapCell] = React.useState<HeatmapHoverState | null>(null);
+  const [chartsReady, setChartsReady] = React.useState(false);
   const requestRef = React.useRef(0);
   const onEvent = useWebSocketStore((state) => state.onEvent);
 
@@ -240,8 +241,9 @@ export function TokenUsageDialog() {
           return;
         }
 
-        setOverview(next);
-        setAvailableYears((current) => mergeYearLists(current, next.available_years, next.by_day));
+        React.startTransition(() => {
+          setOverview(next);
+        });
       } catch (loadError) {
         if (requestRef.current !== requestId) {
           return;
@@ -260,13 +262,15 @@ export function TokenUsageDialog() {
     [],
   );
 
-  React.useEffect(() => {
-    if (!overview) {
-      return;
-    }
-
-    setAvailableYears((current) => mergeYearLists(current, overview.available_years, overview.by_day));
-  }, [overview]);
+  const deferredOverview = React.useDeferredValue(overview);
+  const sortedDays = React.useMemo(
+    () => sortDailyUsage(deferredOverview?.by_day ?? []),
+    [deferredOverview?.by_day],
+  );
+  const availableYears = React.useMemo(
+    () => mergeYearLists(deferredOverview?.available_years ?? [], sortedDays),
+    [deferredOverview?.available_years, sortedDays],
+  );
 
   React.useEffect(() => {
     if (selectedYear) {
@@ -281,11 +285,46 @@ export function TokenUsageDialog() {
 
   React.useEffect(() => {
     if (!open) {
+      setChartsReady(false);
       return;
     }
 
     void loadOverview();
   }, [loadOverview, open]);
+
+  React.useEffect(() => {
+    if (!open || !overview || chartsReady) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const activate = () => {
+      if (!cancelled) {
+        React.startTransition(() => {
+          setChartsReady(true);
+        });
+      }
+    };
+
+    if (
+      typeof window !== "undefined" &&
+      typeof window.requestIdleCallback === "function" &&
+      typeof window.cancelIdleCallback === "function"
+    ) {
+      const idleId = window.requestIdleCallback(activate, { timeout: 250 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    const timeoutId = globalThis.setTimeout(activate, 120);
+    return () => {
+      cancelled = true;
+      globalThis.clearTimeout(timeoutId);
+    };
+  }, [chartsReady, open, overview]);
 
   React.useEffect(() => {
     if (!open) {
@@ -298,13 +337,11 @@ export function TokenUsageDialog() {
         return;
       }
 
-      setAvailableYears((current) =>
-        mergeYearLists(current, update.overview.available_years, update.overview.by_day),
-      );
-
-      const eventYear = update.query.year ?? update.overview.query.year ?? "";
+      const eventYear = update.overview.query.year ?? "";
       if (!eventYear) {
-        setOverview(update.overview);
+        React.startTransition(() => {
+          setOverview(update.overview);
+        });
         return;
       }
 
@@ -319,13 +356,13 @@ export function TokenUsageDialog() {
   }, [heatmapYear, overview?.generated_at]);
 
   const timelineSeries = React.useMemo(
-    () => buildTimelineSeries(overview?.by_day ?? [], resolution),
-    [overview?.by_day, resolution],
+    () => buildTimelineSeries(sortedDays, resolution),
+    [resolution, sortedDays],
   );
 
   const heatmapWeeks = React.useMemo(
-    () => buildHeatmapWeeks(overview?.by_day ?? [], heatmapYear),
-    [heatmapYear, overview?.by_day],
+    () => buildHeatmapWeeks(sortedDays, heatmapYear),
+    [heatmapYear, sortedDays],
   );
   const heatmapMonthLabels = React.useMemo(
     () => buildHeatmapMonthLabels(heatmapWeeks, heatmapYear),
@@ -347,17 +384,17 @@ export function TokenUsageDialog() {
   );
 
   const agentSeries = React.useMemo(
-    () => buildAgentSeries(overview?.by_day ?? [], resolution),
-    [overview?.by_day, resolution],
+    () => buildAgentSeries(sortedDays, resolution),
+    [resolution, sortedDays],
   );
 
   const heatmapSummary = React.useMemo(
-    () => summarizeYear(overview?.by_day ?? [], heatmapYear),
-    [heatmapYear, overview?.by_day],
+    () => summarizeYear(sortedDays, heatmapYear),
+    [heatmapYear, sortedDays],
   );
   const yearlyAgentShares = React.useMemo(
-    () => buildYearAgentShares(overview?.by_day ?? [], heatmapYear),
-    [heatmapYear, overview?.by_day],
+    () => buildYearAgentShares(sortedDays, heatmapYear),
+    [heatmapYear, sortedDays],
   );
   const yearlyAgentRadarMax = React.useMemo(
     () => calculateYearAgentRadarMax(yearlyAgentShares),
@@ -389,13 +426,13 @@ export function TokenUsageDialog() {
         label: "Total tokens",
         value: formatCompactNumber(overview?.summary.total_tokens ?? 0),
         note: rangeLabel,
-        icon: Sparkles,
+        icon: Coins,
       },
       {
         label: "Messages",
         value: formatCompactNumber(overview?.summary.total_messages ?? 0),
         note: `${overview?.by_client.length ?? 0} agents detected`,
-        icon: Coins,
+        icon: MessagesSquare,
       },
       {
         label: "Active days",
@@ -418,6 +455,7 @@ export function TokenUsageDialog() {
   }, [loadOverview]);
 
   const showInitialSkeleton = loading && !overview;
+  const showDeferredChartSkeleton = !showInitialSkeleton && !!overview && !chartsReady;
   const emptyState = !loading && !error && !!overview && heatmapSummary.activeDays === 0;
 
   return (
@@ -459,20 +497,20 @@ export function TokenUsageDialog() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
                     variant="outline"
-                    className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground"
+                    className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] tracking-[0.08em] text-muted-foreground"
                   >
                     Local session data
                   </Badge>
                   <Badge
                     variant="outline"
-                    className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground"
+                    className="rounded-full border-border/70 bg-background/70 px-3 py-1 text-[10px] tracking-[0.08em] text-muted-foreground"
                   >
                     All time overview
                   </Badge>
                   {overview?.partial_warnings.length ? (
                     <Badge
                       variant="outline"
-                      className="rounded-full border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-amber-700 dark:text-amber-300"
+                      className="rounded-full border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] tracking-[0.08em] text-amber-700 dark:text-amber-300"
                     >
                       Partial data
                     </Badge>
@@ -492,7 +530,7 @@ export function TokenUsageDialog() {
 
               <div className="flex items-center gap-2 self-start">
                 <div className="hidden rounded-2xl border border-border/70 bg-background/80 px-3 py-2 text-right backdrop-blur sm:block">
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  <div className="text-[10px] tracking-[0.08em] text-muted-foreground">
                     Last refresh
                   </div>
                   <div className="mt-1 text-sm font-medium">{generatedAtLabel}</div>
@@ -551,26 +589,18 @@ export function TokenUsageDialog() {
                         </CardContent>
                       </Card>
                     ))
-                  : statCards.map((stat, index) => (
+                  : statCards.map((stat) => (
                       <Card
                         key={stat.label}
                         className="overflow-hidden border-border/70 bg-card/85 shadow-none backdrop-blur"
                       >
                         <CardHeader className="space-y-3 pb-3">
                           <div className="flex items-center justify-between">
-                            <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                            <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
                               {stat.label}
                             </CardDescription>
-                            <div
-                              className="rounded-full border border-border/70 p-2"
-                              style={{ backgroundColor: statAccent(index, 0.14) }}
-                            >
-                              <stat.icon
-                                className="size-4"
-                                style={{
-                                  color: `var(--color-chart-${Math.min(index + 1, 4)})`,
-                                }}
-                              />
+                            <div className="rounded-full border border-border/70 bg-muted/55 p-2 text-foreground">
+                              <stat.icon className="size-4" />
                             </div>
                           </div>
                           <CardTitle className="text-3xl font-semibold tracking-tight">
@@ -589,7 +619,7 @@ export function TokenUsageDialog() {
                   <CardHeader className="gap-3">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-1">
-                        <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
                           Contribution heatmap
                         </CardDescription>
                         <CardTitle className="text-2xl font-semibold tracking-tight">
@@ -744,7 +774,7 @@ export function TokenUsageDialog() {
                       </div>
 
                       <div className="flex h-full rounded-[22px] border border-border/70 bg-background/82 p-4 sm:p-6">
-                        {showInitialSkeleton ? (
+                        {showInitialSkeleton || showDeferredChartSkeleton ? (
                           <ChartSkeleton />
                         ) : yearlyAgentShares.length > 0 ? (
                           <ChartContainer
@@ -767,10 +797,7 @@ export function TokenUsageDialog() {
                                 <ChartTooltip
                                   cursor={false}
                                   content={
-                                    <ChartTooltipContent
-                                      labelFormatter={(label) => label}
-                                      formatter={(value) => formatPercent(Number(value) / 100)}
-                                    />
+                                    <RadarShareTooltipContent />
                                   }
                                 />
                                 <Radar
@@ -797,7 +824,7 @@ export function TokenUsageDialog() {
 
               <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  <div className="text-[11px] tracking-[0.08em] text-muted-foreground">
                     Chart resolution
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -827,7 +854,7 @@ export function TokenUsageDialog() {
               <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
                 <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
                   <CardHeader className="pb-2">
-                    <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
                       Trend
                     </CardDescription>
                     <CardTitle className="text-xl">
@@ -835,7 +862,7 @@ export function TokenUsageDialog() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-2">
-                    {showInitialSkeleton ? (
+                    {showInitialSkeleton || showDeferredChartSkeleton ? (
                       <ChartSkeleton />
                     ) : (
                       <ChartContainer config={curveChartConfig} className="h-[320px] w-full">
@@ -898,7 +925,7 @@ export function TokenUsageDialog() {
 
                 <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
                   <CardHeader className="pb-2">
-                    <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
                       Sources
                     </CardDescription>
                     <CardTitle className="text-xl">
@@ -906,7 +933,7 @@ export function TokenUsageDialog() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-2">
-                    {showInitialSkeleton ? (
+                    {showInitialSkeleton || showDeferredChartSkeleton ? (
                       <ChartSkeleton />
                     ) : (
                       <ChartContainer config={agentChartConfig} className="h-[320px] w-full">
@@ -955,7 +982,7 @@ export function TokenUsageDialog() {
               <section>
                 <Card className="border-border/70 bg-card/88 shadow-none backdrop-blur">
                   <CardHeader className="pb-2">
-                    <CardDescription className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <CardDescription className="text-[11px] tracking-[0.08em] text-muted-foreground">
                       Shape
                     </CardDescription>
                     <CardTitle className="text-xl">
@@ -963,7 +990,7 @@ export function TokenUsageDialog() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-2">
-                    {showInitialSkeleton ? (
+                    {showInitialSkeleton || showDeferredChartSkeleton ? (
                       <ChartSkeleton />
                     ) : (
                       <ChartContainer config={tokenMixChartConfig} className="h-[320px] w-full">
@@ -1179,6 +1206,44 @@ function HeatmapPopoverRow({ label, value }: { label: string; value: number }) {
   );
 }
 
+function RadarShareTooltipContent({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    color?: string;
+    value?: number | string;
+    payload?: { label?: string };
+  }>;
+}) {
+  const item = payload?.[0];
+  if (!active || !item) {
+    return null;
+  }
+
+  const agentLabel = item.payload?.label ?? "Agent";
+  const color = item.color ?? "var(--color-chart-2)";
+  const rawValue = typeof item.value === "number" ? item.value : Number(item.value ?? 0);
+
+  return (
+    <div className="min-w-44 rounded-xl border border-border/70 bg-popover/95 px-3 py-2.5 text-popover-foreground shadow-xl backdrop-blur">
+      <div className="mb-2 text-[11px] font-medium tracking-[0.08em] text-muted-foreground">
+        Share
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
+          <span className="text-xs text-muted-foreground">{agentLabel}</span>
+        </div>
+        <div className="text-sm font-semibold tabular-nums">
+          {formatPercent(rawValue / 100)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function buildTimelineSeries(
   days: DailyTokenUsageResponse[],
   resolution: Resolution,
@@ -1199,7 +1264,7 @@ function buildTimelineSeries(
     ]),
   );
 
-  for (const day of sortDailyUsage(days)) {
+  for (const day of days) {
     const key = resolution === "day" ? day.date : day.date.slice(0, 7);
     const existing = buckets.get(key) ?? {
       key,
@@ -1234,7 +1299,7 @@ function buildAgentSeries(
     periodKeysForRange(days, resolution).map((key) => [key, {}]),
   );
 
-  for (const day of sortDailyUsage(days)) {
+  for (const day of days) {
     const periodKey = resolution === "day" ? day.date : day.date.slice(0, 7);
     const bucket = periods.get(periodKey) ?? {};
 
@@ -1251,6 +1316,7 @@ function buildAgentSeries(
     .map(([clientId]) => clientId);
 
   const topClients = rankedClients.slice(0, 5);
+  const topClientSet = new Set(topClients);
   const hasOther = rankedClients.length > topClients.length;
   const keys = hasOther ? [...topClients, "other"] : topClients;
 
@@ -1263,7 +1329,7 @@ function buildAgentSeries(
 
       let other = 0;
       for (const [clientId, value] of Object.entries(bucket)) {
-        if (topClients.includes(clientId)) {
+        if (topClientSet.has(clientId)) {
           point[clientId] = value;
         } else {
           other += value;
@@ -1294,8 +1360,8 @@ function buildHeatmapWeeks(days: DailyTokenUsageResponse[], year: string): Heatm
   const start = startOfWeek(startOfYear(new Date(Number(year), 0, 1)), { weekStartsOn: 0 });
   const end = endOfWeek(endOfYear(new Date(Number(year), 0, 1)), { weekStartsOn: 0 });
   const dayMap = new Map(days.map((day) => [day.date, day]));
-  const maxTokens = Math.max(
-    ...days.filter((day) => day.date.startsWith(`${year}-`)).map((day) => day.total_tokens),
+  const maxTokens = days.reduce(
+    (max, day) => (day.date.startsWith(`${year}-`) ? Math.max(max, day.total_tokens) : max),
     0,
   );
   const calendarDays = eachDayOfInterval({ start, end });
@@ -1330,13 +1396,9 @@ function buildHeatmapMonthLabels(weeks: HeatmapWeek[], year: string): HeatmapMon
   }
 
   return Array.from({ length: 12 }, (_, monthIndex) => {
+    const monthPrefix = `${year}-${String(monthIndex + 1).padStart(2, "0")}-`;
     const weekIndex = weeks.findIndex((week) =>
-      week.cells.some(
-        (cell) =>
-          cell.count !== null &&
-          parseISO(cell.date).getFullYear() === Number(year) &&
-          parseISO(cell.date).getMonth() === monthIndex,
-      ),
+      week.cells.some((cell) => cell.date.startsWith(monthPrefix)),
     );
 
     if (weekIndex < 0) {
@@ -1460,12 +1522,11 @@ function calculateYearAgentRadarMax(data: YearAgentShare[]) {
 }
 
 function mergeYearLists(
-  current: string[],
   incoming: string[],
   byDay: DailyTokenUsageResponse[],
 ): string[] {
   const inferred = byDay.map((day) => day.date.slice(0, 4));
-  return Array.from(new Set([...current, ...incoming, ...inferred])).sort((left, right) =>
+  return Array.from(new Set([...incoming, ...inferred])).sort((left, right) =>
     left.localeCompare(right),
   );
 }
@@ -1530,9 +1591,8 @@ function sortDailyUsage(days: DailyTokenUsageResponse[]) {
 }
 
 function periodKeysForRange(days: DailyTokenUsageResponse[], resolution: Resolution) {
-  const sortedDays = sortDailyUsage(days);
-  const firstDay = sortedDays[0];
-  const lastDay = sortedDays[sortedDays.length - 1];
+  const firstDay = days[0];
+  const lastDay = days[days.length - 1];
 
   if (!firstDay || !lastDay) {
     return [];
@@ -1622,9 +1682,4 @@ function humanizeId(value: string) {
     .filter(Boolean)
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(" ");
-}
-
-function statAccent(index: number, amount: number) {
-  const color = `var(--color-chart-${Math.min(index + 1, 4)})`;
-  return `color-mix(in oklch, ${color} ${Math.round(amount * 100)}%, transparent)`;
 }

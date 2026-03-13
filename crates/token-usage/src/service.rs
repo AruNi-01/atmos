@@ -25,6 +25,7 @@ pub(crate) struct CollectedTokenUsageReports {
     pub(crate) graph: tokscale_core::GraphResult,
     pub(crate) model_report: tokscale_core::ModelReport,
     pub(crate) monthly_report: tokscale_core::MonthlyReport,
+    pub(crate) processing_time_ms: u32,
 }
 
 #[async_trait]
@@ -46,20 +47,15 @@ impl TokenUsageCollector for TokscaleCollector {
     ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
         let options = tokscale_options(query);
 
-        let graph = tokscale_core::generate_graph(options.clone())
-            .await
-            .map_err(TokenUsageError::Fetch)?;
-        let model_report = tokscale_core::get_model_report(options.clone())
-            .await
-            .map_err(TokenUsageError::Fetch)?;
-        let monthly_report = tokscale_core::get_monthly_report(options)
+        let reports = tokscale_core::generate_usage_reports(options)
             .await
             .map_err(TokenUsageError::Fetch)?;
 
         Ok(CollectedTokenUsageReports {
-            graph,
-            model_report,
-            monthly_report,
+            graph: reports.graph,
+            model_report: reports.model_report,
+            monthly_report: reports.monthly_report,
+            processing_time_ms: reports.processing_time_ms,
         })
     }
 }
@@ -128,9 +124,11 @@ impl TokenUsageService {
             );
         }
 
-        self.publish_update(TokenUsageUpdate {
-            overview: overview.clone(),
-        });
+        if refresh {
+            self.publish_update(TokenUsageUpdate {
+                overview: overview.clone(),
+            });
+        }
 
         Ok(overview)
     }
@@ -166,9 +164,7 @@ fn build_overview(
         active_days: reports.graph.summary.active_days,
         range_start: non_empty(reports.graph.meta.date_range_start.clone()),
         range_end: non_empty(reports.graph.meta.date_range_end.clone()),
-        processing_time_ms: reports.graph.meta.processing_time_ms
-            + reports.model_report.processing_time_ms
-            + reports.monthly_report.processing_time_ms,
+        processing_time_ms: reports.processing_time_ms,
     };
 
     TokenUsageOverview {

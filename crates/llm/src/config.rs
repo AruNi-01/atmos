@@ -4,9 +4,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::error::{LlmError, Result};
-use crate::types::{
-    LlmFeature, LlmProvidersFile, ResolvedLlmProvider, SessionTitleFormatConfig,
-};
+use crate::types::{LlmFeature, LlmProvidersFile, ResolvedLlmProvider, SessionTitleFormatConfig};
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =

@@ -56,8 +56,7 @@ const MAIN_FILE_CANDIDATES: &[&str] = &["SKILL.md"];
 
 /// Text file extensions to read content
 const TEXT_EXTENSIONS: &[&str] = &[
-    "md", "txt", "json", "yaml", "yml", "toml", "sh", "bash", "zsh", "py", "js", "ts", "rs",
-    "go",
+    "md", "txt", "json", "yaml", "yml", "toml", "sh", "bash", "zsh", "py", "js", "ts", "rs", "go",
 ];
 
 #[derive(Debug, Clone)]
@@ -468,7 +467,8 @@ impl SkillScanner {
             return true;
         }
 
-        metadata.file_type().is_symlink() && !Self::entry_behaves_like_markdown_file(path, original_path, metadata)
+        metadata.file_type().is_symlink()
+            && !Self::entry_behaves_like_markdown_file(path, original_path, metadata)
     }
 
     fn directory_contains_main_file(path: &Path, resolved_path: Option<&Path>) -> bool {
@@ -845,15 +845,11 @@ impl SkillManager {
         let selected_placement_ids = selected_placement_ids(placement_ids)?;
 
         let mut seen_paths = HashSet::new();
-        for placement in skill
-            .placements
-            .iter()
-            .filter(|placement| {
-                placement.can_toggle
-                    && placement.status != desired_status
-                    && placement_matches_selection(placement, &selected_placement_ids)
-            })
-        {
+        for placement in skill.placements.iter().filter(|placement| {
+            placement.can_toggle
+                && placement.status != desired_status
+                && placement_matches_selection(placement, &selected_placement_ids)
+        }) {
             if !seen_paths.insert(placement.path.clone()) {
                 continue;
             }
@@ -893,7 +889,9 @@ impl SkillManager {
             delete_entry_without_following_symlink(Path::new(&placement.path))?;
         }
 
-        ensure_selection_applied(&skill, &selected_placement_ids, |placement| placement.can_delete)?;
+        ensure_selection_applied(&skill, &selected_placement_ids, |placement| {
+            placement.can_delete
+        })?;
 
         Ok(())
     }
@@ -1021,10 +1019,9 @@ fn ensure_selection_applied(
         return Ok(());
     }
 
-    let matched = skill
-        .placements
-        .iter()
-        .any(|placement| predicate(placement) && placement_matches_selection(placement, selected_placement_ids));
+    let matched = skill.placements.iter().any(|placement| {
+        predicate(placement) && placement_matches_selection(placement, selected_placement_ids)
+    });
 
     if matched {
         Ok(())
@@ -1037,7 +1034,11 @@ fn ensure_selection_applied(
 
 fn move_entry_without_following_symlink(from: &Path, to: &Path) -> Result<()> {
     let metadata = fs::symlink_metadata(from).map_err(|e| {
-        ServiceError::Validation(format!("Failed to inspect skill entry '{}': {}", from.display(), e))
+        ServiceError::Validation(format!(
+            "Failed to inspect skill entry '{}': {}",
+            from.display(),
+            e
+        ))
     })?;
 
     if fs::symlink_metadata(to).is_ok() {
@@ -1067,10 +1068,18 @@ fn move_entry_without_following_symlink(from: &Path, to: &Path) -> Result<()> {
     }
 }
 
-fn copy_entry_without_following_symlink(from: &Path, to: &Path, metadata: &fs::Metadata) -> Result<()> {
+fn copy_entry_without_following_symlink(
+    from: &Path,
+    to: &Path,
+    metadata: &fs::Metadata,
+) -> Result<()> {
     if metadata.file_type().is_symlink() {
         let target = fs::read_link(from).map_err(|e| {
-            ServiceError::Validation(format!("Failed to read symlink '{}': {}", from.display(), e))
+            ServiceError::Validation(format!(
+                "Failed to read symlink '{}': {}",
+                from.display(),
+                e
+            ))
         })?;
         create_symlink(&target, to, from.is_dir())?;
         return Ok(());
@@ -1078,10 +1087,18 @@ fn copy_entry_without_following_symlink(from: &Path, to: &Path, metadata: &fs::M
 
     if metadata.is_dir() {
         fs::create_dir_all(to).map_err(|e| {
-            ServiceError::Validation(format!("Failed to create directory '{}': {}", to.display(), e))
+            ServiceError::Validation(format!(
+                "Failed to create directory '{}': {}",
+                to.display(),
+                e
+            ))
         })?;
         let entries = fs::read_dir(from).map_err(|e| {
-            ServiceError::Validation(format!("Failed to read directory '{}': {}", from.display(), e))
+            ServiceError::Validation(format!(
+                "Failed to read directory '{}': {}",
+                from.display(),
+                e
+            ))
         })?;
         for entry in entries.filter_map(|entry| entry.ok()) {
             let child_from = entry.path();
@@ -1124,13 +1141,21 @@ fn delete_entry_without_following_symlink(path: &Path) -> Result<()> {
 
     if metadata.file_type().is_symlink() || metadata.is_file() {
         fs::remove_file(path).map_err(|e| {
-            ServiceError::Validation(format!("Failed to remove skill link '{}': {}", path.display(), e))
+            ServiceError::Validation(format!(
+                "Failed to remove skill link '{}': {}",
+                path.display(),
+                e
+            ))
         })?;
         return Ok(());
     }
 
     fs::remove_dir_all(path).map_err(|e| {
-        ServiceError::Validation(format!("Failed to remove skill directory '{}': {}", path.display(), e))
+        ServiceError::Validation(format!(
+            "Failed to remove skill directory '{}': {}",
+            path.display(),
+            e
+        ))
     })?;
     Ok(())
 }

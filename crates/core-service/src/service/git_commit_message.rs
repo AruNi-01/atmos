@@ -123,7 +123,6 @@ impl GitCommitMessageGenerator {
 
         Ok(rx)
     }
-
 }
 
 fn build_generation_prompt(repo_name: Option<&str>, changes: &ChangedFilesInfo) -> String {
@@ -397,9 +396,6 @@ mod tests {
     #[test]
     fn resolve_max_output_tokens_prefers_provider_config() {
         assert_eq!(resolve_max_output_tokens(Some(1024)), 1024);
-        assert_eq!(
-            resolve_max_output_tokens(None),
-            DEFAULT_MAX_OUTPUT_TOKENS
-        );
+        assert_eq!(resolve_max_output_tokens(None), DEFAULT_MAX_OUTPUT_TOKENS);
     }
 }

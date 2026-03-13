@@ -2,8 +2,8 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use llm::{
-    generate_text, render_prompt_template, FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat,
-    SessionTitleFormatConfig,
+    generate_text, render_prompt_template, FileLlmConfigStore, GenerateTextRequest, LlmFeature,
+    ResponseFormat, SessionTitleFormatConfig,
 };
 use regex::Regex;
 use serde::Deserialize;
@@ -124,10 +124,7 @@ fn build_system_prompt(first_prompt: &str, format: &SessionTitleFormatConfig) ->
     } else {
         "Use the same primary language as the user's first prompt."
     };
-    let duplicate_instruction = match (
-        format.include_agent_name,
-        format.include_project_name,
-    ) {
+    let duplicate_instruction = match (format.include_agent_name, format.include_project_name) {
         (true, true) => {
             "- do not repeat the enabled agent name or project name inside `title_desc`"
         }
@@ -251,7 +248,8 @@ fn heuristic_title_desc(
         } else {
             "Wiki Ask"
         };
-        let title_desc = sanitize_title_desc(wiki_label).unwrap_or_else(|| DEFAULT_TITLE.to_string());
+        let title_desc =
+            sanitize_title_desc(wiki_label).unwrap_or_else(|| DEFAULT_TITLE.to_string());
         return maybe_prefix_intent_emoji(title_desc, first_prompt, format);
     }
 
@@ -459,7 +457,10 @@ fn heuristic_intent_emoji(first_prompt: &str) -> Option<&'static str> {
         return Some("📝");
     }
 
-    if text.contains("compare") || text.contains("vs") || text.contains("区别") || text.contains("对比")
+    if text.contains("compare")
+        || text.contains("vs")
+        || text.contains("区别")
+        || text.contains("对比")
     {
         return Some("⚖️");
     }
@@ -574,9 +575,6 @@ mod tests {
     #[test]
     fn resolve_max_output_tokens_prefers_provider_config() {
         assert_eq!(resolve_max_output_tokens(Some(256)), 256);
-        assert_eq!(
-            resolve_max_output_tokens(None),
-            DEFAULT_MAX_OUTPUT_TOKENS
-        );
+        assert_eq!(resolve_max_output_tokens(None), DEFAULT_MAX_OUTPUT_TOKENS);
     }
 }
