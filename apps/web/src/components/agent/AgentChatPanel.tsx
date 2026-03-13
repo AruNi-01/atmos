@@ -192,22 +192,7 @@ function isDiffObject(o: unknown): o is DiffFileOutput {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const LAST_CHAT_MODE_STORAGE_KEY = "atmos.agent.last_chat_mode";
 const DEFAULT_AGENT_STORAGE_KEY = "atmos.agent.default_registry_id";
-
-function readLastChatMode(): AgentChatMode {
-  try {
-    const raw = localStorage.getItem(LAST_CHAT_MODE_STORAGE_KEY);
-    if (raw === "wiki_ask" || raw === "default") return raw;
-  } catch { }
-  return DEFAULT_AGENT_CHAT_MODE;
-}
-
-function writeLastChatMode(mode: AgentChatMode): void {
-  try {
-    localStorage.setItem(LAST_CHAT_MODE_STORAGE_KEY, mode);
-  } catch { }
-}
 
 function getSessionContextKey(
   workspaceId: string | null,
@@ -1872,19 +1857,31 @@ function ConfigOptionDropdown({
 // Main Panel
 // ---------------------------------------------------------------------------
 
-export function AgentChatPanel() {
+interface AgentChatPanelProps {
+  variant?: "modal" | "sidebar";
+  mode?: AgentChatMode;
+  publishStatus?: boolean;
+}
+
+export function AgentChatPanel({
+  variant = "modal",
+  mode = DEFAULT_AGENT_CHAT_MODE,
+  publishStatus = variant === "modal",
+}: AgentChatPanelProps = {}) {
   const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
   const {
-    consumePendingAgentChatMode,
     agentChatPromptQueues,
     enqueueAgentChatPrompt,
     removeQueuedAgentChatPrompt,
     updateQueuedAgentChatPrompt,
     moveQueuedAgentChatPrompt,
+    setAgentChatDraft,
+    clearAgentChatDraft,
   } = useDialogStore();
+  const isPanelOpen = variant === "sidebar" ? true : isAgentChatOpen;
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
-  const [chatMode, setChatMode] = useState<AgentChatMode>(DEFAULT_AGENT_CHAT_MODE);
+  const chatMode = mode;
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [currentPlan, setCurrentPlan] = useState<AgentPlan | null>(null);
   const [installedAgents, setInstalledAgents] = useState<RegistryAgent[]>([]);
@@ -1929,7 +1926,6 @@ export function AgentChatPanel() {
   const stoppedRef = useRef(false);
   const forcedDisconnectDoneRef = useRef(false);
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previousModeRef = useRef<AgentChatMode>(chatMode);
   const connectedContextKeyRef = useRef<string | null>(null);
   const pendingStreamMessagesRef = useRef<AgentServerMessage[]>([]);
   const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1940,8 +1936,10 @@ export function AgentChatPanel() {
   const { layout, updateLayout, loaded: layoutLoaded, loadLayout } = useAgentChatLayout();
 
   useEffect(() => {
-    loadLayout();
-  }, [loadLayout]);
+    if (variant === "modal") {
+      loadLayout();
+    }
+  }, [loadLayout, variant]);
   const panelRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
@@ -2061,10 +2059,10 @@ export function AgentChatPanel() {
   }, [layout, clamp, updateLayout]);
 
   useEffect(() => {
-    if (isAgentChatOpen && projects.length === 0) {
+    if (isPanelOpen && projects.length === 0) {
       fetchProjects();
     }
-  }, [isAgentChatOpen, projects.length, fetchProjects]);
+  }, [isPanelOpen, projects.length, fetchProjects]);
 
   const localPath = React.useMemo(() => {
     if (!effectiveContextId) return null;
@@ -2110,6 +2108,7 @@ export function AgentChatPanel() {
     }
     return { enabled: true, reason: null };
   }, [hasBoundContext, isProjectScopedView, wikiExists]);
+  const canUseCurrentMode = chatMode !== "wiki_ask" || wikiAskAvailability.enabled;
 
   useEffect(() => {
     if (!effectiveContextId || !wikiPath || !isProjectScopedView) return;
@@ -2126,49 +2125,6 @@ export function AgentChatPanel() {
   const sessionProjectId = chatMode === "wiki_ask" && workspaceId && parentProjectId
     ? parentProjectId
     : projectId;
-
-  useEffect(() => {
-    if (!isAgentChatOpen) return;
-    const pendingMode = consumePendingAgentChatMode();
-    if (!pendingMode) return;
-    if (pendingMode === "wiki_ask" && !wikiAskAvailability.enabled) {
-      setChatMode("default");
-      return;
-    }
-    setChatMode(pendingMode);
-  }, [consumePendingAgentChatMode, isAgentChatOpen, wikiAskAvailability.enabled]);
-
-  useEffect(() => {
-    if (chatMode !== "wiki_ask") return;
-    if (wikiAskAvailability.enabled) return;
-    // Only override when wiki is confirmed missing (wikiExists === false).
-    // When wikiExists is null (still loading), keep current mode to avoid overriding
-    // a restored preference before the check completes.
-    if (wikiExists !== false) return;
-    setChatMode("default");
-  }, [chatMode, wikiAskAvailability.enabled, wikiExists]);
-
-  // Restore last-used chat mode from localStorage on mount (SSR-safe; localStorage
-  // doesn't exist on server, so we can only read it client-side in useEffect).
-  useEffect(() => {
-    const saved = readLastChatMode();
-    if (saved !== chatMode) {
-      setChatMode(saved);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Persist last-used chat mode so refresh restores the correct mode.
-  useEffect(() => {
-    writeLastChatMode(chatMode);
-  }, [chatMode]);
-
-  // Persist on panel close so the mode used when closing is definitely saved.
-  useEffect(() => {
-    if (!isAgentChatOpen) {
-      writeLastChatMode(chatMode);
-    }
-  }, [isAgentChatOpen, chatMode]);
 
   const flushPendingStreamMessages = useCallback(() => {
     if (streamFlushTimerRef.current) {
@@ -2310,8 +2266,6 @@ export function AgentChatPanel() {
     resumeSession,
     clearAuthRequest,
     disconnect,
-    stashSession,
-    unstashSession,
     disconnectStashed,
     sessionCwd,
     sessionTitle: activeSessionTitle,
@@ -2327,13 +2281,30 @@ export function AgentChatPanel() {
     onMessage: handleMessage,
   });
 
+  useEffect(() => {
+    if (canUseCurrentMode || !isConnected) return;
+    disconnect();
+    setWaitingForResponse(false);
+    setPendingPermission(null);
+    stoppedRef.current = false;
+  }, [canUseCurrentMode, disconnect, isConnected]);
+
   // Publish readiness to global store so other components can check before sending prompts
   const setStatusHasAgents = useAgentChatStatusStore((s) => s.setHasInstalledAgents);
   const setStatusConnected = useAgentChatStatusStore((s) => s.setIsConnected);
   const setStatusBusy = useAgentChatStatusStore((s) => s.setIsBusy);
-  useEffect(() => { setStatusHasAgents(installedAgents.length > 0); }, [installedAgents.length, setStatusHasAgents]);
-  useEffect(() => { setStatusConnected(isConnected); }, [isConnected, setStatusConnected]);
-  useEffect(() => { setStatusBusy(waitingForResponse); }, [waitingForResponse, setStatusBusy]);
+  useEffect(() => {
+    if (!publishStatus) return;
+    setStatusHasAgents(installedAgents.length > 0);
+  }, [installedAgents.length, publishStatus, setStatusHasAgents]);
+  useEffect(() => {
+    if (!publishStatus) return;
+    setStatusConnected(isConnected);
+  }, [isConnected, publishStatus, setStatusConnected]);
+  useEffect(() => {
+    if (!publishStatus) return;
+    setStatusBusy(waitingForResponse);
+  }, [waitingForResponse, publishStatus, setStatusBusy]);
 
   const agentActivity = useMemo(
     () => deriveAgentActivity(entries, waitingForResponse),
@@ -2390,115 +2361,9 @@ export function AgentChatPanel() {
     () => agentChatPromptQueues[queueKey] ?? [],
     [agentChatPromptQueues, queueKey]
   );
+  const agentChatDraft = useDialogStore((s) => s.agentChatDrafts[queueKey] ?? "");
   const queuedPromptHead = queuedPrompts[0] ?? null;
 
-  // Compute effective session IDs for a given mode (wiki_ask in workspace → project context)
-  const getEffectiveIds = useCallback((mode: AgentChatMode) => {
-    const isWikiInWorkspace = mode === "wiki_ask" && workspaceId && parentProjectId;
-    return {
-      wId: isWikiInWorkspace ? null : workspaceId,
-      pId: isWikiInWorkspace ? parentProjectId : projectId,
-    };
-  }, [workspaceId, projectId, parentProjectId]);
-
-  useEffect(() => {
-    const previousMode = previousModeRef.current;
-    if (previousMode === chatMode) return;
-    previousModeRef.current = chatMode;
-    const prevIds = getEffectiveIds(previousMode);
-    const nextIds = getEffectiveIds(chatMode);
-    const previousContextKey = getSessionContextKey(prevIds.wId, prevIds.pId, previousMode);
-    const nextContextKey = getSessionContextKey(nextIds.wId, nextIds.pId, chatMode);
-
-    // ---- save outgoing session ----
-    if (sessionId) {
-      const nextMap = {
-        ...activeSessionByContextRef.current,
-        [previousContextKey]: sessionId,
-      };
-      activeSessionByContextRef.current = nextMap;
-      setActiveSessionByContext(nextMap);
-    }
-    entriesByContextRef.current[previousContextKey] = entries;
-    planByContextRef.current[previousContextKey] = currentPlan;
-    sessionTitleByContextRef.current[previousContextKey] = sessionTitle;
-    sessionTitleSourceByContextRef.current[previousContextKey] = sessionTitleSource;
-
-    // Stash the live WS connection (stays open in background).
-    stashSession(previousContextKey);
-
-    // ---- restore incoming session ----
-    setEntries(entriesByContextRef.current[nextContextKey] ?? []);
-    setCurrentPlan(planByContextRef.current[nextContextKey] ?? null);
-    setPendingPermission(null);
-    setSessionTitle(sessionTitleByContextRef.current[nextContextKey] ?? null);
-    setSessionTitleSource(sessionTitleSourceByContextRef.current[nextContextKey] ?? null);
-    setIsAutoGeneratingTitle(false);
-    setShouldScrambleAutoTitle(false);
-    setWaitingForResponse(false);
-    stoppedRef.current = false;
-
-    // Try to instantly restore a stashed session for the new mode.
-    const restoredSessionId = unstashSession(nextContextKey);
-
-    if (restoredSessionId) {
-      // Seamless switch – already connected.
-      activeSessionByContextRef.current[nextContextKey] = restoredSessionId;
-      setActiveSessionByContext((prev) => ({ ...prev, [nextContextKey]: restoredSessionId }));
-      setIsResumedSession(true);
-      setIsResumingHistory(false);
-      restoreAttemptedRef.current = true;
-      autoStartHandledRef.current = true;
-      // Sync connectedContextKeyRef so the effect below won't mistakenly
-      // disconnect when it sees contextKey changed.
-      connectedContextKeyRef.current = nextContextKey;
-      autoResumeTriedRef.current = restoredSessionId;
-    } else {
-      // No stashed session (e.g. after refresh). Query DB for the most recent session.
-      restoreAttemptedRef.current = true;
-      autoStartHandledRef.current = true;
-      setIsResumingHistory(true);
-      void (async () => {
-        try {
-          const contextType = nextIds.wId != null ? "workspace" : nextIds.pId != null ? "project" : "temp";
-          const contextGuid = nextIds.wId ?? nextIds.pId ?? undefined;
-          const res = await agentRestApi.listSessions({
-            context_type: contextType,
-            context_guid: contextGuid,
-            mode: chatMode,
-            limit: 1,
-          });
-          const latestSession = res.items[0];
-          if (latestSession) {
-            autoResumeTriedRef.current = latestSession.guid;
-            setIsResumedSession(true);
-            setRegistryId(latestSession.registry_id);
-            const success = await resumeSession(latestSession.guid);
-            if (!success) {
-              setIsResumingHistory(false);
-              autoStartHandledRef.current = false;
-              restoreAttemptedRef.current = false;
-              autoResumeTriedRef.current = null;
-              setIsResumedSession(false);
-              startSession();
-            }
-          } else {
-            setIsResumingHistory(false);
-            setIsResumedSession(false);
-            restoreAttemptedRef.current = false;
-            autoResumeTriedRef.current = null;
-            autoStartHandledRef.current = false;
-          }
-        } catch {
-          setIsResumingHistory(false);
-          setIsResumedSession(false);
-          restoreAttemptedRef.current = false;
-          autoResumeTriedRef.current = null;
-          autoStartHandledRef.current = false;
-        }
-      })();
-    }
-  }, [chatMode, currentPlan, entries, getEffectiveIds, resumeSession, sessionId, sessionTitle, sessionTitleSource, stashSession, startSession, unstashSession]);
 
   useEffect(() => {
     if (!sessionId || !isConnected) return;
@@ -2556,7 +2421,7 @@ export function AgentChatPanel() {
 
   const handleSelectHistorySession = useCallback(
     async (s: AgentChatSessionItem) => {
-      if (isConnecting) return;
+      if (isConnecting || !canUseCurrentMode) return;
       if (sessionId === s.guid && isConnected) {
         setHistoryOpen(false);
         return;
@@ -2589,11 +2454,11 @@ export function AgentChatPanel() {
         skipNextAutoConnectRef.current = false;
       }
     },
-    [contextKey, disconnect, isConnected, isConnecting, resumeSession, sessionId]
+    [canUseCurrentMode, contextKey, disconnect, isConnected, isConnecting, resumeSession, sessionId]
   );
 
   const handleCreateNewSession = useCallback(async (targetRegistryId?: string) => {
-    if (isConnecting) return;
+    if (isConnecting || !canUseCurrentMode) return;
     const nextRegistryId = targetRegistryId || defaultRegistryId || registryId;
     if (!nextRegistryId) return;
     skipNextAutoConnectRef.current = true;
@@ -2624,7 +2489,7 @@ export function AgentChatPanel() {
     } finally {
       skipNextAutoConnectRef.current = false;
     }
-  }, [contextKey, defaultRegistryId, disconnect, disconnectStashed, isConnecting, registryId, startSession]);
+  }, [canUseCurrentMode, contextKey, defaultRegistryId, disconnect, disconnectStashed, isConnecting, registryId, startSession]);
 
   const handleManualLoadMessages = useCallback(async () => {
     const targetSessionId = sessionId;
@@ -2706,7 +2571,7 @@ export function AgentChatPanel() {
   }, [registryId]);
 
   useEffect(() => {
-    if (!isAgentChatOpen) {
+    if (!isPanelOpen) {
       restoreAttemptedRef.current = false;
       skipNextAutoConnectRef.current = false;
       autoStartHandledRef.current = false;
@@ -2721,7 +2586,7 @@ export function AgentChatPanel() {
     if (!hasLoadedAgents || (!registryId && installedAgents.length > 0)) {
       void refreshAgents();
     }
-  }, [isAgentChatOpen, isConnecting, loadingAgents, hasLoadedAgents, installedAgents.length, registryId, refreshAgents]);
+  }, [isPanelOpen, isConnecting, loadingAgents, hasLoadedAgents, installedAgents.length, registryId, refreshAgents]);
 
   const sendQueuedPrompt = useCallback((item: QueuedAgentPrompt) => {
     let finalPrompt = item.prompt;
@@ -2758,7 +2623,8 @@ export function AgentChatPanel() {
   }, [removeQueuedAgentChatPrompt, sendPrompt, sessionId]);
 
   useEffect(() => {
-    if (!isAgentChatOpen || !isConnected || !queuedPromptHead?.forceNewSession) return;
+    if (!isPanelOpen || !isConnected || !queuedPromptHead?.forceNewSession) return;
+    if (!canUseCurrentMode) return;
     if (agentActivity.busy || waitingForResponse || pendingPermission || isConnecting) return;
     if (forcedDisconnectDoneRef.current) return;
 
@@ -2781,7 +2647,8 @@ export function AgentChatPanel() {
   }, [
     agentActivity.busy,
     disconnect,
-    isAgentChatOpen,
+    canUseCurrentMode,
+    isPanelOpen,
     isConnected,
     isConnecting,
     pendingPermission,
@@ -2792,8 +2659,9 @@ export function AgentChatPanel() {
   useEffect(() => {
     const effectiveRegistryId = queuedPromptHead?.registryId || defaultRegistryId || registryId;
     if (
-      isAgentChatOpen &&
+      isPanelOpen &&
       effectiveRegistryId &&
+      canUseCurrentMode &&
       installedAgents.length > 0 &&
       !isConnected &&
       !isConnecting
@@ -2918,7 +2786,8 @@ export function AgentChatPanel() {
     chatMode,
     contextKey,
     defaultRegistryId,
-    isAgentChatOpen,
+    canUseCurrentMode,
+    isPanelOpen,
     sessionProjectId,
     registryId,
     installedAgents.length,
@@ -2940,7 +2809,7 @@ export function AgentChatPanel() {
   }, [isConnected, sessionId]);
 
   useEffect(() => {
-    if (!isAgentChatOpen || !queuedPromptHead) {
+    if (!isPanelOpen || !queuedPromptHead) {
       dispatchingQueuedPromptIdRef.current = null;
       return;
     }
@@ -2956,7 +2825,7 @@ export function AgentChatPanel() {
   }, [
     agentActivity.busy,
     connectionPhase,
-    isAgentChatOpen,
+    isPanelOpen,
     isConnected,
     isConnecting,
     pendingPermission,
@@ -3047,7 +2916,7 @@ export function AgentChatPanel() {
   const handleSubmit = useCallback(
     async (message: { text: string; files?: import("ai").FileUIPart[] }) => {
       const text = message.text.trim();
-      if (!text || !isConnected) return;
+      if (!text || !isConnected || !canUseCurrentMode) return;
       stoppedRef.current = false;
       const displayFiles = message.files?.map((f, i) => ({ ...f, id: `f-${Date.now()}-${i}` }));
       let sessionTitleForPrompt: string | undefined;
@@ -3100,9 +2969,12 @@ export function AgentChatPanel() {
         sessionTitle: sessionTitleForPrompt,
         origin: "panel",
       });
+      clearAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode);
     },
     [
       chatMode,
+      canUseCurrentMode,
+      clearAgentChatDraft,
       enqueueAgentChatPrompt,
       entries.length,
       isConnected,
@@ -3174,22 +3046,13 @@ export function AgentChatPanel() {
     writeDefaultAgentRegistryId(agentId);
   }, []);
 
-  const handleToggleChatMode = useCallback(() => {
-    if (chatMode === "wiki_ask") {
-      setChatMode("default");
-      return;
-    }
-    if (!wikiAskAvailability.enabled) return;
-    setChatMode("wiki_ask");
-  }, [chatMode, wikiAskAvailability.enabled]);
-
   useEffect(() => {
     return () => clearCloseAgentsMenuTimer();
   }, [clearCloseAgentsMenuTimer]);
 
-  if (!isAgentChatOpen || !layoutLoaded) return null;
+  if (!isPanelOpen || (variant === "modal" && !layoutLoaded)) return null;
 
-  const pos = resolvePosition();
+  const pos = variant === "modal" ? resolvePosition() : null;
 
   const connectionPhaseLabel = (() => {
     switch (connectionPhase) {
@@ -3213,26 +3076,40 @@ export function AgentChatPanel() {
   const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
   const displaySessionTitle =
     sessionTitle && sessionTitle !== "新会话" ? sessionTitle : null;
+  const panelLabel = chatMode === "wiki_ask" ? "Wiki Ask" : "Chat";
+  const panelTitle = activeAgent?.name ?? (variant === "sidebar" ? "Wiki Ask" : "Agent Chat");
 
   return (
     <div
       ref={panelRef}
-      className="fixed z-50 flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-lg"
-      style={{ left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }}
+      className={cn(
+        "flex flex-col overflow-hidden bg-background",
+        variant === "modal" && "fixed z-50 rounded-xl border border-border shadow-lg",
+        variant === "sidebar" && "h-full min-h-0"
+      )}
+      style={variant === "modal" && pos
+        ? { left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }
+        : undefined}
     >
-      {/* Resize handles */}
-      <div className="absolute -top-1 left-2 right-2 h-2 cursor-n-resize z-10" onMouseDown={handleResizeStart('n')} />
-      <div className="absolute -bottom-1 left-2 right-2 h-2 cursor-s-resize z-10" onMouseDown={handleResizeStart('s')} />
-      <div className="absolute -left-1 top-2 bottom-2 w-2 cursor-w-resize z-10" onMouseDown={handleResizeStart('w')} />
-      <div className="absolute -right-1 top-2 bottom-2 w-2 cursor-e-resize z-10" onMouseDown={handleResizeStart('e')} />
-      <div className="absolute -top-1 -left-1 h-3 w-3 cursor-nw-resize z-20" onMouseDown={handleResizeStart('nw')} />
-      <div className="absolute -top-1 -right-1 h-3 w-3 cursor-ne-resize z-20" onMouseDown={handleResizeStart('ne')} />
-      <div className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize z-20" onMouseDown={handleResizeStart('sw')} />
-      <div className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize z-20" onMouseDown={handleResizeStart('se')} />
+      {variant === "modal" && (
+        <>
+          <div className="absolute -top-1 left-2 right-2 h-2 cursor-n-resize z-10" onMouseDown={handleResizeStart("n")} />
+          <div className="absolute -bottom-1 left-2 right-2 h-2 cursor-s-resize z-10" onMouseDown={handleResizeStart("s")} />
+          <div className="absolute -left-1 top-2 bottom-2 w-2 cursor-w-resize z-10" onMouseDown={handleResizeStart("w")} />
+          <div className="absolute -right-1 top-2 bottom-2 w-2 cursor-e-resize z-10" onMouseDown={handleResizeStart("e")} />
+          <div className="absolute -top-1 -left-1 h-3 w-3 cursor-nw-resize z-20" onMouseDown={handleResizeStart("nw")} />
+          <div className="absolute -top-1 -right-1 h-3 w-3 cursor-ne-resize z-20" onMouseDown={handleResizeStart("ne")} />
+          <div className="absolute -bottom-1 -left-1 h-3 w-3 cursor-sw-resize z-20" onMouseDown={handleResizeStart("sw")} />
+          <div className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize z-20" onMouseDown={handleResizeStart("se")} />
+        </>
+      )}
 
       <div
-        className="flex shrink-0 flex-col gap-1 border-b border-border px-4 py-3 cursor-grab active:cursor-grabbing"
-        onMouseDown={handleDragStart}
+        className={cn(
+          "flex shrink-0 flex-col gap-1 border-b border-border px-4 py-3",
+          variant === "modal" && "cursor-grab active:cursor-grabbing"
+        )}
+        onMouseDown={variant === "modal" ? handleDragStart : undefined}
         onMouseEnter={() => setHeaderHovered(true)}
         onMouseLeave={() => setHeaderHovered(false)}
       >
@@ -3346,14 +3223,14 @@ export function AgentChatPanel() {
                 <div className="flex items-center gap-1.5 shrink-0 min-w-0">
                   <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
                   <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black shrink-0">
-                    {chatMode === "wiki_ask" ? "Wiki Ask" : "Default"}
+                    {panelLabel}
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-sm font-medium shrink-0">Agent Chat</span>
+                  <span className="text-sm font-medium shrink-0">{panelTitle}</span>
                   <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black">
-                    {chatMode === "wiki_ask" ? "Wiki Ask" : "Default"}
+                    {panelLabel}
                   </span>
                 </div>
               )}
@@ -3384,36 +3261,6 @@ export function AgentChatPanel() {
             )}
           </div>
           <div className="flex items-center gap-0.5">
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={handleToggleChatMode}
-                    disabled={chatMode === "default" && !wikiAskAvailability.enabled}
-                    className={`group/mode relative rounded p-1.5 transition-colors ${chatMode === "wiki_ask"
-                      ? "text-primary hover:bg-primary/10"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      } disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent`}
-                    aria-label="Toggle chat mode"
-                  >
-                    <span className="block transition-all duration-150 group-hover/mode:scale-0 group-hover/mode:opacity-0">
-                      {chatMode === "wiki_ask" ? <BookOpen className="size-4" /> : <MessageSquare className="size-4" />}
-                    </span>
-                    <span className="absolute inset-0 flex items-center justify-center transition-all duration-150 scale-0 opacity-0 group-hover/mode:scale-100 group-hover/mode:opacity-100">
-                      {chatMode === "wiki_ask" ? <MessageSquare className="size-4" /> : <BookOpen className="size-4" />}
-                    </span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {chatMode === "wiki_ask"
-                    ? "Switch to Default Chat"
-                    : wikiAskAvailability.enabled
-                      ? "Switch to Wiki Ask"
-                      : wikiAskAvailability.reason}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
@@ -3501,14 +3348,16 @@ export function AgentChatPanel() {
                 </ScrollArea>
               </PopoverContent>
             </Popover>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Close chat"
-            >
-              <X className="size-4" />
-            </button>
+            {variant === "modal" && (
+              <button
+                type="button"
+                onClick={handleClose}
+                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Close chat"
+              >
+                <X className="size-4" />
+              </button>
+            )}
           </div>
         </div>
         {(displaySessionTitle || isAutoGeneratingTitle) && (
@@ -3600,7 +3449,14 @@ export function AgentChatPanel() {
                 </Button>
               </div>
             )}
-            {isConnected && entries.length === 0 && !isConnecting && !error && (
+            {!canUseCurrentMode && entries.length === 0 && !isConnecting && !error && (
+              <ConversationEmptyState
+                icon={<BookOpen className="size-12" />}
+                title="Wiki Ask unavailable"
+                description={wikiAskAvailability.reason ?? "Generate the project wiki first to use Wiki Ask."}
+              />
+            )}
+            {canUseCurrentMode && isConnected && entries.length === 0 && !isConnecting && !error && (
               <ConversationEmptyState
                 icon={
                   chatMode === "wiki_ask"
@@ -3794,11 +3650,21 @@ export function AgentChatPanel() {
             <PromptInputBody>
               <PromptInputTextarea
                 placeholder={
-                  isConnected
+                  !canUseCurrentMode
+                    ? (wikiAskAvailability.reason ?? "Wiki Ask unavailable")
+                    : isConnected
                     ? (chatMode === "wiki_ask" ? "Ask about this wiki..." : "Type a message...")
                     : "Select agent to connect"
                 }
-                disabled={!isConnected}
+                disabled={!isConnected || !canUseCurrentMode}
+                value={agentChatDraft}
+                onChange={(e) =>
+                  setAgentChatDraft(
+                    sessionWorkspaceId,
+                    sessionProjectId,
+                    chatMode,
+                    e.currentTarget.value
+                  )}
               />
             </PromptInputBody>
             <PromptInputFooter>
@@ -3852,7 +3718,7 @@ export function AgentChatPanel() {
                       }
                       : undefined
                   }
-                  disabled={!isConnected}
+                  disabled={!isConnected || !canUseCurrentMode}
                   size={agentActivity.busy ? "sm" : "icon-sm"}
                 >
                   {agentActivity.busy ? (

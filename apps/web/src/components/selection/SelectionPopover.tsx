@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Copy, ChevronDown, Check } from 'lucide-react';
+import { Copy, ChevronDown, Check, Paperclip } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -27,6 +27,8 @@ export interface SelectionCopiedPayload {
   includeNote: boolean;
 }
 
+export interface SelectionAttachedPayload extends SelectionCopiedPayload {}
+
 interface SelectionPopoverProps {
   isVisible: boolean;
   position: { x: number; y: number };
@@ -39,6 +41,7 @@ interface SelectionPopoverProps {
   className?: string;
   positioning?: 'absolute' | 'fixed';
   onCopied?: (payload: SelectionCopiedPayload) => void;
+  onAttach?: (payload: SelectionAttachedPayload) => Promise<void> | void;
 }
 
 export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
@@ -53,13 +56,16 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   className,
   positioning = 'absolute',
   onCopied,
+  onAttach,
 }) => {
   const [userNote, setUserNote] = useState('');
   const [copied, setCopied] = useState(false);
+  const [attaching, setAttaching] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [lastSelectionInfo, setLastSelectionInfo] = useState<SelectionInfo | null>(null);
   const animationFrameRef = useRef<number>(0);
+  const canAttach = type === 'wiki' && typeof onAttach === 'function';
 
   // Keep track of the last valid selection info for the exit animation
   if (selectionInfo && selectionInfo !== lastSelectionInfo) {
@@ -102,15 +108,19 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     }
   }, [isActive]);
 
-  const handleCopy = useCallback(async (includeNote: boolean = false) => {
-    if (!displayInfo) return;
+  const buildFormattedText = useCallback((includeNote: boolean) => {
+    if (!displayInfo) return null;
 
     const note = includeNote ? userNote : undefined;
-    const formatted = (() => {
-      if (type === 'diff') return formatDiffSelectionForAI(displayInfo, note);
-      if (type === 'wiki') return formatWikiSelectionForAI(displayInfo, note);
-      return formatEditorSelectionForAI(displayInfo, note);
-    })();
+    if (type === 'diff') return formatDiffSelectionForAI(displayInfo, note);
+    if (type === 'wiki') return formatWikiSelectionForAI(displayInfo, note);
+    return formatEditorSelectionForAI(displayInfo, note);
+  }, [displayInfo, type, userNote]);
+
+  const handleCopy = useCallback(async (includeNote: boolean = false) => {
+    if (!displayInfo) return;
+    const formatted = buildFormattedText(includeNote);
+    if (!formatted) return;
 
     try {
       await navigator.clipboard.writeText(formatted);
@@ -139,7 +149,30 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         type: 'error',
       });
     }
-  }, [displayInfo, onCopied, onDismiss, type, userNote]);
+  }, [buildFormattedText, displayInfo, onCopied, onDismiss, type]);
+
+  const handleAttach = useCallback(async (includeNote: boolean = false) => {
+    if (!displayInfo || !onAttach) return;
+    const formatted = buildFormattedText(includeNote);
+    if (!formatted) return;
+
+    setAttaching(true);
+    try {
+      await onAttach({
+        type,
+        selectionInfo: displayInfo,
+        formattedText: formatted,
+        includeNote,
+      });
+      setCopied(false);
+      onDismiss();
+      setUserNote('');
+    } catch {
+      // Swallow attach failures to avoid unhandled rejections without adding extra UI noise.
+    } finally {
+      setAttaching(false);
+    }
+  }, [buildFormattedText, displayInfo, onAttach, onDismiss, type]);
 
   const handleQuickCopy = useCallback(() => {
     handleCopy(false);
@@ -196,6 +229,18 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 <Copy className="h-3.5 w-3.5" />
               )}
             </Button>
+            {canAttach ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => void handleAttach(false)}
+                title="Attach to Wiki Ask"
+                disabled={attaching}
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="icon"
@@ -261,9 +306,21 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               >
                 Cancel
               </Button>
+              {canAttach ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleAttach(true)}
+                  disabled={attaching}
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                  {attaching ? 'Attaching...' : 'Attach'}
+                </Button>
+              ) : null}
               <Button
                 size="sm"
                 onClick={handleCopyWithNote}
+                disabled={attaching}
               >
                 {copied ? (
                   <>
