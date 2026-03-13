@@ -7,10 +7,13 @@ import type {
 } from "../types";
 import {
   capitalizeWord,
+  looksLikeClaudeAgentSubAgent,
   escapeUnknownXmlLikeTags,
   looksLikeStructuredSubAgent,
-  rawInputObject,
   sanitizeSubAgentMarkdown,
+  resolveSubAgentDescription,
+  resolveSubAgentKind,
+  resolveSubAgentPrompt,
   toStatus,
   uniqueLabels,
 } from "../utils";
@@ -22,12 +25,21 @@ const CLAUDE_METADATA_KEYS = new Set([
   "duration_ms",
 ]);
 
+function comparableText(value: string | null | undefined): string {
+  return (value ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function parseClaudeContent(block: SubAgentToolCallBlock): {
   labels: AtmosSubAgentLabel[];
   contentBlocks: AtmosSubAgentContentBlock[];
 } {
   const labels: AtmosSubAgentLabel[] = [];
   const contentBlocks: AtmosSubAgentContentBlock[] = [];
+  const prompt = resolveSubAgentPrompt(block);
+  const comparablePrompt = comparableText(prompt);
 
   for (const item of block.content ?? []) {
     if (item.type === "diff") {
@@ -65,6 +77,9 @@ function parseClaudeContent(block: SubAgentToolCallBlock): {
       sanitizeSubAgentMarkdown(bodyLines.join("\n")),
     );
     if (markdown) {
+      if (comparablePrompt && comparableText(markdown) === comparablePrompt) {
+        continue;
+      }
       contentBlocks.push({
         type: "markdown",
         markdown,
@@ -80,20 +95,28 @@ function parseClaudeContent(block: SubAgentToolCallBlock): {
 
 export const claudeCodeSubAgentAdapter: SubAgentAdapter = {
   canHandle(block, vendor) {
-    return vendor === "claude" && looksLikeStructuredSubAgent(block);
+    return vendor === "claude" && (
+      looksLikeStructuredSubAgent(block) ||
+      looksLikeClaudeAgentSubAgent(block)
+    );
   },
   normalize(block, vendor, childToolCalls): AtmosSubAgentMessage | null {
-    if (!looksLikeStructuredSubAgent(block)) return null;
-    const input = rawInputObject(block);
-    const description = String(input.description ?? block.description ?? "");
-    const prompt = typeof input.prompt === "string" ? input.prompt : null;
-    const kind = typeof input.subagent_type === "string" ? input.subagent_type : "agent";
+    if (!looksLikeStructuredSubAgent(block) && !looksLikeClaudeAgentSubAgent(block)) {
+      return null;
+    }
+
+    const description = resolveSubAgentDescription(block);
+    const prompt = resolveSubAgentPrompt(block);
+    const kind = resolveSubAgentKind(block);
+    const title = kind.trim().toLowerCase() === "agent"
+      ? "Agent"
+      : `${capitalizeWord(kind)} Agent`;
     const parsed = parseClaudeContent(block);
 
     return {
       id: block.tool_call_id,
       vendor,
-      title: `${capitalizeWord(kind)} Agent`,
+      title,
       description,
       prompt,
       status: toStatus(block.status),

@@ -57,6 +57,11 @@ fn format_description(
                 return format!("{tool}: {url}");
             }
         }
+        if let Some(description) = input.get("description").and_then(|v| v.as_str()) {
+            if !description.is_empty() {
+                return description.to_string();
+            }
+        }
         if let Some(skill) = input.get("skill").and_then(|v| v.as_str()) {
             if !skill.is_empty() {
                 return format!("Skill: {skill}");
@@ -77,6 +82,48 @@ fn format_description(
         }
     }
     tool.to_string()
+}
+
+fn extract_claude_code_meta<T: Serialize>(
+    value: &T,
+) -> Option<serde_json::Map<String, serde_json::Value>> {
+    let serialized = serde_json::to_value(value).ok()?;
+    serialized
+        .get("_meta")
+        .and_then(|value| value.get("claudeCode"))
+        .and_then(|value| value.as_object())
+        .cloned()
+}
+
+fn extract_parent_tool_use_id(
+    claude_code_meta: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> Option<String> {
+    claude_code_meta
+        .and_then(|value| value.get("parentToolUseId"))
+        .and_then(|value| value.as_str())
+        .map(ToOwned::to_owned)
+}
+
+fn extract_claude_tool_name(
+    claude_code_meta: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> Option<String> {
+    claude_code_meta
+        .and_then(|value| value.get("toolName"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn build_tool_call_detail(
+    claude_code_meta: Option<&serde_json::Map<String, serde_json::Value>>,
+) -> Option<serde_json::Value> {
+    let claude_code_meta = claude_code_meta?;
+    let mut detail = serde_json::Map::new();
+    detail.insert(
+        "claudeCode".to_string(),
+        serde_json::Value::Object(claude_code_meta.clone()),
+    );
+    Some(serde_json::Value::Object(detail))
 }
 
 fn extract_markdown_from_tool_call_content(content: &[acp::ToolCallContent]) -> Option<String> {
@@ -129,16 +176,6 @@ fn map_tool_call_content(
             _ => None,
         })
         .collect()
-}
-
-fn extract_parent_tool_use_id<T: Serialize>(value: &T) -> Option<String> {
-    let serialized = serde_json::to_value(value).ok()?;
-    serialized
-        .get("_meta")
-        .and_then(|value| value.get("claudeCode"))
-        .and_then(|value| value.get("parentToolUseId"))
-        .and_then(|value| value.as_str())
-        .map(ToOwned::to_owned)
 }
 
 use tokio::sync::{mpsc, oneshot};
@@ -411,14 +448,16 @@ impl AcpClientTrait for AtmosAcpClient {
             }
             acp::SessionUpdate::ToolCall(tool_call) => {
                 let tool_call_id = tool_call.tool_call_id.to_string();
-                let parent_tool_call_id = extract_parent_tool_use_id(&tool_call);
+                let claude_code_meta = extract_claude_code_meta(&tool_call);
+                let parent_tool_call_id = extract_parent_tool_use_id(claude_code_meta.as_ref());
                 let status = match tool_call.status {
                     acp::ToolCallStatus::InProgress => ToolCallStatus::Running,
                     acp::ToolCallStatus::Completed => ToolCallStatus::Completed,
                     acp::ToolCallStatus::Failed => ToolCallStatus::Failed,
                     _ => ToolCallStatus::Running,
                 };
-                let tool = format_tool_kind(Some(&tool_call.kind));
+                let tool = extract_claude_tool_name(claude_code_meta.as_ref())
+                    .unwrap_or_else(|| format_tool_kind(Some(&tool_call.kind)));
                 let description = format_description(
                     Some(tool_call.title.as_str()),
                     &tool,
@@ -436,12 +475,13 @@ impl AcpClientTrait for AtmosAcpClient {
                         raw_input: tool_call.raw_input.clone(),
                         content: map_tool_call_content(&tool_call.content),
                         raw_output: tool_call.raw_output.clone(),
-                        detail: None,
+                        detail: build_tool_call_detail(claude_code_meta.as_ref()),
                     }));
             }
             acp::SessionUpdate::ToolCallUpdate(update) => {
                 let tool_call_id = update.tool_call_id.to_string();
-                let parent_tool_call_id = extract_parent_tool_use_id(&update);
+                let claude_code_meta = extract_claude_code_meta(&update);
+                let parent_tool_call_id = extract_parent_tool_use_id(claude_code_meta.as_ref());
                 let status = match update
                     .fields
                     .status
@@ -452,7 +492,8 @@ impl AcpClientTrait for AtmosAcpClient {
                     acp::ToolCallStatus::Failed => ToolCallStatus::Failed,
                     _ => ToolCallStatus::Running,
                 };
-                let tool = format_tool_kind(update.fields.kind.as_ref());
+                let tool = extract_claude_tool_name(claude_code_meta.as_ref())
+                    .unwrap_or_else(|| format_tool_kind(update.fields.kind.as_ref()));
                 let description = format_description(
                     update.fields.title.as_deref(),
                     &tool,
@@ -475,7 +516,7 @@ impl AcpClientTrait for AtmosAcpClient {
                             .map(|content| map_tool_call_content(content))
                             .unwrap_or_default(),
                         raw_output: update.fields.raw_output.clone(),
-                        detail: None,
+                        detail: build_tool_call_detail(claude_code_meta.as_ref()),
                     }));
             }
             acp::SessionUpdate::Plan(plan) => {

@@ -1531,6 +1531,26 @@ function AssistantTurnView({
 }) {
   const reviewComponents = useReviewLinkComponents();
   const vendor = resolveAgentVendor(registryId);
+  const claudeChildToolCallsByParentId = vendor === "claude"
+    ? entry.blocks.reduce((map, candidate) => {
+      if (candidate.type !== "tool_call" || !candidate.parent_tool_call_id) return map;
+      const siblings = map.get(candidate.parent_tool_call_id) ?? [];
+      siblings.push(candidate);
+      map.set(candidate.parent_tool_call_id, siblings);
+      return map;
+    }, new Map<string, ToolCallBlock[]>())
+    : new Map<string, ToolCallBlock[]>();
+  const claudeSubAgentParentIds = vendor === "claude"
+    ? new Set(
+      entry.blocks.flatMap((candidate) => {
+        if (candidate.type !== "tool_call") return [];
+        const childToolCalls = claudeChildToolCallsByParentId.get(candidate.tool_call_id) ?? [];
+        return normalizeSubAgent(candidate, registryId, childToolCalls)
+          ? [candidate.tool_call_id]
+          : [];
+      }),
+    )
+    : new Set<string>();
 
   return (
     <>
@@ -1595,12 +1615,17 @@ function AssistantTurnView({
 
         if (block.type === "tool_call" && isPlanUpdateToolCall(block)) return null;
         if (block.type === "tool_call" && isSwitchModePlanToolCall(block)) return null;
-        if (block.type === "tool_call" && vendor === "claude" && block.parent_tool_call_id) return null;
+        if (
+          block.type === "tool_call" &&
+          vendor === "claude" &&
+          block.parent_tool_call_id &&
+          claudeSubAgentParentIds.has(block.parent_tool_call_id)
+        ) {
+          return null;
+        }
         if (block.type === "tool_call") {
           const childToolCalls = vendor === "claude"
-            ? entry.blocks.filter((candidate): candidate is ToolCallBlock => (
-              candidate.type === "tool_call" && candidate.parent_tool_call_id === block.tool_call_id
-            ))
+            ? (claudeChildToolCallsByParentId.get(block.tool_call_id) ?? [])
             : [];
           const subAgent = normalizeSubAgent(block, registryId, childToolCalls);
           if (subAgent) {
