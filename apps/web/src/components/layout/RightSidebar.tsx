@@ -837,10 +837,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   return (
     <aside className="w-full flex flex-col h-full">
-      {showWikiAskSidebar ? (
+      <div className={cn("flex-1 min-h-0", !showWikiAskSidebar && "hidden")}>
         <AgentChatPanel variant="sidebar" mode="wiki_ask" publishStatus={false} />
-      ) : (
-        <>
+      </div>
+      <div className={cn("flex-1 min-h-0", showWikiAskSidebar && "hidden")}>
           <Tabs
             value={activeTab}
             onValueChange={(v) => setSidebarParams({ rsTab: v as RightSidebarTab })}
@@ -1580,8 +1580,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           onCreated={() => setPrRefreshKey(Date.now())}
         />
       )}
-        </>
-      )}
+      </div>
     </aside>
   );
 };
