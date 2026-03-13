@@ -29,6 +29,40 @@ type CustomAgentManifestEntry = {
   default_option_configs?: Record<string, string>;
 };
 
+function parseCustomAgentArgs(rawArgs: string): string[] {
+  const trimmed = rawArgs.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      if (!parsed.every((item) => typeof item === "string")) {
+        throw new Error("Args JSON array must contain only strings.");
+      }
+      return parsed;
+    }
+
+    if (
+      parsed === null ||
+      typeof parsed === "number" ||
+      typeof parsed === "boolean"
+    ) {
+      return trimmed.split(/\s+/);
+    }
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return trimmed.split(/\s+/);
+    }
+    throw error;
+  }
+
+  throw new Error(
+    'Args must be a JSON array of strings (e.g. ["-y", "pi-acp"]) or space-separated values.',
+  );
+}
+
 export interface CustomAgentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -125,21 +159,17 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
     setAddingCustom(true);
     try {
       let parsedArgs: string[] = [];
-      if (customForm.args.trim()) {
-        try {
-          const parsed: unknown = JSON.parse(customForm.args.trim());
-          if (!Array.isArray(parsed)) {
-            toastManager.add({
-              title: "Invalid args format",
-              description: 'Args must be a JSON array of strings (e.g. ["-y", "pi-acp"]) or space-separated values.',
-              type: "error",
-            });
-            return;
-          }
-          parsedArgs = parsed as string[];
-        } catch {
-          parsedArgs = customForm.args.trim().split(/\s+/);
-        }
+      try {
+        parsedArgs = parseCustomAgentArgs(customForm.args);
+      } catch (error) {
+        toastManager.add({
+          title: "Invalid args format",
+          description: error instanceof Error
+            ? error.message
+            : 'Args must be a JSON array of strings (e.g. ["-y", "pi-acp"]) or space-separated values.',
+          type: "error",
+        });
+        return;
       }
       let parsedEnv: Record<string, string> = {};
       if (customForm.env.trim()) {

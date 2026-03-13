@@ -3,6 +3,12 @@ use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::warn;
 
+fn normalized_shell_basename(command: &str) -> String {
+    let first_word = command.split_whitespace().next().unwrap_or("");
+    let basename = first_word.rsplit('/').next().unwrap_or(first_word);
+    basename.trim_start_matches('-').to_lowercase()
+}
+
 /// Gather system-level PTY usage information.
 /// Works on macOS (sysctl + /dev/ttys*) and Linux (/dev/pts/*).
 pub fn get_system_pty_info() -> Value {
@@ -138,9 +144,7 @@ pub fn get_orphaned_processes() -> Vec<Value> {
                     let pid: u32 = pid_str.trim().parse().ok()?;
                     let ppid: u32 = ppid_str.trim().parse().ok()?;
 
-                    let first_word = command.split_whitespace().next().unwrap_or("");
-                    let basename = first_word.rsplit('/').next().unwrap_or(first_word);
-                    let basename_lower = basename.to_lowercase();
+                    let basename_lower = normalized_shell_basename(&command);
                     if ppid == 1 && shell_names.iter().any(|s| basename_lower == *s) {
                         Some(json!({
                             "pid": pid,
@@ -160,6 +164,18 @@ pub fn get_orphaned_processes() -> Vec<Value> {
             warn!("Failed to detect orphaned processes: {}", e);
             vec![]
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalized_shell_basename;
+
+    #[test]
+    fn normalizes_login_shell_basenames() {
+        assert_eq!(normalized_shell_basename("-bash --login"), "bash");
+        assert_eq!(normalized_shell_basename("/bin/-zsh -l"), "zsh");
+        assert_eq!(normalized_shell_basename("/usr/bin/fish"), "fish");
     }
 }
 

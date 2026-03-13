@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { PatchDiff, MultiFileDiff } from "@pierre/diffs/react";
 import type { FileContents } from "@pierre/diffs";
 import { useTheme } from "next-themes";
@@ -37,6 +37,7 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
   } = props;
 
   const { resolvedTheme } = useTheme();
+  const [isMounted, setIsMounted] = useState(false);
   const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
   const diffOptions = useMemo(() => ({
     theme: diffTheme,
@@ -45,6 +46,10 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
     disableLineNumbers: false,
     disableFileHeader: false,
   }), [diffTheme]);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   if (isTerminalCommand(tool)) {
     return <TerminalBlock {...props} />;
@@ -124,15 +129,27 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
         />
         {diffPatch ? (
           <div className="mt-1 max-h-[360px] overflow-auto rounded-md border border-border/50">
-            <PatchDiff patch={diffPatch} options={diffOptions} />
+            {isMounted ? (
+              <PatchDiff patch={diffPatch} options={diffOptions} />
+            ) : (
+              <div className="px-3 py-2 text-xs text-muted-foreground">
+                Loading diff...
+              </div>
+            )}
           </div>
         ) : diffFiles ? (
           <div className="mt-1 max-h-[360px] overflow-auto rounded-md border border-border/50">
-            <MultiFileDiff
-              oldFile={diffFiles.oldFile}
-              newFile={diffFiles.newFile}
-              options={diffOptions}
-            />
+            {isMounted ? (
+              <MultiFileDiff
+                oldFile={diffFiles.oldFile}
+                newFile={diffFiles.newFile}
+                options={diffOptions}
+              />
+            ) : (
+              <div className="px-3 py-2 text-xs text-muted-foreground">
+                Loading diff...
+              </div>
+            )}
           </div>
         ) : (
           <ToolOutput

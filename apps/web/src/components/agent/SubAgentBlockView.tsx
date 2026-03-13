@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { MultiFileDiff } from "@pierre/diffs/react";
 import {
@@ -37,6 +37,7 @@ function SubAgentLabelRow({
 
 export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
   const { resolvedTheme } = useTheme();
+  const [isMounted, setIsMounted] = useState(false);
   const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
   const [isOpen, setIsOpen] = useState(true);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
@@ -50,6 +51,10 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
     message.labels.length > 0
   );
   const statusLabel = message.status === "running" ? "Running" : message.status === "failed" ? "Failed" : "Completed";
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   if (!hasDetails) {
     return (
@@ -157,17 +162,23 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                   return (
                     <div key={`subagent-diff-${idx}`} className="overflow-hidden rounded-lg border border-border/60 bg-background/70">
                       <div className="max-h-[360px] overflow-auto">
-                        <MultiFileDiff
-                          oldFile={diffFiles.oldFile}
-                          newFile={diffFiles.newFile}
-                          options={{
-                            theme: diffTheme,
-                            diffStyle: "unified",
-                            overflow: "wrap",
-                            disableLineNumbers: false,
-                            disableFileHeader: false,
-                          }}
-                        />
+                        {isMounted ? (
+                          <MultiFileDiff
+                            oldFile={diffFiles.oldFile}
+                            newFile={diffFiles.newFile}
+                            options={{
+                              theme: diffTheme,
+                              diffStyle: "unified",
+                              overflow: "wrap",
+                              disableLineNumbers: false,
+                              disableFileHeader: false,
+                            }}
+                          />
+                        ) : (
+                          <div className="px-3 py-2 text-xs text-muted-foreground">
+                            Loading diff...
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

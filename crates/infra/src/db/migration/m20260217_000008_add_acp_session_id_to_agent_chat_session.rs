@@ -3,15 +3,56 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-// No-op: migration 007 already adds the `acp_session_id` column to `agent_chat_session`.
-// This migration is kept to preserve the migration history sequence.
+const TABLE_NAME: &str = "agent_chat_session";
+const ACP_SESSION_ID_COLUMN: &str = "acp_session_id";
+
+// Fresh databases get `acp_session_id` from migration 007, but older databases
+// may have already applied the original 007 before it was expanded.
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
-    async fn up(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        if !manager
+            .has_column(TABLE_NAME, ACP_SESSION_ID_COLUMN)
+            .await?
+        {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(AgentChatSession::Table)
+                        .add_column(
+                            ColumnDef::new(AgentChatSession::AcpSessionId)
+                                .string()
+                                .null(),
+                        )
+                        .to_owned(),
+                )
+                .await?;
+        }
+
         Ok(())
     }
 
-    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        if manager
+            .has_column(TABLE_NAME, ACP_SESSION_ID_COLUMN)
+            .await?
+        {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(AgentChatSession::Table)
+                        .drop_column(AgentChatSession::AcpSessionId)
+                        .to_owned(),
+                )
+                .await?;
+        }
+
         Ok(())
     }
+}
+
+#[derive(DeriveIden)]
+enum AgentChatSession {
+    Table,
+    AcpSessionId,
 }
