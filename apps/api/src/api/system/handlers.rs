@@ -543,20 +543,28 @@ pub async fn list_tmux_windows(
     State(state): State<AppState>,
     axum::extract::Path(workspace_id): axum::extract::Path<String>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let windows = state
-        .terminal_service
-        .list_workspace_windows(&workspace_id)
-        .map(|windows| {
-            windows
-                .into_iter()
-                .map(|(index, name)| {
-                    json!({
-                        "index": index,
-                        "name": name,
-                    })
+    let session_name = resolve_session_name(&state, &workspace_id).await;
+    let windows = session_name
+        .as_deref()
+        .map(|session_name| {
+            state
+                .terminal_service
+                .tmux_engine()
+                .list_windows(session_name)
+                .map(|windows| {
+                    windows
+                        .into_iter()
+                        .map(|w| {
+                            json!({
+                                "index": w.index,
+                                "name": w.name,
+                            })
+                        })
+                        .collect::<Vec<_>>()
                 })
-                .collect::<Vec<_>>()
         })
+        .transpose()
+        .unwrap_or_default()
         .unwrap_or_default();
 
     Ok(Json(ApiResponse::success(json!({

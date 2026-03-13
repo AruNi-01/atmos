@@ -20,6 +20,7 @@ Atmos is an AI-native coding workspace that combines a Rust backend, a Next.js w
   - [GitHub Collaboration](#github-collaboration)
   - [Terminal + tmux Session Orchestration](#terminal--tmux-session-orchestration)
   - [Skills System](#skills-system)
+  - [Lightweight LLM Providers](#lightweight-llm-providers)
   - [Usage & Token Observability](#usage--token-observability)
   - [Desktop Integration](#desktop-integration)
 - [Architecture](#architecture)
@@ -38,7 +39,9 @@ Atmos is an AI-native coding workspace that combines a Rust backend, a Next.js w
 Most AI coding tools solve only one part of the workflow. Atmos is designed as a complete operating surface for engineering teams and power users:
 
 - Manage multiple projects and workspaces with branch-aware context.
-- Run long-lived terminal sessions without losing state.
+- Keep long-lived terminal sessions recoverable across refreshes, reconnects, and app restarts with tmux-backed persistence.
+- Reattach to the exact workspace terminal window you were using instead of spawning disposable shells.
+- Surface smarter terminal context with shell-shim title detection, so panes reflect the active command or working directory instead of generic labels.
 - Bring AI agents into real development tasks (not just chat output).
 - Go from code change to PR and CI operations in the same interface.
 
@@ -87,8 +90,11 @@ Most AI coding tools solve only one part of the workflow. Atmos is designed as a
 ### Terminal + tmux Session Orchestration
 
 - WebSocket terminal transport with input, resize, close, and destroy controls.
-- tmux attach/create behavior with fallback handling.
-- Multi-session terminal management for workspace-centric development.
+- Tmux-backed terminals detach cleanly on close while preserving the underlying window for later reattachment.
+- Reattach to existing tmux sessions/windows by window name or index, with fallback to creating a new window when the target is missing.
+- Each project/workspace uses a stable base tmux session, while each terminal panel maps to its own tmux window and each live connection gets an isolated grouped client session.
+- Shell shims inject dynamic title signals so terminal tabs can intelligently show the active command while running and the current directory when idle.
+- Bash, Zsh, and Fish are shim-aware, and the injected startup path preserves the user's normal shell config instead of replacing it.
 - Startup cleanup of stale tmux client sessions to prevent PTY exhaustion.
 
 ### Skills System
@@ -97,11 +103,17 @@ Most AI coding tools solve only one part of the workflow. Atmos is designed as a
 - System skill synchronization on startup and manual re-sync APIs.
 - Built-in checks for Wiki, code review, and git-commit related system skills.
 
+### Lightweight LLM Providers
+
+- Lightweight BYOK provider config for short automation tasks such as ACP session titles and git commit generation.
+- OpenAI-compatible and Anthropic-compatible providers with saved `base_url`, `api_key`, and model routing.
+- Configurable manual provider setup paths for lightweight side-process flows.
+
 ### Usage & Token Observability
 
-- Usage overview querying and provider-level switching.
+- Usage quota querying with provider-level switching and auto-refresh controls.
 - Token usage aggregation with broadcast updates for live UI refresh.
-- Configurable auto-refresh and manual provider setup paths.
+- Dedicated visualization panels for usage and token consumption.
 
 ### Desktop Integration
 
@@ -119,6 +131,9 @@ Most AI coding tools solve only one part of the workflow. Atmos is designed as a
 - **Core engine (`crates/core-engine`)**: PTY, tmux, Git, filesystem, app open/search primitives.
 - **Service layer (`crates/core-service`)**: project/workspace/agent/terminal/GitHub business orchestration.
 - **Agent crate (`crates/agent`)**: ACP client/session bridge and agent manager capabilities.
+- **LLM crate (`crates/llm`)**: lightweight provider config, BYOK routing, and inference clients.
+- **Usage crates (`crates/ai-usage`, `crates/token-usage`)**: provider usage collection and token accounting.
+- **CLI app (`apps/cli`)**: `atmos` command-line interface.
 - **Web app (`apps/web`)**: Next.js 16 + React 19, WebSocket-first UX.
 - **Desktop app (`apps/desktop`)**: Tauri shell with local sidecar integration.
 
@@ -130,6 +145,7 @@ Most AI coding tools solve only one part of the workflow. Atmos is designed as a
 atmos/
 ├── apps/
 │   ├── api/         # Axum API entry (HTTP + WS)
+│   ├── cli/         # atmos command-line interface
 │   ├── web/         # Next.js application
 │   ├── desktop/     # Tauri desktop shell
 │   ├── docs/        # docs website
@@ -138,7 +154,10 @@ atmos/
 │   ├── infra/       # DB/WS/infra concerns
 │   ├── core-engine/ # PTY/Git/FS/tmux capabilities
 │   ├── core-service/# business workflows
-│   └── agent/       # ACP/agent integration
+│   ├── agent/       # ACP/agent integration
+│   ├── llm/         # lightweight provider abstraction + BYOK config
+│   ├── ai-usage/    # provider usage aggregation
+│   └── token-usage/ # token accounting services
 ├── packages/
 │   ├── ui/          # shared UI primitives
 │   ├── shared/      # shared frontend utilities
@@ -156,6 +175,7 @@ atmos/
 - Rust (stable)
 - Bun
 - Node.js
+- `just` (`brew install just` on macOS, or `cargo install just --locked`)
 - tmux (recommended for full terminal features)
 
 ### 2) Install dependencies
@@ -171,6 +191,7 @@ cargo fetch
 just dev-api
 just dev-web
 # optional
+just dev-cli
 just dev-desktop
 ```
 
