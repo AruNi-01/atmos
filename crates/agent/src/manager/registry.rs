@@ -166,7 +166,9 @@ pub(crate) async fn list_registry_agents_impl(
                     .iter()
                     .find(|a| a.id == e.registry_id)
                     .and_then(|a| a.distribution.npx.as_ref())
-                    .map(|npx| installed_npm.contains_key(&normalize_npm_package_name(&npx.package)))
+                    .map(|npx| {
+                        installed_npm.contains_key(&normalize_npm_package_name(&npx.package))
+                    })
                     .unwrap_or(false)
             } else if e.install_method == "binary" {
                 e.binary_path

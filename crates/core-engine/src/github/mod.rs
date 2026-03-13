@@ -5,12 +5,10 @@ use tokio::process::Command;
 
 use crate::error::EngineError;
 
-static RE_HTTPS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"github\.com/([^/]+)/([^/\s\.]+)").unwrap()
-});
-static RE_SSH: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"github\.com:([^/]+)/([^\s\.]+)").unwrap()
-});
+static RE_HTTPS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"github\.com/([^/]+)/([^/\s\.]+)").unwrap());
+static RE_SSH: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"github\.com:([^/]+)/([^\s\.]+)").unwrap());
 
 pub struct GithubEngine;
 
@@ -35,7 +33,10 @@ impl GithubEngine {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(EngineError::Git(format!("gh exited with error: {}", stderr)));
+            return Err(EngineError::Git(format!(
+                "gh exited with error: {}",
+                stderr
+            )));
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();

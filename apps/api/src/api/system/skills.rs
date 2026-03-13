@@ -86,7 +86,6 @@ pub async fn scan_review_skills() -> Vec<Value> {
 }
 
 fn apply_well_known_overrides(dir_name: &str, label: &mut String, best_for: &mut String) {
-
     match dir_name {
         "fullstack-reviewer" => {
             *label = "Fullstack Reviewer".into();

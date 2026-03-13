@@ -97,9 +97,8 @@ pub(crate) async fn install_registry_binary_agent(
             .map_err(|e| AgentError::Command(format!("failed to read binary metadata: {}", e)))?
             .permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(&target_path, perms).map_err(|e| {
-            AgentError::Command(format!("failed to set binary permissions: {}", e))
-        })?;
+        fs::set_permissions(&target_path, perms)
+            .map_err(|e| AgentError::Command(format!("failed to set binary permissions: {}", e)))?;
     }
 
     let installed_version = detect_binary_version(&target_path).await;
@@ -182,9 +181,8 @@ pub(crate) fn remove_registry_binary_agent(
                 })?;
             }
         } else {
-            fs::remove_file(&path).map_err(|e| {
-                AgentError::Command(format!("failed to remove binary file: {}", e))
-            })?;
+            fs::remove_file(&path)
+                .map_err(|e| AgentError::Command(format!("failed to remove binary file: {}", e)))?;
         }
     }
     save_install_manifest(&manifest)?;
@@ -561,9 +559,7 @@ pub(crate) async fn detect_binary_version(binary_path: &Path) -> Option<String> 
     for flag in common_flags {
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(5),
-            tokio::process::Command::new(binary_path)
-                .arg(flag)
-                .output(),
+            tokio::process::Command::new(binary_path).arg(flag).output(),
         )
         .await;
 

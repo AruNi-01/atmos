@@ -6,9 +6,7 @@ use crate::models::{AgentInstallResult, KnownAgent, RegistryInstallResult};
 use super::manifest::{
     load_install_manifest, save_install_manifest, upsert_manifest_entry, ManifestEntry,
 };
-use super::registry::{
-    fetch_acp_registry, RegistryEntry, RegistryPackageDistribution,
-};
+use super::registry::{fetch_acp_registry, RegistryEntry, RegistryPackageDistribution};
 use super::{AgentError, Result};
 
 pub(crate) async fn is_npm_package_installed_globally(package_spec: &str) -> Result<bool> {
@@ -265,9 +263,7 @@ pub(crate) async fn install_registry_npx_agent(
     )))
 }
 
-pub(crate) async fn remove_registry_npx_agent(
-    registry_id: &str,
-) -> Result<RegistryInstallResult> {
+pub(crate) async fn remove_registry_npx_agent(registry_id: &str) -> Result<RegistryInstallResult> {
     let manifest = load_install_manifest().unwrap_or_default();
 
     let manifest_entry = manifest
@@ -286,9 +282,7 @@ pub(crate) async fn remove_registry_npx_agent(
                 .agents
                 .into_iter()
                 .find(|a| a.id == registry_id)
-                .ok_or_else(|| {
-                    AgentError::NotFound(format!("registry agent: {}", registry_id))
-                })?;
+                .ok_or_else(|| AgentError::NotFound(format!("registry agent: {}", registry_id)))?;
             let npx = r_entry.distribution.npx.as_ref().ok_or_else(|| {
                 AgentError::Command(format!(
                     "registry agent '{}' has no npx distribution",

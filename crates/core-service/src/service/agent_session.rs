@@ -211,7 +211,10 @@ impl AgentSessionService {
         .map_err(crate::ServiceError::Processing)?;
         let session_id = handle.session_id.clone();
 
-        self.sessions.write().await.insert(session_id.clone(), handle);
+        self.sessions
+            .write()
+            .await
+            .insert(session_id.clone(), handle);
 
         let (context_type, context_guid) = Self::resolve_context(workspace_id, project_id);
         self.persist_new_session(
@@ -485,7 +488,10 @@ impl AgentSessionService {
         request_id: String,
         tx: tokio::sync::oneshot::Sender<bool>,
     ) {
-        self.pending_permissions.write().await.insert(request_id, tx);
+        self.pending_permissions
+            .write()
+            .await
+            .insert(request_id, tx);
     }
 
     /// Generate and persist an automatic title for the first user prompt.

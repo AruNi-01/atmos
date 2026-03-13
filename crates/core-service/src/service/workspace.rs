@@ -100,9 +100,7 @@ impl WorkspaceService {
             .collect();
 
         let workspace_repo = WorkspaceRepo::new(&self.db);
-        let db_workspaces = workspace_repo
-            .list_all_by_project(&project_guid)
-            .await?;
+        let db_workspaces = workspace_repo.list_all_by_project(&project_guid).await?;
         for ws in &db_workspaces {
             existing_names.insert(ws.name.clone());
         }
@@ -232,10 +230,8 @@ impl WorkspaceService {
             );
 
             let repo = WorkspaceRepo::new(&self.db);
-            repo.update_name(&guid, workspace_name.clone())
-                .await?;
-            repo.update_branch(&guid, workspace_name.clone())
-                .await?;
+            repo.update_name(&guid, workspace_name.clone()).await?;
+            repo.update_branch(&guid, workspace_name.clone()).await?;
         }
 
         match self
@@ -441,6 +437,8 @@ impl WorkspaceService {
         terminal_id: Option<String>,
     ) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_maximized_terminal_id(&guid, terminal_id).await?)
+        Ok(repo
+            .update_maximized_terminal_id(&guid, terminal_id)
+            .await?)
     }
 }

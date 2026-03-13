@@ -1,0 +1,56 @@
+{
+  "files": {
+    "project-wiki": [
+      "skills/project-wiki/README.md",
+      "skills/project-wiki/SKILL.md",
+      "skills/project-wiki/examples/catalog.template.json",
+      "skills/project-wiki/examples/sample_briefing.md",
+      "skills/project-wiki/examples/sample_catalog.json",
+      "skills/project-wiki/examples/sample_document.md",
+      "skills/project-wiki/references/briefing_template.md",
+      "skills/project-wiki/references/catalog.schema.json",
+      "skills/project-wiki/references/frontend-integration.md",
+      "skills/project-wiki/references/output_structure.md",
+      "skills/project-wiki/scripts/collect_metadata.sh",
+      "skills/project-wiki/scripts/init_wiki_todo.sh",
+      "skills/project-wiki/scripts/validate_catalog.py",
+      "skills/project-wiki/scripts/validate_catalog.sh",
+      "skills/project-wiki/scripts/validate_content.py",
+      "skills/project-wiki/scripts/validate_content.sh",
+      "skills/project-wiki/scripts/validate_frontmatter.py",
+      "skills/project-wiki/scripts/validate_todo.py",
+      "skills/project-wiki/scripts/validate_todo.sh"
+    ],
+    "project-wiki-update": [
+      "skills/project-wiki-update/SKILL.md"
+    ],
+    "project-wiki-specify": [
+      "skills/project-wiki-specify/SKILL.md"
+    ],
+    "fullstack-reviewer": [
+      "skills/code_review_skills/fullstack-reviewer/SKILL.md",
+      "skills/code_review_skills/fullstack-reviewer/references/architecture-checklist.md",
+      "skills/code_review_skills/fullstack-reviewer/references/backend-checklist.md",
+      "skills/code_review_skills/fullstack-reviewer/references/frontend-checklist.md",
+      "skills/code_review_skills/fullstack-reviewer/references/security-checklist.md"
+    ],
+    "code-review-expert": [
+      "skills/code_review_skills/code-review-expert/README.md",
+      "skills/code_review_skills/code-review-expert/SKILL.md",
+      "skills/code_review_skills/code-review-expert/agents/agent.yaml",
+      "skills/code_review_skills/code-review-expert/references/code-quality-checklist.md",
+      "skills/code_review_skills/code-review-expert/references/removal-plan.md",
+      "skills/code_review_skills/code-review-expert/references/security-checklist.md",
+      "skills/code_review_skills/code-review-expert/references/solid-checklist.md"
+    ],
+    "typescript-react-reviewer": [
+      "skills/code_review_skills/typescript-react-reviewer/SKILL.md",
+      "skills/code_review_skills/typescript-react-reviewer/references/antipatterns.md",
+      "skills/code_review_skills/typescript-react-reviewer/references/checklist.md",
+      "skills/code_review_skills/typescript-react-reviewer/references/react19-patterns.md"
+    ],
+    "git-commit": [
+      "skills/git-commit/SKILL.md"
+    ]
+  }
+}

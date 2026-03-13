@@ -73,11 +73,7 @@ pub async fn create_workspace(
 ) -> ApiResult<Json<ApiResponse<WorkspaceDto>>> {
     let workspace = state
         .workspace_service
-        .create_workspace(
-            payload.project_guid,
-            payload.name,
-            payload.sidebar_order,
-        )
+        .create_workspace(payload.project_guid, payload.name, payload.sidebar_order)
         .await?;
     Ok(Json(ApiResponse::success(workspace)))
 }

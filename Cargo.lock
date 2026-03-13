@@ -2703,6 +2703,7 @@ dependencies = [
  "chrono",
  "dirs 6.0.0",
  "futures-util",
+ "reqwest 0.12.28",
  "sea-orm",
  "sea-orm-migration",
  "serde",
@@ -4573,6 +4574,7 @@ checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "http",

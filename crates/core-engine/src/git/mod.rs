@@ -46,9 +46,7 @@ fn try_run_git(repo_path: &Path, args: &[&str]) -> Result<Option<String>> {
             ))
         })?;
     if output.status.success() {
-        Ok(Some(
-            String::from_utf8_lossy(&output.stdout).to_string(),
-        ))
+        Ok(Some(String::from_utf8_lossy(&output.stdout).to_string()))
     } else {
         Ok(None)
     }
@@ -168,9 +166,7 @@ impl GitEngine {
         }
 
         // Delete remote branch if exists (non-fatal)
-        if let Some(_) =
-            try_run_git(repo_path, &["push", "origin", "--delete", workspace_name])?
-        {
+        if let Some(_) = try_run_git(repo_path, &["push", "origin", "--delete", workspace_name])? {
             tracing::info!("Deleted remote branch: origin/{}", workspace_name);
         }
 
@@ -187,9 +183,10 @@ impl GitEngine {
 
     /// Get the default branch of a repository
     pub fn get_default_branch(&self, repo_path: &Path) -> Result<String> {
-        if let Some(stdout) =
-            try_run_git(repo_path, &["symbolic-ref", "refs/remotes/origin/HEAD", "--short"])?
-        {
+        if let Some(stdout) = try_run_git(
+            repo_path,
+            &["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
+        )? {
             let branch = stdout
                 .trim()
                 .strip_prefix("origin/")
@@ -199,9 +196,7 @@ impl GitEngine {
         }
 
         // Fallback: read HEAD
-        if let Some(stdout) =
-            try_run_git(repo_path, &["rev-parse", "--abbrev-ref", "HEAD"])?
-        {
+        if let Some(stdout) = try_run_git(repo_path, &["rev-parse", "--abbrev-ref", "HEAD"])? {
             return Ok(stdout.trim().to_string());
         }
 
@@ -277,7 +272,10 @@ impl GitEngine {
             .lines()
             .map(|l| l.trim())
             .filter(|l| !l.is_empty() && !l.ends_with("/HEAD"))
-            .filter_map(|l| l.strip_prefix("refs/remotes/origin/").map(|s| s.to_string()))
+            .filter_map(|l| {
+                l.strip_prefix("refs/remotes/origin/")
+                    .map(|s| s.to_string())
+            })
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
@@ -326,20 +324,35 @@ impl GitEngine {
     pub fn get_changed_files(&self, repo_path: &Path) -> Result<ChangedFilesInfo> {
         let status_stdout = run_git(
             repo_path,
-            &["-c", "core.quotePath=false", "status", "--porcelain", "-uall"],
+            &[
+                "-c",
+                "core.quotePath=false",
+                "status",
+                "--porcelain",
+                "-uall",
+            ],
         )?;
 
         // Batch numstat: unstaged changes
         let unstaged_numstat = Self::build_numstat_map(
-            try_run_git(repo_path, &["-c", "core.quotePath=false", "diff", "--numstat"])?
-                .as_deref(),
+            try_run_git(
+                repo_path,
+                &["-c", "core.quotePath=false", "diff", "--numstat"],
+            )?
+            .as_deref(),
         );
 
         // Batch numstat: staged changes
         let staged_numstat = Self::build_numstat_map(
             try_run_git(
                 repo_path,
-                &["-c", "core.quotePath=false", "diff", "--cached", "--numstat"],
+                &[
+                    "-c",
+                    "core.quotePath=false",
+                    "diff",
+                    "--cached",
+                    "--numstat",
+                ],
             )?
             .as_deref(),
         );
@@ -524,8 +537,7 @@ impl GitEngine {
             String::new()
         } else {
             let show_ref = format!("HEAD:{}", file_path);
-            try_run_git(repo_path, &["show", &show_ref])?
-                .unwrap_or_default()
+            try_run_git(repo_path, &["show", &show_ref])?.unwrap_or_default()
         };
 
         let new_content = if status == "D" {
@@ -690,8 +702,7 @@ impl GitEngine {
         offset: usize,
     ) -> Result<Vec<CommitInfo>> {
         let upstream_exists =
-            try_run_git(repo_path, &["rev-parse", "--abbrev-ref", "@{u}"])?
-                .is_some();
+            try_run_git(repo_path, &["rev-parse", "--abbrev-ref", "@{u}"])?.is_some();
 
         let mut all_commits = Vec::new();
 

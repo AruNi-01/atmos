@@ -475,10 +475,7 @@ pub async fn kill_orphaned_processes(
     for pid in &payload.pids {
         if !verified_orphans.contains(pid) {
             skipped_pids.push(*pid);
-            warn!(
-                "Skipping PID {} — not a verified orphaned process",
-                pid
-            );
+            warn!("Skipping PID {} — not a verified orphaned process", pid);
             continue;
         }
 

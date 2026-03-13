@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{AgentError, Result};
 
-static MANIFEST_LOCK: std::sync::LazyLock<Mutex<()>> =
-    std::sync::LazyLock::new(|| Mutex::new(()));
+static MANIFEST_LOCK: std::sync::LazyLock<Mutex<()>> = std::sync::LazyLock::new(|| Mutex::new(()));
 
 const INSTALL_MANIFEST_REL_PATH: &str = ".atmos/agent/acp_servers.json";
 

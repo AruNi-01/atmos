@@ -29,12 +29,9 @@ impl MessagePushService {
 
     /// Wait until a new message is available (or timeout after 30s as a safety net).
     pub async fn wait_for_update(&self) {
-        tokio::time::timeout(
-            tokio::time::Duration::from_secs(30),
-            self.notify.notified(),
-        )
-        .await
-        .ok();
+        tokio::time::timeout(tokio::time::Duration::from_secs(30), self.notify.notified())
+            .await
+            .ok();
     }
 
     pub fn latest_message_handle(&self) -> SharedString {

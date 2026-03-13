@@ -1112,11 +1112,7 @@ impl WsMessageService {
     ) -> Result<Value> {
         let workspace = self
             .workspace_service
-            .create_workspace(
-                req.project_guid.clone(),
-                req.name,
-                req.sidebar_order,
-            )
+            .create_workspace(req.project_guid.clone(), req.name, req.sidebar_order)
             .await?;
 
         // Spawn setup in background

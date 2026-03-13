@@ -529,7 +529,16 @@ impl SkillScanner {
         };
 
         Some(Self::build_skill_info(
-            name, description, files, title, agent, scope, project_id, project_name, path, meta,
+            name,
+            description,
+            files,
+            title,
+            agent,
+            scope,
+            project_id,
+            project_name,
+            path,
+            meta,
         ))
     }
 
@@ -566,7 +575,16 @@ impl SkillScanner {
         }];
 
         Some(Self::build_skill_info(
-            name, description, files, title, agent, scope, project_id, project_name, path, meta,
+            name,
+            description,
+            files,
+            title,
+            agent,
+            scope,
+            project_id,
+            project_name,
+            path,
+            meta,
         ))
     }
 

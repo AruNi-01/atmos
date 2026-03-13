@@ -226,43 +226,39 @@ pub async fn run_acp_session(
                 .build()
                 .expect("Failed to create ACP runtime");
 
-            let panic_result =
-                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    rt.block_on(async move {
-                        match run_session_inner(
-                            &session_id_for_thread,
-                            launch_spec,
-                            &cwd,
-                            handler,
-                            env_overrides,
-                            resume_session_id,
-                            auth_method_id,
-                            &mut cmd_rx,
-                            event_tx.clone(),
-                            permission_tx,
-                            Some(ready_tx),
-                            default_config,
-                        )
-                        .await
-                        {
-                            Ok(()) => {
-                                info!("ACP session {} ended normally", session_id_for_thread)
-                            }
-                            Err(e) => {
-                                error!(
-                                    "ACP session {} error: {}",
-                                    session_id_for_thread, e
-                                );
-                                let _ = event_tx_end.send(AcpSessionEvent::Error {
-                                    code: "SESSION_ERROR".to_string(),
-                                    message: e,
-                                    recoverable: false,
-                                });
-                            }
+            let panic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                rt.block_on(async move {
+                    match run_session_inner(
+                        &session_id_for_thread,
+                        launch_spec,
+                        &cwd,
+                        handler,
+                        env_overrides,
+                        resume_session_id,
+                        auth_method_id,
+                        &mut cmd_rx,
+                        event_tx.clone(),
+                        permission_tx,
+                        Some(ready_tx),
+                        default_config,
+                    )
+                    .await
+                    {
+                        Ok(()) => {
+                            info!("ACP session {} ended normally", session_id_for_thread)
                         }
-                        let _ = event_tx_end.send(AcpSessionEvent::SessionEnded);
-                    });
-                }));
+                        Err(e) => {
+                            error!("ACP session {} error: {}", session_id_for_thread, e);
+                            let _ = event_tx_end.send(AcpSessionEvent::Error {
+                                code: "SESSION_ERROR".to_string(),
+                                message: e,
+                                recoverable: false,
+                            });
+                        }
+                    }
+                    let _ = event_tx_end.send(AcpSessionEvent::SessionEnded);
+                });
+            }));
             if let Err(panic_info) = panic_result {
                 error!("ACP session thread panicked: {:?}", panic_info);
                 let _ = event_tx_panic.send(AcpSessionEvent::Error {
@@ -552,10 +548,7 @@ async fn run_session_inner(
                                         ]));
                                 }
                                 Err(e) => {
-                                    warn!(
-                                        "Failed to apply default mode for {}: {}",
-                                        session_id, e
-                                    );
+                                    warn!("Failed to apply default mode for {}: {}", session_id, e);
                                 }
                             }
                         } else if uses_legacy_models && config_id == "model" {

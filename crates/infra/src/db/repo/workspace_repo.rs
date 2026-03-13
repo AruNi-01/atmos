@@ -90,7 +90,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }
@@ -108,7 +110,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }
@@ -126,7 +130,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }
@@ -198,7 +204,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }
@@ -220,7 +228,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }
@@ -237,7 +247,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }
@@ -259,7 +271,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }
@@ -286,7 +300,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }
@@ -311,7 +327,9 @@ impl<'a> WorkspaceRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom("Workspace not found".into()));
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
         }
         Ok(())
     }

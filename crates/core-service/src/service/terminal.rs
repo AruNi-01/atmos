@@ -294,8 +294,7 @@ impl TerminalService {
 
     /// Get tmux version info
     pub fn get_tmux_version(&self) -> Result<core_engine::TmuxVersion> {
-        TmuxEngine::get_version()
-            .map_err(|e| ServiceError::Processing(e.to_string()))
+        TmuxEngine::get_version().map_err(|e| ServiceError::Processing(e.to_string()))
     }
 
     /// Create a new terminal session with tmux persistence
@@ -390,11 +389,15 @@ impl TerminalService {
         {
             self.tmux_engine
                 .create_session_with_names(proj, ws, cwd.as_deref(), shell_command.as_deref())
-                .map_err(|e| ServiceError::Processing(format!("Failed to create tmux session: {}", e)))?
+                .map_err(|e| {
+                    ServiceError::Processing(format!("Failed to create tmux session: {}", e))
+                })?
         } else {
             self.tmux_engine
                 .create_session(&workspace_id, cwd.as_deref(), shell_command.as_deref())
-                .map_err(|e| ServiceError::Processing(format!("Failed to create tmux session: {}", e)))?
+                .map_err(|e| {
+                    ServiceError::Processing(format!("Failed to create tmux session: {}", e))
+                })?
         };
 
         // Create a new tmux window for this terminal pane
@@ -474,7 +477,9 @@ impl TerminalService {
                 cwd.as_deref(),
                 shell_command.as_deref(),
             )
-            .map_err(|e| ServiceError::Processing(format!("Failed to create tmux window: {}", e)))?;
+            .map_err(|e| {
+                ServiceError::Processing(format!("Failed to create tmux window: {}", e))
+            })?;
 
         // Now attach to this tmux window via PTY
         // We keep the guard until AFTER attach_to_tmux_window completes, which inserts into self.sessions
@@ -525,7 +530,10 @@ impl TerminalService {
         {
             let sessions = self.sessions.lock().await;
             if sessions.contains_key(&session_id) {
-                return Err(ServiceError::Processing(format!("Session {} already active", session_id)));
+                return Err(ServiceError::Processing(format!(
+                    "Session {} already active",
+                    session_id
+                )));
             }
         }
 
@@ -593,7 +601,9 @@ impl TerminalService {
             }
             Err(_) => {
                 error!("PTY thread failed to respond");
-                Err(ServiceError::Processing("PTY initialization failed".to_string()))
+                Err(ServiceError::Processing(
+                    "PTY initialization failed".to_string(),
+                ))
             }
         }
     }
@@ -677,7 +687,9 @@ impl TerminalService {
         } else if let Some(name) = tmux_window_name {
             self.tmux_engine
                 .find_window_index_by_name(&tmux_session, &name)?
-                .ok_or_else(|| ServiceError::NotFound(format!("Tmux window with name '{}' not found", name)))?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!("Tmux window with name '{}' not found", name))
+                })?
         } else {
             return Err(ServiceError::Validation(
                 "Neither tmux window index nor name provided for attachment".to_string(),
@@ -753,12 +765,19 @@ impl TerminalService {
         // This ensures this pane has its own independent view of the windows
         self.tmux_engine
             .create_grouped_session(&tmux_session, &client_session_name)
-            .map_err(|e| ServiceError::Processing(format!("Failed to create grouped session: {}", e)))?;
+            .map_err(|e| {
+                ServiceError::Processing(format!("Failed to create grouped session: {}", e))
+            })?;
 
         // Immediately select the correct window in the client session
         self.tmux_engine
             .select_window(&client_session_name, window_index)
-            .map_err(|e| ServiceError::Processing(format!("Failed to select window in grouped session: {}", e)))?;
+            .map_err(|e| {
+                ServiceError::Processing(format!(
+                    "Failed to select window in grouped session: {}",
+                    e
+                ))
+            })?;
 
         // Channel for sending commands to the PTY thread
         let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
@@ -829,7 +848,9 @@ impl TerminalService {
             }
             Err(_) => {
                 error!("PTY thread failed to respond");
-                Err(ServiceError::Processing("PTY initialization failed".to_string()))
+                Err(ServiceError::Processing(
+                    "PTY initialization failed".to_string(),
+                ))
             }
         }
     }
@@ -900,7 +921,9 @@ impl TerminalService {
             let target = format!("{}:{}.0", tmux_session, window_index);
             self.tmux_engine
                 .run_tmux_pub(&["send-keys", "-X", "-t", &target, "cancel"])
-                .map_err(|e| ServiceError::Processing(format!("Failed to cancel copy-mode: {}", e)))?;
+                .map_err(|e| {
+                    ServiceError::Processing(format!("Failed to cancel copy-mode: {}", e))
+                })?;
         }
         Ok(())
     }
@@ -921,7 +944,9 @@ impl TerminalService {
             let result = self
                 .tmux_engine
                 .run_tmux_pub(&["display-message", "-t", &target, "-p", "#{pane_in_mode}"])
-                .map_err(|e| ServiceError::Processing(format!("Failed to check copy-mode: {}", e)))?;
+                .map_err(|e| {
+                    ServiceError::Processing(format!("Failed to check copy-mode: {}", e))
+                })?;
             Ok(result.trim() == "1")
         } else {
             Ok(false)
@@ -994,7 +1019,10 @@ impl TerminalService {
             Ok(())
         } else {
             warn!("Attempted to close non-existent session: {}", session_id);
-            Err(ServiceError::NotFound(format!("Session not found: {}", session_id)))
+            Err(ServiceError::NotFound(format!(
+                "Session not found: {}",
+                session_id
+            )))
         }
     }
 
@@ -1049,7 +1077,10 @@ impl TerminalService {
             Ok(())
         } else {
             warn!("Attempted to destroy non-existent session: {}", session_id);
-            Err(ServiceError::NotFound(format!("Session not found: {}", session_id)))
+            Err(ServiceError::NotFound(format!(
+                "Session not found: {}",
+                session_id
+            )))
         }
     }
 

@@ -4,8 +4,8 @@ mod manifest;
 mod npm;
 mod registry;
 
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use thiserror::Error;
 
@@ -144,8 +144,13 @@ impl AgentManager {
             .ok_or_else(|| AgentError::NotFound(format!("registry agent: {}", registry_id)))?;
 
         if let Some(npx) = entry.distribution.npx.clone() {
-            return npm::install_registry_npx_agent(&entry, registry_id, &npx.package, force_overwrite)
-                .await;
+            return npm::install_registry_npx_agent(
+                &entry,
+                registry_id,
+                &npx.package,
+                force_overwrite,
+            )
+            .await;
         }
 
         if entry.distribution.binary.is_some() {
@@ -263,11 +268,7 @@ impl AgentManager {
             value
         );
 
-        if let Some(entry) = m
-            .registry
-            .iter_mut()
-            .find(|e| e.registry_id == registry_id)
-        {
+        if let Some(entry) = m.registry.iter_mut().find(|e| e.registry_id == registry_id) {
             let mut defaults = entry.default_config.clone().unwrap_or_default();
             defaults.insert(config_id.to_string(), value.to_string());
             entry.default_config = Some(defaults);

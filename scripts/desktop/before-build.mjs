@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -60,6 +60,8 @@ console.log(`Prepared sidecar: ${toSidecar}`);
 
 const webOut = join(rootDir, "apps/web/out");
 const sidecarWebOut = join(binariesDir, "web-out");
+const systemSkills = join(rootDir, "skills");
+const bundledSystemSkills = join(binariesDir, "system-skills");
 
 if (existsSync(webOut)) {
   const indexHtmlPath = join(webOut, "index.html");
@@ -75,4 +77,12 @@ if (existsSync(webOut)) {
   console.log(`Copied web static export to: ${sidecarWebOut}`);
 } else {
   console.warn(`Warning: ${webOut} not found, skipping web static copy`);
+}
+
+if (existsSync(systemSkills)) {
+  rmSync(bundledSystemSkills, { recursive: true, force: true });
+  cpSync(systemSkills, bundledSystemSkills, { recursive: true });
+  console.log(`Copied bundled system skills to: ${bundledSystemSkills}`);
+} else {
+  console.warn(`Warning: ${systemSkills} not found, skipping bundled system skills copy`);
 }

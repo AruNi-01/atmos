@@ -53,15 +53,29 @@ fn spawn_ws_forwarder<T: serde::Serialize + Clone + Send + 'static>(
                     }
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                    warn!(
-                        "Lagged on {} updates, skipped {} messages",
-                        label, skipped
-                    );
+                    warn!("Lagged on {} updates, skipped {} messages", label, skipped);
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             }
         }
     })
+}
+
+fn spawn_non_critical_startup_tasks(agent_service: Arc<AgentService>) {
+    tokio::task::spawn_blocking(|| {
+        infra::utils::system_skill_sync::sync_system_skills_on_startup();
+    });
+
+    tokio::spawn(async move {
+        if let Err(error) = agent_service.refresh_acp_registry_cache().await {
+            warn!(
+                "Non-critical startup task failed: ACP registry refresh: {}",
+                error
+            );
+        } else {
+            info!("ACP registry cache refreshed");
+        }
+    });
 }
 
 #[tokio::main]
@@ -81,11 +95,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting ATMOS API Server...");
 
-    // Sync bundled skills to ~/.atmos on startup.
-    tokio::task::spawn_blocking(|| {
-        infra::utils::system_skill_sync::sync_system_skills_on_startup();
-    });
-
     let db_connection = DbConnection::new().await?;
     info!("Database connected");
 
@@ -102,18 +111,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
+    let agent_service_for_startup = Arc::clone(&agent_service);
     let usage_service = Arc::new(UsageService::default());
     let token_usage_service = Arc::new(TokenUsageService::default());
-    tokio::spawn({
-        let agent = Arc::clone(&agent_service);
-        async move {
-            if let Err(e) = agent.refresh_acp_registry_cache().await {
-                warn!("Failed to refresh ACP registry cache: {}", e);
-            } else {
-                info!("ACP registry cache refreshed");
-            }
-        }
-    });
 
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
@@ -197,11 +197,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         require_local_token(ci, headers, req, next, token.clone())
     }));
 
-    let destructive = api::destructive_system_routes().route_layer(from_fn(
-        move |ci, headers, req, next| {
+    let destructive =
+        api::destructive_system_routes().route_layer(from_fn(move |ci, headers, req, next| {
             require_loopback_or_token(ci, headers, req, next, token_for_destructive.clone())
-        },
-    ));
+        }));
 
     let mut app = Router::new()
         .route("/healthz", get(|| async { StatusCode::OK }))
@@ -246,6 +245,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let actual_addr = listener.local_addr()?;
     info!("Server listening on http://{}", actual_addr);
     println!("ATMOS_READY port={}", actual_addr.port());
+    spawn_non_critical_startup_tasks(agent_service_for_startup);
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
