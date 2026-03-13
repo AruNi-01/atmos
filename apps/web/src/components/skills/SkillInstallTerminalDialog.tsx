@@ -47,7 +47,9 @@ export const SkillInstallTerminalDialog: React.FC<SkillInstallTerminalDialogProp
   const terminalRef = React.useRef<TerminalRef | null>(null);
   const startedRef = React.useRef(false);
   const commandStartTimerRef = React.useRef<number | null>(null);
-  const { projects, fetchProjects, isLoading: isLoadingProjects } = useProjectStore();
+  const projects = useProjectStore(s => s.projects);
+  const fetchProjects = useProjectStore(s => s.fetchProjects);
+  const isLoadingProjects = useProjectStore(s => s.isLoading);
   const [sessionId, setSessionId] = React.useState<string | null>(null);
   const [sessionError, setSessionError] = React.useState<string | null>(null);
   const [installScope, setInstallScope] = React.useState<InstallScope>("global");

@@ -82,7 +82,7 @@ pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
   margin-right: 1.3rem;
   margin-left: 0.2rem;
   display: inline-block;
-  @apply text-right font-mono text-xs text-neutral-400 dark:text-neutral-500;
+  @apply text-right font-mono text-xs text-muted-foreground;
 }
 
 @layer base {
@@ -139,25 +139,25 @@ pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
 
 /* SketchPicker Dark Mode Overrides */
 .dark .sketch-picker {
-  background: #1c1c1f !important;
-  border: 1px solid #27272a !important;
+  background: var(--popover) !important;
+  border: 1px solid var(--border) !important;
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5) !important;
   border-radius: 12px !important;
 }
 
 .dark .sketch-picker input {
-  background: #27272a !important;
-  color: #e4e4e7 !important;
-  box-shadow: inset 0 0 0 1px #3f3f46 !important;
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+  box-shadow: inset 0 0 0 1px var(--border) !important;
   border-radius: 4px !important;
   font-family: inherit !important;
 }
 
 .dark .sketch-picker label {
-  color: #a1a1aa !important;
+  color: var(--muted-foreground) !important;
 }
 
 .dark .sketch-picker > div:last-child {
-  border-top: 1px solid #27272a !important;
+  border-top: 1px solid var(--border) !important;
   padding-top: 10px !important;
 }

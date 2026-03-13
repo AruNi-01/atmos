@@ -9,8 +9,8 @@ use async_trait::async_trait;
 use core_engine::FsEngine;
 use infra::db::repo::AgentChatSessionRepo;
 use infra::DatabaseConnection;
-use parking_lot::RwLock;
 use serde::Serialize;
+use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::error::Result;
@@ -113,9 +113,70 @@ impl AgentSessionService {
         }
     }
 
+    /// Resolve launch spec, env overrides, and default config for a registry/custom agent.
+    async fn resolve_agent_launch(
+        &self,
+        registry_id: &str,
+    ) -> Result<(
+        agent::AgentLaunchSpec,
+        Option<HashMap<String, String>>,
+        Option<HashMap<String, String>>,
+    )> {
+        let launch_spec = self
+            .agent_service
+            .get_registry_agent_launch_spec(registry_id)
+            .await
+            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(registry_id))?;
+
+        let env_overrides = self
+            .agent_service
+            .get_registry_agent_env_overrides(registry_id);
+        let default_config = self.agent_service.get_agent_default_config(registry_id);
+
+        Ok((launch_spec, env_overrides, default_config))
+    }
+
+    fn resolve_context(
+        workspace_id: Option<&str>,
+        project_id: Option<&str>,
+    ) -> (&'static str, Option<String>) {
+        if workspace_id.is_some() {
+            ("workspace", workspace_id.map(String::from))
+        } else if project_id.is_some() {
+            ("project", project_id.map(String::from))
+        } else {
+            ("temp", None)
+        }
+    }
+
+    async fn persist_new_session(
+        &self,
+        session_id: &str,
+        context_type: &str,
+        context_guid: Option<&str>,
+        registry_id: &str,
+        cwd_str: &str,
+        allow_file_access: bool,
+        mode: &str,
+    ) {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        if let Err(e) = repo
+            .create(
+                session_id,
+                context_type,
+                context_guid,
+                registry_id,
+                cwd_str,
+                allow_file_access,
+                mode,
+            )
+            .await
+        {
+            tracing::warn!("Failed to persist agent session {}: {}", session_id, e);
+        }
+    }
+
     /// Create a new Agent session. Returns session_id for WebSocket connection.
-    /// - workspace_path: When Some(workspace), Agent has file access. When None (general assistant), use temp dir and deny file ops.
-    /// - project_id: Optional project context when not in workspace.
     pub async fn create_session(
         &self,
         workspace_id: Option<&str>,
@@ -125,18 +186,8 @@ impl AgentSessionService {
         auth_method_id: Option<String>,
         mode: &str,
     ) -> Result<String> {
-        let launch_spec = self
-            .agent_service
-            .get_registry_agent_launch_spec(registry_id)
-            .await
-            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(registry_id))
-            .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
-
-        let env_overrides = self
-            .agent_service
-            .get_registry_agent_env_overrides(registry_id);
-
-        let default_config = self.agent_service.get_agent_default_config(registry_id);
+        let (launch_spec, env_overrides, default_config) =
+            self.resolve_agent_launch(registry_id).await?;
 
         let session_id_hint = uuid::Uuid::new_v4().to_string();
         let allow_file_access = workspace_id.is_some();
@@ -160,31 +211,19 @@ impl AgentSessionService {
         .map_err(crate::ServiceError::Processing)?;
         let session_id = handle.session_id.clone();
 
-        self.sessions.write().insert(session_id.clone(), handle);
+        self.sessions.write().await.insert(session_id.clone(), handle);
 
-        let (context_type, context_guid) = if workspace_id.is_some() {
-            ("workspace", workspace_id.map(String::from))
-        } else if project_id.is_some() {
-            ("project", project_id.map(String::from))
-        } else {
-            ("temp", None)
-        };
-
-        let repo = AgentChatSessionRepo::new(&self.db);
-        if let Err(e) = repo
-            .create(
-                &session_id,
-                context_type,
-                context_guid.as_deref(),
-                registry_id,
-                &cwd_str,
-                allow_file_access,
-                mode,
-            )
-            .await
-        {
-            tracing::warn!("Failed to persist agent session {}: {}", session_id, e);
-        }
+        let (context_type, context_guid) = Self::resolve_context(workspace_id, project_id);
+        self.persist_new_session(
+            &session_id,
+            context_type,
+            context_guid.as_deref(),
+            registry_id,
+            &cwd_str,
+            allow_file_access,
+            mode,
+        )
+        .await;
 
         info!(
             "Created Agent session {} (workspace: {}, file_access: {})",
@@ -197,7 +236,6 @@ impl AgentSessionService {
 
     /// Create a session stub that returns immediately. The actual ACP connection
     /// is deferred to `connect_session()` (called from the WebSocket handler).
-    /// This allows the frontend to show connection phases in real-time.
     pub async fn create_session_lazy(
         &self,
         workspace_id: Option<&str>,
@@ -207,18 +245,8 @@ impl AgentSessionService {
         auth_method_id: Option<String>,
         mode: &str,
     ) -> Result<String> {
-        let launch_spec = self
-            .agent_service
-            .get_registry_agent_launch_spec(registry_id)
-            .await
-            .or_else(|_| self.agent_service.get_custom_agent_launch_spec(registry_id))
-            .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
-
-        let env_overrides = self
-            .agent_service
-            .get_registry_agent_env_overrides(registry_id);
-
-        let default_config = self.agent_service.get_agent_default_config(registry_id);
+        let (launch_spec, env_overrides, default_config) =
+            self.resolve_agent_launch(registry_id).await?;
 
         let session_id = uuid::Uuid::new_v4().to_string();
         let allow_file_access = workspace_id.is_some();
@@ -236,31 +264,20 @@ impl AgentSessionService {
         };
         self.pending_sessions
             .write()
+            .await
             .insert(session_id.clone(), spec);
 
-        let (context_type, context_guid) = if workspace_id.is_some() {
-            ("workspace", workspace_id.map(String::from))
-        } else if project_id.is_some() {
-            ("project", project_id.map(String::from))
-        } else {
-            ("temp", None)
-        };
-
-        let repo = AgentChatSessionRepo::new(&self.db);
-        if let Err(e) = repo
-            .create(
-                &session_id,
-                context_type,
-                context_guid.as_deref(),
-                registry_id,
-                &cwd_str,
-                allow_file_access,
-                mode,
-            )
-            .await
-        {
-            tracing::warn!("Failed to persist agent session {}: {}", session_id, e);
-        }
+        let (context_type, context_guid) = Self::resolve_context(workspace_id, project_id);
+        self.persist_new_session(
+            &session_id,
+            context_type,
+            context_guid.as_deref(),
+            registry_id,
+            &cwd_str,
+            allow_file_access,
+            mode,
+        )
+        .await;
 
         info!(
             "Created lazy Agent session {} (pending ACP connect)",
@@ -296,22 +313,8 @@ impl AgentSessionService {
             }
         }
 
-        let launch_spec = self
-            .agent_service
-            .get_registry_agent_launch_spec(&model.registry_id)
-            .await
-            .or_else(|_| {
-                self.agent_service
-                    .get_custom_agent_launch_spec(&model.registry_id)
-            })
-            .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
-        let env_overrides = self
-            .agent_service
-            .get_registry_agent_env_overrides(&model.registry_id);
-
-        let default_config = self
-            .agent_service
-            .get_agent_default_config(&model.registry_id);
+        let (launch_spec, env_overrides, default_config) =
+            self.resolve_agent_launch(&model.registry_id).await?;
 
         let spec = LazySessionSpec {
             session_id: model.guid.clone(),
@@ -330,6 +333,7 @@ impl AgentSessionService {
         };
         self.pending_sessions
             .write()
+            .await
             .insert(model.guid.clone(), spec);
 
         info!(
@@ -340,8 +344,8 @@ impl AgentSessionService {
     }
 
     /// Take a pending session spec (removes from pending map).
-    pub fn take_pending_session(&self, session_id: &str) -> Option<LazySessionSpec> {
-        self.pending_sessions.write().remove(session_id)
+    pub async fn take_pending_session(&self, session_id: &str) -> Option<LazySessionSpec> {
+        self.pending_sessions.write().await.remove(session_id)
     }
 
     /// Actually connect an ACP session from a LazySessionSpec.
@@ -392,22 +396,8 @@ impl AgentSessionService {
                 crate::ServiceError::NotFound(format!("Session {} not found", session_id))
             })?;
 
-        let launch_spec = self
-            .agent_service
-            .get_registry_agent_launch_spec(&model.registry_id)
-            .await
-            .or_else(|_| {
-                self.agent_service
-                    .get_custom_agent_launch_spec(&model.registry_id)
-            })
-            .map_err(|e| crate::ServiceError::Processing(e.to_string()))?;
-        let env_overrides = self
-            .agent_service
-            .get_registry_agent_env_overrides(&model.registry_id);
-
-        let default_config = self
-            .agent_service
-            .get_agent_default_config(&model.registry_id);
+        let (launch_spec, env_overrides, default_config) =
+            self.resolve_agent_launch(&model.registry_id).await?;
 
         let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
             fs_engine: FsEngine::new(),
@@ -434,6 +424,7 @@ impl AgentSessionService {
         let runtime_session_id = handle.session_id.clone();
         self.sessions
             .write()
+            .await
             .insert(runtime_session_id.clone(), handle);
 
         if runtime_session_id != model.guid {
@@ -470,13 +461,13 @@ impl AgentSessionService {
     }
 
     /// Get session handle (removes from map - caller owns it for the WebSocket lifetime)
-    pub fn take_session(&self, session_id: &str) -> Option<AcpSessionHandle> {
-        self.sessions.write().remove(session_id)
+    pub async fn take_session(&self, session_id: &str) -> Option<AcpSessionHandle> {
+        self.sessions.write().await.remove(session_id)
     }
 
     /// Send prompt to session
-    pub fn send_prompt(&self, session_id: &str, message: String) -> Result<()> {
-        let sessions = self.sessions.read();
+    pub async fn send_prompt(&self, session_id: &str, message: String) -> Result<()> {
+        let sessions = self.sessions.read().await;
         if let Some(handle) = sessions.get(session_id) {
             handle.send_prompt(message);
             Ok(())
@@ -489,12 +480,12 @@ impl AgentSessionService {
     }
 
     /// Store a pending permission response sender (called when we receive permission request)
-    pub fn store_pending_permission(
+    pub async fn store_pending_permission(
         &self,
         request_id: String,
         tx: tokio::sync::oneshot::Sender<bool>,
     ) {
-        self.pending_permissions.write().insert(request_id, tx);
+        self.pending_permissions.write().await.insert(request_id, tx);
     }
 
     /// Generate and persist an automatic title for the first user prompt.
@@ -684,13 +675,13 @@ impl AgentSessionService {
     }
 
     /// Respond to a permission request
-    pub fn respond_permission(
+    pub async fn respond_permission(
         &self,
         request_id: &str,
         allowed: bool,
         _remember_for_session: bool,
     ) -> Result<()> {
-        let mut pending = self.pending_permissions.write();
+        let mut pending = self.pending_permissions.write().await;
         if let Some(tx) = pending.remove(request_id) {
             let _ = tx.send(allowed);
             Ok(())

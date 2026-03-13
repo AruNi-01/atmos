@@ -27,7 +27,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   // Initial tab
   const [tabs, setTabs] = useState([{ id: '1', name: 'Run' }]);
   const [activeTabId, setActiveTabId] = useState('1');
-  const { currentProjectPath } = useEditorStore();
+  const currentProjectPath = useEditorStore(s => s.currentProjectPath);
 
   // Lazy initialization state
   const [hasBeenActive, setHasBeenActive] = React.useState(false);

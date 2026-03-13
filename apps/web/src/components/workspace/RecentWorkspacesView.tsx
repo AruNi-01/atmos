@@ -70,7 +70,8 @@ interface RecentWorkspacesViewProps {
 
 export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey }) => {
   const router = useAppRouter();
-  const { projects, isLoading: isStoreLoading } = useProjectStore();
+  const projects = useProjectStore(s => s.projects);
+  const isStoreLoading = useProjectStore(s => s.isLoading);
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<EnrichedWorkspace[]>([]);
   const [isLoadingArchived, setIsLoadingArchived] = useState(true);

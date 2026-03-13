@@ -68,8 +68,8 @@ pub fn process_text_message(text: &str, conn_id: &str) -> HandleResult {
 
 /// Check if a message is a control message (ping/pong)
 pub fn is_control_message(text: &str) -> bool {
-    let text_lower = text.trim().to_lowercase();
-    text_lower == "ping" || text_lower == "pong"
+    let trimmed = text.trim();
+    trimmed.eq_ignore_ascii_case("ping") || trimmed.eq_ignore_ascii_case("pong")
 }
 
 /// Configuration for WebSocket connection handling

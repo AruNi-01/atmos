@@ -5,7 +5,7 @@ use tracing::info;
 use crate::error::{InfraError, Result};
 
 pub struct DbConnection {
-    pub conn: DatabaseConnection,
+    conn: DatabaseConnection,
 }
 
 impl DbConnection {
@@ -16,7 +16,7 @@ impl DbConnection {
 
     pub async fn connect(db_path: &Path) -> Result<Self> {
         if let Some(parent) = db_path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
 
         let db_url = format!("sqlite://{}?mode=rwc", db_path.display());

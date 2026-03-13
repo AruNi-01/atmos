@@ -229,6 +229,9 @@ fn resolve_project_root() -> PathBuf {
 
 /// Sync a single system skill on demand (e.g. triggered by user clicking "Install Now").
 /// Returns Ok(()) on success, Err with message on failure.
+///
+/// **Blocking**: uses std::fs and std::process::Command. Callers in async
+/// contexts must wrap this in `tokio::task::spawn_blocking`.
 pub fn sync_single_system_skill(skill_name: &str) -> Result<(), String> {
     if !ALL_SYSTEM_SKILL_NAMES.contains(&skill_name) {
         return Err(format!("Unknown system skill: {}", skill_name));
@@ -263,6 +266,9 @@ pub fn sync_single_system_skill(skill_name: &str) -> Result<(), String> {
 /// 1. If target exists and valid, no-op
 /// 2. Copy from project root when running from ATMOS source
 /// 3. For any still missing: clone from GitHub and copy
+///
+/// **Blocking**: uses std::fs and std::process::Command. Callers in async
+/// contexts must wrap this in `tokio::task::spawn_blocking`.
 pub fn sync_system_skills_on_startup() {
     let home = match dirs::home_dir() {
         Some(h) => h,

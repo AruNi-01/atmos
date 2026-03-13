@@ -213,6 +213,7 @@ pub async fn run_acp_session(
     let (permission_tx, permission_rx) = mpsc::unbounded_channel();
     let (ready_tx, ready_rx) = oneshot::channel::<Result<String, String>>();
     let event_tx_end = event_tx.clone();
+    let event_tx_panic = event_tx.clone();
 
     thread::Builder::new()
         .name(format!(
@@ -225,35 +226,52 @@ pub async fn run_acp_session(
                 .build()
                 .expect("Failed to create ACP runtime");
 
-            rt.block_on(async move {
-                match run_session_inner(
-                    &session_id_for_thread,
-                    launch_spec,
-                    &cwd,
-                    handler,
-                    env_overrides,
-                    resume_session_id,
-                    auth_method_id,
-                    &mut cmd_rx,
-                    event_tx.clone(),
-                    permission_tx,
-                    Some(ready_tx),
-                    default_config,
-                )
-                .await
-                {
-                    Ok(()) => info!("ACP session {} ended normally", session_id_for_thread),
-                    Err(e) => {
-                        error!("ACP session {} error: {}", session_id_for_thread, e);
-                        let _ = event_tx_end.send(AcpSessionEvent::Error {
-                            code: "SESSION_ERROR".to_string(),
-                            message: e,
-                            recoverable: false,
-                        });
-                    }
-                }
-                let _ = event_tx_end.send(AcpSessionEvent::SessionEnded);
-            });
+            let panic_result =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    rt.block_on(async move {
+                        match run_session_inner(
+                            &session_id_for_thread,
+                            launch_spec,
+                            &cwd,
+                            handler,
+                            env_overrides,
+                            resume_session_id,
+                            auth_method_id,
+                            &mut cmd_rx,
+                            event_tx.clone(),
+                            permission_tx,
+                            Some(ready_tx),
+                            default_config,
+                        )
+                        .await
+                        {
+                            Ok(()) => {
+                                info!("ACP session {} ended normally", session_id_for_thread)
+                            }
+                            Err(e) => {
+                                error!(
+                                    "ACP session {} error: {}",
+                                    session_id_for_thread, e
+                                );
+                                let _ = event_tx_end.send(AcpSessionEvent::Error {
+                                    code: "SESSION_ERROR".to_string(),
+                                    message: e,
+                                    recoverable: false,
+                                });
+                            }
+                        }
+                        let _ = event_tx_end.send(AcpSessionEvent::SessionEnded);
+                    });
+                }));
+            if let Err(panic_info) = panic_result {
+                error!("ACP session thread panicked: {:?}", panic_info);
+                let _ = event_tx_panic.send(AcpSessionEvent::Error {
+                    code: "SESSION_PANIC".to_string(),
+                    message: "ACP session thread panicked".to_string(),
+                    recoverable: false,
+                });
+                let _ = event_tx_panic.send(AcpSessionEvent::SessionEnded);
+            }
         })
         .map_err(|e| format!("Failed to spawn ACP thread: {}", e))?;
 
@@ -271,7 +289,7 @@ pub async fn run_acp_session(
 
 #[allow(clippy::too_many_arguments)]
 async fn run_session_inner(
-    _session_id: &str,
+    session_id: &str,
     launch_spec: AgentLaunchSpec,
     cwd: &Path,
     handler: Arc<dyn AcpToolHandler>,
@@ -284,7 +302,8 @@ async fn run_session_inner(
     mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
     default_config: Option<std::collections::HashMap<String, String>>,
 ) -> Result<(), String> {
-    let (stdin, stdout, stderr, mut _child) =
+    // Must be held alive for the session duration; dropping triggers kill_on_drop
+    let (stdin, stdout, stderr, child_guard) =
         spawn_agent(&launch_spec, Some(cwd.to_path_buf()), env_overrides).map_err(|e| {
             let msg = format!("Failed to spawn agent: {}", e);
             if let Some(tx) = ready_tx.take() {
@@ -292,6 +311,7 @@ async fn run_session_inner(
             }
             msg
         })?;
+    let _child_guard = child_guard;
 
     // Collect stderr in background. When the agent exits (pipe closes), send
     // the collected output via a oneshot so the main task can await it.
@@ -515,7 +535,7 @@ async fn run_session_inner(
                     for (config_id, value) in defaults {
                         info!(
                             "Applying default config for {}: {}={}",
-                            _session_id, config_id, value
+                            session_id, config_id, value
                         );
                         if uses_legacy_modes && config_id == "mode" {
                             match conn
@@ -534,7 +554,7 @@ async fn run_session_inner(
                                 Err(e) => {
                                     warn!(
                                         "Failed to apply default mode for {}: {}",
-                                        _session_id, e
+                                        session_id, e
                                     );
                                 }
                             }
@@ -555,7 +575,7 @@ async fn run_session_inner(
                                 Err(e) => {
                                     warn!(
                                         "Failed to apply default model for {}: {}",
-                                        _session_id, e
+                                        session_id, e
                                     );
                                 }
                             }
@@ -574,7 +594,7 @@ async fn run_session_inner(
                                 Err(e) => {
                                     warn!(
                                         "Failed to apply default config for {}: {}",
-                                        _session_id, e
+                                        session_id, e
                                     );
                                 }
                             }

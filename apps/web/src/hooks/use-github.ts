@@ -130,15 +130,13 @@ export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
       const result = await fetch(true);
       if (!isMounted) return;
       
-      // 如果有 running/queued 的，轮询
       const hasInProgress = result?.some(r => r.status === 'in_progress' || r.status === 'queued');
       if (hasInProgress) {
         timer = setTimeout(poll, 30_000); // 30s
       }
     };
 
-    fetch();
-    poll(); // Start polling if needed
+    poll();
 
     return () => { 
       isMounted = false;

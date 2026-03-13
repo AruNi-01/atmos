@@ -32,7 +32,9 @@ export const ArchivedWorkspacesView: React.FC = () => {
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
 
   // We might want to refresh the project list after restore/delete operations
-  const { fetchProjects, projects, deleteProject } = useProjectStore();
+  const fetchProjects = useProjectStore(s => s.fetchProjects);
+  const projects = useProjectStore(s => s.projects);
+  const deleteProject = useProjectStore(s => s.deleteProject);
   const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
     isOpen: boolean;
     projectId: string;

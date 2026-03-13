@@ -13,7 +13,7 @@ pub use handler::{
     is_control_message, process_text_message, HandleResult, WsHandlerConfig, WsMessageHandler,
 };
 pub use heartbeat::{HeartbeatMonitor, DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_TIMEOUT_SECS};
-pub use manager::WsManager;
+pub use manager::{ConnectionInfo, WsManager};
 pub use message::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
     AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CustomAgentAddRequest,
@@ -42,6 +42,6 @@ pub use message::{
     WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
     WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
-    WsAction, WsError as WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
+    WsAction, WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
 };
 pub use service::{WsService, WsServiceConfig};

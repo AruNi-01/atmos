@@ -123,7 +123,7 @@ interface DialogStore {
   setActivePr: (pr: any | null) => void;
 }
 
-export const useDialogStore = create<DialogStore>((set) => ({
+export const useDialogStore = create<DialogStore>((set, get) => ({
   isCreateProjectOpen: false,
   setCreateProjectOpen: (open) => set({ isCreateProjectOpen: open }),
   
@@ -141,12 +141,7 @@ export const useDialogStore = create<DialogStore>((set) => ({
   pendingAgentChatMode: null,
   setPendingAgentChatMode: (mode) => set({ pendingAgentChatMode: mode }),
   peekPendingAgentChatMode: () => {
-    let mode: AgentChatMode | null = null;
-    set((state) => {
-      mode = state.pendingAgentChatMode;
-      return state;
-    });
-    return mode;
+    return get().pendingAgentChatMode;
   },
   consumePendingAgentChatMode: () => {
     let mode: AgentChatMode | null = null;
@@ -178,12 +173,7 @@ export const useDialogStore = create<DialogStore>((set) => ({
     return item.id;
   },
   getAgentChatDraft: (workspaceId, projectId, mode) => {
-    let value = "";
-    set((state) => {
-      value = state.agentChatDrafts[getAgentPromptQueueKey(workspaceId, projectId, mode)] ?? "";
-      return state;
-    });
-    return value;
+    return get().agentChatDrafts[getAgentPromptQueueKey(workspaceId, projectId, mode)] ?? "";
   },
   setAgentChatDraft: (workspaceId, projectId, mode, value) => set((state) => ({
     agentChatDrafts: {
@@ -210,13 +200,8 @@ export const useDialogStore = create<DialogStore>((set) => ({
     return { agentChatDrafts: nextDrafts };
   }),
   peekQueuedAgentChatPrompt: (workspaceId, projectId, mode) => {
-    let item: QueuedAgentPrompt | null = null;
-    set((state) => {
-      const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode);
-      item = state.agentChatPromptQueues[queueKey]?.[0] ?? null;
-      return state;
-    });
-    return item;
+    const queueKey = getAgentPromptQueueKey(workspaceId, projectId, mode);
+    return get().agentChatPromptQueues[queueKey]?.[0] ?? null;
   },
   shiftQueuedAgentChatPrompt: (workspaceId, projectId, mode) => {
     let item: QueuedAgentPrompt | null = null;

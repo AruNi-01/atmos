@@ -3,14 +3,12 @@ mod app_state;
 mod config;
 mod error;
 mod middleware;
-mod service;
-mod utils;
 
 use std::sync::Arc;
 
-use crate::middleware::require_local_token;
+use crate::middleware::{require_local_token, require_loopback_or_token};
 use ai_usage::UsageService;
-use app_state::AppState;
+use app_state::{AppServices, AppState};
 use axum::{http::StatusCode, middleware::from_fn, routing::get, Router};
 use clap::Parser;
 use config::ServerConfig;
@@ -19,7 +17,7 @@ use core_service::{
     AgentService, MessagePushService, ProjectService, TerminalService, TestService,
     WorkspaceService, WsMessageService,
 };
-use infra::{DbConnection, Migrator, WsEvent, WsMessage, WsServiceConfig};
+use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
 use token_usage::TokenUsageService;
@@ -36,16 +34,41 @@ struct Cli {
     port: Option<u16>,
 }
 
+fn spawn_ws_forwarder<T: serde::Serialize + Clone + Send + 'static>(
+    mut rx: tokio::sync::broadcast::Receiver<T>,
+    ws_manager: Arc<WsManager>,
+    event: WsEvent,
+    label: &'static str,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(data) => {
+                    debug!("Broadcasting {} update to all websocket clients", label);
+                    if let Err(error) = ws_manager
+                        .broadcast(&WsMessage::notification(event.clone(), json!(data)))
+                        .await
+                    {
+                        warn!("Failed to broadcast {} update: {}", label, error);
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    warn!(
+                        "Lagged on {} updates, skipped {} messages",
+                        label, skipped
+                    );
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    })
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     dotenvy::from_filename("apps/api/.env").ok();
     dotenvy::dotenv().ok();
-
-    // CLI --port takes highest priority, then env var
-    if let Some(port) = cli.port {
-        std::env::set_var("ATMOS_PORT", port.to_string());
-    }
 
     tracing_subscriber::registry()
         .with(
@@ -66,10 +89,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_connection = DbConnection::new().await?;
     info!("Database connected");
 
-    Migrator::up(&db_connection.conn, None).await?;
+    Migrator::up(db_connection.connection(), None).await?;
     info!("Database migrations completed");
 
-    let db = Arc::new(db_connection.conn.clone());
+    let db = Arc::new(db_connection.connection().clone());
 
     let test_engine = Arc::new(TestEngine::new());
     let message_push_service = Arc::new(MessagePushService::new());
@@ -117,7 +140,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         connection_timeout_secs: 30,
     };
 
-    let server_config = ServerConfig::from_env();
+    let mut server_config = ServerConfig::from_env();
+    if let Some(port) = cli.port {
+        server_config.port = port;
+    }
     let cors = server_config.cors_layer();
 
     // Keep a reference for shutdown cleanup (must clone before moving into AppState)
@@ -125,14 +151,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create AppState with dependency injection
     let app_state = AppState::new(
-        test_service,
-        project_service,
-        workspace_service,
-        agent_service,
-        ws_message_service.clone(),
-        message_push_service,
-        terminal_service,
-        Arc::clone(&token_usage_service),
+        AppServices {
+            test_service,
+            project_service,
+            workspace_service,
+            agent_service,
+            ws_message_service: ws_message_service.clone(),
+            message_push_service,
+            terminal_service,
+            token_usage_service: Arc::clone(&token_usage_service),
+        },
         ws_config,
         db,
     );
@@ -142,79 +170,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_ws_manager(app_state.ws_service.manager())
         .map_err(|e| e.to_string())?;
 
-    {
-        let ws_manager = app_state.ws_service.manager();
-        let mut usage_updates = usage_service.subscribe_updates();
-        tokio::spawn(async move {
-            loop {
-                match usage_updates.recv().await {
-                    Ok(overview) => {
-                        debug!(
-                            "Broadcasting usage overview update to all websocket clients at {}",
-                            overview.generated_at
-                        );
-                        if let Err(error) = ws_manager
-                            .broadcast(&WsMessage::notification(
-                                WsEvent::UsageOverviewUpdated,
-                                json!(overview),
-                            ))
-                            .await
-                        {
-                            warn!("Failed to broadcast usage overview update: {}", error);
-                        }
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                        warn!(
-                            "Lagged on usage overview updates, skipped {} messages",
-                            skipped
-                        );
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-                }
-            }
-        });
-    }
+    let ws_manager = app_state.ws_service.manager();
 
-    {
-        let ws_manager = app_state.ws_service.manager();
-        let mut token_usage_updates = token_usage_service.subscribe_updates();
-        tokio::spawn(async move {
-            loop {
-                match token_usage_updates.recv().await {
-                    Ok(update) => {
-                        debug!(
-                            "Broadcasting token usage update to all websocket clients at {}",
-                            update.overview.generated_at
-                        );
-                        if let Err(error) = ws_manager
-                            .broadcast(&WsMessage::notification(
-                                WsEvent::TokenUsageUpdated,
-                                json!(update),
-                            ))
-                            .await
-                        {
-                            warn!("Failed to broadcast token usage update: {}", error);
-                        }
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                        warn!(
-                            "Lagged on token usage updates, skipped {} messages",
-                            skipped
-                        );
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-                }
-            }
-        });
-    }
+    spawn_ws_forwarder(
+        usage_service.subscribe_updates(),
+        Arc::clone(&ws_manager),
+        WsEvent::UsageOverviewUpdated,
+        "usage overview",
+    );
+
+    spawn_ws_forwarder(
+        token_usage_service.subscribe_updates(),
+        Arc::clone(&ws_manager),
+        WsEvent::TokenUsageUpdated,
+        "token usage",
+    );
 
     // Start heartbeat monitor
     let _heartbeat_task = app_state.ws_service.start_heartbeat();
     info!("WebSocket service started with heartbeat (timeout: 30s)");
 
-    let protected = api::routes().route_layer(from_fn(require_local_token));
+    let token = server_config.local_api_token.clone();
+    let token_for_destructive = server_config.local_api_token.clone();
+
+    let protected = api::routes().route_layer(from_fn(move |ci, headers, req, next| {
+        require_local_token(ci, headers, req, next, token.clone())
+    }));
+
+    let destructive = api::destructive_system_routes().route_layer(from_fn(
+        move |ci, headers, req, next| {
+            require_loopback_or_token(ci, headers, req, next, token_for_destructive.clone())
+        },
+    ));
+
     let mut app = Router::new()
         .route("/healthz", get(|| async { StatusCode::OK }))
+        .merge(destructive)
         .merge(protected)
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())

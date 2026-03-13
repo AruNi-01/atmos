@@ -61,14 +61,13 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
         }
     });
 
-    // Task: Periodic push (business logic - could also be moved to core-service)
+    // Task: Push messages to client when updates arrive (notify-based, not polling)
     let conn_id_push = conn_id.clone();
     let tx_push = tx.clone();
     let message_push_service = Arc::clone(&state.message_push_service);
     let push_task = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3));
         loop {
-            interval.tick().await;
+            message_push_service.wait_for_update().await;
             let latest = message_push_service.get_latest_message().await;
             if !latest.is_empty() {
                 let msg = WsMessage::message(&conn_id_push, &latest);

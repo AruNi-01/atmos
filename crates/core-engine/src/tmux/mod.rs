@@ -12,6 +12,8 @@ use std::path::PathBuf;
 use std::process::Command;
 use tracing::{debug, info, warn};
 
+use serde::Serialize;
+
 use crate::error::{EngineError, Result};
 
 /// Default socket path for Atmos tmux server
@@ -48,7 +50,7 @@ fn apply_utf8_env(cmd: &mut Command) {
 }
 
 /// Information about a tmux session
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TmuxSessionInfo {
     pub name: String,
     pub windows: u32,
@@ -57,7 +59,7 @@ pub struct TmuxSessionInfo {
 }
 
 /// Information about a tmux window
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TmuxWindowInfo {
     pub index: u32,
     pub name: String,
@@ -66,7 +68,7 @@ pub struct TmuxWindowInfo {
 }
 
 /// Tmux version information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TmuxVersion {
     pub major: u32,
     pub minor: u32,
@@ -184,6 +186,25 @@ impl TmuxEngine {
         let _ = self.run_tmux(&["set-environment", "-g", "LC_CTYPE", &locale]);
     }
 
+    /// Apply the standard tmux configuration options for Atmos sessions.
+    ///
+    /// This configures status bar, passthrough, mouse, scrollback, and window naming.
+    /// NOTE: We intentionally do NOT disable the alternate screen buffer
+    /// (smcup@:rmcup@). Keeping the alternate screen enabled is critical for
+    /// correct resize behavior. Without it, tmux's screen redraw after SIGWINCH
+    /// pushes old content into xterm.js scrollback, causing visible duplication.
+    fn apply_standard_config(&self) {
+        let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
+        let _ = self.run_tmux(&["set-option", "-g", "default-terminal", "xterm-256color"]);
+        let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
+        let _ = self.run_tmux(&["set-option", "-g", "mouse", "on"]);
+        let _ = self.run_tmux(&["set-option", "-g", "-u", "terminal-overrides"]);
+        let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
+        let _ = self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"]);
+        let _ = self.run_tmux(&["set-option", "-g", "allow-rename", "off"]);
+        let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);
+    }
+
     /// Check if tmux is installed on the system
     pub fn check_installed() -> bool {
         Command::new("tmux")
@@ -205,7 +226,6 @@ impl TmuxEngine {
         }
 
         let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        // Parse version like "tmux 3.4" or "tmux 3.3a"
         let version_str = raw
             .strip_prefix("tmux ")
             .unwrap_or(&raw)
@@ -255,14 +275,12 @@ impl TmuxEngine {
         cwd: Option<&str>,
         shell_command: Option<&[String]>,
     ) -> Result<String> {
-        // Check if session already exists
         if self.session_exists(session_name)? {
             self.sync_utf8_environment();
             info!("Tmux session already exists: {}", session_name);
             return Ok(session_name.to_string());
         }
 
-        // Build the new-session command with optional working directory
         let mut args: Vec<String> = vec![
             "new-session".to_string(),
             "-d".to_string(),
@@ -276,13 +294,11 @@ impl TmuxEngine {
             "30".to_string(),
         ];
 
-        // Add working directory if provided
         if let Some(dir) = cwd {
             args.push("-c".to_string());
             args.push(dir.to_string());
         }
 
-        // Append shell command for first window (shim injection for dynamic titles)
         if let Some(cmd) = shell_command {
             for part in cmd {
                 args.push(part.clone());
@@ -294,58 +310,9 @@ impl TmuxEngine {
         }
 
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        // Create new detached session with the first window named "1"
         self.run_tmux(&args_refs)?;
         self.sync_utf8_environment();
-
-        // Disable status bar globally for this Atmos tmux server to ensure a clean UI
-        // and isolate from any local user preferences.
-        self.run_tmux(&["set-option", "-g", "status", "off"])?;
-
-        // Set the default terminal type so shells running inside tmux panes
-        // get a proper TERM value. Without this, zsh/bash line editors (ZLE/readline)
-        // may fall back to dumb-terminal mode and perform their own local echo,
-        // causing typed characters to appear twice in the frontend.
-        let _ = self.run_tmux(&["set-option", "-g", "default-terminal", "xterm-256color"]);
-
-        // Enable passthrough so shell shim OSC sequences (wrapped in DCS) can reach
-        // the PTY reader and ultimately xterm.js on the frontend.
-        // Without this, tmux silently drops unrecognized escape sequences.
-        // Requires tmux 3.3+ (we check gracefully — older versions ignore unknown options).
-        let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
-
-        // Enable tmux mouse mode so wheel events are forwarded to tmux for scrollback.
-        // The frontend sends SGR mouse sequences via a custom wheel handler, tmux enters
-        // copy-mode on scroll-up and provides persistent scrollback that survives reconnections.
-        // xterm.js scrollback is disabled (scrollback: 0) — tmux owns all scrollback.
-        // Text selection: users hold Shift for local xterm.js selection (standard tmux behavior).
-        self.run_tmux(&["set-option", "-g", "mouse", "on"])?;
-
-        // NOTE: We intentionally do NOT disable the alternate screen buffer
-        // (smcup@:rmcup@). Keeping the alternate screen enabled is critical for
-        // correct resize behavior. Without it, tmux's screen redraw after SIGWINCH
-        // pushes old content into xterm.js scrollback, causing visible duplication
-        // every time the terminal is resized. With the alternate screen, tmux draws
-        // on a separate buffer that has no scrollback, so redraws are clean.
-        // Tradeoff: xterm.js scrollbar won't show tmux content (tmux manages its
-        // own scrollback internally, accessible via copy-mode).
-        //
-        // Reset terminal-overrides to default in case a previous version set
-        // smcup@:rmcup@ (the setting persists on the running tmux server).
-        let _ = self.run_tmux(&["set-option", "-g", "-u", "terminal-overrides"]);
-
-        // Set scrollback buffer in tmux
-        self.run_tmux(&["set-option", "-g", "history-limit", "10000"])?;
-
-        // Use aggressive-resize so each window is sized based on the client
-        // actually viewing it, not the smallest client in the session group.
-        // This is important for grouped sessions where each terminal pane has
-        // its own client session but they share windows.
-        self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"])?;
-
-        // Prevent shell from renaming windows (critical for window name-based lookup)
-        self.run_tmux(&["set-option", "-g", "allow-rename", "off"])?;
-        self.run_tmux(&["set-option", "-g", "automatic-rename", "off"])?;
+        self.apply_standard_config();
 
         info!("Created tmux session: {} (with window '1')", session_name);
         Ok(session_name.to_string())
@@ -379,8 +346,7 @@ impl TmuxEngine {
     ///
     /// If `shell_command` is provided, it is used as the shell command for the
     /// new window instead of the default shell. This enables shim injection
-    /// for dynamic terminal titles. Example:
-    /// `["bash", "--init-file", "/path/to/shim.bash"]`
+    /// for dynamic terminal titles.
     pub fn create_window(
         &self,
         session_name: &str,
@@ -388,9 +354,7 @@ impl TmuxEngine {
         cwd: Option<&str>,
         shell_command: Option<&[String]>,
     ) -> Result<u32> {
-        // Ensure session exists
         if !self.session_exists(session_name)? {
-            // Try to create the session if it doesn't exist (first window "1" with shim if provided)
             info!("Session {} does not exist, creating it first", session_name);
             let mut session_args: Vec<String> = vec![
                 "new-session".to_string(),
@@ -416,22 +380,11 @@ impl TmuxEngine {
             let session_args_refs: Vec<&str> = session_args.iter().map(|s| s.as_str()).collect();
             self.run_tmux(&session_args_refs)?;
             self.sync_utf8_environment();
-
-            // Apply our standard configuration
-            let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
-            let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
-            let _ = self.run_tmux(&["set-option", "-g", "mouse", "on"]);
-            // NOTE: Do NOT disable alternate screen (smcup@:rmcup@) — see create_session_internal
-            let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
-            let _ = self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"]);
-            // Prevent shell from renaming windows (critical for window name-based lookup)
-            let _ = self.run_tmux(&["set-option", "-g", "allow-rename", "off"]);
-            let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);
+            self.apply_standard_config();
         }
 
         self.sync_utf8_environment();
 
-        // Create new window with optional working directory and shell command
         let mut args: Vec<String> = vec![
             "new-window".to_string(),
             "-t".to_string(),
@@ -446,7 +399,6 @@ impl TmuxEngine {
             args.push("-c".to_string());
             args.push(dir.to_string());
         }
-        // Append shell command with shim injection (if provided)
         if let Some(cmd) = shell_command {
             for part in cmd {
                 args.push(part.clone());
@@ -457,10 +409,8 @@ impl TmuxEngine {
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         let output = self.run_tmux(&args_refs)?;
 
-        // Handle empty output
         if output.is_empty() {
             warn!("new-window returned empty output, trying to get window list");
-            // Try to get the latest window index from the session
             let windows = self.list_windows(session_name)?;
             if let Some(last_window) = windows.last() {
                 info!("Using last window index: {}", last_window.index);
@@ -484,7 +434,6 @@ impl TmuxEngine {
     }
 
     /// Get the PTY device path for a specific window's pane
-    /// This is used to bridge PTY I/O with the tmux pane
     pub fn get_pane_tty(&self, session_name: &str, window_index: u32) -> Result<String> {
         let target = format!("{}:{}.0", session_name, window_index);
         let tty = self.run_tmux(&["display-message", "-t", &target, "-p", "#{pane_tty}"])?;
@@ -498,9 +447,6 @@ impl TmuxEngine {
     }
 
     /// Get the current foreground command running in a pane.
-    ///
-    /// Returns the process name (e.g., "vim", "python3", "zsh").
-    /// When the shell is idle at a prompt, this returns the shell name itself.
     pub fn get_pane_current_command(
         &self,
         session_name: &str,
@@ -519,8 +465,6 @@ impl TmuxEngine {
     }
 
     /// Get the current working directory of a pane.
-    ///
-    /// tmux tracks this via OSC 7 sequences that modern shells emit automatically.
     pub fn get_pane_current_path(&self, session_name: &str, window_index: u32) -> Result<String> {
         let target = format!("{}:{}.0", session_name, window_index);
         let path = self.run_tmux(&[
@@ -537,10 +481,7 @@ impl TmuxEngine {
     /// Send keys (input) to a specific window
     pub fn send_keys(&self, session_name: &str, window_index: u32, keys: &str) -> Result<()> {
         let target = format!("{}:{}", session_name, window_index);
-
-        // Use send-keys with literal flag to send raw text
         self.run_tmux(&["send-keys", "-t", &target, "-l", keys])?;
-
         Ok(())
     }
 
@@ -596,13 +537,11 @@ impl TmuxEngine {
             }
             Err(e) => {
                 warn!("Failed to kill window {}: {}", target, e);
-                // Don't propagate error if window doesn't exist
                 Ok(())
             }
         }
     }
 
-    /// Kill an entire session
     /// Kill the entire tmux server (all sessions)
     pub fn kill_server(&self) -> Result<()> {
         match self.run_tmux(&["kill-server"]) {
@@ -625,7 +564,6 @@ impl TmuxEngine {
             }
             Err(e) => {
                 warn!("Failed to kill session {}: {}", session_name, e);
-                // Don't propagate error if session doesn't exist
                 Ok(())
             }
         }
@@ -728,7 +666,6 @@ impl TmuxEngine {
             .output()
             .map_err(|e| EngineError::Tmux(format!("Failed to execute tmux: {}", e)))?;
 
-        // has-session returns 0 if session exists, 1 otherwise
         Ok(output.status.success())
     }
 
@@ -738,10 +675,8 @@ impl TmuxEngine {
         Ok(windows.iter().any(|w| w.index == window_index))
     }
 
-    /// Generate session name from workspace ID or names
-    /// Format: {project_name}_{workspace_name} if names provided, otherwise atmos_{workspace_id}
+    /// Generate session name from workspace ID
     fn session_name(&self, workspace_id: &str) -> String {
-        // Ensure consistent atmos_ prefix
         let sanitized_id = workspace_id.replace('-', "_");
         if sanitized_id.starts_with("atmos_") {
             sanitized_id
@@ -752,7 +687,6 @@ impl TmuxEngine {
 
     /// Generate session name from project and workspace names
     /// Format: atmos_{project_name}_{workspace_name} (sanitized for tmux)
-    /// Avoids duplicating project name if it's already part of workspace name.
     pub fn session_name_from_names(&self, project_name: &str, workspace_name: &str) -> String {
         let sanitize = |s: &str| -> String {
             s.chars()
@@ -771,27 +705,20 @@ impl TmuxEngine {
         let project = sanitize(project_name);
         let workspace = sanitize(workspace_name);
 
-        // Determine the body of the session name
         let body = if workspace.starts_with(&project)
             && (workspace.len() == project.len() || workspace.as_bytes()[project.len()] == b'_')
         {
-            // Workspace already starts with project name, use it as is
             workspace
         } else {
-            // Concatenate project and workspace
             format!("{}_{}", project, workspace)
         };
 
-        // Always add atmos_ prefix
         format!("atmos_{}", body)
     }
 
     /// Parse workspace ID from session name
     pub fn parse_workspace_id(&self, session_name: &str) -> Option<String> {
-        // Strip atmos_ prefix if present, return None if not present
         let body = session_name.strip_prefix("atmos_")?;
-
-        // Restore hyphens if any (tmux session names use underscores)
         Some(body.replace('_', "-"))
     }
 
@@ -818,7 +745,6 @@ impl TmuxEngine {
     }
 
     /// Clean up orphaned sessions (sessions for workspaces that no longer exist)
-    /// Takes a list of valid workspace IDs
     pub fn cleanup_orphaned_sessions(&self, valid_workspace_ids: &[String]) -> Result<Vec<String>> {
         let sessions = self.list_atmos_sessions()?;
         let mut cleaned = vec![];
@@ -870,34 +796,28 @@ mod tests {
     #[test]
     fn test_session_name_generation() {
         let engine = TmuxEngine::new();
-        // Standard ID based session
         assert_eq!(engine.session_name("abc-def-123"), "atmos_abc_def_123");
 
-        // Name based sessions - with prefix
         assert_eq!(
             engine.session_name_from_names("myproj", "myws"),
             "atmos_myproj_myws"
         );
 
-        // Name based sessions - avoiding duplication
         assert_eq!(
             engine.session_name_from_names("kepano-obsidian", "kepano-obsidian/exeggutor"),
             "atmos_kepano-obsidian_exeggutor"
         );
 
-        // Name based sessions - atmos project (now properly prefixed)
         assert_eq!(
             engine.session_name_from_names("atmos", "atmos/logysk"),
             "atmos_atmos_logysk"
         );
 
-        // Name based sessions - atmos project with different workspace
         assert_eq!(
             engine.session_name_from_names("atmos", "other"),
             "atmos_atmos_other"
         );
 
-        // Name based sessions - simple workspace names
         assert_eq!(
             engine.session_name_from_names("atmos", "mankey"),
             "atmos_atmos_mankey"
@@ -930,7 +850,6 @@ mod tests {
 
     #[test]
     fn test_check_installed() {
-        // This test depends on system state
         let installed = TmuxEngine::check_installed();
         println!("tmux installed: {}", installed);
     }

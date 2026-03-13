@@ -3,7 +3,8 @@
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import { toastManager } from "@workspace/ui";
-import { getRuntimeApiConfig, isTauriRuntime } from "@/lib/desktop-runtime";
+import { isTauriRuntime } from "@/lib/desktop-runtime";
+import { buildWsUrl, buildWsUrlSync } from "@/lib/ws-url";
 import { debugLog } from "@/lib/desktop-logger";
 
 // ===== 类型定义 =====
@@ -189,10 +190,12 @@ interface WebSocketStore {
   heartbeatInterval: number;
   reconnectInterval: number;
   requestTimeout: number;
+  maxReconnectAttempts: number;
 
   // 内部状态
   heartbeatTimer: ReturnType<typeof setInterval> | null;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
+  reconnectAttempts: number;
 
   // 动作
   connect: () => Promise<void>;
@@ -211,25 +214,7 @@ interface WebSocketStore {
   _scheduleReconnect: () => void;
 }
 
-// 获取 WebSocket URL
-const getWsUrl = (): string => {
-  if (typeof window === "undefined") {
-    return "ws://localhost:30303/ws";
-  }
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  if (process.env.NEXT_PUBLIC_WS_URL) {
-    return `${process.env.NEXT_PUBLIC_WS_URL}/ws`;
-  }
-  if (process.env.NODE_ENV === "development") {
-    const host =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1"
-        ? "localhost:30303"
-        : `${window.location.hostname}:30303`;
-    return `${protocol}//${host}/ws`;
-  }
-  return `${protocol}//${window.location.host}/ws`;
-};
+const getWsUrl = (): string => buildWsUrlSync("/ws");
 
 export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   // 初始状态
@@ -240,13 +225,15 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
 
   // 配置
   url: getWsUrl(),
-  heartbeatInterval: 15000, // 15 秒心跳
-  reconnectInterval: 3000, // 3 秒重连
-  requestTimeout: 30000, // 30 秒超时
+  heartbeatInterval: 15000,
+  reconnectInterval: 1000,
+  requestTimeout: 30000,
+  maxReconnectAttempts: 10,
 
   // 内部状态
   heartbeatTimer: null,
   reconnectTimer: null,
+  reconnectAttempts: 0,
 
   // 连接
   connect: async () => {
@@ -260,22 +247,16 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     set({ connectionState: "connecting" });
 
     try {
-      const cfg = await getRuntimeApiConfig();
+      const clientType = isTauriRuntime() ? "desktop" : "web";
+      const runtimeUrl = await buildWsUrl("/ws", { client_type: clientType });
 
       // Re-check after async gap — another connect() may have won the race.
       if (get().connectionState !== "connecting") return;
 
-      const clientType = isTauriRuntime() ? "desktop" : "web";
-      const params = new URLSearchParams();
-      params.set("client_type", clientType);
-      if (cfg.token) params.set("token", cfg.token);
-      const runtimeUrl = `ws://${cfg.host}:${cfg.port}/ws?${params.toString()}`;
-      debugLog(
-        `ws:connect url=ws://${cfg.host}:${cfg.port}/ws hasToken=${!!cfg.token}`,
-      );
+      debugLog(`ws:connect url=${runtimeUrl.replace(/token=[^&]+/, "token=<redacted>")}`);
       console.log(
         "[WebSocket] Connecting to:",
-        `ws://${cfg.host}:${cfg.port}/ws?token=<redacted>`,
+        runtimeUrl.replace(/token=[^&]+/, "token=<redacted>"),
       );
 
       // Close any lingering socket before creating a new one.
@@ -297,12 +278,15 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       ws.onopen = () => {
         debugLog("ws:onopen connected");
         console.log("[WebSocket] Connected");
-        set({ connectionState: "connected", socket: ws });
+        const { reconnectTimer } = get();
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+        }
+        set({ connectionState: "connected", socket: ws, reconnectAttempts: 0, reconnectTimer: null });
         get()._startHeartbeat();
       };
 
       ws.onclose = (event) => {
-        // Ignore close events from a replaced (stale) socket.
         if (get().socket !== ws) return;
         debugLog(
           `ws:onclose code=${event.code} reason="${event.reason}" wasClean=${event.wasClean}`,
@@ -315,7 +299,14 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           event.wasClean,
         );
         get()._stopHeartbeat();
-        set({ connectionState: "disconnected", socket: null });
+
+        const { pendingRequests } = get();
+        pendingRequests.forEach((pending) => {
+          clearTimeout(pending.timeout);
+          pending.reject(new Error("WebSocket connection closed"));
+        });
+
+        set({ connectionState: "disconnected", socket: null, pendingRequests: new Map() });
 
         if (!event.wasClean) {
           get()._scheduleReconnect();
@@ -552,21 +543,29 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     }
   },
 
-  // 调度重连
   _scheduleReconnect: () => {
-    const { reconnectInterval, reconnectTimer } = get();
+    const { reconnectInterval, reconnectTimer, reconnectAttempts, maxReconnectAttempts } = get();
 
-    // 避免重复调度
     if (reconnectTimer) {
       return;
     }
 
-    set({ connectionState: "reconnecting" });
+    if (reconnectAttempts >= maxReconnectAttempts) {
+      console.warn(`[WebSocket] Max reconnect attempts (${maxReconnectAttempts}) reached, giving up`);
+      set({ connectionState: "disconnected", reconnectAttempts: 0 });
+      return;
+    }
+
+    const delay = Math.min(reconnectInterval * Math.pow(2, reconnectAttempts), 30000);
+    const nextAttempt = reconnectAttempts + 1;
+    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${nextAttempt}/${maxReconnectAttempts})`);
+
+    set({ connectionState: "reconnecting", reconnectAttempts: nextAttempt });
 
     const timer = setTimeout(() => {
       set({ reconnectTimer: null });
       get().connect();
-    }, reconnectInterval);
+    }, delay);
 
     set({ reconnectTimer: timer });
   },
@@ -584,7 +583,10 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
  * ```
  */
 export function useWebSocket() {
-  const { connectionState, connect, disconnect, send } = useWebSocketStore();
+  const connectionState = useWebSocketStore(s => s.connectionState);
+  const connect = useWebSocketStore(s => s.connect);
+  const disconnect = useWebSocketStore(s => s.disconnect);
+  const send = useWebSocketStore(s => s.send);
 
   return {
     connectionState,

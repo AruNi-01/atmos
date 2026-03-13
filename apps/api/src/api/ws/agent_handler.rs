@@ -154,7 +154,8 @@ pub async fn agent_ws_handler(
 ) -> impl IntoResponse {
     let pending = state
         .agent_session_service
-        .take_pending_session(&session_id);
+        .take_pending_session(&session_id)
+        .await;
 
     let Some(spec) = pending else {
         return (

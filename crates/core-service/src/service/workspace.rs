@@ -5,6 +5,7 @@ use infra::db::entities::workspace;
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use sea_orm::DatabaseConnection;
 use serde::Serialize;
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -28,40 +29,42 @@ impl WorkspaceService {
         }
     }
 
-    /// 获取项目下的所有工作区
-    pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
-        let repo = WorkspaceRepo::new(&self.db);
-        let models = repo.list_by_project(project_guid).await?;
-
-        let mut dtos = Vec::with_capacity(models.len());
-        for model in models {
-            let local_path = self
-                .git_engine
-                .get_worktree_path(&model.name)?
-                .to_string_lossy()
-                .to_string();
-            dtos.push(WorkspaceDto { model, local_path });
-        }
-
-        Ok(dtos)
+    fn to_dto(&self, model: workspace::Model) -> Result<WorkspaceDto> {
+        let local_path = self
+            .git_engine
+            .get_worktree_path(&model.name)?
+            .to_string_lossy()
+            .to_string();
+        Ok(WorkspaceDto { model, local_path })
     }
 
-    /// 获取单个工作区详情
+    fn to_dto_lenient(&self, model: workspace::Model) -> WorkspaceDto {
+        let local_path = self
+            .git_engine
+            .get_worktree_path(&model.name)
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+        WorkspaceDto { model, local_path }
+    }
+
+    fn to_dtos(&self, models: Vec<workspace::Model>) -> Result<Vec<WorkspaceDto>> {
+        models.into_iter().map(|m| self.to_dto(m)).collect()
+    }
+
+    fn to_dtos_lenient(&self, models: Vec<workspace::Model>) -> Vec<WorkspaceDto> {
+        models.into_iter().map(|m| self.to_dto_lenient(m)).collect()
+    }
+
+    pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
+        let repo = WorkspaceRepo::new(&self.db);
+        let models = repo.list_by_project(&project_guid).await?;
+        self.to_dtos(models)
+    }
+
     pub async fn get_workspace(&self, guid: String) -> Result<Option<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
-        let model = repo.find_by_guid(guid).await?;
-
-        match model {
-            Some(model) => {
-                let local_path = self
-                    .git_engine
-                    .get_worktree_path(&model.name)?
-                    .to_string_lossy()
-                    .to_string();
-                Ok(Some(WorkspaceDto { model, local_path }))
-            }
-            None => Ok(None),
-        }
+        let model = repo.find_by_guid(&guid).await?;
+        model.map(|m| self.to_dto(m)).transpose()
     }
 
     /// 创建新工作区
@@ -72,7 +75,6 @@ impl WorkspaceService {
         &self,
         project_guid: String,
         name: String,
-        _branch: String,
         sidebar_order: i32,
     ) -> Result<WorkspaceDto> {
         // Get project to find the repository path and name
@@ -90,35 +92,31 @@ impl WorkspaceService {
             .get_default_branch(repo_path)
             .unwrap_or_else(|_| "main".to_string());
 
-        // Get all existing branches and DB workspace names to check for conflicts
-        let mut existing_names: Vec<String> = self
+        let mut existing_names: HashSet<String> = self
             .git_engine
             .list_branches(repo_path)
-            .unwrap_or_else(|_| Vec::new());
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
 
         let workspace_repo = WorkspaceRepo::new(&self.db);
         let db_workspaces = workspace_repo
-            .list_all_by_project(project_guid.clone())
+            .list_all_by_project(&project_guid)
             .await?;
         for ws in &db_workspaces {
-            if !existing_names.contains(&ws.name) {
-                existing_names.push(ws.name.clone());
-            }
+            existing_names.insert(ws.name.clone());
         }
 
-        // Determine the initial name to try
+        let existing_vec: Vec<String> = existing_names.iter().cloned().collect();
         let initial_name = if name.trim().is_empty() {
-            // No name provided, use Pokemon name generator
             let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
-            workspace_name_generator::generate_workspace_name(&existing_names, &prefix)
+            workspace_name_generator::generate_workspace_name(&existing_vec, &prefix)
         } else {
-            // Use the provided name
             name.clone()
         };
 
-        // Try to find a name that doesn't conflict with existing branches or DB names
-        // Note: we don't creating the worktree here anymore to avoid blocking API response.
-        // We only reserve the name in DB. The worktree will be created in ensure_worktree_ready async task.
+        // Reserve a name that doesn't conflict with existing branches or DB names.
+        // The worktree will be created in ensure_worktree_ready async task.
         let mut final_name = initial_name.clone();
         let mut attempt = 0;
         const MAX_ATTEMPTS: u32 = 50;
@@ -135,11 +133,10 @@ impl WorkspaceService {
             } else {
                 attempt += 1;
 
-                // For generated names, regenerate; for user-provided names, add suffix
                 if name.trim().is_empty() {
                     let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
                     final_name =
-                        workspace_name_generator::generate_workspace_name(&existing_names, &prefix);
+                        workspace_name_generator::generate_workspace_name(&existing_vec, &prefix);
                 } else {
                     final_name = Self::generate_alternative_name(&initial_name, attempt);
                 }
@@ -152,13 +149,7 @@ impl WorkspaceService {
             .create(project_guid, final_name.clone(), final_name, sidebar_order)
             .await?;
 
-        let local_path = self
-            .git_engine
-            .get_worktree_path(&model.name)?
-            .to_string_lossy()
-            .to_string();
-
-        Ok(WorkspaceDto { model, local_path })
+        self.to_dto(model)
     }
 
     /// 确保 Worktree 已就绪（不存在则创建）
@@ -166,7 +157,7 @@ impl WorkspaceService {
     pub async fn ensure_worktree_ready(&self, guid: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
         let workspace = repo
-            .find_by_guid(guid.clone())
+            .find_by_guid(&guid)
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Workspace {} not found", guid)))?;
 
@@ -241,9 +232,9 @@ impl WorkspaceService {
             );
 
             let repo = WorkspaceRepo::new(&self.db);
-            repo.update_name(guid.clone(), workspace_name.clone())
+            repo.update_name(&guid, workspace_name.clone())
                 .await?;
-            repo.update_branch(guid.clone(), workspace_name.clone())
+            repo.update_branch(&guid, workspace_name.clone())
                 .await?;
         }
 
@@ -336,19 +327,19 @@ impl WorkspaceService {
     /// 更新工作区名称
     pub async fn update_name(&self, guid: String, name: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_name(guid, name).await?)
+        Ok(repo.update_name(&guid, name).await?)
     }
 
     /// 更新工作区分支
     pub async fn update_branch(&self, guid: String, branch: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_branch(guid, branch).await?)
+        Ok(repo.update_branch(&guid, branch).await?)
     }
 
     /// 更新侧边栏排序
     pub async fn update_order(&self, guid: String, order: i32) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_order(guid, order).await?)
+        Ok(repo.update_order(&guid, order).await?)
     }
 
     /// 删除工作区
@@ -356,7 +347,7 @@ impl WorkspaceService {
         let workspace_repo = WorkspaceRepo::new(&self.db);
 
         // Get workspace info before deleting
-        if let Some(workspace) = workspace_repo.find_by_guid(guid.clone()).await? {
+        if let Some(workspace) = workspace_repo.find_by_guid(&guid).await? {
             // Get project to find repo path
             let project_repo = ProjectRepo::new(&self.db);
             if let Some(project) = project_repo.find_by_guid(&workspace.project_guid).await? {
@@ -374,67 +365,44 @@ impl WorkspaceService {
         }
 
         // Soft delete from database
-        Ok(workspace_repo.soft_delete(guid).await?)
+        Ok(workspace_repo.soft_delete(&guid).await?)
     }
 
     /// 置顶工作区
     pub async fn pin_workspace(&self, guid: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.pin_workspace(guid).await?)
+        Ok(repo.pin_workspace(&guid).await?)
     }
 
     /// 取消置顶工作区
     pub async fn unpin_workspace(&self, guid: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.unpin_workspace(guid).await?)
+        Ok(repo.unpin_workspace(&guid).await?)
     }
 
     /// 归档工作区（不删除 worktree）
     pub async fn archive_workspace(&self, guid: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.archive_workspace(guid).await?)
+        Ok(repo.archive_workspace(&guid).await?)
     }
 
     /// 取消归档工作区
     pub async fn unarchive_workspace(&self, guid: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.unarchive_workspace(guid).await?)
+        Ok(repo.unarchive_workspace(&guid).await?)
     }
 
     /// 获取所有已归档的工作区
     pub async fn list_archived_workspaces(&self) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
         let models = repo.list_archived().await?;
-
-        let mut dtos = Vec::with_capacity(models.len());
-        for model in models {
-            let local_path = self
-                .git_engine
-                .get_worktree_path(&model.name)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_default();
-            dtos.push(WorkspaceDto { model, local_path });
-        }
-
-        Ok(dtos)
+        Ok(self.to_dtos_lenient(models))
     }
 
-    /// 获取项目下所有非删除的工作区（包括已归档的）
     pub async fn list_all_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
-        let models = repo.list_all_by_project(project_guid).await?;
-
-        let mut dtos = Vec::with_capacity(models.len());
-        for model in models {
-            let local_path = self
-                .git_engine
-                .get_worktree_path(&model.name)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_default();
-            dtos.push(WorkspaceDto { model, local_path });
-        }
-
-        Ok(dtos)
+        let models = repo.list_all_by_project(&project_guid).await?;
+        Ok(self.to_dtos_lenient(models))
     }
 
     /// 删除工作区的 worktree（仅清理 git worktree，不删除数据库记录）
@@ -457,13 +425,13 @@ impl WorkspaceService {
     /// 获取工作区终端布局
     pub async fn get_terminal_layout(&self, guid: String) -> Result<Option<String>> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.get_terminal_layout(guid).await?)
+        Ok(repo.get_terminal_layout(&guid).await?)
     }
 
     /// 更新工作区终端布局
     pub async fn update_terminal_layout(&self, guid: String, layout: Option<String>) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_terminal_layout(guid, layout).await?)
+        Ok(repo.update_terminal_layout(&guid, layout).await?)
     }
 
     /// 更新工作区最大化终端 ID
@@ -473,6 +441,6 @@ impl WorkspaceService {
         terminal_id: Option<String>,
     ) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_maximized_terminal_id(guid, terminal_id).await?)
+        Ok(repo.update_maximized_terminal_id(&guid, terminal_id).await?)
     }
 }
