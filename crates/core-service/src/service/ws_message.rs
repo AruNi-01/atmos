@@ -3,6 +3,8 @@
 //! This service processes incoming WebSocket requests and delegates to appropriate services.
 //! All communication uses the Request/Response pattern with JSON messages.
 
+use std::ffi::CStr;
+use std::io::Read;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -39,7 +41,6 @@ use infra::{
 use llm::{FileLlmConfigStore, LlmProvidersFile};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
-use std::io::Read;
 use tokio::sync::OnceCell;
 
 use crate::error::{Result, ServiceError};
@@ -60,6 +61,56 @@ pub struct WsMessageService {
 }
 
 impl WsMessageService {
+    #[cfg(unix)]
+    fn detect_login_shell_from_system() -> Option<String> {
+        let uid = unsafe { libc::geteuid() };
+        let mut pwd = std::mem::MaybeUninit::<libc::passwd>::uninit();
+        let mut result = std::ptr::null_mut();
+        let mut buf = vec![0u8; 4096];
+
+        loop {
+            let rc = unsafe {
+                libc::getpwuid_r(
+                    uid,
+                    pwd.as_mut_ptr(),
+                    buf.as_mut_ptr().cast(),
+                    buf.len(),
+                    &mut result,
+                )
+            };
+
+            if rc == 0 {
+                if result.is_null() {
+                    return None;
+                }
+
+                let pwd = unsafe { pwd.assume_init() };
+                if pwd.pw_shell.is_null() {
+                    return None;
+                }
+
+                let shell = unsafe { CStr::from_ptr(pwd.pw_shell) }
+                    .to_string_lossy()
+                    .trim()
+                    .to_string();
+
+                return (!shell.is_empty()).then_some(shell);
+            }
+
+            if rc == libc::ERANGE {
+                buf.resize(buf.len() * 2, 0);
+                continue;
+            }
+
+            return None;
+        }
+    }
+
+    #[cfg(not(unix))]
+    fn detect_login_shell_from_system() -> Option<String> {
+        None
+    }
+
     pub fn new(
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
@@ -1444,12 +1495,21 @@ impl WsMessageService {
             pixel_height: 0,
         })?;
 
-        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+        let shell = std::env::var("SHELL")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .or_else(Self::detect_login_shell_from_system)
+            .unwrap_or_else(|| {
+                "/bin/sh".to_string()
+            });
 
         let mut cmd = CommandBuilder::new(&shell);
-        // Run as login shell to load user environment (~/.zprofile, ~/.zshrc, etc.)
-        // Note: some shells need -l or --login
+        // Run as an interactive login shell so both profile files and rc files
+        // are loaded. Desktop apps launched from Finder usually lack the user's
+        // shell environment, and many developer toolchains are initialized in
+        // ~/.zshrc or ~/.bashrc rather than profile files.
         if shell.contains("zsh") || shell.contains("bash") {
+            cmd.arg("-i");
             cmd.arg("-l");
         }
         cmd.arg("-c");
