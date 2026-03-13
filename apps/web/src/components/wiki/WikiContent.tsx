@@ -17,6 +17,7 @@ import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
 import { useSelectionPopover } from "@/hooks/use-selection-popover";
 import { SelectionPopover } from "@/components/selection/SelectionPopover";
 import { useDialogStore } from "@/hooks/use-dialog-store";
+import { writeToActiveAgentComposer } from "@/lib/agent/active-composer";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useContextParams } from "@/hooks/use-context-params";
 import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
@@ -248,12 +249,21 @@ export const WikiContent: React.FC<WikiContentProps> = ({
       }
     }
 
-    appendAgentChatDraft(
+    const wroteToActiveComposer = writeToActiveAgentComposer(
       queueWorkspaceId,
       queueProjectId,
       "wiki_ask",
       payload.formattedText,
     );
+
+    if (!wroteToActiveComposer) {
+      appendAgentChatDraft(
+        queueWorkspaceId,
+        queueProjectId,
+        "wiki_ask",
+        payload.formattedText,
+      );
+    }
   }, [workspaceId, projectId, fetchProjects, appendAgentChatDraft]);
 
   if (contentLoading && !activeContent) {

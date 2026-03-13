@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { PatchDiff, MultiFileDiff } from "@pierre/diffs/react";
 import type { FileContents } from "@pierre/diffs";
 import { useTheme } from "next-themes";
+import { useShallow } from "zustand/react/shallow";
 import { useContextParams } from "@/hooks/use-context-params";
 import {
   Attachments,
@@ -20,6 +21,7 @@ import {
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
+  messagesToMarkdown,
   Message,
   MessageContent,
   MessageResponse,
@@ -50,6 +52,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  type ConversationMessage,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -93,7 +96,7 @@ import {
   verticalListSortingStrategy,
   cn,
 } from "@workspace/ui";
-import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Folder, FolderInput, Globe, GripVertical, Heart, History, Loader2, Gauge, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
+import { Bot, Brain, ChevronDown, ChevronUp, Copy, Check, Download, Folder, FolderInput, Globe, GripVertical, Heart, History, Loader2, Gauge, MessageSquare, Pencil, Plus, Search, Square, Terminal, Trash2, Wrench, X, FileText, CircleCheck, CircleDashed, BookOpen, Coins } from "lucide-react";
 import { useProjectStore } from "@/hooks/use-project-store";
 import {
   buildQueuedAgentPromptContent,
@@ -115,6 +118,7 @@ import { useWikiExists, useWikiStore } from "@/hooks/use-wiki-store";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import { MarkdownCodeBlock, MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { resolveAgentVendor } from "@/lib/agent/agent-vendor";
+import { registerActiveAgentComposer } from "@/lib/agent/active-composer";
 import { normalizeSubAgent, type AtmosSubAgentMessage } from "@/lib/agent/subagent";
 import {
   applyServerMessageToEntries,
@@ -322,6 +326,33 @@ function CommandCopyButton({ text }: { text: string }) {
       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
     </button>
   );
+}
+
+function sanitizeConversationFilename(value: string): string {
+  const trimmed = value.trim().replace(/[\\/:*?"<>|]/g, "-");
+  return trimmed.length > 0 ? trimmed : "conversation";
+}
+
+function getLocalTimestampForFilename(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
+}
+
+function downloadConversationMarkdown(filename: string, markdown: string) {
+  const blob = new Blob([markdown], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function MessageCopyButton({
@@ -1219,6 +1250,226 @@ function MessageQueueDock({
   );
 }
 
+const AgentPromptComposer = React.memo(function AgentPromptComposer({
+  currentPlan,
+  isResumedSession,
+  queuedPrompts,
+  onRemoveQueuedPrompt,
+  onUpdateQueuedPrompt,
+  onMoveQueuedPrompt,
+  onSubmit,
+  canUseCurrentMode,
+  wikiAskAvailability,
+  isConnected,
+  chatMode,
+  sessionWorkspaceId,
+  sessionProjectId,
+  loadingAgents,
+  isConnecting,
+  isResumingHistory,
+  installedAgents,
+  configOptions,
+  registryId,
+  activeAgent,
+  setConfigOption,
+  setAgentDefaultConfig,
+  setInstalledAgents,
+  agentActivity,
+  sendCancel,
+  setWaitingForResponse,
+  setEntries,
+  stoppedRef,
+}: {
+  currentPlan: AgentPlan | null;
+  isResumedSession: boolean;
+  queuedPrompts: QueuedAgentPrompt[];
+  onRemoveQueuedPrompt: (id: string) => void;
+  onUpdateQueuedPrompt: (id: string, prompt: string) => void;
+  onMoveQueuedPrompt: (id: string, toIndex: number) => void;
+  onSubmit: (message: { text: string; files?: import("ai").FileUIPart[] }) => Promise<void>;
+  canUseCurrentMode: boolean;
+  wikiAskAvailability: { enabled: boolean; reason: string | null };
+  isConnected: boolean;
+  chatMode: AgentChatMode;
+  sessionWorkspaceId: string | null;
+  sessionProjectId: string | null;
+  loadingAgents: boolean;
+  isConnecting: boolean;
+  isResumingHistory: boolean;
+  installedAgents: RegistryAgent[];
+  configOptions: AgentConfigOption[];
+  registryId: string;
+  activeAgent: RegistryAgent | null;
+  setConfigOption: (id: string, value: string) => void;
+  setAgentDefaultConfig: (configId: string, value: string) => void;
+  setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
+  agentActivity: AgentActivity;
+  sendCancel: () => void;
+  setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
+  setEntries: React.Dispatch<React.SetStateAction<ThreadEntry[]>>;
+  stoppedRef: React.MutableRefObject<boolean>;
+}) {
+  const setAgentChatDraft = useDialogStore((s) => s.setAgentChatDraft);
+  const [localDraft, setLocalDraft] = useState(() =>
+    useDialogStore.getState().getAgentChatDraft(
+      sessionWorkspaceId,
+      sessionProjectId,
+      chatMode,
+    ),
+  );
+  const persistedDraftRef = useRef(localDraft);
+
+  useEffect(() => {
+    return registerActiveAgentComposer(
+      sessionWorkspaceId,
+      sessionProjectId,
+      chatMode,
+      {
+        setDraft: (updater) => {
+          setLocalDraft((previous) =>
+            typeof updater === "function" ? updater(previous) : updater,
+          );
+        },
+      },
+    );
+  }, [chatMode, sessionProjectId, sessionWorkspaceId]);
+
+  useEffect(() => {
+    if (localDraft === persistedDraftRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      setAgentChatDraft(
+        sessionWorkspaceId,
+        sessionProjectId,
+        chatMode,
+        localDraft
+      );
+      persistedDraftRef.current = localDraft;
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    chatMode,
+    localDraft,
+    sessionProjectId,
+    sessionWorkspaceId,
+    setAgentChatDraft,
+  ]);
+
+  return (
+    <div className="shrink-0 px-3 pb-3 pt-px select-none">
+      {(currentPlan || queuedPrompts.length > 0) && (
+        <div className="mx-auto w-[96%] overflow-hidden rounded-t-2xl border border-border/70 border-b-0 bg-background/95">
+          {currentPlan && (
+            <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
+              <PlanBlockView plan={currentPlan} embedded defaultOpen={!isResumedSession} />
+            </div>
+          )}
+          {queuedPrompts.length > 0 && (
+            <MessageQueueDock
+              items={queuedPrompts}
+              onRemove={onRemoveQueuedPrompt}
+              onUpdatePrompt={onUpdateQueuedPrompt}
+              onMove={onMoveQueuedPrompt}
+            />
+          )}
+        </div>
+      )}
+      <PromptInput
+        onSubmit={async (msg) => {
+          await onSubmit({ text: msg.text, files: msg.files });
+          setLocalDraft("");
+          persistedDraftRef.current = "";
+        }}
+        className={`w-full border-0 shadow-none rounded-none ${(currentPlan || queuedPrompts.length > 0) ? "rounded-t-none" : "rounded-t-xl"}`}
+        multiple
+      >
+        <PromptInputAttachmentsSection />
+        <PromptInputBody>
+          <PromptInputTextarea
+            data-agent-chat-input="true"
+            data-agent-chat-mode={chatMode}
+            data-agent-chat-workspace-id={sessionWorkspaceId ?? undefined}
+            data-agent-chat-project-id={sessionProjectId ?? undefined}
+            placeholder={
+              !canUseCurrentMode
+                ? (wikiAskAvailability.reason ?? "Wiki Ask unavailable")
+                : isConnected
+                  ? (chatMode === "wiki_ask" ? "Ask about this wiki..." : "Type a message...")
+                  : "Select agent to connect"
+            }
+            disabled={!isConnected || !canUseCurrentMode}
+            value={localDraft}
+            onChange={(e) => setLocalDraft(e.currentTarget.value)}
+          />
+        </PromptInputBody>
+        <PromptInputFooter>
+          <PromptInputTools>
+            <PromptInputAddAttachmentsButton />
+            {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
+              <span className="px-2 text-xs text-muted-foreground">No agent</span>
+            ) : null}
+          </PromptInputTools>
+          <div className="flex items-center gap-2">
+            {configOptions?.length > 0 && isConnected && (
+              <div className="flex items-center gap-2">
+                {configOptions
+                  .filter(opt => opt.type === 'select' && opt.options.length > 0)
+                  .map(opt => (
+                    <ConfigOptionDropdown
+                      key={opt.id}
+                      opt={opt}
+                      registryId={registryId}
+                      activeAgent={activeAgent}
+                      setConfigOption={setConfigOption}
+                      setAgentDefaultConfig={setAgentDefaultConfig}
+                      setInstalledAgents={setInstalledAgents}
+                    />
+                  ))}
+              </div>
+            )}
+            <PromptInputSubmit
+              status={agentActivity.busy ? "streaming" : undefined}
+              onStop={
+                agentActivity.busy
+                  ? () => {
+                    stoppedRef.current = true;
+                    sendCancel();
+                    setWaitingForResponse(false);
+                    setEntries((prev) => {
+                      const last = prev[prev.length - 1];
+                      if (last?.role === "assistant") {
+                        const updatedBlocks = last.blocks.map((block) =>
+                          block.type === "tool_call" && block.status === "running"
+                            ? { ...block, status: "completed" as const }
+                            : block
+                        );
+                        return [
+                          ...prev.slice(0, -1),
+                          { ...last, isStreaming: false, blocks: updatedBlocks },
+                        ];
+                      }
+                      return prev;
+                    });
+                  }
+                  : undefined
+              }
+              disabled={!isConnected || !canUseCurrentMode}
+              size={agentActivity.busy ? "sm" : "icon-sm"}
+            >
+              {agentActivity.busy ? (
+                <span className="flex items-center gap-1.5">
+                  <Square className="size-4 shrink-0" />
+                </span>
+              ) : undefined}
+            </PromptInputSubmit>
+          </div>
+        </PromptInputFooter>
+      </PromptInput>
+    </div>
+  );
+});
+
 function SortableQueueCard({
   item,
   editingPromptId,
@@ -1901,9 +2152,17 @@ export function AgentChatPanel({
     removeQueuedAgentChatPrompt,
     updateQueuedAgentChatPrompt,
     moveQueuedAgentChatPrompt,
-    setAgentChatDraft,
     clearAgentChatDraft,
-  } = useDialogStore();
+  } = useDialogStore(
+    useShallow((s) => ({
+      agentChatPromptQueues: s.agentChatPromptQueues,
+      enqueueAgentChatPrompt: s.enqueueAgentChatPrompt,
+      removeQueuedAgentChatPrompt: s.removeQueuedAgentChatPrompt,
+      updateQueuedAgentChatPrompt: s.updateQueuedAgentChatPrompt,
+      moveQueuedAgentChatPrompt: s.moveQueuedAgentChatPrompt,
+      clearAgentChatDraft: s.clearAgentChatDraft,
+    })),
+  );
   const isPanelOpen = variant === "sidebar" ? true : isAgentChatOpen;
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const chatMode = mode;
@@ -2386,7 +2645,6 @@ export function AgentChatPanel({
     () => agentChatPromptQueues[queueKey] ?? [],
     [agentChatPromptQueues, queueKey]
   );
-  const agentChatDraft = useDialogStore((s) => s.agentChatDrafts[queueKey] ?? "");
   const queuedPromptHead = queuedPrompts[0] ?? null;
 
 
@@ -3075,6 +3333,36 @@ export function AgentChatPanel({
     return () => clearCloseAgentsMenuTimer();
   }, [clearCloseAgentsMenuTimer]);
 
+  const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
+  const displaySessionTitle =
+    sessionTitle && sessionTitle !== "新会话" ? sessionTitle : null;
+  const panelLabel = chatMode === "wiki_ask" ? "Wiki Ask" : "Chat";
+  const panelTitle = activeAgent?.name ?? (variant === "sidebar" ? "Wiki Ask" : "Agent Chat");
+
+  const exportableMessages = useMemo<ConversationMessage[]>(
+    () =>
+      entries.flatMap<ConversationMessage>((entry) => {
+        if (entry.role === "user") {
+          const content = entry.content.trim();
+          return content ? [{ role: "user", content }] : [];
+        }
+
+        const content = getAssistantCopyText(entry).trim();
+        return content ? [{ role: "assistant", content }] : [];
+      }),
+    [entries],
+  );
+  const handleExportConversation = useCallback(() => {
+    if (exportableMessages.length === 0) return;
+
+    const timestamp = getLocalTimestampForFilename();
+    const markdown = messagesToMarkdown(exportableMessages);
+    downloadConversationMarkdown(
+      `${sanitizeConversationFilename(displaySessionTitle ?? panelTitle ?? "conversation")}-${timestamp}.md`,
+      markdown,
+    );
+  }, [displaySessionTitle, exportableMessages, panelTitle]);
+
   if (!isPanelOpen || (variant === "modal" && !layoutLoaded)) return null;
 
   const pos = variant === "modal" ? resolvePosition() : null;
@@ -3097,12 +3385,6 @@ export function AgentChatPanel({
         return "Ready to connect";
     }
   })();
-
-  const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
-  const displaySessionTitle =
-    sessionTitle && sessionTitle !== "新会话" ? sessionTitle : null;
-  const panelLabel = chatMode === "wiki_ask" ? "Wiki Ask" : "Chat";
-  const panelTitle = activeAgent?.name ?? (variant === "sidebar" ? "Wiki Ask" : "Agent Chat");
 
   return (
     <div
@@ -3286,6 +3568,22 @@ export function AgentChatPanel({
             )}
           </div>
           <div className="flex items-center gap-0.5">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleExportConversation}
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                    aria-label="Export conversation"
+                    disabled={exportableMessages.length === 0}
+                  >
+                    <Download className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Export conversation</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
@@ -3648,114 +3946,37 @@ export function AgentChatPanel({
           </div>
         )}
 
-        <div className="shrink-0 px-3 pb-3 pt-px select-none">
-          {(currentPlan || queuedPrompts.length > 0) && (
-            <div className="mx-auto w-[96%] overflow-hidden rounded-t-2xl border border-border/70 border-b-0 bg-background/95">
-              {currentPlan && (
-                <div className={queuedPrompts.length > 0 ? "border-b border-border/70" : ""}>
-                  <PlanBlockView plan={currentPlan} embedded defaultOpen={!isResumedSession} />
-                </div>
-              )}
-              {queuedPrompts.length > 0 && (
-                <MessageQueueDock
-                  items={queuedPrompts}
-                  onRemove={removeQueuedAgentChatPrompt}
-                  onUpdatePrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}
-                  onMove={moveQueuedAgentChatPrompt}
-                />
-              )}
-            </div>
-          )}
-          <PromptInput
-            onSubmit={(msg) => handleSubmit({ text: msg.text, files: msg.files })}
-            className={`w-full border-0 shadow-none rounded-none ${(currentPlan || queuedPrompts.length > 0) ? "rounded-t-none" : "rounded-t-xl"}`}
-            multiple
-          >
-            <PromptInputAttachmentsSection />
-            <PromptInputBody>
-              <PromptInputTextarea
-                placeholder={
-                  !canUseCurrentMode
-                    ? (wikiAskAvailability.reason ?? "Wiki Ask unavailable")
-                    : isConnected
-                    ? (chatMode === "wiki_ask" ? "Ask about this wiki..." : "Type a message...")
-                    : "Select agent to connect"
-                }
-                disabled={!isConnected || !canUseCurrentMode}
-                value={agentChatDraft}
-                onChange={(e) =>
-                  setAgentChatDraft(
-                    sessionWorkspaceId,
-                    sessionProjectId,
-                    chatMode,
-                    e.currentTarget.value
-                  )}
-              />
-            </PromptInputBody>
-            <PromptInputFooter>
-              <PromptInputTools>
-                <PromptInputAddAttachmentsButton />
-                {(loadingAgents || isConnecting || isResumingHistory) && !isConnected ? null : installedAgents.length === 0 ? (
-                  <span className="px-2 text-xs text-muted-foreground">No agent</span>
-                ) : null}
-              </PromptInputTools>
-              <div className="flex items-center gap-2">
-                {configOptions?.length > 0 && isConnected && (
-                  <div className="flex items-center gap-2">
-                    {configOptions
-                      .filter(opt => opt.type === 'select' && opt.options.length > 0)
-                      .map(opt => (
-                        <ConfigOptionDropdown
-                          key={opt.id}
-                          opt={opt}
-                          registryId={registryId}
-                          activeAgent={activeAgent}
-                          setConfigOption={setConfigOption}
-                          setAgentDefaultConfig={setAgentDefaultConfig}
-                          setInstalledAgents={setInstalledAgents}
-                        />
-                      ))}
-                  </div>
-                )}
-                <PromptInputSubmit
-                  status={agentActivity.busy ? "streaming" : undefined}
-                  onStop={
-                    agentActivity.busy
-                      ? () => {
-                        stoppedRef.current = true;
-                        sendCancel();
-                        setWaitingForResponse(false);
-                        setEntries((prev) => {
-                          const last = prev[prev.length - 1];
-                          if (last?.role === "assistant") {
-                            const updatedBlocks = last.blocks.map((block) =>
-                              block.type === "tool_call" && block.status === "running"
-                                ? { ...block, status: "completed" as const }
-                                : block
-                            );
-                            return [
-                              ...prev.slice(0, -1),
-                              { ...last, isStreaming: false, blocks: updatedBlocks },
-                            ];
-                          }
-                          return prev;
-                        });
-                      }
-                      : undefined
-                  }
-                  disabled={!isConnected || !canUseCurrentMode}
-                  size={agentActivity.busy ? "sm" : "icon-sm"}
-                >
-                  {agentActivity.busy ? (
-                    <span className="flex items-center gap-1.5">
-                      <Square className="size-4 shrink-0" />
-                    </span>
-                  ) : undefined}
-                </PromptInputSubmit>
-              </div>
-            </PromptInputFooter>
-          </PromptInput>
-        </div>
+        <AgentPromptComposer
+          key={queueKey}
+          currentPlan={currentPlan}
+          isResumedSession={isResumedSession}
+          queuedPrompts={queuedPrompts}
+          onRemoveQueuedPrompt={removeQueuedAgentChatPrompt}
+          onUpdateQueuedPrompt={(id, prompt) => updateQueuedAgentChatPrompt(id, { prompt })}
+          onMoveQueuedPrompt={moveQueuedAgentChatPrompt}
+          onSubmit={handleSubmit}
+          canUseCurrentMode={canUseCurrentMode}
+          wikiAskAvailability={wikiAskAvailability}
+          isConnected={isConnected}
+          chatMode={chatMode}
+          sessionWorkspaceId={sessionWorkspaceId}
+          sessionProjectId={sessionProjectId}
+          loadingAgents={loadingAgents}
+          isConnecting={isConnecting}
+          isResumingHistory={isResumingHistory}
+          installedAgents={installedAgents}
+          configOptions={configOptions}
+          registryId={registryId}
+          activeAgent={activeAgent}
+          setConfigOption={setConfigOption}
+          setAgentDefaultConfig={setAgentDefaultConfig}
+          setInstalledAgents={setInstalledAgents}
+          agentActivity={agentActivity}
+          sendCancel={sendCancel}
+          setWaitingForResponse={setWaitingForResponse}
+          setEntries={setEntries}
+          stoppedRef={stoppedRef}
+        />
       </div>
       <Dialog open={!!authRequest} onOpenChange={(open) => !open && clearAuthRequest()}>
         <DialogContent className="sm:max-w-md">
