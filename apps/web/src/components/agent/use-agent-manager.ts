@@ -82,7 +82,7 @@ export function useAgentManager(query: string) {
       const result = await agentApi.installRegistry(registryId, forceOverwrite);
       if (result.needs_confirmation && result.overwrite_message) {
         setOverwriteDialog({ registryId, message: result.overwrite_message });
-        return;
+        return; // Keep installingRegistryId set while dialog is open
       }
       toastManager.add({
         title: "Agent installed",
@@ -90,13 +90,13 @@ export function useAgentManager(query: string) {
         type: "success",
       });
       await loadData();
+      setInstallingRegistryId(null);
     } catch (error) {
       toastManager.add({
         title: "Install failed",
         description: error instanceof Error ? error.message : "Unknown error",
         type: "error",
       });
-    } finally {
       setInstallingRegistryId(null);
     }
   };

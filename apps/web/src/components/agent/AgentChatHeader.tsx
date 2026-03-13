@@ -260,14 +260,14 @@ export function AgentChatHeader({
             {isConnected && activeAgent ? (
               <div className="flex items-center gap-1.5 shrink-0 min-w-0">
                 <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
-                <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black shrink-0">
+                <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-foreground/85 text-background shrink-0">
                   {panelLabel}
                 </span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-sm font-medium shrink-0">{panelTitle}</span>
-                <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-black/85 text-white dark:bg-white/85 dark:text-black">
+                <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-foreground/85 text-background">
                   {panelLabel}
                 </span>
               </div>

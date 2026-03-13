@@ -62,19 +62,30 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
     });
 
     // Task: Push messages to client when updates arrive (notify-based, not polling)
+    // Re-check loop: notify_waiters() does not store a permit, so notifications that
+    // arrive while we're processing are lost. After sending, we re-check for new
+    // messages before waiting again; only wait when there are genuinely no more.
     let conn_id_push = conn_id.clone();
     let tx_push = tx.clone();
     let message_push_service = Arc::clone(&state.message_push_service);
     let push_task = tokio::spawn(async move {
-        loop {
+        'outer: loop {
             message_push_service.wait_for_update().await;
-            let latest = message_push_service.get_latest_message().await;
-            if !latest.is_empty() {
-                let msg = WsMessage::message(&conn_id_push, &latest);
-                if let Ok(json) = msg.to_json() {
-                    if tx_push.send(json).await.is_err() {
-                        break;
+            loop {
+                let latest = message_push_service.get_latest_message().await;
+                if !latest.is_empty() {
+                    let msg = WsMessage::message(&conn_id_push, &latest);
+                    if let Ok(json) = msg.to_json() {
+                        if tx_push.send(json).await.is_err() {
+                            break 'outer;
+                        }
                     }
+                }
+                // Re-check: did a new update arrive while we were processing?
+                // If so, get_latest_message will differ and we drain it before waiting.
+                let again = message_push_service.get_latest_message().await;
+                if again == latest {
+                    break; // No new update, safe to wait
                 }
             }
         }

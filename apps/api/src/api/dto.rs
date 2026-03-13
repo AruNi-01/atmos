@@ -35,7 +35,6 @@ pub struct MessageResponse {
 /// Response wrapper for git validation.
 #[derive(Debug, Serialize)]
 pub struct GitValidationResponse {
-    #[serde(rename = "isValid")]
     pub is_valid: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,

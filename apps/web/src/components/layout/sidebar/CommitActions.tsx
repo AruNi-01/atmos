@@ -560,7 +560,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
             showPublishButton
               ? handlePublish
               : showPushButton
-                ? () => handleGlobalAction(pushChanges)
+                ? () => handleGlobalAction(syncChanges)
                 : handleCommit
           }
           disabled={

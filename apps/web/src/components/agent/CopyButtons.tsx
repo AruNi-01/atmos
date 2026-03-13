@@ -10,7 +10,7 @@ export function CommandCopyButton({ text }: { text: string }) {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    });
+    }).catch(() => {});
   }, [text]);
   return (
     <button
@@ -45,7 +45,7 @@ export function MessageCopyButton({
     void navigator.clipboard.writeText(trimmed).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
-    });
+    }).catch(() => {});
   }, [text]);
 
   return (

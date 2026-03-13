@@ -235,7 +235,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                             title="Custom Color"
                           >
                             <Palette className="size-4 shrink-0" />
-                            <span className="font- whitespace-nowrap">Custom Color</span>
+                            <span className="font-medium whitespace-nowrap">Custom Color</span>
                             <div
                               className="size-6 m-[2px] rounded-sm shrink-0 ml-auto"
                               style={{

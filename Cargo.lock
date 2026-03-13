@@ -238,6 +238,7 @@ dependencies = [
  "sea-orm-migration",
  "serde",
  "serde_json",
+ "sha2",
  "token-usage",
  "tokio",
  "tower",

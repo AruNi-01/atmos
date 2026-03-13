@@ -46,8 +46,11 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   workspaceId,
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const { openFile, getActiveFilePath, pinFile } = useEditorStore();
-  const activeFilePath = getActiveFilePath(workspaceId || undefined);
+  const activeFilePath = useEditorStore((s) =>
+    s.getActiveFilePath(workspaceId || undefined),
+  );
+  const openFile = useEditorStore((s) => s.openFile);
+  const pinFile = useEditorStore((s) => s.pinFile);
 
   if (files.length === 0) return null;
 

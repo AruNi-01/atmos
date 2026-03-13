@@ -12,8 +12,6 @@ use crate::{app_state::AppState, error::ApiResult};
 pub struct CreateWorkspacePayload {
     pub project_guid: String,
     pub name: String,
-    #[allow(dead_code)]
-    pub branch: String,
     pub sidebar_order: i32,
 }
 
@@ -151,10 +149,9 @@ pub async fn get_terminal_layout(
             layout: ws.model.terminal_layout,
             maximized_terminal_id: ws.model.maximized_terminal_id,
         }))),
-        None => Ok(Json(ApiResponse::success(TerminalLayoutResponse {
-            layout: None,
-            maximized_terminal_id: None,
-        }))),
+        None => Err(crate::error::ApiError::NotFound(
+            "Workspace not found".to_string(),
+        )),
     }
 }
 

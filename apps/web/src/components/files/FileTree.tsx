@@ -75,9 +75,8 @@ function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boo
 export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
   const { workspaceId } = useContextParams();
   const openFile = useEditorStore(s => s.openFile);
-  const getActiveFilePath = useEditorStore(s => s.getActiveFilePath);
   const pinFile = useEditorStore(s => s.pinFile);
-  const activeFilePath = getActiveFilePath(workspaceId || undefined);
+  const activeFilePath = useEditorStore((s) => s.getActiveFilePath(workspaceId || undefined));
 
   // Calculate initial items map from props.data to avoid render-cycle lag
   const initialItemsMap = useMemo(() => buildItemsMap(data), [data]);

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useTheme } from "next-themes";
 import { MultiFileDiff } from "@pierre/diffs/react";
 import {
   Collapsible,
@@ -35,6 +36,8 @@ function SubAgentLabelRow({
 }
 
 export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
+  const { resolvedTheme } = useTheme();
+  const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
   const [isOpen, setIsOpen] = useState(true);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [isToolUsesOpen, setIsToolUsesOpen] = useState(false);
@@ -158,7 +161,7 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
                           oldFile={diffFiles.oldFile}
                           newFile={diffFiles.newFile}
                           options={{
-                            theme: "pierre-dark",
+                            theme: diffTheme,
                             diffStyle: "unified",
                             overflow: "wrap",
                             disableLineNumbers: false,

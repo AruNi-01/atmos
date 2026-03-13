@@ -116,20 +116,18 @@ export function PlanBlockView({
       }`}
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        {(isOpen || allCompleted) && (
-          <CollapsibleTrigger asChild>
-            <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/10 cursor-pointer transition-colors group">
-              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-              </span>
-              <span className="text-sm font-medium text-foreground/90">Plan</span>
-              <div className="flex-1" />
-              <span className="text-sm text-muted-foreground mr-1">
-                {allCompleted ? "All Done" : `${completedCount}/${totalCount}`}
-              </span>
-            </div>
-          </CollapsibleTrigger>
-        )}
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/10 cursor-pointer transition-colors group">
+            <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+              {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </span>
+            <span className="text-sm font-medium text-foreground/90">Plan</span>
+            <div className="flex-1" />
+            <span className="text-sm text-muted-foreground mr-1">
+              {allCompleted ? "All Done" : `${completedCount}/${totalCount}`}
+            </span>
+          </div>
+        </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="flex flex-col border-t border-border/40">
             {planEntries.map((entry, idx) => {

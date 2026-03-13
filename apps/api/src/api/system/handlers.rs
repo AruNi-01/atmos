@@ -420,6 +420,12 @@ pub async fn kill_tmux_session(
     State(state): State<AppState>,
     Json(payload): Json<KillTmuxSessionPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
+    if payload.session_name.trim().is_empty() {
+        return Err(crate::error::ApiError::BadRequest(
+            "session_name is required".to_string(),
+        ));
+    }
+
     let tmux_engine = state.terminal_service.tmux_engine();
 
     match tmux_engine.kill_session(&payload.session_name) {
@@ -519,7 +525,7 @@ pub async fn list_ws_connections(
 
 /// GET /api/system/review-skills
 pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
-    let skills = skills::scan_review_skills();
+    let skills = skills::scan_review_skills().await;
     Ok(Json(ApiResponse::success(json!({ "skills": skills }))))
 }
 

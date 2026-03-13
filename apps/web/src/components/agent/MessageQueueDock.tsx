@@ -16,7 +16,6 @@ import {
   closestCenter,
   CSS,
   KeyboardSensor,
-  MouseSensor,
   PointerSensor,
   restrictToVerticalAxis,
   sortableKeyboardCoordinates,
@@ -315,7 +314,6 @@ export function MessageQueueDock({
     : null;
 
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );

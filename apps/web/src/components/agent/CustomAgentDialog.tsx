@@ -127,7 +127,16 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
       let parsedArgs: string[] = [];
       if (customForm.args.trim()) {
         try {
-          parsedArgs = JSON.parse(customForm.args.trim());
+          const parsed: unknown = JSON.parse(customForm.args.trim());
+          if (!Array.isArray(parsed)) {
+            toastManager.add({
+              title: "Invalid args format",
+              description: 'Args must be a JSON array of strings (e.g. ["-y", "pi-acp"]) or space-separated values.',
+              type: "error",
+            });
+            return;
+          }
+          parsedArgs = parsed as string[];
         } catch {
           parsedArgs = customForm.args.trim().split(/\s+/);
         }
@@ -137,7 +146,12 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
         try {
           parsedEnv = JSON.parse(customForm.env.trim());
         } catch {
-          // ignore invalid env
+          toastManager.add({
+            title: "Invalid env format",
+            description: 'Env must be a valid JSON object (e.g. {"KEY": "value"}).',
+            type: "error",
+          });
+          return;
         }
       }
 

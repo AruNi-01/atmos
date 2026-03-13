@@ -7,6 +7,7 @@ import { useContextParams } from "@/hooks/use-context-params";
 import {
   Pin,
   Archive,
+  Trash2,
   AlertTriangle,
   GitBranch,
   Dialog,
@@ -181,6 +182,16 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             >
               <Archive className="size-3" />
             </button>
+            {onDelete && (
+              <button
+                onClick={handleDeleteClick}
+                className="size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer hover:text-destructive"
+                title="Delete"
+                disabled={isCheckingGit}
+              >
+                <Trash2 className="size-3" />
+              </button>
+            )}
           </div>
         </div>
         <div className="flex items-center mt-0.5 ml-5">

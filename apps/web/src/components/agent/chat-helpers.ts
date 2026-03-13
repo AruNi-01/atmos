@@ -195,7 +195,7 @@ export function downloadConversationMarkdown(filename: string, markdown: string)
   document.body.append(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function deriveAgentActivity(entries: ThreadEntry[], waitingFirst: boolean): AgentActivity {

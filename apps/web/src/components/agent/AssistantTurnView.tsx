@@ -22,7 +22,7 @@ import {
 import { SubAgentBlockView } from "./SubAgentBlockView";
 import { ToolOrSkillBlock } from "./ToolOrSkillBlock";
 
-const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/g;
+const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
 function useReviewLinkComponents() {
   const openFile = useEditorStore(s => s.openFile);
@@ -37,7 +37,6 @@ function useReviewLinkComponents() {
       const { children, node: _, ...rest } = props;
       const text = typeof children === "string" ? children : String(children ?? "");
       if (REVIEW_PATH_RE.test(text)) {
-        REVIEW_PATH_RE.lastIndex = 0;
         const fileName = text.split("/").pop() || text;
         return (
           <button
@@ -51,7 +50,6 @@ function useReviewLinkComponents() {
           </button>
         );
       }
-      REVIEW_PATH_RE.lastIndex = 0;
       return <MarkdownCodeBlock {...rest}>{children}</MarkdownCodeBlock>;
     };
 

@@ -4,14 +4,15 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
 
 fn constant_time_eq(a: &str, b: &str) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    a.bytes()
-        .zip(b.bytes())
+    let hash_a = Sha256::digest(a.as_bytes());
+    let hash_b = Sha256::digest(b.as_bytes());
+    hash_a
+        .iter()
+        .zip(hash_b.iter())
         .fold(0u8, |acc, (x, y)| acc | (x ^ y))
         == 0
 }

@@ -48,6 +48,10 @@ import {
   downloadConversationMarkdown,
 } from "./chat-helpers";
 
+// Server-side default title assigned to new chat sessions (must match the
+// backend constant in agent_chat_session_repo.rs / session_title.rs).
+const DEFAULT_SESSION_TITLE = "新会话";
+
 // ---------------------------------------------------------------------------
 // Options & Return types
 // ---------------------------------------------------------------------------
@@ -1301,7 +1305,7 @@ export function useAgentChatSession({
   // ---------------------------------------------------------------------------
   const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
   const displaySessionTitle =
-    sessionTitle && sessionTitle !== "新会话" ? sessionTitle : null;
+    sessionTitle && sessionTitle !== DEFAULT_SESSION_TITLE ? sessionTitle : null;
   const panelLabel = chatMode === "wiki_ask" ? "Wiki Ask" : "Chat";
   const panelTitle = activeAgent?.name ?? (variant === "sidebar" ? "Wiki Ask" : "Agent Chat");
 

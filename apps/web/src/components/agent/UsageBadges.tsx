@@ -60,9 +60,9 @@ export function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
                   <span className="font-mono">{percent.toFixed(1)}%</span>
                 </div>
                 <div className="space-y-1">
-                  <div className="h-1.5 w-full bg-primary rounded-full overflow-hidden">
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-muted transition-all duration-500"
+                      className="h-full bg-primary transition-all duration-500"
                       style={{ width: `${percent}%` }}
                     />
                   </div>

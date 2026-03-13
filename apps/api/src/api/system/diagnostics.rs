@@ -138,8 +138,10 @@ pub fn get_orphaned_processes() -> Vec<Value> {
                     let pid: u32 = pid_str.trim().parse().ok()?;
                     let ppid: u32 = ppid_str.trim().parse().ok()?;
 
-                    let command_lower = command.to_lowercase();
-                    if ppid == 1 && shell_names.iter().any(|s| command_lower.contains(s)) {
+                    let first_word = command.split_whitespace().next().unwrap_or("");
+                    let basename = first_word.rsplit('/').next().unwrap_or(first_word);
+                    let basename_lower = basename.to_lowercase();
+                    if ppid == 1 && shell_names.iter().any(|s| basename_lower == *s) {
                         Some(json!({
                             "pid": pid,
                             "command": command,
