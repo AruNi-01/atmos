@@ -70,6 +70,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useQueryStates } from "nuqs";
 import {
+  centerStageParams,
   rightSidebarParams,
   rightSidebarModalParams,
   type RightSidebarTab,
@@ -96,6 +97,7 @@ import { ActionsDetailModal } from "@/components/github/ActionsDetailModal";
 import { Workflow } from "lucide-react";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
+import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -462,6 +464,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   const [{ rsTab: activeTab, rsView: changesView }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
+  const [{ tab: activeCenterTab }] = useQueryStates(centerStageParams);
   const [
     { rsPr: activePrNumber, rsRunId: activeRunId, rsCreatePr },
     setModalParams,
@@ -830,14 +833,19 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     !!gitStatus?.has_unpushed_commits &&
     stagedFiles.length === 0 &&
     !commitMessage.trim();
+  const showWikiAskSidebar = activeCenterTab === "wiki";
 
   return (
     <aside className="w-full flex flex-col h-full">
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setSidebarParams({ rsTab: v as RightSidebarTab })}
-        className="flex flex-col h-full"
-      >
+      {showWikiAskSidebar ? (
+        <AgentChatPanel variant="sidebar" mode="wiki_ask" publishStatus={false} />
+      ) : (
+        <>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setSidebarParams({ rsTab: v as RightSidebarTab })}
+            className="flex flex-col h-full"
+          >
         {/* Tabs Header */}
         <div className="h-10 flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm">
           <TabsList
@@ -1571,6 +1579,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           branch={currentBranch}
           onCreated={() => setPrRefreshKey(Date.now())}
         />
+      )}
+        </>
       )}
     </aside>
   );

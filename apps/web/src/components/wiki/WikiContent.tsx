@@ -12,11 +12,13 @@ import {
 import { AlertTriangle, ChevronRight, Clock, Eye, Frown, Loader2, Meh, Pencil, Save, Smile } from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import type { SelectionAttachedPayload } from "@/components/selection/SelectionPopover";
 import { useWikiContext, useWikiStore } from "@/hooks/use-wiki-store";
 import { useSelectionPopover } from "@/hooks/use-selection-popover";
 import { SelectionPopover } from "@/components/selection/SelectionPopover";
 import { useDialogStore } from "@/hooks/use-dialog-store";
-import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
+import { useProjectStore } from "@/hooks/use-project-store";
+import { useContextParams } from "@/hooks/use-context-params";
 import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
 import { fsApi } from "@/api/ws-api";
 
@@ -59,13 +61,14 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   effectivePath,
   onWikiLinkNavigate,
 }) => {
+  const { workspaceId, projectId } = useContextParams();
   const { activeContent, activePage, contentLoading, contentError } =
     useWikiContext(contextId);
+  const { projects, fetchProjects } = useProjectStore();
+  const enqueueAgentChatPrompt = useDialogStore((s) => s.enqueueAgentChatPrompt);
   const topRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const wikiContentRootRef = useRef<HTMLDivElement>(null);
-  const [, setAgentChatOpen] = useAgentChatUrl();
-  const setPendingAgentChatMode = useDialogStore((s) => s.setPendingAgentChatMode);
 
   const [isPreview, setIsPreview] = useState(true);
   const [localContent, setLocalContent] = useState("");
@@ -221,10 +224,44 @@ export const WikiContent: React.FC<WikiContentProps> = ({
     return () => viewport.removeEventListener("scroll", onScroll);
   }, [dismissSelectionPopover, isPreview, selectionPopoverVisible]);
 
-  const handleWikiSelectionCopied = useCallback(() => {
-    setPendingAgentChatMode("wiki_ask");
-    setAgentChatOpen(true);
-  }, [setAgentChatOpen, setPendingAgentChatMode]);
+  const handleWikiSelectionAttach = useCallback(async (payload: SelectionAttachedPayload) => {
+    let queueWorkspaceId: string | null | undefined = workspaceId;
+    let queueProjectId: string | null | undefined = projectId;
+
+    if (workspaceId) {
+      const resolveParentProjectId = (items: typeof projects) =>
+        items.find((project) => project.workspaces.some((workspace) => workspace.id === workspaceId))?.id ?? null;
+
+      let parentProjectId = resolveParentProjectId(projects);
+      if (!parentProjectId) {
+        try {
+          await fetchProjects();
+        } catch {
+          // Fall through to workspace-scoped queue as a last resort.
+        }
+        parentProjectId = resolveParentProjectId(useProjectStore.getState().projects);
+      }
+
+      if (parentProjectId) {
+        queueWorkspaceId = undefined;
+        queueProjectId = parentProjectId;
+      }
+    }
+
+    enqueueAgentChatPrompt({
+      prompt: payload.formattedText,
+      workspaceId: queueWorkspaceId,
+      projectId: queueProjectId,
+      mode: "wiki_ask",
+      origin: "wiki_selection_attach",
+    });
+
+    toastManager.add({
+      title: "Attached to Wiki Ask",
+      description: "The selected wiki excerpt was added to the right sidebar chat.",
+      type: "success",
+    });
+  }, [workspaceId, projectId, projects, fetchProjects, enqueueAgentChatPrompt]);
 
   if (contentLoading && !activeContent) {
     return (
@@ -337,7 +374,7 @@ export const WikiContent: React.FC<WikiContentProps> = ({
               onDismiss={dismissSelectionPopover}
               type="wiki"
               popoverRef={selectionPopoverRef}
-              onCopied={handleWikiSelectionCopied}
+              onAttach={handleWikiSelectionAttach}
             />
             <ScrollArea className="h-full">
               <div ref={topRef} />
