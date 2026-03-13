@@ -9,6 +9,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { WebSocketProvider } from "@/components/providers/websocket-provider";
 import { TmuxCheckProvider } from "@/components/providers/tmux-check-provider";
+import { DesktopExternalUrlBridge } from "@/components/providers/desktop-external-url-bridge";
 import { ToastProvider, AnchoredToastProvider, TooltipProvider } from "@workspace/ui";
 import "../globals.css";
 
@@ -71,6 +72,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             enableSystem
             disableTransitionOnChange
           >
+            <DesktopExternalUrlBridge />
             <NextIntlClientProvider messages={messages}>
               <WebSocketProvider>
                 <TmuxCheckProvider>
