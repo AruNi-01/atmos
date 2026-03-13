@@ -149,7 +149,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         type: 'error',
       });
     }
-  }, [buildFormattedText, displayInfo, onCopied, onDismiss]);
+  }, [buildFormattedText, displayInfo, onCopied, onDismiss, type]);
 
   const handleAttach = useCallback(async (includeNote: boolean = false) => {
     if (!displayInfo || !onAttach) return;
@@ -167,6 +167,8 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       setCopied(false);
       onDismiss();
       setUserNote('');
+    } catch {
+      // Swallow attach failures to avoid unhandled rejections without adding extra UI noise.
     } finally {
       setAttaching(false);
     }
@@ -214,18 +216,6 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       <Popover open={isExpanded} onOpenChange={(open) => !open && onDismiss()}>
         <PopoverAnchor asChild>
           <div className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-md">
-            {canAttach ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => void handleAttach(false)}
-                title="Attach to Wiki Ask"
-                disabled={attaching}
-              >
-                <Paperclip className="h-3.5 w-3.5" />
-              </Button>
-            ) : null}
             <Button
               variant="ghost"
               size="icon"
@@ -239,6 +229,18 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 <Copy className="h-3.5 w-3.5" />
               )}
             </Button>
+            {canAttach ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => void handleAttach(false)}
+                title="Attach to Wiki Ask"
+                disabled={attaching}
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="icon"

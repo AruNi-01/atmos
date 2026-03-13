@@ -1876,6 +1876,8 @@ export function AgentChatPanel({
     removeQueuedAgentChatPrompt,
     updateQueuedAgentChatPrompt,
     moveQueuedAgentChatPrompt,
+    setAgentChatDraft,
+    clearAgentChatDraft,
   } = useDialogStore();
   const isPanelOpen = variant === "sidebar" ? true : isAgentChatOpen;
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
@@ -2359,6 +2361,7 @@ export function AgentChatPanel({
     () => agentChatPromptQueues[queueKey] ?? [],
     [agentChatPromptQueues, queueKey]
   );
+  const agentChatDraft = useDialogStore((s) => s.agentChatDrafts[queueKey] ?? "");
   const queuedPromptHead = queuedPrompts[0] ?? null;
 
 
@@ -2966,10 +2969,12 @@ export function AgentChatPanel({
         sessionTitle: sessionTitleForPrompt,
         origin: "panel",
       });
+      clearAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode);
     },
     [
       chatMode,
       canUseCurrentMode,
+      clearAgentChatDraft,
       enqueueAgentChatPrompt,
       entries.length,
       isConnected,
@@ -3652,6 +3657,14 @@ export function AgentChatPanel({
                     : "Select agent to connect"
                 }
                 disabled={!isConnected || !canUseCurrentMode}
+                value={agentChatDraft}
+                onChange={(e) =>
+                  setAgentChatDraft(
+                    sessionWorkspaceId,
+                    sessionProjectId,
+                    chatMode,
+                    e.currentTarget.value
+                  )}
               />
             </PromptInputBody>
             <PromptInputFooter>

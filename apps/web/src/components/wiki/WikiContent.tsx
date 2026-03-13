@@ -64,8 +64,8 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const { workspaceId, projectId } = useContextParams();
   const { activeContent, activePage, contentLoading, contentError } =
     useWikiContext(contextId);
-  const { projects, fetchProjects } = useProjectStore();
-  const enqueueAgentChatPrompt = useDialogStore((s) => s.enqueueAgentChatPrompt);
+  const fetchProjects = useProjectStore((s) => s.fetchProjects);
+  const appendAgentChatDraft = useDialogStore((s) => s.appendAgentChatDraft);
   const topRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const wikiContentRootRef = useRef<HTMLDivElement>(null);
@@ -229,10 +229,10 @@ export const WikiContent: React.FC<WikiContentProps> = ({
     let queueProjectId: string | null | undefined = projectId;
 
     if (workspaceId) {
-      const resolveParentProjectId = (items: typeof projects) =>
+      const resolveParentProjectId = (items: ReturnType<typeof useProjectStore.getState>["projects"]) =>
         items.find((project) => project.workspaces.some((workspace) => workspace.id === workspaceId))?.id ?? null;
 
-      let parentProjectId = resolveParentProjectId(projects);
+      let parentProjectId = resolveParentProjectId(useProjectStore.getState().projects);
       if (!parentProjectId) {
         try {
           await fetchProjects();
@@ -248,20 +248,13 @@ export const WikiContent: React.FC<WikiContentProps> = ({
       }
     }
 
-    enqueueAgentChatPrompt({
-      prompt: payload.formattedText,
-      workspaceId: queueWorkspaceId,
-      projectId: queueProjectId,
-      mode: "wiki_ask",
-      origin: "wiki_selection_attach",
-    });
-
-    toastManager.add({
-      title: "Attached to Wiki Ask",
-      description: "The selected wiki excerpt was added to the right sidebar chat.",
-      type: "success",
-    });
-  }, [workspaceId, projectId, projects, fetchProjects, enqueueAgentChatPrompt]);
+    appendAgentChatDraft(
+      queueWorkspaceId,
+      queueProjectId,
+      "wiki_ask",
+      payload.formattedText,
+    );
+  }, [workspaceId, projectId, fetchProjects, appendAgentChatDraft]);
 
   if (contentLoading && !activeContent) {
     return (

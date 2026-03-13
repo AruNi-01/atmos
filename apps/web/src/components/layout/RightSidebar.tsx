@@ -68,7 +68,7 @@ import {
   GitCommit as GitCommitIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useQueryStates } from "nuqs";
+import { useQueryState, useQueryStates } from "nuqs";
 import {
   centerStageParams,
   rightSidebarParams,
@@ -464,7 +464,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   const [{ rsTab: activeTab, rsView: changesView }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
-  const [{ tab: activeCenterTab }] = useQueryStates(centerStageParams);
+  const [activeCenterTab] = useQueryState("tab", centerStageParams.tab);
   const [
     { rsPr: activePrNumber, rsRunId: activeRunId, rsCreatePr },
     setModalParams,
