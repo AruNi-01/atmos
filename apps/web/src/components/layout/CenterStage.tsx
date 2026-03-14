@@ -61,6 +61,7 @@ import { systemApi } from "@/api/rest-api";
 import { PROJECT_WIKI_WINDOW_NAME, CODE_REVIEW_WINDOW_NAME } from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
 import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
+import { useRouter } from "next/navigation";
 
 const WikiTab = dynamic(
   () => import("@/components/wiki").then((m) => m.WikiTab),
@@ -122,6 +123,7 @@ function getRelativePath(path: string, basePath?: string): string {
 
 const CenterStage: React.FC = () => {
   usePrewarmCodeLanguages();
+  const router = useRouter();
 
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
@@ -558,13 +560,8 @@ const CenterStage: React.FC = () => {
       <main className="h-full overflow-hidden">
         <WelcomePage
           onAddProject={() => setCreateProjectOpen(true)}
-          onCloneRemote={() => {
-            // Placeholder for now
-            toastManager.add({
-              title: "Coming Soon",
-              description: "Clone From Remote feature is under development",
-              type: "info"
-            });
+          onConnectAgent={() => {
+            router.push('/agents');
           }}
         />
       </main>
