@@ -136,15 +136,15 @@ const HeroSection = () => {
           {/* Para */}
           <MotionPreset fade slide blur transition={{ duration: 0.5 }} delay={0.5}>
             <p className='text-muted-foreground text-lg'>
-              Build, create, and thrive in your <span className='text-foreground'>personal productivity habitat</span>.
-              An open-source platform for developers.
+              An <span className='text-foreground'>AI-native coding workspace</span> combining a Rust backend, a Next.js web app, and a Tauri desktop shell. 
+              Built to keep your full development loop in one place: project orchestration, terminals, agent workflows, and GitHub operations.
             </p>
           </MotionPreset>
 
           <MotionPreset fade slide blur transition={{ duration: 0.5 }} delay={0.7}>
             <div className="flex gap-4">
               <CraftButton asChild>
-                <Link href='#'>
+                <Link href='https://github.com/AruNi-01/atmos'>
                   <CraftButtonLabel>Get Started</CraftButtonLabel>
                   <CraftButtonIcon>
                     <ArrowUpRightIcon className='size-3 stroke-2 transition-transform duration-500 group-hover:rotate-45' />
@@ -152,7 +152,7 @@ const HeroSection = () => {
                 </Link>
               </CraftButton>
               <Button variant='outline' className='rounded-full px-6' asChild>
-                <Link href='https://github.com/atmos-org/atmos' target="_blank">
+                <Link href='https://github.com/AruNi-01/atmos' target="_blank">
                   View on GitHub
                 </Link>
               </Button>

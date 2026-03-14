@@ -50,20 +50,20 @@ export default async function LandingPage({ params }: Props) {
 const featuresList = [
   {
     icon: <ZapIcon className='text-primary' />,
-    title: 'Fast and Efficient',
-    description: "Atmos is built for speed, ensuring your workflow remains uninterrupted and fluid.",
+    title: 'Unified Operating Surface',
+    description: "Manage multiple projects, branches, and workspaces with built-in context, without switching tools.",
     image: AtmosPreview
   },
   {
     icon: <ChartSplineIcon className='text-primary' />,
-    title: 'Insightful Analytics',
-    description: "Gain deep insights into your coding habits and project metrics with built-in analytics.",
+    title: 'Persistent Terminal Sessions',
+    description: "Keep long-lived, tmux-backed terminal sessions that survive refreshes, reconnects, and app restarts.",
     image: AtmosPreview
   },
   {
     icon: <FilesIcon className='text-primary' />,
-    title: 'Seamless File Management',
-    description: "Manage your files across multiple workspaces with ease and precision.",
+    title: 'Deep GitHub Integration',
+    description: "Manage the full PR lifecycle, AI-assisted commits, and CI operations from the same interface.",
     image: AtmosPreview
   }
 ]
@@ -71,15 +71,15 @@ const featuresList = [
 const faqItems = [
   {
     question: "What is Atmos?",
-    answer: "Atmos is a visual terminal workspace designed to enhance your personal productivity habitat, allowing you to build with any agent."
+    answer: "Atmos is an AI-native coding workspace combining a Rust backend, a Next.js web app, and a Tauri desktop shell to keep your full development loop in one place."
   },
   {
-    question: "Is it open source?",
-    answer: "Yes, Atmos is an open-source platform built for developers."
+    question: "What LLMs or Agents are supported?",
+    answer: "Atmos supports custom ACP agents, lightweight LLM providers (OpenAI, Anthropic compatible), and local BYOK config for automation tasks."
   },
   {
-    question: "How do I get started?",
-    answer: "Simply click the 'Get Started' button to download the application and follow the setup instructions."
+    question: "How does terminal orchestration work?",
+    answer: "Terminals run on a WebSocket transport backed by tmux. They detach cleanly on close and can be reattached to existing sessions without losing underlying context."
   }
 ]
 

@@ -8,38 +8,38 @@ import { Badge } from '@workspace/ui/components/ui/badge'
 
 const features = [
   {
-    title: 'Stacked PRs',
-    description: 'Manage complex dependencies with ease using our intuitive stacking interface.',
+    title: 'AI Agent Workspace',
+    description: 'Agent panel with streaming responses, tool call updates, and custom ACP agent support.',
     videoUrl: 'https://www.pexels.com/zh-cn/download/video/34312649/',
   },
   {
-    title: 'PR page',
-    description: 'A unified view for all your pull request details, conversations, and checks.',
+    title: 'Project Wiki',
+    description: 'A URL-synced Wiki tab with automated generation integrated with terminal automation.',
     videoUrl: 'https://www.pexels.com/zh-cn/download/video/34312649/',
   },
   {
-    title: 'AI code review',
-    description: 'Get instant, intelligent feedback on your code changes before peer review.',
+    title: 'Global Search',
+    description: 'Unified command surface for navigation, file/code search, and app quick actions.',
     videoUrl: 'https://www.pexels.com/zh-cn/download/video/34312649/',
   },
   {
-    title: 'Chat',
-    description: 'Real-time collaboration and discussion directly within your development workflow.',
+    title: 'Git Intelligence',
+    description: 'AI-assisted commits, code-review workflows, and detailed PR context parsing.',
     videoUrl: 'https://www.pexels.com/zh-cn/download/video/34312649/',
   },
   {
-    title: 'Merge queue',
-    description: 'Automate your merge process and ensure unrelated changes don not break main.',
+    title: 'Run Preview',
+    description: 'Built-in Run Preview panel for rapid "run-and-verify" script workflows.',
     videoUrl: 'https://www.pexels.com/zh-cn/download/video/34312649/',
   },
   {
-    title: 'PR inbox',
-    description: 'Stay organized with a dedicated inbox for all your code review tasks.',
+    title: 'Terminal & Tmux',
+    description: 'Persistent, tmux-backed terminals that preserve logic and reattach cleanly.',
     videoUrl: 'https://www.pexels.com/zh-cn/download/video/34312649/',
   },
   {
-    title: 'Dev metrics',
-    description: 'Track velocity, cycle time, and other key metrics to improve team performance.',
+    title: 'Usage Observability',
+    description: 'Provider-specific token visualization to keep an eye on active AI expenses.',
     videoUrl: 'https://www.pexels.com/zh-cn/download/video/34312649/',
   },
 ]

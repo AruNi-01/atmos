@@ -97,7 +97,7 @@ const Header = ({ className }: HeaderProps) => {
 
         <div className='flex items-center gap-3'>
           <nav className="flex items-center gap-4 text-sm font-medium text-muted-foreground mr-2 max-sm:hidden">
-            <Link href="#docs" className="transition-colors hover:text-foreground">
+            <Link href="https://github.com/AruNi-01/atmos" className="transition-colors hover:text-foreground">
               Docs
             </Link>
             <Link href="/changelog" className="transition-colors hover:text-foreground">
@@ -109,7 +109,7 @@ const Header = ({ className }: HeaderProps) => {
           <ModeToggle />
           {/* Actions */}
           <Button variant='outline' className='rounded-full px-4! max-sm:hidden' asChild>
-            <Link href='#'>
+            <Link href='https://github.com/AruNi-01/atmos'>
               Let’s Build <Hammer className='size-4' />
             </Link>
           </Button>
@@ -117,7 +117,7 @@ const Header = ({ className }: HeaderProps) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant='outline' size='icon' className='rounded-full px-4! sm:hidden' asChild>
-                <Link href='#'>
+                <Link href='https://github.com/AruNi-01/atmos'>
                   <span className='sr-only'>Let’s Build</span>
                   <Hammer className='size-4' />
                 </Link>

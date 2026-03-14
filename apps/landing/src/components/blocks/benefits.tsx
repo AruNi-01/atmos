@@ -153,18 +153,18 @@ const Benefits = ({ featuresList }: { featuresList: Features }) => {
           <h2 className='text-2xl font-semibold md:text-3xl lg:text-4xl'>Why Choose Atmos?</h2>
 
           <p className='text-muted-foreground mx-auto max-w-3xl text-xl'>
-            Designed to streamline your workflow and keep everything under control.
+            A complete operating surface for engineering teams and power users.
           </p>
 
           <div className='flex flex-wrap items-center justify-center gap-4 text-center'>
             <PrimaryFlowButton size='lg' asChild>
-              <Link href='#'>
+              <Link href='https://github.com/AruNi-01/atmos'>
                 Start building now
                 <ArrowUpRightIcon />
               </Link>
             </PrimaryFlowButton>
             <SecondaryFlowButton size='lg' asChild>
-              <Link href='#'>Learn more</Link>
+              <Link href='https://github.com/AruNi-01/atmos'>Learn more</Link>
             </SecondaryFlowButton>
           </div>
         </MotionPreset>

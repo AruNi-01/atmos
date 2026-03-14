@@ -26,7 +26,7 @@ const servicesData = [
   },
   {
     title: 'Visual Interface',
-    description: 'Modern frontend built with React, Next.js, and Monaco Editor. Flexible window management with React Mosaic.',
+    description: 'Modern frontend built with React and Next.js. Flexible window management with WebSocket-first UX.',
     icon: PaletteIcon
   },
   {
@@ -35,8 +35,8 @@ const servicesData = [
     icon: PenToolIcon
   },
   {
-    title: 'AI Integration',
-    description: 'Seamlessly integrate with Claude Code, Codex, and local LLMs. Agent-native architecture for the future of coding.',
+    title: 'Agent Integration',
+    description: 'Seamlessly configure lightweight LLM providers and BYOK for automation. Native support for custom ACP agents.',
     icon: FramerIcon,
     className: 'bg-muted/50'
   }
@@ -150,7 +150,7 @@ const Services = () => {
             transition={{ duration: 0.6 }}
           >
             <CraftButton asChild>
-              <Link href='#'>
+              <Link href='https://github.com/AruNi-01/atmos'>
                 <CraftButtonLabel>Documentation</CraftButtonLabel>
                 <CraftButtonIcon>
                   <ArrowUpRightIcon className='size-3 stroke-2 transition-transform duration-500 group-hover:rotate-45' />
@@ -159,7 +159,7 @@ const Services = () => {
             </CraftButton>
             <Separator className='h-9!' orientation='vertical' />
             <Button variant='outline' className='rounded-full' asChild>
-              <Link href='#'>
+              <Link href='https://github.com/AruNi-01/atmos'>
                 Join Community <MessageSquareMoreIcon className='size-4' />
               </Link>
             </Button>
