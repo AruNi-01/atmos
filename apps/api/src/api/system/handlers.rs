@@ -1,7 +1,14 @@
-use axum::{extract::State, Json};
+use axum::{
+    body::Body,
+    extract::{Query, State},
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
+use tokio_util::io::ReaderStream;
 use tracing::{info, warn};
 
 use crate::api::dto::ApiResponse;
@@ -540,4 +547,93 @@ pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
         "initiated": true,
         "message": "System skill sync initiated"
     }))))
+}
+
+// ===== File serving for binary preview =====
+
+#[derive(Deserialize)]
+pub struct ServeFileQuery {
+    pub path: String,
+}
+
+/// Map file extension to MIME type for browser-previewable formats.
+fn mime_type_for_ext(ext: &str) -> &'static str {
+    match ext {
+        // Images
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "svg" => "image/svg+xml",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        "tiff" | "tif" => "image/tiff",
+        // Video
+        "mp4" => "video/mp4",
+        "webm" => "video/webm",
+        "ogg" => "video/ogg",
+        "mov" => "video/quicktime",
+        // Audio
+        "mp3" => "audio/mpeg",
+        "wav" => "audio/wav",
+        // Documents
+        "pdf" => "application/pdf",
+        // Fallback
+        _ => "application/octet-stream",
+    }
+}
+
+/// GET /api/system/file?path=<absolute_path>
+///
+/// Streams a local file with the appropriate Content-Type header so the
+/// browser can render previews of images, videos, PDFs, etc.
+/// This replaces the old Next.js API route that was removed during the
+/// desktop static-export migration.
+pub async fn serve_file(
+    Query(query): Query<ServeFileQuery>,
+) -> Result<Response, Response> {
+    let file_path = std::path::Path::new(&query.path);
+
+    if !file_path.exists() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            "File not found",
+        ).into_response());
+    }
+
+    if !file_path.is_file() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Not a file",
+        ).into_response());
+    }
+
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let content_type = mime_type_for_ext(&ext);
+
+    let metadata = tokio::fs::metadata(file_path).await.map_err(|e| {
+        warn!("Failed to read file metadata: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read file").into_response()
+    })?;
+
+    let file = tokio::fs::File::open(file_path).await.map_err(|e| {
+        warn!("Failed to open file: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to open file").into_response()
+    })?;
+
+    let stream = ReaderStream::new(file);
+    let body = Body::from_stream(stream);
+
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_LENGTH, metadata.len())
+        .body(body)
+        .unwrap()
+        .into_response())
 }

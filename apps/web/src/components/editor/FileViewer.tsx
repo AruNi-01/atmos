@@ -6,6 +6,7 @@ import { OpenFile } from '@/hooks/use-editor-store';
 import { Loader2, FileWarning, Download, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn, Button } from '@workspace/ui';
+import { getRuntimeApiConfig, httpBase } from '@/lib/desktop-runtime';
 
 // Dynamic import CodeMirror editor to avoid SSR issues
 const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
@@ -212,18 +213,30 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className }) => {
   const isBase64 = file.content.startsWith('data:') && file.content.includes(';base64,');
   const isBinary = isStream || isBase64;
 
-  const docData = useMemo(() => {
-    if (!isBinary) return null;
+  const [docData, setDocData] = useState<{ uri: string; ext: string } | null>(null);
+
+  useEffect(() => {
+    if (!isBinary) {
+      setDocData(null);
+      return;
+    }
 
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
     let uri = file.content;
 
     if (isStream) {
       const path = file.content.replace('stream://', '');
-      uri = `/api/file?path=${encodeURIComponent(path)}`;
+      // Build URL pointing to Rust API's file-serving endpoint
+      getRuntimeApiConfig().then((cfg) => {
+        const base = httpBase(cfg);
+        const params = new URLSearchParams({ path });
+        if (cfg.token) params.set('token', cfg.token);
+        setDocData({ uri: `${base}/api/system/file?${params.toString()}`, ext });
+      });
+      return;
     }
 
-    return { uri, ext };
+    setDocData({ uri, ext });
   }, [isBinary, file.content, file.name, isStream]);
 
   if (isBinary && docData) {

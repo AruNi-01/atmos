@@ -38,6 +38,7 @@ pub fn routes() -> Router<AppState> {
         .route("/sync-skills", post(handlers::sync_skills))
         .route("/review-skills", get(handlers::list_review_skills))
         .route("/ws-connections", get(handlers::list_ws_connections))
+        .route("/file", get(handlers::serve_file))
 }
 
 /// Destructive system routes that require loopback or token authentication.

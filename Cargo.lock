@@ -241,6 +241,7 @@ dependencies = [
  "sha2",
  "token-usage",
  "tokio",
+ "tokio-util",
  "tower",
  "tower-http",
  "tracing",
