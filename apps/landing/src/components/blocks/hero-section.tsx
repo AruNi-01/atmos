@@ -136,8 +136,7 @@ const HeroSection = () => {
           {/* Para */}
           <MotionPreset fade slide blur transition={{ duration: 0.5 }} delay={0.5}>
             <p className='text-muted-foreground text-lg'>
-              An <span className='text-foreground'>AI-native coding workspace</span> combining a Rust backend, a Next.js web app, and a Tauri desktop shell. 
-              Built to keep your full development loop in one place: project orchestration, terminals, agent workflows, and GitHub operations.
+              An <span className='text-foreground'>AI-native coding workspace</span> to keep your full development loop in one place: project orchestration, terminals, agent workflows, and GitHub operations.
             </p>
           </MotionPreset>
 
