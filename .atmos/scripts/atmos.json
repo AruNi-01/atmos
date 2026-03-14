@@ -1,5 +1,5 @@
 {
   "purge": "rm -rf ./node_modules && rm-rf ./apps/web/node_modules && rm-rf ./apps/landing/node_modules && rm-rf ./apps/docs/node_modules && echo ✅ All node modules deleted",
-  "run": "just dev-web & just dev-api",
+  "run": "just dev-all --web-port 3031 --api-port 30301 --cleanup-stale-clients false",
   "setup": "cp $ATMOS_ROOT_PROJECT_PATH/apps/web/.env.local ./apps/web/.env.local && bun install && echo \"✅ env file cp successed\" && echo \"✅ Root dependency installed\""
 }
