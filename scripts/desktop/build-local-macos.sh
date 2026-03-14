@@ -98,7 +98,7 @@ fi
 echo "▶️ Running: ${BUILD_CMD[*]}"
 (
   cd "$DESKTOP_DIR"
-  "${BUILD_CMD[@]}"
+  ATMOS_LOG_LEVEL="${ATMOS_LOG_LEVEL:-info}" "${BUILD_CMD[@]}"
 )
 
 APP_BUNDLE="$(find "$TAURI_DIR/target" -path "*/${TARGET_TRIPLE}/release/bundle/macos/Atmos.app" -print -quit 2>/dev/null || true)"

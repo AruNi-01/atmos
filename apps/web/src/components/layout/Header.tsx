@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
 import { useContextParams } from "@/hooks/use-context-params";
 import { llmProvidersModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
@@ -30,6 +30,7 @@ import {
   PopoverContent,
   Popover,
   Switch,
+  Button,
 } from '@workspace/ui';
 import LogoSvg from '@workspace/ui/components/logo-svg';
 import { QuickOpen } from './QuickOpen';
@@ -45,13 +46,16 @@ import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialo
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
-import { BrainCircuit, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
+import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, RefreshCw } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { LlmProvidersModal } from './LlmProvidersModal';
 import { TokenUsageDialog } from './TokenUsageDialog';
 
 const Header: React.FC = () => {
   const params = useParams();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const locale = params?.locale as string || 'en';
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
 
@@ -63,6 +67,7 @@ const Header: React.FC = () => {
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
+  const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [actionsCollapsed, setActionsCollapsed] = useState(false);
   useEffect(() => {
     try { const v = localStorage.getItem("header-actions-collapsed"); if (v === "true") setActionsCollapsed(true); } catch {}
@@ -144,6 +149,18 @@ const Header: React.FC = () => {
     "llmProvidersModal",
     llmProvidersModalParams.llmProvidersModal
   );
+  const desktopWebSearch = useMemo(() => {
+    const query = searchParams.toString();
+    return query ? `?${query}` : '';
+  }, [searchParams]);
+  const {
+    browserUrl,
+    isDesktopRuntime,
+    isLaunching: isOpeningDesktopWeb,
+    openInBrowser,
+    refreshStatus: refreshDesktopWebStatus,
+    status: desktopWebStatus,
+  } = useDesktopWebLauncher(pathname, desktopWebSearch);
 
   // Archive modal and delete dialog states
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
@@ -350,6 +367,20 @@ const Header: React.FC = () => {
     }
     return issues.join(', ');
   };
+
+  const handleOpenDesktopWeb = useCallback(async () => {
+    const opened = await openInBrowser();
+    if (opened) {
+      setDesktopWebPopoverOpen(false);
+      return;
+    }
+
+    toastManager.add({
+      title: 'Web not ready',
+      description: 'The desktop web endpoint is still starting. Try again in a moment.',
+      type: 'error',
+    });
+  }, [openInBrowser]);
 
   return (
     <header className="h-12 flex items-center justify-between px-4 border-b border-sidebar-border select-none">
@@ -627,6 +658,71 @@ const Header: React.FC = () => {
                   aria-hidden="true"
                   className="h-4 w-px rounded-full bg-border"
                 />
+
+                {isDesktopRuntime && (
+                  <Popover
+                    open={desktopWebPopoverOpen}
+                    onOpenChange={(open) => {
+                      setDesktopWebPopoverOpen(open);
+                      if (open) {
+                        void refreshDesktopWebStatus();
+                      }
+                    }}
+                  >
+                    <PopoverTrigger asChild>
+                      <button
+                        aria-label="Open in Web"
+                        className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                        title={desktopWebStatus === 'ready' ? 'Open in Web' : 'Start Web'}
+                      >
+                        <Globe className="size-4" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" sideOffset={8} className="w-80 p-3 bg-popover border border-border shadow-md">
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "size-2 rounded-full",
+                              desktopWebStatus === 'ready'
+                                ? 'bg-green-500'
+                                : desktopWebStatus === 'checking'
+                                ? 'bg-amber-500'
+                                : 'bg-muted-foreground/50'
+                            )} />
+                            <p className="text-sm font-medium text-popover-foreground">
+                              {desktopWebStatus === 'ready' ? 'Web access is ready' : 'Browser access via sidecar'}
+                            </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {desktopWebStatus === 'ready'
+                              ? 'Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches.'
+                              : 'Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there.'}
+                          </p>
+                        </div>
+
+                        {browserUrl && (
+                          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
+                            {browserUrl}
+                          </div>
+                        )}
+
+                        <Button
+                          onClick={() => void handleOpenDesktopWeb()}
+                          disabled={isOpeningDesktopWeb}
+                          className="w-full cursor-pointer"
+                        >
+                          {isOpeningDesktopWeb
+                            ? 'Starting...'
+                            : desktopWebStatus === 'ready'
+                            ? 'Open In Web'
+                            : 'Start Web'}
+                          <ExternalLink className="size-4" />
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
 
                 <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
                 <button

@@ -550,10 +550,10 @@ export const SkillsView: React.FC = () => {
       ? "Search skills market..."
       : "Search resources...";
 
-  const toggleMarketCategory = (categoryId: string) => {
+  const setMarketCategoryOpen = (categoryId: string, open: boolean) => {
     setCollapsedMarketCategories((current) => ({
       ...current,
-      [categoryId]: !(current[categoryId] ?? false),
+      [categoryId]: !open,
     }));
   };
 
@@ -810,7 +810,7 @@ export const SkillsView: React.FC = () => {
                       <Collapsible
                         key={category.id}
                         open={!(collapsedMarketCategories[category.id] ?? false)}
-                        onOpenChange={() => toggleMarketCategory(category.id)}
+                        onOpenChange={(open) => setMarketCategoryOpen(category.id, open)}
                         className="rounded-2xl border border-border/70 bg-background/40"
                       >
                         <CollapsibleTrigger className="group flex w-full items-end justify-between gap-4 px-5 py-4 text-left cursor-pointer">
@@ -833,7 +833,7 @@ export const SkillsView: React.FC = () => {
                               {category.items.map((item, index) => (
                                 <motion.div
                                   key={item.id}
-                                  initial={{ opacity: 0, y: 10 }}
+                                  initial={false}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.16) }}
                                   className="group flex h-full flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:shadow-md"

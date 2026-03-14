@@ -3,6 +3,12 @@
   "identifier": "default",
   "description": "Default capability set for Atmos desktop",
   "windows": ["main", "splashscreen"],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*",
+      "http://localhost:*"
+    ]
+  },
   "permissions": [
     "core:default",
     "core:window:allow-show",
@@ -19,6 +25,6 @@
       ]
     },
     "notification:allow-notify",
-    "opener:allow-open-url"
+    "opener:default"
   ]
 }

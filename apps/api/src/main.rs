@@ -88,10 +88,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::from_filename("apps/api/.env").ok();
     dotenvy::dotenv().ok();
 
+    let default_log_level = option_env!("ATMOS_LOG_LEVEL").unwrap_or("debug");
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                "api=debug,infra=debug,core_service=debug,core_engine=debug,agent=debug,llm=debug,tower_http=debug".into()
+                format!(
+                    "api={default_log_level},infra={default_log_level},core_service={default_log_level},core_engine={default_log_level},agent={default_log_level},llm={default_log_level},tower_http={default_log_level}"
+                )
+                .into()
             }),
         )
         .with(tracing_subscriber::fmt::layer())

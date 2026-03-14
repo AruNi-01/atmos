@@ -247,7 +247,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
                       <motion.div
                         key={projectId}
                         layout
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={false}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.98 }}
                         className="space-y-4"
@@ -271,12 +271,12 @@ export const ArchivedWorkspacesView: React.FC = () => {
                         </div>
 
                         <div className="grid gap-2.5">
-                          <AnimatePresence mode="popLayout">
+                          <AnimatePresence mode="popLayout" initial={false}>
                             {workspaces.map((ws, index) => (
                               <motion.div
                                 key={ws.guid}
                                 layout
-                                initial={{ opacity: 0, x: -5 }}
+                                initial={false}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
                                 transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}

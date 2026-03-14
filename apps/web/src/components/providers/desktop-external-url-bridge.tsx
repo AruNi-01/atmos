@@ -2,59 +2,16 @@
 
 import { useEffect } from "react";
 
-import { debugLog } from "@/lib/desktop-logger";
+import {
+  isSupportedExternalProtocol,
+  openDesktopExternalUrl,
+  resolveExternalUrl,
+} from "@/lib/desktop-external-url";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
-
-type TauriInternals = {
-  invoke?: (cmd: string, payload?: unknown) => Promise<unknown>;
-};
-
-function getTauriInvoke() {
-  if (typeof window === "undefined") return null;
-  const internals = (window as { __TAURI_INTERNALS__?: TauriInternals })
-    .__TAURI_INTERNALS__;
-  return internals?.invoke ?? null;
-}
-
-function isSupportedExternalProtocol(protocol: string) {
-  return (
-    protocol === "http:" ||
-    protocol === "https:" ||
-    protocol === "mailto:" ||
-    protocol === "tel:"
-  );
-}
-
-function resolveUrl(url: string) {
-  try {
-    return new URL(url, window.location.href);
-  } catch {
-    return null;
-  }
-}
 
 function shouldOpenExternally(url: URL) {
   if (!isSupportedExternalProtocol(url.protocol)) return false;
   return url.origin !== window.location.origin || url.protocol === "mailto:" || url.protocol === "tel:";
-}
-
-async function openExternalUrl(url: string) {
-  const invoke = getTauriInvoke();
-  const resolved = resolveUrl(url);
-
-  if (!invoke || !resolved || !shouldOpenExternally(resolved)) {
-    return false;
-  }
-
-  try {
-    await invoke("plugin:opener|open_url", { url: resolved.toString() });
-    debugLog(`openExternalUrl: opened ${resolved.toString()}`);
-    return true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    debugLog(`openExternalUrl: failed ${resolved.toString()} err=${message}`);
-    return false;
-  }
 }
 
 function findAnchorFromEventTarget(event: MouseEvent) {
@@ -80,12 +37,11 @@ export function DesktopExternalUrlBridge() {
     ) {
       const nextUrl = typeof url === "string" ? url : url?.toString();
       if (nextUrl) {
-        void openExternalUrl(nextUrl);
-      }
-
-      const resolved = nextUrl ? resolveUrl(nextUrl) : null;
-      if (resolved && shouldOpenExternally(resolved)) {
-        return null;
+        const resolved = resolveExternalUrl(nextUrl);
+        if (resolved && shouldOpenExternally(resolved)) {
+          void openDesktopExternalUrl(resolved.toString());
+          return null;
+        }
       }
 
       return originalWindowOpen(nextUrl, target, features);
@@ -97,11 +53,11 @@ export function DesktopExternalUrlBridge() {
       const anchor = findAnchorFromEventTarget(event);
       if (!anchor || !anchor.href || anchor.hasAttribute("download")) return;
 
-      const resolved = resolveUrl(anchor.href);
+      const resolved = resolveExternalUrl(anchor.href);
       if (!resolved || !shouldOpenExternally(resolved)) return;
 
       event.preventDefault();
-      void openExternalUrl(resolved.toString());
+      void openDesktopExternalUrl(resolved.toString());
     };
 
     window.addEventListener("click", handleDocumentClick, true);

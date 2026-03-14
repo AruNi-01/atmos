@@ -76,6 +76,7 @@ fn main() {
             app.manage(AppState {
                 api_port: Mutex::new(None),
                 api_token: api_token.clone(),
+                desktop_log_level: logging::compiled_log_level(),
                 sidecar_child: Mutex::new(None),
             });
 
@@ -180,7 +181,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_api_config,
-            commands::write_debug_log,
+            commands::write_log,
             commands::open_in_external_editor,
             commands::send_notification,
         ])
@@ -314,7 +315,7 @@ async fn spawn_and_wait_sidecar(
     api_token: String,
     static_dir: Option<PathBuf>,
 ) -> Result<(), String> {
-    let sidecar_log_path = logging::app_log_path(app_handle, "sidecar.log");
+    let sidecar_log_path = logging::app_log_path(app_handle, "sidecar-api.log");
     let mut diagnostics = StartupDiagnostics::new(sidecar_log_path.clone());
 
     let data_dir = app_handle

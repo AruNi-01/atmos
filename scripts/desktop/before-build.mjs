@@ -22,6 +22,7 @@ run("bun", ["--filter", "web", "build"], {
   env: {
     ...process.env,
     BUILD_TARGET: "desktop",
+    ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
   },
 });
 
@@ -47,7 +48,12 @@ if (!targetTriple) {
   targetTriple = hostLine.replace("host:", "").trim();
 }
 
-run("cargo", ["build", "--release", "--bin", "api", "--target", targetTriple]);
+run("cargo", ["build", "--release", "--bin", "api", "--target", targetTriple], {
+  env: {
+    ...process.env,
+    ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
+  },
+});
 
 const binExt = targetTriple.includes("windows") ? ".exe" : "";
 const binariesDir = join(rootDir, "apps/desktop/src-tauri/binaries");

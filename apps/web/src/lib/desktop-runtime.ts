@@ -1,6 +1,6 @@
 'use client';
 
-import { debugLog } from './desktop-logger';
+import { debugLog, errorLog } from './desktop-logger';
 
 export type ApiConfig = { host: string; port: number; token: string };
 
@@ -40,12 +40,12 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
         return cachedConfig;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        debugLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
+        errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
         console.warn('[desktop-runtime] invoke get_api_config failed:', e);
         throw e;
       }
     }
-    debugLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');
+    errorLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');
     throw new Error('Tauri runtime detected but invoke bridge is unavailable');
   }
 

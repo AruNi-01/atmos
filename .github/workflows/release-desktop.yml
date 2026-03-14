@@ -80,6 +80,8 @@ jobs:
 
       - name: Build Tauri app (no bundle)
         working-directory: apps/desktop
+        env:
+          ATMOS_LOG_LEVEL: info
         run: bun tauri build --no-bundle
 
   resolve-release-config:
@@ -185,12 +187,15 @@ jobs:
       - name: Build Tauri app (manual validation without release)
         if: needs.resolve-release-config.outputs.create_release != 'true'
         working-directory: apps/desktop
+        env:
+          ATMOS_LOG_LEVEL: info
         run: bun tauri build ${{ matrix.args }} --no-bundle
 
       - name: Build and release Tauri app
         if: needs.resolve-release-config.outputs.create_release == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
+          ATMOS_LOG_LEVEL: info
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

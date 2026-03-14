@@ -1,4 +1,4 @@
-use crate::logging;
+use crate::logging::{self, LogLevel};
 use crate::state::AppState;
 use serde_json::json;
 
@@ -17,9 +17,19 @@ pub fn get_api_config(state: tauri::State<AppState>) -> Result<serde_json::Value
 }
 
 #[tauri::command]
-pub fn write_debug_log(app: tauri::AppHandle, message: String) -> Result<(), String> {
-    let log_file = logging::app_log_path(&app, "desktop-debug.log");
-    logging::append_log(&log_file, &message);
+pub fn write_log(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+    level: String,
+    message: String,
+) -> Result<(), String> {
+    let level = LogLevel::parse(&level);
+    if level < state.desktop_log_level {
+        return Ok(());
+    }
+
+    let log_file = logging::app_log_path(&app, "desktop.log");
+    logging::append_log_with_level(&log_file, level, &message);
     Ok(())
 }
 

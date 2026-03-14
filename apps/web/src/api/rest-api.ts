@@ -1,5 +1,5 @@
 'use client';
-import { getRuntimeApiConfig } from '@/lib/desktop-runtime';
+import { getRuntimeApiConfig, httpBase } from '@/lib/desktop-runtime';
 
 /**
  * REST API client for endpoints that need to be called before WebSocket connection
@@ -10,6 +10,11 @@ import { getRuntimeApiConfig } from '@/lib/desktop-runtime';
 export const getAgentWsBase = async (): Promise<string> => {
   const cfg = await getRuntimeApiConfig();
   return `ws://${cfg.host}:${cfg.port}`;
+};
+
+export const getRuntimeHttpBase = async (): Promise<string> => {
+  const cfg = await getRuntimeApiConfig();
+  return httpBase(cfg);
 };
 
 // ===== Types =====
@@ -299,6 +304,21 @@ export interface TokenUsageUpdateResponse {
 // ===== System API =====
 
 export const systemApi = {
+  /**
+   * Lightweight health check for local sidecar/web availability.
+   */
+  checkHealth: async (): Promise<boolean> => {
+    const cfg = await getRuntimeApiConfig();
+    const response = await fetch(`${httpBase(cfg)}/healthz`, {
+      headers: cfg.token
+        ? {
+            Authorization: `Bearer ${cfg.token}`,
+          }
+        : undefined,
+    });
+    return response.ok;
+  },
+
   /**
    * Check tmux installation status
    */
