@@ -6,7 +6,6 @@ import {
   TabsList,
   TabsTab,
   TabsPanel,
-  Folder,
 } from "@workspace/ui";
 import { useQueryState } from "nuqs";
 import { RecentWorkspacesView } from './RecentWorkspacesView';
@@ -34,11 +33,11 @@ export const WorkspacesManagementView: React.FC = () => {
           </TabsList>
         </div>
 
-        <TabsPanel value="recent" className="flex-1 overflow-hidden m-0">
+        <TabsPanel keepMounted value="recent" className="flex-1 overflow-hidden m-0">
           <RecentWorkspacesView />
         </TabsPanel>
 
-        <TabsPanel value="archived" className="flex-1 overflow-hidden m-0">
+        <TabsPanel keepMounted value="archived" className="flex-1 overflow-hidden m-0">
           <ArchivedWorkspacesView />
         </TabsPanel>
       </Tabs>

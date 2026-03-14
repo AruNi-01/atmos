@@ -1,6 +1,11 @@
 "use client";
 
-import { useRouter as useNextRouter, useParams } from "next/navigation";
+import {
+  useRouter as useNextRouter,
+  useParams,
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
 import { useCallback, useMemo } from "react";
 
 /**
@@ -13,30 +18,67 @@ import { useCallback, useMemo } from "react";
 export function useAppRouter() {
   const router = useNextRouter();
   const params = useParams();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const locale = (params?.locale as string) || "en";
 
-  const prefixPath = useCallback(
+  const normalizePath = useCallback(
     (path: string) => {
+      const [pathAndQuery, hash = ""] = path.split("#", 2);
+      const [rawPathname, rawQuery = ""] = pathAndQuery.split("?", 2);
+
+      let nextPathname = rawPathname;
+
       if (
-        path.startsWith(`/${locale}/`) ||
-        path.startsWith(`/${locale}?`) ||
-        path === `/${locale}`
+        nextPathname.startsWith(`/${locale}/`) ||
+        nextPathname === `/${locale}`
       ) {
-        return path;
+        // Already locale-prefixed.
+      } else {
+        nextPathname = `/${locale}${nextPathname.startsWith("/") ? nextPathname : `/${nextPathname}`}`;
       }
-      return `/${locale}${path.startsWith("/") ? path : `/${path}`}`;
+
+      if (
+        process.env.BUILD_TARGET === "desktop" &&
+        nextPathname !== `/${locale}` &&
+        nextPathname !== `/${locale}/` &&
+        !nextPathname.endsWith("/")
+      ) {
+        nextPathname = `${nextPathname}/`;
+      }
+
+      const query = rawQuery ? `?${rawQuery}` : "";
+      const nextHash = hash ? `#${hash}` : "";
+      return `${nextPathname}${query}${nextHash}`;
     },
     [locale],
   );
 
+  const currentLocation = useMemo(() => {
+    const query = searchParams.toString();
+    return `${pathname}${query ? `?${query}` : ""}`;
+  }, [pathname, searchParams]);
+
   const push = useCallback(
-    (path: string) => router.push(prefixPath(path)),
-    [router, prefixPath],
+    (path: string) => {
+      const nextPath = normalizePath(path);
+      if (nextPath === currentLocation) {
+        return;
+      }
+      router.push(nextPath);
+    },
+    [currentLocation, normalizePath, router],
   );
 
   const replace = useCallback(
-    (path: string) => router.replace(prefixPath(path)),
-    [router, prefixPath],
+    (path: string) => {
+      const nextPath = normalizePath(path);
+      if (nextPath === currentLocation) {
+        return;
+      }
+      router.replace(nextPath);
+    },
+    [currentLocation, normalizePath, router],
   );
 
   return useMemo(

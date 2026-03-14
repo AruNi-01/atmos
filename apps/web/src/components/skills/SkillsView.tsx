@@ -738,7 +738,7 @@ export const SkillsView: React.FC = () => {
 
           <div className="flex-1 overflow-auto px-8 pb-8 pt-4">
             <div className="mx-auto w-full max-w-5xl">
-              <TabsContent value="installed">
+              <TabsContent keepMounted value="installed">
                 {isLoading ? (
                   renderSkeletonGrid()
                 ) : filteredSkills.length === 0 ? (
@@ -790,7 +790,7 @@ export const SkillsView: React.FC = () => {
                 )}
               </TabsContent>
 
-              <TabsContent value="market">
+              <TabsContent keepMounted value="market">
                 {marketResultCount === 0 ? (
                   <EmptyState
                     icon={<Store className="size-8" />}
@@ -917,7 +917,7 @@ export const SkillsView: React.FC = () => {
                 )}
               </TabsContent>
 
-              <TabsContent value="resources">
+              <TabsContent keepMounted value="resources">
                 {resourceResultCount === 0 ? (
                   <EmptyState
                     icon={<BookOpen className="size-8" />}

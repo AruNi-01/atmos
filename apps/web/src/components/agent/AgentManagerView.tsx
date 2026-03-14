@@ -237,7 +237,7 @@ export const AgentManagerView: React.FC = () => {
 
         <div className="flex-1 scrollbar-on-hover overflow-auto px-8 pt-4 pb-8">
           <div className="max-w-5xl mx-auto w-full">
-            <TabsContent value="installed">
+            <TabsContent keepMounted value="installed">
               {mgr.loading ? <AgentSkeletonGrid /> : (
                 <>
                   {mgr.installedAgents.length > 0 || mgr.customAgents.length > 0 ? (
@@ -281,7 +281,7 @@ export const AgentManagerView: React.FC = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="registry">
+            <TabsContent keepMounted value="registry">
               {mgr.loading ? <AgentSkeletonGrid /> : (
                 <>
                   {mgr.filteredRegistry.length > 0 ? (
@@ -315,7 +315,7 @@ export const AgentManagerView: React.FC = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="custom">
+            <TabsContent keepMounted value="custom">
               {mgr.loading ? <AgentSkeletonGrid /> : (
                 <>
                   {mgr.customAgents.length > 0 ? (
