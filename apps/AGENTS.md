@@ -1,31 +1,50 @@
 # Applications Directory - AGENTS.md
 
-> **🚀 Application Entry Points**: This directory contains all user-facing applications.
+> **🚀 Application Entry Points**: User-facing applications.
 
 ---
 
 ## 📁 Application List
 
-| App | Tech Stack | Responsibility | Documentation |
-|-----|------------|----------------|---------------|
-| **api** | Rust (Axum) | Backend logic & WS entry | [api/AGENTS.md](api/AGENTS.md) |
-| **web** | Next.js 16 | Main web workspace | [web/AGENTS.md](web/AGENTS.md) |
-| **desktop** | Tauri 2.0 | Cross-platform desktop app | [desktop/AGENTS.md](desktop/AGENTS.md) |
-| **cli** | Rust (clap) | `atmos` command line tool | [cli/AGENTS.md](cli/AGENTS.md) |
-| **landing** | Next.js 16 | Marketing site | [landing/README.md](landing/README.md) |
+| App | Tech Stack | Documentation |
+|-----|------------|---------------|
+| **api** | Rust (Axum) | [api/AGENTS.md](api/AGENTS.md) |
+| **web** | Next.js 16 | [web/AGENTS.md](web/AGENTS.md) |
+| **desktop** | Tauri 2.0 | [desktop/AGENTS.md](desktop/AGENTS.md) |
+| **cli** | Rust (clap) | [cli/AGENTS.md](cli/AGENTS.md) |
+| **docs** | Next.js + Fumadocs | [docs/AGENTS.md](docs/AGENTS.md) |
+| **landing** | Next.js 16 | [landing/AGENTS.md](landing/AGENTS.md) |
 
 ---
 
 ## 🛠 Standard Flow for New Apps
 
-When creating a new frontend application:
-1. **Init**: Create Next.js project.
-2. **Link UI**: Add `@workspace/ui` to dependencies.
-3. **Config**: Map paths in `tsconfig.json`.
+1. **Init**: Create Next.js project
+2. **Link UI**: Add `@workspace/ui` to dependencies
+3. **Config**: Map paths in `tsconfig.json`
 
 ---
 
-## 🚦 Architecture Rule
-- Apps are **consumers**. They should contain minimal business logic.
-- Backend logic → `crates/core-service`
-- Frontend logic → `packages/shared` or app-specific libs.
+## Safety Rails
+
+### NEVER
+- Put business logic in apps — Backend logic goes in `crates/core-service`, frontend shared logic in `packages/shared`
+
+### ALWAYS
+- Consume dependencies via `workspace:*` protocol
+- Keep apps thin — they are consumers, not libraries
+
+---
+
+## Commands
+
+```bash
+bun install             # Install all app dependencies
+just dev-web            # Start web app
+just dev-api            # Start API server
+just dev-desktop        # Start desktop app
+just dev-landing        # Start landing page
+just dev-docs           # Start docs site
+just test               # Run all tests
+just lint               # Run all linters
+```

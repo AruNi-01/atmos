@@ -1,13 +1,64 @@
 # Infrastructure Layer (L1) - AGENTS.md
 
-> **🔧 L1: The Backbone**: This crate handles direct interactions with data providers and low-level system services.
+> **🔧 L1: The Backbone**: Handles direct interactions with data providers and low-level system services.
 
-## Core Responsibilities
-- **Database (db/)**: SeaORM entities, repositories, and migrations.
-- **WebSocket (websocket/)**: Connection management, heartbeats, and message routing.
-- **System (cache/jobs/queue/)**: Future-ready infrastructure for async processing.
+---
 
-## Working Patterns
-- **Entities**: Defined in `db/entities/`. Must inherit from `base.rs` fields.
-- **Repos**: Use the Repository pattern in `db/repo/` to abstract SeaORM away from business logic.
-- **WS**: Logic for real-time signaling lives in `websocket/manager.rs`.
+## Build And Test
+
+- **Build**: `cargo build -p infra`
+- **Test**: `cargo test -p infra` or `just test-rust`
+- **Lint**: `cargo clippy -p infra`
+
+---
+
+## 📁 Directory Structure
+
+```
+crates/infra/
+└── src/
+    ├── db/
+    │   ├── entities/        # SeaORM entities
+    │   ├── repo/            # Repository pattern
+    │   └── migration/       # Database migrations
+    ├── websocket/           # WebSocket connection management
+    ├── jobs/                # Background job processing
+    ├── queue/               # Job queue management
+    ├── cache/               # Caching layer
+    └── utils/               # Utilities
+```
+
+---
+
+## Coding Conventions
+
+### Entities
+- Defined in `db/entities/`
+- Must inherit from `base.rs` fields
+
+### Repositories
+- Use Repository pattern in `db/repo/` to abstract SeaORM away from business logic
+
+### WebSocket
+- Real-time signaling logic lives in `websocket/manager.rs`
+
+---
+
+## Safety Rails
+
+### NEVER
+- Put business logic here — this is data access only
+- Access repositories directly from `apps/api` — go through `core-service`
+
+### ALWAYS
+- Keep entities inheriting from `base.rs`
+- Use Repository pattern to abstract SeaORM
+
+---
+
+## Compact Instructions
+
+Preserve when compressing:
+1. Layer position: L1 (data access)
+2. Entity inheritance requirement (base.rs)
+3. Repository pattern for SeaORM abstraction

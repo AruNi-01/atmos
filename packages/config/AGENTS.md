@@ -1,69 +1,58 @@
 # Config Package - AGENTS.md
 
-共享配置文件，目前只包含 TypeScript 配置。
+> **⚙️ @atmos/config**: Shared configuration files for TypeScript.
 
-## 包信息
+---
 
-- **包名**: `@atmos/config`
-- **路径**: `packages/config`
+## Build And Test
 
-## 目录结构
+- No build step — this is a configuration-only package
+- Configured via `extends` in consuming app's `tsconfig.json`
+
+---
+
+## 📁 Directory Structure
 
 ```
 packages/config/
-├── typescript/
-│   └── nextjs.json      # Next.js 项目 TS 配置
-└── package.json
+└── typescript/
+    └── nextjs.json          # Next.js TypeScript configuration
 ```
 
-## 注意事项
+---
 
-### 样式配置已迁移
+## Coding Conventions
 
-以下配置已移至 `@workspace/ui` 包：
-- ❌ ~~`postcss/`~~ → 使用 `@workspace/ui/postcss.config`
-- ❌ ~~`styles/`~~ → 使用 `@workspace/ui/globals.css`
-- ❌ ~~`tailwind/`~~ → Tailwind v4 不需要配置文件
+### TypeScript Configuration
+- Apps extend from `@atmos/config/typescript/nextjs`
 
-### ESLint 配置
+### Migrated Configurations
+The following have moved to `@workspace/ui`:
+- PostCSS config → use `@workspace/ui/postcss.config`
+- Styles → use `@workspace/ui/globals.css`
+- Tailwind → v4 requires no config file
 
-ESLint 配置由各 App 自行管理，通常使用 `eslint-config-next`。
+### ESLint
+- ESLint configuration is managed by individual apps
+- Typically uses `eslint-config-next`
 
-## 使用方式
+---
 
-### TypeScript 配置
+## Safety Rails
 
-在应用的 `tsconfig.json` 中：
+### NEVER
+- Put ESLint configs here — apps manage their own
+- Put PostCSS/Tailwind configs here — they're in `@workspace/ui`
 
-```json
-{
-  "extends": "@atmos/config/typescript/nextjs",
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"]
-    }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
-}
-```
+### ALWAYS
+- Extend TypeScript config from `@atmos/config/typescript/nextjs`
+- Keep this package focused on base TypeScript configuration
 
-## 配置关系图
+---
 
-```
-packages/
-├── config/                  # TypeScript/ESLint 配置
-│   └── typescript/
-│       └── nextjs.json
-│
-└── ui/                      # UI + 样式配置 (独立管理)
-    ├── postcss.config.mjs
-    └── src/styles/globals.css
-```
+## Compact Instructions
 
-## 相关文档
-
-- `packages/ui/AGENTS.md` - UI 包和样式配置
-- `docs/official-example-comparison.md` - 配置对比
+Preserve when compressing:
+1. Extension pattern: `@atmos/config/typescript/nextjs`
+2. Migrated configs (PostCSS, styles, Tailwind) are in `@workspace/ui`
+3. ESLint is app-managed

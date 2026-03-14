@@ -6,8 +6,8 @@
 
 ## 📁 Shared Packages
 
-| Package | Purpose | Standard Namespace |
-|---------|---------|-------------------|
+| Package | Purpose | Namespace |
+|---------|---------|-----------|
 | **ui** | Component Library | `@workspace/ui` |
 | **shared** | Utils & Hooks | `@atmos/shared` |
 | **config** | TS/Lint configs | `@workspace/config` |
@@ -15,22 +15,36 @@
 
 ---
 
-## 🛠 Usage Standards
+## Build And Test
 
-### 1. The `@workspace/ui` Package
-- **Atomic components** only in `src/components/ui`.
-- **NO API CALLS**: This package must remain pure UI.
-
-### 2. The `@atmos/shared` Package
-- Contains common logic and framework-agnostic utilities.
+- **Install**: `bun install` (from root)
+- **Typecheck**: `bun run --filter <package> typecheck`
+- **UI Dev**: `bun run --filter ui typecheck` + `ui:add` for adding components
 
 ---
 
-## 🚦 Architecture Note: API Clients
-- **Decentralized API Clients**: Following the current architecture, API clients and Type definitions are co-located within individual applications (e.g., `apps/web/src/api/` and `apps/web/src/types/api.ts`).
-- **Reasoning**: This allows apps to evolve their data requirements independently while maintaining a clear link to the backend DTOs.
+## Safety Rails
+
+### NEVER
+- Add API calls to `@workspace/ui` — must remain pure UI
+- Put API clients in packages — they live in individual apps (e.g., `apps/web/src/api/`)
+- Create circular dependencies between packages
+
+### ALWAYS
+- Depend on packages via `workspace:*` protocol
+- Keep packages focused on their specific purpose
 
 ---
 
-## 🚦 Integration Rule
-- Apps **MUST** depend on these packages via workspace protocol (`workspace:*`).
+## Architecture Note
+
+**Decentralized API Clients**: API clients and type definitions are co-located within individual applications. This allows apps to evolve their data requirements independently while maintaining a clear link to backend DTOs.
+
+---
+
+## Compact Instructions
+
+Preserve when compressing:
+1. Workspace protocol dependency rule (`workspace:*`)
+2. API client decentralization pattern
+3. `@workspace/ui` must remain pure UI

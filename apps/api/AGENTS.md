@@ -1,6 +1,15 @@
 # Web API Server - AGENTS.md
 
-> **🌐 API Entry Point**: The Axum server that exposes `core-service` logic to the outside world via HTTP and WebSocket.
+> **🌐 API Entry Point**: Axum server exposing `core-service` logic via HTTP and WebSocket.
+
+---
+
+## Build And Test
+
+- **Dev**: `just dev-api` or `just dev-api-watch` (with hot reload)
+- **Build**: `just build-api`
+- **Test**: `just test-api` or `cargo test -p api`
+- **Lint**: `cargo clippy -p api`
 
 ---
 
@@ -9,12 +18,21 @@
 ```
 apps/api/
 ├── src/
-│   ├── main.rs              # App Startup
-│   ├── app_state.rs         # DI Container (AppState)
-│   ├── service/             # API-specific orchestration
+│   ├── main.rs              # App startup
+│   ├── app_state.rs         # DI container (AppState)
+│   ├── error.rs             # Error types
 │   ├── api/                 # Handlers & DTOs
-│   │   ├── dto.rs           # Shared API Models
-│   │   └── [module]/        # Domain-specific routes
+│   │   ├── dto.rs           # Shared API models
+│   │   ├── ws/              # WebSocket handlers
+│   │   │   ├── handlers.rs
+│   │   │   ├── terminal_handler.rs
+│   │   │   └── agent_handler.rs
+│   │   ├── workspace/       # Workspace routes
+│   │   ├── agent/           # Agent routes
+│   │   ├── project/         # Project routes
+│   │   ├── system/          # System routes (diagnostics, skills)
+│   │   ├── token_usage/     # Token usage routes
+│   │   └── test/            # Test routes
 │   ├── middleware/          # JWT, Auth, Logging
 │   └── config/              # Env var loading
 └── README.md
@@ -22,29 +40,38 @@ apps/api/
 
 ---
 
-## 🛠 Working Guidelines
+## Coding Conventions
 
-### 1. Request Handling
-- Handlers should be thin. They extract data from requests and call `core-service`.
-- Use `dto.rs` for defining the JSON interface.
+### Request Handling
+- Handlers should be thin — extract data from requests and call `core-service`
+- Use `dto.rs` for defining the JSON interface
 
-### 2. DTO Conventions
-- Use `BaseReq`, `BasePageReq` for consistency.
-- Implement `From` traits to convert between DTOs and Core Service types.
+### DTO Conventions
+- Use `BaseReq`, `BasePageReq` for consistency
+- Implement `From` traits to convert between DTOs and Core Service types
 
-### 3. WebSocket Bridge
-- The `ws.rs` handler in `terminal` module bridges `infra::websocket` to actual Axum sockets.
-
----
-
-## 🚦 Interaction Rules
-- **DO**: Use `AppState` to access services.
-- **DON'T**: Implement complex business logic here. Delegate to `crates/core-service`.
+### WebSocket Bridge
+- The `ws.rs` handler in `terminal` module bridges `infra::websocket` to Axum sockets
 
 ---
 
-## 🚀 Commands
-```bash
-just dev-api    # Start server
-just test-api   # Run integration tests
-```
+## Safety Rails
+
+### NEVER
+- Implement complex business logic here — delegate to `crates/core-service`
+- Access database directly — use repositories from `infra`
+- Add new REST endpoints by default — check if WebSocket should be used instead (see root AGENTS.md Transport Rules)
+
+### ALWAYS
+- Use `AppState` to access services
+- Keep handlers focused on request/response concerns
+- Update `dto.rs` when changing API contracts
+
+---
+
+## Compact Instructions
+
+Preserve when compressing:
+1. AppState dependencies and service injection patterns
+2. DTO naming conventions (`BaseReq`, `BasePageReq`)
+3. WebSocket bridge location (`ws.rs` in terminal module)

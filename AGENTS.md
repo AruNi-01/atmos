@@ -1,6 +1,6 @@
 # AI Agent Navigation Guide
 
-> **⏱ 60-Second Architecture Overview**: This project is a multi-layered monorepo combining a high-performance Rust backend (divided into infra, engine, and service) with a Next.js/Tauri frontend.
+> **⏱ 60-Second Architecture Overview**: Multi-layered monorepo with Rust backend (infra/engine/service layers) and Next.js/Tauri frontend.
 
 ---
 
@@ -21,74 +21,77 @@
 
 ---
 
-## 🏗 Monorepo Structure (Standardized)
+## 🏗 Monorepo Structure
 
 ```
 atmos/
-├── crates/                          # 🦀 Shared Rust Packages (Backbone)
-│   ├── infra/                       # L1: Infrastructure (DB, WebSocket, Jobs)
-│   ├── core-engine/                 # L2: Tech Capabilities (PTY, Git, FS)
-│   ├── core-service/                # L3: Business Rules (Auth, Logic)
-│   └── agent/                       # Independent: ACP Client, Agent Management
+├── crates/                    # 🦀 Rust Packages
+│   ├── infra/                 # L1: Infrastructure (DB, WebSocket, Jobs)
+│   ├── core-engine/           # L2: Tech Capabilities (PTY, Git, FS)
+│   ├── core-service/          # L3: Business Rules
+│   ├── agent/                 # Agent Integration (ACP Client)
+│   ├── ai-usage/              # AI Usage Tracking
+│   ├── token-usage/           # Token Usage Tracking
+│   └── llm/                   # LLM Integration
 │
-├── apps/                            # 🚀 Applications
-│   ├── api/                         # Rust/Axum API Entry
-│   ├── web/                         # Next.js Web Application
-│   ├── cli/                         # Rust CLI (atmos)
-│   ├── docs/                        # Documentation Site
-│   └── landing/                     # Marketing Landing Page
+├── apps/                      # 🚀 Applications
+│   ├── api/                   # Rust/Axum API Entry
+│   ├── web/                   # Next.js Web Application
+│   ├── desktop/               # Tauri Desktop App
+│   ├── cli/                   # Rust CLI (atmos)
+│   ├── docs/                  # Documentation Site
+│   └── landing/               # Marketing Landing Page
 │
-├── packages/                        # 📦 Shared JS/TS Packages
-│   ├── ui/                          # @workspace/ui (shadcn/ui)
-│   ├── shared/                      # @workspace/shared (Hooks/Utils)
-│   ├── config/                      # @workspace/config (ESLint/TS)
-│   └── i18n/                        # @workspace/i18n (Translations)
+├── packages/                  # 📦 Shared JS/TS Packages
+│   ├── ui/                    # @workspace/ui (shadcn/ui)
+│   ├── shared/                # @atmos/shared (Hooks/Utils)
+│   ├── config/                # @atmos/config (TS Config)
+│   └── i18n/                  # @workspace/i18n (Translations)
 │
-├── docs/                            # 📖 Deep Design & Architecture
-└── specs/                           # 📋 PRD & Technical Plans
+├── docs/                      # 📖 Deep Design & Architecture
+└── specs/                     # 📋 PRD & Technical Plans
 ```
 
 ---
 
 ## 🔄 Development Workflow
 
-### 1. Backend Change Flow
+### Backend Change Flow
 `infra` (Data) → `core-engine` (Capability) → `core-service` (Business) → `api` (Endpoint)
 
-### 2. Frontend Change Flow
+### Frontend Change Flow
 `packages/ui` (Styles) → `apps/web/src/api` (API Client) → `apps/web` (Feature)
 
 ---
 
 ## 🎨 Component Conventions
 
-- **UI Components**: Use `@workspace/ui/components/ui/*` for atomic parts.
-- **Backend Access**: Each app manages its own `api/client.ts` and `types/api.ts`.
-- **Rust Services**: Inject `core-service` into `apps/api` via `AppState`.
+- **UI Components**: Use `@workspace/ui/components/ui/*` for atomic parts
+- **Backend Access**: Each app manages its own `api/client.ts` and `types/api.ts`
+- **Rust Services**: Inject `core-service` into `apps/api` via `AppState`
 
 ---
 
 ## 🔌 Transport Rules
 
-- **WebSocket-first by default**: This project primarily uses WebSocket-driven flows, especially for chat, session state, streaming updates, and interactive app behavior.
-- **Do not add new REST APIs by default**: Before introducing a new REST endpoint, first check whether the feature should be implemented on the existing WebSocket/event channel.
-- **REST is the exception**: Use REST only for clearly non-streaming cases such as startup/bootstrap data, explicit settings persistence, one-off admin actions, or when an existing module is already REST-based.
-- **Avoid duplicate transports**: Do not build a new REST path for a capability that already has, or should naturally have, a WebSocket message flow.
-- **When unsure, prefer extending WS messages**: For new interactive product behavior, extend the existing WebSocket protocol rather than creating parallel REST endpoints.
+**WebSocket-first by default** — This project primarily uses WebSocket-driven flows for chat, session state, streaming updates, and interactive app behavior.
+
+- **Do not add new REST APIs by default** — Check whether the feature should use the existing WebSocket/event channel first
+- **REST is the exception** — Use REST only for: startup/bootstrap data, explicit settings persistence, one-off admin actions, or when an existing module is already REST-based
+- **Avoid duplicate transports** — Do not build a new REST path for capabilities that should use WebSocket
+- **When unsure, prefer extending WS messages** — Extend the existing WebSocket protocol rather than creating parallel REST endpoints
 
 ---
 
-## 🚀 Quick Commands
+## 🚀 Commands
 
 ```bash
-# General
-bun install          # Frontend deps
-just                 # List all commands
-
-# Run Services
-just dev-api         # Start API Server
-just dev-web         # Start Web App
-just dev-cli         # Run CLI
+just                    # List all available commands
+bun install             # Install frontend dependencies
+just dev-api            # Start API server
+just dev-web            # Start web app
+just test               # Run all tests
+just lint               # Run all linters
 ```
 
 ---

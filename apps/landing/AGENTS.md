@@ -1,73 +1,86 @@
-# Apps Landing
+# Landing Page - AGENTS.md
 
-Landing 页面应用，用于介绍 ATMOS 项目。
+> **🌈 Marketing Site**: Landing page for introducing the ATMOS project.
 
-## 特性
+---
 
-- 使用与 `apps/web` 相同的配置和组件库
-- 完整的国际化支持（中英文）
-- 响应式设计，适配各种屏幕尺寸
-- 深色/浅色主题切换
-- 现代化的 UI 设计，包含动画效果
+## Build And Test
 
-## 技术栈
+- **Dev**: `just dev-landing` or `bun dev` (runs on port 3001)
+- **Build**: `bun build`
+- **Start**: `bun start`
 
-与主应用保持一致：
-- Next.js 16
-- React 19
-- TypeScript
+---
+
+## 📁 Directory Structure
+
+```
+apps/landing/
+├── src/
+│   ├── app/
+│   │   └── [locale]/        # Localized routes
+│   ├── components/
+│   │   ├── blocks/          # Page sections (hero, features, etc.)
+│   │   ├── layout/          # Layout components (navbar, footer)
+│   │   ├── providers/       # React providers
+│   │   └── ui/              # Generic UI components
+│   ├── hooks/               # Custom React hooks
+│   ├── lib/                 # Shared utilities
+│   ├── i18n/                # Internationalization config
+│   └── assets/
+│       └── img/             # Image assets
+├── messages/                # Translation files
+│   ├── en.json              # English
+│   └── zh.json              # Chinese
+└── package.json
+```
+
+---
+
+## Tech Stack
+
+- Next.js 16, React 19, TypeScript
 - Tailwind CSS v4
-- next-intl
-- next-themes
+- next-intl (internationalization)
+- next-themes (theme switching)
 
-## 共享依赖
+---
 
-- `@atmos/ui` - 共享 UI 组件库
-- `@atmos/i18n` - 共享国际化配置
-- `@atmos/shared` - 其他共享工具
+## Shared Dependencies
 
-## 开发
+- `@workspace/ui` — Shared UI components
+- `@atmos/i18n` — Shared i18n configuration
+- `@atmos/shared` — Shared utilities
 
-```bash
-# 从项目根目录启动
-bun dev:landing
+---
 
-# 从当前目录启动
-cd apps/landing
-bun dev
-```
+## Coding Conventions
 
-访问 `http://localhost:3001`
+### Content
+- All copy text lives in `messages/` directory
+- `en.json` — English translations
+- `zh.json` — Chinese translations
 
-## 构建
+### Styling
+- Uses same design system as main app for visual consistency
 
-```bash
-bun build
-```
+---
 
-## 部署
+## Safety Rails
 
-构建完成后运行：
+### NEVER
+- Add application-specific features here — this is a marketing site only
+- Break visual consistency with main app design system
 
-```bash
-bun start
-```
+### ALWAYS
+- Use shared UI components from `@workspace/ui`
+- Keep content translations in sync
 
-## 页面结构
+---
 
-Landing 页面包含以下部分：
+## Compact Instructions
 
-1. **导航栏** - 固定在顶部，包含 Logo、导航链接、语言切换和主题切换
-2. **Hero 区域** - 主标题、描述和 CTA 按钮，配有终端预览效果
-3. **Features** - 展示项目的 6 大核心特性
-4. **Tech Stack** - 展示使用的技术栈
-5. **CTA** - 号召用户开始使用
-6. **Footer** - 版权信息和相关链接
-
-## 自定义
-
-所有文案内容都在 `messages/` 目录下：
-- `en.json` - 英文翻译
-- `zh.json` - 中文翻译
-
-样式使用相同的设计系统，确保与主应用视觉一致。
+Preserve when compressing:
+1. Content location (`messages/` directory)
+2. Shared dependencies pattern
+3. Port: 3001

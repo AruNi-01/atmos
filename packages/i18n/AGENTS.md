@@ -1,62 +1,61 @@
-# i18n Package
+# i18n Package - AGENTS.md
 
-This package contains the shared internationalization configuration and navigation logic for the workspace.
+> **🌍 @workspace/i18n**: Shared internationalization configuration and navigation logic.
 
-## Purpose
+---
 
-- Centralize locale definitions (supported languages).
-- Define shared routing logic (e.g., URL prefixes).
-- Provide type-safe navigation hooks and components.
+## Build And Test
 
-## Structure
+- No build step — this is a configuration/library package
+- Typecheck: `bun run --filter i18n typecheck`
 
-- **`config.ts`**: Defines the supported locales (`locales`) and the default locale (`defaultLocale`).
-- **`routing.ts`**: Exports the `routing` object created by `defineRouting`.
-- **`navigation.ts`**: Exports localized navigation utilities: `Link`, `useRouter`, `usePathname`, `redirect`.
+---
 
-## Usage
+## 📁 Directory Structure
 
-### 1. In `middleware.ts` (App)
-
-Import `i18nMiddleware` to create the middleware used in the `proxy` function (or default export).
-
-**Note**: The `config` object with the `matcher` must be defined **locally** in the app's middleware file. It cannot be imported from a package because Next.js requires static analysis of the configuration at build time.
-
-```ts
-import type { NextRequest } from "next/server";
-import { i18nMiddleware } from "@atmos/i18n/middleware";
-
-export function proxy(request: NextRequest) {
-  return i18nMiddleware(request);
-}
-
-export const config = {
-  // Match all pathnames except for
-  // - API routes
-  // - Static files (images, etc.)
-  // - _next (Next.js internals)
-  matcher: ["/((?!api|_next|.*\\..*).*)"],
-};
+```
+packages/i18n/
+└── src/
+    ├── config.ts            # Locale definitions (locales, defaultLocale)
+    ├── routing.ts           # Shared routing object (defineRouting)
+    ├── navigation.ts        # Localized navigation utilities (Link, useRouter, etc.)
+    ├── middleware.ts        # i18n middleware for Next.js
+    └── index.ts             # Module exports
 ```
 
-### 2. In Components
+---
 
-Use the hooks and `Link` component from this package instead of `next-intl/navigation` directly. This enables type safety based on your shared routing configuration.
+## Coding Conventions
 
-```tsx
-import { Link, useRouter } from "@atmos/i18n/navigation";
+### Middleware Usage
+- Import `i18nMiddleware` from `@atmos/i18n/middleware`
+- The `config` object with `matcher` must be defined **locally** in each app's middleware file (Next.js requires static analysis at build time)
 
-// ...
-<Link href="/about">About</Link>
-```
+### Navigation Components
+- Use hooks and `Link` from `@atmos/i18n/navigation` instead of `next-intl/navigation` directly
+- This enables type safety based on shared routing configuration
 
-### 3. App-Specific `request.ts`
+### App-Specific request.ts
+- The `request.ts` file (loads translation JSON) remains **inside each application**
+- Import types and config from this package
 
-Note that the `request.ts` file (which loads the actual translation JSON files) typically usually remains **inside the application** (e.g., `apps/web/src/i18n/request.ts`). This is because the location and structure of translation files (`messages/*.json`) often vary between applications.
+---
 
-However, that `request.ts` should import types and config from here:
+## Safety Rails
 
-```ts
-import { routing } from "@atmos/i18n/routing";
-import { Locale } from "@atmos/i18n/config";
-```
+### NEVER
+- Put translation JSON files here — they live in individual apps
+- Define matcher config in this package — must be local to each app
+
+### ALWAYS
+- Use `@atmos/i18n/navigation` for type-safe routing
+- Import `routing` and types from this package for app-specific `request.ts`
+
+---
+
+## Compact Instructions
+
+Preserve when compressing:
+1. Middleware import pattern (`@atmos/i18n/middleware`)
+2. Navigation import pattern (`@atmos/i18n/navigation`)
+3. Config must be local to each app (Next.js static analysis requirement)

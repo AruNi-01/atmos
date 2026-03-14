@@ -1,6 +1,16 @@
 # Web Application - AGENTS.md
 
-> **💻 Main Workspace**: The primary Next.js web application for ATMOS.
+> **💻 Main Workspace**: Primary Next.js web application for ATMOS.
+
+---
+
+## Build And Test
+
+- **Dev**: `just dev-web` or `bun dev`
+- **Build**: `bun build`
+- **Test**: `bun test` (if applicable)
+- **Lint**: `bun lint`
+- **Typecheck**: `bun typecheck`
 
 ---
 
@@ -9,57 +19,74 @@
 ```
 apps/web/
 ├── src/
-│   ├── app/                 # Next.js App Router (Pages & Layouts)
-│   ├── components/          # Web-specific UI components
-│   ├── hooks/               # Custom React hooks
+│   ├── app/
+│   │   └── [locale]/
+│   │       ├── (app)/       # Main app routes
+│   │       │   ├── terminals/
+│   │       │   ├── workspace/
+│   │       │   ├── agents/
+│   │       │   ├── workspaces/
+│   │       │   ├── project/
+│   │       │   └── skills/
+│   │       ├── api/         # API routes
+│   │       └── layout.tsx
+│   ├── components/
+│   │   ├── layout/          # Layout components (sidebar, etc.)
+│   │   ├── workspace/       # Workspace-specific components
+│   │   ├── code-block/      # Code display components
+│   │   ├── markdown/        # Markdown rendering
+│   │   └── ui/              # Generic UI components (from @workspace/ui)
 │   ├── types/               # TypeScript definitions
-│   │   └── api.ts           # 🌟 API DTO Type Alignment
-│   ├── api/                 # 🌟 API Client Layer
-│   │   └── client.ts        # Axios/Fetch wrapper
-│   ├── lib/                 # Shared utilities
-│   └── proxy.ts             # API Route Proxying
+│   └── utils/               # Shared utilities
 ├── public/                  # Static assets
 └── package.json
 ```
 
 ---
 
-## 🛠 Working Guidelines
+## Coding Conventions
 
-### 1. API Client & Types
-- **Location**: All API interaction logic is in `src/api/`.
-- **Type Safety**: Use `src/types/api.ts` to define the shape of backend responses. These should strictly match the Rust DTOs in `apps/api/src/api/dto.rs`.
-- **Methodology**: Use the centralized `client.ts` for all network requests to ensure consistent error handling and header injection.
+### API Client & Types
+- All API interaction logic lives in `src/api/`
+- Use `src/types/api.ts` to define backend response shapes — these should strictly match Rust DTOs in `apps/api/src/api/dto.rs`
+- Use centralized `client.ts` for all network requests to ensure consistent error handling
 
-### 2. Component Organization
-- Generic UI components should be consumed from `@workspace/ui`.
-- Business-specific components (e.g., `ProjectList`, `WorkspaceTerminal`) should live in `src/components/`.
+### Component Organization
+- Generic UI components — consume from `@workspace/ui`
+- Business-specific components (`ProjectList`, `WorkspaceTerminal`) — live in `src/components/`
 
-### 3. State Management
-- Prefer server components and `fetch` for data fetching where possible.
-- Use `hooks/` for client-side state logic.
+### State Management
+- Prefer server components and `fetch` for data fetching
+- Use `hooks/` for client-side state logic
 
-### 4. Theme Adaptation (Light/Dark)
-- **Semantic Colors**: ALWAYS use semantic CSS variables (e.g., `bg-background`, `text-muted-foreground`, `border-border`) instead of hardcoded colors (e.g., `bg-zinc-900`, `text-white`).
+### Theme Adaptation (Light/Dark)
+- **Semantic Colors**: ALWAYS use semantic CSS variables (`bg-background`, `text-muted-foreground`, `border-border`) instead of hardcoded colors (`bg-zinc-900`, `text-white`)
 - **Standard Variables**:
   - Backgrounds: `bg-background`, `bg-sidebar`, `bg-muted`, `bg-accent`
   - Text: `text-foreground`, `text-muted-foreground`, `text-sidebar-foreground`
   - Borders: `border-border`, `border-sidebar-border`
-- **Testing**: Verify all UI changes in **both** Light and Dark modes to ensure visibility and contrast.
-- **Components**: For active/inactive states, use patterns that work in both modes (e.g., `data-[state=active]:bg-sidebar-accent` works better than hardcoding white/black).
+- **Testing**: Verify all UI changes in **both** Light and Dark modes
+- **Components**: For active/inactive states, use patterns that work in both modes (e.g., `data-[state=active]:bg-sidebar-accent`)
 
 ---
 
-## 🚦 Interaction Rules
-- **DO**: Keep API types updated when backend DTOs change.
-- **DO**: Check your UI changes in Light Mode before committing.
-- **DON'T**: Manually use `fetch()` or `axios()` inside feature components. Use the `src/api/` layer.
-- **DON'T**: Use hardcoded tailwind colors like `bg-zinc-900` or `text-gray-500` for layout components.
+## Safety Rails
+
+### NEVER
+- Use `fetch()` or `axios()` directly inside feature components — use the `src/api/` layer
+- Use hardcoded Tailwind colors like `bg-zinc-900` or `text-gray-500` for layout components
+- Commit UI changes without testing in both Light and Dark modes
+
+### ALWAYS
+- Keep API types in sync with backend DTOs
+- Check your UI changes in Light Mode before committing
+- Use semantic CSS variables for theming
 
 ---
 
-## 🚀 Commands
-```bash
-bun dev      # Start Next.js development server
-bun build    # Build for production
-```
+## Compact Instructions
+
+Preserve when compressing:
+1. API client location (`src/api/`) and DTO sync requirement
+2. Semantic color variables for theming
+3. Component organization: `@workspace/ui` vs app-specific
