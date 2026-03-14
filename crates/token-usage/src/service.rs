@@ -1,18 +1,21 @@
 use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{broadcast, Mutex, RwLock};
 
 use crate::models::{
     ClientTokenUsage, DailyClientTokenUsage, DailyTokenUsage, ModelTokenUsage, MonthlyTokenUsage,
     TokenBreakdown, TokenUsageOverview, TokenUsageQuery, TokenUsageSummary, TokenUsageUpdate,
 };
 
-const DEFAULT_CACHE_TTL_SECS: u64 = 60;
+const DEFAULT_CACHE_TTL_SECS: u64 = 15 * 60;
+const CACHE_FILE_NAME: &str = "overview-cache.json";
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum TokenUsageError {
@@ -60,34 +63,59 @@ impl TokenUsageCollector for TokscaleCollector {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct CachedOverview {
     overview: TokenUsageOverview,
     fetched_at: u64,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct CacheFile {
+    #[serde(default)]
+    entries: HashMap<String, CachedOverview>,
+}
+
 pub struct TokenUsageService {
     collector: Arc<dyn TokenUsageCollector>,
     cache: Arc<RwLock<HashMap<String, CachedOverview>>>,
+    cache_path: Option<PathBuf>,
+    refreshing_keys: Arc<Mutex<HashSet<String>>>,
     cache_ttl: Duration,
     update_tx: broadcast::Sender<TokenUsageUpdate>,
 }
 
 impl Default for TokenUsageService {
     fn default() -> Self {
-        Self::new(
+        Self::new_with_cache_path(
             Arc::new(TokscaleCollector),
             Duration::from_secs(DEFAULT_CACHE_TTL_SECS),
+            default_cache_path(),
         )
     }
 }
 
 impl TokenUsageService {
+    #[cfg(test)]
     pub(crate) fn new(collector: Arc<dyn TokenUsageCollector>, cache_ttl: Duration) -> Self {
+        Self::new_with_cache_path(collector, cache_ttl, None)
+    }
+
+    pub(crate) fn new_with_cache_path(
+        collector: Arc<dyn TokenUsageCollector>,
+        cache_ttl: Duration,
+        cache_path: Option<PathBuf>,
+    ) -> Self {
         let (update_tx, _) = broadcast::channel(32);
+        let initial_cache = cache_path
+            .as_ref()
+            .map(load_cache_entries)
+            .unwrap_or_default();
+
         Self {
             collector,
-            cache: Arc::new(RwLock::new(HashMap::new())),
+            cache: Arc::new(RwLock::new(initial_cache)),
+            cache_path,
+            refreshing_keys: Arc::new(Mutex::new(HashSet::new())),
             cache_ttl,
             update_tx,
         }
@@ -104,14 +132,39 @@ impl TokenUsageService {
         if !refresh {
             let cache = self.cache.read().await;
             if let Some(cached) = cache.get(&cache_key) {
-                if unix_now().saturating_sub(cached.fetched_at) < self.cache_ttl.as_secs() {
-                    return Ok(cached.overview.clone());
+                let cached_overview = cached.overview.clone();
+                let is_stale =
+                    unix_now().saturating_sub(cached.fetched_at) >= self.cache_ttl.as_secs();
+                drop(cache);
+
+                if is_stale {
+                    self.spawn_background_refresh(query.clone(), cache_key.clone())
+                        .await;
                 }
+
+                return Ok(cached_overview);
             }
         }
 
+        self.collect_and_store(query, cache_key, refresh).await
+    }
+
+    pub fn subscribe_updates(&self) -> broadcast::Receiver<TokenUsageUpdate> {
+        self.update_tx.subscribe()
+    }
+
+    fn publish_update(&self, update: TokenUsageUpdate) {
+        let _ = self.update_tx.send(update);
+    }
+
+    async fn collect_and_store(
+        &self,
+        query: TokenUsageQuery,
+        cache_key: String,
+        publish_update: bool,
+    ) -> Result<TokenUsageOverview, TokenUsageError> {
         let reports = self.collector.collect(&query).await?;
-        let overview = build_overview(query.clone(), reports);
+        let overview = build_overview(query, reports);
 
         {
             let mut cache = self.cache.write().await;
@@ -124,21 +177,59 @@ impl TokenUsageService {
             );
         }
 
-        if refresh {
+        if publish_update {
             self.publish_update(TokenUsageUpdate {
                 overview: overview.clone(),
             });
         }
 
+        self.persist_cache_to_disk().await;
+
         Ok(overview)
     }
 
-    pub fn subscribe_updates(&self) -> broadcast::Receiver<TokenUsageUpdate> {
-        self.update_tx.subscribe()
+    async fn spawn_background_refresh(&self, query: TokenUsageQuery, cache_key: String) {
+        let mut refreshing_keys = self.refreshing_keys.lock().await;
+        if !refreshing_keys.insert(cache_key.clone()) {
+            return;
+        }
+        drop(refreshing_keys);
+
+        let collector = Arc::clone(&self.collector);
+        let cache = Arc::clone(&self.cache);
+        let cache_path = self.cache_path.clone();
+        let update_tx = self.update_tx.clone();
+        let refreshing_keys = Arc::clone(&self.refreshing_keys);
+
+        tokio::spawn(async move {
+            let result = collector
+                .collect(&query)
+                .await
+                .map(|reports| build_overview(query, reports));
+
+            if let Ok(overview) = result {
+                {
+                    let mut cache_guard = cache.write().await;
+                    cache_guard.insert(
+                        cache_key.clone(),
+                        CachedOverview {
+                            overview: overview.clone(),
+                            fetched_at: unix_now(),
+                        },
+                    );
+                }
+
+                let _ = update_tx.send(TokenUsageUpdate { overview });
+                persist_cache_snapshot(cache_path.as_deref(), &cache).await;
+            }
+
+            let mut refreshing_guard = refreshing_keys.lock().await;
+            refreshing_guard.remove(&cache_key);
+        });
     }
 
-    fn publish_update(&self, update: TokenUsageUpdate) {
-        let _ = self.update_tx.send(update);
+    async fn persist_cache_to_disk(&self) {
+        persist_cache_snapshot(self.cache_path.as_deref(), &self.cache).await;
     }
 }
 
@@ -341,4 +432,57 @@ fn unix_now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .unwrap_or_default()
+}
+
+fn default_cache_path() -> Option<PathBuf> {
+    if let Ok(data_dir) = std::env::var("ATMOS_DATA_DIR") {
+        let trimmed = data_dir.trim();
+        if !trimmed.is_empty() {
+            return Some(
+                PathBuf::from(trimmed)
+                    .join("token-usage")
+                    .join(CACHE_FILE_NAME),
+            );
+        }
+    }
+
+    dirs::home_dir().map(|home| {
+        home.join(".atmos")
+            .join("token-usage")
+            .join(CACHE_FILE_NAME)
+    })
+}
+
+fn load_cache_entries(path: &PathBuf) -> HashMap<String, CachedOverview> {
+    let Ok(contents) = fs::read_to_string(path) else {
+        return HashMap::new();
+    };
+
+    serde_json::from_str::<CacheFile>(&contents)
+        .map(|file| file.entries)
+        .unwrap_or_default()
+}
+
+async fn persist_cache_snapshot(
+    path: Option<&Path>,
+    cache: &Arc<RwLock<HashMap<String, CachedOverview>>>,
+) {
+    let Some(path) = path else {
+        return;
+    };
+
+    let snapshot = {
+        let cache_guard = cache.read().await;
+        CacheFile {
+            entries: cache_guard.clone(),
+        }
+    };
+
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    if let Ok(contents) = serde_json::to_string(&snapshot) {
+        let _ = fs::write(path, contents);
+    }
 }

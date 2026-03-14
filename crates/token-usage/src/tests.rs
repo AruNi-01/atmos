@@ -1,8 +1,10 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use std::{fs, path::PathBuf};
 
 use async_trait::async_trait;
+use tokio::time::{sleep, timeout, Instant};
 
 use crate::models::{TokenUsageGroupBy, TokenUsageQuery};
 use crate::service::{CollectedTokenUsageReports, TokenUsageCollector};
@@ -19,6 +21,23 @@ impl TokenUsageCollector for FakeCollector {
         _query: &TokenUsageQuery,
     ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
+        Ok(sample_reports())
+    }
+}
+
+struct DelayedCollector {
+    calls: Arc<AtomicUsize>,
+    delay: Duration,
+}
+
+#[async_trait]
+impl TokenUsageCollector for DelayedCollector {
+    async fn collect(
+        &self,
+        _query: &TokenUsageQuery,
+    ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        sleep(self.delay).await;
         Ok(sample_reports())
     }
 }
@@ -122,6 +141,119 @@ async fn get_overview_does_not_publish_updates_for_regular_reads() {
         updates.try_recv(),
         Err(tokio::sync::broadcast::error::TryRecvError::Empty)
     ));
+}
+
+#[tokio::test]
+async fn get_overview_returns_stale_cache_and_refreshes_in_background() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let service = TokenUsageService::new(
+        Arc::new(DelayedCollector {
+            calls: Arc::clone(&calls),
+            delay: Duration::from_millis(150),
+        }),
+        Duration::ZERO,
+    );
+    let mut updates = service.subscribe_updates();
+
+    let query = TokenUsageQuery {
+        clients: None,
+        since: None,
+        until: None,
+        year: None,
+        group_by: TokenUsageGroupBy::ClientModel,
+    };
+
+    let _initial = service.get_overview(query.clone(), false).await.unwrap();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    let started = Instant::now();
+    let cached = service.get_overview(query, false).await.unwrap();
+
+    assert!(
+        started.elapsed() < Duration::from_millis(75),
+        "expected stale cache read to return quickly, took {:?}",
+        started.elapsed()
+    );
+    assert_eq!(cached.summary.total_tokens, 710);
+
+    timeout(Duration::from_millis(500), async {
+        loop {
+            if calls.load(Ordering::SeqCst) >= 2 {
+                break;
+            }
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("background refresh did not start");
+
+    let update = timeout(Duration::from_millis(500), updates.recv())
+        .await
+        .expect("background refresh did not publish an update")
+        .expect("update channel closed unexpectedly");
+
+    assert_eq!(update.overview.summary.total_tokens, 710);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn get_overview_loads_cached_overview_from_disk_on_startup() {
+    let cache_path = test_cache_path("startup");
+    let _ = fs::remove_file(&cache_path);
+
+    let populate_calls = Arc::new(AtomicUsize::new(0));
+    let populate_service = TokenUsageService::new_with_cache_path(
+        Arc::new(FakeCollector {
+            calls: Arc::clone(&populate_calls),
+        }),
+        Duration::from_secs(300),
+        Some(cache_path.clone()),
+    );
+
+    let query = TokenUsageQuery {
+        clients: None,
+        since: None,
+        until: None,
+        year: None,
+        group_by: TokenUsageGroupBy::ClientModel,
+    };
+
+    let populated = populate_service
+        .get_overview(query.clone(), false)
+        .await
+        .unwrap();
+    assert_eq!(populated.summary.total_tokens, 710);
+    assert_eq!(populate_calls.load(Ordering::SeqCst), 1);
+
+    let startup_calls = Arc::new(AtomicUsize::new(0));
+    let startup_service = TokenUsageService::new_with_cache_path(
+        Arc::new(FakeCollector {
+            calls: Arc::clone(&startup_calls),
+        }),
+        Duration::from_secs(300),
+        Some(cache_path.clone()),
+    );
+
+    let cached = startup_service.get_overview(query, false).await.unwrap();
+    assert_eq!(cached.summary.total_tokens, 710);
+    assert_eq!(startup_calls.load(Ordering::SeqCst), 0);
+
+    let _ = fs::remove_file(&cache_path);
+}
+
+fn test_cache_path(label: &str) -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "atmos-token-usage-{label}-{}-{}.json",
+        std::process::id(),
+        unix_timestamp_nanos(),
+    ))
+}
+
+fn unix_timestamp_nanos() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default()
 }
 
 fn sample_reports() -> CollectedTokenUsageReports {
