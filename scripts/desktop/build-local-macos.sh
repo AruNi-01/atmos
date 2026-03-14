@@ -2,10 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DESKTOP_DIR="$ROOT_DIR/apps/desktop"
+TAURI_DIR="$DESKTOP_DIR/src-tauri"
 cd "$ROOT_DIR"
 
 TARGET_TRIPLE=""
 NO_BUNDLE="false"
+AD_HOC_SIGN_MODE="auto"
 EXTRA_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -20,6 +23,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-bundle)
       NO_BUNDLE="true"
+      shift
+      ;;
+    --ad-hoc-sign)
+      AD_HOC_SIGN_MODE="force"
+      shift
+      ;;
+    --no-ad-hoc-sign)
+      AD_HOC_SIGN_MODE="off"
       shift
       ;;
     *)
@@ -46,6 +57,33 @@ echo "🚀 Building desktop app locally"
 echo "📦 Target: $TARGET_TRIPLE"
 echo "🧰 Bundle: $([[ "$NO_BUNDLE" == "true" ]] && echo "disabled" || echo "enabled")"
 
+SIGNING_MODE="unsigned"
+if [[ -n "${APPLE_SIGNING_IDENTITY:-}" || -n "${APPLE_CERTIFICATE:-}" ]]; then
+  SIGNING_MODE="configured"
+elif [[ "$AD_HOC_SIGN_MODE" != "off" ]]; then
+  export APPLE_SIGNING_IDENTITY="-"
+  SIGNING_MODE="ad-hoc"
+fi
+
+NOTARIZATION_MODE="disabled"
+if [[ -n "${APPLE_API_KEY:-}" || -n "${APPLE_ID:-}" ]]; then
+  NOTARIZATION_MODE="configured"
+fi
+
+echo "🔐 Signing: $SIGNING_MODE"
+echo "🛡️ Notarization: $NOTARIZATION_MODE"
+
+if [[ "$SIGNING_MODE" == "ad-hoc" ]]; then
+  echo "⚠️ Using ad-hoc signing only."
+  echo "   This is suitable for local testing and limited sharing, but recipients may still need"
+  echo "   to allow the app in Privacy & Security because the app is not notarized."
+fi
+
+if [[ "$SIGNING_MODE" == "unsigned" ]]; then
+  echo "⚠️ No signing configured."
+  echo "   Apps shared to other Macs may show as damaged or blocked by Gatekeeper."
+fi
+
 TARGET_TRIPLE="$TARGET_TRIPLE" bash "$ROOT_DIR/scripts/desktop/prepare-sidecar.sh"
 
 BUILD_CMD=(bun tauri build --target "$TARGET_TRIPLE")
@@ -59,10 +97,57 @@ fi
 
 echo "▶️ Running: ${BUILD_CMD[*]}"
 (
-  cd apps/desktop
+  cd "$DESKTOP_DIR"
   "${BUILD_CMD[@]}"
 )
 
+APP_BUNDLE="$(find "$TAURI_DIR/target" -path "*/${TARGET_TRIPLE}/release/bundle/macos/Atmos.app" -print -quit 2>/dev/null || true)"
+if [[ -z "$APP_BUNDLE" ]]; then
+  APP_BUNDLE="$(find "$TAURI_DIR/target" -path "*/bundle/macos/Atmos.app" -print -quit 2>/dev/null || true)"
+fi
+
+DMG_INSTALLER="$(find "$TAURI_DIR/target" -path "*/${TARGET_TRIPLE}/release/bundle/dmg/*.dmg" -print -quit 2>/dev/null || true)"
+if [[ -z "$DMG_INSTALLER" ]]; then
+  DMG_INSTALLER="$(find "$TAURI_DIR/target" -path "*/bundle/dmg/*.dmg" -print -quit 2>/dev/null || true)"
+fi
+
+ZIP_ARCHIVE=""
+if [[ -n "$APP_BUNDLE" ]]; then
+  ZIP_ARCHIVE="$(dirname "$APP_BUNDLE")/Atmos_${TARGET_TRIPLE%%-*}.zip"
+  rm -f "$ZIP_ARCHIVE"
+  ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$ZIP_ARCHIVE"
+fi
+
 echo "✅ Done"
-echo "📁 App bundle: target/${TARGET_TRIPLE}/release/bundle/macos/Atmos.app"
-echo "📦 DMG installer: target/${TARGET_TRIPLE}/release/bundle/dmg/Atmos_0.1.0_${TARGET_TRIPLE%%-*}.dmg"
+if [[ -n "$APP_BUNDLE" ]]; then
+  echo "📁 App bundle: $APP_BUNDLE"
+fi
+if [[ -n "$DMG_INSTALLER" ]]; then
+  echo "📦 DMG installer: $DMG_INSTALLER"
+fi
+if [[ -n "$ZIP_ARCHIVE" ]]; then
+  echo "🗜️ Shareable zip: $ZIP_ARCHIVE"
+fi
+
+if [[ -n "$APP_BUNDLE" ]]; then
+  if codesign --verify --deep --strict "$APP_BUNDLE" >/dev/null 2>&1; then
+    echo "✅ codesign verification passed"
+  else
+    echo "⚠️ codesign verification failed"
+  fi
+
+  SPCTL_LOG="$(mktemp "${TMPDIR:-/tmp}/atmos-spctl.XXXXXX")"
+  if spctl -a -vv "$APP_BUNDLE" >"$SPCTL_LOG" 2>&1; then
+    echo "✅ Gatekeeper assessment passed"
+  else
+    echo "⚠️ Gatekeeper assessment did not pass"
+    sed -n '1,4p' "$SPCTL_LOG"
+  fi
+  rm -f "$SPCTL_LOG"
+fi
+
+if [[ "$NOTARIZATION_MODE" == "disabled" ]]; then
+  echo "ℹ️ For frictionless distribution to other Macs, provide Apple signing + notarization"
+  echo "   credentials (for example APPLE_SIGNING_IDENTITY + APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID"
+  echo "   or the App Store Connect API key variables supported by Tauri)."
+fi

@@ -239,6 +239,75 @@ fn resolve_utf8_locale() -> String {
         .unwrap_or_else(default_utf8_locale)
 }
 
+#[cfg(unix)]
+fn detect_login_shell_from_system() -> Option<String> {
+    let uid = unsafe { libc::geteuid() };
+    let mut pwd = std::mem::MaybeUninit::<libc::passwd>::uninit();
+    let mut result = std::ptr::null_mut();
+    let mut buf = vec![0u8; 4096];
+
+    loop {
+        let rc = unsafe {
+            libc::getpwuid_r(
+                uid,
+                pwd.as_mut_ptr(),
+                buf.as_mut_ptr().cast(),
+                buf.len(),
+                &mut result,
+            )
+        };
+
+        if rc == 0 {
+            if result.is_null() {
+                return None;
+            }
+
+            let pwd = unsafe { pwd.assume_init() };
+            if pwd.pw_shell.is_null() {
+                return None;
+            }
+
+            let shell = unsafe { CStr::from_ptr(pwd.pw_shell) }
+                .to_string_lossy()
+                .trim()
+                .to_string();
+
+            return (!shell.is_empty()).then_some(shell);
+        }
+
+        if rc == libc::ERANGE {
+            buf.resize(buf.len() * 2, 0);
+            continue;
+        }
+
+        return None;
+    }
+}
+
+#[cfg(not(unix))]
+fn detect_login_shell_from_system() -> Option<String> {
+    None
+}
+
+fn resolve_shell_for_sidecar() -> String {
+    std::env::var("SHELL")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .or_else(detect_login_shell_from_system)
+        .unwrap_or_else(|| {
+            #[cfg(target_os = "macos")]
+            {
+                for candidate in ["/bin/zsh", "/bin/bash", "/bin/sh"] {
+                    if std::path::Path::new(candidate).exists() {
+                        return candidate.to_string();
+                    }
+                }
+            }
+
+            "/bin/sh".to_string()
+        })
+}
+
 async fn spawn_and_wait_sidecar(
     app_handle: &tauri::AppHandle,
     api_token: String,
@@ -275,6 +344,9 @@ async fn spawn_and_wait_sidecar(
     // Finder-launched apps may miss LANG/LC_CTYPE; force UTF-8 so tmux/shell
     // keep Nerd Font glyphs instead of ASCII fallbacks.
     let utf8_locale = resolve_utf8_locale();
+    // Finder-launched apps may also miss SHELL; recover the user's login shell
+    // from the account record before falling back to a generic shell.
+    let shell = resolve_shell_for_sidecar();
 
     let mut sidecar_cmd = app_handle
         .shell()
@@ -285,6 +357,7 @@ async fn spawn_and_wait_sidecar(
         .env("ATMOS_LOCAL_TOKEN", &api_token)
         .env("LANG", &utf8_locale)
         .env("LC_CTYPE", &utf8_locale)
+        .env("SHELL", &shell)
         .env("ATMOS_DATA_DIR", data_dir_str);
 
     if let Some(dir) = static_dir {
