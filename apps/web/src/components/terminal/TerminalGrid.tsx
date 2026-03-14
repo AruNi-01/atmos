@@ -139,7 +139,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     ? projectWikiMaximizedIds
     : workspaceMaximizedIds;
 
-  const { projects, isLoading: isProjectsLoading } = useProjectStore();
+  const projects = useProjectStore(s => s.projects);
+  const isProjectsLoading = useProjectStore(s => s.isLoading);
 
   // Look up project and workspace info for human-readable naming
   const workspaceInfo = (() => {

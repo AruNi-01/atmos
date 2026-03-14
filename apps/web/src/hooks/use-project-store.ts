@@ -654,9 +654,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 }));
 
-// Listen for setup progress events
-if (typeof window !== 'undefined') {
-  useWebSocketStore.getState().onEvent('workspace_setup_progress', (data: unknown) => {
+/**
+ * Subscribe to workspace_setup_progress events.
+ * Must be called inside a React effect so the returned unsubscribe
+ * function can be invoked on cleanup to prevent memory leaks.
+ */
+export function subscribeToWorkspaceSetupProgress(): () => void {
+  return useWebSocketStore.getState().onEvent('workspace_setup_progress', (data: unknown) => {
     if (!isWorkspaceSetupProgressEventPayload(data)) return;
     useProjectStore.getState().setSetupProgress({
       workspaceId: data.workspace_id,

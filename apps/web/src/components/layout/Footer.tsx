@@ -34,7 +34,7 @@ function shortId(id: string): string {
 }
 
 const Footer: React.FC = () => {
-  const { connectionState } = useWebSocketStore();
+  const connectionState = useWebSocketStore(s => s.connectionState);
   const { workspaceId: currentWorkspaceId, projectId: currentProjectId } = useContextParams();
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [loading, setLoading] = useState(false);

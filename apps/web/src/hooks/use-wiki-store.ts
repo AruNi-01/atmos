@@ -59,7 +59,10 @@ function ensureContext(
   return state[contextId] ?? getDefaultState();
 }
 
-export const useWikiStore = create<WikiStore>()((set, get) => ({
+let _loadCatalogId = 0;
+let _loadPageId = 0;
+
+export const useWikiStore = create<WikiStore>()((set) => ({
   contextStates: {},
 
   checkWikiExists: async (contextId, effectivePath) => {
@@ -95,6 +98,8 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
   },
 
   loadCatalog: async (contextId, effectivePath) => {
+    const requestId = ++_loadCatalogId;
+
     set((state) => ({
       contextStates: {
         ...state.contextStates,
@@ -109,6 +114,8 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
     try {
       const catalogPath = `${effectivePath}/.atmos/wiki/_catalog.json`;
       const response = await fsApi.readFile(catalogPath);
+
+      if (requestId !== _loadCatalogId) return;
 
       let catalog: CatalogData | null = null;
       let catalogError: string | null = null;
@@ -136,6 +143,8 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
         },
       }));
     } catch (err) {
+      if (requestId !== _loadCatalogId) return;
+
       set((state) => ({
         contextStates: {
           ...state.contextStates,
@@ -237,6 +246,8 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
   },
 
   loadPage: async (contextId, effectivePath, filePath) => {
+    const requestId = ++_loadPageId;
+
     set((state) => ({
       contextStates: {
         ...state.contextStates,
@@ -253,6 +264,8 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
       const fullPath = `${effectivePath}/.atmos/wiki/${filePath}`;
       const response = await fsApi.readFile(fullPath);
 
+      if (requestId !== _loadPageId) return;
+
       const content = response.exists && response.content ? response.content : null;
       const contentError = !content ? `Page not found: ${filePath}` : null;
 
@@ -268,6 +281,8 @@ export const useWikiStore = create<WikiStore>()((set, get) => ({
         },
       }));
     } catch (err) {
+      if (requestId !== _loadPageId) return;
+
       set((state) => ({
         contextStates: {
           ...state.contextStates,

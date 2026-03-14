@@ -34,8 +34,8 @@ import {
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
+import { useShallow } from "zustand/react/shallow";
 import { useGitStore } from "@/hooks/use-git-store";
-import { DiffViewer } from "@/components/diff/DiffViewer";
 import { Plus, BookOpen, RefreshCw, Star } from "lucide-react";
 import { AGENT_OPTIONS, type AgentId } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
@@ -57,11 +57,20 @@ import { SkillsView } from "@/components/skills/SkillsView";
 import { TerminalManagerView } from "@/components/terminal/TerminalManagerView";
 import { AgentManagerView } from "@/components/agent/AgentManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
-import { WikiTab } from "@/components/wiki";
 import { systemApi } from "@/api/rest-api";
 import { PROJECT_WIKI_WINDOW_NAME, CODE_REVIEW_WINDOW_NAME } from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
 import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
+
+const WikiTab = dynamic(
+  () => import("@/components/wiki").then((m) => m.WikiTab),
+  { ssr: false },
+);
+
+const DiffViewer = dynamic(
+  () => import("@/components/diff/DiffViewer").then((m) => m.DiffViewer),
+  { ssr: false },
+);
 
 // Dynamic import file viewer to avoid SSR issues
 const FileViewer = dynamic(
@@ -254,9 +263,24 @@ const CenterStage: React.FC = () => {
     getActiveFile,
     pinFile,
     reloadFileContent,
-  } = useEditorStore();
-  const { setCreateProjectOpen, isCodeReviewDialogOpen, setCodeReviewDialogOpen } = useDialogStore();
-  const { projects, setupProgress, clearSetupProgress } = useProjectStore();
+  } = useEditorStore(
+    useShallow(s => ({
+      setWorkspaceId: s.setWorkspaceId,
+      getOpenFiles: s.getOpenFiles,
+      getActiveFilePath: s.getActiveFilePath,
+      setActiveFile: s.setActiveFile,
+      closeFile: s.closeFile,
+      getActiveFile: s.getActiveFile,
+      pinFile: s.pinFile,
+      reloadFileContent: s.reloadFileContent,
+    }))
+  );
+  const setCreateProjectOpen = useDialogStore(s => s.setCreateProjectOpen);
+  const isCodeReviewDialogOpen = useDialogStore(s => s.isCodeReviewDialogOpen);
+  const setCodeReviewDialogOpen = useDialogStore(s => s.setCodeReviewDialogOpen);
+  const projects = useProjectStore(s => s.projects);
+  const setupProgress = useProjectStore(s => s.setupProgress);
+  const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
   const { currentBranch } = useGitInfoStore();
 
   const currentSetupProgress = workspaceId ? setupProgress[workspaceId] : null;
@@ -497,7 +521,6 @@ const CenterStage: React.FC = () => {
       }
     }
 
-    // If no workspace found, check if effectiveContextId is a projectId
     const project = projects.find(p => p.id === effectiveContextId);
     return { currentProject: project, currentWorkspace: undefined };
   })();

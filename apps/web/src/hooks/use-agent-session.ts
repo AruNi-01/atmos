@@ -276,6 +276,7 @@ export function useAgentSession({
   const [sessionUsage, setSessionUsage] = useState<AgentUsage | null>(null);
   const [configOptions, setConfigOptions] = useState<AgentConfigOption[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
+  const cancelledRef = useRef(false);
   const onMessageRef = useRef(onMessage);
 
   useEffect(() => {
@@ -470,6 +471,11 @@ export function useAgentSession({
       try {
         setConnectionPhase("creating_session");
         const res = await agentApi.createSession(w ?? null, p ?? null, r, override?.authMethodId, m);
+
+        if (cancelledRef.current) {
+          return;
+        }
+
         const sid = res.session_id;
         setSessionId(sid);
         setSessionCwd(res.cwd);
@@ -599,6 +605,11 @@ export function useAgentSession({
       setConfigOptions([]);
       try {
         const res = await agentApi.resumeSession(sessionIdToResume, mode);
+
+        if (cancelledRef.current) {
+          return false;
+        }
+
         const sid = res.session_id;
         setSessionId(sid);
         setSessionCwd(res.cwd);
@@ -709,9 +720,10 @@ export function useAgentSession({
   );
 
   useEffect(() => {
+    cancelledRef.current = false;
     return () => {
+      cancelledRef.current = true;
       disconnect();
-      // Also close all stashed sessions on unmount.
       for (const [, s] of stashedRef.current) s.ws.close();
       stashedRef.current.clear();
     };

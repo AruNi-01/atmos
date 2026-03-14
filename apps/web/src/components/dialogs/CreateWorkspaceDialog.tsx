@@ -27,7 +27,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   onClose,
   defaultProjectId 
 }) => {
-  const { projects, addWorkspace } = useProjectStore();
+  const projects = useProjectStore(s => s.projects);
+  const addWorkspace = useProjectStore(s => s.addWorkspace);
   
   const [projectId, setProjectId] = useState(defaultProjectId || (projects.length > 0 ? projects[0].id : ''));
   const [name, setName] = useState('');

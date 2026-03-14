@@ -1163,12 +1163,7 @@ impl WsMessageService {
     ) -> Result<Value> {
         let workspace = self
             .workspace_service
-            .create_workspace(
-                req.project_guid.clone(),
-                req.name,
-                req.branch,
-                req.sidebar_order,
-            )
+            .create_workspace(req.project_guid.clone(), req.name, req.sidebar_order)
             .await?;
 
         // Spawn setup in background
@@ -1577,9 +1572,6 @@ set -x
                 )
                 .await;
         }
-
-        // Wait, I didn't define WsEvent correctly if I use WsEvent::WorkspaceSetupProgress directly
-        // Let me re-check my previous edit of message.rs
 
         let status = child.wait()?;
         if !status.success() {
@@ -2164,11 +2156,7 @@ set -x
                 obj.insert("timeline".to_string(), timeline);
             }
         } else {
-            // Log error if timeline fetch fails but don't fail the whole request
-            println!(
-                "Warning: Failed to fetch timeline for PR #{}",
-                req.pr_number
-            );
+            tracing::warn!("Failed to fetch timeline for PR #{}", req.pr_number);
         }
 
         Ok(output)

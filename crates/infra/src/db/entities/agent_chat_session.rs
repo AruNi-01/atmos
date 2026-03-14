@@ -3,6 +3,28 @@ use serde::{Deserialize, Serialize};
 
 use crate::impl_base_entity;
 
+pub mod context_types {
+    pub const WORKSPACE: &str = "workspace";
+    pub const PROJECT: &str = "project";
+    pub const TEMP: &str = "temp";
+    pub const UNKNOWN: &str = "unknown";
+}
+
+pub mod session_status {
+    pub const ACTIVE: &str = "active";
+    pub const CLOSED: &str = "closed";
+}
+
+pub mod title_sources {
+    pub const AUTO: &str = "auto";
+    pub const USER: &str = "user";
+}
+
+pub mod session_modes {
+    pub const DEFAULT: &str = "default";
+    pub const WIKI_ASK: &str = "wiki_ask";
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "agent_chat_session")]
 pub struct Model {

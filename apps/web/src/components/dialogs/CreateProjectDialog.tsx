@@ -25,7 +25,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
   isOpen, 
   onClose 
 }) => {
-  const { addProject } = useProjectStore();
+  const addProject = useProjectStore(s => s.addProject);
   const { isConnected, connectionState } = useWebSocket();
   
   const [path, setPath] = useState('');

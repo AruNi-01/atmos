@@ -238,6 +238,7 @@ dependencies = [
  "sea-orm-migration",
  "serde",
  "serde_json",
+ "sha2",
  "token-usage",
  "tokio",
  "tower",
@@ -1018,11 +1019,9 @@ dependencies = [
 name = "core-engine"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "base64 0.22.1",
  "dirs 5.0.1",
  "ignore",
- "num_cpus",
  "regex",
  "serde",
  "serde_json",
@@ -2706,6 +2705,7 @@ dependencies = [
  "chrono",
  "dirs 6.0.0",
  "futures-util",
+ "reqwest 0.12.28",
  "sea-orm",
  "sea-orm-migration",
  "serde",
@@ -3375,16 +3375,6 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
  "libm",
-]
-
-[[package]]
-name = "num_cpus"
-version = "1.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
-dependencies = [
- "hermit-abi",
- "libc",
 ]
 
 [[package]]
@@ -4586,6 +4576,7 @@ checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
 dependencies = [
  "base64 0.22.1",
  "bytes",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "http",

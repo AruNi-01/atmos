@@ -1,16 +1,6 @@
-import { setRequestLocale } from "next-intl/server";
-import type { Metadata } from "next";
+import { createAppPage } from "@/lib/create-app-page";
 
-type Props = {
-  params: Promise<{ locale: string }>;
-};
+const { metadata, Page } = createAppPage({ title: "Workspaces" });
 
-export const metadata: Metadata = {
-  title: "Workspaces – ATMOS",
-};
-
-export default async function WorkspacesPage({ params }: Props) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  return null;
-}
+export { metadata };
+export default Page;

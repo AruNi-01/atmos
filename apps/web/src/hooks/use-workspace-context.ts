@@ -116,6 +116,9 @@ function getTaskPath(projectPath: string): string {
 
 // ===== Store 实现 =====
 
+let _loadRequirementId = 0;
+let _loadTasksId = 0;
+
 export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, get) => ({
   workspaceStates: {},
   requirementLoading: false,
@@ -130,11 +133,14 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
   },
 
   loadRequirement: async (workspaceId: string, projectPath: string) => {
+    const requestId = ++_loadRequirementId;
     set({ requirementLoading: true });
     
     const filePath = getRequirementPath(projectPath);
     const response = await fsApi.readFile(filePath);
     
+    if (requestId !== _loadRequirementId) return;
+
     set((state) => ({
       requirementLoading: false,
       workspaceStates: {
@@ -165,12 +171,15 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
   },
 
   loadTasks: async (workspaceId: string, projectPath: string) => {
+    const requestId = ++_loadTasksId;
     set({ tasksLoading: true });
     
     const filePath = getTaskPath(projectPath);
     const response = await fsApi.readFile(filePath);
     const tasks = response.exists && response.content ? parseTasks(response.content) : [];
     
+    if (requestId !== _loadTasksId) return;
+
     set((state) => ({
       tasksLoading: false,
       workspaceStates: {

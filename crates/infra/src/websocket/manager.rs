@@ -8,6 +8,13 @@ use super::connection::{ClientType, WsConnection};
 use super::error::{WsError, WsResult};
 use super::message::WsMessage;
 
+#[derive(Debug)]
+pub struct ConnectionInfo {
+    pub id: String,
+    pub client_type: String,
+    pub connected_seconds: u64,
+}
+
 pub struct WsManager {
     connections: Arc<RwLock<HashMap<String, WsConnection>>>,
 }
@@ -97,6 +104,8 @@ impl WsManager {
         self.broadcast_raw(json).await
     }
 
+    // TODO: Consider changing the mpsc channel type to Arc<str> so broadcast
+    // can share a single allocation instead of cloning the String per connection.
     pub async fn broadcast_raw(&self, message: String) -> WsResult<()> {
         let connections = self.connections.read().await;
         let mut failed_ids = Vec::new();
@@ -179,17 +188,15 @@ impl WsManager {
         }
     }
 
-    /// Return a snapshot of all active connections (id, client_type, secs since last activity).
-    pub async fn list_connections(&self) -> Vec<(String, String, u64)> {
+    /// Return a snapshot of all active connections.
+    pub async fn list_connections(&self) -> Vec<ConnectionInfo> {
         let connections = self.connections.read().await;
         connections
             .values()
-            .map(|conn| {
-                (
-                    conn.id.clone(),
-                    conn.client_type.as_str().to_string(),
-                    conn.last_active().elapsed().as_secs(),
-                )
+            .map(|conn| ConnectionInfo {
+                id: conn.id.clone(),
+                client_type: conn.client_type.as_str().to_string(),
+                connected_seconds: conn.last_active().elapsed().as_secs(),
             })
             .collect()
     }

@@ -35,7 +35,8 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
-  const { fetchProjects, projects } = useProjectStore();
+  const fetchProjects = useProjectStore(s => s.fetchProjects);
+  const projects = useProjectStore(s => s.projects);
 
   const loadArchivedWorkspaces = useCallback(async () => {
     setIsLoading(true);

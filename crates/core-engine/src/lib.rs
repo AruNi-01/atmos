@@ -3,7 +3,6 @@ pub mod error;
 pub mod fs;
 pub mod git;
 pub mod github;
-pub mod pty;
 pub mod search;
 pub mod shims;
 pub mod test_engine;

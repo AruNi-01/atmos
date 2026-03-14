@@ -770,6 +770,7 @@ const Terminal = ({
       {showScrollDown && (
         <button
           type="button"
+          aria-label="Scroll to bottom"
           onClick={() => {
             // Safely exit copy-mode via backend `tmux send-keys -X cancel`.
             // This is a no-op if not in copy-mode — completely safe.

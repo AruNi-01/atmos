@@ -9,12 +9,12 @@
 //! WsMessageHandler trait and handle business messages themselves.
 
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::mpsc;
-use tracing::{debug, info, warn};
+use tracing::warn;
 
 use super::connection::ClientType;
 use super::handler::{process_text_message, HandleResult, WsMessageHandler};
+use super::heartbeat::HeartbeatMonitor;
 use super::manager::WsManager;
 
 /// Configuration for WebSocket service
@@ -76,38 +76,14 @@ impl WsService {
         Arc::clone(&self.manager)
     }
 
-    /// Start the heartbeat monitor
+    /// Start the heartbeat monitor (delegates to `HeartbeatMonitor`).
     pub fn start_heartbeat(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
-        let service = Arc::clone(self);
-        let interval = Duration::from_secs(service.config.heartbeat_interval_secs);
-        let timeout = service.config.connection_timeout_secs;
-
-        tokio::spawn(async move {
-            info!(
-                "Heartbeat monitor started (interval: {:?}, timeout: {}s)",
-                interval, timeout
-            );
-
-            let mut tick = tokio::time::interval(interval);
-
-            loop {
-                tick.tick().await;
-
-                let expired = service.manager.get_expired_connections(timeout).await;
-
-                if expired.is_empty() {
-                    debug!("Heartbeat check: all connections healthy");
-                } else {
-                    for id in expired {
-                        warn!(
-                            "Connection {} expired (no activity for {}s), closing",
-                            id, timeout
-                        );
-                        service.manager.unregister_connection(&id).await;
-                    }
-                }
-            }
-        })
+        let monitor = Arc::new(HeartbeatMonitor::with_config(
+            Arc::clone(&self.manager),
+            self.config.heartbeat_interval_secs,
+            self.config.connection_timeout_secs,
+        ));
+        monitor.start()
     }
 
     /// Register a new connection

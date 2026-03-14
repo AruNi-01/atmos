@@ -52,7 +52,6 @@ pub fn search_content(
         cmd.arg("--ignore-case");
     }
 
-    // Ignore common non-code directories
     cmd.arg("--glob")
         .arg("!.git")
         .arg("--glob")
@@ -81,6 +80,7 @@ pub fn search_content(
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut matches = Vec::new();
     let mut count = 0;
+    let mut hit_limit = false;
 
     use std::collections::HashMap;
     let mut all_lines: HashMap<String, HashMap<usize, String>> = HashMap::new();
@@ -108,24 +108,27 @@ pub fn search_content(
                         .or_default()
                         .insert(line_number, line_content.clone());
 
-                    if msg_type == "match" && count < max_results {
-                        // Get match position from submatches
-                        let (match_start, match_end) =
-                            if let Some(submatches) = data["submatches"].as_array() {
-                                if let Some(first) = submatches.first() {
-                                    (
-                                        first["start"].as_u64().unwrap_or(0) as usize,
-                                        first["end"].as_u64().unwrap_or(0) as usize,
-                                    )
+                    if msg_type == "match" {
+                        if count < max_results {
+                            let (match_start, match_end) =
+                                if let Some(submatches) = data["submatches"].as_array() {
+                                    if let Some(first) = submatches.first() {
+                                        (
+                                            first["start"].as_u64().unwrap_or(0) as usize,
+                                            first["end"].as_u64().unwrap_or(0) as usize,
+                                        )
+                                    } else {
+                                        (0, 0)
+                                    }
                                 } else {
                                     (0, 0)
-                                }
-                            } else {
-                                (0, 0)
-                            };
+                                };
 
-                        match_protos.push((file_path, line_number, match_start, match_end));
-                        count += 1;
+                            match_protos.push((file_path, line_number, match_start, match_end));
+                            count += 1;
+                        } else {
+                            hit_limit = true;
+                        }
                     }
                 }
             }
@@ -164,6 +167,6 @@ pub fn search_content(
 
     Ok(SearchResult {
         matches,
-        truncated: count >= max_results && stdout.lines().count() > count, // Approximate check
+        truncated: hit_limit,
     })
 }

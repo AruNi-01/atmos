@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { useParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
@@ -55,7 +55,9 @@ const Header: React.FC = () => {
   const locale = params?.locale as string || 'en';
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
 
-  const { projects, updateWorkspaceBranch, setupProgress } = useProjectStore();
+  const projects = useProjectStore(s => s.projects);
+  const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
+  const setupProgress = useProjectStore(s => s.setupProgress);
   const { setGlobalSearchOpen } = useDialogStore();
   const [, setAgentChatOpen] = useAgentChatUrl();
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
@@ -94,7 +96,7 @@ const Header: React.FC = () => {
       window.removeEventListener('resize', updateWidth);
     };
   }, []);
-  const { setCurrentProjectPath } = useEditorStore();
+  const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
   const {
     currentBranch,
     targetBranch,
@@ -158,7 +160,9 @@ const Header: React.FC = () => {
     onDeleted?: () => void;
   } | null>(null);
 
-  const { deleteWorkspace, deleteProject, fetchProjects } = useProjectStore();
+  const deleteWorkspace = useProjectStore(s => s.deleteWorkspace);
+  const deleteProject = useProjectStore(s => s.deleteProject);
+  const fetchProjects = useProjectStore(s => s.fetchProjects);
 
   useEffect(() => {
     const handleFullScreenChange = () => {
@@ -250,8 +254,11 @@ const Header: React.FC = () => {
     setEditedCurrentBranch(currentWorkspace?.branch || '');
   }, [currentWorkspace?.branch]);
 
-  const filteredBranches = availableBranches.filter(branch =>
-    branch.toLowerCase().includes(targetBranchFilter.trim().toLowerCase())
+  const filteredBranches = useMemo(
+    () => availableBranches.filter(branch =>
+      branch.toLowerCase().includes(targetBranchFilter.trim().toLowerCase())
+    ),
+    [availableBranches, targetBranchFilter]
   );
 
   const handleSaveTargetBranch = async () => {
@@ -408,6 +415,8 @@ const Header: React.FC = () => {
           {/* Current Branch (from workspace) */}
           <div className="flex items-center space-x-2 shrink-0">
             <span
+              role="status"
+              aria-label={getStatusTooltip()}
               className={cn("size-2 rounded-full transition-colors shrink-0", getStatusColor())}
               title={getStatusTooltip()}
             />
@@ -441,8 +450,11 @@ const Header: React.FC = () => {
               </div>
             ) : (
               <div
+                role="button"
+                tabIndex={0}
                 className="flex items-center space-x-1.5 cursor-pointer group/branch py-0.5 px-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors overflow-hidden"
                 onClick={() => setIsEditingCurrentBranch(true)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsEditingCurrentBranch(true); } }}
               >
                 <span className="text-[13px] font-medium text-foreground truncate block max-w-[120px]">
                   {displayCurrentBranch}
@@ -592,6 +604,7 @@ const Header: React.FC = () => {
                         max={100}
                         value={layout.opacity}
                         onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
+                        aria-label="Chat panel opacity"
                         className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
                       />
                     </div>

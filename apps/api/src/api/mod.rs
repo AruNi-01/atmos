@@ -21,3 +21,8 @@ pub fn routes() -> Router<AppState> {
         .nest("/api/token-usage", token_usage::routes())
         .nest("/ws", ws::routes())
 }
+
+/// Destructive system routes requiring stricter auth (loopback or token).
+pub fn destructive_system_routes() -> Router<AppState> {
+    Router::new().nest("/api/system", system::destructive_routes())
+}

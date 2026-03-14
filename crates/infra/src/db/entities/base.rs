@@ -27,14 +27,6 @@ impl BaseFields {
         }
     }
 
-    pub fn set_create_defaults(&mut self) {
-        let now = Utc::now().naive_utc();
-        self.guid = Uuid::new_v4().to_string();
-        self.created_at = now;
-        self.updated_at = now;
-        self.is_deleted = false;
-    }
-
     pub fn set_update_defaults(&mut self) {
         self.updated_at = Utc::now().naive_utc();
     }

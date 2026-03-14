@@ -17,7 +17,10 @@ use axum::{
     response::Response,
 };
 use core_engine::GitEngine;
-use core_service::{TerminalResponse, TerminalService};
+use core_service::{
+    AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, TerminalResponse,
+    TerminalService,
+};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::sync::Arc;
@@ -82,6 +85,23 @@ enum ClientTerminalMessage {
     TmuxCheckCopyMode,
 }
 
+/// All session-level configuration extracted from query parameters.
+pub struct TerminalSessionConfig {
+    pub session_id: String,
+    pub workspace_id: String,
+    pub shell: Option<String>,
+    pub tmux_window: Option<u32>,
+    pub tmux_window_name: Option<String>,
+    pub attach_requested: bool,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub terminal_name: Option<String>,
+    pub mode: Option<String>,
+    pub cwd: Option<String>,
+    pub initial_cols: Option<u16>,
+    pub initial_rows: Option<u16>,
+}
+
 /// Terminal WebSocket upgrade handler
 pub async fn terminal_ws_handler(
     Path(session_id): Path<String>,
@@ -93,73 +113,55 @@ pub async fn terminal_ws_handler(
         .workspace_id
         .clone()
         .unwrap_or_else(|| "default".to_string());
-    let shell = query.shell.clone();
 
-    // Keep tmux_window index and tmux_window_name separate
-    let tmux_window = query.tmux_window;
-    let tmux_window_name = query.tmux_window_name.clone();
-
-    // Only auto-attach if an index OR name is provided explicitly
-    let attach =
-        query.attach.unwrap_or(false) || tmux_window.is_some() || tmux_window_name.is_some();
-
-    // Extract naming parameters for human-readable tmux naming
-    let project_name = query.project_name.clone();
-    let workspace_name = query.workspace_name.clone();
-    let terminal_name = query.terminal_name.clone();
+    let attach = query.attach.unwrap_or(false)
+        || query.tmux_window.is_some()
+        || query.tmux_window_name.is_some();
 
     info!(
         "Terminal WebSocket upgrade request for session: {} (workspace: {}, attach: {}, tmux_window: {:?}, cwd: {:?})",
-        session_id, workspace_id, attach, tmux_window, query.cwd
+        session_id, workspace_id, attach, query.tmux_window, query.cwd
     );
 
-    let initial_cols = query.cols;
-    let initial_rows = query.rows;
+    let config = TerminalSessionConfig {
+        session_id,
+        workspace_id,
+        shell: query.shell,
+        tmux_window: query.tmux_window,
+        tmux_window_name: query.tmux_window_name,
+        attach_requested: attach,
+        project_name: query.project_name,
+        workspace_name: query.workspace_name,
+        terminal_name: query.terminal_name,
+        mode: query.mode,
+        cwd: query.cwd,
+        initial_cols: query.cols,
+        initial_rows: query.rows,
+    };
 
-    ws.on_upgrade(move |socket| {
-        handle_terminal_socket(
-            socket,
-            session_id,
-            workspace_id,
-            shell,
-            tmux_window,
-            tmux_window_name,
-            attach,
-            project_name,
-            workspace_name,
-            terminal_name,
-            query.mode,
-            query.cwd, // Pass cwd
-            initial_cols,
-            initial_rows,
-            state,
-        )
-    })
+    ws.on_upgrade(move |socket| handle_terminal_socket(socket, config, state))
 }
 
 /// Handle the terminal WebSocket connection
-#[allow(clippy::too_many_arguments)]
-async fn handle_terminal_socket(
-    socket: WebSocket,
-    session_id: String,
-    workspace_id: String,
-    shell: Option<String>,
-    tmux_window: Option<u32>,
-    tmux_window_name: Option<String>,
-    attach_requested: bool,
-    project_name: Option<String>,
-    workspace_name: Option<String>,
-    terminal_name: Option<String>,
-
-    mode: Option<String>,
-    cwd: Option<String>, // Accept cwd
-    initial_cols: Option<u16>,
-    initial_rows: Option<u16>,
-    state: AppState,
-) {
+async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig, state: AppState) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
 
-    // Mutable flag to track whether we actually attached or fell back to create
+    let TerminalSessionConfig {
+        session_id,
+        workspace_id,
+        shell,
+        tmux_window,
+        tmux_window_name,
+        attach_requested,
+        project_name,
+        workspace_name,
+        terminal_name,
+        mode,
+        cwd,
+        initial_cols,
+        initial_rows,
+    } = config;
+
     let mut actually_attached = false;
 
     info!(
@@ -167,15 +169,11 @@ async fn handle_terminal_socket(
         session_id, workspace_id
     );
 
-    // Get terminal service
     let terminal_service = state.terminal_service.clone();
 
-    // Calculate workspace working directory
     let cwd = if let Some(path) = cwd {
-        // Use explicitly provided CWD
         Some(path)
     } else if let Some(ref ws) = workspace_name {
-        // Fallback: Resolve from workspace_name using GitEngine
         let git_engine = GitEngine::new();
         match git_engine.get_worktree_path(ws) {
             Ok(path) => {
@@ -199,21 +197,19 @@ async fn handle_terminal_socket(
 
     info!("Terminal session cwd: {:?}", cwd);
 
-    // Create or attach to the terminal session
     let (output_rx, history) = if mode.as_deref() == Some("shell") {
-        // Simple shell session (NO tmux)
         match terminal_service
-            .create_simple_session(
-                session_id.clone(),
-                workspace_id.clone(),
+            .create_simple_session(CreateSimpleSessionParams {
+                session_id: session_id.clone(),
+                workspace_id: workspace_id.clone(),
                 shell,
-                initial_cols,
-                initial_rows,
-                cwd.clone(),
-                project_name.clone(),
-                workspace_name.clone(),
-                terminal_name.clone(),
-            )
+                cols: initial_cols,
+                rows: initial_rows,
+                cwd: cwd.clone(),
+                project_name: project_name.clone(),
+                workspace_name: workspace_name.clone(),
+                terminal_name: terminal_name.clone(),
+            })
             .await
         {
             Ok(rx) => (rx, None),
@@ -232,18 +228,17 @@ async fn handle_terminal_socket(
             }
         }
     } else if attach_requested && (tmux_window.is_some() || tmux_window_name.is_some()) {
-        // Attach to existing tmux window
         match terminal_service
-            .attach_session(
-                session_id.clone(),
-                workspace_id.clone(),
-                tmux_window,
+            .attach_session(AttachSessionParams {
+                session_id: session_id.clone(),
+                workspace_id: workspace_id.clone(),
+                tmux_window_index: tmux_window,
                 tmux_window_name,
-                initial_cols,
-                initial_rows,
-                project_name.clone(),
-                workspace_name.clone(),
-            )
+                cols: initial_cols,
+                rows: initial_rows,
+                project_name: project_name.clone(),
+                workspace_name: workspace_name.clone(),
+            })
             .await
         {
             Ok((rx, hist)) => {
@@ -255,23 +250,21 @@ async fn handle_terminal_socket(
                     "Failed to attach terminal session ({}). Falling back to creating a new one.",
                     e
                 );
-                // Fallback: Create new session if attachment fails
                 match terminal_service
-                    .create_session(
-                        session_id.clone(),
-                        workspace_id.clone(),
-                        shell.clone(),
-                        initial_cols,
-                        initial_rows,
-                        project_name.clone(),
-                        workspace_name.clone(),
-                        terminal_name.clone(),
-                        cwd.clone(),
-                    )
+                    .create_session(CreateSessionParams {
+                        session_id: session_id.clone(),
+                        workspace_id: workspace_id.clone(),
+                        shell: shell.clone(),
+                        cols: initial_cols,
+                        rows: initial_rows,
+                        project_name: project_name.clone(),
+                        workspace_name: workspace_name.clone(),
+                        window_name: terminal_name.clone(),
+                        cwd: cwd.clone(),
+                    })
                     .await
                 {
                     Ok(rx) => {
-                        // Mark as not attached since we created a new one
                         actually_attached = false;
                         (rx, None)
                     }
@@ -295,19 +288,18 @@ async fn handle_terminal_socket(
             }
         }
     } else {
-        // Create new session
         match terminal_service
-            .create_session(
-                session_id.clone(),
-                workspace_id.clone(),
+            .create_session(CreateSessionParams {
+                session_id: session_id.clone(),
+                workspace_id: workspace_id.clone(),
                 shell,
-                initial_cols,
-                initial_rows,
+                cols: initial_cols,
+                rows: initial_rows,
                 project_name,
                 workspace_name,
-                terminal_name,
+                window_name: terminal_name,
                 cwd,
-            )
+            })
             .await
         {
             Ok(rx) => (rx, None),

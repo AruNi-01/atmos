@@ -32,7 +32,8 @@ interface CodeMirrorEditorProps {
 
 export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, className }) => {
   const { workspaceId } = useContextParams();
-  const { updateFileContent, saveFile } = useEditorStore();
+  const updateFileContent = useEditorStore(s => s.updateFileContent);
+  const saveFile = useEditorStore(s => s.saveFile);
   const {
     autoSave,
     lineWrap,

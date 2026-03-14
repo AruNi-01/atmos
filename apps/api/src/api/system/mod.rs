@@ -1,4 +1,6 @@
+mod diagnostics;
 mod handlers;
+mod skills;
 
 use axum::{
     routing::{get, post},
@@ -33,13 +35,18 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/terminal-overview", get(handlers::get_terminal_overview))
         .route("/terminal-cleanup", post(handlers::cleanup_terminals))
+        .route("/sync-skills", post(handlers::sync_skills))
+        .route("/review-skills", get(handlers::list_review_skills))
+        .route("/ws-connections", get(handlers::list_ws_connections))
+}
+
+/// Destructive system routes that require loopback or token authentication.
+pub fn destructive_routes() -> Router<AppState> {
+    Router::new()
         .route("/tmux-kill-server", post(handlers::kill_tmux_server))
         .route("/tmux-kill-session", post(handlers::kill_tmux_session))
         .route(
             "/kill-orphaned-processes",
             post(handlers::kill_orphaned_processes),
         )
-        .route("/sync-skills", post(handlers::sync_skills))
-        .route("/review-skills", get(handlers::list_review_skills))
-        .route("/ws-connections", get(handlers::list_ws_connections))
 }

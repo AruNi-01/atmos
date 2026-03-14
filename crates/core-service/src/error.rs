@@ -21,4 +21,16 @@ pub enum ServiceError {
     NotFound(String),
 }
 
+impl From<agent::manager::AgentError> for ServiceError {
+    fn from(e: agent::manager::AgentError) -> Self {
+        ServiceError::Processing(e.to_string())
+    }
+}
+
+impl From<anyhow::Error> for ServiceError {
+    fn from(e: anyhow::Error) -> Self {
+        ServiceError::Processing(e.to_string())
+    }
+}
+
 pub type Result<T> = std::result::Result<T, ServiceError>;

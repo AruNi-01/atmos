@@ -43,12 +43,15 @@ interface AgentChatLayoutStore {
   updateLayout: (partial: Partial<PanelLayout>) => void;
 }
 
+let _layoutLoading = false;
+
 export const useAgentChatLayout = create<AgentChatLayoutStore>((set, get) => ({
   layout: DEFAULT_LAYOUT,
   loaded: false,
 
   loadLayout: () => {
-    if (get().loaded) return;
+    if (get().loaded || _layoutLoading) return;
+    _layoutLoading = true;
     fsApi.readFile(LAYOUT_PATH).then((res) => {
       if (res.exists && res.content) {
         try {
@@ -74,6 +77,8 @@ export const useAgentChatLayout = create<AgentChatLayoutStore>((set, get) => ({
       }
     }).catch(() => {
       set({ loaded: true });
+    }).finally(() => {
+      _layoutLoading = false;
     });
   },
 

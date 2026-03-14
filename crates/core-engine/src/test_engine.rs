@@ -1,5 +1,7 @@
 use crate::error::Result;
 
+/// Development/integration utility used by core-service's TestService and the API layer.
+/// Provides a simple echo-style processor for verifying the engine ↔ service wiring.
 pub struct TestEngine;
 
 impl TestEngine {

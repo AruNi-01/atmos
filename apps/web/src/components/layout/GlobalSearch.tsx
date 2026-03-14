@@ -96,18 +96,19 @@ export function GlobalSearch() {
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { setTheme, theme } = useTheme();
 
-  const {
-    isGlobalSearchOpen,
-    setGlobalSearchOpen,
-    globalSearchTab,
-    setGlobalSearchTab,
-    setCreateProjectOpen,
-    setCreateWorkspaceOpen,
-    setSelectedProjectId,
-  } = useDialogStore();
+  const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
+  const setGlobalSearchOpen = useDialogStore(s => s.setGlobalSearchOpen);
+  const globalSearchTab = useDialogStore(s => s.globalSearchTab);
+  const setGlobalSearchTab = useDialogStore(s => s.setGlobalSearchTab);
+  const setCreateProjectOpen = useDialogStore(s => s.setCreateProjectOpen);
+  const setCreateWorkspaceOpen = useDialogStore(s => s.setCreateWorkspaceOpen);
+  const setSelectedProjectId = useDialogStore(s => s.setSelectedProjectId);
 
-  const { projects, quickAddWorkspace, setupProgress } = useProjectStore();
-  const { openFile, currentProjectPath } = useEditorStore();
+  const projects = useProjectStore(s => s.projects);
+  const quickAddWorkspace = useProjectStore(s => s.quickAddWorkspace);
+  const setupProgress = useProjectStore(s => s.setupProgress);
+  const openFile = useEditorStore(s => s.openFile);
+  const currentProjectPath = useEditorStore(s => s.currentProjectPath);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [fileTreeCache, setFileTreeCache] = useState<FileTreeNode[]>([]);
