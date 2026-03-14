@@ -128,7 +128,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       )}
     >
       <div className={cn(
-        "flex items-center justify-between px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300",
+        "flex items-center px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300 relative",
         isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
         isActiveProject && "bg-sidebar-accent/70"
       )}>
@@ -170,7 +170,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         </div>
 
         {!isDragging && (
-          <div className="flex items-center opacity-0 group-hover/project:opacity-100 transition-opacity">
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover/project:opacity-100 transition-opacity z-10 backdrop-blur-[1px] bg-linear-to-l from-sidebar-accent/60 to-transparent pl-8 pr-2 h-full rounded-r-sm">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

@@ -158,22 +158,39 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
           isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
         )}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center min-w-0 flex-1">
-            <GitBranch className={cn("size-3.5 mr-2 shrink-0", isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground group-hover/ws:text-foreground')} />
+        <div className="flex items-center min-w-0 w-full relative">
+          <div className="flex items-center flex-1 min-w-0">
+            <div className="relative size-3.5 mr-2 flex shrink-0 items-center justify-center rounded-sm">
+              <GitBranch
+                className={cn(
+                  "size-3.5",
+                  isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
+                  workspace.isPinned ? "hidden" : "block group-hover/ws:hidden"
+                )}
+              />
+              <button
+                onClick={handlePinClick}
+                className={cn(
+                  "size-full items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
+                  workspace.isPinned 
+                    ? "flex text-amber-500" 
+                    : "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
+                )}
+                title={workspace.isPinned ? "Unpin" : "Pin"}
+              >
+                <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
+              </button>
+            </div>
             <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
           </div>
-          <div className="flex items-center gap-0.5 opacity-0 group-hover/ws:opacity-100 transition-opacity ml-2">
-            <button
-              onClick={handlePinClick}
-              className={cn(
-                "size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer",
-                workspace.isPinned && "text-amber-500"
-              )}
-              title={workspace.isPinned ? "Unpin" : "Pin"}
-            >
-              <Pin className="size-3" />
-            </button>
+        </div>
+        <div className="flex items-center mt-0.5 ml-5 relative min-w-0">
+          <div className="flex items-center min-w-0 flex-1">
+            <span className="text-[11px] text-muted-foreground truncate">{shortName}</span>
+            <span className="text-[11px] text-muted-foreground mx-1">·</span>
+            <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo}</span>
+          </div>
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover/ws:opacity-100 transition-opacity z-10 backdrop-blur-[1px] bg-linear-to-l from-sidebar-accent/60 to-transparent pl-8 pr-1 h-full rounded-r-sm justify-end">
             <button
               onClick={handleArchiveClick}
               className="size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer"
@@ -193,11 +210,6 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               </button>
             )}
           </div>
-        </div>
-        <div className="flex items-center mt-0.5 ml-5">
-          <span className="text-[11px] text-muted-foreground truncate">{shortName}</span>
-          <span className="text-[11px] text-muted-foreground mx-1">·</span>
-          <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo}</span>
         </div>
       </div>
 
