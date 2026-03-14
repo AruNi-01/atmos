@@ -22,9 +22,12 @@ impl MessagePushService {
         tracing::info!("[MessagePushService] Updating latest message: {msg}");
         let mut message = self.latest_message.write().await;
         *message = msg.to_string();
+        // Increment version while still holding the write lock so that
+        // get_latest_snapshot (which acquires a read lock) always sees a
+        // consistent (version, message) pair.
+        let version = self.version.fetch_add(1, Ordering::SeqCst) + 1;
         drop(message);
 
-        let version = self.version.fetch_add(1, Ordering::SeqCst) + 1;
         let _ = self.version_tx.send(version);
     }
 
@@ -33,8 +36,12 @@ impl MessagePushService {
     }
 
     pub async fn get_latest_snapshot(&self) -> (u64, String) {
+        // Hold the read lock while loading both version and message to ensure
+        // they are consistent (no concurrent update_latest_message can interleave).
+        let message_guard = self.latest_message.read().await;
         let version = self.version.load(Ordering::SeqCst);
-        let message = self.latest_message.read().await.clone();
+        let message = message_guard.clone();
+        drop(message_guard);
         (version, message)
     }
 

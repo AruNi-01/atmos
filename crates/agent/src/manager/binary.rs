@@ -5,7 +5,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use super::manifest::{
-    load_install_manifest, save_install_manifest, upsert_manifest_entry, ManifestEntry,
+    load_install_manifest, upsert_manifest_entry, with_manifest, ManifestEntry,
 };
 use super::registry::{RegistryDistribution, RegistryEntry};
 use super::{AgentError, Result};
@@ -103,26 +103,29 @@ pub(crate) async fn install_registry_binary_agent(
 
     let installed_version = detect_binary_version(&target_path).await;
 
-    let mut manifest = load_install_manifest().unwrap_or_default();
-    let existing_default = manifest
-        .registry
-        .iter()
-        .find(|e| e.registry_id == registry_id && e.install_method == "binary")
-        .and_then(|e| e.default_config.clone());
-
+    let reg_id = registry_id.to_string();
     let bin_path_str = target_path.to_string_lossy().to_string();
-    upsert_manifest_entry(
-        &mut manifest,
-        ManifestEntry {
-            registry_id: registry_id.to_string(),
-            install_method: "binary".to_string(),
-            binary_path: Some(bin_path_str),
-            npm_package: None,
-            installed_version,
-            default_config: existing_default,
-        },
-    );
-    save_install_manifest(&manifest)?;
+    let ver = installed_version.clone();
+    with_manifest(|manifest| {
+        let existing_default = manifest
+            .registry
+            .iter()
+            .find(|e| e.registry_id == reg_id && e.install_method == "binary")
+            .and_then(|e| e.default_config.clone());
+
+        upsert_manifest_entry(
+            manifest,
+            ManifestEntry {
+                registry_id: reg_id,
+                install_method: "binary".to_string(),
+                binary_path: Some(bin_path_str),
+                npm_package: None,
+                installed_version: ver,
+                default_config: existing_default,
+            },
+        );
+        Ok(())
+    })?;
 
     Ok(RegistryInstallResult {
         registry_id: registry_id.to_string(),
@@ -142,7 +145,7 @@ pub(crate) fn remove_registry_binary_agent(
     _entry: Option<&RegistryEntry>,
     registry_id: &str,
 ) -> Result<RegistryInstallResult> {
-    let mut manifest = load_install_manifest().unwrap_or_default();
+    let manifest = load_install_manifest().unwrap_or_default();
     let pos = manifest
         .registry
         .iter()
@@ -154,7 +157,7 @@ pub(crate) fn remove_registry_binary_agent(
             ))
         })?;
 
-    let entry = manifest.registry.remove(pos);
+    let entry = &manifest.registry[pos];
     let path = entry
         .binary_path
         .as_ref()
@@ -185,7 +188,14 @@ pub(crate) fn remove_registry_binary_agent(
                 .map_err(|e| AgentError::Command(format!("failed to remove binary file: {}", e)))?;
         }
     }
-    save_install_manifest(&manifest)?;
+
+    let reg_id = registry_id.to_string();
+    with_manifest(|manifest| {
+        manifest
+            .registry
+            .retain(|e| !(e.registry_id == reg_id && e.install_method == "binary"));
+        Ok(())
+    })?;
 
     Ok(RegistryInstallResult {
         registry_id: registry_id.to_string(),

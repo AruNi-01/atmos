@@ -551,8 +551,15 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     }
 
     if (reconnectAttempts >= maxReconnectAttempts) {
-      console.warn(`[WebSocket] Max reconnect attempts (${maxReconnectAttempts}) reached, giving up`);
+      console.warn(`[WebSocket] Max reconnect attempts (${maxReconnectAttempts}) reached, will retry every 60s`);
+      // Instead of giving up permanently, schedule a slow periodic retry
+      // so the connection recovers without requiring a page reload.
       set({ connectionState: "disconnected", reconnectAttempts: 0 });
+      const timer = setTimeout(() => {
+        set({ reconnectTimer: null });
+        get().connect();
+      }, 60000);
+      set({ reconnectTimer: timer });
       return;
     }
 

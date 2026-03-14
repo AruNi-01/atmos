@@ -259,7 +259,6 @@ impl AgentManager {
         value: &str,
     ) -> Result<()> {
         let path = manifest::manifest_path()?;
-        let mut m = manifest::load_install_manifest()?;
         tracing::info!(
             "Attempting to set default config in {}: {}/{}={}",
             path.display(),
@@ -268,55 +267,58 @@ impl AgentManager {
             value
         );
 
-        if let Some(entry) = m.registry.iter_mut().find(|e| e.registry_id == registry_id) {
-            let mut defaults = entry.default_config.clone().unwrap_or_default();
-            defaults.insert(config_id.to_string(), value.to_string());
-            entry.default_config = Some(defaults);
-            tracing::info!("Successfully updated registry agent default config");
-            return manifest::save_install_manifest(&m);
-        }
+        let reg_id = registry_id.to_string();
+        let cfg_id = config_id.to_string();
+        let val = value.to_string();
 
-        let found_custom = m.custom_agents.contains_key(registry_id);
-        if found_custom {
-            if let Some(entry) = m.custom_agents.get_mut(registry_id) {
+        manifest::with_manifest(|m| {
+            if let Some(entry) = m.registry.iter_mut().find(|e| e.registry_id == reg_id) {
                 let mut defaults = entry.default_config.clone().unwrap_or_default();
-                defaults.insert(config_id.to_string(), value.to_string());
+                defaults.insert(cfg_id.clone(), val.clone());
+                entry.default_config = Some(defaults);
+                tracing::info!("Successfully updated registry agent default config");
+                return Ok(());
+            }
+
+            if let Some(entry) = m.custom_agents.get_mut(&reg_id) {
+                let mut defaults = entry.default_config.clone().unwrap_or_default();
+                defaults.insert(cfg_id.clone(), val.clone());
                 entry.default_config = Some(defaults);
                 tracing::info!("Successfully updated custom agent default config via exact match");
-                return manifest::save_install_manifest(&m);
+                return Ok(());
             }
-        }
 
-        let mut found_by_name = None;
-        for (name, _) in m.custom_agents.iter() {
-            if name.to_lowercase() == registry_id.to_lowercase() {
-                found_by_name = Some(name.clone());
-                break;
+            let mut found_by_name = None;
+            for (name, _) in m.custom_agents.iter() {
+                if name.to_lowercase() == reg_id.to_lowercase() {
+                    found_by_name = Some(name.clone());
+                    break;
+                }
             }
-        }
 
-        if let Some(name) = found_by_name {
-            if let Some(entry) = m.custom_agents.get_mut(&name) {
-                let mut defaults = entry.default_config.clone().unwrap_or_default();
-                defaults.insert(config_id.to_string(), value.to_string());
-                entry.default_config = Some(defaults);
-                tracing::info!(
-                    "Successfully updated custom agent default config via case-insensitive match: {}",
-                    name
-                );
-                return manifest::save_install_manifest(&m);
+            if let Some(name) = found_by_name {
+                if let Some(entry) = m.custom_agents.get_mut(&name) {
+                    let mut defaults = entry.default_config.clone().unwrap_or_default();
+                    defaults.insert(cfg_id, val);
+                    entry.default_config = Some(defaults);
+                    tracing::info!(
+                        "Successfully updated custom agent default config via case-insensitive match: {}",
+                        name
+                    );
+                    return Ok(());
+                }
             }
-        }
 
-        tracing::warn!(
-            "Agent '{}' not found in manifest at {}",
-            registry_id,
-            path.display()
-        );
-        Err(AgentError::NotFound(format!(
-            "agent not found: {}",
-            registry_id
-        )))
+            tracing::warn!(
+                "Agent '{}' not found in manifest at {}",
+                reg_id,
+                path.display()
+            );
+            Err(AgentError::NotFound(format!(
+                "agent not found: {}",
+                reg_id
+            )))
+        })
     }
 
     pub fn get_agent_default_config(
@@ -337,28 +339,32 @@ impl AgentManager {
     }
 
     pub fn add_custom_agent(&self, agent: &crate::models::CustomAgent) -> Result<()> {
-        let mut m = manifest::load_install_manifest()?;
-        let existing_default = m
-            .custom_agents
-            .get(&agent.name)
-            .and_then(|e| e.default_config.clone());
-        m.custom_agents.insert(
-            agent.name.clone(),
-            CustomAgentEntry {
-                agent_type: "custom".to_string(),
-                command: agent.command.clone(),
-                args: agent.args.clone(),
-                env: agent.env.clone(),
-                default_config: agent.default_config.clone().or(existing_default),
-            },
-        );
-        manifest::save_install_manifest(&m)
+        let agent = agent.clone();
+        manifest::with_manifest(|m| {
+            let existing_default = m
+                .custom_agents
+                .get(&agent.name)
+                .and_then(|e| e.default_config.clone());
+            m.custom_agents.insert(
+                agent.name.clone(),
+                CustomAgentEntry {
+                    agent_type: "custom".to_string(),
+                    command: agent.command.clone(),
+                    args: agent.args.clone(),
+                    env: agent.env.clone(),
+                    default_config: agent.default_config.clone().or(existing_default),
+                },
+            );
+            Ok(())
+        })
     }
 
     pub fn remove_custom_agent(&self, name: &str) -> Result<()> {
-        let mut m = manifest::load_install_manifest()?;
-        m.custom_agents.remove(name);
-        manifest::save_install_manifest(&m)
+        let name = name.to_string();
+        manifest::with_manifest(|m| {
+            m.custom_agents.remove(&name);
+            Ok(())
+        })
     }
 
     pub fn get_custom_agent_launch_spec(&self, name: &str) -> Result<AgentLaunchSpec> {
@@ -399,9 +405,10 @@ impl AgentManager {
         let parsed: std::collections::HashMap<String, CustomAgentEntry> =
             serde_json::from_str(json_str)
                 .map_err(|e| AgentError::Command(format!("invalid custom_agents JSON: {}", e)))?;
-        let mut m = manifest::load_install_manifest()?;
-        m.custom_agents = parsed;
-        manifest::save_install_manifest(&m)
+        manifest::with_manifest(|m| {
+            m.custom_agents = parsed;
+            Ok(())
+        })
     }
 
     pub fn get_agent_config(&self, id: AgentId) -> Result<AgentConfigState> {

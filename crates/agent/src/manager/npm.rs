@@ -4,7 +4,8 @@ use tokio::process::Command;
 use crate::models::{AgentInstallResult, KnownAgent, RegistryInstallResult};
 
 use super::manifest::{
-    load_install_manifest, save_install_manifest, upsert_manifest_entry, ManifestEntry,
+    load_install_manifest, save_install_manifest, upsert_manifest_entry, with_manifest,
+    ManifestEntry,
 };
 use super::registry::{fetch_acp_registry, RegistryEntry, RegistryPackageDistribution};
 use super::{AgentError, Result};
@@ -220,25 +221,29 @@ pub(crate) async fn install_registry_npx_agent(
             .ok()
             .and_then(|pkgs| pkgs.get(&new_package_name).cloned());
 
-        let mut manifest = load_install_manifest().unwrap_or_default();
-        let existing_default = manifest
-            .registry
-            .iter()
-            .find(|e| e.registry_id == registry_id && e.install_method == "npx")
-            .and_then(|e| e.default_config.clone());
+        let reg_id = registry_id.to_string();
+        let pkg_name = new_package_name.clone();
+        let ver = installed_version.clone();
+        let _ = with_manifest(|manifest| {
+            let existing_default = manifest
+                .registry
+                .iter()
+                .find(|e| e.registry_id == reg_id && e.install_method == "npx")
+                .and_then(|e| e.default_config.clone());
 
-        upsert_manifest_entry(
-            &mut manifest,
-            ManifestEntry {
-                registry_id: registry_id.to_string(),
-                install_method: "npx".to_string(),
-                binary_path: None,
-                npm_package: Some(new_package_name),
-                installed_version,
-                default_config: existing_default,
-            },
-        );
-        let _ = save_install_manifest(&manifest);
+            upsert_manifest_entry(
+                manifest,
+                ManifestEntry {
+                    registry_id: reg_id,
+                    install_method: "npx".to_string(),
+                    binary_path: None,
+                    npm_package: Some(pkg_name),
+                    installed_version: ver,
+                    default_config: existing_default,
+                },
+            );
+            Ok(())
+        });
 
         let message = if let Some(old_package) = uninstalled_old_package {
             format!("Upgraded from {} to {}", old_package, npx_package)
@@ -298,11 +303,13 @@ pub(crate) async fn remove_registry_npx_agent(registry_id: &str) -> Result<Regis
         )));
     };
 
-    let mut manifest = load_install_manifest().unwrap_or_default();
-    manifest
-        .registry
-        .retain(|e| !(e.registry_id == registry_id && e.install_method == "npx"));
-    let _ = save_install_manifest(&manifest);
+    let reg_id = registry_id.to_string();
+    let _ = with_manifest(|manifest| {
+        manifest
+            .registry
+            .retain(|e| !(e.registry_id == reg_id && e.install_method == "npx"));
+        Ok(())
+    });
 
     let output = Command::new("npm")
         .arg("uninstall")

@@ -52,6 +52,29 @@ fn try_run_git(repo_path: &Path, args: &[&str]) -> Result<Option<String>> {
     }
 }
 
+/// Like `try_run_git` but also returns stderr on failure.
+fn try_run_git_with_stderr(
+    repo_path: &Path,
+    args: &[&str],
+) -> Result<std::result::Result<String, String>> {
+    let output = Command::new("git")
+        .current_dir(repo_path)
+        .args(args)
+        .output()
+        .map_err(|e| {
+            EngineError::Git(format!(
+                "Failed to execute git {}: {}",
+                args.first().unwrap_or(&""),
+                e
+            ))
+        })?;
+    if output.status.success() {
+        Ok(Ok(String::from_utf8_lossy(&output.stdout).to_string()))
+    } else {
+        Ok(Err(String::from_utf8_lossy(&output.stderr).to_string()))
+    }
+}
+
 /// Git engine for repository operations
 pub struct GitEngine;
 
@@ -567,20 +590,12 @@ impl GitEngine {
 
     /// Push to remote
     pub fn push(&self, repo_path: &Path) -> Result<()> {
-        match try_run_git(repo_path, &["push"])? {
-            Some(_) => {
+        match try_run_git_with_stderr(repo_path, &["push"])? {
+            Ok(_) => {
                 tracing::info!("Pushed changes to remote");
                 Ok(())
             }
-            None => {
-                // Check stderr for upstream hint by re-running and inspecting
-                let output = Command::new("git")
-                    .current_dir(repo_path)
-                    .args(["push"])
-                    .output()
-                    .map_err(|e| EngineError::Git(format!("Failed to push: {}", e)))?;
-                let stderr = String::from_utf8_lossy(&output.stderr);
-
+            Err(stderr) => {
                 if stderr.contains("no upstream") || stderr.contains("set-upstream") {
                     let branch = self.get_current_branch(repo_path)?;
                     run_git(repo_path, &["push", "--set-upstream", "origin", &branch])?;

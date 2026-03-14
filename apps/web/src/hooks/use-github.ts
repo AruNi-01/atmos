@@ -125,9 +125,13 @@ export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
     
     let timer: ReturnType<typeof setTimeout> | null = null;
     let isMounted = true;
+    let isInitial = true;
 
     const poll = async () => {
-      const result = await fetch(true);
+      // Use isAuto=false for the first fetch so setLoading(true) fires,
+      // then isAuto=true for subsequent auto-refreshes.
+      const result = await fetch(!isInitial);
+      isInitial = false;
       if (!isMounted) return;
       
       const hasInProgress = result?.some(r => r.status === 'in_progress' || r.status === 'queued');

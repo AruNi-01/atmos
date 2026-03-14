@@ -64,6 +64,33 @@ pub(crate) fn load_install_manifest() -> Result<InstallManifest> {
         .lock()
         .map_err(|e| AgentError::Command(format!("manifest lock poisoned: {}", e)))?;
 
+    load_install_manifest_unlocked()
+}
+
+pub(crate) fn save_install_manifest(manifest: &InstallManifest) -> Result<()> {
+    let _guard = MANIFEST_LOCK
+        .lock()
+        .map_err(|e| AgentError::Command(format!("manifest lock poisoned: {}", e)))?;
+
+    save_install_manifest_unlocked(manifest)
+}
+
+/// Execute a read-modify-write operation on the manifest atomically.
+/// The lock is held for the entire duration, preventing TOCTOU races.
+pub(crate) fn with_manifest<F>(f: F) -> Result<()>
+where
+    F: FnOnce(&mut InstallManifest) -> Result<()>,
+{
+    let _guard = MANIFEST_LOCK
+        .lock()
+        .map_err(|e| AgentError::Command(format!("manifest lock poisoned: {}", e)))?;
+
+    let mut manifest = load_install_manifest_unlocked()?;
+    f(&mut manifest)?;
+    save_install_manifest_unlocked(&manifest)
+}
+
+fn load_install_manifest_unlocked() -> Result<InstallManifest> {
     let path = manifest_path()?;
     if !path.exists() {
         let legacy = path
@@ -84,11 +111,7 @@ pub(crate) fn load_install_manifest() -> Result<InstallManifest> {
         .map_err(|e| AgentError::Command(format!("failed to parse install manifest: {}", e)))
 }
 
-pub(crate) fn save_install_manifest(manifest: &InstallManifest) -> Result<()> {
-    let _guard = MANIFEST_LOCK
-        .lock()
-        .map_err(|e| AgentError::Command(format!("manifest lock poisoned: {}", e)))?;
-
+fn save_install_manifest_unlocked(manifest: &InstallManifest) -> Result<()> {
     let path = manifest_path()?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
