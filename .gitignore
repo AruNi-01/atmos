@@ -100,6 +100,18 @@ scripts/open-source/
 .aws-sam/
 
 # ===== Agent =====
+.agent/
+.agents/
+.augment/
+.claude/
+.codex/
+.cursor/
+.factory/
+.gemini-clipboard/
+.kiro/
+.planning/
+.shared/
+.superdesign/
 .claude/settings.local.json
 .cursor/settings.local.json
 .codex/settings.local.json
