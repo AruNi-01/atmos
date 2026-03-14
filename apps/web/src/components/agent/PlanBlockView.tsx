@@ -116,18 +116,20 @@ export function PlanBlockView({
       }`}
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/10 cursor-pointer transition-colors group">
-            <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-              {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-            </span>
-            <span className="text-sm font-medium text-foreground/90">Plan</span>
-            <div className="flex-1" />
-            <span className="text-sm text-muted-foreground mr-1">
-              {allCompleted ? "All Done" : `${completedCount}/${totalCount}`}
-            </span>
-          </div>
-        </CollapsibleTrigger>
+        {isOpen && (
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/10 cursor-pointer transition-colors group">
+              <span className="text-muted-foreground group-hover:text-foreground transition-colors">
+                <ChevronDown className="w-4 h-4" />
+              </span>
+              <span className="text-sm font-medium text-foreground/90">Plan</span>
+              <div className="flex-1" />
+              <span className="text-sm text-muted-foreground mr-1">
+                {allCompleted ? "All Done" : `${completedCount}/${totalCount}`}
+              </span>
+            </div>
+          </CollapsibleTrigger>
+        )}
         <CollapsibleContent>
           <div className="flex flex-col border-t border-border/40">
             {planEntries.map((entry, idx) => {
@@ -166,38 +168,38 @@ export function PlanBlockView({
             })}
           </div>
         </CollapsibleContent>
-      </Collapsible>
-
-      {!isOpen && currentRunningEntry && (
-        <div
-          className={`flex items-center gap-2 px-3 py-1.5 border-t border-border/40 bg-background overflow-hidden cursor-pointer ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
-          onClick={() => setIsOpen(true)}
-        >
-          <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
-          <div className="flex flex-1 items-center h-5 relative overflow-hidden">
-            <span className="text-sm text-muted-foreground mr-1 font-normal shrink-0">Current:</span>
-            <div className="flex-1 relative h-full overflow-hidden">
-              <AnimatePresence mode="popLayout">
-                <motion.div
-                  key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${currentRunningEntry.content}`}
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -20, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  className="absolute inset-0 text-sm font-medium text-foreground truncate"
-                >
-                  <TextShimmer key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${currentRunningEntry.content}`} as="span" className="inline" duration={1.5}>
-                    {currentRunningEntry.content}
-                  </TextShimmer>
-                </motion.div>
-              </AnimatePresence>
+        {!isOpen && currentRunningEntry && (
+          <CollapsibleTrigger asChild>
+            <div
+              className={`flex items-center gap-2 px-3 py-1.5 bg-background overflow-hidden cursor-pointer hover:bg-muted/10 transition-colors ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
+            >
+              <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
+              <div className="flex flex-1 items-center h-5 relative overflow-hidden">
+                <span className="text-sm text-muted-foreground mr-1 font-normal shrink-0">Current:</span>
+                <div className="flex-1 relative h-full overflow-hidden">
+                  <AnimatePresence mode="popLayout">
+                    <motion.div
+                      key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${currentRunningEntry.content}`}
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -20, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      className="absolute inset-0 text-sm font-medium text-foreground truncate"
+                    >
+                      <TextShimmer key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${currentRunningEntry.content}`} as="span" className="inline" duration={1.5}>
+                        {currentRunningEntry.content}
+                      </TextShimmer>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </div>
+              <span className="text-sm text-muted-foreground ml-2 shrink-0">
+                {totalCount - currentIndex} left
+              </span>
             </div>
-          </div>
-          <span className="text-sm text-muted-foreground ml-2 shrink-0">
-            {totalCount - currentIndex} left
-          </span>
-        </div>
-      )}
+          </CollapsibleTrigger>
+        )}
+      </Collapsible>
 
     </div>
   );

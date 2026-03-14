@@ -143,10 +143,14 @@ function QueueCard({
   onRemove: () => void;
 }) {
   const trimmedValue = (editValue ?? "").trim();
+  const [isHovered, setIsHovered] = useState(false);
+  const showActions = isEditing || isHovered;
 
   return (
     <motion.div
       layout
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={`group/queue transition-colors ${
         isDragging
           ? "bg-background/95 shadow-sm"
@@ -172,7 +176,11 @@ function QueueCard({
             {item.displayPrompt ?? item.prompt}
           </p>
         </div>
-        <div className={`flex shrink-0 items-center gap-0 transition-opacity ${isEditing ? "opacity-100" : "opacity-0 group-hover/queue:opacity-100"}`}>
+        <div
+          className={`flex shrink-0 items-center gap-0 transition-opacity duration-150 ${
+            showActions ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        >
           <Popover open={isEditing} onOpenChange={(open) => {
             if (open) {
               onStartEdit();

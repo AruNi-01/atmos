@@ -10,7 +10,7 @@ use crate::middleware::{require_local_token, require_loopback_or_token};
 use ai_usage::UsageService;
 use app_state::{AppServices, AppState};
 use axum::{http::StatusCode, middleware::from_fn, routing::get, Router};
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
@@ -32,6 +32,10 @@ struct Cli {
     /// Port to listen on (overrides ATMOS_PORT env var)
     #[arg(short, long)]
     port: Option<u16>,
+
+    /// Whether to clean up stale tmux client sessions on startup
+    #[arg(long, default_value_t = true, action = ArgAction::Set)]
+    cleanup_stale_clients: bool,
 }
 
 fn spawn_ws_forwarder<T: serde::Serialize + Clone + Send + 'static>(
@@ -131,7 +135,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This leaves orphaned tmux "grouped sessions" (atmos_client_*) that each hold
     // a PTY device. Without this cleanup, PTY devices accumulate and eventually
     // cause "unable to allocate pty: Device not configured" system-wide.
-    terminal_service.cleanup_stale_client_sessions();
+    if cli.cleanup_stale_clients {
+        terminal_service.cleanup_stale_client_sessions();
+    } else {
+        info!("Skipping stale tmux client cleanup on startup");
+    }
     info!("Terminal service initialized");
 
     // Configure WebSocket service
