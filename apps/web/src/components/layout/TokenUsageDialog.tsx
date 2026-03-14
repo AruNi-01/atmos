@@ -81,6 +81,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { useWebSocketStore } from "@/hooks/use-websocket";
+import { useTheme } from "next-themes";
 
 type Resolution = "month" | "day";
 
@@ -207,6 +208,22 @@ const agentPalette = [
   "color-mix(in oklch, var(--color-chart-2) 58%, var(--color-chart-3))",
 ];
 
+const darkHeatmapPalette = [
+  "#2f2f35",
+  "#13362a",
+  "#165742",
+  "#11825f",
+  "#12b886",
+] as const;
+
+const lightHeatmapPalette = [
+  "#ececf1",
+  "#d0ece6",
+  "#9edacd",
+  "#5fc1ae",
+  "#20a689",
+] as const;
+
 export function TokenUsageDialog() {
   const [open, setOpen] = React.useState(false);
   const [overview, setOverview] = React.useState<TokenUsageOverviewResponse | null>(null);
@@ -218,7 +235,10 @@ export function TokenUsageDialog() {
   const [hoveredHeatmapCell, setHoveredHeatmapCell] = React.useState<HeatmapHoverState | null>(null);
   const [chartsReady, setChartsReady] = React.useState(false);
   const requestRef = React.useRef(0);
+  const { resolvedTheme } = useTheme();
   const onEvent = useWebSocketStore((state) => state.onEvent);
+  const isDarkTheme = resolvedTheme !== "light";
+  const heatmapPalette = isDarkTheme ? darkHeatmapPalette : lightHeatmapPalette;
 
   const loadOverview = React.useCallback(
     async ({ refresh = false }: { refresh?: boolean } = {}) => {
@@ -718,14 +738,14 @@ export function TokenUsageDialog() {
                                           <div
                                             key={cell.date}
                                             className="size-[12px] rounded-[3px] border border-border/50"
-                                            style={{ backgroundColor: heatmapColor(cell.level) }}
+                                            style={{ backgroundColor: heatmapColor(cell.level, heatmapPalette) }}
                                           />
                                         ) : (
                                           <button
                                             key={cell.date}
                                             type="button"
                                             className="size-[12px] rounded-[3px] border border-border/50 outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring"
-                                            style={{ backgroundColor: heatmapColor(cell.level) }}
+                                            style={{ backgroundColor: heatmapColor(cell.level, heatmapPalette) }}
                                             aria-label={formatHeatmapAriaLabel(cell)}
                                             onMouseEnter={(event) =>
                                               setHoveredHeatmapCell({
@@ -757,7 +777,7 @@ export function TokenUsageDialog() {
                                     <span
                                       key={level}
                                       className="size-[14px] rounded-[4px] border border-border/50"
-                                      style={{ backgroundColor: heatmapColor(level) }}
+                                      style={{ backgroundColor: heatmapColor(level, heatmapPalette) }}
                                     />
                                   ))}
                                   <span>More</span>
@@ -1547,24 +1567,11 @@ function heatmapLevel(count: number | null, maxTokens: number): 0 | 1 | 2 | 3 | 
   return 4;
 }
 
-function heatmapColor(level: 0 | 1 | 2 | 3 | 4) {
-  if (level === 0) {
-    return "color-mix(in oklch, var(--muted) 92%, var(--background))";
-  }
-
-  if (level === 1) {
-    return "color-mix(in oklch, var(--color-chart-2) 22%, var(--background))";
-  }
-
-  if (level === 2) {
-    return "color-mix(in oklch, var(--color-chart-2) 40%, var(--background))";
-  }
-
-  if (level === 3) {
-    return "color-mix(in oklch, var(--color-chart-2) 62%, var(--background))";
-  }
-
-  return "color-mix(in oklch, var(--color-chart-2) 82%, var(--background))";
+function heatmapColor(
+  level: 0 | 1 | 2 | 3 | 4,
+  palette: readonly [string, string, string, string, string],
+) {
+  return palette[level];
 }
 
 function formatHeatmapDate(value: string) {
