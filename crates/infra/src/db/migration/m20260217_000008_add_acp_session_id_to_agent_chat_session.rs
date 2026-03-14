@@ -33,20 +33,10 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if manager
-            .has_column(TABLE_NAME, ACP_SESSION_ID_COLUMN)
-            .await?
-        {
-            manager
-                .alter_table(
-                    Table::alter()
-                        .table(AgentChatSession::Table)
-                        .drop_column(AgentChatSession::AcpSessionId)
-                        .to_owned(),
-                )
-                .await?;
-        }
-
+        let _ = manager;
+        // Migration 007 now owns this baseline column for fresh schemas. After
+        // 008 runs, the resulting schema is indistinguishable from a fresh 007
+        // database, so dropping the column on rollback would be destructive.
         Ok(())
     }
 }

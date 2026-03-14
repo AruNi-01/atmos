@@ -146,4 +146,54 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn rollback_of_008_preserves_fresh_007_acp_session_id() -> Result<(), DbErr> {
+        let db = Database::connect("sqlite::memory:").await?;
+        let manager = SchemaManager::new(&db);
+
+        m20260215_000007_create_agent_chat_tables::Migration
+            .up(&manager)
+            .await?;
+
+        assert!(manager.has_column(TABLE_NAME, "acp_session_id").await?);
+
+        m20260217_000008_add_acp_session_id_to_agent_chat_session::Migration
+            .up(&manager)
+            .await?;
+        m20260217_000008_add_acp_session_id_to_agent_chat_session::Migration
+            .down(&manager)
+            .await?;
+
+        assert!(manager.has_column(TABLE_NAME, "acp_session_id").await?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rollback_of_009_preserves_fresh_007_mode_schema() -> Result<(), DbErr> {
+        let db = Database::connect("sqlite::memory:").await?;
+        let manager = SchemaManager::new(&db);
+
+        m20260215_000007_create_agent_chat_tables::Migration
+            .up(&manager)
+            .await?;
+
+        assert!(manager.has_column(TABLE_NAME, "mode").await?);
+        assert!(manager.has_index(TABLE_NAME, MODE_CONTEXT_INDEX).await?);
+        assert!(!manager.has_index(TABLE_NAME, LEGACY_CONTEXT_INDEX).await?);
+
+        m20260225_000009_add_mode_to_agent_chat_session::Migration
+            .up(&manager)
+            .await?;
+        m20260225_000009_add_mode_to_agent_chat_session::Migration
+            .down(&manager)
+            .await?;
+
+        assert!(manager.has_column(TABLE_NAME, "mode").await?);
+        assert!(manager.has_index(TABLE_NAME, MODE_CONTEXT_INDEX).await?);
+        assert!(!manager.has_index(TABLE_NAME, LEGACY_CONTEXT_INDEX).await?);
+
+        Ok(())
+    }
 }

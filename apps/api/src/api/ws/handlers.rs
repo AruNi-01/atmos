@@ -15,7 +15,7 @@ use axum::{
 use futures_util::{SinkExt, StreamExt};
 use infra::{ClientType, WsMessage};
 use serde::Deserialize;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 use crate::app_state::AppState;
 
@@ -67,32 +67,13 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
     let conn_id_push = conn_id.clone();
     let tx_push = tx.clone();
     let message_push_service = Arc::clone(&state.message_push_service);
-    let push_task = tokio::spawn(async move {
-        let mut updates = message_push_service.subscribe();
-        let mut last_seen_version = message_push_service.current_version();
-
-        'outer: loop {
-            match message_push_service.wait_for_update(&mut updates).await {
-                Ok(true) => {}
-                Ok(false) => continue,
-                Err(_) => break,
-            }
-
-            let (version, latest) = message_push_service.get_latest_snapshot().await;
-            if version == last_seen_version || latest.is_empty() {
-                continue;
-            }
-
-            last_seen_version = version;
-
-            let msg = WsMessage::message(&conn_id_push, &latest);
-            if let Ok(json) = msg.to_json() {
-                if tx_push.send(json).await.is_err() {
-                    break 'outer;
-                }
-            }
-        }
-    });
+    let updates = message_push_service.subscribe();
+    let push_task = tokio::spawn(push_latest_messages(
+        message_push_service,
+        updates,
+        conn_id_push,
+        tx_push,
+    ));
 
     // Main loop: Receive messages and delegate to WsService
     while let Some(result) = receiver.next().await {
@@ -114,6 +95,33 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
     send_task.abort();
     state.ws_service.unregister(&conn_id).await;
     tracing::info!("WebSocket connection closed: {}", conn_id);
+}
+
+async fn push_latest_messages(
+    message_push_service: Arc<core_service::MessagePushService>,
+    mut updates: watch::Receiver<u64>,
+    conn_id: String,
+    tx_push: mpsc::Sender<String>,
+) {
+    'outer: loop {
+        match message_push_service.wait_for_update(&mut updates).await {
+            Ok(true) => {}
+            Ok(false) => continue,
+            Err(_) => break,
+        }
+
+        let (_, latest) = message_push_service.get_latest_snapshot().await;
+        if latest.is_empty() {
+            continue;
+        }
+
+        let msg = WsMessage::message(&conn_id, &latest);
+        if let Ok(json) = msg.to_json() {
+            if tx_push.send(json).await.is_err() {
+                break 'outer;
+            }
+        }
+    }
 }
 
 /// Handle incoming WebSocket message
@@ -141,5 +149,39 @@ async fn handle_incoming_message(
         }
         Message::Close(_) => false,
         _ => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use core_service::MessagePushService;
+    use tokio::sync::mpsc;
+
+    use super::push_latest_messages;
+
+    #[tokio::test]
+    async fn push_loop_delivers_first_update_after_subscribe() {
+        let service = std::sync::Arc::new(MessagePushService::new());
+        let (tx, mut rx) = mpsc::channel(1);
+
+        let task = tokio::spawn(push_latest_messages(
+            std::sync::Arc::clone(&service),
+            service.subscribe(),
+            "conn-1".to_string(),
+            tx,
+        ));
+
+        service.update_latest_message("hello").await;
+
+        let payload = tokio::time::timeout(Duration::from_millis(200), rx.recv())
+            .await
+            .expect("push task should forward the first update")
+            .expect("channel should stay open");
+
+        assert!(payload.contains("hello"));
+
+        task.abort();
     }
 }

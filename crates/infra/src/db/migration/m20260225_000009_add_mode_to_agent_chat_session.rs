@@ -61,43 +61,11 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if manager.has_index(TABLE_NAME, MODE_CONTEXT_INDEX).await? {
-            manager
-                .drop_index(
-                    Index::drop()
-                        .name(MODE_CONTEXT_INDEX)
-                        .table(AgentChatSession::Table)
-                        .to_owned(),
-                )
-                .await?;
-        }
-
-        if manager.has_column(TABLE_NAME, MODE_COLUMN).await? {
-            manager
-                .alter_table(
-                    Table::alter()
-                        .table(AgentChatSession::Table)
-                        .drop_column(AgentChatSession::Mode)
-                        .to_owned(),
-                )
-                .await?;
-        }
-
-        if !manager.has_index(TABLE_NAME, LEGACY_CONTEXT_INDEX).await? {
-            manager
-                .create_index(
-                    Index::create()
-                        .name(LEGACY_CONTEXT_INDEX)
-                        .table(AgentChatSession::Table)
-                        .col(AgentChatSession::ContextType)
-                        .col(AgentChatSession::ContextGuid)
-                        .col(AgentChatSession::UpdatedAt)
-                        .if_not_exists()
-                        .to_owned(),
-                )
-                .await?;
-        }
-
+        let _ = manager;
+        // Migration 007 now owns both the `mode` column and the replacement
+        // context index. After 009 runs, the schema matches a fresh 007
+        // database, so trying to reconstruct the legacy shape on rollback
+        // corrupts fresh installs.
         Ok(())
     }
 }
