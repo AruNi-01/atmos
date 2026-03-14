@@ -68,34 +68,42 @@ impl<'a> ProjectRepo<'a> {
     }
 
     /// 更新项目排序
-    pub async fn update_order(&self, guid: String, order: i32) -> Result<()> {
-        project::Entity::update_many()
+    pub async fn update_order(&self, guid: &str, order: i32) -> Result<()> {
+        let result = project::Entity::update_many()
             .col_expr(project::Column::SidebarOrder, Expr::value(order))
             .filter(project::Column::Guid.eq(guid))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
         Ok(())
     }
 
     /// 更新项目边框颜色
-    pub async fn update_color(&self, guid: String, color: Option<String>) -> Result<()> {
-        project::Entity::update_many()
+    pub async fn update_color(&self, guid: &str, color: Option<String>) -> Result<()> {
+        let result = project::Entity::update_many()
             .col_expr(project::Column::BorderColor, Expr::value(color))
             .filter(project::Column::Guid.eq(guid))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
+        Ok(())
+    }
+
+    /// 删除项目（硬删除）
+    pub async fn delete(&self, guid: &str) -> Result<()> {
+        project::Entity::delete_by_id(guid.to_string())
             .exec(self.db)
             .await?;
         Ok(())
     }
 
-    /// 删除项目（硬删除）
-    pub async fn delete(&self, guid: String) -> Result<()> {
-        project::Entity::delete_by_id(guid).exec(self.db).await?;
-        Ok(())
-    }
-
     /// 软删除项目（将 is_deleted 设置为 true）
-    pub async fn soft_delete(&self, guid: String) -> Result<()> {
-        project::Entity::update_many()
+    pub async fn soft_delete(&self, guid: &str) -> Result<()> {
+        let result = project::Entity::update_many()
             .col_expr(project::Column::IsDeleted, Expr::value(true))
             .col_expr(
                 project::Column::UpdatedAt,
@@ -104,6 +112,9 @@ impl<'a> ProjectRepo<'a> {
             .filter(project::Column::Guid.eq(guid))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
         Ok(())
     }
 
@@ -116,14 +127,17 @@ impl<'a> ProjectRepo<'a> {
     /// 更新项目目标分支
     pub async fn update_target_branch(
         &self,
-        guid: String,
+        guid: &str,
         target_branch: Option<String>,
     ) -> Result<()> {
-        project::Entity::update_many()
+        let result = project::Entity::update_many()
             .col_expr(project::Column::TargetBranch, Expr::value(target_branch))
             .filter(project::Column::Guid.eq(guid))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
         Ok(())
     }
 }

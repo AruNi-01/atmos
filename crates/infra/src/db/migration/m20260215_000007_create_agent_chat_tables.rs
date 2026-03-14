@@ -67,6 +67,12 @@ impl MigrationTrait for Migration {
                             .string()
                             .null(),
                     )
+                    .col(
+                        ColumnDef::new(AgentChatSession::Mode)
+                            .string()
+                            .not_null()
+                            .default("default"),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -74,10 +80,11 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx-agent_chat_session-context")
+                    .name("idx-agent_chat_session-context-mode")
                     .table(AgentChatSession::Table)
                     .col(AgentChatSession::ContextType)
                     .col(AgentChatSession::ContextGuid)
+                    .col(AgentChatSession::Mode)
                     .col(AgentChatSession::UpdatedAt)
                     .if_not_exists()
                     .to_owned(),
@@ -111,4 +118,5 @@ enum AgentChatSession {
     Status,
     Title,
     TitleSource,
+    Mode,
 }

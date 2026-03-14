@@ -11,40 +11,37 @@ import { useProjectStore } from "@/hooks/use-project-store";
  */
 export function DocumentTitle() {
   const { workspaceId, projectId, currentView, skillId } = useContextParams();
-  const { projects } = useProjectStore();
+  const projects = useProjectStore(s => s.projects);
 
-  useEffect(() => {
-    let title = "ATMOS";
-
+  const derivedTitle = (() => {
     if (workspaceId) {
       for (const project of projects) {
         const workspace = project.workspaces.find((w) => w.id === workspaceId);
         if (workspace) {
-          title = `${workspace.branch || workspace.name} · ${project.name} – ATMOS`;
-          break;
+          return `${workspace.branch || workspace.name} · ${project.name} – ATMOS`;
         }
       }
     } else if (projectId) {
       const project = projects.find((p) => p.id === projectId);
       if (project) {
-        title = `${project.name} – ATMOS`;
+        return `${project.name} – ATMOS`;
       }
     } else {
       switch (currentView) {
         case "workspaces":
-          title = "Workspaces – ATMOS";
-          break;
+          return "Workspaces – ATMOS";
         case "skills":
-          title = skillId ? `${skillId} – Skills – ATMOS` : "Skills – ATMOS";
-          break;
+          return skillId ? `${skillId} – Skills – ATMOS` : "Skills – ATMOS";
         case "terminals":
-          title = "Terminals – ATMOS";
-          break;
+          return "Terminals – ATMOS";
       }
     }
+    return "ATMOS";
+  })();
 
-    document.title = title;
-  }, [workspaceId, projectId, currentView, skillId, projects]);
+  useEffect(() => {
+    document.title = derivedTitle;
+  }, [derivedTitle]);
 
   return null;
 }

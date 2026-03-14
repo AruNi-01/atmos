@@ -2,6 +2,7 @@
 
 import { useEffect, ReactNode } from 'react';
 import { useWebSocketStore } from '@/hooks/use-websocket';
+import { subscribeToWorkspaceSetupProgress } from '@/hooks/use-project-store';
 
 interface WebSocketProviderProps {
   children: ReactNode;
@@ -14,7 +15,9 @@ interface WebSocketProviderProps {
  * 提供自动重连和心跳检测功能。
  */
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
-  const { connect, disconnect, connectionState } = useWebSocketStore();
+  const connect = useWebSocketStore(s => s.connect);
+  const disconnect = useWebSocketStore(s => s.disconnect);
+  const connectionState = useWebSocketStore(s => s.connectionState);
 
   useEffect(() => {
     // 应用启动时建立连接
@@ -50,6 +53,11 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       // 真正的断开连接应该在用户明确登出或关闭页面时
     };
   }, [connect]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToWorkspaceSetupProgress();
+    return unsubscribe;
+  }, []);
 
   return <>{children}</>;
 }

@@ -47,7 +47,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   onFinish
 }) => {
   const { status: backendStatus, stepTitle, output, lastStatus, workspaceId } = progress;
-  const { retryWorkspaceSetup, projects } = useProjectStore();
+  const retryWorkspaceSetup = useProjectStore(s => s.retryWorkspaceSetup);
+  const projects = useProjectStore(s => s.projects);
   const { saveRequirement } = useWorkspaceContextStore();
 
   // Find workspace's localPath from projects

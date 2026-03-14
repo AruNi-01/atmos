@@ -2,10 +2,10 @@ use axum::{
     extract::{Path, State},
     Json,
 };
+use infra::db::entities::project;
 use serde::Deserialize;
-use serde_json::{json, Value};
 
-use crate::api::dto::ApiResponse;
+use crate::api::dto::{ApiResponse, GitValidationResponse, MessageResponse};
 use crate::{app_state::AppState, error::ApiResult};
 
 #[derive(Deserialize)]
@@ -21,15 +21,22 @@ pub struct UpdateColorPayload {
     pub border_color: Option<String>,
 }
 
-pub async fn list_projects(State(state): State<AppState>) -> ApiResult<Json<ApiResponse<Value>>> {
+#[derive(Deserialize)]
+pub struct ValidateGitPayload {
+    pub path: String,
+}
+
+pub async fn list_projects(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Vec<project::Model>>>> {
     let projects = state.project_service.list_projects().await?;
-    Ok(Json(ApiResponse::success(json!(projects))))
+    Ok(Json(ApiResponse::success(projects)))
 }
 
 pub async fn create_project(
     State(state): State<AppState>,
     Json(payload): Json<CreateProjectPayload>,
-) -> ApiResult<Json<ApiResponse<Value>>> {
+) -> ApiResult<Json<ApiResponse<project::Model>>> {
     let project = state
         .project_service
         .create_project(
@@ -39,46 +46,53 @@ pub async fn create_project(
             payload.border_color,
         )
         .await?;
-    Ok(Json(ApiResponse::success(json!(project))))
+    Ok(Json(ApiResponse::success(project)))
 }
 
 pub async fn delete_project(
     State(state): State<AppState>,
     Path(guid): Path<String>,
-) -> ApiResult<Json<ApiResponse<Value>>> {
+) -> ApiResult<Json<ApiResponse<MessageResponse>>> {
     state.project_service.delete_project(guid).await?;
-    Ok(Json(ApiResponse::success(
-        json!({ "message": "Project deleted" }),
-    )))
+    Ok(Json(ApiResponse::success(MessageResponse {
+        message: "Project deleted",
+    })))
 }
 
 pub async fn update_color(
     State(state): State<AppState>,
     Path(guid): Path<String>,
     Json(payload): Json<UpdateColorPayload>,
-) -> ApiResult<Json<ApiResponse<Value>>> {
+) -> ApiResult<Json<ApiResponse<MessageResponse>>> {
     state
         .project_service
         .update_color(guid, payload.border_color)
         .await?;
-    Ok(Json(ApiResponse::success(
-        json!({ "message": "Color updated" }),
-    )))
+    Ok(Json(ApiResponse::success(MessageResponse {
+        message: "Color updated",
+    })))
 }
 
-pub async fn validate_git(Json(payload): Json<Value>) -> ApiResult<Json<ApiResponse<Value>>> {
-    let path = payload["path"].as_str().unwrap_or("");
+pub async fn validate_git(
+    Json(payload): Json<ValidateGitPayload>,
+) -> ApiResult<Json<ApiResponse<GitValidationResponse>>> {
+    let path = &payload.path;
     let is_git = std::path::Path::new(path).join(".git").exists();
 
     if is_git {
         let name = std::path::Path::new(path)
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("New Project");
-        Ok(Json(ApiResponse::success(
-            json!({ "isValid": true, "name": name }),
-        )))
+            .unwrap_or("New Project")
+            .to_string();
+        Ok(Json(ApiResponse::success(GitValidationResponse {
+            is_valid: true,
+            name: Some(name),
+        })))
     } else {
-        Ok(Json(ApiResponse::success(json!({ "isValid": false }))))
+        Ok(Json(ApiResponse::success(GitValidationResponse {
+            is_valid: false,
+            name: None,
+        })))
     }
 }

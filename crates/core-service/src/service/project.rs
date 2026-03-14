@@ -52,7 +52,7 @@ impl ProjectService {
             .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", guid)))?;
 
         // Get all workspaces to clean up their worktrees
-        let workspaces = workspace_repo.list_all_by_project(guid.clone()).await?;
+        let workspaces = workspace_repo.list_all_by_project(&guid).await?;
 
         // Clean up git worktrees for all workspaces
         let repo_path = std::path::Path::new(&project.main_file_path);
@@ -67,10 +67,10 @@ impl ProjectService {
         }
 
         // Batch soft delete all workspaces for this project
-        workspace_repo.soft_delete_by_project(guid.clone()).await?;
+        workspace_repo.soft_delete_by_project(&guid).await?;
 
         // Soft delete the project
-        project_repo.soft_delete(guid).await?;
+        project_repo.soft_delete(&guid).await?;
         Ok(())
     }
 
@@ -79,7 +79,7 @@ impl ProjectService {
         guid: String,
     ) -> Result<ProjectCanDeleteResponse> {
         let workspace_repo = WorkspaceRepo::new(&self.db);
-        let active_count = workspace_repo.count_active_by_project(guid).await?;
+        let active_count = workspace_repo.count_active_by_project(&guid).await?;
         Ok(ProjectCanDeleteResponse {
             can_delete: active_count == 0,
             active_workspace_count: active_count,
@@ -88,7 +88,7 @@ impl ProjectService {
 
     pub async fn update_color(&self, guid: String, color: Option<String>) -> Result<()> {
         let repo = ProjectRepo::new(&self.db);
-        Ok(repo.update_color(guid, color).await?)
+        Ok(repo.update_color(&guid, color).await?)
     }
 
     pub async fn update_target_branch(
@@ -97,7 +97,7 @@ impl ProjectService {
         target_branch: Option<String>,
     ) -> Result<()> {
         let repo = ProjectRepo::new(&self.db);
-        Ok(repo.update_target_branch(guid, target_branch).await?)
+        Ok(repo.update_target_branch(&guid, target_branch).await?)
     }
 
     pub async fn get_project(&self, guid: String) -> Result<Option<project::Model>> {
@@ -107,6 +107,6 @@ impl ProjectService {
 
     pub async fn update_order(&self, guid: String, order: i32) -> Result<()> {
         let repo = ProjectRepo::new(&self.db);
-        Ok(repo.update_order(guid, order).await?)
+        Ok(repo.update_order(&guid, order).await?)
     }
 }

@@ -1,10 +1,14 @@
+use chrono::Utc;
 use sea_orm::sea_query::Expr;
 use sea_orm::{Condition, *};
 
 use crate::db::entities::agent_chat_session;
-use crate::db::entities::base::BaseFields;
 use crate::db::repo::base::BaseRepo;
 use crate::error::Result;
+
+/// Default title assigned to new chat sessions. Ideally this business-logic
+/// check would live in the service layer rather than the repo.
+pub const DEFAULT_SESSION_TITLE: &str = "新会话";
 
 pub struct AgentChatSessionRepo<'a> {
     db: &'a DatabaseConnection,
@@ -35,12 +39,12 @@ impl<'a> AgentChatSessionRepo<'a> {
         allow_file_access: bool,
         mode: &str,
     ) -> Result<agent_chat_session::Model> {
-        let base = BaseFields::new();
+        let now = Utc::now().naive_utc();
         let model = agent_chat_session::ActiveModel {
             guid: Set(guid.to_string()),
-            created_at: Set(base.created_at),
-            updated_at: Set(base.updated_at),
-            is_deleted: Set(base.is_deleted),
+            created_at: Set(now),
+            updated_at: Set(now),
+            is_deleted: Set(false),
             context_type: Set(context_type.to_string()),
             context_guid: Set(context_guid.map(String::from)),
             registry_id: Set(registry_id.to_string()),
@@ -201,7 +205,7 @@ impl<'a> AgentChatSessionRepo<'a> {
                 if m.title_source.as_deref() == Some("user") {
                     false
                 } else {
-                    m.title.is_none() || m.title.as_deref() == Some("新会话")
+                    m.title.is_none() || m.title.as_deref() == Some(DEFAULT_SESSION_TITLE)
                 }
             })
             .unwrap_or(false))

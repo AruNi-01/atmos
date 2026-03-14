@@ -4,6 +4,7 @@
 
 # 设置默认 shell
 set shell := ["zsh", "-cu"]
+set positional-arguments
 # set shell := ["powershell.exe", "-c"]
 
 # 显示所有可用命令
@@ -15,8 +16,42 @@ default:
 # ============================================
 
 # 启动 Web 开发服务器
-dev-web:
-    bun --filter web dev
+# 用法:
+#   just dev-web
+#   just dev-web --port 3001
+#   just dev-web --web-port 3001 --api-port 4040
+dev-web *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    web_port=3030
+    api_port=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -p|--port|--web-port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                web_port="$2"
+                shift 2
+                ;;
+            --api-port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                api_port="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unknown option: $1" >&2
+                echo "Usage: just dev-web [--port|-p <web-port>] [--web-port <web-port>] [--api-port <api-port>]" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    if [[ -n "$api_port" ]]; then
+        cd apps/web && NEXT_PUBLIC_API_PORT="$api_port" bun x next dev --turbopack --port "$web_port"
+    else
+        cd apps/web && bun x next dev --turbopack --port "$web_port"
+    fi
 
 # 启动 Web 开发服务器 (使用 portless)
 dev-web-portless:
@@ -59,21 +94,143 @@ dev-desktop-debug:
 # 启动 API 服务器
 # 直接 cargo run，Ctrl+C 信号能正确传播，避免 shell 先于 api 退出导致输出乱序
 # 需要热重载时用 dev-api-watch
-dev-api:
-    cargo run --bin api
+# 用法:
+#   just dev-api
+#   just dev-api --port 4040
+#   just dev-api -p 4040
+#   just dev-api --port 4040 --web-port 3001
+#   just dev-api --port 4040 --cleanup-stale-clients false
+dev-api *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    port=""
+    web_port=""
+    cleanup_stale_clients="true"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -p|--port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                port="$2"
+                shift 2
+                ;;
+            --web-port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                web_port="$2"
+                shift 2
+                ;;
+            --cleanup-stale-clients)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                cleanup_stale_clients="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unknown option: $1" >&2
+                echo "Usage: just dev-api [--port|-p <port>] [--web-port <web-port>] [--cleanup-stale-clients <true|false>]" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    if [[ -n "$web_port" ]]; then
+        export CORS_ORIGIN="http://localhost:${web_port},http://127.0.0.1:${web_port}"
+    fi
+
+    if [[ -n "$port" ]]; then
+        cargo run --bin api -- --port "$port" --cleanup-stale-clients "$cleanup_stale_clients"
+    else
+        cargo run --bin api -- --cleanup-stale-clients "$cleanup_stale_clients"
+    fi
 
 # 启动 API 服务器 (热重载，Ctrl+C 时 cargo watch 可能先退出导致输出乱序)
-dev-api-watch:
-    cargo watch -x 'run --bin api' -w apps/api -w crates
+dev-api-watch *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    port=""
+    web_port=""
+    cleanup_stale_clients="true"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -p|--port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                port="$2"
+                shift 2
+                ;;
+            --web-port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                web_port="$2"
+                shift 2
+                ;;
+            --cleanup-stale-clients)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                cleanup_stale_clients="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unknown option: $1" >&2
+                echo "Usage: just dev-api-watch [--port|-p <port>] [--web-port <web-port>] [--cleanup-stale-clients <true|false>]" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    if [[ -n "$web_port" ]]; then
+        export CORS_ORIGIN="http://localhost:${web_port},http://127.0.0.1:${web_port}"
+    fi
+
+    if [[ -n "$port" ]]; then
+        cargo watch -x "run --bin api -- --port $port --cleanup-stale-clients $cleanup_stale_clients" -w apps/api -w crates
+    else
+        cargo watch -x "run --bin api -- --cleanup-stale-clients $cleanup_stale_clients" -w apps/api -w crates
+    fi
 
 # 运行 CLI 帮助
 dev-cli:
     cargo run --bin atmos -- --help
 
 # 同时启动所有开发服务器 (并行运行)
-dev-all:
-    @echo "启动所有开发服务器..."
-    @just dev-web & just dev-api
+# 用法:
+#   just dev-all
+#   just dev-all --web-port 3001 --api-port 4040
+#   just dev-all --web-port 3001 --api-port 4040 --cleanup-stale-clients false
+dev-all *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    web_port=3030
+    api_port=30303
+    cleanup_stale_clients="true"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --web-port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                web_port="$2"
+                shift 2
+                ;;
+            --api-port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                api_port="$2"
+                shift 2
+                ;;
+            --cleanup-stale-clients)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                cleanup_stale_clients="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unknown option: $1" >&2
+                echo "Usage: just dev-all [--web-port <web-port>] [--api-port <api-port>] [--cleanup-stale-clients <true|false>]" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    echo "启动所有开发服务器... web=${web_port} api=${api_port}"
+    just dev-web --web-port "$web_port" --api-port "$api_port" & just dev-api --port "$api_port" --web-port "$web_port" --cleanup-stale-clients "$cleanup_stale_clients"
 
 # ============================================
 # 构建命令 (Build)

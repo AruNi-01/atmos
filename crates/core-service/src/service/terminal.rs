@@ -8,7 +8,7 @@
 //! - PTY operations run in dedicated threads, communicating via channels
 //! - Closing a session detaches the PTY but keeps the tmux window alive
 
-use anyhow::{anyhow, Result};
+use crate::error::{Result, ServiceError};
 use core_engine::TmuxEngine;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::collections::HashMap;
@@ -140,6 +140,44 @@ pub enum TerminalResponse {
     },
 }
 
+/// Parameters for creating a tmux-backed terminal session
+pub struct CreateSessionParams {
+    pub session_id: String,
+    pub workspace_id: String,
+    pub shell: Option<String>,
+    pub cols: Option<u16>,
+    pub rows: Option<u16>,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub window_name: Option<String>,
+    pub cwd: Option<String>,
+}
+
+/// Parameters for creating a simple (non-tmux) terminal session
+pub struct CreateSimpleSessionParams {
+    pub session_id: String,
+    pub workspace_id: String,
+    pub shell: Option<String>,
+    pub cols: Option<u16>,
+    pub rows: Option<u16>,
+    pub cwd: Option<String>,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub terminal_name: Option<String>,
+}
+
+/// Parameters for attaching to an existing tmux window
+pub struct AttachSessionParams {
+    pub session_id: String,
+    pub workspace_id: String,
+    pub tmux_window_index: Option<u32>,
+    pub tmux_window_name: Option<String>,
+    pub cols: Option<u16>,
+    pub rows: Option<u16>,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+}
+
 /// Terminal service managing all PTY sessions with tmux persistence
 /// This struct is Send + Sync safe
 pub struct TerminalService {
@@ -256,26 +294,26 @@ impl TerminalService {
 
     /// Get tmux version info
     pub fn get_tmux_version(&self) -> Result<core_engine::TmuxVersion> {
-        TmuxEngine::get_version().map_err(|e| anyhow!("{}", e))
+        TmuxEngine::get_version().map_err(|e| ServiceError::Processing(e.to_string()))
     }
 
     /// Create a new terminal session with tmux persistence
     /// Returns a receiver for terminal output
-    #[allow(clippy::too_many_arguments)]
     pub async fn create_session(
         &self,
-        session_id: String,
-        workspace_id: String,
-        shell: Option<String>,
-        cols: Option<u16>,
-        rows: Option<u16>,
-        // Optional human-readable names for clean tmux naming
-        project_name: Option<String>,
-        workspace_name: Option<String>,
-        window_name: Option<String>,
-        // Optional working directory for the terminal session
-        cwd: Option<String>,
+        params: CreateSessionParams,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+        let CreateSessionParams {
+            session_id,
+            workspace_id,
+            shell,
+            cols,
+            rows,
+            project_name,
+            workspace_name,
+            window_name,
+            cwd,
+        } = params;
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
 
@@ -317,11 +355,10 @@ impl TerminalService {
                     .await
                 {
                     Ok((rx, _)) => Ok(rx),
-                    Err(e) => Err(anyhow!(
+                    Err(e) => Err(ServiceError::Processing(format!(
                         "Failed to attach to existing session {}: {}",
-                        session_id,
-                        e
-                    )),
+                        session_id, e
+                    ))),
                 };
 
                 // Clean up lock from HashMap before returning
@@ -352,11 +389,15 @@ impl TerminalService {
         {
             self.tmux_engine
                 .create_session_with_names(proj, ws, cwd.as_deref(), shell_command.as_deref())
-                .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?
+                .map_err(|e| {
+                    ServiceError::Processing(format!("Failed to create tmux session: {}", e))
+                })?
         } else {
             self.tmux_engine
                 .create_session(&workspace_id, cwd.as_deref(), shell_command.as_deref())
-                .map_err(|e| anyhow!("Failed to create tmux session: {}", e))?
+                .map_err(|e| {
+                    ServiceError::Processing(format!("Failed to create tmux session: {}", e))
+                })?
         };
 
         // Create a new tmux window for this terminal pane
@@ -402,11 +443,10 @@ impl TerminalService {
 
                 return match result {
                     Ok((rx, _)) => Ok(rx),
-                    Err(e) => Err(anyhow!(
+                    Err(e) => Err(ServiceError::Processing(format!(
                         "Failed to attach to existing window '{}': {}",
-                        name,
-                        e
-                    )),
+                        name, e
+                    ))),
                 };
             }
         }
@@ -437,7 +477,9 @@ impl TerminalService {
                 cwd.as_deref(),
                 shell_command.as_deref(),
             )
-            .map_err(|e| anyhow!("Failed to create tmux window: {}", e))?;
+            .map_err(|e| {
+                ServiceError::Processing(format!("Failed to create tmux window: {}", e))
+            })?;
 
         // Now attach to this tmux window via PTY
         // We keep the guard until AFTER attach_to_tmux_window completes, which inserts into self.sessions
@@ -467,27 +509,31 @@ impl TerminalService {
 
     /// Create a new simple terminal session (NO tmux persistence)
     /// Returns a receiver for terminal output
-    #[allow(clippy::too_many_arguments)]
     pub async fn create_simple_session(
         &self,
-        session_id: String,
-        workspace_id: String,
-        shell: Option<String>,
-        cols: Option<u16>,
-        rows: Option<u16>,
-        cwd: Option<String>,
-        // Optional metadata for terminal manager
-        project_name: Option<String>,
-        workspace_name: Option<String>,
-        terminal_name: Option<String>,
+        params: CreateSimpleSessionParams,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+        let CreateSimpleSessionParams {
+            session_id,
+            workspace_id,
+            shell,
+            cols,
+            rows,
+            cwd,
+            project_name,
+            workspace_name,
+            terminal_name,
+        } = params;
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
 
         {
             let sessions = self.sessions.lock().await;
             if sessions.contains_key(&session_id) {
-                return Err(anyhow!("Session {} already active", session_id));
+                return Err(ServiceError::Processing(format!(
+                    "Session {} already active",
+                    session_id
+                )));
             }
         }
 
@@ -555,25 +601,28 @@ impl TerminalService {
             }
             Err(_) => {
                 error!("PTY thread failed to respond");
-                Err(anyhow!("PTY initialization failed"))
+                Err(ServiceError::Processing(
+                    "PTY initialization failed".to_string(),
+                ))
             }
         }
     }
 
     /// Attach to an existing tmux window (for reconnection)
-    #[allow(clippy::too_many_arguments)]
     pub async fn attach_session(
         &self,
-        session_id: String,
-        workspace_id: String,
-        tmux_window_index: Option<u32>,
-        tmux_window_name: Option<String>,
-        cols: Option<u16>,
-        rows: Option<u16>,
-        // Optional human-readable names for session lookup
-        project_name: Option<String>,
-        workspace_name: Option<String>,
+        params: AttachSessionParams,
     ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<String>)> {
+        let AttachSessionParams {
+            session_id,
+            workspace_id,
+            tmux_window_index,
+            tmux_window_name,
+            cols,
+            rows,
+            project_name,
+            workspace_name,
+        } = params;
         // Compute tmux session name so we can acquire lock
         let tmux_session_name =
             if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name) {
@@ -638,10 +687,12 @@ impl TerminalService {
         } else if let Some(name) = tmux_window_name {
             self.tmux_engine
                 .find_window_index_by_name(&tmux_session, &name)?
-                .ok_or_else(|| anyhow!("Tmux window with name '{}' not found", name))?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!("Tmux window with name '{}' not found", name))
+                })?
         } else {
-            return Err(anyhow!(
-                "Neither tmux window index nor name provided for attachment"
+            return Err(ServiceError::Validation(
+                "Neither tmux window index nor name provided for attachment".to_string(),
             ));
         };
 
@@ -649,12 +700,12 @@ impl TerminalService {
         if !self
             .tmux_engine
             .window_exists(&tmux_session, final_window_index)
-            .map_err(|e| anyhow!("Failed to check window: {}", e))?
+            .map_err(|e| ServiceError::Processing(format!("Failed to check window: {}", e)))?
         {
-            return Err(anyhow!(
+            return Err(ServiceError::NotFound(format!(
                 "Tmux window does not exist at index {}",
                 final_window_index
-            ));
+            )));
         }
 
         // Capture recent history before attaching (match tmux history-limit)
@@ -714,12 +765,19 @@ impl TerminalService {
         // This ensures this pane has its own independent view of the windows
         self.tmux_engine
             .create_grouped_session(&tmux_session, &client_session_name)
-            .map_err(|e| anyhow!("Failed to create grouped session: {}", e))?;
+            .map_err(|e| {
+                ServiceError::Processing(format!("Failed to create grouped session: {}", e))
+            })?;
 
         // Immediately select the correct window in the client session
         self.tmux_engine
             .select_window(&client_session_name, window_index)
-            .map_err(|e| anyhow!("Failed to select window in grouped session: {}", e))?;
+            .map_err(|e| {
+                ServiceError::Processing(format!(
+                    "Failed to select window in grouped session: {}",
+                    e
+                ))
+            })?;
 
         // Channel for sending commands to the PTY thread
         let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
@@ -790,7 +848,9 @@ impl TerminalService {
             }
             Err(_) => {
                 error!("PTY thread failed to respond");
-                Err(anyhow!("PTY initialization failed"))
+                Err(ServiceError::Processing(
+                    "PTY initialization failed".to_string(),
+                ))
             }
         }
     }
@@ -853,7 +913,7 @@ impl TerminalService {
         let sessions = self.sessions.lock().await;
         let handle = sessions
             .get(session_id)
-            .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
+            .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
 
         if let (Some(tmux_session), Some(window_index)) =
             (&handle.tmux_session, handle.tmux_window_index)
@@ -861,7 +921,9 @@ impl TerminalService {
             let target = format!("{}:{}.0", tmux_session, window_index);
             self.tmux_engine
                 .run_tmux_pub(&["send-keys", "-X", "-t", &target, "cancel"])
-                .map_err(|e| anyhow!("Failed to cancel copy-mode: {}", e))?;
+                .map_err(|e| {
+                    ServiceError::Processing(format!("Failed to cancel copy-mode: {}", e))
+                })?;
         }
         Ok(())
     }
@@ -873,7 +935,7 @@ impl TerminalService {
         let sessions = self.sessions.lock().await;
         let handle = sessions
             .get(session_id)
-            .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
+            .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
 
         if let (Some(tmux_session), Some(window_index)) =
             (&handle.tmux_session, handle.tmux_window_index)
@@ -882,7 +944,9 @@ impl TerminalService {
             let result = self
                 .tmux_engine
                 .run_tmux_pub(&["display-message", "-t", &target, "-p", "#{pane_in_mode}"])
-                .map_err(|e| anyhow!("Failed to check copy-mode: {}", e))?;
+                .map_err(|e| {
+                    ServiceError::Processing(format!("Failed to check copy-mode: {}", e))
+                })?;
             Ok(result.trim() == "1")
         } else {
             Ok(false)
@@ -894,12 +958,12 @@ impl TerminalService {
         let sessions = self.sessions.lock().await;
         let handle = sessions
             .get(session_id)
-            .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
+            .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
 
         handle
             .command_tx
             .send(SessionCommand::Write(data.as_bytes().to_vec()))
-            .map_err(|_| anyhow!("Session thread has exited"))?;
+            .map_err(|_| ServiceError::Processing("Session thread has exited".to_string()))?;
 
         Ok(())
     }
@@ -914,12 +978,12 @@ impl TerminalService {
         let sessions = self.sessions.lock().await;
         let handle = sessions
             .get(session_id)
-            .ok_or_else(|| anyhow!("Session not found: {}", session_id))?;
+            .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
 
         handle
             .command_tx
             .send(SessionCommand::Resize { cols, rows })
-            .map_err(|_| anyhow!("Session thread has exited"))?;
+            .map_err(|_| ServiceError::Processing("Session thread has exited".to_string()))?;
 
         debug!(
             "Terminal session {} resized to {}x{}",
@@ -955,7 +1019,10 @@ impl TerminalService {
             Ok(())
         } else {
             warn!("Attempted to close non-existent session: {}", session_id);
-            Err(anyhow!("Session not found: {}", session_id))
+            Err(ServiceError::NotFound(format!(
+                "Session not found: {}",
+                session_id
+            )))
         }
     }
 
@@ -1010,7 +1077,10 @@ impl TerminalService {
             Ok(())
         } else {
             warn!("Attempted to destroy non-existent session: {}", session_id);
-            Err(anyhow!("Session not found: {}", session_id))
+            Err(ServiceError::NotFound(format!(
+                "Session not found: {}",
+                session_id
+            )))
         }
     }
 
@@ -1032,7 +1102,7 @@ impl TerminalService {
         let windows = self
             .tmux_engine
             .list_windows(&tmux_session)
-            .map_err(|e| anyhow!("{}", e))?;
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
         Ok(windows.into_iter().map(|w| (w.index, w.name)).collect())
     }
 
@@ -1248,12 +1318,91 @@ fn apply_utf8_env_to_pty_command(cmd: &mut CommandBuilder) {
     cmd.env("LC_CTYPE", &locale);
 }
 
+/// Spawn a command inside a new PTY and return master, reader, and writer.
+/// The PTY slave is dropped immediately after spawning to ensure clean EOF on exit.
+fn setup_pty(
+    cols: u16,
+    rows: u16,
+    cmd: CommandBuilder,
+) -> std::result::Result<
+    (
+        Box<dyn portable_pty::MasterPty + Send>,
+        Box<dyn std::io::Read + Send>,
+        Box<dyn std::io::Write + Send>,
+    ),
+    String,
+> {
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| format!("Failed to open PTY: {}", e))?;
+
+    pair.slave
+        .spawn_command(cmd)
+        .map_err(|e| format!("Failed to spawn command: {}", e))?;
+    drop(pair.slave);
+
+    let reader = pair
+        .master
+        .try_clone_reader()
+        .map_err(|e| format!("Failed to clone PTY reader: {}", e))?;
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|e| format!("Failed to get PTY writer: {}", e))?;
+
+    Ok((pair.master, reader, writer))
+}
+
+/// Spawn a thread that reads from the PTY and forwards output to the channel.
+fn spawn_pty_reader(
+    session_id: String,
+    mut reader: Box<dyn std::io::Read + Send>,
+    output_tx: mpsc::UnboundedSender<Vec<u8>>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut buffer = [0u8; 4096];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => {
+                    debug!("PTY reader EOF for session: {}", session_id);
+                    break;
+                }
+                Ok(n) => {
+                    let data = buffer[..n].to_vec();
+                    if output_tx.send(data).is_err() {
+                        debug!("Output channel closed for session: {}", session_id);
+                        break;
+                    }
+                }
+                Err(e) => {
+                    let err_str = e.to_string();
+                    if err_str.contains("Input/output error") || err_str.contains("EIO") {
+                        debug!(
+                            "PTY disconnected for session: {} (expected on close)",
+                            session_id
+                        );
+                    } else {
+                        warn!("PTY read error for session {}: {}", session_id, e);
+                    }
+                    break;
+                }
+            }
+        }
+    })
+}
+
 /// Run PTY session attached to a tmux window
 #[allow(clippy::too_many_arguments)]
 fn run_pty_session_with_tmux(
     session_id: String,
     tmux_session: String, // This is now the client session (grouped)
-    window_index: u32,
+    _window_index: u32,
     _shell: Option<String>,
     cols: u16,
     rows: u16,
@@ -1309,37 +1458,14 @@ fn run_pty_session_with_tmux(
     }
 
     if !session_ready {
-        let _ = init_tx.send(Err(anyhow!(
+        let _ = init_tx.send(Err(ServiceError::Processing(format!(
             "Tmux session '{}' not ready after {} retries",
-            tmux_session,
-            max_retries
-        )));
+            tmux_session, max_retries
+        ))));
         return;
     }
 
-    // Create PTY system
-    let pty_system = native_pty_system();
-
-    // Open PTY with specified size
-    let pair = match pty_system.openpty(PtySize {
-        rows,
-        cols,
-        pixel_width: 0,
-        pixel_height: 0,
-    }) {
-        Ok(pair) => pair,
-        Err(e) => {
-            let _ = init_tx.send(Err(anyhow!("Failed to open PTY: {}", e)));
-            return;
-        }
-    };
-
-    let _target = format!("{}:{}", tmux_session, window_index);
-
-    // For session grouping, we attach to the client session
-    // Since select-window was already called, this session is viewing the correct window
-    // -f /dev/null isolates from user's ~/.tmux.conf which could change the prefix key
-    // or other settings, causing detach and other key-based operations to fail.
+    // Build tmux attach command
     let mut cmd = CommandBuilder::new("tmux");
     cmd.args([
         "-u",
@@ -1351,86 +1477,24 @@ fn run_pty_session_with_tmux(
         "-t",
         &tmux_session,
     ]);
-    // Set TERM so the shell inside tmux (zsh/bash ZLE) correctly detects the
-    // terminal type. Without this, ZLE may fall back to a dumb-terminal mode
-    // that performs its own local echo, causing every typed character to
-    // appear twice (once from PTY line-discipline echo, once from ZLE).
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     apply_utf8_env_to_pty_command(&mut cmd);
 
-    // Spawn the tmux attach process
-    if let Err(e) = pair.slave.spawn_command(cmd) {
-        let _ = init_tx.send(Err(anyhow!("Failed to attach to tmux: {}", e)));
-        return;
-    }
-
-    // CRITICAL: Drop the slave immediately after spawning.
-    // The slave holds a PTY file descriptor. If not dropped, the master's reader
-    // will never see EOF even after the spawned process exits, causing the
-    // reader thread to block forever and the PTY device to leak.
-    // This is the primary cause of "unable to allocate pty: Device not configured".
-    drop(pair.slave);
-
-    // Get reader and writer
-    let mut reader = match pair.master.try_clone_reader() {
-        Ok(r) => r,
+    let (master, reader, mut writer) = match setup_pty(cols, rows, cmd) {
+        Ok(parts) => parts,
         Err(e) => {
-            let _ = init_tx.send(Err(anyhow!("Failed to clone PTY reader: {}", e)));
+            let _ = init_tx.send(Err(ServiceError::Processing(e)));
             return;
         }
     };
-
-    let mut writer = match pair.master.take_writer() {
-        Ok(w) => w,
-        Err(e) => {
-            let _ = init_tx.send(Err(anyhow!("Failed to get PTY writer: {}", e)));
-            return;
-        }
-    };
-
-    // Store master for resize operations
-    let master = pair.master;
 
     // Signal successful initialization
     if init_tx.send(Ok(())).is_err() {
         return;
     }
 
-    // Spawn reader thread
-    let session_id_reader = session_id.clone();
-    let output_tx_clone = output_tx.clone();
-    let reader_handle = thread::spawn(move || {
-        let mut buffer = [0u8; 4096];
-        loop {
-            match reader.read(&mut buffer) {
-                Ok(0) => {
-                    debug!("PTY reader EOF for session: {}", session_id_reader);
-                    break;
-                }
-                Ok(n) => {
-                    let data = buffer[..n].to_vec();
-                    if output_tx_clone.send(data).is_err() {
-                        debug!("Output channel closed for session: {}", session_id_reader);
-                        break;
-                    }
-                }
-                Err(e) => {
-                    // Check if this is expected disconnect
-                    let err_str = e.to_string();
-                    if err_str.contains("Input/output error") || err_str.contains("EIO") {
-                        debug!(
-                            "PTY disconnected for session: {} (expected on close)",
-                            session_id_reader
-                        );
-                    } else {
-                        warn!("PTY read error for session {}: {}", session_id_reader, e);
-                    }
-                    break;
-                }
-            }
-        }
-    });
+    let reader_handle = spawn_pty_reader(session_id.clone(), reader, output_tx.clone());
 
     // Process commands in main thread
     // Use blocking recv since we're in a dedicated thread
@@ -1552,125 +1616,44 @@ fn run_simple_pty_session(
     output_tx: mpsc::UnboundedSender<Vec<u8>>,
     init_tx: oneshot::Sender<Result<()>>,
 ) {
-    // Create PTY system
-    let pty_system = native_pty_system();
-
-    // Open PTY with specified size
-    let pair = match pty_system.openpty(PtySize {
-        rows,
-        cols,
-        pixel_width: 0,
-        pixel_height: 0,
-    }) {
-        Ok(pair) => pair,
-        Err(e) => {
-            let _ = init_tx.send(Err(anyhow!("Failed to open PTY: {}", e)));
-            return;
-        }
-    };
-
-    // Try to build shell command with shim injection for dynamic title support
+    // Build shell command with optional shim injection for dynamic title support
     let shell_command = shims_dir
         .as_ref()
         .and_then(|dir| core_engine::shims::build_shell_command(dir, shell.as_deref()));
 
-    // Determine the actual command to run
-    let (shell_cmd, cmd) = if let Some(ref shell_args) = shell_command {
-        // Use shim-injected command (e.g., ["bash", "--init-file", "/path/to/shim"])
+    let mut cmd = if let Some(ref shell_args) = shell_command {
         let mut cmd = CommandBuilder::new(&shell_args[0]);
         for arg in &shell_args[1..] {
             cmd.arg(arg);
         }
-        (shell_args[0].clone(), cmd)
+        cmd
     } else {
-        // Fallback: plain shell without shim
         let shell_cmd = shell
             .unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string()));
-        let cmd = CommandBuilder::new(&shell_cmd);
-        (shell_cmd, cmd)
+        CommandBuilder::new(&shell_cmd)
     };
 
-    let mut cmd = cmd;
-
-    // Set CWD if provided
     if let Some(dir) = cwd {
         cmd.cwd(dir);
     }
-
-    // Set basic environment variables
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
     apply_utf8_env_to_pty_command(&mut cmd);
 
-    // Spawn the shell process
-    if let Err(e) = pair.slave.spawn_command(cmd) {
-        let _ = init_tx.send(Err(anyhow!("Failed to spawn shell '{}': {}", shell_cmd, e)));
-        return;
-    }
-
-    // CRITICAL: Drop the slave immediately after spawning.
-    // See run_pty_session_with_tmux for detailed explanation.
-    drop(pair.slave);
-
-    // Get reader and writer
-    let mut reader = match pair.master.try_clone_reader() {
-        Ok(r) => r,
+    let (master, reader, mut writer) = match setup_pty(cols, rows, cmd) {
+        Ok(parts) => parts,
         Err(e) => {
-            let _ = init_tx.send(Err(anyhow!("Failed to clone PTY reader: {}", e)));
+            let _ = init_tx.send(Err(ServiceError::Processing(e)));
             return;
         }
     };
-
-    let mut writer = match pair.master.take_writer() {
-        Ok(w) => w,
-        Err(e) => {
-            let _ = init_tx.send(Err(anyhow!("Failed to get PTY writer: {}", e)));
-            return;
-        }
-    };
-
-    // Store master for resize operations
-    let master = pair.master;
 
     // Signal successful initialization
     if init_tx.send(Ok(())).is_err() {
         return;
     }
 
-    // Spawn reader thread
-    let session_id_reader = session_id.clone();
-    let output_tx_clone = output_tx.clone();
-    let reader_handle = thread::spawn(move || {
-        let mut buffer = [0u8; 4096];
-        loop {
-            match reader.read(&mut buffer) {
-                Ok(0) => {
-                    debug!("PTY reader EOF for session: {}", session_id_reader);
-                    break;
-                }
-                Ok(n) => {
-                    let data = buffer[..n].to_vec();
-                    if output_tx_clone.send(data).is_err() {
-                        debug!("Output channel closed for session: {}", session_id_reader);
-                        break;
-                    }
-                }
-                Err(e) => {
-                    // Check if this is expected disconnect
-                    let err_str = e.to_string();
-                    if err_str.contains("Input/output error") || err_str.contains("EIO") {
-                        debug!(
-                            "PTY disconnected for session: {} (expected on close)",
-                            session_id_reader
-                        );
-                    } else {
-                        warn!("PTY read error for session {}: {}", session_id_reader, e);
-                    }
-                    break;
-                }
-            }
-        }
-    });
+    let reader_handle = spawn_pty_reader(session_id.clone(), reader, output_tx.clone());
 
     // Process commands in main thread
     let rt = tokio::runtime::Builder::new_current_thread()

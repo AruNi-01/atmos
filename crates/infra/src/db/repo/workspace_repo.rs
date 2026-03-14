@@ -24,7 +24,7 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 根据项目 GUID 查询所有工作区（过滤已归档，按置顶优先、pinned_at DESC、created_at DESC 排序）
-    pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<workspace::Model>> {
+    pub async fn list_by_project(&self, project_guid: &str) -> Result<Vec<workspace::Model>> {
         let workspaces = workspace::Entity::find()
             .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))
@@ -38,8 +38,8 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 根据 GUID 查询单个工作区
-    pub async fn find_by_guid(&self, guid: String) -> Result<Option<workspace::Model>> {
-        let workspace = workspace::Entity::find_by_id(guid)
+    pub async fn find_by_guid(&self, guid: &str) -> Result<Option<workspace::Model>> {
+        let workspace = workspace::Entity::find_by_id(guid.to_string())
             .filter(workspace::Column::IsDeleted.eq(false))
             .one(self.db)
             .await?;
@@ -78,8 +78,8 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 更新工作区名称
-    pub async fn update_name(&self, guid: String, name: String) -> Result<()> {
-        workspace::Entity::update_many()
+    pub async fn update_name(&self, guid: &str, name: String) -> Result<()> {
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::Name, Expr::value(name))
             .col_expr(
                 workspace::Column::UpdatedAt,
@@ -89,12 +89,17 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
     /// 更新工作区分支
-    pub async fn update_branch(&self, guid: String, branch: String) -> Result<()> {
-        workspace::Entity::update_many()
+    pub async fn update_branch(&self, guid: &str, branch: String) -> Result<()> {
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::Branch, Expr::value(branch))
             .col_expr(
                 workspace::Column::UpdatedAt,
@@ -104,12 +109,17 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
     /// 更新侧边栏排序
-    pub async fn update_order(&self, guid: String, order: i32) -> Result<()> {
-        workspace::Entity::update_many()
+    pub async fn update_order(&self, guid: &str, order: i32) -> Result<()> {
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::SidebarOrder, Expr::value(order))
             .col_expr(
                 workspace::Column::UpdatedAt,
@@ -119,17 +129,24 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
     /// 删除工作区（硬删除）
-    pub async fn delete(&self, guid: String) -> Result<()> {
-        workspace::Entity::delete_by_id(guid).exec(self.db).await?;
+    pub async fn delete(&self, guid: &str) -> Result<()> {
+        workspace::Entity::delete_by_id(guid.to_string())
+            .exec(self.db)
+            .await?;
         Ok(())
     }
 
     /// 软删除工作区（将 is_deleted 设置为 true）
-    pub async fn soft_delete(&self, guid: String) -> Result<()> {
+    pub async fn soft_delete(&self, guid: &str) -> Result<()> {
         tracing::info!(
             "[soft_delete] Attempting to soft delete workspace: {}",
             guid
@@ -140,7 +157,7 @@ impl<'a> WorkspaceRepo<'a> {
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
             )
-            .filter(workspace::Column::Guid.eq(guid.clone()))
+            .filter(workspace::Column::Guid.eq(guid))
             .exec(self.db)
             .await?;
         tracing::info!(
@@ -152,7 +169,7 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 批量软删除项目下的所有工作区
-    pub async fn soft_delete_by_project(&self, project_guid: String) -> Result<u64> {
+    pub async fn soft_delete_by_project(&self, project_guid: &str) -> Result<u64> {
         tracing::info!(
             "[soft_delete_by_project] Soft deleting all workspaces for project: {}",
             project_guid
@@ -163,7 +180,7 @@ impl<'a> WorkspaceRepo<'a> {
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
             )
-            .filter(workspace::Column::ProjectGuid.eq(project_guid.clone()))
+            .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
@@ -176,9 +193,9 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 置顶工作区
-    pub async fn pin_workspace(&self, guid: String) -> Result<()> {
+    pub async fn pin_workspace(&self, guid: &str) -> Result<()> {
         let now = chrono::Utc::now().naive_utc();
-        workspace::Entity::update_many()
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::IsPinned, Expr::value(true))
             .col_expr(workspace::Column::PinnedAt, Expr::value(Some(now)))
             .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
@@ -186,12 +203,17 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
     /// 取消置顶工作区
-    pub async fn unpin_workspace(&self, guid: String) -> Result<()> {
-        workspace::Entity::update_many()
+    pub async fn unpin_workspace(&self, guid: &str) -> Result<()> {
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::IsPinned, Expr::value(false))
             .col_expr(
                 workspace::Column::PinnedAt,
@@ -205,13 +227,18 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
     /// 归档工作区
-    pub async fn archive_workspace(&self, guid: String) -> Result<()> {
+    pub async fn archive_workspace(&self, guid: &str) -> Result<()> {
         let now = chrono::Utc::now().naive_utc();
-        workspace::Entity::update_many()
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::IsArchived, Expr::value(true))
             .col_expr(workspace::Column::ArchivedAt, Expr::value(Some(now)))
             .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
@@ -219,12 +246,17 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
     /// 取消归档工作区
-    pub async fn unarchive_workspace(&self, guid: String) -> Result<()> {
-        workspace::Entity::update_many()
+    pub async fn unarchive_workspace(&self, guid: &str) -> Result<()> {
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::IsArchived, Expr::value(false))
             .col_expr(
                 workspace::Column::ArchivedAt,
@@ -238,12 +270,17 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
     /// 获取工作区终端布局
-    pub async fn get_terminal_layout(&self, guid: String) -> Result<Option<String>> {
-        let workspace = workspace::Entity::find_by_id(guid)
+    pub async fn get_terminal_layout(&self, guid: &str) -> Result<Option<String>> {
+        let workspace = workspace::Entity::find_by_id(guid.to_string())
             .filter(workspace::Column::IsDeleted.eq(false))
             .one(self.db)
             .await?;
@@ -251,8 +288,8 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 更新工作区终端布局
-    pub async fn update_terminal_layout(&self, guid: String, layout: Option<String>) -> Result<()> {
-        workspace::Entity::update_many()
+    pub async fn update_terminal_layout(&self, guid: &str, layout: Option<String>) -> Result<()> {
+        let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::TerminalLayout, Expr::value(layout))
             .col_expr(
                 workspace::Column::UpdatedAt,
@@ -262,16 +299,21 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
     /// 更新工作区最大化终端 ID
     pub async fn update_maximized_terminal_id(
         &self,
-        guid: String,
+        guid: &str,
         terminal_id: Option<String>,
     ) -> Result<()> {
-        workspace::Entity::update_many()
+        let result = workspace::Entity::update_many()
             .col_expr(
                 workspace::Column::MaximizedTerminalId,
                 Expr::value(terminal_id),
@@ -284,6 +326,11 @@ impl<'a> WorkspaceRepo<'a> {
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
         Ok(())
     }
 
@@ -299,7 +346,7 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 检查项目下所有非删除的工作区是否都已归档
-    pub async fn check_all_workspaces_archived(&self, project_guid: String) -> Result<bool> {
+    pub async fn check_all_workspaces_archived(&self, project_guid: &str) -> Result<bool> {
         let non_archived_count = workspace::Entity::find()
             .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))
@@ -310,7 +357,7 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 获取项目下所有非删除的工作区（包括已归档的）
-    pub async fn list_all_by_project(&self, project_guid: String) -> Result<Vec<workspace::Model>> {
+    pub async fn list_all_by_project(&self, project_guid: &str) -> Result<Vec<workspace::Model>> {
         let workspaces = workspace::Entity::find()
             .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))
@@ -320,7 +367,7 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 获取项目下非归档工作区的数量
-    pub async fn count_active_by_project(&self, project_guid: String) -> Result<u64> {
+    pub async fn count_active_by_project(&self, project_guid: &str) -> Result<u64> {
         let count = workspace::Entity::find()
             .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))

@@ -147,7 +147,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   createdAt,
   isProjectOnly = false,
 }) => {
-  const { openFile } = useEditorStore();
+  const openFile = useEditorStore(s => s.openFile);
   const {
     requirement,
     requirementLoading,

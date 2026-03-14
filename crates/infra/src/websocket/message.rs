@@ -21,7 +21,7 @@ pub enum WsMessage {
     /// 通用响应
     Response(WsResponse),
     /// 错误响应
-    Error(WsError),
+    Error(WsErrorPayload),
     /// 服务端主动通知
     Notification(WsNotification),
 }
@@ -66,14 +66,11 @@ pub struct WsResponse {
     pub data: Value,
 }
 
-/// 错误响应
+/// Serializable error payload sent to WebSocket clients.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WsError {
-    /// 关联的请求 ID
+pub struct WsErrorPayload {
     pub request_id: String,
-    /// 错误代码
     pub code: String,
-    /// 错误消息
     pub message: String,
 }
 
@@ -1218,7 +1215,7 @@ impl WsMessage {
         code: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
-        Self::Error(WsError {
+        Self::Error(WsErrorPayload {
             request_id: request_id.into(),
             code: code.into(),
             message: message.into(),

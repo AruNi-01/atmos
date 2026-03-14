@@ -35,11 +35,25 @@ impl IntoResponse for ApiError {
             ApiError::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
             ApiError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             ApiError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
-            ApiError::ServiceError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            ApiError::ServiceError(e) => {
+                use core_service::ServiceError;
+                match e {
+                    ServiceError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+                    ServiceError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+                    ServiceError::Repository(msg) => {
+                        (StatusCode::INTERNAL_SERVER_ERROR, msg.clone())
+                    }
+                    _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+                }
+            }
             ApiError::InfraError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         };
 
-        tracing::error!(%status, error = %message, error_variant = ?self, "API error response");
+        if status.is_client_error() {
+            tracing::warn!(%status, error = %message, "Client error response");
+        } else {
+            tracing::error!(%status, error = %message, error_variant = ?self, "Server error response");
+        }
 
         let body = Json(json!({
             "error": message

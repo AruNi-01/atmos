@@ -1,6 +1,6 @@
+use crate::logging;
 use crate::state::AppState;
 use serde_json::json;
-use std::io::Write;
 
 #[tauri::command]
 pub fn get_api_config(state: tauri::State<AppState>) -> Result<serde_json::Value, String> {
@@ -17,26 +17,9 @@ pub fn get_api_config(state: tauri::State<AppState>) -> Result<serde_json::Value
 }
 
 #[tauri::command]
-pub fn write_debug_log(message: String) -> Result<(), String> {
-    let log_dir = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("own_space/OpenSource/atmos/logs");
-
-    std::fs::create_dir_all(&log_dir).map_err(|e| e.to_string())?;
-
-    let log_file = log_dir.join("desktop-debug.log");
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_file)
-        .map_err(|e| e.to_string())?;
-
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
-
-    writeln!(file, "[{}] {}", ts, message).map_err(|e| e.to_string())?;
+pub fn write_debug_log(app: tauri::AppHandle, message: String) -> Result<(), String> {
+    let log_file = logging::app_log_path(&app, "desktop-debug.log");
+    logging::append_log(&log_file, &message);
     Ok(())
 }
 

@@ -1,7 +1,8 @@
 mod commands;
+mod logging;
 mod state;
 
-use std::ffi::CStr;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -12,6 +13,56 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_shell::ShellExt;
 
 use state::AppState;
+
+const STARTUP_OUTPUT_BUFFER_LIMIT: usize = 20;
+
+struct StartupDiagnostics {
+    stdout: VecDeque<String>,
+    stderr: VecDeque<String>,
+    log_path: PathBuf,
+}
+
+impl StartupDiagnostics {
+    fn new(log_path: PathBuf) -> Self {
+        Self {
+            stdout: VecDeque::with_capacity(STARTUP_OUTPUT_BUFFER_LIMIT),
+            stderr: VecDeque::with_capacity(STARTUP_OUTPUT_BUFFER_LIMIT),
+            log_path,
+        }
+    }
+
+    fn record_stdout(&mut self, line: &str) {
+        push_bounded_line(&mut self.stdout, line);
+        logging::append_log(&self.log_path, &format!("stdout: {line}"));
+    }
+
+    fn record_stderr(&mut self, line: &str) {
+        push_bounded_line(&mut self.stderr, line);
+        logging::append_log(&self.log_path, &format!("stderr: {line}"));
+    }
+
+    fn record_internal(&mut self, line: &str) {
+        push_bounded_line(&mut self.stderr, line);
+        logging::append_log(&self.log_path, line);
+    }
+
+    fn startup_error(&self, summary: impl Into<String>) -> String {
+        let mut message = summary.into();
+
+        if !self.stderr.is_empty() {
+            message.push_str("\n\nRecent stderr:\n");
+            message.push_str(&self.stderr.iter().cloned().collect::<Vec<_>>().join("\n"));
+        }
+
+        if !self.stdout.is_empty() {
+            message.push_str("\n\nRecent stdout:\n");
+            message.push_str(&self.stdout.iter().cloned().collect::<Vec<_>>().join("\n"));
+        }
+
+        message.push_str(&format!("\n\nLog file: {}", self.log_path.display()));
+        message
+    }
+}
 
 fn main() {
     let app = tauri::Builder::default()
@@ -262,6 +313,9 @@ async fn spawn_and_wait_sidecar(
     api_token: String,
     static_dir: Option<PathBuf>,
 ) -> Result<(), String> {
+    let sidecar_log_path = logging::app_log_path(app_handle, "sidecar.log");
+    let mut diagnostics = StartupDiagnostics::new(sidecar_log_path.clone());
+
     let data_dir = app_handle
         .path()
         .app_data_dir()
@@ -312,6 +366,15 @@ async fn spawn_and_wait_sidecar(
         }
     }
 
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        let bundled_skills_dir = resource_dir.join("system-skills");
+        if bundled_skills_dir.is_dir() {
+            if let Some(dir_str) = bundled_skills_dir.to_str() {
+                sidecar_cmd = sidecar_cmd.env("ATMOS_SYSTEM_SKILLS_DIR", dir_str);
+            }
+        }
+    }
+
     let (mut rx, child) = sidecar_cmd.spawn().map_err(|e| e.to_string())?;
 
     {
@@ -323,88 +386,115 @@ async fn spawn_and_wait_sidecar(
         *guard = Some(child);
     }
 
-    let log_dir = dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("own_space/OpenSource/atmos/logs");
-    let _ = std::fs::create_dir_all(&log_dir);
-    let sidecar_log_path = log_dir.join("sidecar.log");
-
     let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
     loop {
         let now = tokio::time::Instant::now();
         if now >= deadline {
-            return Err("API startup timeout (no ready signal received)".to_string());
+            terminate_sidecar(app_handle);
+            return Err(diagnostics.startup_error("API startup timeout (no ready signal received)"));
         }
 
         let remaining = deadline - now;
         let event = tokio::time::timeout(remaining, rx.recv())
             .await
-            .map_err(|_| "API startup timeout while waiting for sidecar output".to_string())?;
+            .map_err(|_| {
+                terminate_sidecar(app_handle);
+                diagnostics.startup_error("API startup timeout while waiting for sidecar output")
+            })?;
 
         let Some(event) = event else {
-            return Err("API sidecar exited before ready signal".to_string());
+            terminate_sidecar(app_handle);
+            return Err(diagnostics.startup_error("API sidecar exited before ready signal"));
         };
 
         match event {
             tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
-                let text = String::from_utf8_lossy(&line);
-                eprintln!("[sidecar stdout] {}", text.trim());
-                append_sidecar_log(&sidecar_log_path, &format!("stdout: {}", text.trim()));
-                if let Some(port) = parse_ready_port(&text) {
-                    {
-                        let app_state = app_handle.state::<AppState>();
-                        let mut guard = app_state
-                            .api_port
-                            .lock()
-                            .map_err(|_| "state lock poisoned".to_string())?;
-                        *guard = Some(port);
-                    }
-                    wait_for_api(port).await?;
-                    append_sidecar_log(
-                        &sidecar_log_path,
-                        &format!("healthz OK port={port}, continuing to monitor"),
-                    );
-                    tokio::spawn(async move {
-                        while let Some(ev) = rx.recv().await {
-                            match ev {
-                                tauri_plugin_shell::process::CommandEvent::Stdout(l) => {
-                                    let t = String::from_utf8_lossy(&l);
-                                    eprintln!("[sidecar stdout] {}", t.trim());
-                                    append_sidecar_log(
-                                        &sidecar_log_path,
-                                        &format!("stdout: {}", t.trim()),
-                                    );
-                                }
-                                tauri_plugin_shell::process::CommandEvent::Stderr(l) => {
-                                    let t = String::from_utf8_lossy(&l);
-                                    eprintln!("[sidecar stderr] {}", t.trim());
-                                    append_sidecar_log(
-                                        &sidecar_log_path,
-                                        &format!("stderr: {}", t.trim()),
-                                    );
-                                }
-                                tauri_plugin_shell::process::CommandEvent::Terminated(p) => {
-                                    let msg = format!("TERMINATED: {:?}", p);
-                                    eprintln!("[sidecar] {}", msg);
-                                    append_sidecar_log(&sidecar_log_path, &msg);
-                                    break;
-                                }
-                                _ => {}
-                            }
+                if let Some(text) = normalized_output(&line) {
+                    eprintln!("[sidecar stdout] {}", text);
+                    diagnostics.record_stdout(&text);
+                    if let Some(port) = parse_ready_port(&text) {
+                        {
+                            let app_state = app_handle.state::<AppState>();
+                            let mut guard = app_state
+                                .api_port
+                                .lock()
+                                .map_err(|_| "state lock poisoned".to_string())?;
+                            *guard = Some(port);
                         }
-                    });
-                    return Ok(());
+                        wait_for_api(port).await.map_err(|error| {
+                            terminate_sidecar(app_handle);
+                            diagnostics.startup_error(error)
+                        })?;
+                        logging::append_log(
+                            &sidecar_log_path,
+                            &format!("healthz OK port={port}, continuing to monitor"),
+                        );
+                        tokio::spawn(async move {
+                            while let Some(ev) = rx.recv().await {
+                                match ev {
+                                    tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
+                                        if let Some(text) = normalized_output(&line) {
+                                            eprintln!("[sidecar stdout] {}", text);
+                                            logging::append_log(
+                                                &sidecar_log_path,
+                                                &format!("stdout: {text}"),
+                                            );
+                                        }
+                                    }
+                                    tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
+                                        if let Some(text) = normalized_output(&line) {
+                                            eprintln!("[sidecar stderr] {}", text);
+                                            logging::append_log(
+                                                &sidecar_log_path,
+                                                &format!("stderr: {text}"),
+                                            );
+                                        }
+                                    }
+                                    tauri_plugin_shell::process::CommandEvent::Error(error) => {
+                                        let text = format!("sidecar monitor error: {error}");
+                                        eprintln!("[sidecar error] {}", text);
+                                        logging::append_log(&sidecar_log_path, &text);
+                                    }
+                                    tauri_plugin_shell::process::CommandEvent::Terminated(
+                                        payload,
+                                    ) => {
+                                        let msg = format!(
+                                            "TERMINATED code={:?} signal={:?}",
+                                            payload.code, payload.signal
+                                        );
+                                        eprintln!("[sidecar] {}", msg);
+                                        logging::append_log(&sidecar_log_path, &msg);
+                                        break;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        });
+                        return Ok(());
+                    }
                 }
             }
             tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
-                let text = String::from_utf8_lossy(&line);
-                eprintln!("[sidecar stderr] {}", text.trim());
-                append_sidecar_log(&sidecar_log_path, &format!("stderr: {}", text.trim()));
+                if let Some(text) = normalized_output(&line) {
+                    eprintln!("[sidecar stderr] {}", text);
+                    diagnostics.record_stderr(&text);
+                }
+            }
+            tauri_plugin_shell::process::CommandEvent::Error(error) => {
+                let text = format!("API sidecar process error: {error}");
+                eprintln!("[sidecar error] {}", text);
+                diagnostics.record_internal(&text);
+                terminate_sidecar(app_handle);
+                return Err(diagnostics.startup_error(text));
             }
             tauri_plugin_shell::process::CommandEvent::Terminated(payload) => {
-                let msg = format!("API sidecar terminated early: {:?}", payload);
-                append_sidecar_log(&sidecar_log_path, &msg);
-                return Err(msg);
+                let msg = format!(
+                    "API sidecar terminated early (exit code: {:?}, signal: {:?})",
+                    payload.code, payload.signal
+                );
+                diagnostics.record_internal(&msg);
+                terminate_sidecar(app_handle);
+                return Err(diagnostics.startup_error(msg));
             }
             _ => {}
         }
@@ -418,18 +508,35 @@ fn parse_ready_port(line: &str) -> Option<u16> {
         .ok()
 }
 
-fn append_sidecar_log(path: &std::path::Path, msg: &str) {
-    use std::io::Write;
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-    {
-        let _ = writeln!(f, "[{ts}] {msg}");
+fn push_bounded_line(lines: &mut VecDeque<String>, line: &str) {
+    if lines.len() == STARTUP_OUTPUT_BUFFER_LIMIT {
+        lines.pop_front();
+    }
+    lines.push_back(line.to_string());
+}
+
+fn normalized_output(raw: &[u8]) -> Option<String> {
+    let line = String::from_utf8_lossy(raw);
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn terminate_sidecar(app_handle: &tauri::AppHandle) {
+    let child = {
+        let state = app_handle.state::<AppState>();
+        state
+            .sidecar_child
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.take())
+    };
+
+    if let Some(child) = child {
+        let _ = child.kill();
     }
 }
 

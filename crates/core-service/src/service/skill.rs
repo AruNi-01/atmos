@@ -80,6 +80,27 @@ impl ScanStatus {
     }
 }
 
+/// Shared context for recursive skill scanning (immutable per scan tree).
+struct ScanContext<'a> {
+    scan_base: &'a Path,
+    scope_root: &'a Path,
+    scope: &'a str,
+    skill_dir: &'a str,
+    agent: &'a str,
+    project_id: Option<String>,
+    project_name: Option<String>,
+    status: ScanStatus,
+}
+
+/// Per-entry classification data produced during directory traversal.
+struct SkillEntryMeta {
+    original_path: PathBuf,
+    resolved_path: Option<PathBuf>,
+    entry_kind: String,
+    symlink_target: Option<String>,
+    status: ScanStatus,
+}
+
 pub struct SkillScanner;
 
 pub struct SkillManager;
@@ -109,6 +130,7 @@ impl SkillScanner {
     }
 
     /// Scan for a specific skill by stable id.
+    /// Full scan is required because merge_skills deduplicates placements across agents.
     pub fn scan_one(
         project_paths: &[(String, String, String)],
         scope: &str,
@@ -167,35 +189,25 @@ impl SkillScanner {
                 continue;
             }
 
-            Self::scan_skill_entries_recursive(
-                &skills_path,
+            let ctx = ScanContext {
                 scan_base,
                 scope_root,
                 scope,
                 skill_dir,
                 agent,
-                project_id.clone(),
-                project_name.clone(),
+                project_id: project_id.clone(),
+                project_name: project_name.clone(),
                 status,
-                &mut visited_dirs,
-                &mut skills,
-            );
+            };
+            Self::scan_skill_entries_recursive(&skills_path, &ctx, &mut visited_dirs, &mut skills);
         }
 
         skills
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn scan_skill_entries_recursive(
         current_dir: &Path,
-        scan_base: &Path,
-        scope_root: &Path,
-        scope: &str,
-        skill_dir: &str,
-        agent: &str,
-        project_id: Option<String>,
-        project_name: Option<String>,
-        status: ScanStatus,
+        ctx: &ScanContext,
         visited_dirs: &mut HashSet<PathBuf>,
         skills: &mut Vec<SkillInfo>,
     ) {
@@ -224,9 +236,10 @@ impl SkillScanner {
                 Err(_) => continue,
             };
 
-            let current_scope = Self::normalize_scope(scope, skill_dir);
-            let original_path = Self::derive_original_path(&path, scan_base, scope_root, status)
-                .unwrap_or_else(|| path.clone());
+            let current_scope = Self::normalize_scope(ctx.scope, ctx.skill_dir);
+            let original_path =
+                Self::derive_original_path(&path, ctx.scan_base, ctx.scope_root, ctx.status)
+                    .unwrap_or_else(|| path.clone());
             let resolved_path = Self::resolve_entry_path(&path, &original_path, &metadata);
             let entry_kind = Self::classify_entry_kind(&path, &metadata);
             let symlink_target = if metadata.file_type().is_symlink() {
@@ -237,59 +250,50 @@ impl SkillScanner {
                 None
             };
 
-            if Self::entry_behaves_like_directory(&path, &original_path, &metadata) {
-                if Self::directory_contains_main_file(&path, resolved_path.as_deref()) {
+            let meta = SkillEntryMeta {
+                original_path,
+                resolved_path,
+                entry_kind,
+                symlink_target,
+                status: ctx.status,
+            };
+
+            if Self::entry_behaves_like_directory(&path, &meta.original_path, &metadata) {
+                if Self::directory_contains_main_file(&path, meta.resolved_path.as_deref()) {
                     if let Some(mut skill) = Self::parse_skill_dir(
                         &path,
-                        agent,
+                        ctx.agent,
                         current_scope.as_str(),
-                        project_id.clone(),
-                        project_name.clone(),
-                        status,
-                        original_path,
-                        resolved_path,
-                        entry_kind,
-                        symlink_target,
+                        ctx.project_id.clone(),
+                        ctx.project_name.clone(),
+                        meta,
                     ) {
-                        Self::apply_unified_label(&mut skill, skill_dir);
+                        Self::apply_unified_label(&mut skill, ctx.skill_dir);
                         skills.push(skill);
                     }
                     continue;
                 }
 
-                if Self::entry_can_contain_nested_skills(&path, resolved_path.as_deref(), &metadata)
-                {
-                    Self::scan_skill_entries_recursive(
-                        &path,
-                        scan_base,
-                        scope_root,
-                        scope,
-                        skill_dir,
-                        agent,
-                        project_id.clone(),
-                        project_name.clone(),
-                        status,
-                        visited_dirs,
-                        skills,
-                    );
+                if Self::entry_can_contain_nested_skills(
+                    &path,
+                    meta.resolved_path.as_deref(),
+                    &metadata,
+                ) {
+                    Self::scan_skill_entries_recursive(&path, ctx, visited_dirs, skills);
                 }
                 continue;
             }
 
-            if Self::entry_behaves_like_markdown_file(&path, &original_path, &metadata) {
+            if Self::entry_behaves_like_markdown_file(&path, &meta.original_path, &metadata) {
                 if let Some(mut skill) = Self::parse_skill_file(
                     &path,
-                    agent,
+                    ctx.agent,
                     current_scope.as_str(),
-                    project_id.clone(),
-                    project_name.clone(),
-                    status,
-                    original_path,
-                    resolved_path,
-                    entry_kind,
-                    symlink_target,
+                    ctx.project_id.clone(),
+                    ctx.project_name.clone(),
+                    meta,
                 ) {
-                    Self::apply_unified_label(&mut skill, skill_dir);
+                    Self::apply_unified_label(&mut skill, ctx.skill_dir);
                     skills.push(skill);
                 }
             }
@@ -497,18 +501,13 @@ impl SkillScanner {
     }
 
     /// Parse a skill directory.
-    #[allow(clippy::too_many_arguments)]
     fn parse_skill_dir(
         path: &Path,
         agent: &str,
         scope: &str,
         project_id: Option<String>,
         project_name: Option<String>,
-        status: ScanStatus,
-        original_path: PathBuf,
-        resolved_path: Option<PathBuf>,
-        entry_kind: String,
-        symlink_target: Option<String>,
+        meta: SkillEntryMeta,
     ) -> Option<SkillInfo> {
         let name = path.file_name()?.to_string_lossy().to_string();
         let files = Self::collect_skill_files(path);
@@ -539,27 +538,18 @@ impl SkillScanner {
             project_id,
             project_name,
             path,
-            original_path,
-            resolved_path,
-            status,
-            entry_kind,
-            symlink_target,
+            meta,
         ))
     }
 
     /// Parse a single file skill.
-    #[allow(clippy::too_many_arguments)]
     fn parse_skill_file(
         path: &Path,
         agent: &str,
         scope: &str,
         project_id: Option<String>,
         project_name: Option<String>,
-        status: ScanStatus,
-        original_path: PathBuf,
-        resolved_path: Option<PathBuf>,
-        entry_kind: String,
-        symlink_target: Option<String>,
+        meta: SkillEntryMeta,
     ) -> Option<SkillInfo> {
         let name = path.file_stem()?.to_string_lossy().to_string();
         let file_name = path.file_name()?.to_string_lossy().to_string();
@@ -594,11 +584,7 @@ impl SkillScanner {
             project_id,
             project_name,
             path,
-            original_path,
-            resolved_path,
-            status,
-            entry_kind,
-            symlink_target,
+            meta,
         ))
     }
 
@@ -613,11 +599,7 @@ impl SkillScanner {
         project_id: Option<String>,
         project_name: Option<String>,
         current_path: &Path,
-        original_path: PathBuf,
-        resolved_path: Option<PathBuf>,
-        status: ScanStatus,
-        entry_kind: String,
-        symlink_target: Option<String>,
+        meta: SkillEntryMeta,
     ) -> SkillInfo {
         let manageable = is_manageable_scope(scope);
         let skill_id = build_skill_id(scope, project_id.as_deref(), &name);
@@ -625,8 +607,8 @@ impl SkillScanner {
             scope,
             project_id.as_deref(),
             agent,
-            &original_path,
-            status.as_str(),
+            &meta.original_path,
+            meta.status.as_str(),
         );
 
         SkillInfo {
@@ -640,7 +622,7 @@ impl SkillScanner {
             path: current_path.to_string_lossy().to_string(),
             files,
             title,
-            status: status.as_str().to_string(),
+            status: meta.status.as_str().to_string(),
             manageable,
             can_delete: manageable,
             can_toggle: manageable,
@@ -651,11 +633,11 @@ impl SkillScanner {
                 project_id,
                 project_name,
                 path: current_path.to_string_lossy().to_string(),
-                original_path: original_path.to_string_lossy().to_string(),
-                resolved_path: resolved_path.map(|p| p.to_string_lossy().to_string()),
-                status: status.as_str().to_string(),
-                entry_kind,
-                symlink_target,
+                original_path: meta.original_path.to_string_lossy().to_string(),
+                resolved_path: meta.resolved_path.map(|p| p.to_string_lossy().to_string()),
+                status: meta.status.as_str().to_string(),
+                entry_kind: meta.entry_kind,
+                symlink_target: meta.symlink_target,
                 can_delete: manageable,
                 can_toggle: manageable,
             }],
@@ -818,17 +800,20 @@ impl SkillScanner {
         (content, None)
     }
 
-    /// Extract a field from YAML frontmatter using simple regex.
     fn extract_from_frontmatter(frontmatter: &str, field: &str) -> Option<String> {
-        use regex::Regex;
-        let pattern = format!(r"(?m)^{}:\s*(.*)$", field);
-        let re = Regex::new(&pattern).ok()?;
-        re.captures(frontmatter)
-            .map(|caps| {
-                let val = caps[1].trim();
-                val.trim_matches('"').trim_matches('\'').to_string()
-            })
-            .filter(|s: &String| !s.is_empty())
+        for line in frontmatter.lines() {
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix(field) {
+                if let Some(value) = rest.strip_prefix(':') {
+                    let val = value.trim();
+                    let val = val.trim_matches('"').trim_matches('\'');
+                    if !val.is_empty() {
+                        return Some(val.to_string());
+                    }
+                }
+            }
+        }
+        None
     }
 }
 

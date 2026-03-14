@@ -1,14 +1,14 @@
 //! File system operations for project browsing and validation.
 
-use crate::error::EngineError;
 use ignore::{gitignore::GitignoreBuilder, WalkBuilder};
+use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub type Result<T> = std::result::Result<T, EngineError>;
+use crate::error::{EngineError, Result};
 
 /// File system entry representing a file or directory
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FsEntry {
     pub name: String,
     pub path: PathBuf,
@@ -20,7 +20,7 @@ pub struct FsEntry {
 }
 
 /// File tree item for project file listing
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FileTreeItem {
     pub name: String,
     pub path: PathBuf,
@@ -29,6 +29,24 @@ pub struct FileTreeItem {
     pub is_ignored: bool,
     pub symlink_target: Option<String>,
     pub children: Option<Vec<FileTreeItem>>,
+}
+
+/// Sort directories first, then alphabetically by name (case-insensitive).
+fn dir_first_alpha_sort(a: &FsEntry, b: &FsEntry) -> std::cmp::Ordering {
+    match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+    }
+}
+
+/// Sort FileTreeItems: directories first, then alphabetically by name (case-insensitive).
+fn dir_first_alpha_sort_tree(a: &FileTreeItem, b: &FileTreeItem) -> std::cmp::Ordering {
+    match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+    }
 }
 
 /// File system engine for browsing and validating directories
@@ -72,7 +90,6 @@ impl FsEngine {
             )));
         }
 
-        // Try to load .gitignore for this directory
         let gitignore = self.load_gitignore(path);
 
         let mut entries = Vec::new();
@@ -88,12 +105,11 @@ impl FsEngine {
         for entry in read_dir {
             let entry = match entry {
                 Ok(e) => e,
-                Err(_) => continue, // Skip entries we can't read
+                Err(_) => continue,
             };
 
             let name = entry.file_name().to_string_lossy().to_string();
 
-            // Skip hidden files unless requested
             if !show_hidden && name.starts_with('.') {
                 continue;
             }
@@ -111,19 +127,16 @@ impl FsEngine {
                 None
             };
 
-            // Skip files if dirs_only is true
             if dirs_only && !is_dir {
                 continue;
             }
 
-            // Check if it's a git repository
             let is_git_repo = if is_dir {
                 entry_path.join(".git").exists()
             } else {
                 false
             };
 
-            // Check if ignored using .gitignore
             let is_ignored = self.is_path_ignored(&gitignore, &entry_path, is_dir);
 
             entries.push(FsEntry {
@@ -137,12 +150,7 @@ impl FsEngine {
             });
         }
 
-        // Sort: directories first, then alphabetically
-        entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        });
+        entries.sort_by(dir_first_alpha_sort);
 
         Ok(entries)
     }
@@ -203,11 +211,9 @@ impl FsEngine {
         let content = fs::read_to_string(&head_path)
             .map_err(|e| EngineError::FileSystem(format!("Failed to read HEAD file: {}", e)))?;
 
-        // HEAD file format: "ref: refs/heads/main\n"
         if let Some(branch) = content.strip_prefix("ref: refs/heads/") {
             Ok(branch.trim().to_string())
         } else {
-            // Detached HEAD state, return the commit hash
             Ok(content.trim().to_string())
         }
     }
@@ -262,8 +268,6 @@ impl FsEngine {
                 })?;
                 use base64::Engine as _;
                 let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                // Return as base64 data URI
-                // We use application/octet-stream as generic type, frontend can refine based on extension
                 Ok((
                     format!("data:application/octet-stream;base64,{}", encoded),
                     metadata.len(),
@@ -279,7 +283,6 @@ impl FsEngine {
 
     /// Write content to file
     pub fn write_file(&self, path: &Path, content: &str) -> Result<()> {
-        // Ensure parent directory exists
         if let Some(parent) = path.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent).map_err(|e| {
@@ -315,22 +318,19 @@ impl FsEngine {
             )));
         }
 
-        // Load .gitignore for ignore checking
         let gitignore = self.load_gitignore(root_path);
 
-        self.build_file_tree(root_path, root_path, show_hidden, 0, &gitignore)
+        self.build_file_tree(root_path, show_hidden, 0, &gitignore)
     }
 
     /// Build file tree recursively with depth limit
     fn build_file_tree(
         &self,
-        _root_path: &Path,
         dir_path: &Path,
         show_hidden: bool,
         depth: usize,
         gitignore: &Option<ignore::gitignore::Gitignore>,
     ) -> Result<Vec<FileTreeItem>> {
-        // Limit recursion depth to prevent excessive file listing
         const MAX_DEPTH: usize = 10;
         if depth >= MAX_DEPTH {
             return Ok(Vec::new());
@@ -354,7 +354,6 @@ impl FsEngine {
 
             let name = entry.file_name().to_string_lossy().to_string();
 
-            // Skip hidden files unless requested
             if !show_hidden && name.starts_with('.') {
                 continue;
             }
@@ -372,14 +371,12 @@ impl FsEngine {
                 None
             };
 
-            // Check if ignored using .gitignore
             let is_ignored = self.is_path_ignored(gitignore, &path, is_dir);
 
-            // Don't recurse into ignored directories
             let should_recurse = is_dir && !is_ignored;
 
             let children = if should_recurse {
-                Some(self.build_file_tree(_root_path, &path, show_hidden, depth + 1, gitignore)?)
+                Some(self.build_file_tree(&path, show_hidden, depth + 1, gitignore)?)
             } else {
                 None
             };
@@ -395,40 +392,29 @@ impl FsEngine {
             });
         }
 
-        // Sort: directories first, then alphabetically
-        items.sort_by(|a, b| match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        });
+        items.sort_by(dir_first_alpha_sort_tree);
 
         Ok(items)
     }
 
     /// Load .gitignore files from the git repository root and all parent directories
-    /// This supports monorepo setups where each subproject has its own .gitignore
     fn load_gitignore(&self, root_path: &Path) -> Option<ignore::gitignore::Gitignore> {
-        // Build the gitignore with support for multiple .gitignore files
         let mut builder = GitignoreBuilder::new(root_path);
 
-        // Find all .gitignore files from root up to the git repository root
         let mut current = Some(root_path);
         let mut found_any = false;
 
         while let Some(path) = current {
             let gitignore_path = path.join(".gitignore");
             if gitignore_path.exists() {
-                // Add this .gitignore to the builder
                 let _ = builder.add(gitignore_path);
                 found_any = true;
             }
 
-            // Stop if we found the .git directory (repo root)
             if path.join(".git").exists() {
                 break;
             }
 
-            // Stop at filesystem root
             if path.parent().is_none() {
                 break;
             }
@@ -440,7 +426,6 @@ impl FsEngine {
             return None;
         }
 
-        // Build the gitignore matcher
         builder.build().ok()
     }
 
@@ -452,7 +437,6 @@ impl FsEngine {
         is_dir: bool,
     ) -> bool {
         if let Some(gi) = gitignore {
-            // Get the base path that was used to create the Gitignore
             let base = gi.path();
             if let Ok(rel_path) = path.strip_prefix(base) {
                 if gi.matched(rel_path, is_dir).is_ignore() {
@@ -464,12 +448,6 @@ impl FsEngine {
     }
 
     /// Recursively search for directories by name pattern using the `ignore` crate
-    ///
-    /// # Arguments
-    /// * `root_path` - The root directory to start searching from
-    /// * `pattern` - The name pattern to search for (case-insensitive partial match)
-    /// * `max_results` - Maximum number of results to return
-    /// * `max_depth` - Maximum recursion depth
     pub fn search_dirs(
         &self,
         root_path: &Path,
@@ -498,14 +476,17 @@ impl FsEngine {
         let pattern_lower = pattern.to_lowercase();
         let mut results = Vec::new();
 
-        // Use WalkBuilder from the ignore crate for efficient directory traversal
+        let parallelism = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+
         let walker = WalkBuilder::new(root_path)
             .max_depth(Some(max_depth))
-            .hidden(false) // Don't traverse hidden directories
-            .git_ignore(false) // Don't use .gitignore for this search
-            .parents(false) // Don't read parent .ignore files
-            .follow_links(false) // Don't follow symlinks
-            .threads(num_cpus::get()) // Use parallel traversal
+            .hidden(false)
+            .git_ignore(false)
+            .parents(false)
+            .follow_links(false)
+            .threads(parallelism)
             .build();
 
         for entry in walker {
@@ -517,7 +498,6 @@ impl FsEngine {
             let path = entry.path();
             let ft = entry.file_type();
 
-            // Skip if not a directory or if we can't determine the file type
             let Some(ft) = ft else {
                 continue;
             };
@@ -525,7 +505,6 @@ impl FsEngine {
                 continue;
             }
 
-            // Skip the root path itself
             if path == root_path {
                 continue;
             }
@@ -536,17 +515,14 @@ impl FsEngine {
                 .to_string_lossy()
                 .to_string();
 
-            // Skip hidden directories
             if name.starts_with('.') {
                 continue;
             }
 
-            // Check if name matches pattern (case-insensitive)
             if !name.to_lowercase().contains(&pattern_lower) {
                 continue;
             }
 
-            // Check symlink
             let is_symlink = ft.is_symlink();
             let symlink_target = if is_symlink {
                 fs::read_link(path)
@@ -591,7 +567,7 @@ impl Default for FsEngine {
 }
 
 /// Result of validating a git path
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct GitValidationResult {
     pub is_valid: bool,
     pub is_git_repo: bool,
