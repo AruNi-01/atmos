@@ -53,6 +53,25 @@ if [[ -z "$TARGET_TRIPLE" ]]; then
   esac
 fi
 
+# Check available disk space
+AVAILABLE_GB=$(df /System/Volumes/Data 2>/dev/null | awk 'NR==2 {printf "%.0f", $4/1024/1024}')
+echo "💾 Available disk space: ${AVAILABLE_GB}GB"
+
+MINIMUM_DISK_GB=15
+if (( $(echo "$AVAILABLE_GB < $MINIMUM_DISK_GB" | bc -l 2>/dev/null || echo "0") )); then
+  echo "❌ Insufficient disk space: ${AVAILABLE_GB}GB available"
+  echo "   Required: ${MINIMUM_DISK_GB}GB minimum for successful DMG creation"
+  echo ""
+  echo "💡 Please free up disk space before building:"
+  echo "   - cargo clean"
+  echo "   - rm -rf apps/desktop/src-tauri/target"
+  echo "   - bun pm cache rm"
+  echo "   - npm cache clean --force"
+  echo ""
+  echo "   Or use --no-bundle to skip DMG creation"
+  exit 1
+fi
+
 echo "🚀 Building desktop app locally"
 echo "📦 Target: $TARGET_TRIPLE"
 echo "🧰 Bundle: $([[ "$NO_BUNDLE" == "true" ]] && echo "disabled" || echo "enabled")"
