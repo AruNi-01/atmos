@@ -1206,6 +1206,7 @@ impl WsMessageService {
                 req.branch,
                 req.sidebar_order,
                 req.github_issue.clone(),
+                req.auto_extract_todos,
             )
             .await?;
 
@@ -1347,8 +1348,7 @@ impl WsMessageService {
         // Rehydrate the original setup context from the database so retry
         // re-executes requirement writing and TODO extraction when applicable.
         let github_issue = workspace.github_issue.clone();
-        let has_github_issue = github_issue.is_some();
-        let auto_extract_todos = has_github_issue;
+        let auto_extract_todos = workspace.model.auto_extract_todos;
 
         if let Some(manager) = self.ws_manager.get().cloned() {
             let project_service = self.project_service.clone();

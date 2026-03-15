@@ -117,6 +117,7 @@ impl WorkspaceService {
         branch: String,
         sidebar_order: i32,
         github_issue: Option<GithubIssuePayload>,
+        auto_extract_todos: bool,
     ) -> Result<WorkspaceDto> {
         // Get project to find the repository path and name
         let project_repo = ProjectRepo::new(&self.db);
@@ -269,6 +270,7 @@ impl WorkspaceService {
                 sidebar_order,
                 github_issue_url,
                 github_issue_data,
+                auto_extract_todos,
             )
             .await?;
 

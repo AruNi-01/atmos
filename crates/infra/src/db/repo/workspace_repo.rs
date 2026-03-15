@@ -56,6 +56,7 @@ impl<'a> WorkspaceRepo<'a> {
         sidebar_order: i32,
         github_issue_url: Option<String>,
         github_issue_data: Option<String>,
+        auto_extract_todos: bool,
     ) -> Result<workspace::Model> {
         let base = BaseFields::new();
 
@@ -77,6 +78,7 @@ impl<'a> WorkspaceRepo<'a> {
             maximized_terminal_id: Set(None),
             github_issue_url: Set(github_issue_url),
             github_issue_data: Set(github_issue_data),
+            auto_extract_todos: Set(auto_extract_todos),
         };
 
         let result = model.insert(self.db).await?;
