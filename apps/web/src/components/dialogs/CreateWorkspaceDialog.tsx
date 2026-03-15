@@ -453,7 +453,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       const finalDisplayName =
         name.trim() || (issuePreview ? issueToWorkspaceName(issuePreview) : '');
       const finalBranch =
-        branch.trim() || generatedBranchRef.current || (issuePreview ? issueToBranchName(issuePreview) : '');
+        branch.trim() ||
+        (!branchTouchedRef.current && generatedBranchRef.current) ||
+        (issuePreview ? issueToBranchName(issuePreview) : '');
       const workspaceId = await addWorkspace({
         projectId,
         name: finalBranch,
