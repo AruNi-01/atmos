@@ -383,7 +383,7 @@ export const TmuxInstallDialog: React.FC<TmuxInstallDialogProps> = ({
                     </div>
                   </PopoverContent>
                 </Popover>
-                <Button variant="outline" onClick={() => void handleRetry()} className="cursor-pointer">
+                <Button size="sm" variant="outline" onClick={() => void handleRetry()} className="cursor-pointer">
                   Check Again
                 </Button>
                 <Button size="sm" onClick={() => setPhase('terminal')} disabled={!canAutoInstall} className="cursor-pointer">

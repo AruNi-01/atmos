@@ -245,6 +245,14 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     }
 
     let resolvedGitCommitLlmProviderLabel = gitCommitLlmProviderLabel;
+
+    // If we have a cached provider, set generating state immediately for better UX
+    if (gitCommitLlmProviderLabel) {
+      setAiPopoverOpen(false);
+      setIsGeneratingCommitMessage(true);
+    }
+
+    // Refresh provider config to ensure it's still valid
     try {
       const config = await llmProvidersApi.get();
       const resolved = resolveGitCommitLlmProvider(config);
@@ -255,8 +263,11 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     }
 
     if (resolvedGitCommitLlmProviderLabel) {
-      setAiPopoverOpen(false);
-      setIsGeneratingCommitMessage(true);
+      // Set generating state again if it wasn't set above (first time)
+      if (!gitCommitLlmProviderLabel) {
+        setAiPopoverOpen(false);
+        setIsGeneratingCommitMessage(true);
+      }
       let streamedMessage = "";
 
       if (commitMessageStreamUnsubscribeRef.current) {
@@ -302,6 +313,9 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       }
       return;
     }
+
+    // If no provider found, reset generating state and fall back to ACP
+    setIsGeneratingCommitMessage(false);
 
     if (!agentHasAgents) {
       toastManager.add({
