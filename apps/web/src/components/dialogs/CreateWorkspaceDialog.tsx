@@ -151,7 +151,8 @@ function isBranchConflictError(message: string): boolean {
     normalized.includes('workspace directory') ||
     normalized.includes('directory name') ||
     normalized.includes('conflicts with an existing branch or workspace') ||
-    normalized.includes('already exists')
+    normalized.includes('branch name already exists') ||
+    normalized.includes('branch already exists')
   );
 }
 
@@ -194,6 +195,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
   const nameTouchedRef = useRef(false);
   const branchTouchedRef = useRef(false);
+  const generatedBranchRef = useRef<string | null>(null);
   const branchFieldRef = useRef<HTMLDivElement | null>(null);
   const branchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -236,6 +238,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setHasSetupScript(false);
       nameTouchedRef.current = false;
       branchTouchedRef.current = false;
+      generatedBranchRef.current = null;
     }
   }, [isOpen]);
 
@@ -341,13 +344,18 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   }, [isOpen, selectedProjectId, selectedProjectPath]);
 
   useEffect(() => {
-    if (!issuePreview) return;
+    if (!issuePreview) {
+      generatedBranchRef.current = null;
+      return;
+    }
 
     if (!nameTouchedRef.current) {
       setName(issueToWorkspaceName(issuePreview));
     }
     if (!branchTouchedRef.current) {
-      setBranch(issueToBranchName(issuePreview));
+      const generated = issueToBranchName(issuePreview);
+      generatedBranchRef.current = generated;
+      setBranch(generated);
     }
   }, [issuePreview]);
 
@@ -445,7 +453,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       const finalDisplayName =
         name.trim() || (issuePreview ? issueToWorkspaceName(issuePreview) : '');
       const finalBranch =
-        branch.trim() || (issuePreview ? issueToBranchName(issuePreview) : '');
+        branch.trim() || generatedBranchRef.current || (issuePreview ? issueToBranchName(issuePreview) : '');
       const workspaceId = await addWorkspace({
         projectId,
         name: finalBranch,

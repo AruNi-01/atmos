@@ -957,12 +957,10 @@ export const wsGithubApi = {
     });
   },
 
-  getIssue: async (params: {
-    owner?: string;
-    repo?: string;
-    issueNumber?: number;
-    issueUrl?: string;
-  }): Promise<GithubIssuePayload> => {
+  getIssue: async (params:
+    | { owner: string; repo: string; issueNumber: number; issueUrl?: undefined }
+    | { issueUrl: string; owner?: undefined; repo?: undefined; issueNumber?: undefined },
+  ): Promise<GithubIssuePayload> => {
     return wsRequest<GithubIssuePayload>("github_issue_get", {
       owner: params.owner ?? null,
       repo: params.repo ?? null,

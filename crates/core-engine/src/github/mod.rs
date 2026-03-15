@@ -277,8 +277,8 @@ fn parse_issue_value(
         .ok_or_else(|| EngineError::Processing("GitHub issue response missing title".to_string()))?
         .to_string();
     let url = value
-        .get("url")
-        .or_else(|| value.get("html_url"))
+        .get("html_url")
+        .or_else(|| value.get("url"))
         .and_then(|v| v.as_str())
         .ok_or_else(|| EngineError::Processing("GitHub issue response missing url".to_string()))?
         .to_string();

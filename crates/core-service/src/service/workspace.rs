@@ -686,10 +686,10 @@ impl WorkspaceService {
         }
     }
 
-    /// 更新工作区名称
-    pub async fn update_name(&self, guid: String, name: String) -> Result<()> {
+    /// 更新工作区显示名称
+    pub async fn update_display_name(&self, guid: String, display_name: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_name(&guid, name).await?)
+        Ok(repo.update_display_name(&guid, display_name).await?)
     }
 
     /// 更新工作区分支

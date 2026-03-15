@@ -67,7 +67,7 @@ pub async fn update_name(
 ) -> ApiResult<Json<ApiResponse<MessageResponse>>> {
     state
         .workspace_service
-        .update_name(guid, payload.name)
+        .update_display_name(guid, payload.name)
         .await?;
     Ok(Json(ApiResponse::success(MessageResponse {
         message: "Workspace name updated",

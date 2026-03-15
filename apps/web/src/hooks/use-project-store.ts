@@ -793,14 +793,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           lastStatus: lastStatus,
           lastStepKey,
           setupContext: progress.setupContext ?? existing?.setupContext,
-          output:
-            !shouldIgnoreRegression &&
-            progress.output !== undefined &&
-            (progress.replaceOutput ||
-              progress.stepKey !== existing?.stepKey ||
-              progress.status !== existing?.status)
-              ? progress.output
-              : (existing?.output || '') + (progress.output || '')
+          output: shouldIgnoreRegression
+              ? (existing?.output || '')
+              : progress.output !== undefined &&
+                (progress.replaceOutput ||
+                  progress.stepKey !== existing?.stepKey ||
+                  progress.status !== existing?.status)
+                ? progress.output
+                : (existing?.output || '') + (progress.output || '')
         }
       }
     };

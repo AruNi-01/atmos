@@ -1284,6 +1284,7 @@ export function UsagePopover() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (providerOrder.length === 0) return;
     window.localStorage.setItem(PROVIDER_ORDER_STORAGE_KEY, JSON.stringify(providerOrder));
   }, [providerOrder]);
 

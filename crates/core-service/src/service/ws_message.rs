@@ -1245,7 +1245,7 @@ impl WsMessageService {
 
     async fn handle_workspace_update_name(&self, req: WorkspaceUpdateNameRequest) -> Result<Value> {
         self.workspace_service
-            .update_name(req.guid, req.name)
+            .update_display_name(req.guid, req.name)
             .await?;
         Ok(json!({ "success": true }))
     }

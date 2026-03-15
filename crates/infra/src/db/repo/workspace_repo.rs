@@ -85,10 +85,10 @@ impl<'a> WorkspaceRepo<'a> {
         Ok(result)
     }
 
-    /// 更新工作区名称
-    pub async fn update_name(&self, guid: &str, name: String) -> Result<()> {
+    /// 更新工作区显示名称（display_name 列）
+    pub async fn update_display_name(&self, guid: &str, display_name: String) -> Result<()> {
         let result = workspace::Entity::update_many()
-            .col_expr(workspace::Column::DisplayName, Expr::value(Some(name)))
+            .col_expr(workspace::Column::DisplayName, Expr::value(Some(display_name)))
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
