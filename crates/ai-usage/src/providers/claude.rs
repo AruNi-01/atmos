@@ -6,7 +6,8 @@ use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     build_percent_usage_summary, expand_home, format_reset_relative_text,
-    map_claude_rate_limit_tier, normalize_fraction_percent, parse_offset_datetime, unix_now,
+    map_claude_rate_limit_tier, normalize_fraction_percent, parse_offset_datetime, run_command,
+    unix_now,
 };
 use std::fs;
 
@@ -14,6 +15,12 @@ use std::fs;
 struct ClaudeCredentialsFile {
     #[serde(default, rename = "claudeAiOauth")]
     claude_ai_oauth: Option<ClaudeCredentialsData>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ClaudeConfigFile {
+    #[serde(default, rename = "primaryApiKey")]
+    primary_api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -28,6 +35,8 @@ struct ClaudeCredentialsData {
     scopes: Vec<String>,
     #[serde(default, rename = "rateLimitTier")]
     rate_limit_tier: Option<String>,
+    #[serde(default, rename = "subscriptionType")]
+    subscription_type: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -218,6 +227,23 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
     })
 }
 
+pub(crate) fn local_api_key_source() -> Option<String> {
+    let path = expand_home("~/.claude/config.json")?;
+    let contents = fs::read_to_string(&path).ok()?;
+    if parse_primary_api_key(&contents).is_some() {
+        Some(path.display().to_string())
+    } else {
+        None
+    }
+}
+
+pub(crate) fn keychain_oauth_source() -> Option<String> {
+    load_keychain_credentials()
+        .ok()
+        .flatten()
+        .map(|_| "macOS Keychain: Claude Code-credentials".to_string())
+}
+
 fn load_claude_credentials() -> Result<ClaudeCredentials, ProviderError> {
     if let Some(token) = env::var("CLAUDE_CODE_OAUTH_TOKEN")
         .ok()
@@ -233,24 +259,153 @@ fn load_claude_credentials() -> Result<ClaudeCredentials, ProviderError> {
         });
     }
 
+    if let Some(credentials) = load_keychain_credentials()? {
+        return Ok(credentials);
+    }
+
+    if let Some(credentials) = load_file_credentials()? {
+        return Ok(credentials);
+    }
+
+    if env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .is_some()
+    {
+        return Err(ProviderError::Fetch(
+            "Claude is configured with ANTHROPIC_API_KEY, but subscription detection requires Claude OAuth.".to_string(),
+        ));
+    }
+
+    if let Some(source) = local_api_key_source() {
+        return Err(ProviderError::Fetch(format!(
+            "Claude is configured with an API key ({source}), but subscription detection requires Claude OAuth."
+        )));
+    }
+
+    Err(ProviderError::Fetch(
+        "Claude OAuth credentials missing".to_string(),
+    ))
+}
+
+fn load_keychain_credentials() -> Result<Option<ClaudeCredentials>, ProviderError> {
+    if !cfg!(target_os = "macos") {
+        return Ok(None);
+    }
+
+    let output = match run_command(
+        "/usr/bin/security",
+        &[
+            "find-generic-password",
+            "-s",
+            "Claude Code-credentials",
+            "-w",
+        ],
+    ) {
+        Ok(output) => output,
+        Err(_) => return Ok(None),
+    };
+    let payload = output.trim();
+    if payload.is_empty() {
+        return Ok(None);
+    }
+
+    let file: ClaudeCredentialsFile = serde_json::from_str(payload)
+        .map_err(|error| ProviderError::Fetch(format!("Claude keychain payload: {error}")))?;
+    Ok(file.claude_ai_oauth.and_then(parse_oauth_credentials))
+}
+
+fn load_file_credentials() -> Result<Option<ClaudeCredentials>, ProviderError> {
     let path = expand_home("~/.claude/.credentials.json")
         .ok_or_else(|| ProviderError::Fetch("Claude credentials path unavailable".to_string()))?;
-    let contents = fs::read_to_string(&path)
-        .map_err(|error| ProviderError::Fetch(format!("{}: {error}", path.display())))?;
+    let contents = match fs::read_to_string(&path) {
+        Ok(contents) => contents,
+        Err(_) => return Ok(None),
+    };
     let file: ClaudeCredentialsFile = serde_json::from_str(&contents)
         .map_err(|error| ProviderError::Fetch(format!("{}: {error}", path.display())))?;
-    let oauth = file
-        .claude_ai_oauth
-        .ok_or_else(|| ProviderError::Fetch("Claude OAuth credentials missing".to_string()))?;
-    let access_token = oauth
-        .access_token
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| ProviderError::Fetch("Claude access token missing".to_string()))?;
+    Ok(file.claude_ai_oauth.and_then(parse_oauth_credentials))
+}
 
-    Ok(ClaudeCredentials {
+fn parse_oauth_credentials(oauth: ClaudeCredentialsData) -> Option<ClaudeCredentials> {
+    let access_token = oauth.access_token?.trim().to_string();
+    if access_token.is_empty() {
+        return None;
+    }
+
+    Some(ClaudeCredentials {
         access_token,
         scopes: oauth.scopes,
-        rate_limit_tier: oauth.rate_limit_tier.map(map_claude_rate_limit_tier),
+        rate_limit_tier: plan_label(oauth.subscription_type, oauth.rate_limit_tier),
         expires_at: oauth.expires_at.map(|value| value as u64),
     })
+}
+
+fn plan_label(
+    subscription_type: Option<String>,
+    rate_limit_tier: Option<String>,
+) -> Option<String> {
+    subscription_type
+        .as_deref()
+        .and_then(parse_subscription_type)
+        .or_else(|| rate_limit_tier.map(map_claude_rate_limit_tier))
+}
+
+fn parse_subscription_type(raw: &str) -> Option<String> {
+    let lower = raw.trim().to_lowercase();
+    if lower.is_empty() || lower.contains("api") {
+        return None;
+    }
+    if lower.contains("pro") {
+        return Some("Pro".to_string());
+    }
+    if lower.contains("max") {
+        return Some("Max".to_string());
+    }
+    if lower.contains("team") {
+        return Some("Team".to_string());
+    }
+
+    let mut chars = lower.chars();
+    chars
+        .next()
+        .map(|first| format!("{}{}", first.to_ascii_uppercase(), chars.as_str()))
+}
+
+fn parse_primary_api_key(contents: &str) -> Option<String> {
+    let file: ClaudeConfigFile = serde_json::from_str(contents).ok()?;
+    file.primary_api_key
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_primary_api_key, parse_subscription_type};
+
+    #[test]
+    fn parses_primary_api_key_from_claude_config() {
+        let contents = r#"{"primaryApiKey":"sk-ant-123"}"#;
+        assert_eq!(
+            parse_primary_api_key(contents).as_deref(),
+            Some("sk-ant-123")
+        );
+    }
+
+    #[test]
+    fn ignores_empty_primary_api_key() {
+        let contents = "{\"primaryApiKey\":\"   \"}";
+        assert!(parse_primary_api_key(contents).is_none());
+    }
+
+    #[test]
+    fn maps_subscription_type_to_plan_label() {
+        assert_eq!(parse_subscription_type("pro").as_deref(), Some("Pro"));
+        assert_eq!(
+            parse_subscription_type("claude_max_2024").as_deref(),
+            Some("Max")
+        );
+        assert_eq!(parse_subscription_type("team").as_deref(), Some("Team"));
+        assert!(parse_subscription_type("api").is_none());
+    }
 }

@@ -228,6 +228,26 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
         }
     }
 
+    if spec.id == "claude" {
+        if let Some(source) = claude::keychain_oauth_source() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source),
+                detail: Some("Detected Claude OAuth credentials".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+
+        if let Some(source) = claude::local_api_key_source() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source),
+                detail: Some("Detected Claude CLI API key config".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+    }
+
     if spec.id == "amp" {
         if let Ok(Some(source)) = load_amp_browser_cookie_source() {
             return AuthState {
