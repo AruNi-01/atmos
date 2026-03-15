@@ -330,7 +330,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
     }
   },
 
-  // 同步更改
+  // 同步本地与远端
   syncChanges: async () => {
     const { currentRepoPath } = get();
     if (!currentRepoPath) return;

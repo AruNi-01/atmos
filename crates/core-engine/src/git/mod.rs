@@ -702,10 +702,16 @@ impl GitEngine {
         Ok(())
     }
 
-    /// Sync (fetch + pull)
+    /// Sync local and remote branch state.
+    ///
+    /// For published branches, this pulls remote changes first and then pushes
+    /// local commits so both sides end up aligned. For unpublished branches,
+    /// this falls back to push, which publishes the branch.
     pub fn sync(&self, repo_path: &Path) -> Result<()> {
-        self.fetch(repo_path)?;
-        self.pull(repo_path)?;
+        if self.is_branch_published(repo_path)? {
+            self.pull(repo_path)?;
+        }
+        self.push(repo_path)?;
         Ok(())
     }
 

@@ -29,7 +29,7 @@ import {
   PopoverTrigger,
   toastManager,
 } from "@workspace/ui";
-import { Sparkles } from "lucide-react";
+import { CloudSync, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   GitChangedFile,
@@ -656,7 +656,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
             <DropdownMenuItem
               onClick={() => handleGlobalAction(syncChanges)}
             >
-              <RefreshCw className="mr-2 size-4" /> Sync
+              <CloudSync className="mr-2 size-4" /> Sync with Remote
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

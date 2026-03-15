@@ -684,7 +684,7 @@ export const gitApi = {
   },
 
   /**
-   * 同步 (fetch + pull)
+   * 同步本地与远端（已发布分支会先 pull 再 push；未发布分支会直接 publish/push）
    */
   sync: async (path: string): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("git_sync", { path });
