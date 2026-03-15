@@ -24,6 +24,17 @@ export interface TmuxStatusResponse {
   version: string | null;
 }
 
+export interface TmuxInstallPlanResponse {
+  installed: boolean;
+  supported: boolean;
+  platform: string;
+  package_manager: string | null;
+  package_manager_label: string | null;
+  command: string | null;
+  requires_sudo: boolean;
+  reason: string | null;
+}
+
 export interface TmuxSession {
   name: string;
   windows: number;
@@ -324,6 +335,13 @@ export const systemApi = {
    */
   getTmuxStatus: async (): Promise<TmuxStatusResponse> => {
     return fetchApi<TmuxStatusResponse>('/api/system/tmux-status');
+  },
+
+  /**
+   * Detect the best tmux installation command for the current API host.
+   */
+  getTmuxInstallPlan: async (): Promise<TmuxInstallPlanResponse> => {
+    return fetchApi<TmuxInstallPlanResponse>('/api/system/tmux-install-plan');
   },
 
   /**

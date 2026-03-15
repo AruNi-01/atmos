@@ -260,6 +260,12 @@ export function useTerminalWebSocket({
       };
 
       ws.onerror = () => {
+        // Ignore errors from sockets we intentionally closed/replaced during
+        // terminal teardown or remounts. These are expected and should not
+        // surface as user-facing errors in the parent dialog.
+        if (disconnectedRef.current || wsRef.current !== ws) {
+          return;
+        }
         onError?.("WebSocket connection error");
       };
     } catch (err) {

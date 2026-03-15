@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useTheme } from 'next-themes';
+import { useQueryState } from 'nuqs';
 import Fuse from 'fuse.js';
 import {
   CommandDialog,
@@ -37,11 +38,18 @@ import {
   Blocks,
   toastManager,
   CommandInputWithoutBorder,
+  Bot,
+  BrainCircuit,
+  ListTodo,
+  ArrowLeft,
 } from '@workspace/ui';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { fsApi, appApi, SearchMatch, FileTreeNode } from '@/api/ws-api';
+import { llmProvidersModalParams, agentChatParams } from '@/lib/nuqs/searchParams';
+import { useWorkspaceContext } from '@/hooks/use-workspace-context';
+import { TaskListPanel } from '@/components/workspace/TaskListPanel';
 
 
 
@@ -82,7 +90,7 @@ type SearchTab = 'app' | 'files' | 'code';
 
 interface AppSearchItem {
   id: string;
-  type: 'workspace' | 'theme' | 'project' | 'new-workspace' | 'quick-open' | 'management';
+  type: 'workspace' | 'theme' | 'project' | 'new-workspace' | 'quick-open' | 'management' | 'modal' | 'todo';
   title: string;
   description?: string;
   keywords: string[];
@@ -109,6 +117,13 @@ export function GlobalSearch() {
   const setupProgress = useProjectStore(s => s.setupProgress);
   const openFile = useEditorStore(s => s.openFile);
   const currentProjectPath = useEditorStore(s => s.currentProjectPath);
+
+  // URL-param driven modals
+  const [, setLlmProvidersOpen] = useQueryState("llmProvidersModal", llmProvidersModalParams.llmProvidersModal);
+  const [, setAgentChatOpen] = useQueryState("chat", agentChatParams.chat);
+
+  // Sub-view state (null = search, 'todo' = inline TODO panel)
+  const [subView, setSubView] = useState<'todo' | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [fileTreeCache, setFileTreeCache] = useState<FileTreeNode[]>([]);
@@ -160,6 +175,25 @@ export function GlobalSearch() {
 
   const currentEffectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
 
+  // TODO sub-view
+  const contextId = currentWorkspaceId || currentProjectIdFromUrl || null;
+  const {
+    tasks: todoTasks,
+    tasksLoading: todoTasksLoading,
+    loadTasks: todoLoadTasks,
+    addTask: todoAddTask,
+    updateTaskStatus: todoUpdateTaskStatus,
+    updateTaskContent: todoUpdateTaskContent,
+    deleteTask: todoDeleteTask,
+  } = useWorkspaceContext(contextId);
+
+  // Load tasks when entering TODO sub-view
+  useEffect(() => {
+    if (subView === 'todo' && currentEffectivePath) {
+      todoLoadTasks(currentEffectivePath);
+    }
+  }, [subView, currentEffectivePath]);
+
   // Keyboard shortcut to open search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -179,6 +213,7 @@ export function GlobalSearch() {
       setSearchQuery('');
       setCodeSearchResults([]);
       setSelectedValue('');
+      setSubView(null);
     }
   }, [isGlobalSearchOpen]);
 
@@ -382,6 +417,65 @@ export function GlobalSearch() {
       },
     });
 
+    // Management Center: Agents
+    items.push({
+      id: 'management-agents',
+      type: 'management',
+      title: 'Management Center: Agents',
+      description: 'Open agent management',
+      keywords: ['management', 'center', 'agents', 'agent', 'bot', 'ai', 'chat'],
+      icon: <Bot className="size-4 text-muted-foreground" />,
+      action: () => {
+        router.push('/agents');
+        setGlobalSearchOpen(false);
+      },
+    });
+
+    // Quick Open Modals
+    items.push({
+      id: 'modal-chat-panel',
+      type: 'modal',
+      title: 'Open ACP Chat',
+      description: 'Toggle the ACP Chat panel',
+      keywords: ['chat', 'agent', 'panel', 'ai', 'assistant', 'message', 'conversation', 'open', 'acp'],
+      icon: <Bot className="size-4 text-muted-foreground" />,
+      action: () => {
+        setAgentChatOpen(true);
+        setGlobalSearchOpen(false);
+      },
+    });
+
+    items.push({
+      id: 'modal-llm-providers',
+      type: 'modal',
+      title: 'Open LLM Providers',
+      description: 'Configure LLM provider API keys and models',
+      keywords: ['llm', 'provider', 'api', 'key', 'model', 'openai', 'anthropic', 'settings', 'configure', 'ai'],
+      icon: <BrainCircuit className="size-4 text-muted-foreground" />,
+      action: () => {
+        setLlmProvidersOpen(true);
+        setGlobalSearchOpen(false);
+      },
+    });
+
+    // TODO: Open inline TODO sub-view
+    if (currentWorkspaceId || currentProject) {
+      const todoLabel = currentWorkspace
+        ? currentWorkspace.name
+        : currentProject?.name;
+      items.push({
+        id: 'todo-current-workspace',
+        type: 'todo',
+        title: 'Workspace TODOs',
+        description: todoLabel ? `${todoLabel} — View tasks` : 'View current tasks',
+        keywords: ['todo', 'task', 'tasks', 'checklist', 'workspace', 'project', 'overview', 'plan'],
+        icon: <ListTodo className="size-4 text-muted-foreground" />,
+        action: () => {
+          setSubView('todo');
+        },
+      });
+    }
+
     // Toggle Full Screen
     items.push({
       id: 'toggle-fullscreen',
@@ -465,7 +559,7 @@ export function GlobalSearch() {
     }
 
     return items;
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, currentProject]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, currentWorkspaceId, currentWorkspace]);
 
   // Fuse.js instance for app search
   const appFuse = useMemo(() => {
@@ -526,6 +620,8 @@ export function GlobalSearch() {
       'new-workspace': [],
       'quick-open': [],
       management: [],
+      modal: [],
+      todo: [],
     };
 
     filteredAppItems.forEach(item => {
@@ -668,9 +764,68 @@ export function GlobalSearch() {
     <CommandDialog
       showCloseButton={false}
       open={isGlobalSearchOpen}
-      onOpenChange={setGlobalSearchOpen}
+      onOpenChange={(open) => {
+        if (!open && subView) {
+          setSubView(null);
+          return;
+        }
+        setGlobalSearchOpen(open);
+      }}
       className="w-[min(740px,calc(100vw-2rem))] sm:max-w-[740px] h-[min(82vh,900px)]"
     >
+      {subView === 'todo' ? (
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 h-12 border-b border-border shrink-0">
+            <button
+              onClick={() => setSubView(null)}
+              className="size-7 flex items-center justify-center hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="size-4" />
+            </button>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <ListTodo className="size-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-semibold truncate">
+                {currentWorkspace?.name || currentProject?.name || 'Tasks'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-foreground rounded-full transition-all duration-300"
+                  style={{ width: todoTasks.length > 0 ? `${(todoTasks.filter(t => t.status === 'done').length / todoTasks.length) * 100}%` : '0%' }}
+                />
+              </div>
+              <span className="text-[11px] text-muted-foreground font-mono">
+                {todoTasks.filter(t => t.status === 'done').length}/{todoTasks.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Task list (shared component) */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <TaskListPanel
+              tasks={todoTasks}
+              tasksLoading={todoTasksLoading}
+              effectivePath={currentEffectivePath || ''}
+              addTask={todoAddTask}
+              updateTaskStatus={todoUpdateTaskStatus}
+              updateTaskContent={todoUpdateTaskContent}
+              deleteTask={todoDeleteTask}
+              listClassName="bg-muted/50 dark:bg-black/60 rounded-t-[20px] pt-1 shadow-inner/5"
+            />
+          </div>
+
+          {/* Footer */}
+          <div className="mt-auto flex items-center justify-end px-4 h-[38px] bg-transparent border-t border-border/40 text-[11px] text-muted-foreground/80 shrink-0 select-none">
+            <span className="flex items-center gap-1.5 opacity-80">
+              <kbd className="px-1.5 h-[18px] flex items-center justify-center bg-background border border-border/60 rounded text-[10px] font-sans shadow-sm uppercase font-medium">Esc</kbd>
+              <span>Back</span>
+            </span>
+          </div>
+        </div>
+      ) : (
+      <>
       <CodePreviewTooltip />
       {/* Tab Navigation */}
       <div className="px-1">
@@ -758,6 +913,36 @@ export function GlobalSearch() {
             {groupedAppItems.management.length > 0 && (
               <CommandGroup heading="Management Center">
                 {groupedAppItems.management.map(item => (
+                  <SearchItem
+                    key={item.id}
+                    value={item.id}
+                    onSelect={item.action}
+                    icon={item.icon}
+                    title={item.title}
+                    description={item.description}
+                  />
+                ))}
+              </CommandGroup>
+            )}
+
+            {groupedAppItems.modal.length > 0 && (
+              <CommandGroup heading="Open Modal">
+                {groupedAppItems.modal.map(item => (
+                  <SearchItem
+                    key={item.id}
+                    value={item.id}
+                    onSelect={item.action}
+                    icon={item.icon}
+                    title={item.title}
+                    description={item.description}
+                  />
+                ))}
+              </CommandGroup>
+            )}
+
+            {groupedAppItems.todo.length > 0 && (
+              <CommandGroup heading="TODO">
+                {groupedAppItems.todo.map(item => (
                   <SearchItem
                     key={item.id}
                     value={item.id}
@@ -871,7 +1056,7 @@ export function GlobalSearch() {
         )}
       </CommandList>
       {/* Footer */}
-      <div className="mt-auto flex items-center justify-between px-4 py-2.5 bg-transparent border-t border-border/40 text-[11px] text-muted-foreground/80 shrink-0 select-none">
+      <div className="mt-auto flex items-center justify-between px-4 h-[38px] bg-transparent border-t border-border/40 text-[11px] text-muted-foreground/80 shrink-0 select-none">
         <div className="flex items-center gap-5">
           <span className="flex items-center gap-1.5 group">
             <div className="flex items-center gap-0.5">
@@ -898,6 +1083,8 @@ export function GlobalSearch() {
           </span>
         </div>
       </div>
+      </>
+      )}
     </CommandDialog>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Collapsible,
@@ -380,6 +380,7 @@ export const SkillsView: React.FC = () => {
   const [showFilter, setShowFilter] = useState(scopeFilter !== "all");
   const [installingSkill, setInstallingSkill] = useState<SkillMarketItem | null>(null);
   const [collapsedMarketCategories, setCollapsedMarketCategories] = useState<Record<string, boolean>>({});
+  const hasLoadedSkillsRef = useRef(false);
 
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
@@ -446,7 +447,11 @@ export const SkillsView: React.FC = () => {
     return filteredResourceCategories.reduce((total, category) => total + category.items.length, 0);
   }, [filteredResourceCategories]);
 
-  const loadSkills = useCallback(async () => {
+  const loadSkills = useCallback(async ({ force = false }: { force?: boolean } = {}) => {
+    if (isLoading || (hasLoadedSkillsRef.current && !force)) {
+      return;
+    }
+
     setIsLoading(true);
     try {
       const result = await skillsApi.list();
@@ -454,9 +459,10 @@ export const SkillsView: React.FC = () => {
     } catch (error) {
       console.error("Failed to load skills:", error);
     } finally {
+      hasLoadedSkillsRef.current = true;
       setIsLoading(false);
     }
-  }, []);
+  }, [isLoading]);
 
   const handleSkillUpdated = useCallback((nextSkill: SkillInfo) => {
     setSkills((current) => current.map((skill) => (skill.id === nextSkill.id ? nextSkill : skill)));
@@ -464,10 +470,10 @@ export const SkillsView: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!skillId && skills.length === 0 && !isLoading) {
+    if (!skillId && !hasLoadedSkillsRef.current) {
       void loadSkills();
     }
-  }, [isLoading, loadSkills, skillId, skills.length]);
+  }, [loadSkills, skillId]);
 
   useEffect(() => {
     const loadSkillDetail = async () => {
@@ -627,7 +633,7 @@ export const SkillsView: React.FC = () => {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => void loadSkills()}
+                    onClick={() => void loadSkills({ force: true })}
                     disabled={isLoading}
                     className="size-10 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm transition-all hover:bg-background cursor-pointer"
                     title="Refresh Skills"

@@ -33,6 +33,7 @@ export function TmuxCheckProvider({ children }: TmuxCheckProviderProps) {
         isOpen={showDialog}
         onClose={() => setUserDismissed(true)}
         onRetry={() => refetch()}
+        onInstalled={() => refetch()}
       />
     </>
   );

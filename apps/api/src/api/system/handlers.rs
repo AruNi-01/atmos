@@ -47,6 +47,24 @@ pub async fn get_tmux_status(State(state): State<AppState>) -> ApiResult<Json<Ap
     }))))
 }
 
+/// GET /api/system/tmux-install-plan
+pub async fn get_tmux_install_plan(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let plan = state.terminal_service.get_tmux_install_plan();
+
+    Ok(Json(ApiResponse::success(json!({
+        "installed": plan.installed,
+        "supported": plan.supported,
+        "platform": plan.platform,
+        "package_manager": plan.package_manager,
+        "package_manager_label": plan.package_manager_label,
+        "command": plan.command,
+        "requires_sudo": plan.requires_sudo,
+        "reason": plan.reason,
+    }))))
+}
+
 /// GET /api/system/tmux-sessions
 pub async fn list_tmux_sessions(
     State(state): State<AppState>,
@@ -589,23 +607,15 @@ fn mime_type_for_ext(ext: &str) -> &'static str {
 /// browser can render previews of images, videos, PDFs, etc.
 /// This replaces the old Next.js API route that was removed during the
 /// desktop static-export migration.
-pub async fn serve_file(
-    Query(query): Query<ServeFileQuery>,
-) -> Result<Response, Response> {
+pub async fn serve_file(Query(query): Query<ServeFileQuery>) -> Result<Response, Response> {
     let file_path = std::path::Path::new(&query.path);
 
     if !file_path.exists() {
-        return Err((
-            StatusCode::NOT_FOUND,
-            "File not found",
-        ).into_response());
+        return Err((StatusCode::NOT_FOUND, "File not found").into_response());
     }
 
     if !file_path.is_file() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Not a file",
-        ).into_response());
+        return Err((StatusCode::BAD_REQUEST, "Not a file").into_response());
     }
 
     let ext = file_path

@@ -297,6 +297,11 @@ impl TerminalService {
         TmuxEngine::get_version().map_err(|e| ServiceError::Processing(e.to_string()))
     }
 
+    /// Detect the best available tmux installation plan for the current API host.
+    pub fn get_tmux_install_plan(&self) -> core_engine::TmuxInstallPlan {
+        TmuxEngine::detect_install_plan()
+    }
+
     /// Create a new terminal session with tmux persistence
     /// Returns a receiver for terminal output
     pub async fn create_session(
