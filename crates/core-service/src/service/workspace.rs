@@ -768,12 +768,13 @@ impl WorkspaceService {
     pub async fn cleanup_worktree(
         &self,
         workspace_name: &str,
+        branch_name: &str,
         project_main_path: &str,
     ) -> Result<()> {
         let repo_path = Path::new(project_main_path);
         if let Err(e) = self
             .git_engine
-            .remove_worktree(repo_path, workspace_name, workspace_name)
+            .remove_worktree(repo_path, workspace_name, branch_name)
         {
             tracing::warn!(
                 "Failed to remove worktree for workspace {}: {}",

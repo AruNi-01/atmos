@@ -1344,6 +1344,12 @@ impl WsMessageService {
             .await?
             .ok_or_else(|| ServiceError::Validation("Workspace not found".to_string()))?;
 
+        // Rehydrate the original setup context from the database so retry
+        // re-executes requirement writing and TODO extraction when applicable.
+        let github_issue = workspace.github_issue.clone();
+        let has_github_issue = github_issue.is_some();
+        let auto_extract_todos = has_github_issue;
+
         if let Some(manager) = self.ws_manager.get().cloned() {
             let project_service = self.project_service.clone();
             let workspace_id = workspace.model.guid.clone();
@@ -1362,8 +1368,8 @@ impl WsMessageService {
                     workspace_id,
                     workspace_name,
                     None,
-                    None,
-                    false,
+                    github_issue,
+                    auto_extract_todos,
                     true,
                 )
                 .await;
