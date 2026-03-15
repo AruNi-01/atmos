@@ -601,7 +601,7 @@ impl WorkspaceService {
                 }
 
                 if trimmed.chars().next().map_or(false, |c| c.is_ascii_digit()) {
-                    if let Some((prefix, content)) = trimmed.split_once('. ') {
+                    if let Some((prefix, content)) = trimmed.split_once(". ") {
                         if prefix.chars().all(|c| c.is_ascii_digit()) {
                             let content = content.trim();
                             return (!content.is_empty()).then(|| format!("- [ ] {}", content));
