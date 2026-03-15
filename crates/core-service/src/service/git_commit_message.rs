@@ -47,8 +47,6 @@ impl GitCommitMessageGenerator {
                 )
             })?;
 
-        let prompt = build_generation_prompt(repo_name, changes);
-        let prompt_chars = prompt.chars().count();
         let output_language = self
             .store
             .load_feature_language(LlmFeature::GitCommit)
@@ -57,6 +55,8 @@ impl GitCommitMessageGenerator {
                     "Failed to load git commit output language: {error}"
                 ))
             })?;
+        let prompt = build_generation_prompt(repo_name, changes, output_language.as_deref());
+        let prompt_chars = prompt.chars().count();
         let system_prompt = build_system_prompt(output_language.as_deref());
         let request = GenerateTextRequest {
             system: Some(system_prompt),
@@ -73,7 +73,7 @@ impl GitCommitMessageGenerator {
                 repo_name = %sanitize_prompt_text(repo_name.unwrap_or("unknown")),
                 prompt_chars,
                 changed_files = changes.staged_files.len() + changes.unstaged_files.len() + changes.untracked_files.len(),
-                prompt_preview = %prompt_preview(&build_generation_prompt(repo_name, changes)),
+                prompt_preview = %prompt_preview(&build_generation_prompt(repo_name, changes, output_language.as_deref())),
                 "git commit message generation failed"
             );
             ServiceError::Validation(format!("Failed to generate git commit message: {error}"))
@@ -111,7 +111,6 @@ impl GitCommitMessageGenerator {
             "resolved git commit message provider"
         );
 
-        let prompt = build_generation_prompt(repo_name, changes);
         let output_language = self
             .store
             .load_feature_language(LlmFeature::GitCommit)
@@ -120,6 +119,7 @@ impl GitCommitMessageGenerator {
                     "Failed to load git commit output language: {error}"
                 ))
             })?;
+        let prompt = build_generation_prompt(repo_name, changes, output_language.as_deref());
         let system_prompt = build_system_prompt(output_language.as_deref());
         let request = GenerateTextRequest {
             system: Some(system_prompt),
@@ -173,17 +173,17 @@ fn build_git_commit_user_language_directive(output_language: Option<&str>) -> St
     )
 }
 
-fn build_generation_prompt(repo_name: Option<&str>, changes: &ChangedFilesInfo) -> String {
+fn build_generation_prompt(
+    repo_name: Option<&str>,
+    changes: &ChangedFilesInfo,
+    output_language: Option<&str>,
+) -> String {
     let repo_name = sanitize_prompt_text(repo_name.unwrap_or("unknown"));
     let (scope_label, files_summary) = generation_scope_and_summary(changes);
     let total_additions = changes.total_additions.to_string();
     let total_deletions = changes.total_deletions.to_string();
-    let output_language = FileLlmConfigStore::new()
-        .ok()
-        .and_then(|store| store.load_feature_language(LlmFeature::GitCommit).ok())
-        .flatten();
     let output_language_directive =
-        build_git_commit_user_language_directive(output_language.as_deref());
+        build_git_commit_user_language_directive(output_language);
 
     render_prompt_template(
         GIT_COMMIT_USER_PROMPT_TEMPLATE,
