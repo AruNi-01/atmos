@@ -21,6 +21,7 @@ import { useWebSocketStore } from '@/hooks/use-websocket';
 import { GitPullRequest, GitBranch, Loader2, X, Check, ChevronDown, Search as SearchIcon, Github } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGitStore } from '@/hooks/use-git-store';
+import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { gitApi } from '@/api/ws-api';
 
 interface PRCreateModalProps {
@@ -42,6 +43,7 @@ export function PRCreateModal({
 }: PRCreateModalProps) {
   const send = useWebSocketStore(s => s.send);
   const currentRepoPath = useGitStore(s => s.currentRepoPath);
+  const targetBranch = useGitInfoStore(s => s.targetBranch);
 
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState(`Update from ${branch}`);
@@ -67,8 +69,9 @@ export function PRCreateModal({
         gitApi.listRemoteBranches(currentRepoPath)
           .then(branches => {
             setAvailableBranches(branches.sort());
-            // Set default base branch to main if it exists in remotes
-            if (branches.includes('main')) {
+            if (targetBranch && branches.includes(targetBranch)) {
+              setBaseBranch(targetBranch);
+            } else if (branches.includes('main')) {
               setBaseBranch('main');
             } else if (branches.length > 0) {
               setBaseBranch(branches[0]);
@@ -78,7 +81,7 @@ export function PRCreateModal({
           .finally(() => setIsLoadingBranches(false));
       }
     }
-  }, [isOpen, branch, currentRepoPath]);
+  }, [isOpen, branch, currentRepoPath, targetBranch]);
 
   const handleCreate = async () => {
     if (!title.trim()) return;

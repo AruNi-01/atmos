@@ -12,6 +12,7 @@ mod m20260225_000009_add_mode_to_agent_chat_session;
 mod m20260315_000010_add_workspace_github_issue;
 mod m20260315_000011_add_workspace_display_name;
 mod m20260315_000012_add_workspace_auto_extract_todos;
+mod m20260315_000013_add_workspace_base_branch;
 
 pub struct Migrator;
 
@@ -31,6 +32,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260315_000010_add_workspace_github_issue::Migration),
             Box::new(m20260315_000011_add_workspace_display_name::Migration),
             Box::new(m20260315_000012_add_workspace_auto_extract_todos::Migration),
+            Box::new(m20260315_000013_add_workspace_base_branch::Migration),
         ]
     }
 }

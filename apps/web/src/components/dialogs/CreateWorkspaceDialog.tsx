@@ -12,15 +12,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Label,
+  ScrollArea,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui';
-import { ExternalLink, Github, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Check, ChevronDown, ExternalLink, GitBranch, Github, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import {
   gitApi,
   llmProvidersApi,
@@ -176,12 +182,17 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   );
   const [name, setName] = useState('');
   const [branch, setBranch] = useState('');
+  const [baseBranch, setBaseBranch] = useState('main');
+  const [remoteBranches, setRemoteBranches] = useState<string[]>([]);
+  const [baseBranchFilter, setBaseBranchFilter] = useState('');
+  const [isBaseBranchOpen, setIsBaseBranchOpen] = useState(false);
   const [issueUrl, setIssueUrl] = useState('');
   const [selectedIssueNumber, setSelectedIssueNumber] = useState<string>('');
   const [issuePreview, setIssuePreview] = useState<GithubIssuePayload | null>(null);
   const [issues, setIssues] = useState<GithubIssuePayload[]>([]);
   const [repoContext, setRepoContext] = useState<RepoContext | null>(null);
   const [isRepoLoading, setIsRepoLoading] = useState(false);
+  const [isBaseBranchesLoading, setIsBaseBranchesLoading] = useState(false);
   const [isIssuesLoading, setIsIssuesLoading] = useState(false);
   const [isIssuePreviewLoading, setIsIssuePreviewLoading] = useState(false);
   const [isLlmRoutingLoading, setIsLlmRoutingLoading] = useState(false);
@@ -221,6 +232,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     if (!isOpen) {
       setName('');
       setBranch('');
+      setBaseBranch('main');
+      setRemoteBranches([]);
+      setBaseBranchFilter('');
+      setIsBaseBranchOpen(false);
       setIssueUrl('');
       setSelectedIssueNumber('');
       setIssuePreview(null);
@@ -232,6 +247,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setAutoExtractTodos(false);
       setTodoProviderLabel(null);
       setIsRepoLoading(false);
+      setIsBaseBranchesLoading(false);
       setIsIssuesLoading(false);
       setIsIssuePreviewLoading(false);
       setIsLlmRoutingLoading(false);
@@ -283,8 +299,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       }
 
       setIsRepoLoading(true);
+      setIsBaseBranchesLoading(true);
       setIssueError(null);
       setRepoContext(null);
+      setRemoteBranches([]);
       setIssues([]);
       setIssuePreview(null);
       setSelectedIssueNumber('');
@@ -292,6 +310,19 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setHasSetupScript(false);
 
       try {
+        const fetchedRemoteBranches = await gitApi.listRemoteBranches(selectedProjectPath);
+        if (!cancelled) {
+          const nextRemoteBranches = fetchedRemoteBranches.sort();
+          setRemoteBranches(nextRemoteBranches);
+          if (nextRemoteBranches.includes('main')) {
+            setBaseBranch('main');
+          } else if (nextRemoteBranches.length > 0) {
+            setBaseBranch(nextRemoteBranches[0]);
+          } else {
+            setBaseBranch('main');
+          }
+        }
+
         const scripts = await wsScriptApi.get(selectedProjectId);
         if (!cancelled) {
           setHasSetupScript(
@@ -332,6 +363,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       } finally {
         if (!cancelled) {
           setIsRepoLoading(false);
+          setIsBaseBranchesLoading(false);
           setIsIssuesLoading(false);
         }
       }
@@ -461,6 +493,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         name: finalBranch,
         displayName: finalDisplayName || null,
         branch: finalBranch,
+        baseBranch,
         initialRequirement: null,
         githubIssue: issuePreview,
         autoExtractTodos: autoExtractTodos && !!issuePreview && !!todoProviderLabel,
@@ -504,6 +537,12 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const repoLabel = repoContext ? `${repoContext.owner}/${repoContext.repo}` : 'No GitHub repository';
   const issueBodyPreview = issuePreview?.body?.trim() || 'No issue description provided.';
   const canAutoExtractTodos = !!issuePreview && !!todoProviderLabel && !isLlmRoutingLoading;
+  const filteredRemoteBranches = useMemo(
+    () => remoteBranches.filter((remoteBranch) =>
+      remoteBranch.toLowerCase().includes(baseBranchFilter.trim().toLowerCase()),
+    ),
+    [remoteBranches, baseBranchFilter],
+  );
   const autoExtractDescription = !issuePreview
     ? 'Import a GitHub issue first.'
     : isLlmRoutingLoading
@@ -571,8 +610,83 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                 </p>
               </div>
 
+              <div className="grid gap-2">
+                <Label htmlFor="workspace-base-branch-trigger">Base branch</Label>
+                <DropdownMenu
+                  open={isBaseBranchOpen}
+                  onOpenChange={(open) => {
+                    setIsBaseBranchOpen(open);
+                    if (open) setBaseBranchFilter('');
+                  }}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      id="workspace-base-branch-trigger"
+                      type="button"
+                      disabled={isBaseBranchesLoading || remoteBranches.length === 0}
+                      className="border-input placeholder:text-muted-foreground ring-offset-background focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 flex h-9 w-full min-w-0 items-center justify-between rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                    >
+                      <div className="flex items-center min-w-0 text-muted-foreground">
+                        <span className="opacity-50 shrink-0 mr-1">origin/</span>
+                        <span className="truncate">{baseBranch}</span>
+                      </div>
+                      <ChevronDown className="size-4 opacity-40 ml-2 shrink-0" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] p-3 bg-background overflow-visible">
+                    <div className="space-y-2">
+                      <p className="text-[12px] text-muted-foreground">Select target branch</p>
+                      <Input
+                        value={baseBranchFilter}
+                        onChange={(e) => setBaseBranchFilter(e.target.value)}
+                        placeholder="Search branches..."
+                        className="h-8 text-[12px] bg-background"
+                      />
+                    </div>
+                    <ScrollArea className="h-[240px] mt-2 overflow-x-auto">
+                      <div className="p-1 w-max min-w-full">
+                        {isBaseBranchesLoading ? (
+                          <div className="p-2 text-[12px] text-muted-foreground text-center">Loading branches...</div>
+                        ) : filteredRemoteBranches.length > 0 ? (
+                          filteredRemoteBranches.map((remoteBranch) => (
+                            <DropdownMenuItem
+                              key={remoteBranch}
+                              onClick={() => setBaseBranch(remoteBranch)}
+                              className={cn(
+                                'flex items-center justify-between text-[13px] cursor-pointer whitespace-nowrap min-w-max',
+                                baseBranch === remoteBranch && 'bg-accent text-accent-foreground font-medium',
+                              )}
+                            >
+                              <div className="flex items-center whitespace-nowrap">
+                                {baseBranch === remoteBranch ? (
+                                  <Check className="size-3.5 mr-2 text-emerald-500 shrink-0" />
+                                ) : (
+                                  <GitBranch className="size-3.5 mr-2 text-muted-foreground shrink-0" />
+                                )}
+                                <span className="text-muted-foreground/60 mr-1">origin/</span>
+                                <span>{remoteBranch}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-[12px] text-muted-foreground text-center">No matching branches</div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <p className="text-xs text-muted-foreground">
+                  Workspace worktree and downstream Git comparisons will use this remote branch.
+                </p>
+                {!isBaseBranchesLoading && remoteBranches.length === 0 && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                    No remote branches found for this project.
+                  </div>
+                )}
+              </div>
+
               <div ref={branchFieldRef} className="grid gap-2">
-                <Label htmlFor="workspace-branch">Branch</Label>
+                <Label htmlFor="workspace-branch">Current workspace branch</Label>
                 <Input
                   id="workspace-branch"
                   ref={branchInputRef}
@@ -601,7 +715,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               </div>
             </div>
 
-            <Card className="border-border">
+            <Card className="border-border bg-background">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-medium">GitHub Issue</CardTitle>
                 {repoContext && (
@@ -765,7 +879,16 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !projectId || isIssuePreviewLoading}>
+            <Button
+              type="submit"
+              disabled={
+                isSubmitting ||
+                !projectId ||
+                isIssuePreviewLoading ||
+                isBaseBranchesLoading ||
+                remoteBranches.length === 0
+              }
+            >
               {isSubmitting ? 'Creating...' : 'Create Workspace'}
             </Button>
           </DialogFooter>

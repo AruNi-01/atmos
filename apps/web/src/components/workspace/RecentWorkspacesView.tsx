@@ -115,6 +115,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
         name: aw.name,
         displayName: aw.display_name ?? undefined,
         branch: aw.branch,
+        baseBranch: aw.base_branch,
         isActive: false,
         status: 'clean',
         projectId: aw.project_guid,

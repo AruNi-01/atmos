@@ -5,6 +5,7 @@ export interface Workspace {
   name: string;
   displayName?: string;
   branch: string;
+  baseBranch: string;
   isActive: boolean;
   status: 'clean' | 'modified';
   projectId: string;

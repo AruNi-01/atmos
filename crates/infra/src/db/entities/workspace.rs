@@ -15,6 +15,7 @@ pub struct Model {
     pub name: String,
     pub display_name: Option<String>,
     pub branch: String,
+    pub base_branch: String,
     pub sidebar_order: i32,
     pub is_pinned: bool,
     pub pinned_at: Option<DateTime>,

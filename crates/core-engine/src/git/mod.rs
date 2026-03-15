@@ -90,6 +90,23 @@ impl GitEngine {
         Ok(home.join(".atmos").join("workspaces"))
     }
 
+    fn resolve_remote_branch_ref(&self, repo_path: &Path, base_branch: &str) -> Result<String> {
+        let normalized = base_branch.trim().trim_start_matches("origin/");
+        if normalized.is_empty() {
+            return Err(EngineError::Git("Base branch cannot be empty".to_string()));
+        }
+
+        let remote_branches = self.list_remote_branches(repo_path)?;
+        if remote_branches.iter().any(|branch| branch == normalized) {
+            return Ok(format!("origin/{}", normalized));
+        }
+
+        Err(EngineError::Git(format!(
+            "Remote branch origin/{} does not exist",
+            normalized
+        )))
+    }
+
     /// Get the worktree path for a workspace: ~/.atmos/workspaces/{project_scope}/{workspace_name}
     /// Note: workspace_name may already include the project scope prefix.
     pub fn get_worktree_path(&self, workspace_name: &str) -> Result<PathBuf> {
@@ -134,6 +151,8 @@ impl GitEngine {
             tracing::warn!("Git fetch warning: {}", e);
         }
 
+        let base_ref = self.resolve_remote_branch_ref(repo_path, base_branch)?;
+
         let worktree_str = worktree_path
             .to_str()
             .ok_or_else(|| EngineError::Git("Non-UTF-8 worktree path".into()))?;
@@ -146,7 +165,7 @@ impl GitEngine {
                 "-b",
                 branch_name,
                 worktree_str,
-                base_branch,
+                &base_ref,
             ],
         )
         .map_err(|e| {
@@ -350,7 +369,11 @@ impl GitEngine {
 
     /// Get list of changed files with additions and deletions count
     /// Categorizes files as staged, unstaged, or untracked
-    pub fn get_changed_files(&self, repo_path: &Path) -> Result<ChangedFilesInfo> {
+    pub fn get_changed_files(
+        &self,
+        repo_path: &Path,
+        base_branch: Option<&str>,
+    ) -> Result<ChangedFilesInfo> {
         let status_stdout = run_git(
             repo_path,
             &[
@@ -362,29 +385,46 @@ impl GitEngine {
             ],
         )?;
 
-        // Batch numstat: unstaged changes
-        let unstaged_numstat = Self::build_numstat_map(
-            try_run_git(
-                repo_path,
-                &["-c", "core.quotePath=false", "diff", "--numstat"],
-            )?
-            .as_deref(),
-        );
+        let compare_numstat =
+            if let Some(base_branch) = base_branch.filter(|value| !value.trim().is_empty()) {
+                let base_ref = self.resolve_remote_branch_ref(repo_path, base_branch)?;
+                Some(Self::build_numstat_map(
+                    try_run_git(
+                        repo_path,
+                        &["-c", "core.quotePath=false", "diff", "--numstat", &base_ref],
+                    )?
+                    .as_deref(),
+                ))
+            } else {
+                None
+            };
 
-        // Batch numstat: staged changes
-        let staged_numstat = Self::build_numstat_map(
-            try_run_git(
-                repo_path,
-                &[
-                    "-c",
-                    "core.quotePath=false",
-                    "diff",
-                    "--cached",
-                    "--numstat",
-                ],
-            )?
-            .as_deref(),
-        );
+        let (staged_numstat, unstaged_numstat) = if let Some(compare_numstat) = compare_numstat {
+            (compare_numstat.clone(), compare_numstat)
+        } else {
+            (
+                Self::build_numstat_map(
+                    try_run_git(
+                        repo_path,
+                        &[
+                            "-c",
+                            "core.quotePath=false",
+                            "diff",
+                            "--cached",
+                            "--numstat",
+                        ],
+                    )?
+                    .as_deref(),
+                ),
+                Self::build_numstat_map(
+                    try_run_git(
+                        repo_path,
+                        &["-c", "core.quotePath=false", "diff", "--numstat"],
+                    )?
+                    .as_deref(),
+                ),
+            )
+        };
 
         let mut staged_files: Vec<ChangedFileInfo> = Vec::new();
         let mut unstaged_files: Vec<ChangedFileInfo> = Vec::new();
@@ -535,7 +575,12 @@ impl GitEngine {
     }
 
     /// Get file diff content (old vs new)
-    pub fn get_file_diff(&self, repo_path: &Path, file_path: &str) -> Result<FileDiffInfo> {
+    pub fn get_file_diff(
+        &self,
+        repo_path: &Path,
+        file_path: &str,
+        base_branch: Option<&str>,
+    ) -> Result<FileDiffInfo> {
         let status_stdout = run_git(
             repo_path,
             &[
@@ -565,7 +610,13 @@ impl GitEngine {
         let old_content = if status == "A" {
             String::new()
         } else {
-            let show_ref = format!("HEAD:{}", file_path);
+            let show_ref =
+                if let Some(base_branch) = base_branch.filter(|value| !value.trim().is_empty()) {
+                    let base_ref = self.resolve_remote_branch_ref(repo_path, base_branch)?;
+                    format!("{}:{}", base_ref, file_path)
+                } else {
+                    format!("HEAD:{}", file_path)
+                };
             try_run_git(repo_path, &["show", &show_ref])?.unwrap_or_default()
         };
 

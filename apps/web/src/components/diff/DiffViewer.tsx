@@ -8,6 +8,7 @@ import { gitApi } from '@/api/ws-api';
 import { Loader2 } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
+import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 
@@ -48,6 +49,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
   const [tipPaused, setTipPaused] = useState(false);
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+  const targetBranch = useGitInfoStore((s) => s.targetBranch);
 
   const { stagedFiles, unstagedFiles, untrackedFiles } = useGitStore();
   const diffStats = useMemo(() => {
@@ -290,7 +292,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       setError(null);
 
       try {
-        const diff = await gitApi.getFileDiff(repoPath, filePath);
+        const diff = await gitApi.getFileDiff(repoPath, filePath, targetBranch);
         const fileName = filePath.split('/').pop() || filePath;
 
         setOldFile({ name: fileName, contents: diff.old_content });
@@ -304,7 +306,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     };
 
     loadDiff();
-  }, [repoPath, filePath]);
+  }, [repoPath, filePath, targetBranch]);
 
   const diffOptions = useMemo(() => ({
     theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
@@ -361,6 +363,11 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
             }}
           >
             <span className="text-sm font-medium text-foreground truncate">{filePath}</span>
+            {targetBranch && (
+              <span className="text-xs text-muted-foreground shrink-0">
+                vs origin/{targetBranch}
+              </span>
+            )}
             {diffStats && (diffStats.additions > 0 || diffStats.deletions > 0) && (
               <span className="text-xs font-mono shrink-0">
                 {diffStats.additions > 0 && (

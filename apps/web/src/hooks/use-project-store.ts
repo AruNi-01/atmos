@@ -147,6 +147,7 @@ interface ProjectStore {
     name: string;
     displayName?: string | null;
     branch: string;
+    baseBranch?: string | null;
     initialRequirement?: string | null;
     githubIssue?: WorkspaceModel['github_issue'];
     autoExtractTodos?: boolean;
@@ -192,6 +193,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     name: model.name,
     displayName: model.display_name ?? undefined,
     branch: model.branch,
+    baseBranch: model.base_branch,
     isActive: false, // 由前端管理
     status: 'clean', // 默认状态，后续可以从 git 获取
     projectId: model.project_guid,
@@ -371,6 +373,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         name: data.name,
         displayName: data.displayName,
         branch: data.branch,
+        baseBranch: data.baseBranch,
         initialRequirement: data.initialRequirement,
         githubIssue: data.githubIssue,
         autoExtractTodos: data.autoExtractTodos,
@@ -405,7 +408,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         },
         projects: state.projects.map(p => 
           p.id === data.projectId 
-            ? { ...p, workspaces: sortWorkspaces([...p.workspaces, newWorkspace]) } 
+            ? {
+                ...p,
+                targetBranch: newWorkspace.baseBranch || p.targetBranch,
+                workspaces: sortWorkspaces([...p.workspaces, newWorkspace]),
+              }
             : p
         )
       }));

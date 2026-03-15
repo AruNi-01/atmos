@@ -57,9 +57,9 @@ impl ProjectService {
         // Clean up git worktrees for all workspaces
         let repo_path = std::path::Path::new(&project.main_file_path);
         for workspace in workspaces {
-            if let Err(e) = self
-                .git_engine
-                .remove_worktree(repo_path, &workspace.name, &workspace.branch)
+            if let Err(e) =
+                self.git_engine
+                    .remove_worktree(repo_path, &workspace.name, &workspace.branch)
             {
                 tracing::warn!(
                     "Failed to remove worktree for workspace {}: {}",

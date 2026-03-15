@@ -145,6 +145,7 @@ export interface ArchivedWorkspace {
   name: string;
   display_name?: string | null;
   branch: string;
+  base_branch: string;
   project_guid: string;
   project_name: string;
   archived_at: string;
@@ -157,6 +158,7 @@ export interface WorkspaceModel {
   name: string;
   display_name: string | null;
   branch: string;
+  base_branch: string;
   sidebar_order: number;
   created_at: string;
   updated_at: string;
@@ -597,8 +599,14 @@ export const gitApi = {
   /**
    * 获取变更文件列表
    */
-  getChangedFiles: async (path: string): Promise<GitChangedFilesResponse> => {
-    return wsRequest<GitChangedFilesResponse>("git_changed_files", { path });
+  getChangedFiles: async (
+    path: string,
+    baseBranch?: string | null,
+  ): Promise<GitChangedFilesResponse> => {
+    return wsRequest<GitChangedFilesResponse>("git_changed_files", {
+      path,
+      base_branch: baseBranch ?? null,
+    });
   },
 
   /**
@@ -607,10 +615,12 @@ export const gitApi = {
   getFileDiff: async (
     path: string,
     filePath: string,
+    baseBranch?: string | null,
   ): Promise<GitFileDiffResponse> => {
     return wsRequest<GitFileDiffResponse>("git_file_diff", {
       path,
       file_path: filePath,
+      base_branch: baseBranch ?? null,
     });
   },
 
@@ -830,6 +840,7 @@ export const wsWorkspaceApi = {
     name: string;
     displayName?: string | null;
     branch: string;
+    baseBranch?: string | null;
     sidebarOrder?: number;
     initialRequirement?: string | null;
     githubIssue?: GithubIssuePayload | null;
@@ -840,6 +851,7 @@ export const wsWorkspaceApi = {
       name: data.name,
       display_name: data.displayName ?? null,
       branch: data.branch,
+      base_branch: data.baseBranch ?? null,
       sidebar_order: data.sidebarOrder ?? 0,
       initial_requirement: data.initialRequirement ?? null,
       github_issue: data.githubIssue ?? null,

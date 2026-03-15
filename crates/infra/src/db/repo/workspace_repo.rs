@@ -53,6 +53,7 @@ impl<'a> WorkspaceRepo<'a> {
         name: String,
         display_name: Option<String>,
         branch: String,
+        base_branch: String,
         sidebar_order: i32,
         github_issue_url: Option<String>,
         github_issue_data: Option<String>,
@@ -69,6 +70,7 @@ impl<'a> WorkspaceRepo<'a> {
             name: Set(name),
             display_name: Set(display_name),
             branch: Set(branch),
+            base_branch: Set(base_branch),
             sidebar_order: Set(sidebar_order),
             is_pinned: Set(false),
             pinned_at: Set(None),
@@ -88,7 +90,10 @@ impl<'a> WorkspaceRepo<'a> {
     /// 更新工作区显示名称（display_name 列）
     pub async fn update_display_name(&self, guid: &str, display_name: String) -> Result<()> {
         let result = workspace::Entity::update_many()
-            .col_expr(workspace::Column::DisplayName, Expr::value(Some(display_name)))
+            .col_expr(
+                workspace::Column::DisplayName,
+                Expr::value(Some(display_name)),
+            )
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),

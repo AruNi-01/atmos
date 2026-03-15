@@ -154,7 +154,10 @@ fn build_system_prompt(output_language: Option<&str>) -> String {
 }
 
 fn build_git_commit_language_instruction(output_language: Option<&str>) -> String {
-    let Some(language) = output_language.map(str::trim).filter(|value| !value.is_empty()) else {
+    let Some(language) = output_language
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
         return String::new();
     };
 
@@ -164,7 +167,10 @@ fn build_git_commit_language_instruction(output_language: Option<&str>) -> Strin
 }
 
 fn build_git_commit_user_language_directive(output_language: Option<&str>) -> String {
-    let Some(language) = output_language.map(str::trim).filter(|value| !value.is_empty()) else {
+    let Some(language) = output_language
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
         return String::new();
     };
 
@@ -182,8 +188,7 @@ fn build_generation_prompt(
     let (scope_label, files_summary) = generation_scope_and_summary(changes);
     let total_additions = changes.total_additions.to_string();
     let total_deletions = changes.total_deletions.to_string();
-    let output_language_directive =
-        build_git_commit_user_language_directive(output_language);
+    let output_language_directive = build_git_commit_user_language_directive(output_language);
 
     render_prompt_template(
         GIT_COMMIT_USER_PROMPT_TEMPLATE,

@@ -25,9 +25,9 @@ use infra::{
     GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest,
     GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
     GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubIssueGetRequest,
+    GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
-    GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
     GithubPrReopenRequest, LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
@@ -759,7 +759,7 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         let info = self
             .git_engine
-            .get_changed_files(&path)
+            .get_changed_files(&path, req.base_branch.as_deref())
             .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
 
         let convert_file = |f: core_engine::ChangedFileInfo| -> Value {
@@ -795,7 +795,7 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         let diff = self
             .git_engine
-            .get_file_diff(&path, &req.file_path)
+            .get_file_diff(&path, &req.file_path, req.base_branch.as_deref())
             .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?;
 
         Ok(json!({
@@ -814,7 +814,7 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         let changes = self
             .git_engine
-            .get_changed_files(&path)
+            .get_changed_files(&path, None)
             .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
 
         let repo_name = path.file_name().and_then(|value| value.to_str());
@@ -1204,9 +1204,17 @@ impl WsMessageService {
                     (!trimmed.is_empty()).then_some(trimmed)
                 }),
                 req.branch,
+                req.base_branch,
                 req.sidebar_order,
                 req.github_issue.clone(),
                 req.auto_extract_todos,
+            )
+            .await?;
+
+        self.project_service
+            .update_target_branch(
+                req.project_guid.clone(),
+                Some(workspace.model.base_branch.clone()),
             )
             .await?;
 
@@ -1882,9 +1890,7 @@ impl WsMessageService {
             .ok()
             .filter(|v| !v.trim().is_empty())
             .or_else(Self::detect_login_shell_from_system)
-            .unwrap_or_else(|| {
-                "/bin/sh".to_string()
-            });
+            .unwrap_or_else(|| "/bin/sh".to_string());
 
         let mut cmd = CommandBuilder::new(&shell);
         // Run as an interactive login shell so both profile files and rc files
@@ -2502,16 +2508,15 @@ set -x
 
     async fn handle_github_issue_get(&self, req: GithubIssueGetRequest) -> Result<Value> {
         let (owner, repo, number) = if let Some(issue_url) = req.issue_url {
-            core_engine::GithubEngine::parse_issue_url(&issue_url).ok_or_else(|| {
-                ServiceError::Validation("Invalid GitHub issue URL".to_string())
-            })?
+            core_engine::GithubEngine::parse_issue_url(&issue_url)
+                .ok_or_else(|| ServiceError::Validation("Invalid GitHub issue URL".to_string()))?
         } else {
-            let owner = req
-                .owner
-                .ok_or_else(|| ServiceError::Validation("GitHub issue owner is required".to_string()))?;
-            let repo = req
-                .repo
-                .ok_or_else(|| ServiceError::Validation("GitHub issue repo is required".to_string()))?;
+            let owner = req.owner.ok_or_else(|| {
+                ServiceError::Validation("GitHub issue owner is required".to_string())
+            })?;
+            let repo = req.repo.ok_or_else(|| {
+                ServiceError::Validation("GitHub issue repo is required".to_string())
+            })?;
             let number = req.issue_number.ok_or_else(|| {
                 ServiceError::Validation("GitHub issue number is required".to_string())
             })?;

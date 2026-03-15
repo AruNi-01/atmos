@@ -35,6 +35,7 @@ import {
 import LogoSvg from '@workspace/ui/components/logo-svg';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
+import { useGitStore } from '@/hooks/use-git-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
@@ -62,6 +63,7 @@ const Header: React.FC = () => {
   const projects = useProjectStore(s => s.projects);
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
   const setupProgress = useProjectStore(s => s.setupProgress);
+  const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
   const { setGlobalSearchOpen } = useDialogStore();
   const [, setAgentChatOpen] = useAgentChatUrl();
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
@@ -239,7 +241,7 @@ const Header: React.FC = () => {
       const fetchBranches = async () => {
         setIsLoadingBranches(true);
         try {
-          const branches = await gitApi.listBranches(effectivePath);
+          const branches = await gitApi.listRemoteBranches(effectivePath);
           setAvailableBranches(branches.sort());
         } catch (error) {
           console.error('Failed to fetch branches:', error);
@@ -285,6 +287,7 @@ const Header: React.FC = () => {
       currentProject.id,
       editedTargetBranch.trim() || null
     );
+    await refreshChangedFiles();
     setIsEditingTargetBranch(false);
   };
 
@@ -314,7 +317,7 @@ const Header: React.FC = () => {
           // 3. Refresh git info and branches list
           refreshGitStatus();
           // Update local branches list immediately if needed
-          const branches = await gitApi.listBranches(currentWorkspace.localPath);
+          const branches = await gitApi.listRemoteBranches(currentWorkspace.localPath);
           setAvailableBranches(branches.sort());
 
           toastManager.add({
@@ -540,7 +543,10 @@ const Header: React.FC = () => {
                       filteredBranches.map(branch => (
                         <DropdownMenuItem
                           key={branch}
-                          onClick={() => setTargetBranch(currentProject!.id, branch)}
+                          onClick={async () => {
+                            await setTargetBranch(currentProject!.id, branch);
+                            await refreshChangedFiles();
+                          }}
                           className={cn(
                             "flex items-center justify-between text-[13px] cursor-pointer whitespace-nowrap min-w-max",
                             displayTargetBranch === branch && "bg-accent text-accent-foreground font-medium"
