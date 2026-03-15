@@ -90,8 +90,8 @@ impl GitEngine {
         Ok(home.join(".atmos").join("workspaces"))
     }
 
-    /// Get the worktree path for a workspace: ~/.atmos/workspaces/{workspace_name}
-    /// Note: workspace_name already includes the prefix (e.g., "aruni/pikachu")
+    /// Get the worktree path for a workspace: ~/.atmos/workspaces/{project_scope}/{workspace_name}
+    /// Note: workspace_name may already include the project scope prefix.
     pub fn get_worktree_path(&self, workspace_name: &str) -> Result<PathBuf> {
         let base = self.get_workspaces_base_dir()?;
         Ok(base.join(workspace_name))
@@ -110,6 +110,7 @@ impl GitEngine {
         &self,
         repo_path: &Path,
         workspace_name: &str,
+        branch_name: &str,
         base_branch: &str,
     ) -> Result<PathBuf> {
         let worktree_path = self.get_worktree_path(workspace_name)?;
@@ -143,7 +144,7 @@ impl GitEngine {
                 "worktree",
                 "add",
                 "-b",
-                workspace_name,
+                branch_name,
                 worktree_str,
                 base_branch,
             ],
@@ -158,7 +159,7 @@ impl GitEngine {
         tracing::info!(
             "Created worktree at {} with branch {} (not pushed to remote yet)",
             worktree_path.display(),
-            workspace_name
+            branch_name
         );
 
         Ok(worktree_path)
@@ -169,7 +170,12 @@ impl GitEngine {
     /// # Arguments
     /// * `repo_path` - Path to the main git repository
     /// * `workspace_name` - Name of the workspace to remove (e.g., "aruni/pikachu")
-    pub fn remove_worktree(&self, repo_path: &Path, workspace_name: &str) -> Result<()> {
+    pub fn remove_worktree(
+        &self,
+        repo_path: &Path,
+        workspace_name: &str,
+        branch_name: &str,
+    ) -> Result<()> {
         let worktree_path = self.get_worktree_path(workspace_name)?;
 
         if !worktree_path.exists() {
@@ -184,13 +190,13 @@ impl GitEngine {
         run_git(repo_path, &["worktree", "remove", "--force", worktree_str])?;
 
         // Delete local branch (non-fatal)
-        if try_run_git(repo_path, &["branch", "-D", workspace_name])?.is_some() {
-            tracing::info!("Deleted local branch: {}", workspace_name);
+        if try_run_git(repo_path, &["branch", "-D", branch_name])?.is_some() {
+            tracing::info!("Deleted local branch: {}", branch_name);
         }
 
         // Delete remote branch if exists (non-fatal)
-        if let Some(_) = try_run_git(repo_path, &["push", "origin", "--delete", workspace_name])? {
-            tracing::info!("Deleted remote branch: origin/{}", workspace_name);
+        if let Some(_) = try_run_git(repo_path, &["push", "origin", "--delete", branch_name])? {
+            tracing::info!("Deleted remote branch: origin/{}", branch_name);
         }
 
         tracing::info!("Removed worktree for workspace {}", workspace_name);

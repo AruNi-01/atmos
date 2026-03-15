@@ -1,3 +1,5 @@
+${outputLanguageDirective}
+
 Repository: ${repoName}
 Commit scope: ${scopeLabel}
 Total additions: ${totalAdditions}

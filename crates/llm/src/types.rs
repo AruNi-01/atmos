@@ -15,6 +15,7 @@ pub enum ProviderKind {
 pub enum LlmFeature {
     SessionTitle,
     GitCommit,
+    WorkspaceIssueTodo,
 }
 
 impl LlmFeature {
@@ -22,6 +23,7 @@ impl LlmFeature {
         match self {
             Self::SessionTitle => "session_title",
             Self::GitCommit => "git_commit",
+            Self::WorkspaceIssueTodo => "workspace_issue_todo",
         }
     }
 }
@@ -43,6 +45,12 @@ pub struct LlmFeatureBindings {
     #[serde(default)]
     pub git_commit: Option<String>,
     #[serde(default)]
+    pub git_commit_language: Option<String>,
+    #[serde(default)]
+    pub workspace_issue_todo: Option<String>,
+    #[serde(default)]
+    pub workspace_issue_todo_language: Option<String>,
+    #[serde(default)]
     pub session_title_format: SessionTitleFormatConfig,
 }
 
@@ -51,6 +59,15 @@ impl LlmFeatureBindings {
         match feature {
             LlmFeature::SessionTitle => self.session_title.as_deref(),
             LlmFeature::GitCommit => self.git_commit.as_deref(),
+            LlmFeature::WorkspaceIssueTodo => self.workspace_issue_todo.as_deref(),
+        }
+    }
+
+    pub fn language_for(&self, feature: LlmFeature) -> Option<&str> {
+        match feature {
+            LlmFeature::SessionTitle => None,
+            LlmFeature::GitCommit => self.git_commit_language.as_deref(),
+            LlmFeature::WorkspaceIssueTodo => self.workspace_issue_todo_language.as_deref(),
         }
     }
 }

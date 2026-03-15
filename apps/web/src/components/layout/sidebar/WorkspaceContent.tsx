@@ -136,11 +136,15 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   };
 
   const confirmDelete = () => {
+    if (isActive) {
+      router.replace('/');
+    }
     onDelete?.(workspace.id);
     setShowDeleteDialog(false);
   };
 
   const shortName = getWorkspaceShortName(workspace.name);
+  const displayName = workspace.displayName?.trim() || shortName;
   const timeAgo = formatRelativeTime(workspace.createdAt);
 
   return (
@@ -186,7 +190,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
         </div>
         <div className="flex items-center mt-0.5 ml-5 relative min-w-0">
           <div className="flex items-center min-w-0 flex-1">
-            <span className="text-[11px] text-muted-foreground truncate">{shortName}</span>
+            <span className="text-[11px] text-muted-foreground truncate">{displayName}</span>
             <span className="text-[11px] text-muted-foreground mx-1">·</span>
             <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo}</span>
           </div>
@@ -240,7 +244,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
           <DialogHeader>
             <DialogTitle>Delete Workspace</DialogTitle>
             <DialogDescription>
-              This will permanently delete the workspace `{workspace.name}` and its local directory. This action cannot be undone.
+              This will permanently delete the workspace `{workspace.displayName || workspace.name}` and its local directory. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -21,6 +21,7 @@ Requirements:
 - Mention the concrete feature, area, or module that changed
 - Do not use bullets, code fences, quotes, or commentary outside the commit
 - Do not mention that the message was generated
+${outputLanguageInstruction}
 
 Allowed types:
 - feat: new feature or user-visible enhancement

@@ -81,7 +81,7 @@ import { useGithubPRList, useGithubActionsList } from '@/hooks/use-github';
 import { PRDetailModal } from '@/components/github/PRDetailModal';
 import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
 import { type ActionRun, useProcessedActions, ActionsSummaryHeader } from '@/components/github/ActionsPanel';
-import { fsApi } from '@/api/ws-api';
+import { fsApi, type GithubIssuePayload } from '@/api/ws-api';
 import { TaskListPanel, renderStatusIcon } from '@/components/workspace/TaskListPanel';
 
 interface OverviewTabProps {
@@ -93,6 +93,7 @@ interface OverviewTabProps {
   gitBranch?: string;
   createdAt?: string;
   isProjectOnly?: boolean;
+  githubIssue?: GithubIssuePayload | null;
 }
 
 function formatDate(isoString?: string): string {
@@ -140,6 +141,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   gitBranch: propGitBranch,
   createdAt,
   isProjectOnly = false,
+  githubIssue = null,
 }) => {
   const openFile = useEditorStore(s => s.openFile);
   const {
@@ -404,6 +406,40 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
                     {formatDate(createdAt)}
                   </span>
+                </div>
+              )}
+
+              {githubIssue && (
+                <div
+                  onClick={() => window.open(githubIssue.url, '_blank', 'noopener,noreferrer')}
+                  className="rounded-md border border-border bg-muted/20 p-3 transition-colors hover:bg-muted/40 cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <Github className="size-3.5" />
+                        <span>
+                          {githubIssue.owner}/{githubIssue.repo}#{githubIssue.number}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[13px] font-medium text-foreground line-clamp-2">
+                        {githubIssue.title}
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="capitalize shrink-0">
+                      {githubIssue.state}
+                    </Badge>
+                  </div>
+
+                  {githubIssue.labels.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {githubIssue.labels.map((label) => (
+                        <Badge key={label.name} variant="outline" className="text-[10px]">
+                          {label.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

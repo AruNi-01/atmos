@@ -79,7 +79,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
       await fetchProjects(); // Refresh sidebar
       toastManager.add({
         title: "Workspace Restored",
-        description: `Restored workspace "${workspace.name}"`,
+        description: `Restored workspace "${workspace.display_name || workspace.name}"`,
         type: "success"
       });
     } catch (error) {
@@ -102,7 +102,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
     setDeleteWorkspaceDialog({
       isOpen: true,
       workspaceId: workspace.guid,
-      workspaceName: workspace.name,
+      workspaceName: workspace.display_name || workspace.name,
       onDeleted: () => {
         setArchivedWorkspaces(prev => prev.filter(w => w.guid !== workspace.guid));
       }
@@ -146,6 +146,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
     const lowQuery = searchQuery.toLowerCase();
     return archivedWorkspaces.filter(w =>
       w.name.toLowerCase().includes(lowQuery) ||
+      (w.display_name?.toLowerCase().includes(lowQuery) ?? false) ||
       w.project_name.toLowerCase().includes(lowQuery) ||
       w.branch.toLowerCase().includes(lowQuery)
     );
@@ -287,7 +288,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
                                   <div className="flex flex-col min-w-0">
                                     <div className="flex items-center gap-3">
                                       <span className="text-[14px] font-semibold truncate text-foreground">
-                                        {ws.name}
+                                        {ws.display_name || ws.name}
                                       </span>
                                       {ws.branch && (
                                         <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-lg border border-border/50">

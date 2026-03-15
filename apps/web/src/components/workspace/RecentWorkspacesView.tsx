@@ -86,6 +86,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
       const mapped = res.workspaces.map(aw => ({
         id: aw.guid,
         name: aw.name,
+        displayName: aw.display_name ?? undefined,
         branch: aw.branch,
         isActive: false,
         status: 'clean',
@@ -139,6 +140,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
     const lowQuery = searchQuery.toLowerCase();
     return allWorkspaces.filter(w =>
       w.name.toLowerCase().includes(lowQuery) ||
+      (w.displayName?.toLowerCase().includes(lowQuery) ?? false) ||
       w.projectName.toLowerCase().includes(lowQuery) ||
       w.branch.toLowerCase().includes(lowQuery)
     );
@@ -394,9 +396,9 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                         {ws.branch}
                                       </span>
                                     </div>
-                                    {ws.branch !== ws.name && (
+                                    {(ws.displayName || ws.name) !== ws.branch && (
                                       <span className="text-xs text-muted-foreground/60 truncate italic">
-                                        {ws.name}
+                                        {ws.displayName || ws.name}
                                       </span>
                                     )}
                                   </div>

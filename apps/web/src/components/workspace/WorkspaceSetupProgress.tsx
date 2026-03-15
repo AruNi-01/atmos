@@ -1,33 +1,30 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertCircle,
+  ArrowRight,
   CheckCircle2,
   Circle,
-  Loader2,
-  Terminal,
-  ArrowRight,
-  AlertCircle,
   Clock,
   FileText,
-  SkipForward,
-  Save
+  Loader2,
+  Sparkles,
+  Terminal,
 } from "lucide-react";
-import {
-  Button,
-  Textarea
-} from "@workspace/ui";
+import { Button, toastManager } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { WorkspaceSetupProgress, useProjectStore } from "@/hooks/use-project-store";
-import { useWorkspaceContextStore } from "@/hooks/use-workspace-context";
+import { wsWorkspaceApi } from "@/api/ws-api";
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { atmosDarkTheme, defaultTerminalOptions } from "../terminal/theme";
 
-const Progress = ({ value, className }: { value: number, className?: string }) => (
-  <div className={cn("w-full bg-muted rounded-full overflow-hidden", className)}>
+const Progress = ({ value, className }: { value: number; className?: string }) => (
+  <div className={cn("w-full overflow-hidden rounded-full bg-muted", className)}>
     <div
       className="h-full bg-primary transition-all duration-500 ease-in-out"
       style={{ width: `${value}%` }}
@@ -40,78 +37,139 @@ interface WorkspaceSetupProgressProps {
   onFinish: () => void;
 }
 
-type DisplayStatus = 'creating' | 'setting_up' | 'define_requirements' | 'completed' | 'error';
+type SetupStepKey = NonNullable<WorkspaceSetupProgress["stepKey"]>;
+type DisplayStatus = WorkspaceSetupProgress["status"];
+
+function fallbackStepKey(
+  status: WorkspaceSetupProgress["status"] | WorkspaceSetupProgress["lastStatus"],
+): SetupStepKey {
+  switch (status) {
+    case "completed":
+      return "ready";
+    case "setting_up":
+      return "run_setup_script";
+    default:
+      return "create_worktree";
+  }
+}
 
 export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> = ({
   progress,
-  onFinish
+  onFinish,
 }) => {
-  const { status: backendStatus, stepTitle, output, lastStatus, workspaceId } = progress;
-  const retryWorkspaceSetup = useProjectStore(s => s.retryWorkspaceSetup);
-  const projects = useProjectStore(s => s.projects);
-  const { saveRequirement } = useWorkspaceContextStore();
+  const { status, stepTitle, output, workspaceId, stepKey, lastStepKey, setupContext } =
+    progress;
+  const retryWorkspaceSetup = useProjectStore((s) => s.retryWorkspaceSetup);
 
-  // Find workspace's localPath from projects
-  const workspaceLocalPath = React.useMemo(() => {
-    for (const project of projects) {
-      const workspace = project.workspaces.find(w => w.id === workspaceId);
-      if (workspace) {
-        return workspace.localPath;
+  const currentStepKey: SetupStepKey = useMemo(() => {
+    if (status === "completed") {
+      return "ready";
+    }
+    if (status === "error") {
+      return stepKey ?? lastStepKey ?? fallbackStepKey(progress.lastStatus);
+    }
+    return stepKey ?? fallbackStepKey(status);
+  }, [lastStepKey, progress.lastStatus, status, stepKey]);
+
+  const contextStep = useMemo(() => {
+    const hasGithubIssue = !!setupContext?.hasGithubIssue;
+    const hasRequirementStep = !!setupContext?.hasRequirementStep;
+
+    if (!hasGithubIssue && !hasRequirementStep) {
+      return null;
+    }
+
+    if (hasGithubIssue) {
+      return {
+        id: "write_requirement" as const,
+        title: "Fill Requirement Spec",
+        description: "Write the linked GitHub issue into requirement.md.",
+      };
+    }
+
+    return {
+      id: "write_requirement" as const,
+      title: "Write Requirement Spec",
+      description: "Save the initial requirement specification for this workspace.",
+    };
+  }, [setupContext]);
+
+  const todoStep = !!setupContext?.autoExtractTodos
+    ? {
+        id: "extract_todos" as const,
+        title: "Extract TODOs",
+        description: "Generate task.md from the linked issue with the routed LLM provider.",
       }
+    : null;
+
+  const showSetupScriptStep =
+    typeof setupContext?.hasSetupScript === "boolean"
+      ? setupContext.hasSetupScript
+      : status === "setting_up" ||
+        stepKey === "run_setup_script" ||
+        lastStepKey === "run_setup_script";
+
+  const steps = useMemo(() => {
+    const nextSteps: Array<{
+      id: SetupStepKey;
+      title: string;
+      description: string;
+    }> = [
+      {
+        id: "create_worktree",
+        title: "Create Workspace",
+        description: "Create the worktree and reserve the workspace directory.",
+      },
+    ];
+
+    if (contextStep) {
+      nextSteps.push(contextStep);
     }
-    return null;
-  }, [projects, workspaceId]);
 
-  // Local state for the define_requirements step (front-end controlled)
-  const [showDefineRequirements, setShowDefineRequirements] = useState(false);
-  const [requirementText, setRequirementText] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Determine the display status (may differ from backend status)
-  const status: DisplayStatus = showDefineRequirements ? 'define_requirements' : backendStatus;
-
-  // When backend status becomes 'completed', intercept and show define_requirements first
-  const prevBackendStatusRef = useRef(backendStatus);
-  useEffect(() => {
-    if (backendStatus === 'completed' && prevBackendStatusRef.current !== 'completed') {
-      setShowDefineRequirements(true);
+    if (todoStep) {
+      nextSteps.push(todoStep);
     }
-    prevBackendStatusRef.current = backendStatus;
-  }, [backendStatus]);
 
-  const [localCountdown, setLocalCountdown] = React.useState(5);
-  const [isHovered, setIsHovered] = React.useState(false);
+    if (showSetupScriptStep) {
+      nextSteps.push({
+        id: "run_setup_script",
+        title: "Run Setup Script",
+        description: "Execute project setup commands for this workspace.",
+      });
+    }
+
+    nextSteps.push({
+      id: "ready",
+      title: "Ready",
+      description: "Finalize setup and hand off to the workspace.",
+    });
+
+    return nextSteps;
+  }, [contextStep, showSetupScriptStep, todoStep]);
+
+  const currentStepIndex = Math.max(
+    0,
+    steps.findIndex((step) => step.id === currentStepKey),
+  );
+  const useCompactSteps = steps.length >= 5;
+  const progressValue =
+    status === "completed"
+      ? 100
+      : (currentStepIndex + 0.5) * (100 / Math.max(1, steps.length));
+
+  const [localCountdown, setLocalCountdown] = useState(5);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isConfirmingTodos, setIsConfirmingTodos] = useState(false);
 
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const lastWrittenLengthRef = useRef(0);
 
-  // Handle Skip - just proceed to completed
-  const handleSkip = () => {
-    setShowDefineRequirements(false);
-  };
+  const showTerminalPanel =
+    (status === "setting_up" || status === "error") && output.trim().length > 0;
 
-  // Handle Save & Continue - save requirement then proceed
-  const handleSaveAndContinue = async () => {
-    if (!workspaceLocalPath || !requirementText.trim()) {
-      setShowDefineRequirements(false);
-      return;
-    }
-    
-    setIsSaving(true);
-    try {
-      await saveRequirement(workspaceId, workspaceLocalPath, requirementText.trim());
-    } catch (error) {
-      console.error('Failed to save requirement:', error);
-    } finally {
-      setIsSaving(false);
-      setShowDefineRequirements(false);
-    }
-  };
-
-  // Initialize terminal
   useEffect(() => {
-    if (!terminalContainerRef.current || terminalRef.current) return;
+    if (!showTerminalPanel || !terminalContainerRef.current || terminalRef.current) return;
 
     const term = new XTerm({
       ...defaultTerminalOptions,
@@ -119,7 +177,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       disableStdin: true,
       cursorBlink: true,
       convertEol: true,
-      fontSize: 12, // Slightly smaller for setup view
+      fontSize: 12,
     });
 
     const fitAddon = new FitAddon();
@@ -129,7 +187,6 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
     terminalRef.current = term;
 
-    // Write initial output if any
     if (output) {
       term.write(output);
       lastWrittenLengthRef.current = output.length;
@@ -148,216 +205,298 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       terminalRef.current = null;
       lastWrittenLengthRef.current = 0;
     };
-  }, []); // Only init once per mount
+  }, [output, showTerminalPanel]);
 
-  // Write new output chunks
   useEffect(() => {
-    if (terminalRef.current) {
-      if (output.length > lastWrittenLengthRef.current) {
-        const newChunk = output.slice(lastWrittenLengthRef.current);
-        terminalRef.current.write(newChunk);
-        lastWrittenLengthRef.current = output.length;
-      } else if (output.length < lastWrittenLengthRef.current) {
-        // If output was cleared or reset (e.g. retry)
-        terminalRef.current.clear();
-        terminalRef.current.write(output);
-        lastWrittenLengthRef.current = output.length;
-      }
+    if (!terminalRef.current) return;
+
+    if (output.length > lastWrittenLengthRef.current) {
+      const newChunk = output.slice(lastWrittenLengthRef.current);
+      terminalRef.current.write(newChunk);
+      lastWrittenLengthRef.current = output.length;
+    } else if (output.length < lastWrittenLengthRef.current) {
+      terminalRef.current.clear();
+      terminalRef.current.write(output);
+      lastWrittenLengthRef.current = output.length;
     }
   }, [output]);
 
-  // Handle local countdown
   useEffect(() => {
-    if (status === 'completed' && localCountdown > 0 && !isHovered) {
+    if (status !== "completed") {
+      setLocalCountdown(5);
+      return;
+    }
+
+    if (localCountdown > 0 && !isHovered) {
       const timer = setInterval(() => {
-        setLocalCountdown(prev => prev - 1);
+        setLocalCountdown((prev) => prev - 1);
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [status, localCountdown, isHovered]);
+  }, [isHovered, localCountdown, status]);
 
-  // Handle countdown finishing
   useEffect(() => {
-    if (status === 'completed' && localCountdown === 0) {
+    if (status === "completed" && localCountdown === 0) {
       onFinish();
     }
-  }, [status, localCountdown, onFinish]);
+  }, [localCountdown, onFinish, status]);
 
-  // Shortcut for Start Building
-  useHotkeys('mod+enter', () => {
-    if (status === 'completed') onFinish();
-  }, { enableOnFormTags: true });
+  useEffect(() => {
+    if (!progress.requiresConfirmation) {
+      setIsConfirmingTodos(false);
+    }
+  }, [progress.requiresConfirmation, progress.status, progress.stepKey]);
 
-  const steps = [
-    { id: 'creating', title: 'Initialize Workspace', description: 'Creating directory and worktree' },
-    { id: 'setting_up', title: 'Setting up Environment', description: 'Executing setup scripts' },
-    { id: 'define_requirements', title: 'Define Requirements', description: 'Optional: describe your goals' },
-    { id: 'completed', title: 'Finalizing', description: 'Almost ready' }
-  ];
+  useHotkeys(
+    "mod+enter",
+    () => {
+      if (status === "completed") onFinish();
+    },
+    { enableOnFormTags: true },
+  );
 
-  // Determine which step we are currently at (or failed at)
-  const effectiveStatus = status === 'error' ? lastStatus : status;
-  const currentStepIndex = steps.findIndex(s => s.id === effectiveStatus);
+  const handleConfirmTodos = async () => {
+    if (!workspaceId || !output.trim() || isConfirmingTodos) return;
 
-  // Progress value should stay at the current step's progress even if error occurs
-  const progressValue = status === 'completed' ? 100 : (Math.max(0, currentStepIndex) + 0.5) * (100 / steps.length);
+    try {
+      setIsConfirmingTodos(true);
+      await wsWorkspaceApi.confirmTodos(workspaceId, output);
+    } catch (error) {
+      console.error("Failed to confirm extracted TODOs:", error);
+      setIsConfirmingTodos(false);
+      toastManager.add({
+        title: "Could not continue setup",
+        description: "Failed to save the generated TODOs into task.md.",
+        type: "error",
+      });
+    }
+  };
+
+  const renderStepIcon = (
+    step: { id: SetupStepKey },
+    stepIndex: number,
+  ) => {
+    const isFailed = status === "error" && step.id === currentStepKey;
+    const isActive = status !== "completed" && status !== "error" && step.id === currentStepKey;
+    const isDone = stepIndex < currentStepIndex || status === "completed";
+
+    if (isFailed) {
+      return <AlertCircle className="size-5 text-destructive" />;
+    }
+    if (isDone) {
+      return <CheckCircle2 className="size-5 text-emerald-500" />;
+    }
+    if (isActive) {
+      if (step.id === "write_requirement") {
+        return <FileText className="size-5 text-primary" />;
+      }
+      if (step.id === "extract_todos") {
+        return <Sparkles className="size-5 text-primary" />;
+      }
+      if (step.id === "ready") {
+        return <Sparkles className="size-5 text-primary" />;
+      }
+      return <Loader2 className="size-5 animate-spin text-primary" />;
+    }
+    return <Circle className="size-5 text-muted-foreground" />;
+  };
+
+  const renderBody = () => {
+    if (showTerminalPanel) {
+      return (
+        <div className="relative flex min-h-[60px] w-full flex-1 flex-col overflow-hidden rounded-xl border border-border bg-[#09090b] shadow-2xl">
+          <div className="flex items-center justify-between border-b border-white/5 bg-[#161b22] px-4 py-2">
+            <div className="flex gap-1.5">
+              <div className="size-2.5 rounded-full bg-[#ff5f56]" />
+              <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
+              <div className="size-2.5 rounded-full bg-[#27c93f]" />
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[#8b949e]">
+              Setup Output
+            </span>
+          </div>
+          <div className="flex-1 overflow-hidden bg-[#09090b] p-4">
+            <div ref={terminalContainerRef} className="h-full w-full" />
+          </div>
+        </div>
+      );
+    }
+
+    if (status === "error") {
+      return (
+        <div className="flex min-h-[200px] w-full flex-1 items-center justify-center rounded-xl border border-destructive/30 bg-destructive/5 px-6 text-center">
+          <div className="max-w-md space-y-2">
+            <p className="text-sm font-medium text-foreground">Workspace setup failed</p>
+            <p className="text-sm text-muted-foreground">
+              {stepTitle || "The current setup step failed before the workspace became ready."}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Adjust the conflicting input if needed, then retry initialization.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentStepKey === "create_worktree") {
+      return (
+        <div className="flex min-h-[200px] w-full flex-1 items-center justify-center rounded-xl border border-border bg-background px-6 text-center text-sm text-muted-foreground">
+          <div className="max-w-md space-y-2">
+            <p className="text-sm font-medium text-foreground">Creating workspace worktree</p>
+            <p>Reserving the workspace directory and preparing the branch checkout.</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentStepKey === "write_requirement") {
+      return (
+        <div className="flex min-h-[200px] w-full flex-1 items-center justify-center rounded-xl border border-border bg-background px-6 text-center text-sm text-muted-foreground">
+          <div className="max-w-md space-y-2">
+            <p className="text-sm font-medium text-foreground">
+              {contextStep?.title ?? "Preparing workspace context"}
+            </p>
+            <p>{contextStep?.description ?? "Writing the initial context into the workspace."}</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentStepKey === "extract_todos") {
+      return (
+        <div className="flex min-h-[260px] w-full flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
+          <div className="border-b border-border px-5 py-4">
+            <p className="text-sm font-medium text-foreground">
+              {progress.requiresConfirmation ? "Review initial TODOs" : "Generating initial TODOs"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {progress.requiresConfirmation
+                ? "Confirm this markdown to write it into .atmos/context/task.md and continue setup."
+                : "Streaming markdown tasks from the linked issue."}
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {output.trim().length > 0 ? (
+              <MarkdownRenderer className="prose prose-sm max-w-none text-sm text-foreground dark:prose-invert">
+                {output}
+              </MarkdownRenderer>
+            ) : (
+              <div className="flex h-full min-h-[160px] items-center justify-center text-sm text-muted-foreground">
+                Waiting for the routed LLM provider to stream TODO markdown...
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex min-h-[200px] w-full flex-1 items-center justify-center rounded-xl border border-border bg-background px-6 text-center text-sm text-muted-foreground">
+        <div className="max-w-md space-y-2">
+          <p className="text-sm font-medium text-foreground">Workspace is ready</p>
+          <p>Setup completed. You can enter the workspace and start building.</p>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="flex flex-col h-full bg-background items-center p-6 max-w-4xl mx-auto gap-6 animate-in fade-in duration-500 overflow-hidden">
-      <div className="w-full space-y-2 text-center pt-4 shrink-0">
-        <h2 className="text-3xl font-bold tracking-tight">Initializing Workspace</h2>
-        <p className="text-muted-foreground">Setting up your development environment...</p>
+    <div className="mx-auto flex h-full max-w-5xl flex-col gap-6 overflow-hidden bg-background p-6">
+      <div className="w-full shrink-0 space-y-2 pt-4 text-center">
+        <h2 className="text-3xl font-bold tracking-tight">Workspace Setup</h2>
+        <p className="text-muted-foreground">
+          {status === "completed"
+            ? "Everything is ready."
+            : status === "error"
+              ? "Setup stopped before completion."
+              : "Preparing this workspace based on your creation options."}
+        </p>
       </div>
 
-      <div className="w-full grid grid-cols-4 gap-4 shrink-0">
+      <div
+        className={cn(
+          "flex w-full shrink-0 flex-nowrap overflow-hidden",
+          useCompactSteps ? "gap-2" : "gap-4",
+        )}
+      >
         {steps.map((step, idx) => {
-          const isActive = status === step.id;
-          const isDone = currentStepIndex > idx || status === 'completed';
-          const isFailed = status === 'error' && currentStepIndex === idx;
-          const isDefineRequirements = step.id === 'define_requirements';
+          const isFailed = status === "error" && step.id === currentStepKey;
+          const isActive =
+            status !== "completed" && status !== "error" && step.id === currentStepKey;
+          const isDone = idx < currentStepIndex || status === "completed";
 
           return (
-            <div key={step.id} className={cn(
-              "p-4 rounded-xl border transition-all duration-300",
-              isActive ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-muted/30",
-              isDone && !isActive && "border-emerald-500/30 bg-emerald-500/5 text-emerald-500",
-              isFailed && "border-destructive bg-destructive/5 ring-1 ring-destructive"
-            )}>
-              <div className="flex items-center gap-3 mb-2">
-                {isDone && !isActive ? (
-                  <CheckCircle2 className="size-5 text-emerald-500" />
-                ) : isFailed ? (
-                  <AlertCircle className="size-5 text-destructive" />
-                ) : isActive ? (
-                  isDefineRequirements ? (
-                    <FileText className="size-5 text-primary" />
-                  ) : (
-                    <Loader2 className="size-5 text-primary animate-spin" />
-                  )
-                ) : (
-                  <Circle className="size-5 text-muted-foreground" />
-                )}
-                <span className={cn(
-                  "font-semibold text-sm",
-                  isActive ? "text-primary" : isDone ? "text-emerald-500" : isFailed ? "text-destructive" : "text-foreground"
-                )}>
+            <div
+              key={step.id}
+              className={cn(
+                "min-w-0 flex-1 basis-0 border transition-all duration-300",
+                useCompactSteps ? "rounded-lg px-2.5 py-2" : "rounded-xl p-4",
+                isActive
+                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                  : "border-border bg-muted/30",
+                isDone && !isActive && "border-emerald-500/30 bg-emerald-500/5",
+                isFailed && "border-destructive bg-destructive/5 ring-1 ring-destructive",
+              )}
+            >
+              <div className={cn("flex min-w-0 items-center", useCompactSteps ? "mb-1 gap-2" : "mb-2 gap-3")}>
+                {renderStepIcon(step, idx)}
+                <span
+                  className={cn(
+                    "min-w-0 truncate font-semibold",
+                    useCompactSteps ? "text-[12px]" : "text-sm",
+                    isActive
+                      ? "text-primary"
+                      : isDone
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : isFailed
+                          ? "text-destructive"
+                          : "text-foreground",
+                  )}
+                >
                   {step.title}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">{step.description}</p>
+              <p
+                className={cn(
+                  "overflow-hidden text-muted-foreground",
+                  useCompactSteps ? "line-clamp-2 text-[10px] leading-tight" : "text-xs",
+                )}
+              >
+                {step.description}
+              </p>
             </div>
           );
         })}
       </div>
 
-      <div className="w-full space-y-4 shrink-0">
+      <div className="w-full shrink-0 space-y-4">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium flex items-center gap-2">
-            {status === 'error' ? (
+          <span className="flex items-center gap-2 font-medium">
+            {status === "error" ? (
               <AlertCircle className="size-4 text-destructive" />
             ) : (
               <Terminal className="size-4 text-primary" />
             )}
             {stepTitle}
           </span>
-          <span className="text-muted-foreground tabular-nums">
+          <span className="tabular-nums text-muted-foreground">
             {Math.round(progressValue)}%
           </span>
         </div>
-        <Progress value={progressValue} className={cn("h-2 transition-all duration-500", status === 'error' && "bg-destructive/20")} />
+        <Progress
+          value={progressValue}
+          className={cn("h-2 transition-all duration-500", status === "error" && "bg-destructive/20")}
+        />
       </div>
 
-      {status === 'define_requirements' ? (
-        <div className="w-full flex-1 min-h-[200px] rounded-xl border border-border overflow-hidden flex flex-col bg-background">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <FileText className="size-4 text-primary" />
-            <span className="text-sm font-medium">Define Your Requirements</span>
-            <span className="text-xs text-muted-foreground ml-2">(Optional)</span>
-          </div>
-          <div className="flex-1 p-4 flex flex-col gap-4">
-            <Textarea
-              placeholder="Describe your goals, features, or requirements in Markdown format..."
-              className="flex-1 resize-none font-mono text-sm min-h-[150px]"
-              value={requirementText}
-              onChange={(e) => setRequirementText(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              The requirement will be saved to <code className="px-1 py-0.5 rounded bg-muted">.atmos/context/requirement.md</code> for subsequent context tracking and reference to Code Agent.
-            </p>
-          </div>
-        </div>
-      ) : status === 'setting_up' ? (
-        <div className="w-full flex-1 min-h-[60px] bg-[#09090b] rounded-xl border border-border overflow-hidden flex flex-col shadow-2xl relative group">
-          <div className="bg-[#161b22] px-4 py-2 border-b border-white/5 flex items-center justify-between">
-            <div className="flex gap-1.5">
-              <div className="size-2.5 rounded-full bg-[#ff5f56]" />
-              <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
-              <div className="size-2.5 rounded-full bg-[#27c93f]" />
-            </div>
-            <span className="text-[10px] text-[#8b949e] font-mono uppercase tracking-widest">Setup Output</span>
-          </div>
-          <div className="flex-1 p-4 overflow-hidden bg-[#09090b]">
-            <div
-              ref={terminalContainerRef}
-              className="h-full w-full"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="w-full flex-1 min-h-[200px] rounded-xl border border-border bg-background flex items-center justify-center text-sm text-muted-foreground px-6 text-center">
-          {status === 'creating' ? (
-            <div className="space-y-2 max-w-md">
-              <p className="text-sm text-foreground font-medium">Creating workspace structure</p>
-              <p>We’re setting up folders, worktrees, and the initial project layout.</p>
-              <p>You can review files on the left while we prepare everything.</p>
-            </div>
-          ) : status === 'completed' ? (
-            <div className="space-y-2 max-w-md">
-              <p className="text-sm text-foreground font-medium">Final checks</p>
-              <p>Cleaning up setup tasks and getting everything ready to build.</p>
-              <p>Almost there — you can start in just a moment.</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-w-md">
-              <p className="text-sm text-foreground font-medium">Preparing</p>
-              <p>Getting ready to run environment setup and project scripts.</p>
-              <p>This usually takes only a few seconds.</p>
-            </div>
-          )}
-        </div>
-      )}
+      {renderBody()}
 
-      <div className="w-full flex flex-col items-center gap-2 shrink-0 pb-2">
-        <div className="flex justify-center min-h-[60px] gap-3">
-          {status === 'define_requirements' ? (
-            <>
-              <Button
-                variant="outline"
-                size="lg"
-                className="px-8 rounded-sm gap-2 hover:cursor-pointer"
-                onClick={handleSkip}
-              >
-                <SkipForward className="size-4" />
-                Skip
-              </Button>
-              <Button
-                size="lg"
-                className="px-8 rounded-sm gap-2 bg-primary text-primary-foreground hover:cursor-pointer"
-                onClick={handleSaveAndContinue}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Save className="size-4" />
-                )}
-                Save & Continue
-              </Button>
-            </>
-          ) : status === 'completed' ? (
+      <div className="flex w-full shrink-0 flex-col items-center gap-2 pb-2">
+        <div className="flex min-h-[60px] justify-center gap-3">
+          {status === "completed" ? (
             <Button
               size="lg"
-              className="px-12 py-6 text-lg rounded-sm shadow-lg hover:shadow-primary/20 hover:scale-105 active:scale-95 transition-all gap-3 bg-primary text-primary-foreground font-bold hover:cursor-pointer"
+              className="gap-3 rounded-sm px-12 py-6 text-lg font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 hover:shadow-primary/20 active:scale-95"
               onClick={onFinish}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
@@ -366,23 +505,49 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               Start Building {localCountdown > 0 && `(${localCountdown}s)`}
               <ArrowRight className="size-5" />
             </Button>
-          ) : status === 'error' ? (
+          ) : status === "error" ? (
             <Button
               variant="destructive"
               size="lg"
-              className="px-12 rounded-sm gap-3 shadow-lg hover:scale-105 active:scale-95 transition-all hover:cursor-pointer"
+              className="rounded-sm px-12 shadow-lg transition-all hover:scale-105 active:scale-95"
               onClick={() => retryWorkspaceSetup(workspaceId)}
             >
               Retry Initialization
             </Button>
+          ) : progress.requiresConfirmation ? (
+            <Button
+              size="lg"
+              className="gap-3 rounded-sm px-12 shadow-lg transition-all hover:scale-105 active:scale-95"
+              disabled={isConfirmingTodos || output.trim().length === 0}
+              onClick={handleConfirmTodos}
+            >
+              {isConfirmingTodos ? (
+                <>
+                  <Loader2 className="size-5 animate-spin" />
+                  Saving TODOs...
+                </>
+              ) : (
+                <>
+                  Next: Save TODOs
+                  <ArrowRight className="size-5" />
+                </>
+              )}
+            </Button>
           ) : null}
         </div>
 
-        {/* Fixed height container for hint text to prevent layout jumps */}
-        <div className="h-6 flex items-center justify-center w-full">
-          {status === 'completed' && (
-            <p className="text-xs text-muted-foreground animate-pulse text-center">
-              Tip: Press <kbd className="px-1.5 py-0.5 rounded border bg-muted text-[10px] font-sans font-bold">⌘</kbd> + <kbd className="px-1.5 py-0.5 rounded border bg-muted text-[10px] font-sans font-bold">Enter</kbd> to skip
+        <div className="flex h-6 w-full items-center justify-center">
+          {status === "completed" && (
+            <p className="animate-pulse text-center text-xs text-muted-foreground">
+              Tip: Press{" "}
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-bold font-sans">
+                ⌘
+              </kbd>{" "}
+              +{" "}
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-bold font-sans">
+                Enter
+              </kbd>{" "}
+              to continue
             </p>
           )}
         </div>

@@ -12,6 +12,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  Languages,
   LoaderCircle,
   Plus,
   Save,
@@ -54,6 +55,7 @@ import {
   type LlmProvidersFile,
   type SessionTitleFormatConfig,
 } from "@/api/ws-api";
+import { WIKI_LANGUAGE_OPTIONS } from "@/components/wiki/wiki-languages";
 
 type ProviderDraft = {
   clientKey: string;
@@ -88,7 +90,9 @@ const DEFAULT_SESSION_TITLE_FORMAT: SessionTitleFormatConfig = {
 
 const EMPTY_ROUTING: RoutingDraft = {
   features: {
+    git_commit_language: null,
     session_title_format: DEFAULT_SESSION_TITLE_FORMAT,
+    workspace_issue_todo_language: null,
   },
 };
 
@@ -110,6 +114,30 @@ const KIND_OPTIONS: Array<{
 ];
 
 const DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS = "4096";
+const FEATURE_LANGUAGE_OPTIONS = WIKI_LANGUAGE_OPTIONS.filter(
+  (option) => option.value !== "other",
+);
+
+function normalizeFeatureLanguage(value?: string | null): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function languageButtonLabel(language?: string | null): string {
+  return normalizeFeatureLanguage(language) ?? "Output language";
+}
+
+function resolveFeatureLanguagePreset(language?: string | null): string {
+  const normalized = normalizeFeatureLanguage(language)?.toLowerCase();
+  if (!normalized) return "";
+
+  const matched = FEATURE_LANGUAGE_OPTIONS.find(
+    (option) =>
+      option.value.toLowerCase() === normalized ||
+      option.label.toLowerCase() === normalized,
+  );
+  return matched?.value ?? "other";
+}
 
 function defaultMaxOutputTokens(kind: LlmProviderKind): string {
   return kind === "anthropic-compatible"
@@ -251,6 +279,7 @@ function validateRouting(
   for (const selected of [
     routing.features.session_title ?? null,
     routing.features.git_commit ?? null,
+    routing.features.workspace_issue_todo ?? null,
   ]) {
     if (selected && !clientKeys.has(selected)) {
       return "Routing references a provider that does not exist.";
@@ -294,6 +323,16 @@ function fileToModalState(config: LlmProvidersFile): ModalDraftState {
         git_commit: config.features?.git_commit
           ? (persistedToClientKey.get(config.features.git_commit) ?? null)
           : null,
+        git_commit_language: normalizeFeatureLanguage(
+          config.features?.git_commit_language,
+        ),
+        workspace_issue_todo: config.features?.workspace_issue_todo
+          ? (persistedToClientKey.get(config.features.workspace_issue_todo) ??
+            null)
+          : null,
+        workspace_issue_todo_language: normalizeFeatureLanguage(
+          config.features?.workspace_issue_todo_language,
+        ),
         session_title_format: normalizeSessionTitleFormat(
           config.features?.session_title_format,
         ),
@@ -342,6 +381,16 @@ function modalStateToFile(state: ModalDraftState): LlmProvidersFile {
       git_commit: state.routing.features.git_commit
         ? (providerIdMap.get(state.routing.features.git_commit) ?? null)
         : null,
+      git_commit_language: normalizeFeatureLanguage(
+        state.routing.features.git_commit_language,
+      ),
+      workspace_issue_todo: state.routing.features.workspace_issue_todo
+        ? (providerIdMap.get(state.routing.features.workspace_issue_todo) ??
+          null)
+        : null,
+      workspace_issue_todo_language: normalizeFeatureLanguage(
+        state.routing.features.workspace_issue_todo_language,
+      ),
       session_title_format: normalizeSessionTitleFormat(
         state.routing.features.session_title_format,
       ),
@@ -721,6 +770,20 @@ export function LlmProvidersModal({
           routingDraft.features.git_commit === providerEditor.clientKey
             ? null
             : routingDraft.features.git_commit,
+        git_commit_language: normalizeFeatureLanguage(
+          routingDraft.features.git_commit_language,
+        ),
+        workspace_issue_todo:
+          routingDraft.features.workspace_issue_todo ===
+          providerEditor.clientKey
+            ? null
+            : routingDraft.features.workspace_issue_todo,
+        workspace_issue_todo_language: normalizeFeatureLanguage(
+          routingDraft.features.workspace_issue_todo_language,
+        ),
+        session_title_format: normalizeSessionTitleFormat(
+          routingDraft.features.session_title_format,
+        ),
       },
     };
 
@@ -982,12 +1045,58 @@ export function LlmProvidersModal({
                           value={routingDraft.features.git_commit}
                           providerOptions={providerOptions}
                           noneLabel="Disabled"
+                          action={
+                            <FeatureLanguageAction
+                              value={routingDraft.features.git_commit_language}
+                              onChange={(language) =>
+                                setRoutingDraft((current) => ({
+                                  ...current,
+                                  features: {
+                                    ...current.features,
+                                    git_commit_language: language,
+                                  },
+                                }))
+                              }
+                            />
+                          }
                           onChange={(value) =>
                             setRoutingDraft((current) => ({
                               ...current,
                               features: {
                                 ...current.features,
                                 git_commit: value,
+                              },
+                            }))
+                          }
+                        />
+
+                        <FeatureSelect
+                          label="Workspace issue TODO extraction"
+                          value={routingDraft.features.workspace_issue_todo}
+                          providerOptions={providerOptions}
+                          noneLabel="Disabled"
+                          action={
+                            <FeatureLanguageAction
+                              value={
+                                routingDraft.features.workspace_issue_todo_language
+                              }
+                              onChange={(language) =>
+                                setRoutingDraft((current) => ({
+                                  ...current,
+                                  features: {
+                                    ...current.features,
+                                    workspace_issue_todo_language: language,
+                                  },
+                                }))
+                              }
+                            />
+                          }
+                          onChange={(value) =>
+                            setRoutingDraft((current) => ({
+                              ...current,
+                              features: {
+                                ...current.features,
+                                workspace_issue_todo: value,
                               },
                             }))
                           }
@@ -1427,6 +1536,119 @@ function FeatureSelect({
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+function FeatureLanguageAction({
+  value,
+  onChange,
+}: {
+  value?: string | null;
+  onChange: (value: string | null) => void;
+}) {
+  const preset = resolveFeatureLanguagePreset(value);
+  const [open, setOpen] = useState(false);
+  const [selection, setSelection] = useState(preset);
+  const [customValue, setCustomValue] = useState(
+    preset === "other" ? normalizeFeatureLanguage(value) ?? "" : "",
+  );
+
+  useEffect(() => {
+    const nextPreset = resolveFeatureLanguagePreset(value);
+    setSelection(nextPreset);
+    setCustomValue(
+      nextPreset === "other" ? normalizeFeatureLanguage(value) ?? "" : "",
+    );
+  }, [value]);
+
+  const applySelection = (nextSelection: string, nextCustomValue?: string) => {
+    if (!nextSelection) {
+      onChange(null);
+      return;
+    }
+
+    if (nextSelection === "other") {
+      const customLanguage = (nextCustomValue ?? customValue).trim();
+      onChange(customLanguage || null);
+      return;
+    }
+
+    const option = FEATURE_LANGUAGE_OPTIONS.find(
+      (item) => item.value === nextSelection,
+    );
+    onChange(option?.label ?? null);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-7 w-7",
+            normalizeFeatureLanguage(value) && "text-primary",
+          )}
+          title={languageButtonLabel(value)}
+          aria-label={languageButtonLabel(value)}
+        >
+          <Languages className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="end"
+        sideOffset={8}
+        className="w-72 space-y-3 p-4"
+      >
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-foreground">Output language</p>
+          <p className="text-xs text-muted-foreground">
+            Force this feature to respond in a specific language.
+          </p>
+        </div>
+
+        <Select
+          value={selection || "__none__"}
+          onValueChange={(next) => {
+            const normalized = next === "__none__" ? "" : next;
+            setSelection(normalized);
+            if (normalized && normalized !== "other") {
+              applySelection(normalized);
+            }
+            if (!normalized) {
+              applySelection("");
+            }
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Use prompt default" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Use prompt default</SelectItem>
+            {FEATURE_LANGUAGE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+            <SelectItem value="other">Other (custom)</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {selection === "other" && (
+          <Input
+            value={customValue}
+            placeholder="e.g. 简体中文"
+            onChange={(event) => {
+              const nextCustomValue = event.target.value;
+              setCustomValue(nextCustomValue);
+              applySelection("other", nextCustomValue);
+            }}
+          />
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -1,6 +1,9 @@
+import type { GithubIssuePayload } from '@/api/ws-api';
+
 export interface Workspace {
   id: string;
   name: string;
+  displayName?: string;
   branch: string;
   isActive: boolean;
   status: 'clean' | 'modified';
@@ -11,6 +14,7 @@ export interface Workspace {
   archivedAt?: string;
   createdAt: string;
   localPath: string;
+  githubIssue?: GithubIssuePayload | null;
 }
 
 export interface Project {

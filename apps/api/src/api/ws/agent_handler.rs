@@ -10,7 +10,7 @@ use axum::{
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::app_state::AppState;
 use agent::acp_client::logging::append_acp_log;
@@ -200,7 +200,7 @@ async fn handle_lazy_agent_socket(
                 .await
                 .is_err()
             {
-                warn!(
+                debug!(
                     "Failed to send to Agent WebSocket for session: {}",
                     session_id_send
                 );

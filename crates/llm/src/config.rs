@@ -60,8 +60,23 @@ impl FileLlmConfigStore {
         resolve_feature_config(&config, feature)
     }
 
+    pub fn resolve_default_provider(&self) -> Result<Option<ResolvedLlmProvider>> {
+        let config = self.load()?;
+        resolve_provider_by_id(&config, config.default_provider.as_deref())
+    }
+
     pub fn load_session_title_format(&self) -> Result<SessionTitleFormatConfig> {
         Ok(self.load()?.features.session_title_format)
+    }
+
+    pub fn load_feature_language(&self, feature: LlmFeature) -> Result<Option<String>> {
+        Ok(self
+            .load()?
+            .features
+            .language_for(feature)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned))
     }
 }
 
@@ -73,17 +88,33 @@ pub fn resolve_feature_config(
     config: &LlmProvidersFile,
     feature: LlmFeature,
 ) -> Result<Option<ResolvedLlmProvider>> {
-    let provider_id = config.features.provider_for(feature);
+    resolve_provider_by_id(config, config.features.provider_for(feature)).map_err(|error| {
+        match (config.features.provider_for(feature), error) {
+            (Some(provider_id), LlmError::InvalidConfig(message))
+                if message.contains("missing provider") =>
+            {
+                LlmError::InvalidConfig(format!(
+                    "Feature `{}` references missing provider `{}`",
+                    feature.as_str(),
+                    provider_id
+                ))
+            }
+            (_, other) => other,
+        }
+    })
+}
 
+pub fn resolve_provider_by_id(
+    config: &LlmProvidersFile,
+    provider_id: Option<&str>,
+) -> Result<Option<ResolvedLlmProvider>> {
     let Some(provider_id) = provider_id else {
         return Ok(None);
     };
 
     let Some(entry) = config.providers.get(provider_id) else {
         return Err(LlmError::InvalidConfig(format!(
-            "Feature `{}` references missing provider `{}`",
-            feature.as_str(),
-            provider_id
+            "missing provider `{provider_id}`"
         )));
     };
 

@@ -1,19 +1,35 @@
-import React, { useState } from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter,
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Badge,
   Button,
-  Label,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
+  Label,
   Select,
+  SelectContent,
+  SelectItem,
   SelectTrigger,
   SelectValue,
-  SelectContent,
-  SelectItem
 } from '@workspace/ui';
+import { ExternalLink, Github, Loader2, Sparkles } from 'lucide-react';
+import {
+  gitApi,
+  llmProvidersApi,
+  type GithubIssuePayload,
+  type LlmProvidersFile,
+  wsScriptApi,
+  wsGithubApi,
+} from '@/api/ws-api';
+import { useAppRouter } from '@/hooks/use-app-router';
 import { useProjectStore } from '@/hooks/use-project-store';
 
 interface CreateWorkspaceDialogProps {
@@ -22,101 +38,647 @@ interface CreateWorkspaceDialogProps {
   defaultProjectId?: string;
 }
 
-export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({ 
-  isOpen, 
+interface RepoContext {
+  owner: string;
+  repo: string;
+}
+
+const ISSUE_CACHE_TTL_MS = 5 * 60 * 1000;
+const issueListCache = new Map<string, { expiresAt: number; issues: GithubIssuePayload[] }>();
+const POKEMON_NAMES = [
+  'bulbasaur',
+  'ivysaur',
+  'venusaur',
+  'charmander',
+  'charmeleon',
+  'charizard',
+  'squirtle',
+  'wartortle',
+  'blastoise',
+  'butterfree',
+  'pikachu',
+  'raichu',
+  'vulpix',
+  'jigglypuff',
+  'zubat',
+  'psyduck',
+  'growlithe',
+  'abra',
+  'machop',
+  'geodude',
+  'ponyta',
+  'slowpoke',
+  'magnemite',
+  'gastly',
+  'gengar',
+  'onix',
+  'cubone',
+  'chansey',
+  'scyther',
+  'magikarp',
+  'gyarados',
+  'lapras',
+  'eevee',
+  'vaporeon',
+  'jolteon',
+  'flareon',
+  'snorlax',
+  'articuno',
+  'zapdos',
+  'moltres',
+  'dragonite',
+  'mew',
+  'mewtwo',
+] as const;
+
+function getRandomPokemonName(): string {
+  const index = Math.floor(Math.random() * POKEMON_NAMES.length);
+  return POKEMON_NAMES[index];
+}
+
+function issueToWorkspaceName(issue: GithubIssuePayload): string {
+  const title = issue.title.trim();
+  return title ? `[issue#${issue.number}] ${title}` : `[issue#${issue.number}]`;
+}
+
+function issueToBranchName(issue: GithubIssuePayload): string {
+  return `issue-${issue.number}-${getRandomPokemonName()}`;
+}
+
+function resolveWorkspaceIssueTodoProvider(
+  config: LlmProvidersFile,
+): { id: string; label: string } | null {
+  const providerId = config.features.workspace_issue_todo ?? null;
+  if (!providerId) return null;
+
+  const provider = config.providers[providerId];
+  if (!provider?.enabled) return null;
+
+  return {
+    id: providerId,
+    label: provider.displayName?.trim() || providerId,
+  };
+}
+
+function sanitizeCreateWorkspaceErrorMessage(message: string): string {
+  return message
+    .replace(/^\[error\]\s*/i, '')
+    .replace(/^validation error:\s*/i, '')
+    .trim();
+}
+
+function isBranchConflictError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('branch `') ||
+    normalized.includes('workspace directory') ||
+    normalized.includes('directory name') ||
+    normalized.includes('conflicts with an existing branch or workspace') ||
+    normalized.includes('already exists')
+  );
+}
+
+export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
+  isOpen,
   onClose,
-  defaultProjectId 
+  defaultProjectId,
 }) => {
-  const projects = useProjectStore(s => s.projects);
-  const addWorkspace = useProjectStore(s => s.addWorkspace);
-  
-  const [projectId, setProjectId] = useState(defaultProjectId || (projects.length > 0 ? projects[0].id : ''));
+  const router = useAppRouter();
+  const projects = useProjectStore((s) => s.projects);
+  const addWorkspace = useProjectStore((s) => s.addWorkspace);
+
+  const [projectId, setProjectId] = useState(
+    defaultProjectId || (projects.length > 0 ? projects[0].id : ''),
+  );
   const [name, setName] = useState('');
-  const [branch, setBranch] = useState('main');
+  const [branch, setBranch] = useState('');
+  const [issueUrl, setIssueUrl] = useState('');
+  const [selectedIssueNumber, setSelectedIssueNumber] = useState<string>('');
+  const [issuePreview, setIssuePreview] = useState<GithubIssuePayload | null>(null);
+  const [issues, setIssues] = useState<GithubIssuePayload[]>([]);
+  const [repoContext, setRepoContext] = useState<RepoContext | null>(null);
+  const [isRepoLoading, setIsRepoLoading] = useState(false);
+  const [isIssuesLoading, setIsIssuesLoading] = useState(false);
+  const [isIssuePreviewLoading, setIsIssuePreviewLoading] = useState(false);
+  const [isLlmRoutingLoading, setIsLlmRoutingLoading] = useState(false);
+  const [hasSetupScript, setHasSetupScript] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [branchError, setBranchError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [autoExtractTodos, setAutoExtractTodos] = useState(false);
+  const [todoProviderLabel, setTodoProviderLabel] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Update projectId if default changes
-  React.useEffect(() => {
+  const nameTouchedRef = useRef(false);
+  const branchTouchedRef = useRef(false);
+  const branchFieldRef = useRef<HTMLDivElement | null>(null);
+  const branchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === projectId) ?? null,
+    [projectId, projects],
+  );
+  const selectedProjectId = selectedProject?.id ?? null;
+  const selectedProjectPath = selectedProject?.mainFilePath ?? null;
+
+  useEffect(() => {
     if (defaultProjectId) {
       setProjectId(defaultProjectId);
-    } else if (!projectId && projects.length > 0) {
+      return;
+    }
+
+    if (!projectId && projects.length > 0) {
       setProjectId(projects[0].id);
     }
-  }, [defaultProjectId, projects]);
+  }, [defaultProjectId, projectId, projects]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!projectId || !name || !branch) return;
+  useEffect(() => {
+    if (!isOpen) {
+      setName('');
+      setBranch('');
+      setIssueUrl('');
+      setSelectedIssueNumber('');
+      setIssuePreview(null);
+      setIssues([]);
+      setRepoContext(null);
+      setIssueError(null);
+      setBranchError(null);
+      setSubmitError(null);
+      setAutoExtractTodos(false);
+      setTodoProviderLabel(null);
+      setIsRepoLoading(false);
+      setIsIssuesLoading(false);
+      setIsIssuePreviewLoading(false);
+      setIsLlmRoutingLoading(false);
+      setHasSetupScript(false);
+      nameTouchedRef.current = false;
+      branchTouchedRef.current = false;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLlmRouting() {
+      if (!isOpen) {
+        return;
+      }
+
+      setIsLlmRoutingLoading(true);
+      try {
+        const config = await llmProvidersApi.get();
+        if (cancelled) return;
+
+        const provider = resolveWorkspaceIssueTodoProvider(config);
+        setTodoProviderLabel(provider?.label ?? null);
+      } catch {
+        if (!cancelled) {
+          setTodoProviderLabel(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLlmRoutingLoading(false);
+        }
+      }
+    }
+
+    loadLlmRouting();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRepoContext() {
+      if (!isOpen || !selectedProjectId || !selectedProjectPath) {
+        return;
+      }
+
+      setIsRepoLoading(true);
+      setIssueError(null);
+      setRepoContext(null);
+      setIssues([]);
+      setIssuePreview(null);
+      setSelectedIssueNumber('');
+      setIssueUrl('');
+      setHasSetupScript(false);
+
+      try {
+        const scripts = await wsScriptApi.get(selectedProjectId);
+        if (!cancelled) {
+          setHasSetupScript(
+            typeof scripts.setup === 'string' && scripts.setup.trim().length > 0,
+          );
+        }
+
+        const status = await gitApi.getStatus(selectedProjectPath);
+        if (cancelled) return;
+
+        if (status.github_owner && status.github_repo) {
+          const nextContext = {
+            owner: status.github_owner,
+            repo: status.github_repo,
+          };
+          setRepoContext(nextContext);
+
+          const cacheKey = `${nextContext.owner}/${nextContext.repo}`;
+          const cached = issueListCache.get(cacheKey);
+          if (cached && cached.expiresAt > Date.now()) {
+            setIssues(cached.issues);
+            return;
+          }
+
+          setIsIssuesLoading(true);
+          const fetchedIssues = await wsGithubApi.listIssues(nextContext);
+          if (cancelled) return;
+          setIssues(fetchedIssues);
+          issueListCache.set(cacheKey, {
+            expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
+            issues: fetchedIssues,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setIssueError(error instanceof Error ? error.message : 'Failed to load GitHub issues');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsRepoLoading(false);
+          setIsIssuesLoading(false);
+        }
+      }
+    }
+
+    loadRepoContext();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, selectedProjectId, selectedProjectPath]);
+
+  useEffect(() => {
+    if (!issuePreview) return;
+
+    if (!nameTouchedRef.current) {
+      setName(issueToWorkspaceName(issuePreview));
+    }
+    if (!branchTouchedRef.current) {
+      setBranch(issueToBranchName(issuePreview));
+    }
+  }, [issuePreview]);
+
+  useEffect(() => {
+    if (!issuePreview || !todoProviderLabel) {
+      setAutoExtractTodos(false);
+    }
+  }, [issuePreview, todoProviderLabel]);
+
+  const handleSelectIssue = async (value: string) => {
+    setSelectedIssueNumber(value);
+    setIssueUrl('');
+    setIssueError(null);
+    setBranchError(null);
+    setSubmitError(null);
+
+    const selected = issues.find((issue) => String(issue.number) === value) ?? null;
+    setIssuePreview(selected);
+  };
+
+  const handleLoadIssueFromUrl = async () => {
+    if (!issueUrl.trim()) {
+      setIssueError(null);
+      return;
+    }
+
+    setIsIssuePreviewLoading(true);
+    setIssueError(null);
+    setBranchError(null);
+    setSubmitError(null);
+    setSelectedIssueNumber('');
+
+    try {
+      const preview = await wsGithubApi.getIssue({ issueUrl: issueUrl.trim() });
+      const currentRepo = repoContext ? `${repoContext.owner}/${repoContext.repo}` : null;
+      const previewRepo = `${preview.owner}/${preview.repo}`;
+
+      if (currentRepo && currentRepo !== previewRepo) {
+        setIssuePreview(null);
+        setIssueError(`Issue belongs to ${previewRepo}, but current project is ${currentRepo}.`);
+        return;
+      }
+
+      setIssuePreview(preview);
+    } catch (error) {
+      setIssuePreview(null);
+      setIssueError(error instanceof Error ? error.message : 'Failed to load issue preview');
+    } finally {
+      setIsIssuePreviewLoading(false);
+    }
+  };
+
+  const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    nameTouchedRef.current = true;
+    setBranchError(null);
+    setSubmitError(null);
+    setName(event.target.value);
+  };
+
+  const handleBranchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    branchTouchedRef.current = true;
+    setBranchError(null);
+    setSubmitError(null);
+    setBranch(event.target.value);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!projectId) return;
 
     setIsSubmitting(true);
+    setBranchError(null);
+    setSubmitError(null);
     try {
-      await addWorkspace({
+      const finalDisplayName =
+        name.trim() || (issuePreview ? issueToWorkspaceName(issuePreview) : '');
+      const finalBranch =
+        branch.trim() || (issuePreview ? issueToBranchName(issuePreview) : '');
+      const workspaceId = await addWorkspace({
         projectId,
-        name,
-        branch
+        name: finalBranch,
+        displayName: finalDisplayName || null,
+        branch: finalBranch,
+        initialRequirement: null,
+        githubIssue: issuePreview,
+        autoExtractTodos: autoExtractTodos && !!issuePreview && !!todoProviderLabel,
+        hasSetupScript,
       });
       onClose();
-      // Reset form
-      setName('');
-      setBranch('main');
+      router.push(`/workspace?id=${workspaceId}`);
+    } catch (error) {
+      const message = sanitizeCreateWorkspaceErrorMessage(
+        error instanceof Error ? error.message : 'Failed to create workspace',
+      );
+
+      if (isBranchConflictError(message)) {
+        setBranchError(message);
+        requestAnimationFrame(() => {
+          branchFieldRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+          branchInputRef.current?.focus();
+        });
+      } else {
+        setSubmitError(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const repoLabel = repoContext ? `${repoContext.owner}/${repoContext.repo}` : 'No GitHub repository';
+  const issueBodyPreview = issuePreview?.body?.trim() || 'No issue description provided.';
+  const canAutoExtractTodos = !!issuePreview && !!todoProviderLabel && !isLlmRoutingLoading;
+  const autoExtractDescription = !issuePreview
+    ? 'Import a GitHub issue first.'
+    : isLlmRoutingLoading
+      ? 'Checking LLM routing...'
+      : todoProviderLabel
+        ? `Uses ${todoProviderLabel} to extract an initial task checklist from the issue description.`
+        : 'Configure LLM Providers > Routing > Workspace issue TODO extraction first.';
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[720px] h-[80vh] max-h-[720px] overflow-hidden">
+        <DialogHeader className="flex flex-row items-start justify-between gap-4 pr-8">
           <DialogTitle>Create New Workspace</DialogTitle>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+            <Github className="size-3.5" />
+            <span>{selectedProject?.name ?? 'Unknown project'}</span>
+            <span className="opacity-40">•</span>
+            {isRepoLoading ? (
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="size-3 animate-spin" />
+                Detecting repository
+              </span>
+            ) : (
+              <span>{repoLabel}</span>
+            )}
+          </div>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="project" className="text-right">
-              Project
-            </Label>
-            <div className="col-span-3">
-              <Select value={projectId} onValueChange={setProjectId} disabled={!!defaultProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+        <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-5">
+            {!defaultProjectId && (
+              <div className="grid gap-2">
+                <Label htmlFor="project">Project</Label>
+                <Select
+                  value={projectId}
+                  onValueChange={setProjectId}
+                  disabled={!!defaultProjectId}
+                >
+                  <SelectTrigger id="project">
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="workspace-name">Name</Label>
+                <Input
+                  id="workspace-name"
+                  value={name}
+                  onChange={handleNameChange}
+                  placeholder="Workspace display name, typing..."
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to let Atmos generate a name, or import one from a GitHub issue.
+                </p>
+              </div>
+
+              <div ref={branchFieldRef} className="grid gap-2">
+                <Label htmlFor="workspace-branch">Branch</Label>
+                <Input
+                  id="workspace-branch"
+                  ref={branchInputRef}
+                  value={branch}
+                  onChange={handleBranchChange}
+                  placeholder="Workspace branch, typing..."
+                />
+                {branchError && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                    {branchError}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Branch name is independent from the displayed workspace name.
+                </p>
+              </div>
             </div>
+
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">GitHub Issue</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {repoContext ? (
+                  <>
+                    <div className="grid gap-2">
+                      <Label htmlFor="issue-select">Select from repository</Label>
+                      <Select value={selectedIssueNumber} onValueChange={handleSelectIssue}>
+                        <SelectTrigger id="issue-select">
+                          <SelectValue
+                            placeholder={isIssuesLoading ? 'Loading issues...' : 'Select issue'}
+                          />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-80">
+                          {issues.map((issue) => (
+                            <SelectItem key={issue.number} value={String(issue.number)}>
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  #{issue.number}
+                                </span>
+                                <span className="truncate">{issue.title}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="issue-url">Or paste issue URL</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="issue-url"
+                          value={issueUrl}
+                          onChange={(event) => {
+                            setIssuePreview(null);
+                            setIssueError(null);
+                            setIssueUrl(event.target.value);
+                          }}
+                          placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/issues/40`}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleLoadIssueFromUrl}
+                          disabled={isIssuePreviewLoading || !issueUrl.trim()}
+                        >
+                          {isIssuePreviewLoading ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            'Load'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    This project does not expose a GitHub remote, so issue import is unavailable.
+                  </div>
+                )}
+
+                {issueError && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                    {issueError}
+                  </div>
+                )}
+                {isIssuePreviewLoading ? (
+                  <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading issue preview
+                  </div>
+                ) : issuePreview ? (
+                  <Card className="border-border bg-muted/20">
+                    <CardContent className="space-y-3 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-xs text-muted-foreground">
+                            {issuePreview.owner}/{issuePreview.repo}#{issuePreview.number}
+                          </div>
+                          <h3 className="mt-1 text-sm font-medium text-foreground">
+                            {issuePreview.title}
+                          </h3>
+                        </div>
+                        <Badge variant="secondary" className="capitalize shrink-0">
+                          {issuePreview.state}
+                        </Badge>
+                      </div>
+
+                      {issuePreview.labels.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {issuePreview.labels.map((label) => (
+                            <Badge key={label.name} variant="outline">
+                              {label.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
+                        {issueBodyPreview}
+                      </p>
+
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1.5"
+                          onClick={() =>
+                            window.open(issuePreview.url, '_blank', 'noopener,noreferrer')
+                          }
+                        >
+                          <ExternalLink className="size-3.5" />
+                          Open on GitHub
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                <label className="flex items-center gap-3 rounded-md border border-border px-3 py-3 text-sm">
+                  <Checkbox
+                    checked={autoExtractTodos}
+                    onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
+                    disabled={!canAutoExtractTodos}
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 font-medium text-foreground">
+                      <Sparkles className="size-4 text-muted-foreground" />
+                      Auto-extract TODOs with LLM
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
+                  </div>
+                </label>
+              </CardContent>
+            </Card>
+
+            {submitError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                {submitError}
+              </div>
+            )}
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Name
-            </Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="col-span-3"
-              placeholder="e.g. feature-login"
-              autoFocus
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="branch" className="text-right">
-              Branch
-            </Label>
-            <Input
-              id="branch"
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              className="col-span-3"
-              placeholder="git branch name"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={isSubmitting || !projectId || !name}>
+
+          <DialogFooter className="mt-5">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !projectId || isIssuePreviewLoading}>
               {isSubmitting ? 'Creating...' : 'Create Workspace'}
             </Button>
           </DialogFooter>

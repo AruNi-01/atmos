@@ -6,6 +6,7 @@
 use std::ffi::CStr;
 use std::io::Read;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::Instant;
 
 use agent::{AgentId, CustomAgent};
@@ -26,6 +27,7 @@ use infra::{
     GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
+    GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
     GithubPrReopenRequest, LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
@@ -33,10 +35,11 @@ use infra::{
     SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
     UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest, UsageOverviewRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest,
-    WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
+    WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest,
+    WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
+    WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
+    WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
 };
 use llm::{FileLlmConfigStore, LlmProvidersFile};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
@@ -310,6 +313,10 @@ impl WsMessageService {
                 self.handle_workspace_retry_setup(conn_id, parse_request(request.data)?)
                     .await
             }
+            WsAction::WorkspaceConfirmTodos => {
+                self.handle_workspace_confirm_todos(conn_id, parse_request(request.data)?)
+                    .await
+            }
             WsAction::ProjectCheckCanDelete => {
                 self.handle_project_check_can_delete(parse_request(request.data)?)
                     .await
@@ -421,6 +428,14 @@ impl WsMessageService {
             }
             WsAction::GithubPrDraft => {
                 self.handle_github_pr_draft(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueList => {
+                self.handle_github_issue_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueGet => {
+                self.handle_github_issue_get(parse_request(request.data)?)
                     .await
             }
             WsAction::GithubCiStatus => {
@@ -1163,7 +1178,16 @@ impl WsMessageService {
     ) -> Result<Value> {
         let workspace = self
             .workspace_service
-            .create_workspace(req.project_guid.clone(), req.name, req.sidebar_order)
+            .create_workspace(
+                req.project_guid.clone(),
+                req.display_name.or_else(|| {
+                    let trimmed = req.name.trim().to_string();
+                    (!trimmed.is_empty()).then_some(trimmed)
+                }),
+                req.branch,
+                req.sidebar_order,
+                req.github_issue.clone(),
+            )
             .await?;
 
         // Spawn setup in background
@@ -1173,6 +1197,9 @@ impl WsMessageService {
             let conn_id = conn_id.to_string();
             let project_guid = req.project_guid.clone();
             let workspace_name = workspace.model.name.clone();
+            let initial_requirement = req.initial_requirement.clone();
+            let github_issue = req.github_issue.clone();
+            let auto_extract_todos = req.auto_extract_todos;
 
             let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {
@@ -1184,6 +1211,9 @@ impl WsMessageService {
                     project_guid,
                     workspace_id,
                     workspace_name,
+                    initial_requirement,
+                    github_issue,
+                    auto_extract_todos,
                     false,
                 )
                 .await;
@@ -1262,6 +1292,7 @@ impl WsMessageService {
             workspace_entries.push(json!({
                 "guid": ws.model.guid,
                 "name": ws.model.name,
+                "display_name": ws.model.display_name,
                 "branch": ws.model.branch,
                 "project_guid": ws.model.project_guid,
                 "project_name": project.name,
@@ -1311,7 +1342,50 @@ impl WsMessageService {
                     project_guid,
                     workspace_id,
                     workspace_name,
+                    None,
+                    None,
+                    false,
                     true,
+                )
+                .await;
+            });
+        }
+
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_confirm_todos(
+        &self,
+        conn_id: &str,
+        req: WorkspaceConfirmTodosRequest,
+    ) -> Result<Value> {
+        let workspace = self
+            .workspace_service
+            .get_workspace(req.guid.clone())
+            .await?
+            .ok_or_else(|| ServiceError::Validation("Workspace not found".to_string()))?;
+
+        self.workspace_service
+            .write_workspace_task_markdown(req.guid.clone(), req.markdown)
+            .await?;
+
+        if let Some(manager) = self.ws_manager.get().cloned() {
+            let project_service = self.project_service.clone();
+            let workspace_service = self.workspace_service.clone();
+            let conn_id = conn_id.to_string();
+            let project_guid = workspace.model.project_guid.clone();
+            let workspace_id = workspace.model.guid.clone();
+            let workspace_name = workspace.model.name.clone();
+
+            tokio::spawn(async move {
+                Self::run_post_todo_setup(
+                    manager,
+                    project_service,
+                    workspace_service,
+                    conn_id,
+                    project_guid,
+                    workspace_id,
+                    workspace_name,
                 )
                 .await;
             });
@@ -1331,6 +1405,9 @@ impl WsMessageService {
         project_guid: String,
         workspace_id: String,
         workspace_name: String,
+        initial_requirement: Option<String>,
+        github_issue: Option<GithubIssuePayload>,
+        auto_extract_todos: bool,
         _skip_creation: bool, // We pretty much always run creation check now, but keep param for compatibility
     ) {
         // 1. Initial notification: Creating
@@ -1342,8 +1419,11 @@ impl WsMessageService {
                     json!(WorkspaceSetupProgressNotification {
                         workspace_id: workspace_id.clone(),
                         status: "creating".to_string(),
+                        step_key: Some("create_worktree".to_string()),
                         step_title: "Creating Workspace".to_string(),
                         output: None,
+                        replace_output: false,
+                        requires_confirmation: false,
                         success: true,
                         countdown: None,
                     }),
@@ -1364,11 +1444,14 @@ impl WsMessageService {
                         json!(WorkspaceSetupProgressNotification {
                             workspace_id: workspace_id.clone(),
                             status: "error".to_string(),
+                            step_key: Some("create_worktree".to_string()),
                             step_title: "Workspace Creation Failed".to_string(),
                             output: Some(format!(
                                 "\r\n\x1b[31mError creating worktree: {}\x1b[0m\r\n",
                                 e
                             )),
+                            replace_output: true,
+                            requires_confirmation: false,
                             success: false,
                             countdown: None,
                         }),
@@ -1378,9 +1461,278 @@ impl WsMessageService {
             return;
         }
 
-        // 2. Load project to get script
+        let has_requirement_step = initial_requirement
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_some()
+            || github_issue.is_some();
 
-        // 2. Load project to get script
+        if has_requirement_step {
+            let requirement_step_title = if github_issue.is_some() {
+                "Filling Requirement Specification"
+            } else {
+                "Writing Requirement Specification"
+            };
+
+            let _ = manager
+                .send_to(
+                    &conn_id,
+                    &WsMessage::notification(
+                        WsEvent::WorkspaceSetupProgress,
+                        json!(WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id.clone(),
+                            status: "creating".to_string(),
+                            step_key: Some("write_requirement".to_string()),
+                            step_title: requirement_step_title.to_string(),
+                            output: None,
+                            replace_output: false,
+                            requires_confirmation: false,
+                            success: true,
+                            countdown: None,
+                        }),
+                    ),
+                )
+                .await;
+
+            if github_issue.is_some() {
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            }
+        }
+
+        if has_requirement_step {
+            if let Err(error) = workspace_service
+                .write_workspace_requirement(
+                    workspace_id.clone(),
+                    initial_requirement.clone(),
+                    github_issue.clone(),
+                )
+                .await
+            {
+                let _ = manager
+                    .send_to(
+                        &conn_id,
+                        &WsMessage::notification(
+                            WsEvent::WorkspaceSetupProgress,
+                            json!(WorkspaceSetupProgressNotification {
+                                workspace_id: workspace_id.clone(),
+                                status: "error".to_string(),
+                                step_key: Some("write_requirement".to_string()),
+                                step_title: "Requirement Initialization Failed".to_string(),
+                                output: Some(format!(
+                                    "\r\n\x1b[31mError writing requirement: {}\x1b[0m\r\n",
+                                    error
+                                )),
+                                replace_output: true,
+                                requires_confirmation: false,
+                                success: false,
+                                countdown: None,
+                            }),
+                        ),
+                    )
+                    .await;
+                return;
+            }
+        }
+
+        if auto_extract_todos {
+            let Some(issue) = github_issue.clone() else {
+                let _ = manager
+                    .send_to(
+                        &conn_id,
+                        &WsMessage::notification(
+                            WsEvent::WorkspaceSetupProgress,
+                            json!(WorkspaceSetupProgressNotification {
+                                workspace_id: workspace_id.clone(),
+                                status: "error".to_string(),
+                                step_key: Some("extract_todos".to_string()),
+                                step_title: "TODO Extraction Failed".to_string(),
+                                output: Some(
+                                    "\r\n\x1b[31mNo GitHub issue is available for TODO extraction.\x1b[0m\r\n"
+                                        .to_string(),
+                                ),
+                                replace_output: true,
+                                requires_confirmation: false,
+                                success: false,
+                                countdown: None,
+                            }),
+                        ),
+                    )
+                    .await;
+                return;
+            };
+
+            let _ = manager
+                .send_to(
+                    &conn_id,
+                    &WsMessage::notification(
+                        WsEvent::WorkspaceSetupProgress,
+                        json!(WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id.clone(),
+                            status: "creating".to_string(),
+                            step_key: Some("extract_todos".to_string()),
+                            step_title: "Extracting Initial TODOs".to_string(),
+                            output: None,
+                            replace_output: true,
+                            requires_confirmation: false,
+                            success: true,
+                            countdown: None,
+                        }),
+                    ),
+                )
+                .await;
+            let mut streamed_markdown = String::new();
+            let mut rx = match workspace_service.stream_workspace_issue_todos(&issue).await {
+                Ok(rx) => rx,
+                Err(error) => {
+                    let _ = manager
+                        .send_to(
+                            &conn_id,
+                            &WsMessage::notification(
+                                WsEvent::WorkspaceSetupProgress,
+                                json!(WorkspaceSetupProgressNotification {
+                                    workspace_id: workspace_id.clone(),
+                                    status: "error".to_string(),
+                                    step_key: Some("extract_todos".to_string()),
+                                    step_title: "TODO Extraction Failed".to_string(),
+                                    output: Some(format!(
+                                        "\r\n\x1b[31mError starting TODO extraction: {}\x1b[0m\r\n",
+                                        error
+                                    )),
+                                    replace_output: true,
+                                    requires_confirmation: false,
+                                    success: false,
+                                    countdown: None,
+                                }),
+                            ),
+                        )
+                        .await;
+                    return;
+                }
+            };
+
+            while let Some(chunk) = rx.recv().await {
+                match chunk {
+                    Ok(text) => {
+                        streamed_markdown.push_str(&text);
+                        let _ = manager
+                            .send_to(
+                                &conn_id,
+                                &WsMessage::notification(
+                                    WsEvent::WorkspaceSetupProgress,
+                                    json!(WorkspaceSetupProgressNotification {
+                                        workspace_id: workspace_id.clone(),
+                                        status: "creating".to_string(),
+                                        step_key: Some("extract_todos".to_string()),
+                                        step_title: "Extracting Initial TODOs".to_string(),
+                                        output: Some(text),
+                                        replace_output: false,
+                                        requires_confirmation: false,
+                                        success: true,
+                                        countdown: None,
+                                    }),
+                                ),
+                            )
+                            .await;
+                    }
+                    Err(error) => {
+                        let _ = manager
+                            .send_to(
+                                &conn_id,
+                                &WsMessage::notification(
+                                    WsEvent::WorkspaceSetupProgress,
+                                    json!(WorkspaceSetupProgressNotification {
+                                        workspace_id: workspace_id.clone(),
+                                        status: "error".to_string(),
+                                        step_key: Some("extract_todos".to_string()),
+                                        step_title: "TODO Extraction Failed".to_string(),
+                                        output: Some(format!(
+                                            "\r\n\x1b[31mError streaming TODO extraction: {}\x1b[0m\r\n",
+                                            error
+                                        )),
+                                        replace_output: true,
+                                        requires_confirmation: false,
+                                        success: false,
+                                        countdown: None,
+                                    }),
+                                ),
+                            )
+                            .await;
+                        return;
+                    }
+                }
+            }
+
+            let normalized_markdown = WorkspaceService::normalize_task_markdown(&streamed_markdown);
+            if normalized_markdown.is_empty() {
+                let _ = manager
+                    .send_to(
+                        &conn_id,
+                        &WsMessage::notification(
+                            WsEvent::WorkspaceSetupProgress,
+                            json!(WorkspaceSetupProgressNotification {
+                                workspace_id: workspace_id.clone(),
+                                status: "error".to_string(),
+                                step_key: Some("extract_todos".to_string()),
+                                step_title: "TODO Extraction Failed".to_string(),
+                                output: Some(
+                                    "\r\n\x1b[31mThe model returned no valid TODO items.\x1b[0m\r\n"
+                                        .to_string(),
+                                ),
+                                replace_output: true,
+                                requires_confirmation: false,
+                                success: false,
+                                countdown: None,
+                            }),
+                        ),
+                    )
+                    .await;
+                return;
+            }
+
+            let _ = manager
+                .send_to(
+                    &conn_id,
+                    &WsMessage::notification(
+                        WsEvent::WorkspaceSetupProgress,
+                        json!(WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id.clone(),
+                            status: "creating".to_string(),
+                            step_key: Some("extract_todos".to_string()),
+                            step_title: "Review Initial TODOs".to_string(),
+                            output: Some(normalized_markdown),
+                            replace_output: true,
+                            requires_confirmation: true,
+                            success: true,
+                            countdown: None,
+                        }),
+                    ),
+                )
+                .await;
+            return;
+        }
+
+        Self::run_post_todo_setup(
+            manager,
+            project_service,
+            workspace_service,
+            conn_id,
+            project_guid,
+            workspace_id,
+            workspace_name,
+        )
+        .await;
+    }
+
+    async fn run_post_todo_setup(
+        manager: Arc<infra::WsManager>,
+        project_service: Arc<ProjectService>,
+        workspace_service: Arc<WorkspaceService>,
+        conn_id: String,
+        project_guid: String,
+        workspace_id: String,
+        workspace_name: String,
+    ) {
         let project = match project_service.get_project(project_guid).await {
             Ok(Some(p)) => p,
             _ => return,
@@ -1400,12 +1752,19 @@ impl WsMessageService {
             None
         };
 
+        let effective_workspace_name = workspace_service
+            .get_workspace(workspace_id.clone())
+            .await
+            .ok()
+            .flatten()
+            .map(|workspace| workspace.model.name)
+            .unwrap_or(workspace_name);
+
         let workspace_path = GitEngine::new()
-            .get_worktree_path(&workspace_name)
+            .get_worktree_path(&effective_workspace_name)
             .unwrap_or_default();
 
         if let Some(script) = setup_script {
-            // 3. Status: Setting Up
             let _ = manager
                 .send_to(
                     &conn_id,
@@ -1414,8 +1773,11 @@ impl WsMessageService {
                         json!(WorkspaceSetupProgressNotification {
                             workspace_id: workspace_id.clone(),
                             status: "setting_up".to_string(),
+                            step_key: Some("run_setup_script".to_string()),
                             step_title: "Running Setup Script".to_string(),
                             output: Some(format!("\r\n$ Running setup script: {}\r\n", script)),
+                            replace_output: true,
+                            requires_confirmation: false,
                             success: true,
                             countdown: None,
                         }),
@@ -1423,7 +1785,6 @@ impl WsMessageService {
                 )
                 .await;
 
-            // Run in PTY
             let result = Self::execute_script_in_pty(
                 &manager,
                 &conn_id,
@@ -1443,8 +1804,11 @@ impl WsMessageService {
                             json!(WorkspaceSetupProgressNotification {
                                 workspace_id: workspace_id.clone(),
                                 status: "error".to_string(),
+                                step_key: Some("run_setup_script".to_string()),
                                 step_title: "Setup Failed".to_string(),
                                 output: Some(format!("\r\n\x1b[31mError: {}\x1b[0m\r\n", e)),
+                                replace_output: false,
+                                requires_confirmation: false,
                                 success: false,
                                 countdown: None,
                             }),
@@ -1455,7 +1819,6 @@ impl WsMessageService {
             }
         }
 
-        // 4. Status: Completed
         let _ = manager
             .send_to(
                 &conn_id,
@@ -1464,8 +1827,11 @@ impl WsMessageService {
                     json!(WorkspaceSetupProgressNotification {
                         workspace_id: workspace_id.clone(),
                         status: "completed".to_string(),
+                        step_key: Some("ready".to_string()),
                         step_title: "Ready to Build".to_string(),
                         output: None,
+                        replace_output: false,
+                        requires_confirmation: false,
                         success: true,
                         countdown: None,
                     }),
@@ -1563,8 +1929,11 @@ set -x
                         json!(WorkspaceSetupProgressNotification {
                             workspace_id: workspace_id_clone.clone(),
                             status: "setting_up".to_string(),
+                            step_key: Some("run_setup_script".to_string()),
                             step_title: "Running Setup Script".to_string(),
                             output: Some(output),
+                            replace_output: false,
+                            requires_confirmation: false,
                             success: true,
                             countdown: None,
                         }),
@@ -2075,6 +2444,70 @@ set -x
     }
 
     // ===== GitHub Handlers =====
+
+    fn to_issue_payload(issue: core_engine::github::GithubIssue) -> GithubIssuePayload {
+        GithubIssuePayload {
+            owner: issue.owner,
+            repo: issue.repo,
+            number: issue.number,
+            title: issue.title,
+            body: issue.body,
+            url: issue.url,
+            state: issue.state,
+            labels: issue
+                .labels
+                .into_iter()
+                .map(|label| GithubIssueLabelPayload {
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                })
+                .collect(),
+        }
+    }
+
+    async fn handle_github_issue_list(&self, req: GithubIssueListRequest) -> Result<Value> {
+        let issues = self
+            .github_engine
+            .list_issues(&req.owner, &req.repo, &req.state, req.limit)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to list GitHub issues: {error}"))
+            })?;
+
+        let payloads: Vec<GithubIssuePayload> =
+            issues.into_iter().map(Self::to_issue_payload).collect();
+        Ok(json!(payloads))
+    }
+
+    async fn handle_github_issue_get(&self, req: GithubIssueGetRequest) -> Result<Value> {
+        let (owner, repo, number) = if let Some(issue_url) = req.issue_url {
+            core_engine::GithubEngine::parse_issue_url(&issue_url).ok_or_else(|| {
+                ServiceError::Validation("Invalid GitHub issue URL".to_string())
+            })?
+        } else {
+            let owner = req
+                .owner
+                .ok_or_else(|| ServiceError::Validation("GitHub issue owner is required".to_string()))?;
+            let repo = req
+                .repo
+                .ok_or_else(|| ServiceError::Validation("GitHub issue repo is required".to_string()))?;
+            let number = req.issue_number.ok_or_else(|| {
+                ServiceError::Validation("GitHub issue number is required".to_string())
+            })?;
+            (owner, repo, number)
+        };
+
+        let issue = self
+            .github_engine
+            .get_issue(&owner, &repo, number)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to fetch GitHub issue: {error}"))
+            })?;
+
+        Ok(json!(Self::to_issue_payload(issue)))
+    }
 
     async fn handle_github_pr_list(&self, req: GithubPrListRequest) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);

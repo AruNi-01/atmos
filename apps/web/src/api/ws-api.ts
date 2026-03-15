@@ -143,6 +143,7 @@ export interface GitGenerateCommitMessageResponse {
 export interface ArchivedWorkspace {
   guid: string;
   name: string;
+  display_name?: string | null;
   branch: string;
   project_guid: string;
   project_name: string;
@@ -154,6 +155,7 @@ export interface WorkspaceModel {
   guid: string;
   project_guid: string;
   name: string;
+  display_name: string | null;
   branch: string;
   sidebar_order: number;
   created_at: string;
@@ -164,6 +166,24 @@ export interface WorkspaceModel {
   is_archived: boolean;
   archived_at: string | null;
   local_path: string;
+  github_issue: GithubIssuePayload | null;
+}
+
+export interface GithubIssueLabelPayload {
+  name: string;
+  color: string | null;
+  description: string | null;
+}
+
+export interface GithubIssuePayload {
+  owner: string;
+  repo: string;
+  number: number;
+  title: string;
+  body: string | null;
+  url: string;
+  state: string;
+  labels: GithubIssueLabelPayload[];
 }
 
 export type UsageDetailRowTone =
@@ -808,14 +828,22 @@ export const wsWorkspaceApi = {
   create: async (data: {
     projectGuid: string;
     name: string;
+    displayName?: string | null;
     branch: string;
     sidebarOrder?: number;
+    initialRequirement?: string | null;
+    githubIssue?: GithubIssuePayload | null;
+    autoExtractTodos?: boolean;
   }): Promise<WorkspaceModel> => {
     return wsRequest<WorkspaceModel>("workspace_create", {
       project_guid: data.projectGuid,
       name: data.name,
+      display_name: data.displayName ?? null,
       branch: data.branch,
       sidebar_order: data.sidebarOrder ?? 0,
+      initial_requirement: data.initialRequirement ?? null,
+      github_issue: data.githubIssue ?? null,
+      auto_extract_todos: data.autoExtractTodos ?? false,
     });
   },
 
@@ -842,6 +870,16 @@ export const wsWorkspaceApi = {
     return wsRequest<{ success: boolean }>("workspace_update_branch", {
       guid,
       branch,
+    });
+  },
+
+  confirmTodos: async (
+    guid: string,
+    markdown: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_confirm_todos", {
+      guid,
+      markdown,
     });
   },
 
@@ -901,6 +939,36 @@ export const wsWorkspaceApi = {
    */
   unarchive: async (guid: string): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("workspace_unarchive", { guid });
+  },
+};
+
+export const wsGithubApi = {
+  listIssues: async (params: {
+    owner: string;
+    repo: string;
+    state?: string;
+    limit?: number;
+  }): Promise<GithubIssuePayload[]> => {
+    return wsRequest<GithubIssuePayload[]>("github_issue_list", {
+      owner: params.owner,
+      repo: params.repo,
+      state: params.state ?? "open",
+      limit: params.limit ?? 50,
+    });
+  },
+
+  getIssue: async (params: {
+    owner?: string;
+    repo?: string;
+    issueNumber?: number;
+    issueUrl?: string;
+  }): Promise<GithubIssuePayload> => {
+    return wsRequest<GithubIssuePayload>("github_issue_get", {
+      owner: params.owner ?? null,
+      repo: params.repo ?? null,
+      issue_number: params.issueNumber ?? null,
+      issue_url: params.issueUrl ?? null,
+    });
   },
 };
 
@@ -1170,6 +1238,9 @@ export interface SessionTitleFormatConfig {
 export interface LlmFeatureBindings {
   session_title?: string | null;
   git_commit?: string | null;
+  git_commit_language?: string | null;
+  workspace_issue_todo?: string | null;
+  workspace_issue_todo_language?: string | null;
   session_title_format?: SessionTitleFormatConfig | null;
 }
 

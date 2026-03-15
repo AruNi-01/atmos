@@ -210,6 +210,7 @@ const Header: React.FC = () => {
         if (isSettingUp) {
           // Clear context while setting up to avoid showing stale info from previous workspace
           setCurrentContext(null, null, null);
+          setCurrentProjectPath(null);
         } else {
           setCurrentContext(
             currentProject.id,

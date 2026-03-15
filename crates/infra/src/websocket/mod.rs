@@ -31,6 +31,7 @@ pub use message::{
     GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
+    GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
     GithubPrReopenRequest, LlmProvidersUpdateRequest, MessagePayload, ProjectCheckCanDeleteRequest,
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
@@ -39,9 +40,10 @@ pub use message::{
     SkillsSetEnabledRequest, SyncSingleSystemSkillRequest, UsageAllProvidersSwitchRequest,
     UsageAutoRefreshRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
     UsageProviderSwitchRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
-    WorkspaceDeleteRequest, WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
-    WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
-    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
-    WsAction, WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
+    WorkspaceConfirmTodosRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
+    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification,
+    WorkspaceUnarchiveRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsErrorPayload, WsEvent,
+    WsMessage, WsRequest, WsResponse,
 };
 pub use service::{WsService, WsServiceConfig};

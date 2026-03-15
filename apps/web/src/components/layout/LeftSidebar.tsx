@@ -78,6 +78,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         reorderProjects,
         reorderWorkspaces,
         setupProgress,
+        isLoading,
     } = useProjectStore(
         useShallow(s => ({
             projects: s.projects,
@@ -92,6 +93,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             reorderProjects: s.reorderProjects,
             reorderWorkspaces: s.reorderWorkspaces,
             setupProgress: s.setupProgress,
+            isLoading: s.isLoading,
         }))
     );
 
@@ -164,6 +166,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             }
         }
     }, [currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentContext]);
+
+    useEffect(() => {
+        if (currentView !== 'workspace' || !currentWorkspaceId || isLoading) {
+            return;
+        }
+
+        const workspaceStillExists = projects.some((project) =>
+            project.workspaces.some((workspace) => workspace.id === currentWorkspaceId)
+        );
+
+        if (!workspaceStillExists) {
+            router.replace('/');
+        }
+    }, [currentView, currentWorkspaceId, isLoading, projects, router]);
 
     const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string | null, effectivePath: string, showHidden: boolean = false) => {
         if (!effectivePath) return;

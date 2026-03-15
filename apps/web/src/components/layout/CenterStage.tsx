@@ -161,6 +161,8 @@ const CenterStage: React.FC = () => {
   useEditorStoreHydration();
 
   const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
+  const setupProgressMap = useProjectStore((s) => s.setupProgress);
+  const isSetupActive = workspaceId ? !!setupProgressMap[workspaceId] : false;
 
   // Derive per-workspace visibility (default false for unseen workspaces)
   const projectWikiTabVisible = effectiveContextId ? (projectWikiVisibleMap[effectiveContextId] ?? false) : false;
@@ -199,6 +201,7 @@ const CenterStage: React.FC = () => {
   // Intentionally NOT depending on tabFromUrl: when user triggers wiki gen from Wiki tab, we switch to project-wiki
   // and the window doesn't exist yet — re-running the check would overwrite projectWikiTabVisible and redirect away.
   React.useEffect(() => {
+    if (isSetupActive) return;
     if (!effectiveContextId) return;
     const ctxId = effectiveContextId;
     systemApi.checkProjectWikiWindow(ctxId).then(
@@ -217,10 +220,11 @@ const CenterStage: React.FC = () => {
         }
       }
     );
-  }, [effectiveContextId]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/setUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
+  }, [effectiveContextId, isSetupActive]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/setUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
 
   // Check Code Review window on mount and when workspace changes.
   React.useEffect(() => {
+    if (isSetupActive) return;
     if (!effectiveContextId) return;
     const ctxId = effectiveContextId;
     systemApi.checkCodeReviewWindow(ctxId).then(
@@ -239,7 +243,7 @@ const CenterStage: React.FC = () => {
         }
       }
     );
-  }, [effectiveContextId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveContextId, isSetupActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCloseFile = (file: OpenFile) => {
     if (file.isDirty) {
@@ -281,11 +285,10 @@ const CenterStage: React.FC = () => {
   const isCodeReviewDialogOpen = useDialogStore(s => s.isCodeReviewDialogOpen);
   const setCodeReviewDialogOpen = useDialogStore(s => s.setCodeReviewDialogOpen);
   const projects = useProjectStore(s => s.projects);
-  const setupProgress = useProjectStore(s => s.setupProgress);
   const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
   const { currentBranch } = useGitInfoStore();
 
-  const currentSetupProgress = workspaceId ? setupProgress[workspaceId] : null;
+  const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
 
   const closeFilesSafely = (files: OpenFile[]) => {
     if (files.length === 0) return;
@@ -336,6 +339,7 @@ const CenterStage: React.FC = () => {
   const activeValue = activeFilePath || fixedTab;
 
   React.useEffect(() => {
+    if (isSetupActive) return;
     if (!effectiveContextId) return;
     for (const file of openFiles) {
       if (!file.isLoading) continue;
@@ -347,7 +351,7 @@ const CenterStage: React.FC = () => {
           reloadingFilesRef.current.delete(key);
         });
     }
-  }, [effectiveContextId, openFiles, reloadFileContent]);
+  }, [effectiveContextId, isSetupActive, openFiles, reloadFileContent]);
 
   React.useEffect(() => {
     const container = scrollableTabsRef.current;
@@ -474,6 +478,7 @@ const CenterStage: React.FC = () => {
 
   // Load default agent from function_settings
   React.useEffect(() => {
+    if (isSetupActive) return;
     functionSettingsApi.get().then((settings) => {
       const saved = (settings as Record<string, unknown>)?.agent_cli as Record<string, unknown> | undefined;
       const agentId = saved?.center_fix_terminal_default_agent as string | undefined;
@@ -481,7 +486,7 @@ const CenterStage: React.FC = () => {
         setDefaultAgentId(agentId as AgentId);
       }
     }).catch(() => {});
-  }, []);
+  }, [isSetupActive]);
 
   const handleSetDefaultAgent = (agentId: AgentId) => {
     setDefaultAgentId(agentId);
@@ -926,11 +931,12 @@ const CenterStage: React.FC = () => {
               contextId={effectiveContextId}
               projectName={currentProject?.name}
               projectPath={currentProject?.mainFilePath}
-              workspaceName={currentWorkspace?.name}
+              workspaceName={currentWorkspace?.displayName ?? currentWorkspace?.name}
               workspacePath={currentWorkspace?.localPath}
               gitBranch={currentBranch ?? undefined}
               createdAt={currentWorkspace?.createdAt}
               isProjectOnly={!currentWorkspace}
+              githubIssue={currentWorkspace?.githubIssue}
             />
           </div>
         )}

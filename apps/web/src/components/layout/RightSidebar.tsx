@@ -88,6 +88,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     ),
     [currentProject, workspaceId],
   );
+  const setupProgress = useProjectStore((s) => s.setupProgress);
+  const isSettingUp =
+    workspaceId && setupProgress[workspaceId]
+      ? setupProgress[workspaceId].status !== "completed"
+      : false;
 
   const effectiveContextId = workspaceId || projectIdFromUrl;
 
@@ -217,10 +222,15 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   };
 
   useEffect(() => {
+    if (isSettingUp) {
+      setCurrentRepoPath(null);
+      return;
+    }
     setCurrentRepoPath(currentProjectPath || null);
-  }, [currentProjectPath, setCurrentRepoPath]);
+  }, [currentProjectPath, isSettingUp, setCurrentRepoPath]);
 
   const hasWorkingContext = !!(
+    !isSettingUp &&
     currentProjectPath &&
     (workspaceId || projectIdFromUrl)
   );

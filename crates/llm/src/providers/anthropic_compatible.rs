@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
-use tracing::warn;
+use tracing::{debug, warn};
 
 use crate::client::LlmClient;
 use crate::error::{LlmError, Result};
@@ -238,7 +238,7 @@ fn extract_stream_text_from_data(data: &str, provider: &ResolvedLlmProvider) -> 
         });
 
     if text.is_none() {
-        warn!(
+        debug!(
             provider_id = %provider.id,
             model = %provider.model,
             event_type,
@@ -356,7 +356,7 @@ async fn stream_once(
     tx: &mpsc::Sender<Result<String>>,
 ) -> std::result::Result<(), StreamAttemptFailure> {
     let body_json = serde_json::to_string(body).unwrap_or_default();
-    warn!(
+    debug!(
         provider_id = %provider.id,
         endpoint = %endpoint,
         body = %truncate_for_log(&body_json, 800),
@@ -372,7 +372,7 @@ async fn stream_once(
         .await
         .map_err(|error| StreamAttemptFailure::Fatal(error.into()))?;
 
-    warn!(
+    debug!(
         provider_id = %provider.id,
         status = %response.status(),
         content_type = ?response.headers().get("content-type"),
@@ -451,7 +451,7 @@ async fn stream_once(
 
     if streamed_chunks == 0 {
         if let Some(text) = try_parse_non_stream_response(&raw_body) {
-            warn!(
+            debug!(
                 provider_id = %provider.id,
                 "provider returned non-streaming response despite stream=true, falling back"
             );

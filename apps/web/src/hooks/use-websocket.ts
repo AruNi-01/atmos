@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
-import { toastManager } from "@workspace/ui";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
 import { buildWsUrl, buildWsUrlSync } from "@/lib/ws-url";
 import { debugLog } from "@/lib/desktop-logger";
@@ -71,6 +70,7 @@ export type WsAction =
   | "workspace_list_archived"
   | "workspace_unarchive"
   | "workspace_retry_setup"
+  | "workspace_confirm_todos"
   // Project 检查操作
   | "project_check_can_delete"
   // Skills 操作
@@ -115,6 +115,8 @@ export type WsAction =
   | "github_pr_ready"
   | "github_pr_draft"
   | "github_pr_open_browser"
+  | "github_issue_list"
+  | "github_issue_get"
   | "github_ci_status"
   | "github_ci_open_browser"
   | "github_actions_list"
@@ -488,11 +490,6 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           } else {
             const errorMessage =
               typeof data === "string" ? data : JSON.stringify(data);
-            toastManager.add({
-              title: "Request Failed",
-              description: errorMessage,
-              type: "error",
-            });
             pending.reject(new Error(`Request failed: ${errorMessage}`));
           }
         }
@@ -517,13 +514,6 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         if (pending) {
           clearTimeout(pending.timeout);
           pendingRequests.delete(request_id);
-
-          toastManager.add({
-            title: "Error",
-            description: errorMessage,
-            type: "error",
-          });
-
           pending.reject(new Error(`[${code}] ${errorMessage}`));
         }
         return;

@@ -233,6 +233,8 @@ pub enum WsAction {
     WorkspaceListArchived,
     /// 重试 Workspace 设置 (脚本执行)
     WorkspaceRetrySetup,
+    /// 确认 LLM 生成的 TODO 并继续 setup
+    WorkspaceConfirmTodos,
     /// 检查项目是否可以删除（从归档模态）
     ProjectCheckCanDelete,
 
@@ -308,6 +310,10 @@ pub enum WsAction {
     GithubPrOpenBrowser,
     /// 将 PR 转换为 Draft
     GithubPrDraft,
+    /// 列出仓库 issue
+    GithubIssueList,
+    /// 获取单个 issue 详情或通过 URL 解析 issue
+    GithubIssueGet,
     /// 获取最新 CI 运行状态
     GithubCiStatus,
     /// 在浏览器中打开 CI run
@@ -352,9 +358,15 @@ pub struct WorkspaceSetupProgressNotification {
     pub workspace_id: String,
     /// 当前状态: "creating", "setting_up", "completed", "error"
     pub status: String,
+    #[serde(default)]
+    pub step_key: Option<String>,
     pub step_title: String,
     /// 脚本输出内容 (按需发送)
     pub output: Option<String>,
+    #[serde(default)]
+    pub replace_output: bool,
+    #[serde(default)]
+    pub requires_confirmation: bool,
     pub success: bool,
     /// 倒计时 (秒)
     pub countdown: Option<u32>,
@@ -852,9 +864,17 @@ pub struct WorkspaceListRequest {
 pub struct WorkspaceCreateRequest {
     pub project_guid: String,
     pub name: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
     pub branch: String,
     #[serde(default)]
     pub sidebar_order: i32,
+    #[serde(default)]
+    pub initial_requirement: Option<String>,
+    #[serde(default)]
+    pub github_issue: Option<GithubIssuePayload>,
+    #[serde(default)]
+    pub auto_extract_todos: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -898,6 +918,12 @@ pub struct WorkspaceArchiveRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceRetrySetupRequest {
     pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceConfirmTodosRequest {
+    pub guid: String,
+    pub markdown: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1021,6 +1047,59 @@ pub struct SkillsDeleteRequest {
 // ===== Agent 操作数据结构 =====
 
 // ===== GitHub 操作数据结构 =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueLabelPayload {
+    pub name: String,
+    #[serde(default)]
+    pub color: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssuePayload {
+    pub owner: String,
+    pub repo: String,
+    pub number: u64,
+    pub title: String,
+    #[serde(default)]
+    pub body: Option<String>,
+    pub url: String,
+    pub state: String,
+    #[serde(default)]
+    pub labels: Vec<GithubIssueLabelPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueListRequest {
+    pub owner: String,
+    pub repo: String,
+    #[serde(default = "default_github_issue_state")]
+    pub state: String,
+    #[serde(default = "default_github_issue_limit")]
+    pub limit: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueGetRequest {
+    #[serde(default)]
+    pub owner: Option<String>,
+    #[serde(default)]
+    pub repo: Option<String>,
+    #[serde(default)]
+    pub issue_number: Option<u64>,
+    #[serde(default)]
+    pub issue_url: Option<String>,
+}
+
+fn default_github_issue_state() -> String {
+    "open".to_string()
+}
+
+fn default_github_issue_limit() -> usize {
+    50
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubPrListRequest {

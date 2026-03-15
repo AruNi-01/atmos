@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { Project, Workspace } from '@/types/types';
-import { wsProjectApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
+import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
 
@@ -31,18 +31,41 @@ export interface WorkspaceSetupProgress {
   workspaceId: string;
   status: 'creating' | 'setting_up' | 'completed' | 'error';
   lastStatus?: 'creating' | 'setting_up' | 'completed'; // Track previous success
+  stepKey?:
+    | 'create_worktree'
+    | 'write_requirement'
+    | 'extract_todos'
+    | 'run_setup_script'
+    | 'ready';
+  lastStepKey?:
+    | 'create_worktree'
+    | 'write_requirement'
+    | 'extract_todos'
+    | 'run_setup_script'
+    | 'ready';
   stepTitle: string;
   output: string;
+  replaceOutput?: boolean;
+  requiresConfirmation?: boolean;
   success: boolean;
   countdown?: number;
+  setupContext?: {
+    hasGithubIssue: boolean;
+    hasRequirementStep: boolean;
+    autoExtractTodos: boolean;
+    hasSetupScript: boolean;
+  };
 }
 
 
 interface WorkspaceSetupProgressEventPayload {
   workspace_id: string;
   status: WorkspaceSetupProgress['status'];
+  step_key?: WorkspaceSetupProgress['stepKey'];
   step_title: string;
   output?: string;
+  replace_output?: boolean;
+  requires_confirmation?: boolean;
   success: boolean;
   countdown?: number;
 }
@@ -55,12 +78,24 @@ function isWorkspaceSetupProgressEventPayload(
 
   const payload = data as Record<string, unknown>;
   const validStatus = ['creating', 'setting_up', 'completed', 'error'];
+  const validStepKeys = [
+    'create_worktree',
+    'write_requirement',
+    'extract_todos',
+    'run_setup_script',
+    'ready',
+  ];
 
   return (
     typeof payload.workspace_id === 'string' &&
     typeof payload.step_title === 'string' &&
     typeof payload.success === 'boolean' &&
     typeof payload.status === 'string' &&
+    (payload.replace_output == null || typeof payload.replace_output === 'boolean') &&
+    (payload.requires_confirmation == null ||
+      typeof payload.requires_confirmation === 'boolean') &&
+    (payload.step_key == null ||
+      (typeof payload.step_key === 'string' && validStepKeys.includes(payload.step_key))) &&
     validStatus.includes(payload.status)
   );
 }
@@ -76,7 +111,16 @@ interface ProjectStore {
   updateProject: (id: string, data: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   
-  addWorkspace: (data: { projectId: string; name: string; branch: string }) => Promise<void>;
+  addWorkspace: (data: {
+    projectId: string;
+    name: string;
+    displayName?: string | null;
+    branch: string;
+    initialRequirement?: string | null;
+    githubIssue?: WorkspaceModel['github_issue'];
+    autoExtractTodos?: boolean;
+    hasSetupScript?: boolean;
+  }) => Promise<string>;
   quickAddWorkspace: (projectId: string) => Promise<string | null>;
   deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
@@ -115,6 +159,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
   return {
     id: model.guid,
     name: model.name,
+    displayName: model.display_name ?? undefined,
     branch: model.branch,
     isActive: false, // 由前端管理
     status: 'clean', // 默认状态，后续可以从 git 获取
@@ -125,6 +170,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     archivedAt: model.archived_at ?? undefined,
     createdAt: model.created_at,
     localPath: model.local_path,
+    githubIssue: model.github_issue,
   };
 }
 
@@ -292,21 +338,39 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const newWorkspaceModel = await wsWorkspaceApi.create({
         projectGuid: data.projectId,
         name: data.name,
+        displayName: data.displayName,
         branch: data.branch,
+        initialRequirement: data.initialRequirement,
+        githubIssue: data.githubIssue,
+        autoExtractTodos: data.autoExtractTodos,
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
+      const setupContext = {
+        hasGithubIssue: !!data.githubIssue,
+        hasRequirementStep:
+          !!data.githubIssue || !!data.initialRequirement?.trim(),
+        autoExtractTodos: !!data.autoExtractTodos,
+        hasSetupScript: !!data.hasSetupScript,
+      };
 
       set(state => ({
         setupProgress: {
           ...state.setupProgress,
-          [newWorkspace.id]: {
-            workspaceId: newWorkspace.id,
-            status: 'creating',
-            stepTitle: 'Initializing...',
-            output: '',
-            success: true
-          }
+          [newWorkspace.id]: state.setupProgress[newWorkspace.id]
+            ? {
+                ...state.setupProgress[newWorkspace.id],
+                setupContext,
+              }
+            : {
+                workspaceId: newWorkspace.id,
+                status: 'creating',
+                stepKey: 'create_worktree',
+                stepTitle: 'Creating Workspace',
+                output: '',
+                success: true,
+                setupContext,
+              }
         },
         projects: state.projects.map(p => 
           p.id === data.projectId 
@@ -316,17 +380,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
       
       toastManager.add({ 
-        title: 'Success', 
-        description: `Workspace "${newWorkspace.name}" created`, 
-        type: 'success' 
+        title: 'Workspace setup started', 
+        description: `Opening "${newWorkspace.displayName || newWorkspace.name}"`, 
+        type: 'info' 
       });
+      return newWorkspace.id;
     } catch (error) {
       console.error('Error adding workspace:', error);
-      toastManager.add({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to create workspace', 
-        type: 'error' 
-      });
       throw error;
     }
   },
@@ -338,6 +398,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const project = get().projects.find(p => p.id === projectId);
       if (!project) {
         throw new Error('Project not found');
+      }
+
+      let hasSetupScript = false;
+      try {
+        const scripts = await wsScriptApi.get(projectId);
+        hasSetupScript = typeof scripts.setup === 'string' && scripts.setup.trim().length > 0;
+      } catch {
+        hasSetupScript = false;
       }
       
       // Pass empty string to let backend generate Pokemon name
@@ -352,13 +420,30 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       set(state => ({
         setupProgress: {
           ...state.setupProgress,
-          [newWorkspace.id]: {
-            workspaceId: newWorkspace.id,
-            status: 'creating',
-            stepTitle: 'Initializing...',
-            output: '',
-            success: true
-          }
+          [newWorkspace.id]: state.setupProgress[newWorkspace.id]
+            ? {
+                ...state.setupProgress[newWorkspace.id],
+                setupContext: {
+                  hasGithubIssue: false,
+                  hasRequirementStep: false,
+                  autoExtractTodos: false,
+                  hasSetupScript,
+                },
+              }
+            : {
+                workspaceId: newWorkspace.id,
+                status: 'creating',
+                stepKey: 'create_worktree',
+                stepTitle: 'Creating Workspace',
+                output: '',
+                success: true,
+                setupContext: {
+                  hasGithubIssue: false,
+                  hasRequirementStep: false,
+                  autoExtractTodos: false,
+                  hasSetupScript,
+                },
+              }
         },
         projects: state.projects.map(p => 
           p.id === projectId 
@@ -368,9 +453,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
       
       toastManager.add({ 
-        title: 'Quick Workspace Created', 
-        description: `"${newWorkspace.name}" created`, 
-        type: 'success' 
+        title: 'Workspace setup started', 
+        description: `Opening "${newWorkspace.displayName || newWorkspace.name}"`, 
+        type: 'info' 
       });
       
       return newWorkspace.id;
@@ -386,31 +471,54 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   deleteWorkspace: async (projectId, workspaceId) => {
+    const previousState = get();
+    const workspaceBeingDeleted = previousState.projects
+      .find((project) => project.id === projectId)
+      ?.workspaces.find((workspace) => workspace.id === workspaceId);
+
+    set((state) => {
+      const nextSetupProgress = { ...state.setupProgress };
+      delete nextSetupProgress[workspaceId];
+
+      return {
+        activeWorkspaceId:
+          state.activeWorkspaceId === workspaceId ? null : state.activeWorkspaceId,
+        setupProgress: nextSetupProgress,
+        projects: state.projects.map((project) =>
+          project.id === projectId
+            ? {
+                ...project,
+                workspaces: project.workspaces.filter(
+                  (workspace) => workspace.id !== workspaceId,
+                ),
+              }
+            : project,
+        ),
+      };
+    });
+
     try {
       await waitForConnection();
-      
       await wsWorkspaceApi.delete(workspaceId);
-      
-      set(state => ({
-        projects: state.projects.map(p => 
-          p.id === projectId 
-            ? { ...p, workspaces: p.workspaces.filter(w => w.id !== workspaceId) } 
-            : p
-        )
-      }));
-      
+
       toastManager.add({ 
         title: 'Deleted', 
-        description: 'Workspace removed', 
+        description: `Workspace "${workspaceBeingDeleted?.displayName || workspaceBeingDeleted?.name || 'Untitled'}" removed`, 
         type: 'info' 
       });
     } catch (error) {
+      set({
+        projects: previousState.projects,
+        activeWorkspaceId: previousState.activeWorkspaceId,
+        setupProgress: previousState.setupProgress,
+      });
       console.error('Error deleting workspace:', error);
       toastManager.add({ 
         title: 'Error', 
-        description: 'Failed to delete workspace', 
+        description: error instanceof Error ? error.message : 'Failed to delete workspace', 
         type: 'error' 
       });
+      throw error;
     }
   },
 
@@ -612,13 +720,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const existing = state.setupProgress[progress.workspaceId];
     const newStatus = progress.status;
     let lastStatus = existing?.lastStatus;
+    let lastStepKey = existing?.lastStepKey;
 
     if (progress.status === 'error') {
       lastStatus = existing?.status !== 'error' ? existing?.status : existing?.lastStatus;
+      lastStepKey = progress.stepKey ?? existing?.stepKey ?? existing?.lastStepKey;
     } else if (progress.status !== existing?.status) {
       // If moving to a new status that isn't error, update lastStatus to the PREVIOUS status
       if (existing?.status && existing.status !== 'error') {
         lastStatus = existing.status;
+      }
+      if (existing?.stepKey) {
+        lastStepKey = existing.stepKey;
       }
     }
 
@@ -630,7 +743,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           ...progress,
           status: newStatus,
           lastStatus: lastStatus,
-          output: (existing?.output || '') + (progress.output || '')
+          lastStepKey,
+          output:
+            progress.output !== undefined &&
+            (progress.replaceOutput ||
+              progress.stepKey !== existing?.stepKey ||
+              progress.status !== existing?.status)
+              ? progress.output
+              : (existing?.output || '') + (progress.output || '')
         }
       }
     };
@@ -665,8 +785,11 @@ export function subscribeToWorkspaceSetupProgress(): () => void {
     useProjectStore.getState().setSetupProgress({
       workspaceId: data.workspace_id,
       status: data.status,
+      stepKey: data.step_key,
       stepTitle: data.step_title,
       output: data.output || '',
+      replaceOutput: data.replace_output,
+      requiresConfirmation: data.requires_confirmation,
       success: data.success,
       countdown: data.countdown,
     });

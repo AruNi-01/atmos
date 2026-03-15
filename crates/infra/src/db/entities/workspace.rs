@@ -13,6 +13,7 @@ pub struct Model {
     pub updated_at: DateTime,
     pub is_deleted: bool,
     pub name: String,
+    pub display_name: Option<String>,
     pub branch: String,
     pub sidebar_order: i32,
     pub is_pinned: bool,
@@ -23,6 +24,10 @@ pub struct Model {
     pub terminal_layout: Option<String>,
     /// The ID of the currently maximized terminal pane, if any
     pub maximized_terminal_id: Option<String>,
+    /// Linked GitHub issue URL
+    pub github_issue_url: Option<String>,
+    /// Serialized GitHub issue metadata for workspace overview/import
+    pub github_issue_data: Option<String>,
 }
 
 impl_base_entity!(Model);
