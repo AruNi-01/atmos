@@ -1,3 +1,3 @@
 - [x] commit & push
-- [/] hello
+- [x] hello
 - [ ] nihao

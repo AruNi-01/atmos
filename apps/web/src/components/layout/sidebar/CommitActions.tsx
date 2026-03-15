@@ -560,7 +560,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
             showPublishButton
               ? handlePublish
               : showPushButton
-                ? () => handleGlobalAction(syncChanges)
+                ? () => handleGlobalAction(pushChanges)
                 : handleCommit
           }
           disabled={
@@ -599,8 +599,8 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                 : "Publish Branch"
               : showPushButton
                 ? isGlobalActionLoading
-                  ? "Syncing..."
-                  : `Sync Changes ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ""}`
+                  ? "Pushing..."
+                  : `Push ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ""}`
                 : isCommitting
                   ? "Committing..."
                   : "Commit"}
