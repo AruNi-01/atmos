@@ -208,7 +208,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       terminalRef.current = null;
       lastWrittenLengthRef.current = 0;
     };
-  }, [output, showTerminalPanel]);
+  }, [showTerminalPanel]);
 
   useEffect(() => {
     if (!terminalRef.current) return;
