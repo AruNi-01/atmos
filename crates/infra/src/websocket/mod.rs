@@ -41,9 +41,9 @@ pub use message::{
     UsageAutoRefreshRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
     UsageProviderSwitchRequest, WorkspaceArchiveRequest, WorkspaceCreateRequest,
     WorkspaceConfirmTodosRequest, WorkspaceDeleteRequest, WorkspaceListRequest,
-    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupProgressNotification,
-    WorkspaceUnarchiveRequest, WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest,
-    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WsAction, WsErrorPayload, WsEvent,
-    WsMessage, WsRequest, WsResponse,
+    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
+    WorkspaceSetupProgressNotification, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
+    WsAction, WsErrorPayload, WsEvent, WsMessage, WsRequest, WsResponse,
 };
 pub use service::{WsService, WsServiceConfig};

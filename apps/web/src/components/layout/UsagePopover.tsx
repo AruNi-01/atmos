@@ -39,6 +39,19 @@ import {
   UiTimerIcon,
   cn,
   useTimer,
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  arrayMove,
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  CSS,
+  restrictToHorizontalAxis,
+  restrictToParentElement,
 } from "@workspace/ui";
 
 import {
@@ -53,6 +66,7 @@ import { useWebSocketStore } from "@/hooks/use-websocket";
 const STALE_MS = 3 * 60 * 1000;
 const ALL_PROVIDER_ID = "all";
 const ALL_PROVIDER_SWITCH_ID = "__all_providers_switch__";
+const PROVIDER_ORDER_STORAGE_KEY = "usage-popover-provider-order";
 const AUTO_REFRESH_OPTIONS = [
   { value: "1", label: "1min", shortLabel: "1m" },
   { value: "5", label: "5min", shortLabel: "5m" },
@@ -417,12 +431,14 @@ function ProviderSwitch({
   label,
   selected,
   active,
+  draggable,
   onClick,
 }: {
   id: string;
   label: string;
   selected: boolean;
   active: boolean;
+  draggable?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -433,6 +449,7 @@ function ProviderSwitch({
       title={label}
       className={cn(
         "group relative flex w-[64px] shrink-0 flex-col items-center gap-1.5 rounded-[16px] border border-transparent px-1.5 py-2.5 transition-all duration-200",
+        draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
         selected
           ? "border-border/75 bg-accent/75 text-foreground shadow-[0_14px_30px_-22px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.06)]"
           : active
@@ -461,6 +478,31 @@ function ProviderSwitch({
         {label}
       </div>
     </button>
+  );
+}
+
+function SortableProviderSwitch({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn("shrink-0", isDragging && "z-20 opacity-90")}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -584,6 +626,7 @@ function ProviderManualSetupForm({
 function AggregateDetail({
   aggregate,
   providers,
+  providerOrder,
   onToggleAllProviders,
   onToggleProvider,
   onSaveManualSetup,
@@ -593,6 +636,7 @@ function AggregateDetail({
 }: {
   aggregate: UsageAggregateResponse;
   providers: UsageProviderResponse[];
+  providerOrder: string[];
   onToggleAllProviders: (enabled: boolean) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
   onSaveManualSetup: (providerId: string, region: string, apiKey: string) => void;
@@ -600,9 +644,17 @@ function AggregateDetail({
   savingManualSetupProviderId: string | null;
   switchingProviderId: string | null;
 }) {
+  const providerOrderIndex = useMemo(
+    () => new Map(providerOrder.map((id, index) => [id, index])),
+    [providerOrder]
+  );
+
   const sortedProviders = [...providers].sort((left, right) => {
     if (left.enabled !== right.enabled) return left.enabled ? -1 : 1;
     if (left.switch_enabled !== right.switch_enabled) return left.switch_enabled ? -1 : 1;
+    const leftOrder = providerOrderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = providerOrderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
     return left.label.localeCompare(right.label);
   });
   const allSwitchEnabled = providers.length > 0 && providers.every((provider) => provider.switch_enabled);
@@ -1047,6 +1099,15 @@ export function UsagePopover() {
     canScrollLeft: false,
     canScrollRight: false,
   });
+  const [providerOrder, setProviderOrder] = useState<string[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    })
+  );
 
   const selectedProvider = useMemo(
     () => overview?.providers.find((provider) => provider.id === selectedProviderId) ?? null,
@@ -1166,20 +1227,77 @@ export function UsagePopover() {
   }, [overview, selectedProviderId]);
 
   const switches = useMemo(
-    () => [
-      {
-        id: ALL_PROVIDER_ID,
-        label: "All",
-        active: (overview?.providers ?? []).some((provider) => provider.switch_enabled),
-      },
-      ...((overview?.providers ?? []).map((provider) => ({
-        id: provider.id,
-        label: provider.label,
-        active: provider.switch_enabled,
-      }))),
-    ],
-    [overview]
+    () => {
+      const providers = overview?.providers ?? [];
+      const orderIndex = new Map(providerOrder.map((id, index) => [id, index]));
+      const orderedProviders = [...providers].sort((left, right) => {
+        const leftOrder = orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = orderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        return left.label.localeCompare(right.label);
+      });
+
+      return [
+        {
+          id: ALL_PROVIDER_ID,
+          label: "All",
+          active: providers.some((provider) => provider.switch_enabled),
+        },
+        ...orderedProviders.map((provider) => ({
+          id: provider.id,
+          label: provider.label,
+          active: provider.switch_enabled,
+        })),
+      ];
+    },
+    [overview, providerOrder]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(PROVIDER_ORDER_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+        setProviderOrder(parsed);
+      }
+    } catch {
+      // ignore invalid persisted data
+    }
+  }, []);
+
+  useEffect(() => {
+    const ids = (overview?.providers ?? []).map((provider) => provider.id);
+    if (ids.length === 0) return;
+
+    setProviderOrder((current) => {
+      const filtered = current.filter((id) => ids.includes(id));
+      const additions = ids.filter((id) => !filtered.includes(id));
+      const next = [...filtered, ...additions];
+      if (next.length === current.length && next.every((id, index) => id === current[index])) {
+        return current;
+      }
+      return next;
+    });
+  }, [overview?.providers]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(PROVIDER_ORDER_STORAGE_KEY, JSON.stringify(providerOrder));
+  }, [providerOrder]);
+
+  const handleProviderSwitchDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setProviderOrder((current) => {
+      const oldIndex = current.indexOf(String(active.id));
+      const newIndex = current.indexOf(String(over.id));
+      if (oldIndex === -1 || newIndex === -1) return current;
+      return arrayMove(current, oldIndex, newIndex);
+    });
+  }, []);
 
   const updateProviderScrollState = useCallback(() => {
     const el = providerScrollRef.current;
@@ -1344,18 +1462,39 @@ export function UsagePopover() {
                   ref={providerScrollRef}
                   className="no-scrollbar w-full overflow-x-auto overflow-y-hidden scroll-smooth"
                 >
-                  <div className="flex w-max items-start gap-1 px-6 pb-0.5">
-                    {switches.map((item) => (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    modifiers={[restrictToHorizontalAxis, restrictToParentElement]}
+                    onDragEnd={handleProviderSwitchDragEnd}
+                  >
+                    <div className="flex w-max items-start gap-1 px-6 pb-0.5">
                       <ProviderSwitch
-                        key={item.id}
-                        id={item.id}
-                        label={item.label}
-                        active={item.active}
-                        selected={selectedProviderId === item.id}
-                        onClick={() => startTransition(() => setSelectedProviderId(item.id))}
+                        id={switches[0].id}
+                        label={switches[0].label}
+                        active={switches[0].active}
+                        selected={selectedProviderId === switches[0].id}
+                        onClick={() => startTransition(() => setSelectedProviderId(switches[0].id))}
                       />
-                    ))}
-                  </div>
+                      <SortableContext
+                        items={switches.slice(1).map((item) => item.id)}
+                        strategy={horizontalListSortingStrategy}
+                      >
+                        {switches.slice(1).map((item) => (
+                          <SortableProviderSwitch key={item.id} id={item.id}>
+                            <ProviderSwitch
+                              id={item.id}
+                              label={item.label}
+                              active={item.active}
+                              draggable={item.active && selectedProviderId === item.id}
+                              selected={selectedProviderId === item.id}
+                              onClick={() => startTransition(() => setSelectedProviderId(item.id))}
+                            />
+                          </SortableProviderSwitch>
+                        ))}
+                      </SortableContext>
+                    </div>
+                  </DndContext>
                 </div>
                 {showProviderArrows ? (
                   <>
@@ -1426,6 +1565,7 @@ export function UsagePopover() {
                       <AggregateDetail
                         aggregate={overview?.all ?? EMPTY_AGGREGATE}
                         providers={overview?.providers ?? []}
+                        providerOrder={providerOrder}
                         onToggleAllProviders={toggleAllProvidersSwitch}
                         onToggleProvider={toggleProviderSwitch}
                         isAllSwitching={switchingProviderId === ALL_PROVIDER_SWITCH_ID}

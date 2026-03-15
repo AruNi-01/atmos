@@ -354,6 +354,15 @@ pub enum WsEvent {
 
 /// 工作区设置进度通知数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceSetupContextNotification {
+    pub has_github_issue: bool,
+    pub has_requirement_step: bool,
+    pub auto_extract_todos: bool,
+    pub has_setup_script: bool,
+}
+
+/// 工作区设置进度通知数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceSetupProgressNotification {
     pub workspace_id: String,
     /// 当前状态: "creating", "setting_up", "completed", "error"
@@ -370,6 +379,8 @@ pub struct WorkspaceSetupProgressNotification {
     pub success: bool,
     /// 倒计时 (秒)
     pub countdown: Option<u32>,
+    #[serde(default)]
+    pub setup_context: Option<WorkspaceSetupContextNotification>,
 }
 
 // ===== 文件系统操作数据结构 =====
