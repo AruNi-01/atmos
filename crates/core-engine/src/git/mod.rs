@@ -1,6 +1,6 @@
 //! Git operations for workspace management.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -400,7 +400,7 @@ impl GitEngine {
             };
 
         let (staged_numstat, unstaged_numstat) = if let Some(compare_numstat) = compare_numstat {
-            (compare_numstat.clone(), compare_numstat)
+            (compare_numstat, HashMap::new())
         } else {
             (
                 Self::build_numstat_map(
@@ -432,6 +432,7 @@ impl GitEngine {
         let mut untracked_files: Vec<ChangedFileInfo> = Vec::new();
         let mut total_additions = 0u32;
         let mut total_deletions = 0u32;
+        let mut seen_in_base_mode: HashSet<String> = HashSet::new();
 
         for line in status_stdout.lines() {
             if line.len() < 3 {
@@ -452,6 +453,35 @@ impl GitEngine {
                     deletions: 0,
                     staged: false,
                 });
+            } else if is_base_branch_mode {
+                // In base-branch mode, emit each file exactly once using
+                // the unified diff stats against the base branch.
+                if seen_in_base_mode.insert(file_path.clone()) {
+                    let (additions, deletions) =
+                        staged_numstat.get(&file_path).copied().unwrap_or((0, 0));
+                    total_additions += additions;
+                    total_deletions += deletions;
+
+                    let status_char = if x != ' ' && x != '?' { x } else { y };
+                    let status = match status_char {
+                        'M' => "M",
+                        'A' => "A",
+                        'D' => "D",
+                        'R' => "R",
+                        'C' => "C",
+                        'U' => "U",
+                        _ => "M",
+                    }
+                    .to_string();
+
+                    staged_files.push(ChangedFileInfo {
+                        path: file_path,
+                        status,
+                        additions,
+                        deletions,
+                        staged: true,
+                    });
+                }
             } else {
                 // Staged changes (X is not space and not ?)
                 if x != ' ' && x != '?' {
@@ -481,7 +511,7 @@ impl GitEngine {
                 }
 
                 // Unstaged changes (Y is not space)
-                if y != ' ' && !is_base_branch_mode {
+                if y != ' ' {
                     let (additions, deletions) =
                         unstaged_numstat.get(&file_path).copied().unwrap_or((0, 0));
                     total_additions += additions;
