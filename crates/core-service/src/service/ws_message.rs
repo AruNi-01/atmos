@@ -1211,14 +1211,16 @@ impl WsMessageService {
             )
             .await?;
 
-        if let Err(e) = self.project_service
-            .update_target_branch(
-                req.project_guid.clone(),
-                Some(workspace.model.base_branch.clone()),
-            )
-            .await
-        {
-            tracing::warn!("Failed to update target branch: {e}");
+        if req.base_branch.is_some() {
+            if let Err(e) = self.project_service
+                .update_target_branch(
+                    req.project_guid.clone(),
+                    Some(workspace.model.base_branch.clone()),
+                )
+                .await
+            {
+                tracing::warn!("Failed to update target branch: {e}");
+            }
         }
 
         // Spawn setup in background
@@ -1325,6 +1327,7 @@ impl WsMessageService {
                 "name": ws.model.name,
                 "display_name": ws.model.display_name,
                 "branch": ws.model.branch,
+                "base_branch": ws.model.base_branch,
                 "project_guid": ws.model.project_guid,
                 "project_name": project.name,
                 "archived_at": ws.model.archived_at,
