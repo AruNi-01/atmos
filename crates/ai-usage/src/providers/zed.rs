@@ -6,7 +6,9 @@ use time::OffsetDateTime;
 use crate::constants::{ZED_BILLING_USAGE_URL, ZED_SUBSCRIPTION_URL};
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone, UsageSummary};
 use crate::runtime::LiveFetchResult;
-use crate::support::unix_now;
+use crate::support::{
+    load_cookie_header, load_zed_browser_cookie_source, normalize_cookie_header, unix_now,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 struct ZedUsageResponse {
@@ -73,9 +75,9 @@ struct ZedPeriod {
 }
 
 pub(crate) async fn fetch_zed_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
-    let cookie = load_zed_cookie()?;
-    let usage = request_zed_usage(client, &cookie).await?;
-    let subscription = request_zed_subscription(client, &cookie).await.ok();
+    let auth = load_zed_auth()?;
+    let usage = request_zed_usage(client, &auth).await?;
+    let subscription = request_zed_subscription(client, &auth).await.ok();
 
     let plan_label = subscription
         .as_ref()
@@ -245,36 +247,66 @@ pub(crate) async fn fetch_zed_live(client: &Client) -> Result<LiveFetchResult, P
     })
 }
 
-fn load_zed_cookie() -> Result<String, ProviderError> {
-    if let Some(cookie) = std::env::var("ZED_COOKIE_HEADER")
-        .ok()
-        .or_else(|| std::env::var("ATMOS_USAGE_ZED_COOKIE_HEADER").ok())
-        .filter(|v| !v.trim().is_empty())
-    {
-        return Ok(cookie);
+#[derive(Debug, Clone)]
+enum ZedAuth {
+    CookieHeader(String),
+    BearerToken(String),
+}
+
+fn load_zed_auth() -> Result<ZedAuth, ProviderError> {
+    if let Some(cookie_header) = load_cookie_header(
+        &["ZED_COOKIE_HEADER", "ATMOS_USAGE_ZED_COOKIE_HEADER"],
+        Some("zed"),
+    )? {
+        return Ok(ZedAuth::CookieHeader(cookie_header));
+    }
+
+    if let Some(source) = load_zed_browser_cookie_source()? {
+        return Ok(ZedAuth::CookieHeader(source.cookie_header));
     }
 
     if let Some(token) = std::env::var("ZED_ACCESS_TOKEN")
         .ok()
         .or_else(|| std::env::var("ATMOS_USAGE_ZED_ACCESS_TOKEN").ok())
-        .filter(|v| !v.trim().is_empty())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
     {
-        return Ok(token);
+        return Ok(parse_zed_access_token(&token));
     }
 
     Err(ProviderError::Fetch(
-        "Zed credentials not available. Set ZED_COOKIE_HEADER or ZED_ACCESS_TOKEN.".to_string(),
+        "Zed credentials not available. Atmos could not find a supported Zed browser session. Configure ZED_COOKIE_HEADER (or ~/.atmos/ai-usage/zed.cookie) for manual cookie auth, or set ZED_ACCESS_TOKEN for bearer auth.".to_string(),
     ))
+}
+
+fn parse_zed_access_token(token: &str) -> ZedAuth {
+    let trimmed = token.trim();
+    let normalized = normalize_cookie_header(trimmed);
+
+    if normalized.contains('=') || normalized.contains(';') {
+        return ZedAuth::CookieHeader(normalized);
+    }
+
+    let bearer = normalized
+        .strip_prefix("Bearer ")
+        .or_else(|| normalized.strip_prefix("bearer "))
+        .unwrap_or(&normalized)
+        .trim()
+        .to_string();
+
+    ZedAuth::BearerToken(bearer)
 }
 
 async fn request_zed_usage(
     client: &Client,
-    cookie: &str,
+    auth: &ZedAuth,
 ) -> Result<ZedUsageResponse, ProviderError> {
-    let response = client
+    let request = client
         .get(ZED_BILLING_USAGE_URL)
-        .header("Cookie", cookie)
-        .header("Accept", "application/json")
+        .header("Accept", "application/json");
+    let request = apply_zed_auth(request, auth);
+
+    let response = request
         .send()
         .await
         .map_err(|e| ProviderError::Fetch(format!("Zed usage request failed: {e}")))?;
@@ -294,12 +326,14 @@ async fn request_zed_usage(
 
 async fn request_zed_subscription(
     client: &Client,
-    cookie: &str,
+    auth: &ZedAuth,
 ) -> Result<ZedSubscriptionResponse, ProviderError> {
-    let response = client
+    let request = client
         .get(ZED_SUBSCRIPTION_URL)
-        .header("Cookie", cookie)
-        .header("Accept", "application/json")
+        .header("Accept", "application/json");
+    let request = apply_zed_auth(request, auth);
+
+    let response = request
         .send()
         .await
         .map_err(|e| ProviderError::Fetch(format!("Zed subscription request failed: {e}")))?;
@@ -315,6 +349,13 @@ async fn request_zed_subscription(
         .json::<ZedSubscriptionResponse>()
         .await
         .map_err(|e| ProviderError::Fetch(format!("Invalid Zed subscription response: {e}")))
+}
+
+fn apply_zed_auth(request: reqwest::RequestBuilder, auth: &ZedAuth) -> reqwest::RequestBuilder {
+    match auth {
+        ZedAuth::CookieHeader(cookie_header) => request.header("Cookie", cookie_header),
+        ZedAuth::BearerToken(token) => request.header("Authorization", format!("Bearer {token}")),
+    }
 }
 
 fn format_plan_name(raw: String) -> String {
@@ -379,5 +420,29 @@ mod tests {
         let limit = 2000.0_f64;
         let percent = (spend / limit) * 100.0;
         assert!((percent - 25.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn parse_zed_access_token_treats_cookie_like_values_as_cookie_headers() {
+        match parse_zed_access_token("session=abc123; other=value") {
+            ZedAuth::CookieHeader(value) => assert_eq!(value, "session=abc123; other=value"),
+            ZedAuth::BearerToken(_) => panic!("expected cookie header"),
+        }
+    }
+
+    #[test]
+    fn parse_zed_access_token_treats_plain_values_as_bearer_tokens() {
+        match parse_zed_access_token("abc123") {
+            ZedAuth::BearerToken(value) => assert_eq!(value, "abc123"),
+            ZedAuth::CookieHeader(_) => panic!("expected bearer token"),
+        }
+    }
+
+    #[test]
+    fn parse_zed_access_token_strips_bearer_prefix() {
+        match parse_zed_access_token("Bearer abc123") {
+            ZedAuth::BearerToken(value) => assert_eq!(value, "abc123"),
+            ZedAuth::CookieHeader(_) => panic!("expected bearer token"),
+        }
     }
 }

@@ -155,6 +155,11 @@ pub(crate) fn load_zai_browser_cookie_source() -> Result<Option<BrowserCookieSou
     )
 }
 
+pub(crate) fn load_zed_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
+{
+    load_browser_cookie_source(&["zed.dev", "cloud.zed.dev", "dashboard.zed.dev"], &["zed.session"])
+}
+
 pub(crate) fn load_workos_browser_cookie_source(
 ) -> Result<Option<BrowserCookieSource>, ProviderError> {
     load_browser_cookie_source_with_session_detection(
@@ -272,7 +277,10 @@ fn load_chromium_cookie_source(
         let value = if !plain_value.is_empty() {
             plain_value
         } else if !encrypted_hex.is_empty() {
-            decrypt_chromium_cookie_value(&encrypted_hex, &host, &passphrase)?
+            match decrypt_chromium_cookie_value(&encrypted_hex, &host, &passphrase) {
+                Ok(value) => value,
+                Err(_) => continue,
+            }
         } else {
             continue;
         };
@@ -674,10 +682,17 @@ fn strip_chromium_cookie_host_prefix(host_key: &str, plaintext: Vec<u8>) -> Vec<
     if plaintext.len() <= 32 {
         return plaintext;
     }
-    let normalized_host = host_key.trim_start_matches('.');
-    let digest = Sha256::digest(normalized_host.as_bytes());
-    if plaintext[..32] == digest[..] {
+
+    let trimmed_host = host_key.trim_start_matches('.');
+    let trimmed_digest = Sha256::digest(trimmed_host.as_bytes());
+    if plaintext[..32] == trimmed_digest[..] {
         return plaintext[32..].to_vec();
     }
+
+    let full_digest = Sha256::digest(host_key.as_bytes());
+    if plaintext[..32] == full_digest[..] {
+        return plaintext[32..].to_vec();
+    }
+
     plaintext
 }

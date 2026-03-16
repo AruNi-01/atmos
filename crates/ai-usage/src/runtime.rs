@@ -21,7 +21,7 @@ use crate::providers::{
 };
 use crate::support::{
     expand_home, load_amp_browser_cookie_source, load_factory_browser_cookie_source,
-    load_minimax_browser_cookie_source, unix_now,
+    load_minimax_browser_cookie_source, load_zed_browser_cookie_source, unix_now,
 };
 
 #[derive(Debug, Clone)]
@@ -290,6 +290,17 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
                 status: AuthStateStatus::Detected,
                 source: Some(source.source_label),
                 detail: Some("Detected browser session cookie".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+    }
+
+    if spec.id == "zed" {
+        if let Ok(Some(source)) = load_zed_browser_cookie_source() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source.source_label),
+                detail: Some("Detected Zed browser session cookie".to_string()),
                 setup_hint: Some(spec.setup_hint.to_string()),
             };
         }
@@ -662,7 +673,7 @@ fn provider_specs() -> Vec<ProviderSpec> {
             kind: ProviderKind::Desktop,
             live_kind: Some(LiveProviderKind::Zed),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Sign in to Zed and set ZED_COOKIE_HEADER or ZED_ACCESS_TOKEN.",
+            setup_hint: "Sign in to Zed on zed.dev first. Atmos auto-imports supported browser session cookies when available; otherwise configure ZED_COOKIE_HEADER (or ~/.atmos/ai-usage/zed.cookie) for cookie auth, or set ZED_ACCESS_TOKEN for bearer auth.",
             auth_env_keys: &[
                 "ZED_COOKIE_HEADER",
                 "ATMOS_USAGE_ZED_COOKIE_HEADER",

@@ -186,11 +186,14 @@ type UsageMetricRow = {
 function formatUsageAmountText(provider: UsageProviderResponse): string | null {
   const summary = provider.usage_summary;
   if (!summary) return null;
-  if (summary.unit !== "dollars") return null;
+  const isDollarUsage =
+    summary.unit?.toLowerCase() === "usd" ||
+    summary.currency === "$" ||
+    summary.currency === "USD";
+  if (!isDollarUsage) return null;
   if (summary.used == null || summary.cap == null) return null;
 
-  const currencyPrefix = summary.currency === "USD" ? "$" : "";
-  return `${currencyPrefix}${summary.used.toFixed(2)} / ${currencyPrefix}${summary.cap.toFixed(0)}`;
+  return `$${summary.used.toFixed(0)} / $${summary.cap.toFixed(0)}`;
 }
 
 type ProviderRegion = "global" | "china";
@@ -328,6 +331,7 @@ function usageMetrics(provider: UsageProviderResponse): UsageMetricRow[] {
   const amountText = formatUsageAmountText(provider);
   return sectionRows(provider, "Usage")
     .filter((row) => Boolean(row.value?.trim()))
+    .filter((row) => row.label.toLowerCase() !== "billing period")
     .map((row, index) => ({
       label: row.label,
       value: row.value,
@@ -350,8 +354,12 @@ function providerIdentity(provider: UsageProviderResponse) {
     "No plan data";
   const genericAccount = rawAccount.trim().toLowerCase() === provider.label.trim().toLowerCase();
   const accountLabel = genericAccount && rawPlan ? rawPlan : rawAccount;
+  const periodLabel =
+    firstRowValue(provider, "Usage", "Billing period") ??
+    firstRowValue(provider, "Account", "Period") ??
+    null;
   const planLabel = rawPlan && rawPlan !== accountLabel ? rawPlan : null;
-  return { accountLabel, planLabel };
+  return { accountLabel, planLabel, periodLabel };
 }
 
 function ProviderGlyph({ providerId }: { providerId: string }) {
@@ -719,8 +727,7 @@ function AggregateProviderRow({
   const primaryMetric = metrics[0] ?? null;
   const creditsBalance = firstRowValue(provider, "Credits", "Balance");
   const creditsState = firstRowValue(provider, "Credits", "State");
-  const { accountLabel, planLabel } = providerIdentity(provider);
-  const periodLabel = firstRowValue(provider, "Account", "Period");
+  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider);
   const detectHint =
     provider.auth_state.detail ??
     provider.warnings[0] ??
@@ -930,8 +937,7 @@ function ProviderDetail({
   isSavingManualSetup: boolean;
   isSwitching: boolean;
 }) {
-  const { accountLabel, planLabel } = providerIdentity(provider);
-  const periodLabel = firstRowValue(provider, "Account", "Period");
+  const { accountLabel, planLabel, periodLabel } = providerIdentity(provider);
   const metrics = usageMetrics(provider);
   const extraDetailSections = extraSections(provider);
   const providerRegion = inferProviderRegion(provider);
@@ -954,7 +960,7 @@ function ProviderDetail({
                 ariaLabel={`${provider.label} refresh switch`}
               />
             </div>
-            {periodLabel ? (
+            {provider.id === "zed" && periodLabel ? (
               <div className="mt-1 text-sm text-muted-foreground">{periodLabel}</div>
             ) : null}
             <UsagePortalLink
