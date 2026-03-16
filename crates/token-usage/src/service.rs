@@ -29,6 +29,7 @@ pub(crate) struct CollectedTokenUsageReports {
     pub(crate) model_report: tokscale_core::ModelReport,
     pub(crate) monthly_report: tokscale_core::MonthlyReport,
     pub(crate) processing_time_ms: u32,
+    pub(crate) partial_warnings: Vec<String>,
 }
 
 #[async_trait]
@@ -36,6 +37,7 @@ pub(crate) trait TokenUsageCollector: Send + Sync {
     async fn collect(
         &self,
         query: &TokenUsageQuery,
+        force_source_sync: bool,
     ) -> Result<CollectedTokenUsageReports, TokenUsageError>;
 }
 
@@ -47,7 +49,10 @@ impl TokenUsageCollector for TokscaleCollector {
     async fn collect(
         &self,
         query: &TokenUsageQuery,
+        force_source_sync: bool,
     ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
+        let sync_outcome = crate::cursor_sync::maybe_sync_cursor_csv(query, force_source_sync).await;
+
         let options = tokscale_options(query);
 
         let reports = tokscale_core::generate_usage_reports(options)
@@ -59,6 +64,7 @@ impl TokenUsageCollector for TokscaleCollector {
             model_report: reports.model_report,
             monthly_report: reports.monthly_report,
             processing_time_ms: reports.processing_time_ms,
+            partial_warnings: sync_outcome.warnings,
         })
     }
 }
@@ -146,7 +152,7 @@ impl TokenUsageService {
             }
         }
 
-        self.collect_and_store(query, cache_key, refresh).await
+        self.collect_and_store(query, cache_key, refresh, refresh).await
     }
 
     pub fn subscribe_updates(&self) -> broadcast::Receiver<TokenUsageUpdate> {
@@ -162,8 +168,9 @@ impl TokenUsageService {
         query: TokenUsageQuery,
         cache_key: String,
         publish_update: bool,
+        force_source_sync: bool,
     ) -> Result<TokenUsageOverview, TokenUsageError> {
-        let reports = self.collector.collect(&query).await?;
+        let reports = self.collector.collect(&query, force_source_sync).await?;
         let overview = build_overview(query, reports);
 
         {
@@ -203,7 +210,7 @@ impl TokenUsageService {
 
         tokio::spawn(async move {
             let result = collector
-                .collect(&query)
+                .collect(&query, false)
                 .await
                 .map(|reports| build_overview(query, reports));
 
@@ -272,7 +279,7 @@ fn build_overview(
             .map(|year| year.year.clone())
             .collect(),
         generated_at: unix_now(),
-        partial_warnings: vec![],
+        partial_warnings: reports.partial_warnings,
     }
 }
 

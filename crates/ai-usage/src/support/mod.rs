@@ -1,4 +1,4 @@
-mod browser;
+pub(crate) mod browser;
 mod formatting;
 mod system;
 

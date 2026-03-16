@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ai-usage = { path = "../ai-usage" }
 async-trait = "0.1"
 dirs = "6.0"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
 tokio = { version = "1.0", features = ["sync", "time", "macros", "rt"] }
 tokscale-core = { path = "../../vendor/tokscale-core" }
+tracing = "0.1"

@@ -19,6 +19,7 @@ impl TokenUsageCollector for FakeCollector {
     async fn collect(
         &self,
         _query: &TokenUsageQuery,
+        _force_sync: bool,
     ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         Ok(sample_reports())
@@ -35,6 +36,7 @@ impl TokenUsageCollector for DelayedCollector {
     async fn collect(
         &self,
         _query: &TokenUsageQuery,
+        _force_sync: bool,
     ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         sleep(self.delay).await;
@@ -409,5 +411,6 @@ fn sample_reports() -> CollectedTokenUsageReports {
         model_report,
         monthly_report,
         processing_time_ms: 23,
+        partial_warnings: vec![],
     }
 }

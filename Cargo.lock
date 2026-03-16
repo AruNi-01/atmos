@@ -6543,13 +6543,16 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 name = "token-usage"
 version = "0.1.0"
 dependencies = [
+ "ai-usage",
  "async-trait",
  "dirs 6.0.0",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
  "tokio",
  "tokscale-core",
+ "tracing",
 ]
 
 [[package]]

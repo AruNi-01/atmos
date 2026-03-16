@@ -1,3 +1,4 @@
+mod cursor_sync;
 mod models;
 mod service;
 #[cfg(test)]

@@ -50,9 +50,9 @@ pub(crate) fn cookie_override_path(file_stem: &str) -> PathBuf {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct BrowserCookieSource {
-    pub(crate) cookie_header: String,
-    pub(crate) source_label: String,
+pub struct BrowserCookieSource {
+    pub cookie_header: String,
+    pub source_label: String,
 }
 
 #[derive(Debug, Clone)]
@@ -160,6 +160,40 @@ pub(crate) fn load_workos_browser_cookie_source(
     load_browser_cookie_source_with_session_detection(
         &["workos.com"],
         &["__wuid", "__kduid", "wos-session"],
+    )
+}
+
+pub fn load_cursor_session_token() -> Result<Option<BrowserCookieSource>, ProviderError> {
+    for key in &["ATMOS_CURSOR_SESSION_TOKEN", "CURSOR_SESSION_TOKEN"] {
+        if let Some(value) = env::var(key).ok().filter(|v| !v.trim().is_empty()) {
+            return Ok(Some(BrowserCookieSource {
+                cookie_header: format!("WorkosCursorSessionToken={}", value.trim()),
+                source_label: format!("env ${key}"),
+            }));
+        }
+    }
+
+    let cookie_path = cookie_override_path("cursor");
+    if cookie_path.exists() {
+        let contents = fs::read_to_string(&cookie_path)
+            .map_err(|error| ProviderError::Fetch(format!("{}: {error}", cookie_path.display())))?;
+        let value = contents.trim();
+        if !value.is_empty() {
+            let cookie_header = if value.contains("WorkosCursorSessionToken") {
+                normalize_cookie_header(value)
+            } else {
+                format!("WorkosCursorSessionToken={value}")
+            };
+            return Ok(Some(BrowserCookieSource {
+                cookie_header,
+                source_label: format!("{}", cookie_path.display()),
+            }));
+        }
+    }
+
+    load_browser_cookie_source(
+        &["cursor.com", "www.cursor.com"],
+        &["WorkosCursorSessionToken"],
     )
 }
 
