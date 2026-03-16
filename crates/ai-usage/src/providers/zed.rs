@@ -89,11 +89,11 @@ pub(crate) async fn fetch_zed_live(client: &Client) -> Result<LiveFetchResult, P
         .and_then(|s| s.status.clone())
         .map(|s| titleize(&s));
 
-    let spend = usage
-        .current_usage
-        .as_ref()
-        .and_then(|u| u.token_spend.as_ref());
-    let spend_cents = spend.and_then(|s| s.spend_in_cents);
+    let current = usage.current_usage.as_ref();
+    let spend = current.and_then(|u| u.token_spend.as_ref());
+    let spend_cents = spend
+        .and_then(|s| s.spend_in_cents)
+        .or_else(|| current.and_then(|u| u.token_spend_in_cents));
     let limit_cents = spend.and_then(|s| s.limit_in_cents);
 
     let used_dollars = spend_cents.map(|c| c / 100.0);
