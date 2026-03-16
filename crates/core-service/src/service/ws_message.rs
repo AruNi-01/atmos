@@ -1204,7 +1204,7 @@ impl WsMessageService {
                     (!trimmed.is_empty()).then_some(trimmed)
                 }),
                 req.branch,
-                req.base_branch,
+                req.base_branch.clone(),
                 req.sidebar_order,
                 req.github_issue.clone(),
                 req.auto_extract_todos,
