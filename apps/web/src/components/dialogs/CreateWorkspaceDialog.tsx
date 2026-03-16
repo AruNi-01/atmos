@@ -639,6 +639,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                       <Input
                         value={baseBranchFilter}
                         onChange={(e) => setBaseBranchFilter(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
                         placeholder="Search branches..."
                         className="h-8 text-[12px] bg-background"
                       />

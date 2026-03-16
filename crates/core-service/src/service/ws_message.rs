@@ -1211,12 +1211,15 @@ impl WsMessageService {
             )
             .await?;
 
-        self.project_service
+        if let Err(e) = self.project_service
             .update_target_branch(
                 req.project_guid.clone(),
                 Some(workspace.model.base_branch.clone()),
             )
-            .await?;
+            .await
+        {
+            tracing::warn!("Failed to update target branch: {e}");
+        }
 
         // Spawn setup in background
         if let Some(manager) = self.ws_manager.get().cloned() {

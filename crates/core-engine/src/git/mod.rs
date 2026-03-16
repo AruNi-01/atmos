@@ -426,6 +426,7 @@ impl GitEngine {
             )
         };
 
+        let is_base_branch_mode = base_branch.filter(|v| !v.trim().is_empty()).is_some();
         let mut staged_files: Vec<ChangedFileInfo> = Vec::new();
         let mut unstaged_files: Vec<ChangedFileInfo> = Vec::new();
         let mut untracked_files: Vec<ChangedFileInfo> = Vec::new();
@@ -480,7 +481,7 @@ impl GitEngine {
                 }
 
                 // Unstaged changes (Y is not space)
-                if y != ' ' {
+                if y != ' ' && !is_base_branch_mode {
                     let (additions, deletions) =
                         unstaged_numstat.get(&file_path).copied().unwrap_or((0, 0));
                     total_additions += additions;

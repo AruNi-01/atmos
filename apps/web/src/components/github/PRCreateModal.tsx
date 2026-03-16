@@ -57,31 +57,34 @@ export function PRCreateModal({
   const [branchFilter, setBranchFilter] = useState('');
   const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
 
-  // Fetch suggested values & branches
+  // Reset form fields when modal opens
   useEffect(() => {
     if (isOpen) {
       setTitle(`Update from ${branch}`);
       setBody('');
       setLoading(false);
-
-      if (currentRepoPath) {
-        setIsLoadingBranches(true);
-        gitApi.listRemoteBranches(currentRepoPath)
-          .then(branches => {
-            setAvailableBranches(branches.sort());
-            if (targetBranch && branches.includes(targetBranch)) {
-              setBaseBranch(targetBranch);
-            } else if (branches.includes('main')) {
-              setBaseBranch('main');
-            } else if (branches.length > 0) {
-              setBaseBranch(branches[0]);
-            }
-          })
-          .catch(err => console.error('Failed to fetch branches:', err))
-          .finally(() => setIsLoadingBranches(false));
-      }
     }
-  }, [isOpen, branch, currentRepoPath, targetBranch]);
+  }, [isOpen, branch]);
+
+  // Fetch branches and set baseBranch
+  useEffect(() => {
+    if (isOpen && currentRepoPath) {
+      setIsLoadingBranches(true);
+      gitApi.listRemoteBranches(currentRepoPath)
+        .then(branches => {
+          setAvailableBranches(branches.sort());
+          if (targetBranch && branches.includes(targetBranch)) {
+            setBaseBranch(targetBranch);
+          } else if (branches.includes('main')) {
+            setBaseBranch('main');
+          } else if (branches.length > 0) {
+            setBaseBranch(branches[0]);
+          }
+        })
+        .catch(err => console.error('Failed to fetch branches:', err))
+        .finally(() => setIsLoadingBranches(false));
+    }
+  }, [isOpen, currentRepoPath, targetBranch]);
 
   const handleCreate = async () => {
     if (!title.trim()) return;
