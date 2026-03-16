@@ -16,7 +16,9 @@ use crate::models::{
     AuthState, AuthStateStatus, DetailRow, DetailSection, FetchState, FetchStateStatus,
     ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, UsageSummary,
 };
-use crate::providers::{amp, antigravity, claude, codex, cursor, factory, minimax, opencode, zai};
+use crate::providers::{
+    amp, antigravity, claude, codex, cursor, factory, minimax, opencode, zai, zed,
+};
 use crate::support::{
     expand_home, load_amp_browser_cookie_source, load_factory_browser_cookie_source,
     load_minimax_browser_cookie_source, unix_now,
@@ -51,6 +53,7 @@ pub(crate) enum LiveProviderKind {
     Antigravity,
     Zai,
     MiniMax,
+    Zed,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -653,6 +656,21 @@ fn provider_specs() -> Vec<ProviderSpec> {
             auth_env_keys: &["AMP_COOKIE_HEADER", "ATMOS_USAGE_AMP_COOKIE_HEADER"],
             auth_paths: &["~/.local/share/amp/secrets.json"],
         },
+        ProviderSpec {
+            id: "zed",
+            label: "Zed",
+            kind: ProviderKind::Desktop,
+            live_kind: Some(LiveProviderKind::Zed),
+            timeout_millis: PROVIDER_TIMEOUT_MILLIS,
+            setup_hint: "Sign in to Zed and set ZED_COOKIE_HEADER or ZED_ACCESS_TOKEN.",
+            auth_env_keys: &[
+                "ZED_COOKIE_HEADER",
+                "ATMOS_USAGE_ZED_COOKIE_HEADER",
+                "ZED_ACCESS_TOKEN",
+                "ATMOS_USAGE_ZED_ACCESS_TOKEN",
+            ],
+            auth_paths: &[],
+        },
     ]
 }
 
@@ -670,5 +688,6 @@ async fn collect_live(
         LiveProviderKind::Antigravity => antigravity::fetch_antigravity_live().await,
         LiveProviderKind::Zai => zai::fetch_zai_live(client).await,
         LiveProviderKind::MiniMax => minimax::fetch_minimax_live(client).await,
+        LiveProviderKind::Zed => zed::fetch_zed_live(client).await,
     }
 }
