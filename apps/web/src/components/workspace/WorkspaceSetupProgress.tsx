@@ -7,12 +7,14 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  Eye,
   FileText,
   Loader2,
+  Pencil,
   Sparkles,
   Terminal,
 } from "lucide-react";
-import { Button, toastManager } from "@workspace/ui";
+import { Button, Textarea, toastManager } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { WorkspaceSetupProgress, useProjectStore } from "@/hooks/use-project-store";
 import { wsWorkspaceApi } from "@/api/ws-api";
@@ -103,11 +105,10 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     : null;
 
   const showSetupScriptStep =
-    typeof setupContext?.hasSetupScript === "boolean"
-      ? setupContext.hasSetupScript
-      : status === "setting_up" ||
-        stepKey === "run_setup_script" ||
-        lastStepKey === "run_setup_script";
+    setupContext?.hasSetupScript === true ||
+    status === "setting_up" ||
+    stepKey === "run_setup_script" ||
+    lastStepKey === "run_setup_script";
 
   const steps = useMemo(() => {
     const nextSteps: Array<{
@@ -160,6 +161,8 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const [localCountdown, setLocalCountdown] = useState(5);
   const [isHovered, setIsHovered] = useState(false);
   const [isConfirmingTodos, setIsConfirmingTodos] = useState(false);
+  const [isTodoEditing, setIsTodoEditing] = useState(false);
+  const [editedTodoOutput, setEditedTodoOutput] = useState<string | null>(null);
 
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
@@ -205,7 +208,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       terminalRef.current = null;
       lastWrittenLengthRef.current = 0;
     };
-  }, [output, showTerminalPanel]);
+  }, [showTerminalPanel]);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -256,11 +259,12 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   );
 
   const handleConfirmTodos = async () => {
-    if (!workspaceId || !output.trim() || isConfirmingTodos) return;
+    const finalOutput = editedTodoOutput ?? output;
+    if (!workspaceId || !finalOutput.trim() || isConfirmingTodos) return;
 
     try {
       setIsConfirmingTodos(true);
-      await wsWorkspaceApi.confirmTodos(workspaceId, output);
+      await wsWorkspaceApi.confirmTodos(workspaceId, finalOutput);
     } catch (error) {
       console.error("Failed to confirm extracted TODOs:", error);
       setIsConfirmingTodos(false);
@@ -363,23 +367,58 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     }
 
     if (currentStepKey === "extract_todos") {
+      const todoContent = editedTodoOutput ?? output;
       return (
         <div className="flex min-h-[260px] w-full flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
-          <div className="border-b border-border px-5 py-4">
-            <p className="text-sm font-medium text-foreground">
-              {progress.requiresConfirmation ? "Review initial TODOs" : "Generating initial TODOs"}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {progress.requiresConfirmation
-                ? "Confirm this markdown to write it into .atmos/context/task.md and continue setup."
-                : "Streaming markdown tasks from the linked issue."}
-            </p>
+          <div className="flex items-start justify-between border-b border-border px-5 py-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                {progress.requiresConfirmation ? "Review initial TODOs" : "Generating initial TODOs"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {progress.requiresConfirmation
+                  ? "Confirm this markdown to write it into .atmos/context/task.md and continue setup."
+                  : "Streaming markdown tasks from the linked issue."}
+              </p>
+            </div>
+            {progress.requiresConfirmation && todoContent.trim().length > 0 && (
+              <button
+                onClick={() => {
+                  if (!isTodoEditing && editedTodoOutput === null) {
+                    setEditedTodoOutput(output);
+                  }
+                  setIsTodoEditing(!isTodoEditing);
+                }}
+                className="flex shrink-0 items-center gap-1.5 rounded px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
+                title={isTodoEditing ? "Switch to Preview mode" : "Switch to Edit mode"}
+              >
+                {isTodoEditing ? (
+                  <>
+                    <Eye className="size-3" />
+                    <span>Preview</span>
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="size-3" />
+                    <span>Edit</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4">
-            {output.trim().length > 0 ? (
-              <MarkdownRenderer className="prose prose-sm max-w-none text-sm text-foreground dark:prose-invert">
-                {output}
-              </MarkdownRenderer>
+            {todoContent.trim().length > 0 ? (
+              isTodoEditing ? (
+                <Textarea
+                  className="min-h-[240px] w-full resize-none border-none bg-transparent p-0 font-mono text-sm text-foreground shadow-none focus-visible:ring-0"
+                  value={editedTodoOutput ?? output}
+                  onChange={(e) => setEditedTodoOutput(e.target.value)}
+                />
+              ) : (
+                <MarkdownRenderer className="prose prose-sm max-w-none text-sm text-foreground dark:prose-invert">
+                  {todoContent}
+                </MarkdownRenderer>
+              )
             ) : (
               <div className="flex h-full min-h-[160px] items-center justify-center text-sm text-muted-foreground">
                 Waiting for the routed LLM provider to stream TODO markdown...
@@ -518,7 +557,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             <Button
               size="lg"
               className="gap-3 rounded-sm px-12 shadow-lg transition-all hover:scale-105 active:scale-95"
-              disabled={isConfirmingTodos || output.trim().length === 0}
+              disabled={isConfirmingTodos || (editedTodoOutput ?? output).trim().length === 0}
               onClick={handleConfirmTodos}
             >
               {isConfirmingTodos ? (

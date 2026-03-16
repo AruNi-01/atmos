@@ -15,6 +15,7 @@ pub struct Model {
     pub name: String,
     pub display_name: Option<String>,
     pub branch: String,
+    pub base_branch: String,
     pub sidebar_order: i32,
     pub is_pinned: bool,
     pub pinned_at: Option<DateTime>,
@@ -28,6 +29,8 @@ pub struct Model {
     pub github_issue_url: Option<String>,
     /// Serialized GitHub issue metadata for workspace overview/import
     pub github_issue_data: Option<String>,
+    /// Whether the user opted into LLM-based TODO extraction from the linked issue
+    pub auto_extract_todos: bool,
 }
 
 impl_base_entity!(Model);

@@ -167,8 +167,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         }
     }, [currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, setCurrentContext]);
 
+    const hasFetchedRef = useRef(false);
     useEffect(() => {
-        if (currentView !== 'workspace' || !currentWorkspaceId || isLoading) {
+        if (projects.length > 0 || isLoading) {
+            hasFetchedRef.current = true;
+        }
+    }, [projects, isLoading]);
+
+    useEffect(() => {
+        if (currentView !== 'workspace' || !currentWorkspaceId || isLoading || !hasFetchedRef.current) {
             return;
         }
 

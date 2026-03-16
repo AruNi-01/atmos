@@ -3,27 +3,10 @@ use axum::{
     Json,
 };
 use core_service::WorkspaceDto;
-use infra::GithubIssuePayload;
 use serde::Deserialize;
 
 use crate::api::dto::{ApiResponse, MessageResponse, TerminalLayoutResponse};
 use crate::{app_state::AppState, error::ApiResult};
-
-#[derive(Deserialize)]
-pub struct CreateWorkspacePayload {
-    pub project_guid: String,
-    pub name: String,
-    #[serde(default)]
-    pub display_name: Option<String>,
-    pub branch: String,
-    pub sidebar_order: i32,
-    #[serde(default)]
-    pub initial_requirement: Option<String>,
-    #[serde(default)]
-    pub github_issue: Option<GithubIssuePayload>,
-    #[serde(default)]
-    pub auto_extract_todos: bool,
-}
 
 #[derive(Deserialize)]
 pub struct UpdateNamePayload {
@@ -76,50 +59,6 @@ pub async fn get_workspace(
     }
 }
 
-/// POST /api/workspace - Create a new workspace
-pub async fn create_workspace(
-    State(state): State<AppState>,
-    Json(payload): Json<CreateWorkspacePayload>,
-) -> ApiResult<Json<ApiResponse<WorkspaceDto>>> {
-    let workspace = state
-        .workspace_service
-        .create_workspace(
-            payload.project_guid,
-            payload.display_name.or_else(|| {
-                let trimmed = payload.name.trim().to_string();
-                (!trimmed.is_empty()).then_some(trimmed)
-            }),
-            payload.branch,
-            payload.sidebar_order,
-            payload.github_issue.clone(),
-        )
-        .await?;
-
-    state
-        .workspace_service
-        .ensure_worktree_ready(workspace.model.guid.clone())
-        .await?;
-    state
-        .workspace_service
-        .write_workspace_requirement(
-            workspace.model.guid.clone(),
-            payload.initial_requirement.clone(),
-            payload.github_issue.clone(),
-        )
-        .await?;
-
-    if payload.auto_extract_todos {
-        if let Some(issue) = payload.github_issue {
-            state
-                .workspace_service
-                .write_workspace_issue_todos(workspace.model.guid.clone(), issue)
-                .await?;
-        }
-    }
-
-    Ok(Json(ApiResponse::success(workspace)))
-}
-
 /// PUT /api/workspace/:guid/name - Update workspace name
 pub async fn update_name(
     State(state): State<AppState>,
@@ -128,7 +67,7 @@ pub async fn update_name(
 ) -> ApiResult<Json<ApiResponse<MessageResponse>>> {
     state
         .workspace_service
-        .update_name(guid, payload.name)
+        .update_display_name(guid, payload.name)
         .await?;
     Ok(Json(ApiResponse::success(MessageResponse {
         message: "Workspace name updated",

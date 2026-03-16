@@ -7,12 +7,14 @@ import {
   Folder,
   cn,
   ArrowRight,
-  Badge,
   toastManager,
   Archive,
-  Button
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
 } from "@workspace/ui";
-import { Project, Workspace } from '@/types/types';
+import { Workspace } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
 import { useQueryState } from "nuqs";
@@ -68,6 +70,31 @@ interface RecentWorkspacesViewProps {
   refreshKey?: string | number;
 }
 
+interface OverflowTooltipProps {
+  text: string;
+  tooltipText?: string;
+  className?: string;
+  side?: "top" | "right" | "bottom" | "left";
+  contentClassName?: string;
+}
+
+const OverflowTooltip: React.FC<OverflowTooltipProps> = ({
+  text,
+  tooltipText,
+  className,
+  side = "top",
+  contentClassName,
+}) => (
+  <Tooltip delayDuration={250}>
+    <TooltipTrigger asChild>
+      <span className={cn("block truncate", className)}>{text}</span>
+    </TooltipTrigger>
+    <TooltipContent side={side} className={cn("max-w-[360px] break-all", contentClassName)}>
+      {tooltipText ?? text}
+    </TooltipContent>
+  </Tooltip>
+);
+
 export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey }) => {
   const router = useAppRouter();
   const projects = useProjectStore(s => s.projects);
@@ -88,6 +115,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
         name: aw.name,
         displayName: aw.display_name ?? undefined,
         branch: aw.branch,
+        baseBranch: aw.base_branch,
         isActive: false,
         status: 'clean',
         projectId: aw.project_guid,
@@ -182,7 +210,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
               unpushed: status.unpushed_count
             }
           }));
-        } catch (e) {
+        } catch {
           if (!active) break;
           setGitStatuses(prev => ({ ...prev, [ws.id]: { loading: false, error: true } }));
         }
@@ -372,34 +400,40 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                       {ws.projectName[0]}
                                     </div>
                                     <div className="flex flex-col min-w-0 overflow-hidden">
-                                      <span className={cn(
-                                        "text-[14px] font-semibold truncate transition-colors",
-                                        ws.isArchivedRemote ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
-                                      )}>
-                                        {ws.projectName}
-                                      </span>
-                                      <span className="text-[11px] text-muted-foreground/70 truncate text-pretty" title={ws.projectMainPath}>
-                                        {truncatePath(ws.projectMainPath)}
-                                      </span>
+                                      <OverflowTooltip
+                                        text={ws.projectName}
+                                        className={cn(
+                                          "text-[14px] font-semibold transition-colors",
+                                          ws.isArchivedRemote ? "text-muted-foreground" : "text-foreground group-hover:text-primary"
+                                        )}
+                                      />
+                                      <OverflowTooltip
+                                        text={truncatePath(ws.projectMainPath)}
+                                        tooltipText={ws.projectMainPath || 'Unknown path'}
+                                        className="text-[11px] text-muted-foreground/70 text-pretty"
+                                        contentClassName="max-w-[420px]"
+                                      />
                                     </div>
                                   </div>
 
                                   <ArrowRight className="size-4 text-muted-foreground/30 shrink-0 group-hover:translate-x-0.5 transition-transform" />
 
-                                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                                    <div className="flex items-center gap-2.5 min-w-0 bg-muted/30 px-2.5 py-1 rounded-lg border border-border/50">
+                                  <div className="flex items-center gap-4 min-w-0 shrink-0 w-[460px] max-w-full">
+                                    <div className="flex items-center gap-2.5 min-w-0 max-w-[220px] shrink bg-muted/30 px-2.5 py-1 rounded-lg border border-border/50">
                                       <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
-                                      <span className={cn(
-                                        "text-[13px] font-medium truncate",
-                                        ws.isArchivedRemote ? "text-muted-foreground/80" : "text-foreground/90"
-                                      )}>
-                                        {ws.branch}
-                                      </span>
+                                      <OverflowTooltip
+                                        text={ws.branch}
+                                        className={cn(
+                                          "min-w-0 flex-1 text-[13px] font-medium",
+                                          ws.isArchivedRemote ? "text-muted-foreground/80" : "text-foreground/90"
+                                        )}
+                                      />
                                     </div>
                                     {(ws.displayName || ws.name) !== ws.branch && (
-                                      <span className="text-xs text-muted-foreground/60 truncate italic">
-                                        {ws.displayName || ws.name}
-                                      </span>
+                                      <OverflowTooltip
+                                        text={ws.displayName || ws.name}
+                                        className="w-[220px] shrink-0 text-xs text-muted-foreground/60 italic"
+                                      />
                                     )}
                                   </div>
 

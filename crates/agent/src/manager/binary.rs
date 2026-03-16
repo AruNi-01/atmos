@@ -4,9 +4,7 @@ use std::io::{Cursor, Read as _};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use super::manifest::{
-    load_install_manifest, upsert_manifest_entry, with_manifest, ManifestEntry,
-};
+use super::manifest::{load_install_manifest, upsert_manifest_entry, with_manifest, ManifestEntry};
 use super::registry::{RegistryDistribution, RegistryEntry};
 use super::{AgentError, Result};
 use crate::models::RegistryInstallResult;

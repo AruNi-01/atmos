@@ -17,6 +17,10 @@ import {
   DialogHeader,
   DialogTitle,
   Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   cn,
 } from "@workspace/ui";
 import type { Workspace } from "@/types/types";
@@ -185,12 +189,25 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
               </button>
             </div>
-            <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
+            {displayName ? (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-sm break-words">
+                    {displayName}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
+            )}
           </div>
         </div>
         <div className="flex items-center mt-0.5 ml-5 relative min-w-0">
           <div className="flex items-center min-w-0 flex-1">
-            <span className="text-[11px] text-muted-foreground truncate">{displayName}</span>
+            <span className="text-[11px] text-muted-foreground truncate">{shortName}</span>
             <span className="text-[11px] text-muted-foreground mx-1">·</span>
             <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo}</span>
           </div>

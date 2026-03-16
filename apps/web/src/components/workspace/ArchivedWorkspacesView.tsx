@@ -9,12 +9,14 @@ import {
   Archive,
   cn,
   Trash2,
-  GitCommit,
   RotateCcw,
   Button,
   Loader2,
   toastManager,
-  Skeleton
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
 } from "@workspace/ui";
 import { ArchivedWorkspace, wsWorkspaceApi } from '@/api/ws-api';
 import { useQueryState } from "nuqs";
@@ -24,6 +26,31 @@ import { formatRelativeTime } from '@atmos/shared';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { motion, AnimatePresence } from "motion/react";
+
+interface OverflowTooltipProps {
+  text: string;
+  tooltipText?: string;
+  className?: string;
+  side?: "top" | "right" | "bottom" | "left";
+  contentClassName?: string;
+}
+
+const OverflowTooltip: React.FC<OverflowTooltipProps> = ({
+  text,
+  tooltipText,
+  className,
+  side = "top",
+  contentClassName,
+}) => (
+  <Tooltip delayDuration={250}>
+    <TooltipTrigger asChild>
+      <span className={cn("block truncate", className)}>{text}</span>
+    </TooltipTrigger>
+    <TooltipContent side={side} className={cn("max-w-[360px] break-all", contentClassName)}>
+      {tooltipText ?? text}
+    </TooltipContent>
+  </Tooltip>
+);
 
 export const ArchivedWorkspacesView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
@@ -110,7 +137,6 @@ export const ArchivedWorkspacesView: React.FC = () => {
   };
 
   const handleDeleteProject = (projectId: string, projectName: string) => {
-    const project = projects.find(p => p.id === projectId);
     // If project is not found in store (maybe we only have it in archived list), 
     // it probably shouldn't happen unless sync issue. 
     // If it is found, check for active workspaces.
@@ -255,7 +281,11 @@ export const ArchivedWorkspacesView: React.FC = () => {
                       >
                         <div className="flex items-center justify-between sticky top-[76px] bg-background/95 backdrop-blur-sm py-3 z-20 border-b border-border/40">
                           <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-3">
-                            <span className="truncate max-w-[400px]">{projectName}</span>
+                            <OverflowTooltip
+                              text={projectName}
+                              className="max-w-[400px]"
+                              contentClassName="max-w-[420px]"
+                            />
                             <span className="bg-muted px-2 py-0.5 rounded-full text-[10px] font-bold font-mono">
                               {workspaces.length}
                             </span>
@@ -284,20 +314,23 @@ export const ArchivedWorkspacesView: React.FC = () => {
                                 className="group flex items-center justify-between p-4 rounded-xl border border-border bg-background hover:bg-muted/50 transition-all text-left w-full shadow-sm"
                               >
                                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                                  {/* Workspace Info */}
-                                  <div className="flex flex-col min-w-0">
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-[14px] font-semibold truncate text-foreground">
-                                        {ws.display_name || ws.name}
+                                  <div className="flex items-center gap-3 min-w-0 shrink-0 w-[520px] max-w-full">
+                                    <OverflowTooltip
+                                      text={ws.display_name || ws.name}
+                                      className="w-[260px] shrink-0 text-[14px] font-semibold text-foreground"
+                                    />
+                                    {ws.branch && (
+                                      <span className="flex items-center gap-1.5 min-w-0 max-w-[220px] shrink text-[11px] font-medium text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-lg border border-border/50">
+                                        <GitBranch className="size-3 shrink-0" />
+                                        <OverflowTooltip
+                                          text={ws.branch}
+                                          className="min-w-0 flex-1"
+                                        />
                                       </span>
-                                      {ws.branch && (
-                                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-lg border border-border/50">
-                                          <GitBranch className="size-3" />
-                                          {ws.branch}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-[11px] text-muted-foreground/70 mt-1 font-medium">
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-[11px] text-muted-foreground/70 font-medium truncate block">
                                       Archived {formatRelativeTime(ws.archived_at)}
                                     </span>
                                   </div>

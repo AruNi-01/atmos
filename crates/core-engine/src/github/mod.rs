@@ -270,15 +270,17 @@ fn parse_issue_value(
     let number = value
         .get("number")
         .and_then(|v| v.as_u64())
-        .ok_or_else(|| EngineError::Processing("GitHub issue response missing number".to_string()))?;
+        .ok_or_else(|| {
+            EngineError::Processing("GitHub issue response missing number".to_string())
+        })?;
     let title = value
         .get("title")
         .and_then(|v| v.as_str())
         .ok_or_else(|| EngineError::Processing("GitHub issue response missing title".to_string()))?
         .to_string();
     let url = value
-        .get("url")
-        .or_else(|| value.get("html_url"))
+        .get("html_url")
+        .or_else(|| value.get("url"))
         .and_then(|v| v.as_str())
         .ok_or_else(|| EngineError::Processing("GitHub issue response missing url".to_string()))?
         .to_string();
@@ -345,7 +347,9 @@ mod tests {
 
     #[test]
     fn parse_issue_url_rejects_non_issue_urls() {
-        assert!(GithubEngine::parse_issue_url("https://github.com/AruNi-01/atmos/pull/40").is_none());
+        assert!(
+            GithubEngine::parse_issue_url("https://github.com/AruNi-01/atmos/pull/40").is_none()
+        );
         assert!(GithubEngine::parse_issue_url("not-a-url").is_none());
     }
 }

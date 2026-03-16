@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { DraggableAttributes, DraggableSyntheticListeners } from "@workspace/ui";
 import {
   Ellipsis,
@@ -108,9 +108,37 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const isDark = theme === 'dark';
   const initialLetter = project.name.charAt(0).toUpperCase();
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
+  const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [customColor, setCustomColor] = useState<{ r: number; g: number; b: number; a: number }>({
     r: 239, g: 68, b: 68, a: 1,
   });
+
+  const cancelProjectMenuClose = useCallback(() => {
+    if (projectMenuTimerRef.current) {
+      clearTimeout(projectMenuTimerRef.current);
+      projectMenuTimerRef.current = null;
+    }
+  }, []);
+
+  const openProjectMenu = useCallback(() => {
+    cancelProjectMenuClose();
+    setIsProjectMenuOpen(true);
+  }, [cancelProjectMenuClose]);
+
+  const scheduleProjectMenuClose = useCallback(() => {
+    cancelProjectMenuClose();
+    projectMenuTimerRef.current = setTimeout(() => {
+      const hoveringTrigger = !!triggerRef.current?.matches(":hover");
+      const hoveringMenu = !!menuRef.current?.matches(":hover");
+      if (!hoveringTrigger && !hoveringMenu) {
+        setIsProjectMenuOpen(false);
+      }
+      projectMenuTimerRef.current = null;
+    }, 500);
+  }, [cancelProjectMenuClose]);
 
   useEffect(() => {
     if (project.borderColor) {
@@ -118,6 +146,12 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       setCustomColor(parseColorToRgb(project.borderColor));
     }
   }, [project.borderColor]);
+
+  useEffect(() => {
+    return () => {
+      cancelProjectMenuClose();
+    };
+  }, [cancelProjectMenuClose]);
 
   return (
     <div
@@ -170,7 +204,12 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         </div>
 
         {!isDragging && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover/project:opacity-100 transition-opacity z-10 backdrop-blur-[1px] bg-linear-to-l from-sidebar-accent/60 to-transparent pl-8 pr-2 h-full rounded-r-sm">
+          <div
+            className={cn(
+              "absolute right-0 top-1/2 -translate-y-1/2 flex items-center transition-opacity z-10 backdrop-blur-[1px] bg-linear-to-l from-sidebar-accent/60 to-transparent pl-8 pr-2 h-full rounded-r-sm",
+              isProjectMenuOpen ? "opacity-100" : "opacity-0 group-hover/project:opacity-100",
+            )}
+          >
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -190,13 +229,34 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               </Tooltip>
             </TooltipProvider>
 
-            <DropdownMenu>
+            <DropdownMenu
+              open={isProjectMenuOpen}
+              modal={false}
+              onOpenChange={(open) => {
+                if (open) {
+                  cancelProjectMenuClose();
+                }
+                setIsProjectMenuOpen(open);
+              }}
+            >
               <DropdownMenuTrigger asChild>
-                <button className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer">
+                <button
+                  ref={triggerRef}
+                  className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
+                  onMouseEnter={openProjectMenu}
+                  onMouseLeave={scheduleProjectMenuClose}
+                >
                   <Ellipsis className="size-3.5 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent
+                ref={menuRef}
+                align="end"
+                className="w-56"
+                onMouseEnter={cancelProjectMenuClose}
+                onMouseLeave={scheduleProjectMenuClose}
+                onCloseAutoFocus={(e) => e.preventDefault()}
+              >
                 <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
                   <Plus className="size-4 mr-2" />
                   <span>New Workspace</span>

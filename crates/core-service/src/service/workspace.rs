@@ -1,12 +1,12 @@
 use crate::error::{Result, ServiceError};
 use crate::utils::workspace_name_generator;
 use core_engine::{FsEngine, GitEngine};
-use infra::GithubIssuePayload;
 use infra::db::entities::workspace;
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
+use infra::GithubIssuePayload;
 use llm::{
-    FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat, generate_text,
-    generate_text_stream, render_prompt_template,
+    generate_text, generate_text_stream, render_prompt_template, FileLlmConfigStore,
+    GenerateTextRequest, LlmFeature, ResponseFormat,
 };
 use sea_orm::DatabaseConnection;
 use serde::Serialize;
@@ -115,8 +115,10 @@ impl WorkspaceService {
         project_guid: String,
         display_name: Option<String>,
         branch: String,
+        base_branch: Option<String>,
         sidebar_order: i32,
         github_issue: Option<GithubIssuePayload>,
+        auto_extract_todos: bool,
     ) -> Result<WorkspaceDto> {
         // Get project to find the repository path and name
         let project_repo = ProjectRepo::new(&self.db);
@@ -127,11 +129,34 @@ impl WorkspaceService {
 
         let repo_path = Path::new(&project.main_file_path);
 
-        // Get the default branch from the repository
-        let _base_branch = self
-            .git_engine
-            .get_default_branch(repo_path)
-            .unwrap_or_else(|_| "main".to_string());
+        let requested_base_branch = base_branch
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned);
+        let resolved_base_branch = if let Some(base_branch) = requested_base_branch {
+            let remote_branches =
+                self.git_engine
+                    .list_remote_branches(repo_path)
+                    .map_err(|error| {
+                        ServiceError::Validation(format!(
+                            "Failed to load remote branches for base branch selection: {error}"
+                        ))
+                    })?;
+
+            if !remote_branches.iter().any(|branch| branch == &base_branch) {
+                return Err(ServiceError::Validation(format!(
+                    "Remote branch `origin/{}` does not exist.",
+                    base_branch
+                )));
+            }
+
+            base_branch
+        } else {
+            self.git_engine
+                .get_default_branch(repo_path)
+                .unwrap_or_else(|_| "main".to_string())
+        };
 
         let existing_branches: HashSet<String> = self
             .git_engine
@@ -266,9 +291,11 @@ impl WorkspaceService {
                 final_name.clone(),
                 requested_display_name,
                 final_branch,
+                resolved_base_branch,
                 sidebar_order,
                 github_issue_url,
                 github_issue_data,
+                auto_extract_todos,
             )
             .await?;
 
@@ -329,10 +356,13 @@ impl WorkspaceService {
         }
 
         let existing_branches = self.git_engine.list_branches(repo_path)?;
-        let base_branch = self
-            .git_engine
-            .get_default_branch(repo_path)
-            .unwrap_or("main".to_string());
+        let base_branch = if workspace.base_branch.trim().is_empty() {
+            self.git_engine
+                .get_default_branch(repo_path)
+                .unwrap_or("main".to_string())
+        } else {
+            workspace.base_branch.clone()
+        };
 
         tracing::info!(
             "[ensure_worktree_ready] Base branch: {}, existing branches count: {}",
@@ -347,10 +377,12 @@ impl WorkspaceService {
             )));
         }
 
-        match self
-            .git_engine
-            .create_worktree(repo_path, &workspace.name, &workspace.branch, &base_branch)
-        {
+        match self.git_engine.create_worktree(
+            repo_path,
+            &workspace.name,
+            &workspace.branch,
+            &base_branch,
+        ) {
             Ok(created_path) => {
                 tracing::info!(
                     "[ensure_worktree_ready] Successfully created worktree at: {}",
@@ -433,7 +465,11 @@ impl WorkspaceService {
         Ok(())
     }
 
-    pub async fn write_workspace_task_markdown(&self, guid: String, markdown: String) -> Result<()> {
+    pub async fn write_workspace_task_markdown(
+        &self,
+        guid: String,
+        markdown: String,
+    ) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
         let workspace = repo
             .find_by_guid(&guid)
@@ -484,9 +520,11 @@ impl WorkspaceService {
             })?;
 
         let request = self.build_issue_todo_request(issue)?;
-        generate_text_stream(&provider, request).await.map_err(|error| {
-            ServiceError::Validation(format!("Failed to start TODO extraction stream: {error}"))
-        })
+        generate_text_stream(&provider, request)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to start TODO extraction stream: {error}"))
+            })
     }
 
     async fn generate_issue_todos_markdown(&self, issue: &GithubIssuePayload) -> Result<String> {
@@ -560,7 +598,10 @@ impl WorkspaceService {
     }
 
     fn build_todo_output_language_instruction(output_language: Option<&str>) -> String {
-        let Some(language) = output_language.map(str::trim).filter(|value| !value.is_empty()) else {
+        let Some(language) = output_language
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
             return String::new();
         };
 
@@ -570,7 +611,10 @@ impl WorkspaceService {
     }
 
     fn build_todo_user_language_instruction(output_language: Option<&str>) -> String {
-        let Some(language) = output_language.map(str::trim).filter(|value| !value.is_empty()) else {
+        let Some(language) = output_language
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
             return String::new();
         };
 
@@ -598,9 +642,13 @@ impl WorkspaceService {
                     return (!content.is_empty()).then(|| format!("- [ ] {}", content));
                 }
 
-                if let Some((_, content)) = trimmed.split_once(". ") {
-                    let content = content.trim();
-                    return (!content.is_empty()).then(|| format!("- [ ] {}", content));
+                if trimmed.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+                    if let Some((prefix, content)) = trimmed.split_once(". ") {
+                        if prefix.chars().all(|c| c.is_ascii_digit()) {
+                            let content = content.trim();
+                            return (!content.is_empty()).then(|| format!("- [ ] {}", content));
+                        }
+                    }
                 }
 
                 Some(format!("- [ ] {}", trimmed))
@@ -680,10 +728,10 @@ impl WorkspaceService {
         }
     }
 
-    /// 更新工作区名称
-    pub async fn update_name(&self, guid: String, name: String) -> Result<()> {
+    /// 更新工作区显示名称
+    pub async fn update_display_name(&self, guid: String, display_name: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_name(&guid, name).await?)
+        Ok(repo.update_display_name(&guid, display_name).await?)
     }
 
     /// 更新工作区分支
@@ -768,12 +816,13 @@ impl WorkspaceService {
     pub async fn cleanup_worktree(
         &self,
         workspace_name: &str,
+        branch_name: &str,
         project_main_path: &str,
     ) -> Result<()> {
         let repo_path = Path::new(project_main_path);
         if let Err(e) = self
             .git_engine
-            .remove_worktree(repo_path, workspace_name, workspace_name)
+            .remove_worktree(repo_path, workspace_name, branch_name)
         {
             tracing::warn!(
                 "Failed to remove worktree for workspace {}: {}",

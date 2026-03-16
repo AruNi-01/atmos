@@ -1,7 +1,7 @@
 mod handlers;
 
 use axum::{
-    routing::{get, post, put},
+    routing::{get, put},
     Router,
 };
 
@@ -13,7 +13,6 @@ pub fn routes() -> Router<AppState> {
             "/project/{project_guid}",
             get(handlers::list_workspaces_by_project),
         )
-        .route("/", post(handlers::create_workspace))
         .route(
             "/{guid}",
             get(handlers::get_workspace).delete(handlers::delete_workspace),

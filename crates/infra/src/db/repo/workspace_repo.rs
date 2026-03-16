@@ -53,9 +53,11 @@ impl<'a> WorkspaceRepo<'a> {
         name: String,
         display_name: Option<String>,
         branch: String,
+        base_branch: String,
         sidebar_order: i32,
         github_issue_url: Option<String>,
         github_issue_data: Option<String>,
+        auto_extract_todos: bool,
     ) -> Result<workspace::Model> {
         let base = BaseFields::new();
 
@@ -68,6 +70,7 @@ impl<'a> WorkspaceRepo<'a> {
             name: Set(name),
             display_name: Set(display_name),
             branch: Set(branch),
+            base_branch: Set(base_branch),
             sidebar_order: Set(sidebar_order),
             is_pinned: Set(false),
             pinned_at: Set(None),
@@ -77,16 +80,20 @@ impl<'a> WorkspaceRepo<'a> {
             maximized_terminal_id: Set(None),
             github_issue_url: Set(github_issue_url),
             github_issue_data: Set(github_issue_data),
+            auto_extract_todos: Set(auto_extract_todos),
         };
 
         let result = model.insert(self.db).await?;
         Ok(result)
     }
 
-    /// 更新工作区名称
-    pub async fn update_name(&self, guid: &str, name: String) -> Result<()> {
+    /// 更新工作区显示名称（display_name 列）
+    pub async fn update_display_name(&self, guid: &str, display_name: String) -> Result<()> {
         let result = workspace::Entity::update_many()
-            .col_expr(workspace::Column::DisplayName, Expr::value(Some(name)))
+            .col_expr(
+                workspace::Column::DisplayName,
+                Expr::value(Some(display_name)),
+            )
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),

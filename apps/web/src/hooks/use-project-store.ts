@@ -57,6 +57,12 @@ export interface WorkspaceSetupProgress {
   };
 }
 
+interface WorkspaceSetupContextPayload {
+  has_github_issue: boolean;
+  has_requirement_step: boolean;
+  auto_extract_todos: boolean;
+  has_setup_script: boolean;
+}
 
 interface WorkspaceSetupProgressEventPayload {
   workspace_id: string;
@@ -68,6 +74,25 @@ interface WorkspaceSetupProgressEventPayload {
   requires_confirmation?: boolean;
   success: boolean;
   countdown?: number;
+  setup_context?: WorkspaceSetupContextPayload | null;
+}
+
+const SETUP_STEP_ORDER: Record<
+  NonNullable<WorkspaceSetupProgress["stepKey"]>,
+  number
+> = {
+  create_worktree: 0,
+  write_requirement: 1,
+  extract_todos: 2,
+  run_setup_script: 3,
+  ready: 4,
+};
+
+function getSetupStepOrder(
+  stepKey: WorkspaceSetupProgress["stepKey"] | WorkspaceSetupProgress["lastStepKey"],
+): number {
+  if (!stepKey) return -1;
+  return SETUP_STEP_ORDER[stepKey] ?? -1;
 }
 
 
@@ -94,6 +119,12 @@ function isWorkspaceSetupProgressEventPayload(
     (payload.replace_output == null || typeof payload.replace_output === 'boolean') &&
     (payload.requires_confirmation == null ||
       typeof payload.requires_confirmation === 'boolean') &&
+    (payload.setup_context == null ||
+      (typeof payload.setup_context === 'object' &&
+        typeof (payload.setup_context as Record<string, unknown>).has_github_issue === 'boolean' &&
+        typeof (payload.setup_context as Record<string, unknown>).has_requirement_step === 'boolean' &&
+        typeof (payload.setup_context as Record<string, unknown>).auto_extract_todos === 'boolean' &&
+        typeof (payload.setup_context as Record<string, unknown>).has_setup_script === 'boolean')) &&
     (payload.step_key == null ||
       (typeof payload.step_key === 'string' && validStepKeys.includes(payload.step_key))) &&
     validStatus.includes(payload.status)
@@ -116,6 +147,7 @@ interface ProjectStore {
     name: string;
     displayName?: string | null;
     branch: string;
+    baseBranch?: string | null;
     initialRequirement?: string | null;
     githubIssue?: WorkspaceModel['github_issue'];
     autoExtractTodos?: boolean;
@@ -161,6 +193,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     name: model.name,
     displayName: model.display_name ?? undefined,
     branch: model.branch,
+    baseBranch: model.base_branch,
     isActive: false, // 由前端管理
     status: 'clean', // 默认状态，后续可以从 git 获取
     projectId: model.project_guid,
@@ -340,6 +373,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         name: data.name,
         displayName: data.displayName,
         branch: data.branch,
+        baseBranch: data.baseBranch,
         initialRequirement: data.initialRequirement,
         githubIssue: data.githubIssue,
         autoExtractTodos: data.autoExtractTodos,
@@ -374,7 +408,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         },
         projects: state.projects.map(p => 
           p.id === data.projectId 
-            ? { ...p, workspaces: sortWorkspaces([...p.workspaces, newWorkspace]) } 
+            ? {
+                ...p,
+                targetBranch: newWorkspace.baseBranch || p.targetBranch,
+                workspaces: sortWorkspaces([...p.workspaces, newWorkspace]),
+              }
             : p
         )
       }));
@@ -719,10 +757,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setSetupProgress: (progress) => set(state => {
     const existing = state.setupProgress[progress.workspaceId];
     const newStatus = progress.status;
+    const existingStepOrder = getSetupStepOrder(existing?.stepKey);
+    const incomingStepOrder = getSetupStepOrder(progress.stepKey);
+    const shouldIgnoreRegression =
+      !!existing &&
+      existing.status !== 'error' &&
+      existing.status !== 'completed' &&
+      newStatus !== 'error' &&
+      newStatus !== 'completed' &&
+      incomingStepOrder >= 0 &&
+      existingStepOrder > incomingStepOrder;
     let lastStatus = existing?.lastStatus;
     let lastStepKey = existing?.lastStepKey;
 
-    if (progress.status === 'error') {
+    if (shouldIgnoreRegression) {
+      lastStatus = existing?.lastStatus;
+      lastStepKey = existing?.lastStepKey;
+    } else if (progress.status === 'error') {
       lastStatus = existing?.status !== 'error' ? existing?.status : existing?.lastStatus;
       lastStepKey = progress.stepKey ?? existing?.stepKey ?? existing?.lastStepKey;
     } else if (progress.status !== existing?.status) {
@@ -741,16 +792,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         [progress.workspaceId]: {
           ...existing,
           ...progress,
-          status: newStatus,
+          status: shouldIgnoreRegression ? existing?.status ?? newStatus : newStatus,
+          stepKey: shouldIgnoreRegression ? existing?.stepKey : progress.stepKey,
+          stepTitle: shouldIgnoreRegression
+            ? existing?.stepTitle ?? progress.stepTitle
+            : progress.stepTitle,
           lastStatus: lastStatus,
           lastStepKey,
-          output:
-            progress.output !== undefined &&
-            (progress.replaceOutput ||
-              progress.stepKey !== existing?.stepKey ||
-              progress.status !== existing?.status)
-              ? progress.output
-              : (existing?.output || '') + (progress.output || '')
+          setupContext: progress.setupContext ?? existing?.setupContext,
+          output: shouldIgnoreRegression
+              ? (existing?.output || '')
+              : progress.output !== undefined &&
+                (progress.replaceOutput ||
+                  progress.stepKey !== existing?.stepKey ||
+                  progress.status !== existing?.status)
+                ? progress.output
+                : (existing?.output || '') + (progress.output || '')
         }
       }
     };
@@ -792,6 +849,14 @@ export function subscribeToWorkspaceSetupProgress(): () => void {
       requiresConfirmation: data.requires_confirmation,
       success: data.success,
       countdown: data.countdown,
+      setupContext: data.setup_context
+        ? {
+            hasGithubIssue: data.setup_context.has_github_issue,
+            hasRequirementStep: data.setup_context.has_requirement_step,
+            autoExtractTodos: data.setup_context.auto_extract_todos,
+            hasSetupScript: data.setup_context.has_setup_script,
+          }
+        : undefined,
     });
   });
 }

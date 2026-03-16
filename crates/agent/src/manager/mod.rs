@@ -314,10 +314,7 @@ impl AgentManager {
                 reg_id,
                 path.display()
             );
-            Err(AgentError::NotFound(format!(
-                "agent not found: {}",
-                reg_id
-            )))
+            Err(AgentError::NotFound(format!("agent not found: {}", reg_id)))
         })
     }
 

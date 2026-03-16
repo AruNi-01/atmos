@@ -354,6 +354,15 @@ pub enum WsEvent {
 
 /// 工作区设置进度通知数据
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceSetupContextNotification {
+    pub has_github_issue: bool,
+    pub has_requirement_step: bool,
+    pub auto_extract_todos: bool,
+    pub has_setup_script: bool,
+}
+
+/// 工作区设置进度通知数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceSetupProgressNotification {
     pub workspace_id: String,
     /// 当前状态: "creating", "setting_up", "completed", "error"
@@ -370,6 +379,8 @@ pub struct WorkspaceSetupProgressNotification {
     pub success: bool,
     /// 倒计时 (秒)
     pub countdown: Option<u32>,
+    #[serde(default)]
+    pub setup_context: Option<WorkspaceSetupContextNotification>,
 }
 
 // ===== 文件系统操作数据结构 =====
@@ -672,6 +683,8 @@ pub struct GitRenameBranchRequest {
 pub struct GitChangedFilesRequest {
     /// 仓库路径
     pub path: String,
+    #[serde(default)]
+    pub base_branch: Option<String>,
 }
 
 /// 变更文件信息
@@ -705,6 +718,8 @@ pub struct GitFileDiffRequest {
     pub path: String,
     /// 文件相对路径
     pub file_path: String,
+    #[serde(default)]
+    pub base_branch: Option<String>,
 }
 
 /// 获取单个文件 diff 响应
@@ -867,6 +882,8 @@ pub struct WorkspaceCreateRequest {
     #[serde(default)]
     pub display_name: Option<String>,
     pub branch: String,
+    #[serde(default)]
+    pub base_branch: Option<String>,
     #[serde(default)]
     pub sidebar_order: i32,
     #[serde(default)]
