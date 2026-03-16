@@ -9,3 +9,4 @@ pub(crate) mod kimi;
 pub(crate) mod minimax;
 pub(crate) mod opencode;
 pub(crate) mod zai;
+pub(crate) mod zed;

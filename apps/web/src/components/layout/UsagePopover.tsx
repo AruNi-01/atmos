@@ -373,6 +373,7 @@ function ProviderGlyph({ providerId }: { providerId: string }) {
     "minimax",
     "kimi",
     "amp",
+    "zed",
   ]);
 
   if (!iconIds.has(providerId)) {

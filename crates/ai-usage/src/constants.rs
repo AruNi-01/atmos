@@ -25,3 +25,7 @@ pub(crate) const FACTORY_WORKOS_CLIENT_IDS: [&str; 2] = [
     "client_01HXRMBQ9BJ3E7QSTQ9X2PHVB7",
     "client_01HNM792M5G5G1A2THWPXKFMXB",
 ];
+pub(crate) const ZED_BILLING_USAGE_URL: &str =
+    "https://cloud.zed.dev/frontend/billing/usage";
+pub(crate) const ZED_SUBSCRIPTION_URL: &str =
+    "https://cloud.zed.dev/frontend/billing/subscriptions/current";

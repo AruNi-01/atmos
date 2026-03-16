@@ -38,6 +38,7 @@ export const AGENT_CONFIG: Record<string, { name: string; color: string }> = {
   roo: { name: 'Roo Code', color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400' },
   trae: { name: 'Trae', color: 'bg-pink-500/20 text-pink-600 dark:text-pink-400' },
   windsurf: { name: 'Windsurf', color: 'bg-sky-500/20 text-sky-600 dark:text-sky-400' },
+  zed: { name: 'Zed', color: 'bg-sky-500/20 text-sky-600 dark:text-sky-400' },
   zencoder: { name: 'Zencoder', color: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' },
   neovate: { name: 'Neovate', color: 'bg-lime-500/20 text-lime-600 dark:text-lime-400' },
   pochi: { name: 'Pochi', color: 'bg-rose-500/20 text-rose-600 dark:text-rose-400' },
