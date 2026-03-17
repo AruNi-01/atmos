@@ -879,6 +879,7 @@ const CenterStage: React.FC = () => {
               ref={terminalGridRef}
               workspaceId={effectiveContextId || ""}
               className="h-full"
+              isProjectContext={currentView === "project"}
             />
           </div>
         </div>

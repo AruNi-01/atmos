@@ -112,4 +112,28 @@ impl ProjectService {
         let repo = ProjectRepo::new(&self.db);
         Ok(repo.update_order(&guid, order).await?)
     }
+
+    /// Get project terminal layout
+    pub async fn get_terminal_layout(&self, guid: String) -> Result<Option<String>> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.get_terminal_layout(&guid).await?)
+    }
+
+    /// Update project terminal layout
+    pub async fn update_terminal_layout(&self, guid: String, layout: Option<String>) -> Result<()> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.update_terminal_layout(&guid, layout).await?)
+    }
+
+    /// Get project maximized terminal ID
+    pub async fn get_maximized_terminal_id(&self, guid: String) -> Result<Option<String>> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.get_maximized_terminal_id(&guid).await?)
+    }
+
+    /// Update project maximized terminal ID
+    pub async fn update_maximized_terminal_id(&self, guid: String, terminal_id: Option<String>) -> Result<()> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.update_maximized_terminal_id(&guid, terminal_id).await?)
+    }
 }

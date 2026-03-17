@@ -51,6 +51,8 @@ interface TerminalGridProps {
   scope?: TerminalGridScope;
   /** Which toolbar action buttons to show. Default: all true. Use e.g. { split: false, maximize: false, close: false } for Project Wiki. */
   toolbarActions?: TerminalToolbarActions;
+  /** When true, workspaceId refers to a project ID (use project layout API). When false, it's a workspace ID. */
+  isProjectContext?: boolean;
 }
 
 export interface TerminalGridHandle {
@@ -69,7 +71,7 @@ const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
   close: true,
 };
 
-export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, scope = "default", toolbarActions }, ref) => {
+export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, scope = "default", toolbarActions, isProjectContext = false }, ref) => {
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
@@ -173,10 +175,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       } else if (isProjectWiki) {
         initProjectWikiWorkspace(workspaceId);
       } else {
-        initWorkspace(workspaceId);
+        initWorkspace(workspaceId, isProjectContext);
       }
     }
-  }, [workspaceId, workspaceExists, initWorkspace, initProjectWikiWorkspace, initCodeReviewWorkspace, isProjectWiki, isCodeReview]);
+  }, [workspaceId, workspaceExists, initWorkspace, initProjectWikiWorkspace, initCodeReviewWorkspace, isProjectWiki, isCodeReview, isProjectContext]);
 
   const hasPanes = Object.keys(panes).length > 0;
 

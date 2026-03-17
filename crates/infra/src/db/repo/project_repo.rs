@@ -61,6 +61,8 @@ impl<'a> ProjectRepo<'a> {
             border_color: Set(border_color),
             is_open: Set(true),
             target_branch: Set(None), // Default to None, will use repository's default branch
+            terminal_layout: Set(None),
+            maximized_terminal_id: Set(None),
         };
 
         let result = model.insert(self.db).await?;
@@ -137,6 +139,64 @@ impl<'a> ProjectRepo<'a> {
             .await?;
         if result.rows_affected == 0 {
             return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
+        Ok(())
+    }
+
+    /// 获取项目终端布局
+    pub async fn get_terminal_layout(&self, guid: &str) -> Result<Option<String>> {
+        let project = project::Entity::find_by_id(guid.to_string())
+            .filter(project::Column::IsDeleted.eq(false))
+            .one(self.db)
+            .await?;
+        Ok(project.and_then(|p| p.terminal_layout))
+    }
+
+    /// 更新项目终端布局
+    pub async fn update_terminal_layout(&self, guid: &str, layout: Option<String>) -> Result<()> {
+        let result = project::Entity::update_many()
+            .col_expr(project::Column::TerminalLayout, Expr::value(layout))
+            .col_expr(
+                project::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(project::Column::Guid.eq(guid))
+            .filter(project::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Project not found".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// 获取项目最大化终端 ID
+    pub async fn get_maximized_terminal_id(&self, guid: &str) -> Result<Option<String>> {
+        let project = project::Entity::find_by_id(guid.to_string())
+            .filter(project::Column::IsDeleted.eq(false))
+            .one(self.db)
+            .await?;
+        Ok(project.and_then(|p| p.maximized_terminal_id))
+    }
+
+    /// 更新项目最大化终端 ID
+    pub async fn update_maximized_terminal_id(&self, guid: &str, terminal_id: Option<String>) -> Result<()> {
+        let result = project::Entity::update_many()
+            .col_expr(project::Column::MaximizedTerminalId, Expr::value(terminal_id))
+            .col_expr(
+                project::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(project::Column::Guid.eq(guid))
+            .filter(project::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Project not found".into(),
+            ));
         }
         Ok(())
     }

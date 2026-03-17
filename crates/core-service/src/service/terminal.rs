@@ -997,6 +997,34 @@ impl TerminalService {
         Ok(())
     }
 
+    /// Check if the tmux pane is currently using the alternate screen buffer.
+    ///
+    /// Full-screen TUI apps (vim, htop, opencode, etc.) use alternate screen.
+    /// This is used to decide whether to clear xterm.js scrollback after resize —
+    /// only needed when a TUI app is active to prevent stale frame artifacts.
+    pub async fn is_alternate_screen_active(&self, session_id: &str) -> bool {
+        let sessions = self.sessions.lock().await;
+        if let Some(handle) = sessions.get(session_id) {
+            if let (Some(tmux_session), Some(window_index)) =
+                (&handle.tmux_session, handle.tmux_window_index)
+            {
+                let target = format!("{}:{}.0", tmux_session, window_index);
+                return self
+                    .tmux_engine
+                    .run_tmux_pub(&[
+                        "display-message",
+                        "-t",
+                        &target,
+                        "-p",
+                        "#{alternate_on}",
+                    ])
+                    .map(|r| r.trim() == "1")
+                    .unwrap_or(false);
+            }
+        }
+        false
+    }
+
     /// Close a terminal session (detach PTY but keep tmux window for persistence)
     pub async fn close_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;

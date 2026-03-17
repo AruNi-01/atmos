@@ -521,6 +521,24 @@ async fn handle_terminal_message(
                     ClientTerminalMessage::TerminalResize { cols, rows } => {
                         if let Err(e) = terminal_service.resize(session_id, cols, rows).await {
                             error!("Failed to resize session {}: {}", session_id, e);
+                        } else if terminal_service.is_alternate_screen_active(session_id).await {
+                            // Full-screen TUI app is active (alternate screen buffer).
+                            // With smcup@:rmcup@ disabled, tmux draws TUI content into the
+                            // normal buffer. On resize, old TUI frames leak into xterm.js
+                            // scrollback. Send CSI 3J after a short delay to let tmux
+                            // finish redrawing before clearing the stale scrollback.
+                            let ws_tx_clone = ws_tx.clone();
+                            let sid = session_id.to_string();
+                            tokio::spawn(async move {
+                                tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+                                let clear_msg = TerminalResponse::TerminalOutput {
+                                    session_id: sid,
+                                    data: "\x1b[3J".to_string(),
+                                };
+                                if let Ok(json) = serde_json::to_string(&clear_msg) {
+                                    let _ = ws_tx_clone.send(json);
+                                }
+                            });
                         }
                     }
                     ClientTerminalMessage::TerminalClose => {

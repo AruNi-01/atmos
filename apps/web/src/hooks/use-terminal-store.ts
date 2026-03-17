@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import { MosaicNode, MosaicDirection, getLeaves } from "react-mosaic-component";
-import { workspaceLayoutApi, systemApi, TmuxWindow } from "@/api/rest-api";
+import { workspaceLayoutApi, projectLayoutApi, systemApi, TmuxWindow } from "@/api/rest-api";
 import type { TerminalPaneProps } from "@/components/terminal/types";
 
 const SAVE_DEBOUNCE_MS = 500;
@@ -22,6 +22,8 @@ interface TerminalStore {
   isHydrated: boolean;
   /** Cache of existing tmux windows per workspace */
   tmuxWindowsCache: Record<string, TmuxWindow[]>;
+  /** Track whether each workspaceId is actually a project context (used for API selection) */
+  workspaceContexts: Record<string, boolean>;
 
   /** Project Wiki tab: separate panes/layout, does not affect main Terminal (Code workspace) */
   projectWikiPanes: Record<string, Record<string, TerminalPaneProps>>;
@@ -43,11 +45,11 @@ interface TerminalStore {
   toggleMaximize: (workspaceId: string, id: string) => void;
   
   // Initialization
-  initWorkspace: (workspaceId: string) => void;
-  
+  initWorkspace: (workspaceId: string, isProjectContext?: boolean) => void;
+
   // Backend sync
-  loadFromBackend: (workspaceId: string) => Promise<void>;
-  saveToBackend: (workspaceId: string) => void;
+  loadFromBackend: (workspaceId: string, isProjectContext?: boolean) => Promise<void>;
+  saveToBackend: (workspaceId: string, isProjectContext?: boolean) => void;
   fetchTmuxWindows: (workspaceId: string) => Promise<TmuxWindow[]>;
   
   // Tmux window tracking
@@ -167,6 +169,9 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   saveTimeouts: {},
   isHydrated: false,
   tmuxWindowsCache: {},
+  // Track whether each workspaceId is actually a project context
+  // (when on /project?id=xxx, workspaceId holds the project ID)
+  workspaceContexts: {},
   projectWikiPanes: {},
   projectWikiLayouts: {},
   projectWikiMaximizedIds: {},
@@ -238,9 +243,16 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     get().saveToBackend(workspaceId);
   },
 
-  initWorkspace: (workspaceId) => {
+  initWorkspace: (workspaceId, isProjectContext = false) => {
     const state = get();
-    
+
+    // Store the context type for this workspace (used in saveToBackend/loadFromBackend)
+    if (state.workspaceContexts[workspaceId] !== isProjectContext) {
+      set((state) => ({
+        workspaceContexts: { ...state.workspaceContexts, [workspaceId]: isProjectContext },
+      }));
+    }
+
     // Skip if currently initializing (prevents React Strict Mode double-mount issues)
     if (state.initializingWorkspaces.has(workspaceId)) {
       return;
@@ -281,7 +293,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     
     // Load from backend first, then create initial layout if nothing found
     // This prevents creating duplicate panes during async loading
-    get().loadFromBackend(workspaceId);
+    get().loadFromBackend(workspaceId, isProjectContext);
   },
 
   addTerminal: (workspaceId, title) => {
@@ -424,10 +436,13 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   },
 
   toggleMaximize: (workspaceId: string, id: string) => {
+    const isProjectContext = get().workspaceContexts[workspaceId] || false;
+    const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
+
     set((state) => {
       const currentMaximizedId = state.workspaceMaximizedIds[workspaceId];
       const newMaximizedId = currentMaximizedId === id ? null : id;
-      
+
       return {
         workspaceMaximizedIds: {
           ...state.workspaceMaximizedIds,
@@ -437,7 +452,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     });
 
     const maximizedId = get().workspaceMaximizedIds[workspaceId];
-    workspaceLayoutApi.updateMaximizedTerminalId(workspaceId, maximizedId).catch(err => {
+    layoutApi.updateMaximizedTerminalId(workspaceId, maximizedId).catch(err => {
       console.debug('Failed to save maximized terminal ID to backend:', err);
     });
   },
@@ -462,12 +477,12 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     }
   },
 
-  loadFromBackend: async (workspaceId) => {
+  loadFromBackend: async (workspaceId, isProjectContext = false) => {
     // Skip in SSR
     if (typeof window === 'undefined') return;
-    
+
     const state = get();
-    
+
     // Skip if already loaded
     if (state.loadedWorkspaces.has(workspaceId)) {
       // Remove from initializing if present
@@ -479,17 +494,24 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       return;
     }
 
+    // Choose the correct API based on context
+    const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
+
     try {
-      // Fetch both layout and existing tmux windows in parallel
-      const [layoutResponse, existingWindows] = await Promise.all([
-        workspaceLayoutApi.getLayout(workspaceId),
+      // Fetch layout and existing tmux windows independently —
+      // layout API may 404 (workspace not yet persisted) but tmux windows
+      // can still exist from a previous session.
+      const [layoutResult, existingWindows] = await Promise.all([
+        layoutApi.getLayout(workspaceId).catch(() => null),
         get().fetchTmuxWindows(workspaceId),
       ]);
-      
+
       // Create a set of existing window names for quick lookup
       const existingWindowNames = new Set(existingWindows.map(w => w.name));
-      
-      if (layoutResponse.layout) {
+
+      const layoutResponse = layoutResult;
+
+      if (layoutResponse?.layout) {
         const data = JSON.parse(layoutResponse.layout);
         // data.panes and data.layout
         let panes = data.panes as Record<string, TerminalPaneProps>;
@@ -507,14 +529,14 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
               layout = null;
            }
         }
-        
+
         if (panes && layout && Object.keys(panes).length > 0) {
           // Validate and migrate panes
           const validatedPanes: Record<string, TerminalPaneProps> = {};
           for (const [id, pane] of Object.entries(panes)) {
             const windowName = pane.tmuxWindowName || pane.title || getNextWindowName(validatedPanes);
             const windowExists = existingWindowNames.has(windowName);
-            
+
             validatedPanes[id] = {
               ...pane,
               workspaceId,
@@ -525,14 +547,14 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
               // If not, create a new one (isNewPane: true)
               isNewPane: !windowExists,
             };
-            
+
             if (windowExists) {
               console.debug(`Reusing existing tmux window: ${windowName}`);
             } else {
               console.debug(`Will create new tmux window: ${windowName}`);
             }
           }
-          
+
           set((state) => ({
             workspacePanes: {
               ...state.workspacePanes,
@@ -552,6 +574,46 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           }));
           return;
         }
+      }
+
+      // No saved layout, but tmux windows exist — attach to them
+      // so scrollback history is preserved across page refreshes.
+      if (existingWindows.length > 0) {
+        console.debug('No saved layout, but found existing tmux windows:', existingWindows.map(w => w.name));
+        const panes: Record<string, TerminalPaneProps> = {};
+        const paneIds: string[] = [];
+        for (const win of existingWindows) {
+          const id = uuidv4();
+          paneIds.push(id);
+          panes[id] = {
+            id,
+            title: win.name,
+            sessionId: uuidv4(),
+            workspaceId,
+            tmuxWindowName: win.name,
+            isNewPane: false, // Attach to existing tmux window
+          };
+        }
+        // Build a simple mosaic layout from the pane IDs
+        let layout: MosaicNode<string> = paneIds[0];
+        for (let i = 1; i < paneIds.length; i++) {
+          layout = {
+            direction: 'row',
+            first: layout,
+            second: paneIds[i],
+            splitPercentage: Math.round(100 * i / (i + 1)),
+          };
+        }
+
+        set((state) => ({
+          workspacePanes: { ...state.workspacePanes, [workspaceId]: panes },
+          workspaceLayouts: { ...state.workspaceLayouts, [workspaceId]: layout },
+          workspaceMaximizedIds: { ...state.workspaceMaximizedIds, [workspaceId]: null },
+          loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
+          initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
+          isHydrated: true,
+        }));
+        return;
       }
     } catch (error) {
       console.debug('Failed to load terminal layout from backend:', error);
@@ -581,19 +643,20 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
 
   saveToBackend: (workspaceId) => {
     if (typeof window === 'undefined') return;
-    
+
     const state = get();
     if (state.saveTimeouts[workspaceId]) {
       clearTimeout(state.saveTimeouts[workspaceId]);
     }
-    
+
     const timeout = setTimeout(async () => {
       const currentState = get();
       const panes = currentState.workspacePanes[workspaceId];
       const layout = currentState.workspaceLayouts[workspaceId];
-      
+      const isProjectContext = currentState.workspaceContexts[workspaceId] || false;
+
       if (!panes || !layout) return;
-      
+
       try {
         const cleanPanes: Record<string, Omit<TerminalPaneProps, 'sessionId' | 'dynamicTitle'>> = {};
         for (const [id, pane] of Object.entries(panes)) {
@@ -601,8 +664,9 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           const { sessionId, dynamicTitle, ...rest } = pane;
           cleanPanes[id] = rest;
         }
-        
-        await workspaceLayoutApi.updateLayout(workspaceId, JSON.stringify({
+
+        const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
+        await layoutApi.updateLayout(workspaceId, JSON.stringify({
           panes: cleanPanes,
           layout
         }));

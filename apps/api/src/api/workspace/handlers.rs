@@ -116,6 +116,9 @@ pub async fn delete_workspace(
 }
 
 /// GET /api/workspace/:guid/terminal-layout - Get terminal layout
+///
+/// Returns empty layout when workspace doesn't exist yet (avoids 404 noise
+/// in the browser console during initial page load before workspace is persisted).
 pub async fn get_terminal_layout(
     State(state): State<AppState>,
     Path(guid): Path<String>,
@@ -126,9 +129,10 @@ pub async fn get_terminal_layout(
             layout: ws.model.terminal_layout,
             maximized_terminal_id: ws.model.maximized_terminal_id,
         }))),
-        None => Err(crate::error::ApiError::NotFound(
-            "Workspace not found".to_string(),
-        )),
+        None => Ok(Json(ApiResponse::success(TerminalLayoutResponse {
+            layout: None,
+            maximized_terminal_id: None,
+        }))),
     }
 }
 

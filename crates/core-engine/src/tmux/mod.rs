@@ -340,19 +340,30 @@ impl TmuxEngine {
 
     /// Apply the standard tmux configuration options for Atmos sessions.
     ///
-    /// This configures status bar, passthrough, mouse, scrollback, and window naming.
-    /// NOTE: We intentionally do NOT disable the alternate screen buffer
-    /// (smcup@:rmcup@). Keeping the alternate screen enabled is critical for
-    /// correct resize behavior. Without it, tmux's screen redraw after SIGWINCH
-    /// pushes old content into xterm.js scrollback, causing visible duplication.
+    /// Key design decisions:
+    /// - **Alternate screen disabled** (smcup@:rmcup@): tmux renders to the normal
+    ///   buffer so xterm.js scrollback works natively (scroll, scrollbar, selection).
+    ///   TUI apps (vim, htop) still use alternate screen internally within tmux —
+    ///   this override only affects tmux→xterm.js, not programs inside tmux.
+    /// - **Mouse OFF**: xterm.js handles all scrolling locally (native scrollbar,
+    ///   smooth scroll, 10K line buffer). TUI apps that enable their own mouse
+    ///   tracking still work because they send escape sequences directly.
     fn apply_standard_config(&self) {
         let _ = self.run_tmux(&["set-option", "-g", "status", "off"]);
         let _ = self.run_tmux(&["set-option", "-g", "default-terminal", "xterm-256color"]);
         let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
-        let _ = self.run_tmux(&["set-option", "-g", "mouse", "on"]);
-        let _ = self.run_tmux(&["set-option", "-g", "-u", "terminal-overrides"]);
+        let _ = self.run_tmux(&["set-option", "-g", "mouse", "off"]);
+        // Disable alternate screen for the outer terminal (xterm.js) so content
+        // flows into the normal buffer where xterm.js scrollback works natively.
+        let _ = self.run_tmux(&[
+            "set-option",
+            "-g",
+            "terminal-overrides",
+            "xterm*:smcup@:rmcup@",
+        ]);
         let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
         let _ = self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"]);
+        let _ = self.run_tmux(&["set-option", "-g", "window-size", "latest"]);
         let _ = self.run_tmux(&["set-option", "-g", "allow-rename", "off"]);
         let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);
     }
@@ -649,7 +660,11 @@ impl TmuxEngine {
         Ok(())
     }
 
-    /// Capture pane content (for potential restore/display)
+    /// Capture pane content (scrollback + visible) for reconnection.
+    ///
+    /// Uses `-e` to preserve ANSI escape sequences (colors, formatting).
+    /// Returns both scrollback history and visible pane content as a single
+    /// string, used by the frontend to restore terminal state after reconnect.
     pub fn capture_pane(
         &self,
         session_name: &str,
@@ -661,7 +676,13 @@ impl TmuxEngine {
             .map(|l| format!("-{}", l))
             .unwrap_or_else(|| "-".to_string());
 
-        let content = self.run_tmux(&["capture-pane", "-t", &target, "-p", "-S", &start_line])?;
+        let content = self.run_tmux(&[
+            "capture-pane",
+            "-t", &target,
+            "-p",           // print to stdout
+            "-e",           // include ANSI escape sequences
+            "-S", &start_line,
+        ])?;
 
         Ok(content)
     }

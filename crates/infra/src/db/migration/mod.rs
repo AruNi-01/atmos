@@ -13,6 +13,7 @@ mod m20260315_000010_add_workspace_github_issue;
 mod m20260315_000011_add_workspace_display_name;
 mod m20260315_000012_add_workspace_auto_extract_todos;
 mod m20260315_000013_add_workspace_base_branch;
+mod m20260317_000001_add_project_terminal_layout;
 
 pub struct Migrator;
 
@@ -33,6 +34,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260315_000011_add_workspace_display_name::Migration),
             Box::new(m20260315_000012_add_workspace_auto_extract_todos::Migration),
             Box::new(m20260315_000013_add_workspace_base_branch::Migration),
+            Box::new(m20260317_000001_add_project_terminal_layout::Migration),
         ]
     }
 }

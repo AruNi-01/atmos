@@ -645,6 +645,37 @@ export const tokenUsageApi = {
   },
 };
 
+// ===== Project Terminal Layout API =====
+
+export const projectLayoutApi = {
+  /**
+   * Get terminal layout for a project
+   */
+  getLayout: async (projectId: string): Promise<TerminalLayoutResponse> => {
+    return fetchApi<TerminalLayoutResponse>(`/api/project/${projectId}/terminal-layout`);
+  },
+
+  /**
+   * Update terminal layout for a project
+   */
+  updateLayout: async (projectId: string, layout: string | null): Promise<void> => {
+    await fetchApi<{ message: string }>(`/api/project/${projectId}/terminal-layout`, {
+      method: 'PUT',
+      body: JSON.stringify({ layout }),
+    });
+  },
+
+  /**
+   * Update maximized terminal ID for a project
+   */
+  updateMaximizedTerminalId: async (projectId: string, terminalId: string | null): Promise<void> => {
+    await fetchApi<{ message: string }>(`/api/project/${projectId}/maximized-terminal-id`, {
+      method: 'PUT',
+      body: JSON.stringify({ terminal_id: terminalId }),
+    });
+  },
+};
+
 // ===== Workspace Terminal Layout API =====
 
 export const workspaceLayoutApi = {

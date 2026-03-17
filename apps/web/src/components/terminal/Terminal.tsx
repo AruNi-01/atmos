@@ -39,14 +39,6 @@ class SafeClipboardProvider implements IClipboardProvider {
   }
 }
 
-// Strip tmux mouse-enable sequences from PTY output so xterm never enters mouse
-// report mode. This allows selection + copy to work without scrolling first.
-// Sequences: ESC[?1000h, ESC[?1002h, ESC[?1003h, ESC[?1006h
-const MOUSE_ENABLE_PATTERN = /\x1b\[\?100[0236]h/g;
-function stripMouseEnable(data: string): string {
-  return data.replace(MOUSE_ENABLE_PATTERN, "");
-}
-
 import "@xterm/xterm/css/xterm.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "./theme";
@@ -207,19 +199,10 @@ const Terminal = ({
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Accumulates wheel delta for smooth trackpad scrolling
-  const wheelAccumRef = useRef(0);
-  // Tmux copy-mode state: tracks whether the pane is scrolled up (in copy-mode).
-  // Used for scroll-to-bottom button visibility and mouse tracking disable.
-  const inCopyModeRef = useRef(false);
-  const copyModeCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
-  // Refs for copy-mode WS methods (assigned after useTerminalWebSocket)
-  const sendCancelCopyModeRef = useRef<() => void>(() => {});
-  const sendCheckCopyModeRef = useRef<() => void>(() => {});
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
@@ -280,9 +263,28 @@ const Terminal = ({
   }
   const wsUrl = `${baseWsUrl}?${wsParams.toString()}`;
 
+  // Batch terminal writes via rAF to reduce xterm.js render passes
+  const pendingWriteRef = useRef("");
+  const rafScheduledRef = useRef(false);
+  // When true, suppress writing PTY output to xterm.js (used during reconnect
+  // to discard tmux's initial redraw — we replace it with the captured snapshot).
+  const suppressOutputRef = useRef(false);
+
   const handleOutput = useCallback((data: string) => {
-    const filtered = stripMouseEnable(data);
-    if (filtered) terminalRef.current?.write(filtered);
+    if (data && !suppressOutputRef.current) {
+      pendingWriteRef.current += data;
+      if (!rafScheduledRef.current) {
+        rafScheduledRef.current = true;
+        requestAnimationFrame(() => {
+          rafScheduledRef.current = false;
+          const pending = pendingWriteRef.current;
+          pendingWriteRef.current = "";
+          if (pending && terminalRef.current) {
+            terminalRef.current.write(pending);
+          }
+        });
+      }
+    }
     onData?.(data); // Forward original for parent (e.g. URL detection)
   }, [onData]);
 
@@ -314,15 +316,24 @@ const Terminal = ({
   );
 
   const handleAttached = useCallback((history?: string) => {
-    // Session attached (reconnected) to existing tmux window
+    // Session attached (reconnected) to existing tmux window.
+    // Suppress tmux's initial redraw output — we'll display the captured
+    // snapshot instead, which includes full scrollback history.
     setStatus("connected");
-    if (history) {
-      terminalRef.current?.write(stripMouseEnable(history));
-    }
-    terminalRef.current?.write("\r\n\x1b[32m[Reconnected to session]\x1b[0m\r\n");
+    if (!history) return;
+    suppressOutputRef.current = true;
+    setTimeout(() => {
+      const term = terminalRef.current;
+      if (!term) return;
+      term.write(history);
+      term.scrollToBottom();
+      suppressOutputRef.current = false;
+      // Force tmux to redraw the live viewport, resyncing cursor state.
+      sendResizeRef.current({ cols: term.cols, rows: term.rows });
+    }, 1000);
   }, []);
 
-  const { isConnected, isReconnecting, sendInput, sendResize, sendDestroy, sendCancelCopyMode, sendCheckCopyMode, connect, disconnect } =
+  const { isConnected, isReconnecting, sendInput, sendResize, sendDestroy, connect, disconnect } =
     useTerminalWebSocket({
       url: wsUrl,
       sessionId,
@@ -332,24 +343,11 @@ const Terminal = ({
       onDisconnected: handleDisconnected,
       onError: handleError,
       onAttached: handleAttached,
-      onCopyModeStatus: (inCopyMode: boolean) => {
-        // Authoritative copy-mode state from server
-        if (inCopyModeRef.current !== inCopyMode) {
-          inCopyModeRef.current = inCopyMode;
-          setShowScrollDown(inCopyMode);
-          // When exiting copy-mode, tmux redraws and re-enables mouse tracking automatically
-          if (!inCopyMode && terminalRef.current) {
-            terminalRef.current.scrollToBottom();
-          }
-        }
-      },
     });
 
-  // Keep refs in sync (breaks circular dependencies with handleConnected / wheel handler)
+  // Keep refs in sync (breaks circular dependencies with handleConnected)
   useEffect(() => {
     sendResizeRef.current = sendResize;
-    sendCancelCopyModeRef.current = sendCancelCopyMode;
-    sendCheckCopyModeRef.current = sendCheckCopyMode;
   });
 
   const uiStatus = isReconnecting ? "reconnecting" : status;
@@ -412,11 +410,6 @@ const Terminal = ({
     const terminal = new XTerm({
       ...defaultTerminalOptions,
       theme: currentTheme,
-      // Both tmux and noTmux modes use local scrollback so that xterm.js can
-      // handle scroll + selection natively (drag-to-edge auto-scroll, wheel
-      // scroll while selecting, etc.). For tmux mode, normal (non-selection)
-      // wheel events are still forwarded to tmux via SGR sequences.
-      scrollback: 10000,
     });
 
     // Create addons
@@ -550,27 +543,6 @@ const Terminal = ({
       connect(connectUrl);
     })();
 
-    // ── Copy-mode state helper ─────────────────────────────────────────
-    // When entering copy-mode, disable mouse tracking so xterm.js handles
-    // selection locally (native drag-to-select → clipboard). When exiting,
-    // tmux redraws and re-enables mouse tracking automatically.
-    const enterCopyMode = () => {
-      if (inCopyModeRef.current) return;
-      inCopyModeRef.current = true;
-      setShowScrollDown(true);
-      // Disable all mouse tracking modes so xterm handles selection locally
-      terminal.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l");
-    };
-
-    // Debounced check — asks the backend for the authoritative copy-mode state
-    const requestCopyModeCheck = () => {
-      if (copyModeCheckTimerRef.current) clearTimeout(copyModeCheckTimerRef.current);
-      copyModeCheckTimerRef.current = setTimeout(() => {
-        copyModeCheckTimerRef.current = null;
-        sendCheckCopyModeRef.current();
-      }, 150);
-    };
-
     // ── Cmd/Ctrl+C: copy selection to clipboard ──────────────────────
     terminal.attachCustomKeyEventHandler((event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
@@ -585,66 +557,33 @@ const Terminal = ({
       return true;
     });
 
-    // ── Wheel → tmux scrollback ──────────────────────────────────────
-    // xterm.js now has local scrollback (10000). Two scrolling modes:
-    //   1. Selection active → return true so xterm.js scrolls locally,
-    //      preserving the selection and enabling drag-to-edge auto-scroll.
-    //   2. No selection → send SGR mouse sequences to tmux for copy-mode
-    //      scrollback (deeper history than local buffer).
-    // When noTmux (Run Script terminal): always let xterm.js handle it.
-    const WHEEL_STEP = 30;
-    terminal.attachCustomWheelEventHandler((ev) => {
-      if (noTmux) return true;
-      const target = ev.target as HTMLElement | null;
-      if (target?.closest('input, textarea, [contenteditable="true"]')) return true;
-      if (terminal.hasSelection()) return true;
-      if (ev.shiftKey) return true;
-
-      wheelAccumRef.current += ev.deltaY;
-
-      const col = Math.floor(terminal.cols / 2);
-      const row = Math.floor(terminal.rows / 2);
-      let scrolledUp = false;
-      let didScroll = false;
-
-      while (Math.abs(wheelAccumRef.current) >= WHEEL_STEP) {
-        didScroll = true;
-        const down = wheelAccumRef.current > 0;
-        wheelAccumRef.current += down ? -WHEEL_STEP : WHEEL_STEP;
-        const button = down ? 65 : 64;
-        if (!down) scrolledUp = true;
-        sendInput(`\x1b[<${button};${col};${row}M`);
-      }
-
-      if (scrolledUp) enterCopyMode();
-      if (didScroll) requestCopyModeCheck();
-
-      return false;
+    // ── Scroll-to-bottom button tracking ────────────────────────────
+    // xterm.js handles all scrolling natively (local scrollback: 10000).
+    // Show button when user scrolls away from bottom.
+    terminal.onScroll(() => {
+      const buf = terminal.buffer.active;
+      const atBottom = buf.viewportY >= buf.baseY;
+      setShowScrollDown(!atBottom);
     });
 
-    // When in copy-mode, filter mouse sequences from onData so clicks don't
-    // accidentally exit copy-mode (allows xterm.js local selection to work).
-    terminal.onData((data) => {
-      const isMouseSequence = /^\x1b\[(<[\d;]+[Mm]|[\d;]+M|M[\x20-\xff]{3})$/.test(data);
-      if (inCopyModeRef.current && isMouseSequence) {
-        return;
-      }
-    });
-
-    // Setup resize observer with debounce to coalesce rapid resize events.
-    // 150ms debounce to prevent rapid resize bursts.
-    // No clear() needed: with scrollback: 0 and alternate screen enabled (default),
-    // tmux redraws cleanly on resize without duplication.
-    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    // ── Resize observer ────────────────────────────────────────────
+    // Uses rAF to coalesce multiple ResizeObserver fires within one frame.
+    // Scrollback is preserved across resize for normal terminal use.
+    // For full-screen TUI apps, the backend detects alternate screen mode
+    // and sends CSI 3J after tmux finishes redrawing (see terminal_handler).
+    let resizeRafId = 0;
     const resizeObserver = new ResizeObserver(() => {
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        requestAnimationFrame(() => {
-          if (fitAddonRef.current) {
-            fitAddonRef.current.fit();
-          }
-        });
-      }, 150);
+      if (resizeRafId) return; // Already scheduled for this frame
+      resizeRafId = requestAnimationFrame(() => {
+        resizeRafId = 0;
+        const term = terminalRef.current;
+        const fit = fitAddonRef.current;
+        if (!term || !fit) return;
+        // Skip when terminal container is hidden (e.g. tab not visible)
+        if (containerRef.current && containerRef.current.offsetParent === null) return;
+
+        fit.fit();
+      });
     });
 
     resizeObserver.observe(containerRef.current);
@@ -661,7 +600,6 @@ const Terminal = ({
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
-      if (copyModeCheckTimerRef.current) clearTimeout(copyModeCheckTimerRef.current);
       webglAddonRef.current?.dispose();
       terminalRef.current?.dispose();
       terminalRef.current = null;
@@ -766,18 +704,14 @@ const Terminal = ({
         data-connected={isConnected}
         data-status={uiStatus}
       />
-      {/* Scroll-to-bottom button — appears when tmux is in copy-mode */}
+      {/* Scroll-to-bottom button — appears when scrolled up */}
       {showScrollDown && (
         <button
           type="button"
           aria-label="Scroll to bottom"
           onClick={() => {
-            // Safely exit copy-mode via backend `tmux send-keys -X cancel`.
-            // This is a no-op if not in copy-mode — completely safe.
-            sendCancelCopyMode();
-            inCopyModeRef.current = false;
-            setShowScrollDown(false);
             terminalRef.current?.scrollToBottom();
+            setShowScrollDown(false);
           }}
           className="terminal-scroll-to-bottom group"
         >
