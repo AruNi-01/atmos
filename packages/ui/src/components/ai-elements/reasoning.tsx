@@ -218,7 +218,7 @@ export const ReasoningContent = memo(
     >
       <Streamdown animated={{
         stagger: 40
-      }} plugins={streamdownPlugins} {...props}>
+      }} plugins={streamdownPlugins}>
         {children}
       </Streamdown>
     </CollapsibleContent>
