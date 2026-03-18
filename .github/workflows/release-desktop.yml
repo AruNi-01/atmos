@@ -3,6 +3,11 @@ name: Desktop CI & Release
 permissions:
   contents: write
 
+env:
+  DESKTOP_TAURI_CONFIG: apps/desktop/src-tauri/tauri.conf.json
+  DESKTOP_CARGO_MANIFEST: apps/desktop/src-tauri/Cargo.toml
+  DESKTOP_PACKAGE_JSON: apps/desktop/package.json
+
 on:
   pull_request:
     paths:
@@ -155,6 +160,12 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
+      - name: Verify desktop versions and release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: node ./scripts/release/check-desktop-version.mjs
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -199,10 +210,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Apple code signing: use configured identity, or fall back to ad-hoc signing
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
         with:
           projectPath: apps/desktop
           tagName: ${{ needs.resolve-release-config.outputs.release_tag }}
           releaseName: Atmos Desktop __VERSION__
-          releaseDraft: true
+          releaseDraft: false
           prerelease: ${{ needs.resolve-release-config.outputs.prerelease == 'true' }}
+          includeUpdaterJson: true
           args: ${{ matrix.args }}

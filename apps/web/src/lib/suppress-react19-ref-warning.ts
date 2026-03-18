@@ -13,13 +13,16 @@
 const originalConsoleError = console.error;
 
 console.error = (...args: unknown[]) => {
-  // Check if this is the specific React 19 ref deprecation warning
-  if (
-    typeof args[0] === 'string' &&
-    args[0].includes('Accessing element.ref was removed in React 19')
-  ) {
-    // Suppress this specific warning
-    return;
+  if (typeof args[0] === 'string') {
+    // Suppress React 19 ref deprecation warning from third-party libraries
+    if (args[0].includes('Accessing element.ref was removed in React 19')) {
+      return;
+    }
+    // Suppress Radix DialogTitle warning — false positive in React 19 strict mode
+    // when DialogTitle is already present as a child of DialogContent
+    if (args[0].includes('requires a `DialogTitle`')) {
+      return;
+    }
   }
   
   // Pass through all other console.error calls

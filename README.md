@@ -26,6 +26,7 @@ Atmos is an AI-native coding workspace that combines a Rust backend, a Next.js w
 - [Architecture](#architecture)
 - [Monorepo Layout](#monorepo-layout)
 - [Quick Start](#quick-start)
+- [Install via Homebrew Cask (macOS)](#install-via-homebrew-cask-macos)
 - [Development Commands](#development-commands)
 - [Environment Variables](#environment-variables)
 - [Communication Model](#communication-model)
@@ -194,6 +195,47 @@ just dev-web
 just dev-cli
 just dev-desktop
 ```
+
+---
+
+## Install via Homebrew Cask (macOS)
+
+You can install the desktop app with Homebrew Cask.
+
+### Option 1: one-line install from the shared tap
+
+```bash
+brew install --cask AruNi-01/tap/atmos
+```
+
+This installs the latest published `Atmos.app` through the shared `homebrew-tap` repository.
+
+### Option 2: tap first, then install
+
+```bash
+brew tap AruNi-01/tap
+brew install --cask atmos
+```
+
+Homebrew will use the shared tap repository and install the desktop app from the GitHub Releases DMG assets.
+
+### Upgrade
+
+```bash
+brew upgrade --cask atmos
+```
+
+### Uninstall
+
+```bash
+brew uninstall --cask atmos
+```
+
+### Notes
+
+- This is intended for first-time macOS desktop installation.
+- The Homebrew Cask installs the packaged desktop app, not the development environment.
+- If you only want to run Atmos from source, follow the Quick Start steps above instead.
 
 ---
 

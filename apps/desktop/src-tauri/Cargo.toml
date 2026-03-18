@@ -1,6 +1,6 @@
 [package]
 name = "atmos-desktop"
-version = "0.1.5"
+version = "0.2.0"
 description = "Atmos desktop app powered by Tauri"
 authors = ["atmos"]
 edition = "2021"
@@ -20,6 +20,8 @@ tauri-plugin-shell = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 tokio = { workspace = true }
 uuid = { version = "1", features = ["v4"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

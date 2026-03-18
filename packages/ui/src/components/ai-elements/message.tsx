@@ -331,6 +331,9 @@ export const MessageResponse = memo(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
+      animated={{
+        stagger: 40
+      }}
       plugins={streamdownPlugins}
       {...props}
     />

@@ -48,10 +48,11 @@ import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
-import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, RefreshCw } from "lucide-react";
+import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, RefreshCw, Settings } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { LlmProvidersModal } from './LlmProvidersModal';
 import { TokenUsageDialog } from './TokenUsageDialog';
+import { SettingsModal } from '@/components/dialogs/SettingsModal';
 
 const Header: React.FC = () => {
   const params = useParams();
@@ -144,6 +145,8 @@ const Header: React.FC = () => {
 
   // Fullscreen state
   const [isFullScreen, setIsFullScreen] = useState(false);
+  // Settings modal state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Skills modal state (URL-persisted via nuqs)
   const [isSkillsModalOpen, setSkillsModalOpen] = useQueryState("skillsModal", skillsModalParams.skillsModal);
@@ -739,6 +742,13 @@ const Header: React.FC = () => {
                 >
                   {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
                 </button>
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  aria-label="Settings"
+                  className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                >
+                  <Settings className="size-4" />
+                </button>
             </div>
           </motion.div>
 
@@ -808,6 +818,11 @@ const Header: React.FC = () => {
       <LlmProvidersModal
         open={isLlmProvidersOpen}
         onOpenChange={setLlmProvidersOpen}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </header>
   );

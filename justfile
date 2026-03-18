@@ -233,6 +233,36 @@ dev-all *args:
     just dev-web --web-port "$web_port" --api-port "$api_port" & just dev-api --port "$api_port" --web-port "$web_port" --cleanup-stale-clients "$cleanup_stale_clients"
 
 # ============================================
+# 版本命令 (Release / Version)
+# ============================================
+
+# 校验 Desktop 版本是否在 package / Cargo / Tauri 配置中保持一致
+check-desktop-version:
+    node ./scripts/release/check-desktop-version.mjs
+
+# 同步更新 Desktop 版本
+# 用法:
+#   just bump-desktop-version 0.2.1
+#   just bump-desktop-version 0.2.1 --dry-run
+bump-desktop-version version *args:
+    node ./scripts/release/bump-desktop-version.mjs "{{version}}" {{args}}
+
+# Atmos Desktop 发布辅助
+# 用法:
+#   just release-desktop 0.2.1
+#   just release-desktop 0.2.1 --dry-run
+#   just release-desktop 0.5.0-rc.1 --prerelease
+release-desktop version *args:
+    node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs "{{version}}" {{args}}
+
+# Atmos Desktop 发布预演
+# 用法:
+#   just release-desktop-dry-run 0.2.1
+#   just release-desktop-dry-run 0.2.1 --allow-dirty
+release-desktop-dry-run version *args:
+    node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs "{{version}}" --dry-run {{args}}
+
+# ============================================
 # 构建命令 (Build)
 # ============================================
 

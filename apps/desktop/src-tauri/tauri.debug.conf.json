@@ -52,7 +52,7 @@
   "plugins": {
     "updater": {
       "active": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBBNTE2MDFGRkRDRUZFRDUKUldUVi9zNzlIMkJSQ3JaS0JWV1c1NVFHbGhEbWpDZ2JvMlBOSVdReDAyVXZCeDJ2L3kzbWJWMEkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhEMjIwOUIxMDAzQ0RGM0IKUldRNzN6d0FzUWtpalFBdkU2WWM4NmxlcGZTZ2M4ejR6dVh0R05lNkFINW9YcmpKRWJRbFhTQmwK",
       "endpoints": [
         "https://github.com/AruNi-01/atmos/releases/latest/download/latest.json"
       ]

@@ -89,6 +89,21 @@ if [[ -n "${APPLE_API_KEY:-}" || -n "${APPLE_ID:-}" ]]; then
   NOTARIZATION_MODE="configured"
 fi
 
+# Auto-load Tauri updater signing key for local builds if not already set
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  TAURI_KEY_FILE="$HOME/.tauri/atmos-updater.key"
+  if [[ -f "$TAURI_KEY_FILE" ]]; then
+    export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_KEY_FILE")"
+    TAURI_PWD_FILE="$HOME/.tauri/atmos-updater.key.pwd"
+    if [[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" && -f "$TAURI_PWD_FILE" ]]; then
+      export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat "$TAURI_PWD_FILE")"
+    else
+      export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+    fi
+    echo "🔑 Loaded updater signing key from $TAURI_KEY_FILE"
+  fi
+fi
+
 echo "🔐 Signing: $SIGNING_MODE"
 echo "🛡️ Notarization: $NOTARIZATION_MODE"
 

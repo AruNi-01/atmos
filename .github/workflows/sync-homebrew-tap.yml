@@ -1,0 +1,124 @@
+name: Sync Homebrew Tap
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Desktop release tag to sync (example: desktop-v0.2.0)"
+        required: false
+
+jobs:
+  sync-homebrew-tap:
+    name: Update shared homebrew-tap
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'desktop-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAP_REPO: AruNi-01/homebrew-tap
+      SOURCE_REPO: AruNi-01/atmos
+      CASK_PATH: Casks/atmos.rb
+    steps:
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+            if [ -z "$TAG" ]; then
+              echo "release_tag is required when running manually."
+              exit 1
+            fi
+          else
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+
+          if [[ ! "$TAG" =~ ^desktop-v.+$ ]]; then
+            echo "Only desktop-v* tags are supported. Got: $TAG"
+            exit 1
+          fi
+
+          VERSION="${TAG#desktop-v}"
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Generate cask file
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p tap/Casks
+          node source/scripts/homebrew/generate-cask.mjs \
+            --tag "${{ steps.release.outputs.tag }}" \
+            --owner "${SOURCE_REPO%%/*}" \
+            --repo "${SOURCE_REPO##*/}" \
+            --token atmos \
+            --name "Atmos" \
+            --desc "Atmosphere for Agentic Builders" \
+            --homepage "https://atmos.land" \
+            --output "tap/${CASK_PATH}"
+
+      - name: Generate tap README
+        shell: bash
+        run: |
+          cat > tap/README.md <<'EOF'
+          # Homebrew Tap for AruNi-01
+
+          Install the Atmos desktop app with Homebrew:
+
+          ```bash
+          brew install --cask AruNi-01/tap/atmos
+          ```
+
+          Or tap first, then install:
+
+          ```bash
+          brew tap AruNi-01/tap
+          brew install --cask atmos
+          ```
+          EOF
+
+      - name: Checkout tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TAP_REPO }}
+          token: ${{ secrets.HOMEBREW_TAP_PAT }}
+          path: homebrew-tap
+
+      - name: Copy generated tap files
+        shell: bash
+        run: |
+          mkdir -p homebrew-tap/Casks
+          cp tap/README.md homebrew-tap/README.md
+          cp tap/${CASK_PATH} homebrew-tap/${CASK_PATH}
+
+      - name: Commit and push tap update
+        shell: bash
+        run: |
+          cd homebrew-tap
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- README.md "${CASK_PATH}"; then
+            echo "No tap changes to commit."
+            exit 0
+          fi
+
+          git add README.md "${CASK_PATH}"
+          git commit -m "atmos ${{ steps.release.outputs.version }}"
+          git push origin HEAD:main

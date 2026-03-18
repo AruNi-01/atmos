@@ -25,6 +25,8 @@
       ]
     },
     "notification:allow-notify",
-    "opener:default"
+    "opener:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

@@ -178,6 +178,35 @@ atmos/
 - `just`（macOS 可用 `brew install just`，或使用 `cargo install just --locked`）
 - tmux（推荐，获得完整终端体验）
 
+### macOS 一键安装桌面版（Homebrew Cask）
+
+如果你只是想安装 Atmos 桌面应用，而不是参与开发，现在推荐使用共享 Homebrew tap：
+
+```bash
+brew install --cask AruNi-01/tap/atmos
+```
+
+如果你希望先显式添加 tap，再安装，也可以执行：
+
+```bash
+brew tap AruNi-01/tap
+brew install --cask atmos
+```
+
+升级与卸载命令：
+
+```bash
+brew upgrade --cask atmos
+brew uninstall --cask atmos
+```
+
+说明：
+
+- 该安装方式面向 **macOS 桌面应用首次安装**。
+- 安装后应用会出现在 `/Applications/Atmos.app`。
+- Homebrew 会通过共享 tap 中维护的 Cask，拉取 GitHub Releases 中发布的 `.dmg` 安装包。
+- 如果你只是想从源码运行 Atmos，请继续按照下方开发依赖与启动步骤执行。
+
 ### 2) 安装依赖
 
 ```bash

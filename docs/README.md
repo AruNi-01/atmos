@@ -56,8 +56,11 @@ Deployment processes and infrastructure:
 - CI/CD pipeline
 - Environment configuration
 - Production deployment
+- Desktop release workflow and Homebrew tap sync
 
 **Audience**: DevOps, Senior Developers
+
+See also: [`desktop-release.md`](./desktop-release.md) for the desktop release runbook and recovery procedures.
 
 ---
 
@@ -130,6 +133,7 @@ Level 4: Component README.md
 | Understand architecture | `architecture.md` |
 | Set up development | `development.md` |
 | Deploy the system | `deployment.md` |
+| Run a desktop release | [`desktop-release.md`](./desktop-release.md) |
 | Design APIs | `api-design.md` |
 | Understand a decision | `adr/*.md` |
 | Work on specific component | Component's AGENTS.md |
@@ -169,6 +173,7 @@ When making significant architectural changes:
 
 - **For Quick Start**: [Root README.md](../README.md)
 - **For AI Navigation**: [Root AGENTS.md](../AGENTS.md)
+- **For Desktop Release Operations**: [`desktop-release.md`](./desktop-release.md)
 - **For Specs**: [specs/](../specs/)
 - **For Component Work**: [apps/AGENTS.md](../apps/AGENTS.md), [packages/AGENTS.md](../packages/AGENTS.md)
 
