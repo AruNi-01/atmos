@@ -219,4 +219,5 @@ jobs:
           releaseDraft: false
           prerelease: ${{ needs.resolve-release-config.outputs.prerelease == 'true' }}
           includeUpdaterJson: true
+          generateReleaseNotes: true
           args: ${{ matrix.args }}
