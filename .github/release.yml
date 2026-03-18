@@ -1,0 +1,32 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+  categories:
+    - title: "🚀 New Features"
+      labels:
+        - feat
+        - feature
+    - title: "🐛 Bug Fixes"
+      labels:
+        - fix
+        - bug
+        - bugfix
+    - title: "⚡ Performance"
+      labels:
+        - perf
+        - performance
+    - title: "♻️ Refactoring"
+      labels:
+        - refactor
+    - title: "📦 Dependencies"
+      labels:
+        - deps
+        - dependencies
+    - title: "📖 Documentation"
+      labels:
+        - docs
+        - documentation
+    - title: "🔧 Other Changes"
+      labels:
+        - "*"
