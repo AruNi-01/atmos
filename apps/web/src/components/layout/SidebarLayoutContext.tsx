@@ -25,6 +25,12 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
   const [showRightSidebar, setShowRightSidebar] = React.useState(false);
   const [toggleLeftSidebarImpl, setToggleLeftSidebar] = React.useState<ToggleFn | null>(null);
   const [toggleRightSidebarImpl, setToggleRightSidebar] = React.useState<ToggleFn | null>(null);
+  const setLeftSidebarToggle = React.useCallback((toggle: ToggleFn | null) => {
+    setToggleLeftSidebar(() => toggle);
+  }, []);
+  const setRightSidebarToggle = React.useCallback((toggle: ToggleFn | null) => {
+    setToggleRightSidebar(() => toggle);
+  }, []);
 
   const value = React.useMemo(
     () => ({
@@ -34,8 +40,8 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
       setIsLeftCollapsed,
       setIsRightCollapsed,
       setShowRightSidebar,
-      setToggleLeftSidebar,
-      setToggleRightSidebar,
+      setToggleLeftSidebar: setLeftSidebarToggle,
+      setToggleRightSidebar: setRightSidebarToggle,
       toggleLeftSidebar: () => toggleLeftSidebarImpl?.(),
       toggleRightSidebar: () => toggleRightSidebarImpl?.(),
     }),
@@ -43,6 +49,8 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
       isLeftCollapsed,
       isRightCollapsed,
       showRightSidebar,
+      setLeftSidebarToggle,
+      setRightSidebarToggle,
       toggleLeftSidebarImpl,
       toggleRightSidebarImpl,
     ]

@@ -242,16 +242,7 @@ function QueueCard({
   );
 }
 
-function SortableQueueCard({
-  item,
-  editingPromptId,
-  editingPromptValue,
-  onEditingPromptValueChange,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onRemove,
-}: {
+type SortableQueueCardProps = {
   item: QueuedAgentPrompt;
   editingPromptId: string | null;
   editingPromptValue: string;
@@ -260,7 +251,18 @@ function SortableQueueCard({
   onCancelEdit: () => void;
   onSaveEdit: (id: string) => void;
   onRemove: (id: string) => void;
-}) {
+};
+
+const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProps>(function SortableQueueCard({
+  item,
+  editingPromptId,
+  editingPromptValue,
+  onEditingPromptValueChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onRemove,
+}, forwardedRef) {
   const isEditing = editingPromptId === item.id;
   const {
     attributes,
@@ -273,10 +275,18 @@ function SortableQueueCard({
     id: item.id,
     disabled: isEditing,
   });
+  const setRefs = React.useCallback((node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    if (typeof forwardedRef === "function") {
+      forwardedRef(node);
+    } else if (forwardedRef) {
+      forwardedRef.current = node;
+    }
+  }, [forwardedRef, setNodeRef]);
 
   return (
     <motion.div
-      ref={setNodeRef}
+      ref={setRefs}
       layout="position"
       initial={{ opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
@@ -313,7 +323,8 @@ function SortableQueueCard({
       />
     </motion.div>
   );
-}
+});
+SortableQueueCard.displayName = "SortableQueueCard";
 
 export function MessageQueueDock({
   items,

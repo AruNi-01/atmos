@@ -25,7 +25,6 @@ const MIN_SPLASH_DURATION: Duration = Duration::from_secs(3);
 const THEME_READY_TIMEOUT: Duration = Duration::from_secs(5);
 const WINDOW_STATE_FILE: &str = "window-state.json";
 const SPLASH_BACKGROUND_COLOR: Color = Color(6, 7, 11, 255);
-#[cfg(target_os = "macos")]
 struct StartupDiagnostics {
     stdout: VecDeque<String>,
     stderr: VecDeque<String>,
@@ -102,6 +101,7 @@ fn main() {
                 desktop_log_level: logging::compiled_log_level(),
                 sidecar_child: Mutex::new(None),
                 window_state_path,
+                splash_close_allowed: AtomicBool::new(false),
                 theme_ready: AtomicBool::new(false),
                 theme_ready_notify: Notify::new(),
             });
@@ -119,13 +119,9 @@ fn main() {
             ) {
                 let _ = main.set_background_color(Some(SPLASH_BACKGROUND_COLOR));
                 let _ = splash.set_background_color(Some(SPLASH_BACKGROUND_COLOR));
-                let restored = restore_main_window_state(app.handle(), &main);
+                let _ = restore_main_window_state(app.handle(), &main);
                 if !apply_saved_window_state(app.handle(), &splash) {
-                    if restored {
-                        sync_splash_to_main(&main, &splash);
-                    } else {
-                        sync_splash_to_main(&main, &splash);
-                    }
+                    sync_splash_to_main(&main, &splash);
                 }
             }
 
@@ -145,6 +141,8 @@ fn main() {
 
                     // Close splashscreen so it doesn't linger behind the dialog
                     if let Some(splash) = app_handle.get_webview_window("splashscreen") {
+                        let state = app_handle.state::<AppState>();
+                        state.splash_close_allowed.store(true, Ordering::SeqCst);
                         let _ = splash.close();
                     }
 
@@ -189,9 +187,9 @@ fn main() {
 
                 {
                     let state = app_handle.state::<AppState>();
+                    let notified = state.theme_ready_notify.notified();
                     if !state.theme_ready.load(Ordering::SeqCst) {
-                        let _ =
-                            timeout(THEME_READY_TIMEOUT, state.theme_ready_notify.notified()).await;
+                        let _ = timeout(THEME_READY_TIMEOUT, notified).await;
                     }
                 }
 
@@ -201,6 +199,8 @@ fn main() {
                     sleep(Duration::from_millis(16)).await;
                 }
                 if let Some(splash) = app_handle.get_webview_window("splashscreen") {
+                    let state = app_handle.state::<AppState>();
+                    state.splash_close_allowed.store(true, Ordering::SeqCst);
                     let _ = splash.close();
                 }
             });
@@ -268,6 +268,11 @@ fn main() {
                     } else {
                         persist_main_window_state(window);
                         let _ = window.hide();
+                    }
+                } else if window.label() == "splashscreen" {
+                    let state = window.app_handle().state::<AppState>();
+                    if !state.splash_close_allowed.load(Ordering::SeqCst) {
+                        api.prevent_close();
                     }
                 }
             }

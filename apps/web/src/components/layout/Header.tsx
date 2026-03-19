@@ -155,9 +155,14 @@ const Header: React.FC = () => {
 
     void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
       const currentWindow = getCurrentWindow();
-      unlistenResize = await currentWindow.onResized(() => {
+      const unlisten = await currentWindow.onResized(() => {
         void syncFullscreen();
       });
+      if (disposed) {
+        unlisten();
+        return;
+      }
+      unlistenResize = unlisten;
     });
 
     return () => {

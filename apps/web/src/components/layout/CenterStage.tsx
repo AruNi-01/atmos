@@ -382,11 +382,11 @@ const CenterStage: React.FC = () => {
         Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
       if (primaryDelta === 0) return;
 
-      event.preventDefault();
       const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, container.scrollLeft + primaryDelta));
-      if (nextScrollLeft !== container.scrollLeft) {
-        container.scrollLeft = nextScrollLeft;
-      }
+      if (nextScrollLeft === container.scrollLeft) return;
+
+      event.preventDefault();
+      container.scrollLeft = nextScrollLeft;
     };
 
     applyScrollStyle();

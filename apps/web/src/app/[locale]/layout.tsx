@@ -28,18 +28,25 @@ const geistMono = Geist_Mono({
 const THEME_INIT_SCRIPT = `
 (() => {
   const root = document.documentElement;
-  const storedTheme = localStorage.getItem("theme");
-  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const theme = storedTheme === "light" || storedTheme === "dark"
-    ? storedTheme
-    : systemDark
-      ? "dark"
-      : "light";
+  try {
+    let storedTheme = null;
+    try {
+      storedTheme = window.localStorage.getItem("theme");
+    } catch {}
 
-  root.classList.remove("light", "dark");
-  root.classList.add(theme);
-  root.style.colorScheme = theme;
-  root.dataset.themeReady = "true";
+    const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const theme = storedTheme === "light" || storedTheme === "dark"
+      ? storedTheme
+      : systemDark
+        ? "dark"
+        : "light";
+
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
+    root.style.colorScheme = theme;
+  } finally {
+    root.dataset.themeReady = "true";
+  }
 })();
 `;
 

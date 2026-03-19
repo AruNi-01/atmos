@@ -21,6 +21,7 @@ pub struct AppState {
     pub desktop_log_level: LogLevel,
     pub sidecar_child: Mutex<Option<CommandChild>>,
     pub window_state_path: PathBuf,
+    pub splash_close_allowed: AtomicBool,
     pub theme_ready: AtomicBool,
     pub theme_ready_notify: Notify,
 }
