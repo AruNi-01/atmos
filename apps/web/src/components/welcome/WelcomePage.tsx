@@ -1,10 +1,9 @@
 "use client";
 
 import React from 'react';
-import { GeistPixelCircle } from 'geist/font/pixel';
 import { Plus, cn } from '@workspace/ui';
 import { Bot } from 'lucide-react';
-import LogoSvg from '@workspace/ui/components/logo-svg';
+import { AtmosWordmark } from '@/components/ui/AtmosWordmark';
 
 interface WelcomePageProps {
   onAddProject?: () => void;
@@ -25,26 +24,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       <div className="flex flex-col items-center max-w-xl w-full space-y-12 -mt-24 pb-8">
         {/* Logo and Identity */}
         <div className="flex flex-col items-center space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-700 ease-out">
-          <div className={`flex w-full max-w-3xl items-center justify-between group cursor-default select-none ${GeistPixelCircle.className}`}>
-            <span className="text-[10rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm">
-              A
-            </span>
-            <span className="text-[10rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm">
-              t
-            </span>
-            <span className="text-[10rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm">
-              m
-            </span>
-            <LogoSvg className="size-36 shrink-0 transition-transform duration-1000 group-hover:rotate-90 text-foreground drop-shadow-sm" />
-            <span className="text-[10rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm">
-              s
-            </span>
-          </div>
-          <div className="text-center space-y-1.5 pt-6">
-            <p className="text-lg text-muted-foreground font-medium text-pretty tracking-wide">
-              Atmosphere for Agentic Builders
-            </p>
-          </div>
+          <AtmosWordmark />
         </div>
 
         {/* Actions Grid */}

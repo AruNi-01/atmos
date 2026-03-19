@@ -41,6 +41,8 @@ export function PanelLayout({
     >
       {/* Left Sidebar */}
       <Panel
+        id="root-left-sidebar"
+        order={1}
         ref={leftPanelRef}
         collapsible
         defaultSize={20}
@@ -63,7 +65,13 @@ export function PanelLayout({
       />
 
       {/* Center Stage */}
-      <Panel defaultSize={showRightSidebar ? 60 : 80} minSize={25} className="h-full">
+      <Panel
+        id="root-center-stage"
+        order={2}
+        defaultSize={showRightSidebar ? 60 : 80}
+        minSize={25}
+        className="h-full"
+      >
         {centerStage}
       </Panel>
 
@@ -75,6 +83,8 @@ export function PanelLayout({
 
           {/* Right Sidebar */}
           <Panel
+            id="root-right-sidebar"
+            order={3}
             ref={rightPanelRef}
             collapsible
             defaultSize={20}

@@ -22,7 +22,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-bun
       # 各包暂无 eslint 配置，跳过 lint
       - name: Lint packages
@@ -32,7 +32,7 @@ jobs:
     name: Typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-bun
       # config 包无需 typecheck（纯 JSON 配置），其余三个包均有 typecheck 脚本
       - name: Typecheck packages
