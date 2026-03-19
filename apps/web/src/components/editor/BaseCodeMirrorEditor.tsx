@@ -28,6 +28,7 @@ import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { loadCodeLanguageSupport } from '@/lib/code-language';
+import { isTauriRuntime } from '@/lib/desktop-runtime';
 
 export interface BaseCodeMirrorEditorProps {
   className?: string;
@@ -177,6 +178,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     isDark,
     autoFocus,
     lineWrap,
+    useDrawSelection: !isTauriRuntime(),
   });
   const [languageCompartment] = useState(() => new Compartment());
   const [readOnlyCompartment] = useState(() => new Compartment());
@@ -211,7 +213,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
           highlightActiveLineGutter(),
           highlightSpecialChars(),
           history(),
-          drawSelection(),
+          ...(initialState.useDrawSelection ? [drawSelection()] : []),
           dropCursor(),
           EditorState.allowMultipleSelections.of(true),
           indentOnInput(),

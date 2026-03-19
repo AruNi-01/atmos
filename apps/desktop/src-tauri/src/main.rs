@@ -4,19 +4,28 @@ mod state;
 
 use std::collections::VecDeque;
 use std::ffi::CStr;
+use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::menu::{MenuBuilder, MenuItem};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{Listener, Manager, PhysicalPosition, PhysicalSize, Position, Size};
+use tauri::utils::config::Color;
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_shell::ShellExt;
+use tokio::sync::Notify;
+use tokio::time::{sleep, timeout};
 
-use state::AppState;
+use state::{AppState, PersistedWindowState};
 
 const STARTUP_OUTPUT_BUFFER_LIMIT: usize = 20;
-
+const MIN_SPLASH_DURATION: Duration = Duration::from_secs(3);
+const THEME_READY_TIMEOUT: Duration = Duration::from_secs(5);
+const WINDOW_STATE_FILE: &str = "window-state.json";
+const SPLASH_BACKGROUND_COLOR: Color = Color(6, 7, 11, 255);
+#[cfg(target_os = "macos")]
 struct StartupDiagnostics {
     stdout: VecDeque<String>,
     stderr: VecDeque<String>,
@@ -77,15 +86,52 @@ fn main() {
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             let api_token = uuid::Uuid::new_v4().to_string();
+            let window_state_path = app
+                .path()
+                .app_config_dir()
+                .unwrap_or_else(|_| {
+                    dirs::home_dir()
+                        .unwrap_or_else(std::env::temp_dir)
+                        .join(".atmos")
+                        .join("desktop")
+                })
+                .join(WINDOW_STATE_FILE);
             app.manage(AppState {
                 api_port: Mutex::new(None),
                 api_token: api_token.clone(),
                 desktop_log_level: logging::compiled_log_level(),
                 sidecar_child: Mutex::new(None),
+                window_state_path,
+                theme_ready: AtomicBool::new(false),
+                theme_ready_notify: Notify::new(),
             });
 
             let app_handle = app.handle().clone();
+            app.listen("frontend://theme-ready", move |_| {
+                let state = app_handle.state::<AppState>();
+                state.theme_ready.store(true, Ordering::SeqCst);
+                state.theme_ready_notify.notify_waiters();
+            });
+
+            if let (Some(main), Some(splash)) = (
+                app.get_webview_window("main"),
+                app.get_webview_window("splashscreen"),
+            ) {
+                let _ = main.set_background_color(Some(SPLASH_BACKGROUND_COLOR));
+                let _ = splash.set_background_color(Some(SPLASH_BACKGROUND_COLOR));
+                let restored = restore_main_window_state(app.handle(), &main);
+                if !apply_saved_window_state(app.handle(), &splash) {
+                    if restored {
+                        sync_splash_to_main(&main, &splash);
+                    } else {
+                        sync_splash_to_main(&main, &splash);
+                    }
+                }
+            }
+
+            let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
+                let startup_started_at = Instant::now();
                 let static_dir = app_handle
                     .path()
                     .resource_dir()
@@ -122,18 +168,40 @@ fn main() {
                     let x = *state.api_port.lock().unwrap();
                     x
                 };
-                if let Some(splash) = app_handle.get_webview_window("splashscreen") {
-                    let _ = splash.close();
-                }
+
                 if let Some(main) = app_handle.get_webview_window("main") {
                     if let Some(p) = port {
                         if has_static {
+                            {
+                                let state = app_handle.state::<AppState>();
+                                state.theme_ready.store(false, Ordering::SeqCst);
+                            }
                             let url = format!("http://127.0.0.1:{}", p);
                             let _ = main.navigate(url.parse().expect("valid url"));
                         }
                     }
+                }
+
+                let elapsed = startup_started_at.elapsed();
+                if elapsed < MIN_SPLASH_DURATION {
+                    sleep(MIN_SPLASH_DURATION - elapsed).await;
+                }
+
+                {
+                    let state = app_handle.state::<AppState>();
+                    if !state.theme_ready.load(Ordering::SeqCst) {
+                        let _ =
+                            timeout(THEME_READY_TIMEOUT, state.theme_ready_notify.notified()).await;
+                    }
+                }
+
+                if let Some(main) = app_handle.get_webview_window("main") {
                     let _ = main.show();
                     let _ = main.set_focus();
+                    sleep(Duration::from_millis(16)).await;
+                }
+                if let Some(splash) = app_handle.get_webview_window("splashscreen") {
+                    let _ = splash.close();
                 }
             });
 
@@ -178,7 +246,40 @@ fn main() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
                     api.prevent_close();
-                    let _ = window.hide();
+                    if window.is_fullscreen().unwrap_or(false) {
+                        let handle = window.clone();
+                        let _ = window.set_fullscreen(false);
+                        tauri::async_runtime::spawn(async move {
+                            for _ in 0..15 {
+                                sleep(Duration::from_millis(100)).await;
+                                if !handle.is_fullscreen().unwrap_or(false) {
+                                    persist_main_window_state(&handle);
+                                    let _ = handle.hide();
+                                    return;
+                                }
+                            }
+                            // Fallback: if macOS takes unusually long to transition out of fullscreen,
+                            // still hide once the transition window has passed.
+                            let _ = handle.set_fullscreen(false);
+                            sleep(Duration::from_millis(200)).await;
+                            persist_main_window_state(&handle);
+                            let _ = handle.hide();
+                        });
+                    } else {
+                        persist_main_window_state(window);
+                        let _ = window.hide();
+                    }
+                }
+            }
+            if window.label() == "main" {
+                match event {
+                    tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Destroyed => {
+                        persist_main_window_state(window)
+                    }
+                    tauri::WindowEvent::Resized(_) => {
+                        persist_main_window_state(window);
+                    }
+                    _ => {}
                 }
             }
             let _ = window; // suppress unused warning on non-macOS
@@ -219,6 +320,109 @@ fn main() {
         }
         _ => {}
     });
+}
+
+fn restore_main_window_state<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    window: &tauri::WebviewWindow<R>,
+) -> bool {
+    apply_saved_window_state(app_handle, window)
+}
+
+fn apply_saved_window_state<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    window: &tauri::WebviewWindow<R>,
+) -> bool {
+    let window_state_path = window_state_path(app_handle);
+    let Some(state) = load_window_state(&window_state_path) else {
+        return false;
+    };
+
+    let _ = window.set_size(Size::Physical(PhysicalSize::new(state.width, state.height)));
+    let _ = window.set_position(Position::Physical(PhysicalPosition::new(state.x, state.y)));
+
+    if state.maximized {
+        let _ = window.maximize();
+    }
+
+    true
+}
+
+fn sync_splash_to_main<R: tauri::Runtime>(
+    main: &tauri::WebviewWindow<R>,
+    splash: &tauri::WebviewWindow<R>,
+) {
+    if let Ok(size) = main.outer_size() {
+        let _ = splash.set_size(Size::Physical(PhysicalSize::new(size.width, size.height)));
+    }
+
+    if let Ok(position) = main.outer_position() {
+        let _ = splash.set_position(Position::Physical(PhysicalPosition::new(
+            position.x, position.y,
+        )));
+    } else {
+        let _ = splash.center();
+    }
+}
+
+fn persist_main_window_state<R: tauri::Runtime>(window: &tauri::Window<R>) {
+    let path = window_state_path(&window.app_handle());
+    let maximized = window.is_maximized().unwrap_or(false);
+    let existing = load_window_state(&path);
+
+    let next_state = if maximized {
+        existing
+            .map(|state| PersistedWindowState {
+                maximized: true,
+                ..state
+            })
+            .or_else(|| capture_window_state(window, true))
+    } else {
+        capture_window_state(window, false)
+    };
+
+    if let Some(state) = next_state {
+        save_window_state(&path, &state);
+    }
+}
+
+fn capture_window_state<R: tauri::Runtime>(
+    window: &tauri::Window<R>,
+    maximized: bool,
+) -> Option<PersistedWindowState> {
+    let size = window.outer_size().ok()?;
+    let position = window.outer_position().ok()?;
+
+    Some(PersistedWindowState {
+        width: size.width,
+        height: size.height,
+        x: position.x,
+        y: position.y,
+        maximized,
+    })
+}
+
+fn load_window_state(path: &PathBuf) -> Option<PersistedWindowState> {
+    let raw = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&raw).ok()
+}
+
+fn save_window_state(path: &PathBuf, state: &PersistedWindowState) {
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    if fs::create_dir_all(parent).is_err() {
+        return;
+    }
+
+    let Ok(raw) = serde_json::to_string(state) else {
+        return;
+    };
+    let _ = fs::write(path, raw);
+}
+
+fn window_state_path<R: tauri::Runtime>(app_handle: &tauri::AppHandle<R>) -> PathBuf {
+    app_handle.state::<AppState>().window_state_path.clone()
 }
 
 fn is_utf8_locale(value: &str) -> bool {

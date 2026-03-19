@@ -64,6 +64,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const [lastUsedApp, setLastUsedApp] = useState<string>('Finder');
   const [homeDir, setHomeDir] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -144,18 +145,24 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const CurrentLabel = APP_MAP[lastUsedApp]?.label || 'Open';
 
   return (
-    <div className="flex items-stretch bg-muted/40 hover:bg-muted/60 transition-colors rounded-md border border-transparent hover:border-border group h-7">
+    <div
+      className="flex h-7 items-stretch rounded-md border border-transparent bg-muted/40 transition-colors hover:border-border hover:bg-muted/60"
+      onMouseLeave={() => setIsExpanded(false)}
+    >
       {/* Main Action Button */}
       <button
         onClick={handleMainClick}
-        className="flex items-center space-x-1.5 px-2.5 border-r hover:bg-accent/50 border-border/50 rounded-l-md transition-all outline-none h-full hover:cursor-pointer"
+        onMouseEnter={() => setIsExpanded(true)}
+        className="flex h-full items-center overflow-hidden rounded-l-md border-r border-border/50 px-2 transition-all outline-none hover:cursor-pointer hover:bg-accent/50"
         title={`Open in ${CurrentLabel} (Cmd+O)`}
       >
-        {CurrentIcon}
-        <span className="text-[13px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+        <span className="flex size-4 shrink-0 items-center justify-center">
+          {CurrentIcon}
+        </span>
+        <span className={`ml-0 overflow-hidden whitespace-nowrap text-[13px] font-medium text-muted-foreground transition-all duration-200 ease-out ${isExpanded ? 'ml-2 max-w-24 opacity-100 text-foreground' : 'max-w-0 opacity-0'}`}>
           Open
         </span>
-        <kbd className="pointer-events-none hidden h-4 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-70 group-hover:opacity-100 sm:flex">
+        <kbd className={`pointer-events-none hidden h-4 select-none items-center gap-1 overflow-hidden rounded border bg-muted font-mono text-[10px] font-medium text-muted-foreground transition-all duration-200 ease-out sm:flex ${isExpanded ? 'ml-2 max-w-16 px-1.5 opacity-100' : 'ml-0 max-w-0 px-0 opacity-0'}`}>
           <span className="text-xs">⌘</span>O
         </kbd>
       </button>
@@ -163,8 +170,8 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
       {/* Dropdown Trigger */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="px-1.5 hover:bg-accent/50 rounded-r-md transition-all outline-none flex items-center justify-center h-full">
-            <ChevronDown className="size-3 text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity" />
+          <button className="flex h-full items-center justify-center rounded-r-md px-1.5 outline-none transition-all duration-200 ease-out hover:bg-accent/50">
+            <ChevronDown className="size-3 shrink-0 text-muted-foreground opacity-60 transition-opacity hover:opacity-100" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">

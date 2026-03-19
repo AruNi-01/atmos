@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@atmos/i18n/routing";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { ThemeReadyBridge } from "@/components/providers/theme-ready-bridge";
 import { WebSocketProvider } from "@/components/providers/websocket-provider";
 import { TmuxCheckProvider } from "@/components/providers/tmux-check-provider";
 import { DesktopExternalUrlBridge } from "@/components/providers/desktop-external-url-bridge";
@@ -23,6 +24,24 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+const THEME_INIT_SCRIPT = `
+(() => {
+  const root = document.documentElement;
+  const storedTheme = localStorage.getItem("theme");
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = storedTheme === "light" || storedTheme === "dark"
+    ? storedTheme
+    : systemDark
+      ? "dark"
+      : "light";
+
+  root.classList.remove("light", "dark");
+  root.classList.add(theme);
+  root.style.colorScheme = theme;
+  root.dataset.themeReady = "true";
+})();
+`;
 
 export const metadata: Metadata = {
   title: "ATMOS",
@@ -55,6 +74,9 @@ export default async function LocaleLayout({ children, params }: Props) {
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         {process.env.NODE_ENV === "development" && (
           <Script
             src="//unpkg.com/react-grab/dist/index.global.js"
@@ -73,6 +95,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             enableSystem
             disableTransitionOnChange
           >
+            <ThemeReadyBridge />
             <DesktopExternalUrlBridge />
             <UpdateNotification />
             <NextIntlClientProvider messages={messages}>
