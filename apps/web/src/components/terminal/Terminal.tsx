@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -11,11 +12,14 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
+import type { ISearchOptions, ISearchResultChangeEvent } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { ClipboardAddon, type ClipboardSelectionType, type IClipboardProvider } from "@xterm/addon-clipboard";
+import { ImageAddon } from "@xterm/addon-image";
 import { useTheme } from "next-themes";
-import { Loader2, ArrowDown } from "lucide-react";
+import { Loader2, ArrowDown, Search, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Button, cn } from "@workspace/ui";
 
 // ── Clipboard provider ────────────────────────────────────────────────
 // Custom provider that prevents empty writes from clearing the clipboard
@@ -23,6 +27,7 @@ import { Loader2, ArrowDown } from "lucide-react";
 class SafeClipboardProvider implements IClipboardProvider {
   async readText(selection: ClipboardSelectionType): Promise<string> {
     if (selection !== "c") return "";
+    if (!navigator.userActivation?.isActive) return "";
     try {
       return await navigator.clipboard.readText();
     } catch {
@@ -31,6 +36,7 @@ class SafeClipboardProvider implements IClipboardProvider {
   }
   async writeText(selection: ClipboardSelectionType, text: string): Promise<void> {
     if (selection !== "c" || !text?.trim()) return;
+    if (!navigator.userActivation?.isActive) return;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -165,6 +171,10 @@ function shortenPath(fullPath: string): string {
   return parts.slice(-2).join("/");
 }
 
+function isFindShortcut(event: { ctrlKey: boolean; metaKey: boolean; key: string }): boolean {
+  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f";
+}
+
 const Terminal = ({
   sessionId,
   workspaceId,
@@ -177,7 +187,6 @@ const Terminal = ({
   onSessionReady,
   onSessionClose,
   onSessionError,
-  onTmuxWindowAssigned,
   noTmux,
   cwd,
   onData, // New prop
@@ -189,8 +198,11 @@ const Terminal = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
+  const searchResultsListenerRef = useRef<{ dispose: () => void } | null>(null);
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const readOnlyRef = useRef(readOnly);
   // Keep onTitleChange callback ref in sync to avoid stale closures in the OSC handler
   const onTitleChangeRef = useRef(onTitleChange);
@@ -200,12 +212,20 @@ const Terminal = ({
   const lastTitleRef = useRef<string>("");
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchHasMatch, setSearchHasMatch] = useState<boolean | null>(null);
+  const [searchStats, setSearchStats] = useState<{ current: number; total: number }>({
+    current: 0,
+    total: 0,
+  });
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
+  const terminalSearchInputId = useId();
 
   // For NEW panes: use terminal_name to CREATE a new tmux window
   // For EXISTING panes: use tmux_window_name to ATTACH to existing tmux window
@@ -375,9 +395,76 @@ const Terminal = ({
         disconnect();
       },
     }),
-    [ref, sendDestroy, disconnect]
+    [sendDestroy, disconnect, sendInput]
   );
 
+  const runSearch = useCallback((direction: "next" | "previous", queryOverride?: string) => {
+    const addon = searchAddonRef.current;
+    const query = queryOverride ?? searchQuery;
+    if (!addon || !query.trim()) {
+      setSearchHasMatch(null);
+      setSearchStats({ current: 0, total: 0 });
+      return false;
+    }
+
+    const options: ISearchOptions = {
+      caseSensitive: false,
+      regex: false,
+      wholeWord: false,
+      incremental: true,
+      decorations: {
+        matchBackground: isDark ? "#27272a" : "#d4d4d8",
+        matchBorder: isDark ? "#3f3f46" : "#a1a1aa",
+        matchOverviewRuler: isDark ? "#52525b" : "#71717a",
+        activeMatchBackground: isDark ? "#f4f4f5" : "#18181b",
+        activeMatchBorder: isDark ? "#fafafa" : "#09090b",
+        activeMatchColorOverviewRuler: isDark ? "#fafafa" : "#18181b",
+      },
+    };
+
+    const matched =
+      direction === "previous"
+        ? addon.findPrevious(query, options)
+        : addon.findNext(query, options);
+
+    setSearchHasMatch(matched);
+    return matched;
+  }, [isDark, searchQuery]);
+
+  const closeSearch = useCallback(() => {
+    setIsSearchVisible(false);
+    setSearchQuery("");
+    setSearchHasMatch(null);
+    setSearchStats({ current: 0, total: 0 });
+    searchAddonRef.current?.clearDecorations();
+    terminalRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!isSearchVisible) return;
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  }, [isSearchVisible]);
+
+  const handleSearchQueryChange = useCallback((nextQuery: string) => {
+    setSearchQuery(nextQuery);
+    if (!nextQuery.trim()) {
+      setSearchHasMatch(null);
+      setSearchStats({ current: 0, total: 0 });
+      searchAddonRef.current?.clearDecorations();
+      return;
+    }
+    runSearch("next", nextQuery);
+  }, [runSearch]);
+
+  const openSearch = useCallback(() => {
+    const terminal = terminalRef.current;
+    const currentSelection = terminal?.hasSelection() ? terminal.getSelection().trim() : "";
+    setIsSearchVisible(true);
+    if (currentSelection) {
+      handleSearchQueryChange(currentSelection);
+    }
+  }, [handleSearchQueryChange]);
 
   // Update terminal theme when system theme changes
   useEffect(() => {
@@ -424,6 +511,13 @@ const Terminal = ({
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
     terminal.loadAddon(searchAddon);
+    searchAddonRef.current = searchAddon;
+    searchResultsListenerRef.current = searchAddon.onDidChangeResults((event: ISearchResultChangeEvent) => {
+      setSearchStats({
+        current: event.resultIndex >= 0 ? event.resultIndex + 1 : 0,
+        total: event.resultCount,
+      });
+    });
     terminal.loadAddon(new ClipboardAddon(undefined, new SafeClipboardProvider()));
 
     // Open terminal in container
@@ -492,6 +586,12 @@ const Terminal = ({
       console.warn("WebGL addon failed to load, using canvas renderer", e);
     }
 
+    try {
+      terminal.loadAddon(new ImageAddon());
+    } catch (e) {
+      console.warn("Image addon failed to load", e);
+    }
+
     // Store refs BEFORE fit so handlers can access them
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -545,6 +645,10 @@ const Terminal = ({
 
     // ── Cmd/Ctrl+C: copy selection to clipboard ──────────────────────
     terminal.attachCustomKeyEventHandler((event) => {
+      if (isFindShortcut(event)) {
+        openSearch();
+        return false;
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
         if (terminal.hasSelection()) {
           const selection = terminal.getSelection();
@@ -600,6 +704,9 @@ const Terminal = ({
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
+      searchResultsListenerRef.current?.dispose();
+      searchResultsListenerRef.current = null;
+      searchAddonRef.current = null;
       webglAddonRef.current?.dispose();
       terminalRef.current?.dispose();
       terminalRef.current = null;
@@ -610,6 +717,13 @@ const Terminal = ({
   return (
     <div
       className="terminal-padding-wrapper"
+      onKeyDownCapture={(event) => {
+        if (isFindShortcut(event)) {
+          event.preventDefault();
+          event.stopPropagation();
+          openSearch();
+        }
+      }}
       style={{
         width: "100%",
         height: "100%",
@@ -687,6 +801,77 @@ const Terminal = ({
           }}
         >
           Disconnected
+        </div>
+      )}
+      {isSearchVisible && (
+        <div className="terminal-search-overlay">
+          <div className="terminal-search-panel">
+            <label htmlFor={terminalSearchInputId} className="terminal-search-icon">
+              <Search size={13} />
+            </label>
+            <input
+              id={terminalSearchInputId}
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(event) => {
+                handleSearchQueryChange(event.target.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  closeSearch();
+                  return;
+                }
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  runSearch(event.shiftKey ? "previous" : "next");
+                }
+              }}
+              placeholder="Search terminal"
+              spellCheck={false}
+              className={cn(
+                "terminal-search-input",
+                searchHasMatch === false && "terminal-search-input-miss"
+              )}
+            />
+            <div className="terminal-search-meta">
+              {searchQuery.trim()
+                ? `${searchStats.current}/${searchStats.total}`
+                : "0/0"}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="terminal-search-btn"
+              aria-label="Previous match"
+              onClick={() => runSearch("previous")}
+              disabled={!searchQuery.trim()}
+            >
+              <ChevronUp size={13} />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="terminal-search-btn"
+              aria-label="Next match"
+              onClick={() => runSearch("next")}
+              disabled={!searchQuery.trim()}
+            >
+              <ChevronDown size={13} />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="terminal-search-btn terminal-search-close"
+              aria-label="Close search"
+              onClick={closeSearch}
+            >
+              <X size={13} />
+            </Button>
+          </div>
         </div>
       )}
       <div
