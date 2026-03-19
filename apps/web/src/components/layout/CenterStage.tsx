@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
 import { useShallow } from "zustand/react/shallow";
 import { useGitStore } from "@/hooks/use-git-store";
-import { Plus, BookOpen, RefreshCw, Star } from "lucide-react";
+import { Plus, BookOpen, RefreshCw, Star, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { AGENT_OPTIONS, type AgentId } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 import { functionSettingsApi } from "@/api/ws-api";
@@ -61,7 +61,8 @@ import { systemApi } from "@/api/rest-api";
 import { PROJECT_WIKI_WINDOW_NAME, CODE_REVIEW_WINDOW_NAME } from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
 import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
-import { useRouter } from "next/navigation";
+import { useAppRouter } from "@/hooks/use-app-router";
+import { useSidebarLayout } from "@/components/layout/SidebarLayoutContext";
 
 const WikiTab = dynamic(
   () => import("@/components/wiki").then((m) => m.WikiTab),
@@ -123,7 +124,7 @@ function getRelativePath(path: string, basePath?: string): string {
 
 const CenterStage: React.FC = () => {
   usePrewarmCodeLanguages();
-  const router = useRouter();
+  const router = useAppRouter();
 
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
@@ -155,6 +156,7 @@ const CenterStage: React.FC = () => {
   const [codeReviewPendingCommand, setCodeReviewPendingCommand] = React.useState<string | null>(null);
   const codeReviewUserTriggeredRef = React.useRef(false);
   const [codeReviewCloseConfirmOpen, setCodeReviewCloseConfirmOpen] = React.useState(false);
+  const { isRightCollapsed, showRightSidebar, toggleRightSidebar } = useSidebarLayout();
   // codeReviewDialogOpen is managed via useDialogStore for cross-component access
 
   // Wait for editor store hydration to avoid SSR mismatch
@@ -362,7 +364,7 @@ const CenterStage: React.FC = () => {
       const label = terminalLabelRef.current;
       if (!label) return;
       label.style.opacity = `${1 - ratio}`;
-      label.style.maxWidth = `${72 * (1 - ratio)}px`;
+      label.style.width = `${72 * (1 - ratio)}px`;
       label.style.marginLeft = `${10 * (1 - ratio)}px`;
     };
 
@@ -370,10 +372,29 @@ const CenterStage: React.FC = () => {
       applyScrollStyle();
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) return;
+
+      const maxScrollLeft = container.scrollWidth - container.clientWidth;
+      if (maxScrollLeft <= 0) return;
+
+      const primaryDelta =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (primaryDelta === 0) return;
+
+      const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, container.scrollLeft + primaryDelta));
+      if (nextScrollLeft === container.scrollLeft) return;
+
+      event.preventDefault();
+      container.scrollLeft = nextScrollLeft;
+    };
+
     applyScrollStyle();
     container.addEventListener("scroll", handleScroll, { passive: true });
+    container.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       container.removeEventListener("scroll", handleScroll);
+      container.removeEventListener("wheel", handleWheel);
     };
   }, [effectiveContextId, openFiles.length, projectWikiTabVisible, codeReviewTabVisible]);
 
@@ -682,10 +703,10 @@ const CenterStage: React.FC = () => {
             </span>
             <span
               ref={terminalLabelRef}
-              className="text-[13px] font-medium text-pretty whitespace-nowrap origin-left"
+              className="inline-block text-[13px] font-medium text-pretty whitespace-nowrap"
               style={{
                 opacity: 1,
-                maxWidth: "72px",
+                width: "72px",
                 marginLeft: "10px",
                 overflow: "hidden",
               }}
@@ -861,6 +882,18 @@ const CenterStage: React.FC = () => {
             );
           })}
           </div>
+          {showRightSidebar ? (
+            <div className="flex shrink-0 items-center border-l border-sidebar-border bg-background/80 px-1 backdrop-blur-sm">
+              <button
+                type="button"
+                aria-label={isRightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
+                onClick={toggleRightSidebar}
+                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                {isRightCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}
+              </button>
+            </div>
+          ) : null}
         </TabsList>
 
         {/* Main Content Area - Panels are direct children of Tabs flex-col container */}

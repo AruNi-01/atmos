@@ -104,6 +104,23 @@ export function PlanBlockView({
     (e) => e.status === "in_progress" || e.status === "running"
   );
   const currentRunningEntry = currentIndex >= 0 ? planEntries[currentIndex] : undefined;
+  const nextPendingIndex = planEntries.findIndex(
+    (e) => e.status !== "completed" && e.status !== "in_progress" && e.status !== "running"
+  );
+  const collapsedEntry =
+    currentRunningEntry ??
+    (nextPendingIndex >= 0 ? planEntries[nextPendingIndex] : planEntries[planEntries.length - 1]);
+  const collapsedLabel = currentRunningEntry
+    ? "Current:"
+    : allCompleted
+      ? "Completed:"
+      : "Next:";
+  const collapsedCountLabel = allCompleted
+    ? "All Done"
+    : currentRunningEntry
+      ? `${Math.max(totalCount - currentIndex, 0)} left`
+      : `${completedCount}/${totalCount}`;
+  const shouldScrollEntries = totalCount > 6;
 
   if (!plan || planEntries.length === 0) return null;
 
@@ -131,7 +148,11 @@ export function PlanBlockView({
           </CollapsibleTrigger>
         )}
         <CollapsibleContent>
-          <div className="flex flex-col border-t border-border/40">
+          <div
+            className={`flex flex-col border-t border-border/40 ${
+              shouldScrollEntries ? "max-h-[216px] overflow-y-auto scrollbar-on-hover" : ""
+            }`}
+          >
             {planEntries.map((entry, idx) => {
               const isCompleted = entry.status === "completed";
               const isRunning = entry.status === "in_progress" || entry.status === "running";
@@ -168,33 +189,55 @@ export function PlanBlockView({
             })}
           </div>
         </CollapsibleContent>
-        {!isOpen && currentRunningEntry && (
+        {!isOpen && collapsedEntry && (
           <CollapsibleTrigger asChild>
             <div
               className={`flex items-center gap-2 px-3 py-1.5 bg-background overflow-hidden cursor-pointer hover:bg-muted/10 transition-colors ${embedded || docked ? "rounded-none" : "rounded-b-md"}`}
             >
               <ChevronDown className="w-4 h-4 text-muted-foreground -rotate-90 shrink-0" />
+              <div className="shrink-0 flex items-center justify-center w-4 h-4">
+                {allCompleted ? (
+                  <CircleCheck className="w-4 h-4 text-green-500" />
+                ) : currentRunningEntry ? (
+                  <div className="relative flex items-center justify-center">
+                    <CircleDashed className="w-4 h-4 text-[#3b82f6] animate-[spin_3s_linear_infinite]" />
+                    <div className="absolute w-1.5 h-1.5 bg-[#3b82f6] rounded-full" />
+                  </div>
+                ) : (
+                  <CircleDashed className="w-4 h-4 text-muted-foreground/40" />
+                )}
+              </div>
               <div className="flex flex-1 items-center h-5 relative overflow-hidden">
-                <span className="text-sm text-muted-foreground mr-1 font-normal shrink-0">Current:</span>
+                <span className="text-sm text-muted-foreground mr-1 font-normal shrink-0">{collapsedLabel}</span>
                 <div className="flex-1 relative h-full overflow-hidden">
                   <AnimatePresence mode="popLayout">
                     <motion.div
-                      key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${currentRunningEntry.content}`}
+                      key={`${currentIndex}-${nextPendingIndex}-${isOpen ? "open" : "collapsed"}-${collapsedEntry.content}`}
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       exit={{ y: -20, opacity: 0 }}
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      className="absolute inset-0 text-sm font-medium text-foreground truncate"
+                      className={`absolute inset-0 text-sm truncate ${
+                        allCompleted
+                          ? "font-normal line-through text-muted-foreground/70"
+                          : currentRunningEntry
+                            ? "font-medium text-foreground"
+                            : "font-normal text-muted-foreground/80"
+                      }`}
                     >
-                      <TextShimmer key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${currentRunningEntry.content}`} as="span" className="inline" duration={1.5}>
-                        {currentRunningEntry.content}
-                      </TextShimmer>
+                      {currentRunningEntry ? (
+                        <TextShimmer key={`${currentIndex}-${isOpen ? "open" : "collapsed"}-${collapsedEntry.content}`} as="span" className="inline" duration={1.5}>
+                          {collapsedEntry.content}
+                        </TextShimmer>
+                      ) : (
+                        collapsedEntry.content
+                      )}
                     </motion.div>
                   </AnimatePresence>
                 </div>
               </div>
               <span className="text-sm text-muted-foreground ml-2 shrink-0">
-                {totalCount - currentIndex} left
+                {collapsedCountLabel}
               </span>
             </div>
           </CollapsibleTrigger>

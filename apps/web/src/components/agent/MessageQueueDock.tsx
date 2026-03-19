@@ -147,8 +147,7 @@ function QueueCard({
   const showActions = isEditing || isHovered;
 
   return (
-    <motion.div
-      layout
+    <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={`group/queue transition-colors ${
@@ -239,20 +238,11 @@ function QueueCard({
           </Button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
-function SortableQueueCard({
-  item,
-  editingPromptId,
-  editingPromptValue,
-  onEditingPromptValueChange,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onRemove,
-}: {
+type SortableQueueCardProps = {
   item: QueuedAgentPrompt;
   editingPromptId: string | null;
   editingPromptValue: string;
@@ -261,7 +251,18 @@ function SortableQueueCard({
   onCancelEdit: () => void;
   onSaveEdit: (id: string) => void;
   onRemove: (id: string) => void;
-}) {
+};
+
+const SortableQueueCard = React.forwardRef<HTMLDivElement, SortableQueueCardProps>(function SortableQueueCard({
+  item,
+  editingPromptId,
+  editingPromptValue,
+  onEditingPromptValueChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onRemove,
+}, forwardedRef) {
   const isEditing = editingPromptId === item.id;
   const {
     attributes,
@@ -274,13 +275,38 @@ function SortableQueueCard({
     id: item.id,
     disabled: isEditing,
   });
+  const setRefs = React.useCallback((node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    if (typeof forwardedRef === "function") {
+      forwardedRef(node);
+    } else if (forwardedRef) {
+      forwardedRef.current = node;
+    }
+  }, [forwardedRef, setNodeRef]);
 
   return (
-    <div
-      ref={setNodeRef}
+    <motion.div
+      ref={setRefs}
+      layout="position"
+      initial={{ opacity: 1, y: 0 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{
+        opacity: 0,
+        y: 12,
+        transition: {
+          duration: 0.16,
+          ease: "easeOut",
+        },
+      }}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
+      }}
+      transition={{
+        layout: {
+          duration: 0.16,
+          ease: "easeOut",
+        },
       }}
     >
       <QueueCard
@@ -295,9 +321,10 @@ function SortableQueueCard({
         onSaveEdit={() => onSaveEdit(item.id)}
         onRemove={() => onRemove(item.id)}
       />
-    </div>
+    </motion.div>
   );
-}
+});
+SortableQueueCard.displayName = "SortableQueueCard";
 
 export function MessageQueueDock({
   items,
@@ -381,7 +408,7 @@ export function MessageQueueDock({
             strategy={verticalListSortingStrategy}
           >
             <div className="divide-y divide-border/60">
-              <AnimatePresence initial={false}>
+              <AnimatePresence initial={false} mode="popLayout">
                 {items.map((item) => (
                   <SortableQueueCard
                     key={item.id}

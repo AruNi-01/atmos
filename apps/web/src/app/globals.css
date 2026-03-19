@@ -86,6 +86,21 @@ pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
 }
 
 @layer base {
+html:not([data-theme-ready="true"]) body {
+  visibility: hidden;
+}
+
+.desktop-drag-region {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.desktop-no-drag,
+.desktop-no-drag * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
   html,
   body {
     overflow: hidden;

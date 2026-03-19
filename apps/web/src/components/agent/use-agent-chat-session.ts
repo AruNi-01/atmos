@@ -394,6 +394,7 @@ export function useAgentChatSession({
         if (stoppedRef.current) return;
         flushPendingStreamMessages();
         setCurrentPlan(msg.plan);
+        setEntries((prev) => applyServerMessageToEntries(prev, msg));
         break;
       case "permission_request":
         flushPendingStreamMessages();
@@ -610,6 +611,10 @@ export function useAgentChatSession({
   useEffect(() => {
     entriesByContextRef.current[contextKey] = entries;
   }, [contextKey, entries]);
+
+  useEffect(() => {
+    planByContextRef.current[contextKey] = currentPlan;
+  }, [contextKey, currentPlan]);
 
   useEffect(() => {
     sessionTitleByContextRef.current[contextKey] = sessionTitle;

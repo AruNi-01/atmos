@@ -32,7 +32,6 @@ import {
   Switch,
   Button,
 } from '@workspace/ui';
-import LogoSvg from '@workspace/ui/components/logo-svg';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useGitStore } from '@/hooks/use-git-store';
@@ -48,7 +47,9 @@ import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
-import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, RefreshCw, Settings } from "lucide-react";
+import { isTauriRuntime } from '@/lib/desktop-runtime';
+import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
+import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, RefreshCw, Settings } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { LlmProvidersModal } from './LlmProvidersModal';
 import { TokenUsageDialog } from './TokenUsageDialog';
@@ -60,6 +61,7 @@ const Header: React.FC = () => {
   const searchParams = useSearchParams();
   const locale = params?.locale as string || 'en';
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
+  const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
 
   const projects = useProjectStore(s => s.projects);
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
@@ -71,6 +73,8 @@ const Header: React.FC = () => {
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
+  const [isDesktopFullscreen, setIsDesktopFullscreen] = useState(false);
+  const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] = useState(false);
   const [actionsCollapsed, setActionsCollapsed] = useState(false);
   useEffect(() => {
     try { const v = localStorage.getItem("header-actions-collapsed"); if (v === "true") setActionsCollapsed(true); } catch {}
@@ -78,6 +82,8 @@ const Header: React.FC = () => {
   const [actionsWidth, setActionsWidth] = useState(0);
   const actionsContentRef = useRef<HTMLDivElement | null>(null);
   const chatPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const desktopFullscreenRef = useRef<boolean | null>(null);
+  const desktopFullscreenExitRafRef = useRef<number | null>(null);
   const scheduleChatPopoverClose = useCallback(() => {
     chatPopoverTimerRef.current = setTimeout(() => setChatPopoverOpen(false), 200);
   }, []);
@@ -102,6 +108,67 @@ const Header: React.FC = () => {
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    let unlistenResize: (() => void) | undefined;
+
+    const clearDesktopFullscreenExitRaf = () => {
+      if (desktopFullscreenExitRafRef.current !== null) {
+        window.cancelAnimationFrame(desktopFullscreenExitRafRef.current);
+        desktopFullscreenExitRafRef.current = null;
+      }
+    };
+
+    const applyFullscreenState = (fullscreen: boolean) => {
+      const previous = desktopFullscreenRef.current;
+      desktopFullscreenRef.current = fullscreen;
+      setIsDesktopFullscreen(fullscreen);
+
+      clearDesktopFullscreenExitRaf();
+
+      if (previous === true && !fullscreen) {
+        setIsDesktopFullscreenExiting(true);
+        desktopFullscreenExitRafRef.current = window.requestAnimationFrame(() => {
+          if (!disposed) {
+            setIsDesktopFullscreenExiting(false);
+          }
+        });
+        return;
+      }
+
+      setIsDesktopFullscreenExiting(false);
+    };
+
+    const syncFullscreen = async () => {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const fullscreen = await getCurrentWindow().isFullscreen();
+      if (!disposed) {
+        applyFullscreenState(fullscreen);
+      }
+    };
+
+    void syncFullscreen();
+
+    void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+      const currentWindow = getCurrentWindow();
+      const unlisten = await currentWindow.onResized(() => {
+        void syncFullscreen();
+      });
+      if (disposed) {
+        unlisten();
+        return;
+      }
+      unlistenResize = unlisten;
+    });
+
+    return () => {
+      disposed = true;
+      clearDesktopFullscreenExitRaf();
+      unlistenResize?.();
     };
   }, []);
   const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
@@ -389,50 +456,96 @@ const Header: React.FC = () => {
     });
   }, [openInBrowser]);
 
-  return (
-    <header className="h-12 flex items-center justify-between px-4 border-b border-sidebar-border select-none">
-      {/* Left: Identity */}
-      <div className="flex items-center space-x-4">
-        <div className="relative h-8 w-[85px] group/brand">
-          <div className={cn(
-            "absolute inset-0 flex items-center text-foreground font-semibold text-balance transition-all duration-250 ease-out group-hover/brand:opacity-0 group-hover/brand:-translate-y-0.5 group-hover/brand:scale-[0.98]"
-          )}>
-            <LogoSvg className="size-6 mr-2 text-primary" />
-            <span className="text-[14px]">ATMOS</span>
-          </div>
-          <div className="absolute inset-0 flex items-center gap-1 opacity-0 translate-y-0.5 scale-[0.98] transition-all duration-250 ease-out group-hover/brand:opacity-100 group-hover/brand:translate-y-0 group-hover/brand:scale-100 pointer-events-none group-hover/brand:pointer-events-auto">
-            <button
-              type="button"
-              aria-label="Go back"
-              onClick={() => window.history.back()}
-              className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Go forward"
-              onClick={() => window.history.forward()}
-              className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <ChevronRight className="size-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Refresh page"
-              onClick={() => window.location.reload()}
-              className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <RefreshCw className="size-4" />
-            </button>
-          </div>
-        </div>
-        <span className="text-muted-foreground/30 text-lg font-light">/</span>
-        <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">
-          {currentProject?.name || 'Atmosphere for Agentic Builders'}
-        </span>
+  const handleHeaderMouseDown = useCallback(async (event: React.MouseEvent<HTMLElement>) => {
+    if (!isTauriRuntime()) return;
+    if (event.button !== 0) return;
 
-        <div className="pl-2">
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+
+    const interactiveAncestor = target.closest(
+      '.desktop-no-drag, button, a, input, textarea, select, summary, [role="button"], [contenteditable="true"]'
+    );
+    if (interactiveAncestor) return;
+
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().startDragging();
+    } catch {
+      // Ignore drag failures; native drag-region remains as fallback.
+    }
+  }, []);
+
+  return (
+    <header
+      onMouseDown={handleHeaderMouseDown}
+      className={cn(
+        "relative flex h-12 items-center justify-between border-b border-sidebar-border px-4 select-none transition-[padding] duration-300 ease-out",
+        isTauriRuntime() && "desktop-drag-region",
+        isTauriRuntime() && (isDesktopFullscreen ? "pl-4" : "pl-[92px]")
+      )}
+    >
+      {isTauriRuntime() ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-0 desktop-drag-region"
+          data-tauri-drag-region="true"
+        />
+      ) : null}
+
+      {/* Left: Identity */}
+      <div
+        className={cn(
+          "relative z-10 flex items-center space-x-4 transition-[opacity,transform] duration-300 ease-out",
+          isDesktopFullscreenExiting ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
+        )}
+      >
+        <button
+          type="button"
+          aria-label={isLeftCollapsed ? "Expand left sidebar" : "Collapse left sidebar"}
+          onClick={toggleLeftSidebar}
+          className="desktop-no-drag inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+        </button>
+        <div className="desktop-no-drag flex h-8 items-center gap-1">
+          <button
+            type="button"
+            aria-label="Go back"
+            onClick={() => window.history.back()}
+            className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Go forward"
+            onClick={() => window.history.forward()}
+            className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <ChevronRight className="size-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Refresh page"
+            onClick={() => window.location.reload()}
+            className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            <RefreshCw className="size-4" />
+          </button>
+        </div>
+        <div
+          className={cn(
+            "flex items-center overflow-hidden transition-[opacity,max-width] duration-200 ease-out",
+            isLeftCollapsed ? "max-w-[340px] opacity-100" : "max-w-0 opacity-0"
+          )}
+        >
+          <span className="mr-4 text-lg font-light text-muted-foreground/30">/</span>
+          <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">
+            {currentProject?.name || 'Atmosphere for Agentic Builders'}
+          </span>
+        </div>
+
+        <div className="desktop-no-drag pl-2">
           {(currentWorkspace || currentProject) && (
             <QuickOpen
               workspace={currentWorkspace}
@@ -445,7 +558,7 @@ const Header: React.FC = () => {
       {/* Center: Git Context Flow */}
       {currentWorkspace && (
         <div className={cn(
-          "flex items-center space-x-3 bg-muted/40 px-3 py-1.5 rounded-md border border-transparent transition-all duration-300 ease-out h-8",
+          "relative z-10 desktop-no-drag flex items-center space-x-3 bg-muted/40 px-3 py-1.5 rounded-md border border-transparent transition-all duration-300 ease-out h-8",
           isEditingCurrentBranch
             ? "border-sidebar-border bg-background shadow-xs w-fit"
             : "hover:bg-muted/60 hover:border-border w-fit max-w-[500px]"
@@ -578,10 +691,10 @@ const Header: React.FC = () => {
       )}
 
       {/* Right: Actions */}
-      <div className="flex items-center space-x-3 justify-end">
+      <div className="relative z-10 flex items-center space-x-3 justify-end">
         <button
           aria-label="Search"
-          className="flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
+          className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
           onClick={() => setGlobalSearchOpen(true)}
         >
           <Search className="size-3.5" />
@@ -591,7 +704,7 @@ const Header: React.FC = () => {
           </kbd>
         </button>
 
-        <div className="flex items-center justify-end">
+        <div className="desktop-no-drag flex items-center justify-end">
           <motion.div
             animate={{
               width: actionsCollapsed ? 0 : actionsWidth,
@@ -735,13 +848,15 @@ const Header: React.FC = () => {
                 )}
 
                 <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
-                <button
-                  onClick={toggleFullScreen}
-                  aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
-                  className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                >
-                  {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-                </button>
+                {!isDesktopRuntime && (
+                  <button
+                    onClick={toggleFullScreen}
+                    aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+                    className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                  >
+                    {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+                  </button>
+                )}
                 <button
                   onClick={() => setIsSettingsOpen(true)}
                   aria-label="Settings"

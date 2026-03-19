@@ -10,6 +10,7 @@ import { AgentFloatingBall } from "@/components/agent/AgentFloatingBall";
 import Footer from "@/components/layout/Footer";
 import { PanelLayout } from "@/components/layout/PanelLayout";
 import { DocumentTitle } from "@/components/layout/DocumentTitle";
+import { SidebarLayoutProvider } from "@/components/layout/SidebarLayoutContext";
 
 type Props = {
   children: React.ReactNode;
@@ -43,22 +44,24 @@ export default async function AppLayout({ children, params }: Props) {
           </div>
         }
       >
-        <Header />
+        <SidebarLayoutProvider>
+          <Header />
 
-        <PanelLayout
-          leftSidebar={<LeftSidebar />}
-          centerStage={<CenterStage />}
-          rightSidebar={<RightSidebar />}
-        />
+          <PanelLayout
+            leftSidebar={<LeftSidebar />}
+            centerStage={<CenterStage />}
+            rightSidebar={<RightSidebar />}
+          />
 
-        <Footer />
+          <Footer />
 
-        <GlobalSearch />
+          <GlobalSearch />
 
-        <AgentChatPanel />
-        <AgentFloatingBall />
+          <AgentChatPanel />
+          <AgentFloatingBall />
 
-        <DocumentTitle />
+          <DocumentTitle />
+        </SidebarLayoutProvider>
       </Suspense>
 
       {/* Pages are thin route markers (return null) — required by Next.js layout contract */}

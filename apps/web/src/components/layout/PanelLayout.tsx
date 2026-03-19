@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAppStorage } from "@atmos/shared";
 import { useContextParams } from "@/hooks/use-context-params";
+import { useSidebarLayout } from "@/components/layout/SidebarLayoutContext";
 
 interface PanelLayoutProps {
   leftSidebar: React.ReactNode;
@@ -27,10 +28,46 @@ export function PanelLayout({
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const showRightSidebar = currentView === "project" || currentView === "workspace";
-
-  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
-  const [isRightCollapsed, setIsRightCollapsed] = useState(false);
+  const {
+    isLeftCollapsed,
+    isRightCollapsed,
+    setIsLeftCollapsed,
+    setIsRightCollapsed,
+    setShowRightSidebar,
+    setToggleLeftSidebar,
+    setToggleRightSidebar,
+  } = useSidebarLayout();
   const [isDragging, setIsDragging] = useState(false);
+
+  React.useEffect(() => {
+    setShowRightSidebar(showRightSidebar);
+    if (!showRightSidebar) {
+      setIsRightCollapsed(false);
+    }
+  }, [setIsRightCollapsed, setShowRightSidebar, showRightSidebar]);
+
+  React.useEffect(() => {
+    setToggleLeftSidebar(() => () => {
+      if (isLeftCollapsed) {
+        leftPanelRef.current?.expand();
+      } else {
+        leftPanelRef.current?.collapse();
+      }
+    });
+    return () => setToggleLeftSidebar(null);
+  }, [isLeftCollapsed, setToggleLeftSidebar]);
+
+  React.useEffect(() => {
+    setToggleRightSidebar(() => () => {
+      if (!showRightSidebar) return;
+      if (isRightCollapsed) {
+        rightPanelRef.current?.expand();
+      } else {
+        rightPanelRef.current?.collapse();
+      }
+    });
+    return () => setToggleRightSidebar(null);
+  }, [isRightCollapsed, setToggleRightSidebar, showRightSidebar]);
 
   return (
     <PanelGroup
