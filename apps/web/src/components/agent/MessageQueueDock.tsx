@@ -147,8 +147,7 @@ function QueueCard({
   const showActions = isEditing || isHovered;
 
   return (
-    <motion.div
-      layout
+    <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={`group/queue transition-colors ${
@@ -239,7 +238,7 @@ function QueueCard({
           </Button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -276,11 +275,28 @@ function SortableQueueCard({
   });
 
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
+      layout="position"
+      initial={{ opacity: 1, y: 0 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{
+        opacity: 0,
+        y: 12,
+        transition: {
+          duration: 0.16,
+          ease: "easeOut",
+        },
+      }}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
+      }}
+      transition={{
+        layout: {
+          duration: 0.16,
+          ease: "easeOut",
+        },
       }}
     >
       <QueueCard
@@ -295,7 +311,7 @@ function SortableQueueCard({
         onSaveEdit={() => onSaveEdit(item.id)}
         onRemove={() => onRemove(item.id)}
       />
-    </div>
+    </motion.div>
   );
 }
 
@@ -381,7 +397,7 @@ export function MessageQueueDock({
             strategy={verticalListSortingStrategy}
           >
             <div className="divide-y divide-border/60">
-              <AnimatePresence initial={false}>
+              <AnimatePresence initial={false} mode="popLayout">
                 {items.map((item) => (
                   <SortableQueueCard
                     key={item.id}
