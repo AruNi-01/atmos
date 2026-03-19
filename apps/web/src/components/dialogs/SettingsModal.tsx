@@ -1,11 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { GeistPixelCircle } from 'geist/font/pixel';
-import { Dialog, DialogContent, DialogTitle, DialogDescription, Button, cn } from '@workspace/ui';
-import LogoSvg from '@workspace/ui/components/logo-svg';
-import { RefreshCw, Check, Download } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  Button,
+  cn,
+} from '@workspace/ui';
+import { Check, Download, Info, RefreshCw } from 'lucide-react';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
+import { AtmosWordmark } from '@/components/ui/AtmosWordmark';
 import {
   checkForUpdate,
   downloadAndInstallUpdate,
@@ -18,10 +24,20 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
+const SETTINGS_SECTIONS = [
+  {
+    id: 'about',
+    label: 'About',
+    description: 'Product overview and desktop updates',
+    icon: Info,
+  },
+] as const;
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [appVersion, setAppVersion] = useState('');
+  const [activeSection, setActiveSection] = useState<(typeof SETTINGS_SECTIONS)[number]['id']>('about');
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -44,83 +60,166 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const isAvailable = status.stage === 'available';
   const isDownloading = status.stage === 'downloading';
   const isInstalling = status.stage === 'installing';
+  const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === activeSection) ?? SETTINGS_SECTIONS[0];
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="h-[min(90vh,820px)] w-[min(96vw,1360px)] max-w-[min(96vw,1360px)] overflow-hidden border-border bg-background p-0 sm:!max-w-[min(96vw,1360px)]">
         <DialogTitle className="sr-only">Settings</DialogTitle>
-        <div className="flex flex-col items-center pt-8 pb-2">
-          {/* Logo — same style as WelcomePage, scaled down */}
-          <div className={`flex w-full max-w-xs items-center justify-between group cursor-default select-none ${GeistPixelCircle.className}`}>
-            <span className="text-[4rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm">
-              A
-            </span>
-            <span className="text-[4rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm">
-              t
-            </span>
-            <span className="text-[4rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm">
-              m
-            </span>
-            <LogoSvg className="size-14 shrink-0 transition-transform duration-1000 group-hover:rotate-90 text-foreground drop-shadow-sm" />
-            <span className="text-[4rem] font-normal uppercase leading-[0.75] tracking-normal text-foreground drop-shadow-sm">
-              s
-            </span>
-          </div>
+        <DialogDescription className="sr-only">
+          Manage ATMOS settings, product information, and desktop updates.
+        </DialogDescription>
 
-          <p className="mt-4 text-sm text-muted-foreground font-medium tracking-wide">
-            Atmosphere for Agentic Builders
-          </p>
-
-          {isTauriRuntime() && (
-            <div className="mt-6 flex flex-col items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={handleCheckForUpdate}
-                disabled={isChecking || isDownloading || isInstalling}
-                className="cursor-pointer"
-              >
-                <RefreshCw className={cn('mr-2 size-4', isChecking && 'animate-spin')} />
-                {isChecking ? 'Checking…' : 'Check for Updates'}
-              </Button>
-
-              {isUpToDate && (
-                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Check className="size-4 text-green-500" />
-                  Up to date
-                </p>
-              )}
-
-              {status.stage === 'error' && (
-                <p className="text-sm text-destructive">{status.message}</p>
-              )}
-
-              {isAvailable && updateInfo && (
-                <div className="flex flex-col items-center gap-2 rounded-md border border-border bg-muted/50 px-4 py-3">
-                  <p className="text-sm">
-                    Version <span className="font-semibold">{updateInfo.version}</span> is
-                    available
-                  </p>
-                  <Button
-                    onClick={handleInstallUpdate}
-                    disabled={isDownloading || isInstalling}
-                    className="cursor-pointer"
-                  >
-                    <Download className="mr-2 size-4" />
-                    Update Now
-                  </Button>
-                </div>
-              )}
-
-              {(isDownloading || isInstalling) && (
-                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <RefreshCw className="size-4 animate-spin" />
-                  {isInstalling ? 'Installing…' : 'Downloading…'}
-                </p>
-              )}
-
-              <p className="mt-3 text-xs text-muted-foreground">Version {appVersion}</p>
+        <div className="grid h-full grid-cols-[240px_minmax(0,1fr)]">
+          <aside className="flex h-full flex-col border-r border-border bg-muted/20">
+            <div className="border-b border-border px-5 py-5">
+              <p className="text-[12px] font-semibold text-muted-foreground">
+                Settings
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Setting atmos to personalize your experience.
+              </p>
             </div>
-          )}
+
+            <nav className="flex flex-1 flex-col gap-1 p-3">
+              {SETTINGS_SECTIONS.map((section) => {
+                const Icon = section.icon;
+                const isActive = activeSection === section.id;
+
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => setActiveSection(section.id)}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
+                      isActive
+                        ? 'border-border bg-background text-foreground shadow-sm'
+                        : 'border-transparent text-muted-foreground hover:bg-background/60 hover:text-foreground'
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" />
+                    <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+
+          <section className="flex min-h-0 flex-col">
+            <div className="px-8 py-4">
+              <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
+                {activeSectionMeta.label}
+              </h2>
+              <p className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
+                {activeSectionMeta.description}
+              </p>
+            </div>
+            <div className="px-8">
+              <div className="border-b border-border" />
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 py-6 mt-10">
+              <AtmosWordmark className="mb-20 w-full" />
+
+              <div className="overflow-hidden rounded-2xl border border-border">
+                <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
+                  <div>
+                    <p className="text-base font-medium text-foreground">Runtime</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Current environment that is rendering this settings panel.
+                    </p>
+                  </div>
+                  <div className="flex items-center text-sm font-medium text-foreground">
+                    {isTauriRuntime() ? 'Desktop' : 'Web'}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
+                  <div>
+                    <p className="text-base font-medium text-foreground">Version</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Current app version reported by the desktop runtime.
+                    </p>
+                  </div>
+                  <div className="flex items-center text-sm font-medium text-foreground">
+                    {appVersion || 'Unavailable'}
+                  </div>
+                </div>
+
+                {isTauriRuntime() && (
+                  <>
+                    <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
+                      <div>
+                        <p className="text-base font-medium text-foreground">Check for updates</p>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          Query the desktop updater for the latest available release.
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <Button
+                          variant="outline"
+                          onClick={handleCheckForUpdate}
+                          disabled={isChecking || isDownloading || isInstalling}
+                          className="cursor-pointer"
+                        >
+                          <RefreshCw className={cn('mr-2 size-4', isChecking && 'animate-spin')} />
+                          {isChecking ? 'Checking…' : 'Check for Updates'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {(isUpToDate || status.stage === 'error' || isAvailable || isDownloading || isInstalling) && (
+                      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
+                        <div>
+                          <p className="text-base font-medium text-foreground">Update status</p>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            Current result from the updater, including install progress when applicable.
+                          </p>
+                        </div>
+                        <div className="space-y-3 text-sm">
+                          {isUpToDate && (
+                            <p className="flex items-center gap-1.5 text-muted-foreground">
+                              <Check className="size-4 text-green-500" />
+                              Up to date
+                            </p>
+                          )}
+
+                          {status.stage === 'error' && (
+                            <p className="text-destructive">{status.message}</p>
+                          )}
+
+                          {isAvailable && updateInfo && (
+                            <div className="space-y-3">
+                              <p className="text-foreground">
+                                Version <span className="font-semibold">{updateInfo.version}</span> is
+                                available
+                              </p>
+                              <Button
+                                onClick={handleInstallUpdate}
+                                disabled={isDownloading || isInstalling}
+                                className="cursor-pointer"
+                              >
+                                <Download className="mr-2 size-4" />
+                                Update Now
+                              </Button>
+                            </div>
+                          )}
+
+                          {(isDownloading || isInstalling) && (
+                            <p className="flex items-center gap-1.5 text-muted-foreground">
+                              <RefreshCw className="size-4 animate-spin" />
+                              {isInstalling ? 'Installing…' : 'Downloading…'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </section>
         </div>
       </DialogContent>
     </Dialog>

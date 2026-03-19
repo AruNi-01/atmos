@@ -24,7 +24,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Streamdown } from "streamdown";
+import { Streamdown, type PluginConfig } from "streamdown";
 import { TextShimmer } from "../ui/text-shimmer";
 
 interface ReasoningContextValue {
@@ -204,7 +204,9 @@ export type ReasoningContentProps = ComponentProps<
   children: string;
 };
 
-const streamdownPlugins = { cjk, code, math, mermaid };
+// Upstream packages currently expose slightly different code plugin types,
+// but the runtime plugin shape matches Streamdown's expected contract.
+const streamdownPlugins: PluginConfig = { cjk, code: code as PluginConfig["code"], math, mermaid };
 
 export const ReasoningContent = memo(
   ({ className, children, ...props }: ReasoningContentProps) => (
