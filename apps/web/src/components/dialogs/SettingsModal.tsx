@@ -9,16 +9,16 @@ import {
   Button,
   Popover,
   PopoverContent,
-  PopoverTrigger,
   ScrollArea,
   cn,
 } from '@workspace/ui';
-import { Check, Download, Info, RefreshCw } from 'lucide-react';
+import { Check, Download, ExternalLink, Info, RefreshCw } from 'lucide-react';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { AtmosWordmark } from '@/components/ui/AtmosWordmark';
 import {
   checkForUpdate,
   downloadAndInstallUpdate,
+  getUpdateReleaseNotesUrl,
   type UpdateInfo,
   type UpdateStatus,
 } from '@/hooks/use-updater';
@@ -165,17 +165,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                       </div>
                       <div className="flex items-center">
                         <Popover open={updatePopoverOpen} onOpenChange={setUpdatePopoverOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              onClick={handleCheckForUpdate}
-                              disabled={isChecking || isDownloading || isInstalling}
-                              className="cursor-pointer"
-                            >
-                              <RefreshCw className={cn('mr-2 size-4', (isChecking || isDownloading || isInstalling) && 'animate-spin')} />
-                              {isChecking ? 'Checking…' : 'Check for Updates'}
-                            </Button>
-                          </PopoverTrigger>
+                          <Button
+                            variant="outline"
+                            onClick={handleCheckForUpdate}
+                            disabled={isChecking || isDownloading || isInstalling}
+                            className="cursor-pointer"
+                          >
+                            <RefreshCw className={cn('mr-2 size-4', (isChecking || isDownloading || isInstalling) && 'animate-spin')} />
+                            {isChecking ? 'Checking…' : 'Check for Updates'}
+                          </Button>
                           <PopoverContent align="end" side="top" sideOffset={10} className="w-80">
                             <div className="space-y-3 text-sm">
                               {isChecking && (
@@ -201,14 +199,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                   <p className="text-foreground">
                                     Version <span className="font-semibold">{updateInfo.version}</span> is available
                                   </p>
-                                  <Button
-                                    onClick={handleInstallUpdate}
-                                    disabled={isDownloading || isInstalling}
-                                    className="cursor-pointer"
-                                  >
-                                    <Download className="mr-2 size-4" />
-                                    Update Now
-                                  </Button>
+                                  <div className="flex items-center gap-2">
+                                    <Button variant="outline" asChild>
+                                      <a
+                                        href={getUpdateReleaseNotesUrl(updateInfo)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        <ExternalLink className="mr-2 size-4" />
+                                        What&apos;s New
+                                      </a>
+                                    </Button>
+                                    <Button
+                                      onClick={handleInstallUpdate}
+                                      disabled={isDownloading || isInstalling}
+                                      className="cursor-pointer"
+                                    >
+                                      <Download className="mr-2 size-4" />
+                                      Install
+                                    </Button>
+                                  </div>
                                 </div>
                               )}
 
