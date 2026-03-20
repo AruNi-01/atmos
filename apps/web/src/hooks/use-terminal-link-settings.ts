@@ -1,0 +1,98 @@
+'use client';
+
+import { create } from 'zustand';
+import { toastManager } from '@workspace/ui';
+
+import { functionSettingsApi } from '@/api/ws-api';
+import {
+  QUICK_OPEN_APP_NAMES,
+  type QuickOpenAppName,
+  isQuickOpenAppName,
+} from '@/components/layout/quick-open-apps';
+
+export type TerminalFileLinkOpenMode = 'atmos' | 'finder' | 'app';
+
+interface TerminalLinkSettingsState {
+  fileLinkOpenMode: TerminalFileLinkOpenMode;
+  fileLinkOpenApp: QuickOpenAppName;
+  loaded: boolean;
+  loading: boolean;
+  loadSettings: () => Promise<void>;
+  setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void>;
+  setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void>;
+}
+
+const DEFAULT_FILE_LINK_OPEN_MODE: TerminalFileLinkOpenMode = 'atmos';
+const DEFAULT_FILE_LINK_OPEN_APP: QuickOpenAppName = 'Cursor';
+
+export const useTerminalLinkSettings = create<TerminalLinkSettingsState>((set, get) => ({
+  fileLinkOpenMode: DEFAULT_FILE_LINK_OPEN_MODE,
+  fileLinkOpenApp: DEFAULT_FILE_LINK_OPEN_APP,
+  loaded: false,
+  loading: false,
+
+  loadSettings: async () => {
+    if (get().loaded || get().loading) return;
+
+    set({ loading: true });
+
+    try {
+      const settings = await functionSettingsApi.get();
+      const nextMode = settings.terminal?.file_link_open_mode;
+      const nextApp = settings.terminal?.file_link_open_app;
+
+      set({
+        fileLinkOpenMode:
+          nextMode === 'finder' || nextMode === 'app' || nextMode === 'atmos'
+            ? nextMode
+            : DEFAULT_FILE_LINK_OPEN_MODE,
+        fileLinkOpenApp: isQuickOpenAppName(nextApp)
+          ? nextApp
+          : DEFAULT_FILE_LINK_OPEN_APP,
+        loaded: true,
+        loading: false,
+      });
+    } catch {
+      set({ loaded: false, loading: false });
+    }
+  },
+
+  setFileLinkOpenMode: async (mode) => {
+    const previous = get().fileLinkOpenMode;
+    set({ fileLinkOpenMode: mode });
+
+    try {
+      await functionSettingsApi.update('terminal', 'file_link_open_mode', mode);
+    } catch {
+      set({ fileLinkOpenMode: previous });
+      toastManager.add({
+        title: 'Settings Sync Failed',
+        description: 'Failed to update the terminal link open mode.',
+        type: 'error',
+      });
+    }
+  },
+
+  setFileLinkOpenApp: async (app) => {
+    const nextApp = isQuickOpenAppName(app) ? app : DEFAULT_FILE_LINK_OPEN_APP;
+    const previous = get().fileLinkOpenApp;
+    set({ fileLinkOpenApp: nextApp });
+
+    try {
+      await functionSettingsApi.update('terminal', 'file_link_open_app', nextApp);
+    } catch {
+      set({ fileLinkOpenApp: previous });
+      toastManager.add({
+        title: 'Settings Sync Failed',
+        description: 'Failed to update the terminal link app.',
+        type: 'error',
+      });
+    }
+  },
+}));
+
+export {
+  DEFAULT_FILE_LINK_OPEN_APP,
+  DEFAULT_FILE_LINK_OPEN_MODE,
+  QUICK_OPEN_APP_NAMES,
+};

@@ -64,7 +64,7 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
     const router = useAppRouter();
-    const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, currentView } = useContextParams();
+    const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
     const {
         projects,
         fetchProjects,
@@ -98,6 +98,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     );
 
     const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
+    const fileTreeRevealTarget = useEditorStore(s => s.fileTreeRevealTarget);
     const { setCurrentContext } = useGitInfoStore();
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
@@ -244,6 +245,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             }
         }
     }, [activeTab, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
+
+    useEffect(() => {
+        if (!fileTreeRevealTarget) return;
+        if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== effectiveContextId) {
+            return;
+        }
+        if (!currentEffectivePath) return;
+        if (
+            fileTreeRevealTarget.path !== currentEffectivePath &&
+            !fileTreeRevealTarget.path.startsWith(`${currentEffectivePath}/`)
+        ) {
+            return;
+        }
+        if (activeTab !== 'files') {
+            void setActiveTab('files');
+        }
+    }, [activeTab, currentEffectivePath, currentWorkspaceId, effectiveContextId, fileTreeRevealTarget, setActiveTab]);
 
     const handleTabChange = (value: string) => {
         setActiveTab(value as LeftSidebarTab);

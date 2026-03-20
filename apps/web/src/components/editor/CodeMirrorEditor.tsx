@@ -34,6 +34,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const { workspaceId } = useContextParams();
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
+  const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
+  const navigationTarget = useEditorStore((state) =>
+    workspaceId ? state.navigationTargets[workspaceId]?.[file.path] ?? null : null
+  );
   const {
     autoSave,
     lineWrap,
@@ -297,8 +301,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                 language={file.language}
                 value={file.content}
                 lineWrap={lineWrap}
+                navigationTarget={navigationTarget}
                 onChange={handleEditorChange}
                 onCreateEditor={handleEditorCreate}
+                onNavigationTargetApplied={() => clearNavigationTarget(file.path, workspaceId || undefined)}
                 onSave={handleSave}
                 autoFocus
               />

@@ -373,6 +373,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             workspaceName={workspaceInfo?.workspaceName}
             isNewPane={pane.isNewPane}
             cwd={workspaceInfo?.localPath}
+            projectRootPath={projects.find((project) =>
+              project.id === workspaceId || project.workspaces.some((workspace) => workspace.id === workspaceId)
+            )?.mainFilePath}
             onTitleChange={(title) => setDynamicTitleForScope(workspaceId, id, title)}
             onSessionReady={() => {
               const cmd = pendingCommandsRef.current.get(id);

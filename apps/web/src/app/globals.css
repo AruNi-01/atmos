@@ -128,6 +128,28 @@ html:not([data-theme-ready="true"]) body {
   *::-webkit-scrollbar-corner {
     background: transparent;
   }
+
+  .cm-scroller::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+  }
+
+  .cm-scroller::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .cm-scroller::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full;
+  }
+
+  .cm-scroller::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+
+  .cm-scroller::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 @layer utilities {

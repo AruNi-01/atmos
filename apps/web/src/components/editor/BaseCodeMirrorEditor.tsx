@@ -37,9 +37,11 @@ export interface BaseCodeMirrorEditorProps {
   isReadOnly?: boolean;
   autoFocus?: boolean;
   lineWrap?: boolean;
+  navigationTarget?: { line: number; column?: number } | null;
   onChange?: (value: string) => void;
   onCreateEditor?: (view: EditorView) => void;
   onSave?: () => void;
+  onNavigationTargetApplied?: () => void;
 }
 
 function createEditorTheme(isDark: boolean): Extension {
@@ -59,7 +61,8 @@ function createEditorTheme(isDark: boolean): Extension {
         lineHeight: '1.6',
         overflow: 'auto',
         scrollbarWidth: 'thin',
-        scrollbarColor: isDark ? 'rgba(161, 161, 170, 0.28) transparent' : 'rgba(113, 113, 122, 0.24) transparent',
+        scrollbarColor: 'hsl(var(--muted-foreground) / 0.2) transparent',
+        backgroundColor: 'transparent',
       },
       '.cm-content': {
         minHeight: '100%',
@@ -125,32 +128,7 @@ function createEditorTheme(isDark: boolean): Extension {
       '.cm-searchMatch.cm-searchMatch-selected': {
         backgroundColor: isDark ? '#ca8a0444' : '#fde047aa',
       },
-      '.cm-scroller::-webkit-scrollbar': {
-        width: '6px',
-        height: '6px',
-      },
-      '.cm-scroller::-webkit-scrollbar-button': {
-        display: 'none',
-        width: '0',
-        height: '0',
-      },
-      '.cm-scroller::-webkit-scrollbar-thumb': {
-        backgroundColor: isDark ? 'rgba(161, 161, 170, 0.28)' : 'rgba(113, 113, 122, 0.24)',
-        borderRadius: '9999px',
-        border: 'none',
-        boxShadow: 'none',
-      },
-      '.cm-scroller::-webkit-scrollbar-track': {
-        backgroundColor: 'transparent',
-        border: 'none',
-        boxShadow: 'none',
-      },
-      '.cm-scroller::-webkit-scrollbar-track-piece': {
-        backgroundColor: 'transparent',
-      },
-      '.cm-scroller::-webkit-scrollbar-corner': {
-        backgroundColor: 'transparent',
-      },
+
     },
     { dark: isDark }
   );
@@ -163,9 +141,11 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   isReadOnly,
   autoFocus,
   lineWrap = false,
+  navigationTarget,
   onChange,
   onCreateEditor,
   onSave,
+  onNavigationTargetApplied,
 }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -187,6 +167,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   const onChangeRef = useRef(onChange);
   const onCreateEditorRef = useRef(onCreateEditor);
   const onSaveRef = useRef(onSave);
+  const onNavigationTargetAppliedRef = useRef(onNavigationTargetApplied);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -199,6 +180,10 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   useEffect(() => {
     onSaveRef.current = onSave;
   }, [onSave]);
+
+  useEffect(() => {
+    onNavigationTargetAppliedRef.current = onNavigationTargetApplied;
+  }, [onNavigationTargetApplied]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -353,6 +338,26 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       selection: nextSelection,
     });
   }, [value]);
+
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view || !navigationTarget) return;
+
+    const safeLine = Math.min(
+      Math.max(1, navigationTarget.line),
+      view.state.doc.lines || 1
+    );
+    const line = view.state.doc.line(safeLine);
+    const requestedColumn = Math.max(1, navigationTarget.column ?? 1);
+    const anchor = Math.min(line.from + requestedColumn - 1, line.to);
+
+    view.dispatch({
+      selection: EditorSelection.single(anchor),
+      effects: EditorView.scrollIntoView(anchor, { y: 'center' }),
+    });
+    view.focus();
+    onNavigationTargetAppliedRef.current?.();
+  }, [navigationTarget]);
 
   return (
     <div ref={rootRef} className={cn('h-full w-full overflow-hidden', className)} />

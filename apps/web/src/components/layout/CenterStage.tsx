@@ -365,7 +365,7 @@ const CenterStage: React.FC = () => {
       if (!label) return;
       label.style.opacity = `${1 - ratio}`;
       label.style.width = `${72 * (1 - ratio)}px`;
-      label.style.marginLeft = `${10 * (1 - ratio)}px`;
+      label.style.marginLeft = "0px";
     };
 
     const handleScroll = () => {
@@ -707,7 +707,7 @@ const CenterStage: React.FC = () => {
               style={{
                 opacity: 1,
                 width: "72px",
-                marginLeft: "10px",
+                marginLeft: "0px",
                 overflow: "hidden",
               }}
             >

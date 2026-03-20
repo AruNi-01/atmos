@@ -73,10 +73,16 @@ function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boo
 // ===== FileTree Component =====
 
 export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
-  const { workspaceId } = useContextParams();
+  const { workspaceId, effectiveContextId } = useContextParams();
   const openFile = useEditorStore(s => s.openFile);
   const pinFile = useEditorStore(s => s.pinFile);
-  const activeFilePath = useEditorStore((s) => s.getActiveFilePath(workspaceId || undefined));
+  const activeFilePath = useEditorStore((s) => s.getActiveFilePath(effectiveContextId || undefined));
+  const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
+  const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
+  const clearFileTreeRevealTarget = useEditorStore((s) => s.clearFileTreeRevealTarget);
+  const [highlightedPath, setHighlightedPath] = useState<string | null>(null);
+  const [isTreeHighlighted, setIsTreeHighlighted] = useState(false);
+  const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Calculate initial items map from props.data to avoid render-cycle lag
   const initialItemsMap = useMemo(() => buildItemsMap(data), [data]);
@@ -180,16 +186,16 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
       toggle();
     } else {
       // Single click opens in preview mode
-      openFile(item.path, workspaceId || undefined, { preview: true });
+      openFile(item.path, effectiveContextId || undefined, { preview: true });
     }
-  }, [openFile, workspaceId]);
+  }, [effectiveContextId, openFile]);
 
   const handleItemDoubleClick = useCallback((item: FileTreeItem, isFolder: boolean) => {
     if (!isFolder) {
       // Double click pins the file (removes preview mode)
-      pinFile(item.path, workspaceId || undefined);
+      pinFile(item.path, effectiveContextId || undefined);
     }
-  }, [pinFile, workspaceId]);
+  }, [effectiveContextId, pinFile]);
 
   if (isLoading) {
     return (
@@ -212,13 +218,97 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
 
   const items = tree.getItems();
 
+  useEffect(() => {
+    if (!fileTreeRevealTarget || !currentProjectPath) return;
+    if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== effectiveContextId) return;
+    if (
+      fileTreeRevealTarget.path !== currentProjectPath &&
+      !fileTreeRevealTarget.path.startsWith(`${currentProjectPath}/`)
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = null;
+    }
+    setHighlightedPath(null);
+    setIsTreeHighlighted(false);
+
+    const revealTarget = async () => {
+      try {
+        if (fileTreeRevealTarget.path === currentProjectPath) {
+          if (!cancelled) {
+            setIsTreeHighlighted(true);
+            highlightTimeoutRef.current = setTimeout(() => {
+              setIsTreeHighlighted(false);
+              highlightTimeoutRef.current = null;
+            }, 1800);
+          }
+          tree.getElement()?.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+
+        const relativePath = fileTreeRevealTarget.path.slice(currentProjectPath.length + 1);
+        const segments = relativePath.split('/').filter(Boolean);
+        let currentPath = currentProjectPath;
+
+        for (const segment of segments) {
+          currentPath = `${currentPath}/${segment}`;
+          const item = tree.getItemInstance(currentPath);
+
+          if (item.isFolder() && !item.isExpanded()) {
+            item.expand();
+            await Promise.resolve();
+          }
+        }
+
+        const targetItem = tree.getItemInstance(fileTreeRevealTarget.path);
+        targetItem.setFocused();
+        await targetItem.scrollTo({ block: 'center' });
+
+        if (!cancelled) {
+          setHighlightedPath(fileTreeRevealTarget.path);
+          highlightTimeoutRef.current = setTimeout(() => {
+            setHighlightedPath((value) =>
+              value === fileTreeRevealTarget.path ? null : value
+            );
+            highlightTimeoutRef.current = null;
+          }, 1800);
+        }
+      } finally {
+        if (!cancelled) {
+          clearFileTreeRevealTarget(fileTreeRevealTarget.requestId);
+        }
+      }
+    };
+
+    void revealTarget();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clearFileTreeRevealTarget, currentProjectPath, effectiveContextId, fileTreeRevealTarget, tree]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div
       // eslint-disable-next-line react-hooks/refs
       ref={tree.registerElement}
       // eslint-disable-next-line react-hooks/refs
       {...tree.getContainerProps('File tree')}
-      className="text-sm"
+      className={cn(
+        "text-sm rounded-md transition-colors",
+        isTreeHighlighted && "bg-sidebar-accent/35"
+      )}
     >
       {items.map((item) => {
         const itemData = item.getItemData();
@@ -227,6 +317,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
         const isFolder = item.isFolder();
         const isExpanded = item.isExpanded();
         const isActive = activeFilePath === itemData.path;
+        const isHighlighted = highlightedPath === itemData.path;
         const depth = item.getItemMeta().level;
 
         const toggle = async () => {
@@ -252,6 +343,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
               'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors outline-none',
               'hover:bg-sidebar-accent/50',
               isActive && 'bg-sidebar-accent text-sidebar-foreground',
+              isHighlighted && !isActive && 'bg-sidebar-accent/70 text-sidebar-foreground',
               itemData.isIgnored && !isActive && 'opacity-40 grayscale-[0.5]',
               'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1'
             )}

@@ -1220,6 +1220,10 @@ export interface FunctionSettings {
     auto_save?: boolean;
     line_wrap?: boolean;
   };
+  terminal?: {
+    file_link_open_mode?: 'atmos' | 'finder' | 'app';
+    file_link_open_app?: string;
+  };
   git_commit?: {
     acp_new_session_switch?: boolean;
   };
