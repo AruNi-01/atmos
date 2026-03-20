@@ -11,10 +11,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Popover,
-  PopoverContent,
   ScrollArea,
   cn,
+  toastManager,
 } from '@workspace/ui';
 import { Check, ChevronDown, Download, ExternalLink, Info, RefreshCw, SquareTerminal } from 'lucide-react';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
@@ -79,7 +78,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [appVersion, setAppVersion] = useState('');
   const [activeSection, setActiveSection] = useState<(typeof SETTINGS_SECTIONS)[number]['id']>('about');
-  const [updatePopoverOpen, setUpdatePopoverOpen] = useState(false);
   const {
     fileLinkOpenMode,
     fileLinkOpenApp,
@@ -99,20 +97,140 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     void loadTerminalLinkSettings();
   }, [loadTerminalLinkSettings]);
 
-  const handleCheckForUpdate = async () => {
-    const info = await checkForUpdate(setStatus);
-    setUpdateInfo(info);
-    setUpdatePopoverOpen(true);
+  const handleInstallUpdate = async (toastId?: string) => {
+    await downloadAndInstallUpdate((nextStatus) => {
+      setStatus(nextStatus);
+
+      if (!toastId) {
+        return;
+      }
+
+      if (nextStatus.stage === 'downloading') {
+        toastManager.update(toastId, {
+          title: 'Downloading update…',
+          description: nextStatus.total
+            ? `${Math.round((nextStatus.downloaded / nextStatus.total) * 100)}% downloaded`
+            : 'Downloading the latest version…',
+          type: 'loading',
+          timeout: 0,
+        });
+        return;
+      }
+
+      if (nextStatus.stage === 'installing') {
+        toastManager.update(toastId, {
+          title: 'Installing update…',
+          description: 'Atmos will restart when installation finishes.',
+          type: 'loading',
+          timeout: 0,
+        });
+        return;
+      }
+
+      if (nextStatus.stage === 'upToDate') {
+        toastManager.update(toastId, {
+          title: 'Already up to date',
+          description: 'No installable update is available.',
+          type: 'info',
+          timeout: 4000,
+        });
+        return;
+      }
+
+      if (nextStatus.stage === 'done') {
+        toastManager.update(toastId, {
+          title: 'Restarting Atmos…',
+          description: 'The update has been installed.',
+          type: 'success',
+          timeout: 2500,
+        });
+        return;
+      }
+
+      if (nextStatus.stage === 'error') {
+        toastManager.update(toastId, {
+          title: 'Update install failed',
+          description: nextStatus.message,
+          type: 'error',
+          timeout: 6000,
+        });
+      }
+    });
   };
 
-  const handleInstallUpdate = async () => {
-    setUpdatePopoverOpen(true);
-    await downloadAndInstallUpdate(setStatus);
+  const handleCheckForUpdate = async () => {
+    let latestStage = 'idle';
+    let latestErrorMessage: string | undefined;
+    const toastId = toastManager.add({
+      title: 'Checking for updates…',
+      description: 'Querying the desktop updater.',
+      type: 'loading',
+      timeout: 0,
+    });
+
+    const info = await checkForUpdate((nextStatus) => {
+      latestStage = nextStatus.stage;
+      latestErrorMessage = nextStatus.stage === 'error' ? nextStatus.message : undefined;
+      setStatus(nextStatus);
+    });
+    setUpdateInfo(info);
+
+    if (latestStage === 'error') {
+      toastManager.update(toastId, {
+        title: 'Update check failed',
+        description: latestErrorMessage ?? 'Unable to check for updates.',
+        type: 'error',
+        timeout: 6000,
+      });
+      return;
+    }
+
+    if (latestStage === 'available' && info) {
+      toastManager.update(toastId, {
+        title: `Version ${info.version} is available`,
+        description: (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              A newer desktop version is ready to install.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={getUpdateReleaseNotesUrl(info)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="mr-1.5 size-3.5" />
+                  What&apos;s New
+                </a>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  void handleInstallUpdate(toastId);
+                }}
+              >
+                <Download className="mr-1.5 size-3.5" />
+                Install
+              </Button>
+            </div>
+          </div>
+        ),
+        type: 'info',
+        timeout: 0,
+      });
+      return;
+    }
+
+    toastManager.update(toastId, {
+      title: 'Already up to date',
+      description: 'You are already on the latest available version.',
+      type: 'success',
+      timeout: 4000,
+    });
   };
 
   const isChecking = status.stage === 'checking';
-  const isUpToDate = status.stage === 'upToDate';
-  const isAvailable = status.stage === 'available';
   const isDownloading = status.stage === 'downloading';
   const isInstalling = status.stage === 'installing';
   const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === activeSection) ?? SETTINGS_SECTIONS[0];
@@ -218,73 +336,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                             </p>
                           </div>
                           <div className="flex items-center">
-                            <Popover open={updatePopoverOpen} onOpenChange={setUpdatePopoverOpen}>
-                              <Button
-                                variant="outline"
-                                onClick={handleCheckForUpdate}
-                                disabled={isChecking || isDownloading || isInstalling}
-                                className="cursor-pointer"
-                              >
-                                <RefreshCw className={cn('mr-2 size-4', (isChecking || isDownloading || isInstalling) && 'animate-spin')} />
-                                {isChecking ? 'Checking…' : 'Check for Updates'}
-                              </Button>
-                              <PopoverContent align="end" side="top" sideOffset={10} className="w-80">
-                                <div className="space-y-3 text-sm">
-                                  {isChecking && (
-                                    <p className="flex items-center gap-1.5 text-muted-foreground">
-                                      <RefreshCw className="size-4 animate-spin" />
-                                      Checking for updates…
-                                    </p>
-                                  )}
-
-                                  {isUpToDate && (
-                                    <p className="flex items-center gap-1.5 text-muted-foreground">
-                                      <Check className="size-4 text-green-500" />
-                                      Up to date
-                                    </p>
-                                  )}
-
-                                  {status.stage === 'error' && (
-                                    <p className="text-destructive">{status.message}</p>
-                                  )}
-
-                                  {isAvailable && updateInfo && (
-                                    <div className="space-y-3">
-                                      <p className="text-foreground">
-                                        Version <span className="font-semibold">{updateInfo.version}</span> is available
-                                      </p>
-                                      <div className="flex items-center gap-2">
-                                        <Button variant="outline" asChild>
-                                          <a
-                                            href={getUpdateReleaseNotesUrl(updateInfo)}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                          >
-                                            <ExternalLink className="mr-2 size-4" />
-                                            What&apos;s New
-                                          </a>
-                                        </Button>
-                                        <Button
-                                          onClick={handleInstallUpdate}
-                                          disabled={isDownloading || isInstalling}
-                                          className="cursor-pointer"
-                                        >
-                                          <Download className="mr-2 size-4" />
-                                          Install
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {(isDownloading || isInstalling) && (
-                                    <p className="flex items-center gap-1.5 text-muted-foreground">
-                                      <RefreshCw className="size-4 animate-spin" />
-                                      {isInstalling ? 'Installing…' : 'Downloading…'}
-                                    </p>
-                                  )}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
+                            <Button
+                              variant="outline"
+                              onClick={handleCheckForUpdate}
+                              disabled={isChecking || isDownloading || isInstalling}
+                              className="cursor-pointer"
+                            >
+                              <RefreshCw className="mr-2 size-4" />
+                              Check for Updates
+                            </Button>
                           </div>
                         </div>
                       )}

@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
 import { useShallow } from "zustand/react/shallow";
 import { useGitStore } from "@/hooks/use-git-store";
-import { Plus, BookOpen, RefreshCw, Star, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Plus, BookOpen, RefreshCw, Star } from "lucide-react";
 import { AGENT_OPTIONS, type AgentId } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 import { functionSettingsApi } from "@/api/ws-api";
@@ -156,7 +156,6 @@ const CenterStage: React.FC = () => {
   const [codeReviewPendingCommand, setCodeReviewPendingCommand] = React.useState<string | null>(null);
   const codeReviewUserTriggeredRef = React.useRef(false);
   const [codeReviewCloseConfirmOpen, setCodeReviewCloseConfirmOpen] = React.useState(false);
-  const { isRightCollapsed, showRightSidebar, toggleRightSidebar } = useSidebarLayout();
   // codeReviewDialogOpen is managed via useDialogStore for cross-component access
 
   // Wait for editor store hydration to avoid SSR mismatch
@@ -882,18 +881,6 @@ const CenterStage: React.FC = () => {
             );
           })}
           </div>
-          {showRightSidebar ? (
-            <div className="flex shrink-0 items-center border-l border-sidebar-border bg-background/80 px-1 backdrop-blur-sm">
-              <button
-                type="button"
-                aria-label={isRightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
-                onClick={toggleRightSidebar}
-                className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                {isRightCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}
-              </button>
-            </div>
-          ) : null}
         </TabsList>
 
         {/* Main Content Area - Panels are direct children of Tabs flex-col container */}
