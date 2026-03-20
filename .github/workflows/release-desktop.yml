@@ -114,20 +114,63 @@ jobs:
       - name: Resolve values
         id: resolve
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+
           EVENT="${{ github.event_name }}"
+
+          matrix_for_platform() {
+            case "$1" in
+              "" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"},{"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"},{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""},{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}]}'
+                ;;
+              "macos-14" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"}]}'
+                ;;
+              "macos-15-intel" )
+                printf '%s\n' '{"include":[{"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"}]}'
+                ;;
+              "ubuntu-22.04" )
+                printf '%s\n' '{"include":[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""}]}'
+                ;;
+              "windows-latest" )
+                printf '%s\n' '{"include":[{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}]}'
+                ;;
+              * )
+                echo "❌ Unsupported platform input: $1"
+                exit 1
+                ;;
+            esac
+          }
+
+          validate_checkout_ref() {
+            local ref="$1"
+            local encoded_ref
+            encoded_ref="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ref")"
+
+            local status
+            status="$(
+              curl -sS -o /dev/null -w "%{http_code}" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${encoded_ref}"
+            )"
+
+            if [ "$status" != "200" ]; then
+              echo "❌ Invalid Git ref to build: $ref"
+              echo "   GitHub API returned HTTP $status for /commits/$ref"
+              exit 1
+            fi
+          }
 
           if [ "$EVENT" = "push" ]; then
             echo "create_release=true" >> "$GITHUB_OUTPUT"
             echo "release_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-            BUILD_MATRIX='{"include":[
-              {"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"},
-              {"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"},
-              {"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""},
-              {"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}
-            ]}'
+            BUILD_MATRIX="$(matrix_for_platform "")"
             echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -147,38 +190,13 @@ jobs:
             exit 1
           fi
 
+          validate_checkout_ref "$CHECKOUT_REF"
+
           echo "create_release=$CREATE_RELEASE" >> "$GITHUB_OUTPUT"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
           echo "checkout_ref=$CHECKOUT_REF" >> "$GITHUB_OUTPUT"
-
-          case "$PLATFORM" in
-            "" )
-              BUILD_MATRIX='{"include":[
-                {"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"},
-                {"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"},
-                {"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""},
-                {"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}
-              ]}'
-              ;;
-            "macos-14" )
-              BUILD_MATRIX='{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"}]}'
-              ;;
-            "macos-15-intel" )
-              BUILD_MATRIX='{"include":[{"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"}]}'
-              ;;
-            "ubuntu-22.04" )
-              BUILD_MATRIX='{"include":[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""}]}'
-              ;;
-            "windows-latest" )
-              BUILD_MATRIX='{"include":[{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}]}'
-              ;;
-            * )
-              echo "❌ Unsupported platform input: $PLATFORM"
-              exit 1
-              ;;
-          esac
-
+          BUILD_MATRIX="$(matrix_for_platform "$PLATFORM")"
           echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
 
   build-and-release:
