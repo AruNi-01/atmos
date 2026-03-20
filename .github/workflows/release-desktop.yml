@@ -215,9 +215,14 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - name: Verify desktop versions and release tag
+        if: needs.resolve-release-config.outputs.create_release == 'true'
         shell: bash
         env:
           RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: node ./scripts/release/check-desktop-version.mjs
+
+      - name: Verify desktop versions
+        if: needs.resolve-release-config.outputs.create_release != 'true'
         run: node ./scripts/release/check-desktop-version.mjs
 
       - uses: dtolnay/rust-toolchain@stable
