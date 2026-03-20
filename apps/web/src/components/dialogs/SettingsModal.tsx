@@ -74,6 +74,7 @@ const TERMINAL_LINK_MODE_OPTIONS = [
 ] as const;
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+  const installInFlightRef = React.useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [appVersion, setAppVersion] = useState('');
@@ -98,6 +99,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   }, [loadTerminalLinkSettings]);
 
   const handleInstallUpdate = async (toastId?: string) => {
+    if (installInFlightRef.current) {
+      return;
+    }
+    installInFlightRef.current = true;
+
+    if (toastId) {
+      toastManager.update(toastId, {
+        title: 'Preparing install…',
+        description: 'Starting the updater.',
+        type: 'loading',
+        timeout: 0,
+      });
+    }
+
     await downloadAndInstallUpdate((nextStatus) => {
       setStatus(nextStatus);
 
@@ -128,6 +143,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       }
 
       if (nextStatus.stage === 'upToDate') {
+        installInFlightRef.current = false;
         toastManager.update(toastId, {
           title: 'Already up to date',
           description: 'No installable update is available.',
@@ -138,6 +154,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       }
 
       if (nextStatus.stage === 'done') {
+        installInFlightRef.current = false;
         toastManager.update(toastId, {
           title: 'Restarting Atmos…',
           description: 'The update has been installed.',
@@ -148,6 +165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       }
 
       if (nextStatus.stage === 'error') {
+        installInFlightRef.current = false;
         toastManager.update(toastId, {
           title: 'Update install failed',
           description: nextStatus.message,

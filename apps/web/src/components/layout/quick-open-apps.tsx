@@ -44,7 +44,7 @@ export const QUICK_OPEN_APP_MAP = Object.fromEntries(
 ) as Record<QuickOpenAppName, QuickOpenAppOption>;
 
 export function isQuickOpenAppName(value: unknown): value is QuickOpenAppName {
-  return typeof value === 'string' && value in QUICK_OPEN_APP_MAP;
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(QUICK_OPEN_APP_MAP, value);
 }
 
 export function getQuickOpenAppsByGroup(group: QuickOpenAppGroup) {

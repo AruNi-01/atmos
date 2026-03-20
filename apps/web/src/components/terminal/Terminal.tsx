@@ -620,20 +620,7 @@ const Terminal = ({
       return candidates;
     }
 
-    if (typeof window !== "undefined") {
-      try {
-        const resolvedHref = new URL(rawHref, window.location.href);
-        if (resolvedHref.origin === window.location.origin && resolvedHref.pathname.startsWith("/")) {
-          candidates.push(decodeURIComponent(resolvedHref.pathname));
-        } else {
-          candidates.push(rawHref);
-        }
-      } catch {
-        candidates.push(rawHref);
-      }
-    } else {
-      candidates.push(rawHref);
-    }
+    candidates.push(rawHref);
 
     return [...new Set(candidates)];
   }, []);

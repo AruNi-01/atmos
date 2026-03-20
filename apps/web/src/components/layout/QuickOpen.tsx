@@ -41,7 +41,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && saved in QUICK_OPEN_APP_MAP) {
+    if (saved && Object.prototype.hasOwnProperty.call(QUICK_OPEN_APP_MAP, saved)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLastUsedApp(saved as QuickOpenAppName);
     }

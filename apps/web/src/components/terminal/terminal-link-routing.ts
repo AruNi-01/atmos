@@ -198,14 +198,18 @@ function joinPaths(basePath: string, relativePath: string): string {
 function isWithinRoot(path: string, root: string): boolean {
   const normalizedPath = toForwardSlashes(normalizePath(path));
   const normalizedRoot = toForwardSlashes(normalizePath(root));
+  const caseInsensitive =
+    isWindowsAbsolutePath(normalizedPath) || isWindowsAbsolutePath(normalizedRoot);
+  const comparablePath = caseInsensitive ? normalizedPath.toLowerCase() : normalizedPath;
+  const comparableRoot = caseInsensitive ? normalizedRoot.toLowerCase() : normalizedRoot;
 
-  if (normalizedPath === normalizedRoot) return true;
+  if (comparablePath === comparableRoot) return true;
 
-  const rootWithSlash = normalizedRoot.endsWith("/")
-    ? normalizedRoot
-    : `${normalizedRoot}/`;
+  const rootWithSlash = comparableRoot.endsWith("/")
+    ? comparableRoot
+    : `${comparableRoot}/`;
 
-  return normalizedPath.startsWith(rootWithSlash);
+  return comparablePath.startsWith(rootWithSlash);
 }
 
 async function resolveHomeRelativePath(pathText: string): Promise<string | null> {
@@ -234,7 +238,11 @@ async function resolveInternalPath(
     try {
       const fileUrl = new URL(pathText);
       if (fileUrl.protocol === "file:") {
-        candidatePaths.push(normalizePath(decodeURIComponent(fileUrl.pathname)));
+        const decodedPathname = decodeURIComponent(fileUrl.pathname);
+        const windowsFilePath = decodedPathname.match(/^\/[A-Za-z]:\//)
+          ? decodedPathname.slice(1)
+          : decodedPathname;
+        candidatePaths.push(normalizePath(windowsFilePath));
       }
     } catch {
       return null;

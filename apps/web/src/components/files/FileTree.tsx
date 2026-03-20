@@ -83,6 +83,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null);
   const [isTreeHighlighted, setIsTreeHighlighted] = useState(false);
   const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealRequestIdRef = React.useRef(0);
 
   // Calculate initial items map from props.data to avoid render-cycle lag
   const initialItemsMap = useMemo(() => buildItemsMap(data), [data]);
@@ -95,6 +96,46 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
   }, [data]);
 
   const rootItemIds = useMemo(() => data.map(node => node.path), [data]);
+
+  const loadDirectoryChildren = useCallback(async (itemPath: string): Promise<string[]> => {
+    const existingItem = initialItemsMap.get(itemPath) || lazyItemsMap.get(itemPath);
+    if (!existingItem?.isDir) return [];
+
+    if (existingItem.children && existingItem.children.length > 0) {
+      return existingItem.children;
+    }
+
+    const response = await fsApi.listDir(itemPath, { showHidden: true, dirsOnly: false });
+
+    const newChildren = response.entries.map((entry) => entry.path);
+    const newEntriesMap = new Map<string, FileTreeItem>();
+
+    response.entries.forEach((entry) => {
+      newEntriesMap.set(entry.path, {
+        id: entry.path,
+        name: entry.name,
+        path: entry.path,
+        isDir: entry.is_dir,
+        isSymlink: entry.is_symlink,
+        isIgnored: entry.is_ignored,
+        symlinkTarget: entry.symlink_target,
+      });
+    });
+
+    setLazyItemsMap((prev: Map<string, FileTreeItem>) => {
+      const next = new Map(prev);
+      newEntriesMap.forEach((val, key) => next.set(key, val));
+
+      const parent = initialItemsMap.get(itemPath) || next.get(itemPath);
+      if (parent) {
+        next.set(itemPath, { ...parent, children: newChildren });
+      }
+
+      return next;
+    });
+
+    return newChildren;
+  }, [initialItemsMap, lazyItemsMap]);
 
   const tree = useTree<FileTreeItem>({
     rootItemId: 'root',
@@ -133,42 +174,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
         // If it's a directory but we don't have children yet, fetch them (on-demand loading)
         if (item.isDir) {
           try {
-            const response = await fsApi.listDir(item.path, { showHidden: true, dirsOnly: false });
-
-            const newChildren: string[] = [];
-            const newEntriesMap = new Map<string, FileTreeItem>();
-
-            response.entries.forEach((entry) => {
-              const childId = entry.path;
-              newChildren.push(childId);
-              newEntriesMap.set(childId, {
-                id: childId,
-                name: entry.name,
-                path: entry.path,
-                isDir: entry.is_dir,
-                isSymlink: entry.is_symlink,
-                isIgnored: entry.is_ignored,
-                symlinkTarget: entry.symlink_target,
-                // Children of children will be loaded on demand too
-              });
-            });
-
-            // Update local state with new items and link them to parent
-            // Update lazy items map with new items and link them to parent
-            setLazyItemsMap((prev: Map<string, FileTreeItem>) => {
-              const next = new Map(prev);
-              newEntriesMap.forEach((val, key) => next.set(key, val));
-
-              // If the parent was in initialItemsMap, we should add it to lazyItemsMap with children
-              const parent = initialItemsMap.get(itemId) || next.get(itemId);
-              if (parent) {
-                next.set(itemId, { ...parent, children: newChildren });
-              }
-
-              return next;
-            });
-
-            return newChildren;
+            return await loadDirectoryChildren(item.path);
           } catch (e) {
             console.error('Failed to load children for', itemId, e);
             return [];
@@ -232,14 +238,20 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
         const relativePath = fileTreeRevealTarget.path.slice(currentProjectPath.length + 1);
         const segments = relativePath.split('/').filter(Boolean);
         let currentPath = currentProjectPath;
+        const revealRequestId = ++revealRequestIdRef.current;
 
         for (const segment of segments) {
           currentPath = `${currentPath}/${segment}`;
+          await loadDirectoryChildren(currentPath);
+          if (cancelled || revealRequestIdRef.current !== revealRequestId) {
+            return;
+          }
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           const item = tree.getItemInstance(currentPath);
 
           if (item.isFolder() && !item.isExpanded()) {
             item.expand();
-            await Promise.resolve();
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           }
         }
 
@@ -268,7 +280,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
     return () => {
       cancelled = true;
     };
-  }, [clearFileTreeRevealTarget, currentProjectPath, effectiveContextId, fileTreeRevealTarget, tree]);
+  }, [clearFileTreeRevealTarget, currentProjectPath, effectiveContextId, fileTreeRevealTarget, loadDirectoryChildren, tree]);
 
   useEffect(() => {
     return () => {

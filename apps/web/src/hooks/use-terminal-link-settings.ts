@@ -17,6 +17,8 @@ interface TerminalLinkSettingsState {
   fileLinkOpenApp: QuickOpenAppName;
   loaded: boolean;
   loading: boolean;
+  modeRequestToken: number;
+  appRequestToken: number;
   loadSettings: () => Promise<void>;
   setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void>;
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void>;
@@ -30,6 +32,8 @@ export const useTerminalLinkSettings = create<TerminalLinkSettingsState>((set, g
   fileLinkOpenApp: DEFAULT_FILE_LINK_OPEN_APP,
   loaded: false,
   loading: false,
+  modeRequestToken: 0,
+  appRequestToken: 0,
 
   loadSettings: async () => {
     if (get().loaded || get().loading) return;
@@ -59,12 +63,16 @@ export const useTerminalLinkSettings = create<TerminalLinkSettingsState>((set, g
 
   setFileLinkOpenMode: async (mode) => {
     const previous = get().fileLinkOpenMode;
-    set({ fileLinkOpenMode: mode });
+    const requestToken = get().modeRequestToken + 1;
+    set({ fileLinkOpenMode: mode, modeRequestToken: requestToken });
 
     try {
       await functionSettingsApi.update('terminal', 'file_link_open_mode', mode);
     } catch {
-      set({ fileLinkOpenMode: previous });
+      const current = get();
+      if (current.modeRequestToken === requestToken && current.fileLinkOpenMode === mode) {
+        set({ fileLinkOpenMode: previous });
+      }
       toastManager.add({
         title: 'Settings Sync Failed',
         description: 'Failed to update the terminal link open mode.',
@@ -76,12 +84,16 @@ export const useTerminalLinkSettings = create<TerminalLinkSettingsState>((set, g
   setFileLinkOpenApp: async (app) => {
     const nextApp = isQuickOpenAppName(app) ? app : DEFAULT_FILE_LINK_OPEN_APP;
     const previous = get().fileLinkOpenApp;
-    set({ fileLinkOpenApp: nextApp });
+    const requestToken = get().appRequestToken + 1;
+    set({ fileLinkOpenApp: nextApp, appRequestToken: requestToken });
 
     try {
       await functionSettingsApi.update('terminal', 'file_link_open_app', nextApp);
     } catch {
-      set({ fileLinkOpenApp: previous });
+      const current = get();
+      if (current.appRequestToken === requestToken && current.fileLinkOpenApp === nextApp) {
+        set({ fileLinkOpenApp: previous });
+      }
       toastManager.add({
         title: 'Settings Sync Failed',
         description: 'Failed to update the terminal link app.',
