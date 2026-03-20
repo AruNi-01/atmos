@@ -39,9 +39,11 @@ export function getUpdateReleaseNotesUrl(updateInfo?: UpdateInfo | null): string
     return RELEASES_BASE_URL;
   }
 
-  const normalizedVersion = updateInfo.version.startsWith('v')
+  const normalizedVersion = updateInfo.version.startsWith('desktop-v')
     ? updateInfo.version
-    : `v${updateInfo.version}`;
+    : updateInfo.version.startsWith('v')
+      ? `desktop-${updateInfo.version}`
+      : `desktop-v${updateInfo.version}`;
 
   return `${RELEASES_BASE_URL}/tag/${normalizedVersion}`;
 }
