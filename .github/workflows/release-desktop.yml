@@ -254,13 +254,28 @@ jobs:
           mkdir -p apps/desktop/src-tauri/binaries
           cp target/${{ matrix.target }}/release/api${EXT} apps/desktop/src-tauri/binaries/api-${{ matrix.target }}${EXT}
 
+      - name: Export updater signing env
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
+            echo "❌ Missing secret: TAURI_SIGNING_PRIVATE_KEY"
+            exit 1
+          fi
+
+          {
+            echo 'TAURI_SIGNING_PRIVATE_KEY<<__EOF__'
+            echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}"
+            echo '__EOF__'
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}"
+          } >> "$GITHUB_ENV"
+
       - name: Build Tauri app (manual validation without release)
         if: needs.resolve-release-config.outputs.create_release != 'true'
         working-directory: apps/desktop
         env:
           ATMOS_LOG_LEVEL: info
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun tauri build ${{ matrix.args }}
 
       - name: Collect manual build artifacts
