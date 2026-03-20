@@ -62,6 +62,14 @@ interface LeftSidebarProps {
     projects?: Project[];
 }
 
+function normalizePathForContainment(path: string): string {
+    const normalized = path.replace(/\\/g, '/');
+    if (normalized.length > 1 && normalized.endsWith('/')) {
+        return normalized.slice(0, -1);
+    }
+    return normalized;
+}
+
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
     const router = useAppRouter();
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
@@ -249,9 +257,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             return;
         }
         if (!currentEffectivePath) return;
+        const normalizedCurrentPath = normalizePathForContainment(currentEffectivePath);
+        const normalizedRevealPath = normalizePathForContainment(fileTreeRevealTarget.path);
         if (
-            fileTreeRevealTarget.path !== currentEffectivePath &&
-            !fileTreeRevealTarget.path.startsWith(`${currentEffectivePath}/`)
+            normalizedRevealPath !== normalizedCurrentPath &&
+            !normalizedRevealPath.startsWith(`${normalizedCurrentPath}/`)
         ) {
             return;
         }

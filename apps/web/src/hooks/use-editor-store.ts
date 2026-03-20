@@ -116,6 +116,24 @@ function nowTimestamp(): number {
   return Date.now();
 }
 
+function removeNavigationTargetForPath(
+  navigationTargets: Record<string, Record<string, FileNavigationTarget>>,
+  workspaceId: string,
+  path: string,
+) {
+  const workspaceTargets = navigationTargets[workspaceId];
+  if (!workspaceTargets?.[path]) {
+    return navigationTargets;
+  }
+
+  const remainingTargets = { ...workspaceTargets };
+  delete remainingTargets[path];
+  return {
+    ...navigationTargets,
+    [workspaceId]: remainingTargets,
+  };
+}
+
 function touchOpenFile(
   file: OpenFile,
   timestamp: number,
@@ -174,7 +192,8 @@ export const useEditorStore = create<EditorStore>()(
           const workspaceTargets = state.navigationTargets[id];
           if (!workspaceTargets?.[path]) return state;
 
-          const { [path]: _removed, ...remainingTargets } = workspaceTargets;
+          const remainingTargets = { ...workspaceTargets };
+          delete remainingTargets[path];
           return {
             navigationTargets: {
               ...state.navigationTargets,
@@ -243,7 +262,7 @@ export const useEditorStore = create<EditorStore>()(
                     [path]: navigationTarget,
                   },
                 }
-              : state.navigationTargets,
+              : removeNavigationTargetForPath(state.navigationTargets, id, path),
           }));
           if (existingFile.isLoading) {
             await get().reloadFileContent(path, id);
@@ -296,7 +315,7 @@ export const useEditorStore = create<EditorStore>()(
                   [path]: navigationTarget,
                 },
               }
-            : state.navigationTargets,
+            : removeNavigationTargetForPath(state.navigationTargets, id, path),
         }));
 
         if (path.startsWith('diff://')) {

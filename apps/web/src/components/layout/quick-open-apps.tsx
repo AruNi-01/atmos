@@ -13,7 +13,7 @@ export interface QuickOpenAppOption {
   group: QuickOpenAppGroup;
 }
 
-export const QUICK_OPEN_APP_OPTIONS: readonly QuickOpenAppOption[] = [
+export const QUICK_OPEN_APP_OPTIONS = [
   { name: 'Finder', label: 'Finder', iconName: 'finder', themed: false, group: 'system' },
   { name: 'Terminal', label: 'Terminal', iconName: 'terminal', themed: false, group: 'system' },
   { name: 'Cursor', label: 'Cursor', iconName: 'Cursor', themed: true, group: 'editors' },
@@ -33,7 +33,7 @@ export const QUICK_OPEN_APP_OPTIONS: readonly QuickOpenAppOption[] = [
   { name: 'CLion', label: 'CLion', iconName: 'clion', themed: false, group: 'jetbrains' },
   { name: 'Rider', label: 'Rider', iconName: 'rider', themed: false, group: 'jetbrains' },
   { name: 'RustRover', label: 'RustRover', iconName: 'rustrover', themed: false, group: 'jetbrains' },
-] as const;
+] as const satisfies readonly QuickOpenAppOption[];
 
 export type QuickOpenAppName = (typeof QUICK_OPEN_APP_OPTIONS)[number]['name'];
 

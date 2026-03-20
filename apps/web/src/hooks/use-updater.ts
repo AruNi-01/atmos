@@ -23,6 +23,7 @@ export type UpdateStatus =
 const RELEASES_BASE_URL = 'https://github.com/AruNi-01/atmos/releases';
 
 let pendingUpdate: Update | null = null;
+let isInstallingUpdate = false;
 
 function toUpdateInfo(update: Update): UpdateInfo {
   return {
@@ -86,8 +87,10 @@ export async function downloadAndInstallUpdate(
   onStatus?: (status: UpdateStatus) => void,
 ): Promise<void> {
   if (!isTauriRuntime()) return;
+  if (isInstallingUpdate) return;
 
   try {
+    isInstallingUpdate = true;
     const { check } = await import('@tauri-apps/plugin-updater');
     const { relaunch } = await import('@tauri-apps/plugin-process');
 
@@ -99,7 +102,6 @@ export async function downloadAndInstallUpdate(
     }
 
     pendingUpdate = update;
-    onStatus?.({ stage: 'available', info: toUpdateInfo(update) });
 
     let downloaded = 0;
     let total: number | null = null;
@@ -137,5 +139,7 @@ export async function downloadAndInstallUpdate(
     pendingUpdate = null;
     const message = e instanceof Error ? e.message : String(e);
     onStatus?.({ stage: 'error', message });
+  } finally {
+    isInstallingUpdate = false;
   }
 }

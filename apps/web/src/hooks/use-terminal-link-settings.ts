@@ -17,6 +17,7 @@ interface TerminalLinkSettingsState {
   fileLinkOpenApp: QuickOpenAppName;
   loaded: boolean;
   loading: boolean;
+  loadRequestToken: number;
   modeRequestToken: number;
   appRequestToken: number;
   loadSettings: () => Promise<void>;
@@ -32,16 +33,22 @@ export const useTerminalLinkSettings = create<TerminalLinkSettingsState>((set, g
   fileLinkOpenApp: DEFAULT_FILE_LINK_OPEN_APP,
   loaded: false,
   loading: false,
+  loadRequestToken: 0,
   modeRequestToken: 0,
   appRequestToken: 0,
 
   loadSettings: async () => {
     if (get().loaded || get().loading) return;
 
-    set({ loading: true });
+    const loadRequestToken = get().loadRequestToken + 1;
+    set({ loading: true, loadRequestToken });
 
     try {
       const settings = await functionSettingsApi.get();
+      const current = get();
+      if (current.loadRequestToken !== loadRequestToken) {
+        return;
+      }
       const nextMode = settings.terminal?.file_link_open_mode;
       const nextApp = settings.terminal?.file_link_open_app;
 
@@ -57,14 +64,23 @@ export const useTerminalLinkSettings = create<TerminalLinkSettingsState>((set, g
         loading: false,
       });
     } catch {
-      set({ loaded: false, loading: false });
+      if (get().loadRequestToken === loadRequestToken) {
+        set({ loaded: false, loading: false });
+      }
     }
   },
 
   setFileLinkOpenMode: async (mode) => {
     const previous = get().fileLinkOpenMode;
     const requestToken = get().modeRequestToken + 1;
-    set({ fileLinkOpenMode: mode, modeRequestToken: requestToken });
+    const loadRequestToken = get().loadRequestToken + 1;
+    set({
+      fileLinkOpenMode: mode,
+      loaded: true,
+      loading: false,
+      loadRequestToken,
+      modeRequestToken: requestToken,
+    });
 
     try {
       await functionSettingsApi.update('terminal', 'file_link_open_mode', mode);
@@ -85,7 +101,14 @@ export const useTerminalLinkSettings = create<TerminalLinkSettingsState>((set, g
     const nextApp = isQuickOpenAppName(app) ? app : DEFAULT_FILE_LINK_OPEN_APP;
     const previous = get().fileLinkOpenApp;
     const requestToken = get().appRequestToken + 1;
-    set({ fileLinkOpenApp: nextApp, appRequestToken: requestToken });
+    const loadRequestToken = get().loadRequestToken + 1;
+    set({
+      fileLinkOpenApp: nextApp,
+      loaded: true,
+      loading: false,
+      loadRequestToken,
+      appRequestToken: requestToken,
+    });
 
     try {
       await functionSettingsApi.update('terminal', 'file_link_open_app', nextApp);

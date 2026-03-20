@@ -18,7 +18,7 @@ import { ClipboardAddon, type ClipboardSelectionType, type IClipboardProvider } 
 import { ImageAddon } from "@xterm/addon-image";
 import { useTheme } from "next-themes";
 import { Loader2, ArrowDown, Search, ChevronDown, ChevronUp, X } from "lucide-react";
-import { Button, cn } from "@workspace/ui";
+import { Button, cn, toastManager } from "@workspace/ui";
 
 // ── Clipboard provider ────────────────────────────────────────────────
 // Custom provider that prevents empty writes from clearing the clipboard
@@ -524,6 +524,39 @@ const Terminal = ({
     };
   }, []);
 
+  const updatePointerModifierState = useCallback((event?: MouseEvent | globalThis.MouseEvent) => {
+    pointerModifierPressedRef.current = Boolean(event && (event.metaKey || event.ctrlKey));
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalMouseDown = (event: MouseEvent) => {
+      updatePointerModifierState(event);
+    };
+
+    const clearPointerModifierState = () => {
+      pointerModifierPressedRef.current = false;
+    };
+
+    window.addEventListener("mousedown", handleGlobalMouseDown, true);
+    window.addEventListener("mouseup", clearPointerModifierState, true);
+    window.addEventListener("blur", clearPointerModifierState);
+
+    return () => {
+      window.removeEventListener("mousedown", handleGlobalMouseDown, true);
+      window.removeEventListener("mouseup", clearPointerModifierState, true);
+      window.removeEventListener("blur", clearPointerModifierState);
+    };
+  }, [updatePointerModifierState]);
+
+  const reportTerminalLinkError = useCallback((target: string, error: unknown) => {
+    const description = error instanceof Error ? error.message : String(error);
+    toastManager.add({
+      title: "Failed to open link",
+      description: `${target}: ${description}`,
+      type: "error",
+    });
+  }, []);
+
   const openExternalLink = useCallback(async (url: string) => {
     const openedByDesktop = await openDesktopExternalUrl(url);
     if (openedByDesktop || typeof window === "undefined") {
@@ -550,36 +583,43 @@ const Terminal = ({
 
     event.preventDefault();
 
-    if (resolved.type === "external") {
-      if (!modifierPressed) {
+    try {
+      if (resolved.type === "external") {
+        if (!modifierPressed) {
+          return;
+        }
+        await openExternalLink(resolved.url);
         return;
       }
-      await openExternalLink(resolved.url);
-      return;
+
+      const targetContextId = currentEditorContextId || workspaceId;
+
+      if (fileLinkOpenMode === 'finder') {
+        await openPathWithApp('Finder', resolved.path);
+        return;
+      }
+
+      if (fileLinkOpenMode === 'app') {
+        await openPathWithApp(fileLinkOpenApp, resolved.path);
+        return;
+      }
+
+      if (resolved.type === "directory") {
+        requestFileTreeReveal(resolved.path, targetContextId);
+        return;
+      }
+
+      await openFile(resolved.path, targetContextId, {
+        preview: false,
+        line: resolved.line,
+        column: resolved.column,
+      });
+    } catch (error) {
+      reportTerminalLinkError(
+        resolved.type === "external" ? resolved.url : resolved.path,
+        error,
+      );
     }
-
-    const targetContextId = currentEditorContextId || workspaceId;
-
-    if (fileLinkOpenMode === 'finder') {
-      await openPathWithApp('Finder', resolved.path);
-      return;
-    }
-
-    if (fileLinkOpenMode === 'app') {
-      await openPathWithApp(fileLinkOpenApp, resolved.path);
-      return;
-    }
-
-    if (resolved.type === "directory") {
-      requestFileTreeReveal(resolved.path, targetContextId);
-      return;
-    }
-
-    await openFile(resolved.path, targetContextId, {
-      preview: false,
-      line: resolved.line,
-      column: resolved.column,
-    });
   }, [
     currentEditorContextId,
     fileLinkOpenApp,
@@ -587,6 +627,7 @@ const Terminal = ({
     openExternalLink,
     openFile,
     openPathWithApp,
+    reportTerminalLinkError,
     requestFileTreeReveal,
     workspaceId,
   ]);
@@ -701,7 +742,7 @@ const Terminal = ({
           column,
           { projectRootPath },
         );
-        if (!resolved) {
+        if (!resolved || resolved.type === "external") {
           return;
         }
         event.preventDefault();
@@ -989,10 +1030,10 @@ const Terminal = ({
         }
       }}
       onMouseDownCapture={(event) => {
-        pointerModifierPressedRef.current = event.metaKey || event.ctrlKey;
+        updatePointerModifierState(event.nativeEvent);
       }}
       onMouseUpCapture={() => {
-        pointerModifierPressedRef.current = false;
+        updatePointerModifierState();
       }}
       style={{
         width: "100%",

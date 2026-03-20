@@ -62,7 +62,6 @@ import { PROJECT_WIKI_WINDOW_NAME, CODE_REVIEW_WINDOW_NAME } from "@/hooks/use-t
 import { CodeReviewDialog } from "@/components/code-review";
 import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { useSidebarLayout } from "@/components/layout/SidebarLayoutContext";
 
 const WikiTab = dynamic(
   () => import("@/components/wiki").then((m) => m.WikiTab),

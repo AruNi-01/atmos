@@ -388,7 +388,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         </div>
       </MosaicWindow>
     );
-  }, [panes, splitTerminal, removeTerminal, workspaceInfo, maximizedIds, workspaceId, onToggleMaximize, setDynamicTitleForScope, actions]);
+  }, [panes, splitTerminal, removeTerminal, workspaceInfo, maximizedIds, workspaceId, onToggleMaximize, setDynamicTitleForScope, actions, projects]);
 
   // Wait for workspace to be ready before rendering any Terminal components
   // This prevents duplicate tmux window creation during initialization
