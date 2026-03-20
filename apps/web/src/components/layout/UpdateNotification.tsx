@@ -7,6 +7,7 @@ import { isTauriRuntime } from '@/lib/desktop-runtime';
 import {
   checkForUpdate,
   downloadAndInstallUpdate,
+  getUpdateReleaseNotesUrl,
   type UpdateStatus,
   type UpdateInfo,
 } from '@/hooks/use-updater';
@@ -71,7 +72,7 @@ export default function UpdateNotification() {
           asChild
         >
           <a
-            href="https://github.com/AruNi-01/atmos/releases"
+            href={getUpdateReleaseNotesUrl(updateInfo)}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -91,7 +92,9 @@ export default function UpdateNotification() {
             ? 'Downloading…'
             : status.stage === 'installing'
               ? 'Installing…'
-              : 'Update'}
+              : status.stage === 'done'
+                ? 'Restarting…'
+                : 'Install'}
         </Button>
       </div>
     </div>

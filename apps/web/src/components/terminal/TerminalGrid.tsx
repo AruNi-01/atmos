@@ -373,6 +373,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             workspaceName={workspaceInfo?.workspaceName}
             isNewPane={pane.isNewPane}
             cwd={workspaceInfo?.localPath}
+            projectRootPath={projects.find((project) =>
+              project.id === workspaceId || project.workspaces.some((workspace) => workspace.id === workspaceId)
+            )?.mainFilePath}
             onTitleChange={(title) => setDynamicTitleForScope(workspaceId, id, title)}
             onSessionReady={() => {
               const cmd = pendingCommandsRef.current.get(id);
@@ -385,7 +388,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         </div>
       </MosaicWindow>
     );
-  }, [panes, splitTerminal, removeTerminal, workspaceInfo, maximizedIds, workspaceId, onToggleMaximize, setDynamicTitleForScope, actions]);
+  }, [panes, splitTerminal, removeTerminal, workspaceInfo, maximizedIds, workspaceId, onToggleMaximize, setDynamicTitleForScope, actions, projects]);
 
   // Wait for workspace to be ready before rendering any Terminal components
   // This prevents duplicate tmux window creation during initialization

@@ -10,7 +10,6 @@ import {
 } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebLinksAddon } from "@xterm/addon-web-links";
 import { SearchAddon } from "@xterm/addon-search";
 import type { ISearchOptions, ISearchResultChangeEvent } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -19,7 +18,7 @@ import { ClipboardAddon, type ClipboardSelectionType, type IClipboardProvider } 
 import { ImageAddon } from "@xterm/addon-image";
 import { useTheme } from "next-themes";
 import { Loader2, ArrowDown, Search, ChevronDown, ChevronUp, X } from "lucide-react";
-import { Button, cn } from "@workspace/ui";
+import { Button, cn, toastManager } from "@workspace/ui";
 
 // ── Clipboard provider ────────────────────────────────────────────────
 // Custom provider that prevents empty writes from clearing the clipboard
@@ -51,6 +50,16 @@ import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont }
 import { useTerminalWebSocket } from "./use-terminal-websocket";
 import type { TerminalProps } from "./types";
 import { getRuntimeApiConfig } from "@/lib/desktop-runtime";
+import { openDesktopExternalUrl } from "@/lib/desktop-external-url";
+import { useEditorStore } from "@/hooks/use-editor-store";
+import { appApi } from "@/api/ws-api";
+import {
+  createTerminalLinkProvider,
+  type ResolvedTerminalLink,
+  resolveTerminalLinkAtCell,
+  resolveTerminalLink,
+} from "./terminal-link-routing";
+import { useTerminalLinkSettings } from "@/hooks/use-terminal-link-settings";
 
 const TERMINAL_FONT_REGULAR_PATH = "/fonts/HackNerdFontMono-Regular.ttf";
 const TERMINAL_FONT_BOLD_PATH = "/fonts/HackNerdFontMono-Bold.ttf";
@@ -189,6 +198,7 @@ const Terminal = ({
   onSessionError,
   noTmux,
   cwd,
+  projectRootPath,
   onData, // New prop
   readOnly,
   onInputWhileReadOnly,
@@ -211,6 +221,10 @@ const Terminal = ({
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modifierKeyPressedRef = useRef(false);
+  const pointerModifierPressedRef = useRef(false);
+  const handleTerminalLinkRef = useRef<(event: MouseEvent, resolved: ResolvedTerminalLink) => Promise<void>>(async () => {});
+  const handleResolvedLinkRef = useRef<(event: MouseEvent, rawText: string) => Promise<void>>(async () => {});
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -223,6 +237,14 @@ const Terminal = ({
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
   const { resolvedTheme } = useTheme();
+  const openFile = useEditorStore((state) => state.openFile);
+  const requestFileTreeReveal = useEditorStore((state) => state.requestFileTreeReveal);
+  const currentEditorContextId = useEditorStore((state) => state.currentWorkspaceId);
+  const {
+    fileLinkOpenMode,
+    fileLinkOpenApp,
+    loadSettings: loadTerminalLinkSettings,
+  } = useTerminalLinkSettings();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
   const terminalSearchInputId = useId();
@@ -478,11 +500,284 @@ const Terminal = ({
     readOnlyRef.current = readOnly;
   }, [readOnly]);
 
+  useEffect(() => {
+    void loadTerminalLinkSettings();
+  }, [loadTerminalLinkSettings]);
+
+  useEffect(() => {
+    const handleKeyStateChange = (event: KeyboardEvent) => {
+      modifierKeyPressedRef.current = event.metaKey || event.ctrlKey;
+    };
+
+    const clearModifierState = () => {
+      modifierKeyPressedRef.current = false;
+    };
+
+    window.addEventListener("keydown", handleKeyStateChange, true);
+    window.addEventListener("keyup", handleKeyStateChange, true);
+    window.addEventListener("blur", clearModifierState);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyStateChange, true);
+      window.removeEventListener("keyup", handleKeyStateChange, true);
+      window.removeEventListener("blur", clearModifierState);
+    };
+  }, []);
+
+  const updatePointerModifierState = useCallback((event?: MouseEvent | globalThis.MouseEvent) => {
+    pointerModifierPressedRef.current = Boolean(event && (event.metaKey || event.ctrlKey));
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalMouseDown = (event: MouseEvent) => {
+      updatePointerModifierState(event);
+    };
+
+    const clearPointerModifierState = () => {
+      pointerModifierPressedRef.current = false;
+    };
+
+    window.addEventListener("mousedown", handleGlobalMouseDown, true);
+    window.addEventListener("mouseup", clearPointerModifierState, true);
+    window.addEventListener("blur", clearPointerModifierState);
+
+    return () => {
+      window.removeEventListener("mousedown", handleGlobalMouseDown, true);
+      window.removeEventListener("mouseup", clearPointerModifierState, true);
+      window.removeEventListener("blur", clearPointerModifierState);
+    };
+  }, [updatePointerModifierState]);
+
+  const reportTerminalLinkError = useCallback((target: string, error: unknown) => {
+    const description = error instanceof Error ? error.message : String(error);
+    toastManager.add({
+      title: "Failed to open link",
+      description: `${target}: ${description}`,
+      type: "error",
+    });
+  }, []);
+
+  const openExternalLink = useCallback(async (url: string) => {
+    const openedByDesktop = await openDesktopExternalUrl(url);
+    if (openedByDesktop || typeof window === "undefined") {
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, []);
+
+  const openPathWithApp = useCallback(async (appName: string, path: string) => {
+    await appApi.openWith(appName, path);
+  }, []);
+
+  const handleTerminalLink = useCallback(async (event: MouseEvent, resolved: ResolvedTerminalLink) => {
+    if (!resolved) {
+      return;
+    }
+
+    const modifierPressed =
+      event.metaKey ||
+      event.ctrlKey ||
+      modifierKeyPressedRef.current ||
+      pointerModifierPressedRef.current;
+
+    event.preventDefault();
+
+    try {
+      if (resolved.type === "external") {
+        if (!modifierPressed) {
+          return;
+        }
+        await openExternalLink(resolved.url);
+        return;
+      }
+
+      const targetContextId = currentEditorContextId || workspaceId;
+
+      if (fileLinkOpenMode === 'finder') {
+        await openPathWithApp('Finder', resolved.path);
+        return;
+      }
+
+      if (fileLinkOpenMode === 'app') {
+        await openPathWithApp(fileLinkOpenApp, resolved.path);
+        return;
+      }
+
+      if (resolved.type === "directory") {
+        requestFileTreeReveal(resolved.path, targetContextId);
+        return;
+      }
+
+      await openFile(resolved.path, targetContextId, {
+        preview: false,
+        line: resolved.line,
+        column: resolved.column,
+      });
+    } catch (error) {
+      reportTerminalLinkError(
+        resolved.type === "external" ? resolved.url : resolved.path,
+        error,
+      );
+    }
+  }, [
+    currentEditorContextId,
+    fileLinkOpenApp,
+    fileLinkOpenMode,
+    openExternalLink,
+    openFile,
+    openPathWithApp,
+    reportTerminalLinkError,
+    requestFileTreeReveal,
+    workspaceId,
+  ]);
+
+  const handleResolvedLink = useCallback(async (event: MouseEvent, rawText: string) => {
+    const resolved = await resolveTerminalLink(rawText, {
+      projectRootPath,
+    });
+
+    await handleTerminalLink(event, resolved);
+  }, [handleTerminalLink, projectRootPath]);
+
+  useEffect(() => {
+    handleTerminalLinkRef.current = handleTerminalLink;
+  }, [handleTerminalLink]);
+
+  useEffect(() => {
+    handleResolvedLinkRef.current = handleResolvedLink;
+  }, [handleResolvedLink]);
+
+  const getAnchorCandidates = useCallback((anchor: HTMLAnchorElement) => {
+    const candidates: string[] = [];
+    const textContent = anchor.textContent?.trim();
+    const rawHref = anchor.getAttribute("href")?.trim();
+
+    if (textContent) {
+      candidates.push(textContent);
+    }
+
+    if (!rawHref) {
+      return candidates;
+    }
+
+    candidates.push(rawHref);
+
+    return [...new Set(candidates)];
+  }, []);
+
+  const handleTerminalAnchorActivation = useCallback((anchor: HTMLAnchorElement, event: MouseEvent) => {
+    const candidates = getAnchorCandidates(anchor);
+    const shouldIntercept = candidates.some((candidate) =>
+      candidate.startsWith("/") ||
+      candidate.startsWith("~/") ||
+      candidate.startsWith("./") ||
+      candidate.startsWith("../") ||
+      candidate.startsWith("file://")
+    );
+    if (shouldIntercept) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    void (async () => {
+      for (const candidate of candidates) {
+        const resolved = await resolveTerminalLink(candidate, {
+          projectRootPath,
+        });
+        if (!resolved || resolved.type === "external") {
+          continue;
+        }
+
+        await handleTerminalLink(event, resolved);
+        return;
+      }
+    })();
+  }, [getAnchorCandidates, handleTerminalLink, projectRootPath]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleNativeMouseActivation = (event: MouseEvent) => {
+      const terminal = terminalRef.current;
+      if (!terminal) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof HTMLCanvasElement) || !target.classList.contains("xterm-link-layer")) {
+        return;
+      }
+
+      const core = (terminal as unknown as {
+        _core?: {
+          _mouseService?: {
+            getCoords: (
+              event: MouseEvent,
+              element: HTMLElement,
+              colCount: number,
+              rowCount: number,
+            ) => [number, number] | undefined;
+          };
+        };
+      })._core;
+
+      const coords = core?._mouseService?.getCoords(
+        event,
+        terminal.element ?? container,
+        terminal.cols,
+        terminal.rows,
+      );
+      if (!coords) {
+        return;
+      }
+
+      const bufferLineNumber = coords[1] + terminal.buffer.active.viewportY;
+      const column = coords[0];
+      void (async () => {
+        const resolved = await resolveTerminalLinkAtCell(
+          terminal,
+          bufferLineNumber,
+          column,
+          { projectRootPath },
+        );
+        if (!resolved || resolved.type === "external") {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        await handleTerminalLink(event, resolved);
+      })();
+    };
+
+    const handleNativeClickCapture = (event: MouseEvent) => {
+      handleNativeMouseActivation(event);
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const anchor = target.closest("a");
+      if (!anchor) {
+        return;
+      }
+
+      handleTerminalAnchorActivation(anchor, event);
+    };
+
+    container.addEventListener("click", handleNativeClickCapture, true);
+    return () => {
+      container.removeEventListener("click", handleNativeClickCapture, true);
+    };
+  }, [handleTerminalAnchorActivation, handleTerminalLink, projectRootPath]);
+
   // Initialize terminal
   useEffect(() => {
     if (!containerRef.current || terminalRef.current) return;
 
     let cancelled = false;
+    let linkProvider: { dispose: () => void } | null = null;
 
     const initTerminal = async () => {
       try {
@@ -497,11 +792,16 @@ const Terminal = ({
     const terminal = new XTerm({
       ...defaultTerminalOptions,
       theme: currentTheme,
+      linkHandler: {
+        activate(event, text) {
+          void handleResolvedLinkRef.current(event, text);
+        },
+        allowNonHttpProtocols: true,
+      },
     });
 
     // Create addons
     const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
     const searchAddon = new SearchAddon();
 
     // Load addons
@@ -509,7 +809,11 @@ const Terminal = ({
     terminal.loadAddon(unicode11Addon);
     terminal.unicode.activeVersion = "11";
     terminal.loadAddon(fitAddon);
-    terminal.loadAddon(webLinksAddon);
+    linkProvider = terminal.registerLinkProvider(
+      createTerminalLinkProvider(terminal, { projectRootPath }, (event, target) => {
+        void handleTerminalLinkRef.current(event, target);
+      })
+    );
     terminal.loadAddon(searchAddon);
     searchAddonRef.current = searchAddon;
     searchResultsListenerRef.current = searchAddon.onDidChangeResults((event: ISearchResultChangeEvent) => {
@@ -706,13 +1010,14 @@ const Terminal = ({
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
       searchResultsListenerRef.current?.dispose();
       searchResultsListenerRef.current = null;
+      linkProvider?.dispose();
       searchAddonRef.current = null;
       webglAddonRef.current?.dispose();
       terminalRef.current?.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [sessionId, workspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, workspaceId, cwd, projectRootPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -723,6 +1028,12 @@ const Terminal = ({
           event.stopPropagation();
           openSearch();
         }
+      }}
+      onMouseDownCapture={(event) => {
+        updatePointerModifierState(event.nativeEvent);
+      }}
+      onMouseUpCapture={() => {
+        updatePointerModifierState();
       }}
       style={{
         width: "100%",

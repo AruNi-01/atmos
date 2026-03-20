@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
 import { useContextParams } from "@/hooks/use-context-params";
@@ -49,7 +49,7 @@ import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
-import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, RefreshCw, Settings } from "lucide-react";
+import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { LlmProvidersModal } from './LlmProvidersModal';
 import { TokenUsageDialog } from './TokenUsageDialog';
@@ -61,7 +61,7 @@ const Header: React.FC = () => {
   const searchParams = useSearchParams();
   const locale = params?.locale as string || 'en';
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
-  const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
+  const { isLeftCollapsed, isRightCollapsed, showRightSidebar, toggleLeftSidebar, toggleRightSidebar } = useSidebarLayout();
 
   const projects = useProjectStore(s => s.projects);
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
@@ -875,6 +875,27 @@ const Header: React.FC = () => {
           >
             {actionsCollapsed ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
           </button>
+          <AnimatePresence initial={false}>
+            {showRightSidebar ? (
+              <motion.div
+                key="right-sidebar-toggle"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="flex"
+              >
+                <button
+                  type="button"
+                  aria-label={isRightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
+                  onClick={toggleRightSidebar}
+                  className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                >
+                  {isRightCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}
+                </button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       </div>
 

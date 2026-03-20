@@ -31,9 +31,13 @@ interface CodeMirrorEditorProps {
 }
 
 export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, className }) => {
-  const { workspaceId } = useContextParams();
+  const { effectiveContextId } = useContextParams();
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
+  const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
+  const navigationTarget = useEditorStore((state) =>
+    effectiveContextId ? state.navigationTargets[effectiveContextId]?.[file.path] ?? null : null
+  );
   const {
     autoSave,
     lineWrap,
@@ -125,7 +129,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     if (!editorSettingsLoaded || !autoSave || file.isLoading || !file.isDirty) return;
 
     const timer = setTimeout(() => {
-      void saveFile(file.path, workspaceId || undefined).catch(() => {
+      void saveFile(file.path, effectiveContextId || undefined).catch(() => {
         toastManager.add({
           title: 'Auto Save Failed',
           description: `Failed to auto-save ${file.name}`,
@@ -144,7 +148,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     file.name,
     file.path,
     saveFile,
-    workspaceId,
+    effectiveContextId,
   ]);
 
   // Toggle preview
@@ -157,7 +161,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   // Handle save
   const handleSave = useCallback(async () => {
     try {
-      await saveFile(file.path, workspaceId || undefined);
+      await saveFile(file.path, effectiveContextId || undefined);
       toastManager.add({
         title: 'Saved',
         description: `${file.name} saved successfully`,
@@ -170,7 +174,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
         type: 'error',
       });
     }
-  }, [file.path, file.name, saveFile, workspaceId]);
+  }, [effectiveContextId, file.path, file.name, saveFile]);
 
   const handleEditorCreate = useCallback((editor: EditorView) => {
     editorRef.current = editor;
@@ -178,8 +182,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   }, []);
 
   const handleEditorChange = useCallback((value: string) => {
-    updateFileContent(file.path, value, workspaceId || undefined);
-  }, [file.path, updateFileContent, workspaceId]);
+    updateFileContent(file.path, value, effectiveContextId || undefined);
+  }, [effectiveContextId, file.path, updateFileContent]);
 
   // Global save hotkey (Cmd/Ctrl + S)
   useHotkeys('mod+s', (e) => {
@@ -297,8 +301,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                 language={file.language}
                 value={file.content}
                 lineWrap={lineWrap}
+                navigationTarget={navigationTarget}
                 onChange={handleEditorChange}
                 onCreateEditor={handleEditorCreate}
+                onNavigationTargetApplied={() => clearNavigationTarget(file.path, effectiveContextId || undefined)}
                 onSave={handleSave}
                 autoFocus
               />

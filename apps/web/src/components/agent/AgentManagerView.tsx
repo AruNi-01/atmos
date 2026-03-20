@@ -204,21 +204,21 @@ export const AgentManagerView: React.FC = () => {
         <div className="px-8 pt-4 pb-2">
           <div className="max-w-5xl mx-auto w-full">
             <TabsList>
-              <TabsTrigger value="installed">
-                <Download className="size-4" />
-                Installed
-                {!mgr.loading && mgr.installedCount + mgr.customAgents.length > 0 && (
-                  <span className="ml-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
-                    {mgr.installedCount + mgr.customAgents.length}
-                  </span>
-                )}
-              </TabsTrigger>
               <TabsTrigger value="registry">
                 <Globe className="size-4" />
                 ACP Registry
                 {!mgr.loading && (
                   <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground tabular-nums">
                     {mgr.registryAgents.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="installed">
+                <Download className="size-4" />
+                Installed
+                {!mgr.loading && mgr.installedCount + mgr.customAgents.length > 0 && (
+                  <span className="ml-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
+                    {mgr.installedCount + mgr.customAgents.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -237,6 +237,40 @@ export const AgentManagerView: React.FC = () => {
 
         <div className="flex-1 scrollbar-on-hover overflow-auto px-8 pt-4 pb-8">
           <div className="max-w-5xl mx-auto w-full">
+            <TabsContent keepMounted value="registry">
+              {mgr.loading ? <AgentSkeletonGrid /> : (
+                <>
+                  {mgr.filteredRegistry.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <AnimatePresence mode="popLayout" initial={false}>
+                        {mgr.filteredRegistry.map((item, index) => (
+                          <AgentCard
+                            key={item.id}
+                            item={item}
+                            index={index}
+                            installingRegistryId={mgr.installingRegistryId}
+                            removingRegistryId={mgr.removingRegistryId}
+                            onInstall={mgr.handleInstallRegistry}
+                            onRemoveRequest={mgr.setRemoveConfirmDialog}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  ) : (
+                    <AgentEmptyState
+                      message={
+                        query
+                          ? `No registry agents matching "${query}".`
+                          : "No agents available in the ACP registry."
+                      }
+                      query={query}
+                      onClearSearch={handleClearSearch}
+                    />
+                  )}
+                </>
+              )}
+            </TabsContent>
+
             <TabsContent keepMounted value="installed">
               {mgr.loading ? <AgentSkeletonGrid /> : (
                 <>
@@ -272,40 +306,6 @@ export const AgentManagerView: React.FC = () => {
                         query
                           ? `No installed agents matching "${query}".`
                           : "No agents installed yet. Browse the ACP Registry to get started."
-                      }
-                      query={query}
-                      onClearSearch={handleClearSearch}
-                    />
-                  )}
-                </>
-              )}
-            </TabsContent>
-
-            <TabsContent keepMounted value="registry">
-              {mgr.loading ? <AgentSkeletonGrid /> : (
-                <>
-                  {mgr.filteredRegistry.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <AnimatePresence mode="popLayout" initial={false}>
-                        {mgr.filteredRegistry.map((item, index) => (
-                          <AgentCard
-                            key={item.id}
-                            item={item}
-                            index={index}
-                            installingRegistryId={mgr.installingRegistryId}
-                            removingRegistryId={mgr.removingRegistryId}
-                            onInstall={mgr.handleInstallRegistry}
-                            onRemoveRequest={mgr.setRemoveConfirmDialog}
-                          />
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  ) : (
-                    <AgentEmptyState
-                      message={
-                        query
-                          ? `No registry agents matching "${query}".`
-                          : "No agents available in the ACP registry."
                       }
                       query={query}
                       onClearSearch={handleClearSearch}

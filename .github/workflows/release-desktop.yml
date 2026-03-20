@@ -28,6 +28,17 @@ on:
         description: "Git ref to build (branch, tag or SHA)"
         required: false
         default: "main"
+      platform:
+        description: "Target platform"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "macos-14"
+          - "macos-15-intel"
+          - "ubuntu-22.04"
+          - "windows-latest"
       create_release:
         description: "Create GitHub Release"
         required: true
@@ -98,18 +109,69 @@ jobs:
       release_tag: ${{ steps.resolve.outputs.release_tag }}
       prerelease: ${{ steps.resolve.outputs.prerelease }}
       checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
+      build_matrix: ${{ steps.resolve.outputs.build_matrix }}
     steps:
       - name: Resolve values
         id: resolve
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+
           EVENT="${{ github.event_name }}"
+
+          matrix_for_platform() {
+            case "$1" in
+              "all" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"},{"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"},{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""},{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}]}'
+                ;;
+              "macos-14" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"}]}'
+                ;;
+              "macos-15-intel" )
+                printf '%s\n' '{"include":[{"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"}]}'
+                ;;
+              "ubuntu-22.04" )
+                printf '%s\n' '{"include":[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""}]}'
+                ;;
+              "windows-latest" )
+                printf '%s\n' '{"include":[{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}]}'
+                ;;
+              * )
+                echo "❌ Unsupported platform input: $1"
+                exit 1
+                ;;
+            esac
+          }
+
+          validate_checkout_ref() {
+            local ref="$1"
+            local encoded_ref
+            encoded_ref="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ref")"
+
+            local status
+            status="$(
+              curl -sS -o /dev/null -w "%{http_code}" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${encoded_ref}"
+            )"
+
+            if [ "$status" != "200" ]; then
+              echo "❌ Invalid Git ref to build: $ref"
+              echo "   GitHub API returned HTTP $status for /commits/$ref"
+              exit 1
+            fi
+          }
 
           if [ "$EVENT" = "push" ]; then
             echo "create_release=true" >> "$GITHUB_OUTPUT"
             echo "release_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            BUILD_MATRIX="$(matrix_for_platform "all")"
+            echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -117,6 +179,7 @@ jobs:
           RELEASE_TAG="${{ github.event.inputs.release_tag }}"
           PRERELEASE="${{ github.event.inputs.prerelease }}"
           CHECKOUT_REF="${{ github.event.inputs.ref }}"
+          PLATFORM="${{ github.event.inputs.platform }}"
 
           if [ -z "$CHECKOUT_REF" ]; then
             CHECKOUT_REF="main"
@@ -127,10 +190,14 @@ jobs:
             exit 1
           fi
 
+          validate_checkout_ref "$CHECKOUT_REF"
+
           echo "create_release=$CREATE_RELEASE" >> "$GITHUB_OUTPUT"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
           echo "checkout_ref=$CHECKOUT_REF" >> "$GITHUB_OUTPUT"
+          BUILD_MATRIX="$(matrix_for_platform "$PLATFORM")"
+          echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
 
   build-and-release:
     name: Build desktop (${{ matrix.target }})
@@ -138,20 +205,7 @@ jobs:
     needs: resolve-release-config
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - platform: "macos-14"
-            target: "aarch64-apple-darwin"
-            args: "--target aarch64-apple-darwin"
-          - platform: "macos-15-intel"
-            target: "x86_64-apple-darwin"
-            args: "--target x86_64-apple-darwin"
-          - platform: "ubuntu-22.04"
-            target: "x86_64-unknown-linux-gnu"
-            args: ""
-          - platform: "windows-latest"
-            target: "x86_64-pc-windows-msvc"
-            args: ""
+      matrix: ${{ fromJSON(needs.resolve-release-config.outputs.build_matrix) }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v5
@@ -161,9 +215,14 @@ jobs:
       - uses: oven-sh/setup-bun@v2
 
       - name: Verify desktop versions and release tag
+        if: needs.resolve-release-config.outputs.create_release == 'true'
         shell: bash
         env:
           RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: node ./scripts/release/check-desktop-version.mjs
+
+      - name: Verify desktop versions
+        if: needs.resolve-release-config.outputs.create_release != 'true'
         run: node ./scripts/release/check-desktop-version.mjs
 
       - uses: dtolnay/rust-toolchain@stable
@@ -195,12 +254,67 @@ jobs:
           mkdir -p apps/desktop/src-tauri/binaries
           cp target/${{ matrix.target }}/release/api${EXT} apps/desktop/src-tauri/binaries/api-${{ matrix.target }}${EXT}
 
+      - name: Export updater signing env
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
+            echo "❌ Missing secret: TAURI_SIGNING_PRIVATE_KEY"
+            exit 1
+          fi
+
+          {
+            echo 'TAURI_SIGNING_PRIVATE_KEY<<__EOF__'
+            echo "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}"
+            echo '__EOF__'
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}"
+          } >> "$GITHUB_ENV"
+
       - name: Build Tauri app (manual validation without release)
         if: needs.resolve-release-config.outputs.create_release != 'true'
         working-directory: apps/desktop
         env:
           ATMOS_LOG_LEVEL: info
-        run: bun tauri build ${{ matrix.args }} --no-bundle
+          APPLE_SIGNING_IDENTITY: "-"
+        run: bun tauri build ${{ matrix.args }}
+
+      - name: Collect manual build artifacts
+        if: needs.resolve-release-config.outputs.create_release != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_DIR="target/${{ matrix.target }}/release"
+          BUNDLE_DIR="$RELEASE_DIR/bundle"
+          OUT_DIR="$RUNNER_TEMP/desktop-artifacts/${{ matrix.target }}"
+          mkdir -p "$OUT_DIR"
+
+          if [ -d "$BUNDLE_DIR/macos/Atmos.app" ]; then
+            ditto -c -k --sequesterRsrc --keepParent \
+              "$BUNDLE_DIR/macos/Atmos.app" \
+              "$OUT_DIR/Atmos-${{ matrix.target }}.zip"
+          fi
+
+          find "$BUNDLE_DIR" -type f \
+            \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.zip' \) \
+            -exec cp {} "$OUT_DIR/" \;
+
+          if [ -z "$(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+            echo "❌ No manual build artifacts found under $BUNDLE_DIR"
+            exit 1
+          fi
+
+          echo "Collected artifacts:"
+          find "$OUT_DIR" -maxdepth 1 -type f -print
+
+      - name: Upload manual build artifacts
+        if: needs.resolve-release-config.outputs.create_release != 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: desktop-${{ matrix.target }}
+          path: ${{ runner.temp }}/desktop-artifacts/${{ matrix.target }}
+          if-no-files-found: error
 
       - name: Build and release Tauri app
         if: needs.resolve-release-config.outputs.create_release == 'true'

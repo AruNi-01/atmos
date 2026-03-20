@@ -62,9 +62,17 @@ interface LeftSidebarProps {
     projects?: Project[];
 }
 
+function normalizePathForContainment(path: string): string {
+    const normalized = path.replace(/\\/g, '/');
+    if (normalized.length > 1 && normalized.endsWith('/')) {
+        return normalized.slice(0, -1);
+    }
+    return normalized;
+}
+
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
     const router = useAppRouter();
-    const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, currentView } = useContextParams();
+    const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
     const {
         projects,
         fetchProjects,
@@ -98,6 +106,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     );
 
     const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
+    const fileTreeRevealTarget = useEditorStore(s => s.fileTreeRevealTarget);
     const { setCurrentContext } = useGitInfoStore();
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
@@ -196,13 +205,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         setIsLoadingFiles(true);
         setFileTreeData([]);
 
-        console.log(`[Req #${currentRequestId}] Fetching files for Project: ${projectId}, Workspace: ${workspaceId}, Path: ${effectivePath}`);
-
         try {
             const response = await fsApi.listProjectFiles(effectivePath, { showHidden });
 
             if (fetchRequestId.current === currentRequestId) {
-                console.log(`[Req #${currentRequestId}] Fetch success. Updating state.`);
                 setFileTreeData(response.tree);
                 setFileTreeProjectId(projectId);
                 setFileTreeWorkspaceId(workspaceId);
@@ -244,6 +250,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             }
         }
     }, [activeTab, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
+
+    useEffect(() => {
+        if (!fileTreeRevealTarget) return;
+        if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== effectiveContextId) {
+            return;
+        }
+        if (!currentEffectivePath) return;
+        const normalizedCurrentPath = normalizePathForContainment(currentEffectivePath);
+        const normalizedRevealPath = normalizePathForContainment(fileTreeRevealTarget.path);
+        if (
+            normalizedRevealPath !== normalizedCurrentPath &&
+            !normalizedRevealPath.startsWith(`${normalizedCurrentPath}/`)
+        ) {
+            return;
+        }
+        if (activeTab !== 'files') {
+            void setActiveTab('files');
+        }
+    }, [activeTab, currentEffectivePath, currentWorkspaceId, effectiveContextId, fileTreeRevealTarget, setActiveTab]);
 
     const handleTabChange = (value: string) => {
         setActiveTab(value as LeftSidebarTab);

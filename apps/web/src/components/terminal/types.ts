@@ -50,6 +50,8 @@ export interface TerminalProps {
   noTmux?: boolean;
   /** Working directory for the terminal session */
   cwd?: string;
+  /** Project root path for resolving project-relative file links */
+  projectRootPath?: string;
   onData?: (data: string) => void;
   readOnly?: boolean;
   /** Called when the terminal's dynamic title changes (from shell shim OSC sequences) */

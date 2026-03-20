@@ -72,7 +72,7 @@ function getReleaseTagFromArgs(argv) {
     }
   }
 
-  return process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME || "";
+  return process.env.RELEASE_TAG || "";
 }
 
 function printResult(label, version) {

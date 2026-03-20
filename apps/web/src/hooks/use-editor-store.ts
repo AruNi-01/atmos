@@ -22,6 +22,17 @@ export interface OpenFile {
   lastFocusedAt: number;
 }
 
+export interface FileNavigationTarget {
+  line: number;
+  column?: number;
+}
+
+export interface FileTreeRevealTarget {
+  path: string;
+  workspaceId?: string;
+  requestId: number;
+}
+
 interface WorkspaceState {
   openFiles: OpenFile[];
   activeFilePath: string | null;
@@ -30,6 +41,8 @@ interface WorkspaceState {
 interface EditorStore {
   // 状态
   workspaceStates: Record<string, WorkspaceState>;
+  navigationTargets: Record<string, Record<string, FileNavigationTarget>>;
+  fileTreeRevealTarget: FileTreeRevealTarget | null;
   currentWorkspaceId: string | null;
   
   // 当前项目路径 (这个可能是全局的或者也是按 workspace 的，根据之前代码暂定全局，但改为按 workspace 更合理)
@@ -41,7 +54,11 @@ interface EditorStore {
   
   // 动作
   setWorkspaceId: (workspaceId: string | null) => void;
-  openFile: (path: string, workspaceId?: string, options?: { preview?: boolean }) => Promise<void>;
+  openFile: (
+    path: string,
+    workspaceId?: string,
+    options?: { preview?: boolean; line?: number; column?: number }
+  ) => Promise<void>;
   reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
   pinFile: (path: string, workspaceId?: string) => void;
   closeFile: (path: string, workspaceId?: string) => void;
@@ -50,6 +67,9 @@ interface EditorStore {
   saveFile: (path: string, workspaceId?: string) => Promise<void>;
   saveActiveFile: (workspaceId?: string) => Promise<void>;
   setCurrentProjectPath: (path: string | null) => void;
+  clearNavigationTarget: (path: string, workspaceId?: string) => void;
+  requestFileTreeReveal: (path: string, workspaceId?: string) => void;
+  clearFileTreeRevealTarget: (requestId?: number) => void;
   
   // 辅助方法
   getOpenFiles: (workspaceId?: string) => OpenFile[];
@@ -96,6 +116,24 @@ function nowTimestamp(): number {
   return Date.now();
 }
 
+function removeNavigationTargetForPath(
+  navigationTargets: Record<string, Record<string, FileNavigationTarget>>,
+  workspaceId: string,
+  path: string,
+) {
+  const workspaceTargets = navigationTargets[workspaceId];
+  if (!workspaceTargets?.[path]) {
+    return navigationTargets;
+  }
+
+  const remainingTargets = { ...workspaceTargets };
+  delete remainingTargets[path];
+  return {
+    ...navigationTargets,
+    [workspaceId]: remainingTargets,
+  };
+}
+
 function touchOpenFile(
   file: OpenFile,
   timestamp: number,
@@ -113,6 +151,8 @@ export const useEditorStore = create<EditorStore>()(
   persist(
     (set, get) => ({
       workspaceStates: {},
+      navigationTargets: {},
+      fileTreeRevealTarget: null,
       currentWorkspaceId: null,
       currentProjectPath: null,
       _hasHydrated: false,
@@ -122,6 +162,46 @@ export const useEditorStore = create<EditorStore>()(
       setWorkspaceId: (id) => set({ currentWorkspaceId: id }),
 
       setCurrentProjectPath: (path) => set({ currentProjectPath: path }),
+
+      requestFileTreeReveal: (path, workspaceId) =>
+        set((state) => ({
+          fileTreeRevealTarget: {
+            path,
+            workspaceId: workspaceId || state.currentWorkspaceId || undefined,
+            requestId: Date.now(),
+          },
+        })),
+
+      clearFileTreeRevealTarget: (requestId) =>
+        set((state) => {
+          if (!state.fileTreeRevealTarget) return state;
+          if (
+            typeof requestId === 'number' &&
+            state.fileTreeRevealTarget.requestId !== requestId
+          ) {
+            return state;
+          }
+          return { fileTreeRevealTarget: null };
+        }),
+
+      clearNavigationTarget: (path, workspaceId) => {
+        const id = workspaceId || get().currentWorkspaceId;
+        if (!id) return;
+
+        set((state) => {
+          const workspaceTargets = state.navigationTargets[id];
+          if (!workspaceTargets?.[path]) return state;
+
+          const remainingTargets = { ...workspaceTargets };
+          delete remainingTargets[path];
+          return {
+            navigationTargets: {
+              ...state.navigationTargets,
+              [id]: remainingTargets,
+            },
+          };
+        });
+      },
 
       getOpenFiles: (workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
@@ -145,6 +225,16 @@ export const useEditorStore = create<EditorStore>()(
         const timestamp = nowTimestamp();
 
         const isPreview = options?.preview ?? true; // Default to preview mode
+        const navigationTarget =
+          typeof options?.line === 'number' && Number.isFinite(options.line)
+            ? {
+                line: Math.max(1, Math.floor(options.line)),
+                column:
+                  typeof options.column === 'number' && Number.isFinite(options.column)
+                    ? Math.max(1, Math.floor(options.column))
+                    : undefined,
+              }
+            : null;
 
         const currentState = get().workspaceStates[id] || { openFiles: [], activeFilePath: null };
         const { openFiles } = currentState;
@@ -163,7 +253,16 @@ export const useEditorStore = create<EditorStore>()(
                     : file
                 ),
               }
-            }
+            },
+            navigationTargets: navigationTarget
+              ? {
+                  ...state.navigationTargets,
+                  [id]: {
+                    ...(state.navigationTargets[id] || {}),
+                    [path]: navigationTarget,
+                  },
+                }
+              : removeNavigationTargetForPath(state.navigationTargets, id, path),
           }));
           if (existingFile.isLoading) {
             await get().reloadFileContent(path, id);
@@ -207,7 +306,16 @@ export const useEditorStore = create<EditorStore>()(
               openFiles: newOpenFiles,
               activeFilePath: path,
             }
-          }
+          },
+          navigationTargets: navigationTarget
+            ? {
+                ...state.navigationTargets,
+                [id]: {
+                  ...(state.navigationTargets[id] || {}),
+                  [path]: navigationTarget,
+                },
+              }
+            : removeNavigationTargetForPath(state.navigationTargets, id, path),
         }));
 
         if (path.startsWith('diff://')) {

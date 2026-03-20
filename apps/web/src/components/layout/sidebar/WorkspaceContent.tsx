@@ -166,29 +166,29 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
           isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
         )}
       >
-        <div className="flex items-center min-w-0 w-full relative">
-          <div className="flex items-center flex-1 min-w-0">
-            <div className="relative size-3.5 mr-2 flex shrink-0 items-center justify-center rounded-sm">
-              <GitBranch
-                className={cn(
-                  "size-3.5",
-                  isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
-                  workspace.isPinned ? "hidden" : "block group-hover/ws:hidden"
-                )}
-              />
-              <button
-                onClick={handlePinClick}
-                className={cn(
-                  "size-full items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
-                  workspace.isPinned 
-                    ? "flex text-amber-500" 
-                    : "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
-                )}
-                title={workspace.isPinned ? "Unpin" : "Pin"}
-              >
-                <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
-              </button>
-            </div>
+        <div className="relative min-w-0 w-full">
+          <div className="absolute -left-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm">
+            <GitBranch
+              className={cn(
+                "size-3.5",
+                isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
+                workspace.isPinned ? "hidden" : "block group-hover/ws:hidden"
+              )}
+            />
+            <button
+              onClick={handlePinClick}
+              className={cn(
+                "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
+                workspace.isPinned
+                  ? "text-amber-500"
+                  : "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
+              )}
+              title={workspace.isPinned ? "Unpin" : "Pin"}
+            >
+              <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
+            </button>
+          </div>
+          <div className="flex min-w-0 pl-5">
             {displayName ? (
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
@@ -211,7 +211,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             <span className="text-[11px] text-muted-foreground mx-1">·</span>
             <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo}</span>
           </div>
-          <div className="absolute -right-0.5 top-1/2 -translate-y-1/2 flex h-full items-center justify-end gap-0.5 rounded-r-sm pl-8 pr-0 opacity-0 backdrop-blur-[2px] transition-opacity z-10 group-hover/ws:opacity-100">
+          <div className="absolute -right-0.5 top-1/2 -translate-y-1/2 flex h-full items-center justify-end gap-0.5 rounded-r-sm bg-radial-[ellipse_at_center] from-sidebar-accent/34 via-sidebar-accent/14 to-transparent pl-2 pr-0 opacity-0 backdrop-blur-[0.5px] transition-opacity z-10 group-hover/ws:opacity-100">
             <button
               onClick={handleArchiveClick}
               className="size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer"

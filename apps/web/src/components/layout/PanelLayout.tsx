@@ -47,7 +47,7 @@ export function PanelLayout({
   }, [setIsRightCollapsed, setShowRightSidebar, showRightSidebar]);
 
   React.useEffect(() => {
-    setToggleLeftSidebar(() => () => {
+    setToggleLeftSidebar(() => {
       if (isLeftCollapsed) {
         leftPanelRef.current?.expand();
       } else {
@@ -58,7 +58,7 @@ export function PanelLayout({
   }, [isLeftCollapsed, setToggleLeftSidebar]);
 
   React.useEffect(() => {
-    setToggleRightSidebar(() => () => {
+    setToggleRightSidebar(() => {
       if (!showRightSidebar) return;
       if (isRightCollapsed) {
         rightPanelRef.current?.expand();
