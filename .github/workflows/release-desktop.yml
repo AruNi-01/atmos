@@ -259,7 +259,44 @@ jobs:
         working-directory: apps/desktop
         env:
           ATMOS_LOG_LEVEL: info
-        run: bun tauri build ${{ matrix.args }} --no-bundle
+        run: bun tauri build ${{ matrix.args }}
+
+      - name: Collect manual build artifacts
+        if: needs.resolve-release-config.outputs.create_release != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RELEASE_DIR="apps/desktop/src-tauri/target/${{ matrix.target }}/release"
+          BUNDLE_DIR="$RELEASE_DIR/bundle"
+          OUT_DIR="$RUNNER_TEMP/desktop-artifacts/${{ matrix.target }}"
+          mkdir -p "$OUT_DIR"
+
+          if [ -d "$BUNDLE_DIR/macos/Atmos.app" ]; then
+            ditto -c -k --sequesterRsrc --keepParent \
+              "$BUNDLE_DIR/macos/Atmos.app" \
+              "$OUT_DIR/Atmos-${{ matrix.target }}.zip"
+          fi
+
+          find "$BUNDLE_DIR" -type f \
+            \( -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.zip' \) \
+            -exec cp {} "$OUT_DIR/" \;
+
+          if [ -z "$(find "$OUT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+            echo "❌ No manual build artifacts found under $BUNDLE_DIR"
+            exit 1
+          fi
+
+          echo "Collected artifacts:"
+          find "$OUT_DIR" -maxdepth 1 -type f -print
+
+      - name: Upload manual build artifacts
+        if: needs.resolve-release-config.outputs.create_release != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: ${{ runner.temp }}/desktop-artifacts/${{ matrix.target }}
+          if-no-files-found: error
 
       - name: Build and release Tauri app
         if: needs.resolve-release-config.outputs.create_release == 'true'
