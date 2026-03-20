@@ -197,27 +197,6 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
     }
   }, [effectiveContextId, pinFile]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <div className="px-4 py-8 text-center">
-        <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
-        <p className="text-muted-foreground text-xs text-pretty italic">
-          No files found
-        </p>
-      </div>
-    );
-  }
-
-  const items = tree.getItems();
-
   useEffect(() => {
     if (!fileTreeRevealTarget || !currentProjectPath) return;
     if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== effectiveContextId) return;
@@ -298,6 +277,27 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
       }
     };
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="px-4 py-8 text-center">
+        <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
+        <p className="text-muted-foreground text-xs text-pretty italic">
+          No files found
+        </p>
+      </div>
+    );
+  }
+
+  const items = tree.getItems();
 
   return (
     <div

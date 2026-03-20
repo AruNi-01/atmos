@@ -223,6 +223,8 @@ const Terminal = ({
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modifierKeyPressedRef = useRef(false);
   const pointerModifierPressedRef = useRef(false);
+  const handleTerminalLinkRef = useRef<(event: MouseEvent, resolved: ResolvedTerminalLink) => Promise<void>>(async () => {});
+  const handleResolvedLinkRef = useRef<(event: MouseEvent, rawText: string) => Promise<void>>(async () => {});
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -597,6 +599,14 @@ const Terminal = ({
     await handleTerminalLink(event, resolved);
   }, [handleTerminalLink, projectRootPath]);
 
+  useEffect(() => {
+    handleTerminalLinkRef.current = handleTerminalLink;
+  }, [handleTerminalLink]);
+
+  useEffect(() => {
+    handleResolvedLinkRef.current = handleResolvedLink;
+  }, [handleResolvedLink]);
+
   const getAnchorCandidates = useCallback((anchor: HTMLAnchorElement) => {
     const candidates: string[] = [];
     const textContent = anchor.textContent?.trim();
@@ -756,7 +766,7 @@ const Terminal = ({
       theme: currentTheme,
       linkHandler: {
         activate(event, text) {
-          void handleResolvedLink(event, text);
+          void handleResolvedLinkRef.current(event, text);
         },
         allowNonHttpProtocols: true,
       },
@@ -773,7 +783,7 @@ const Terminal = ({
     terminal.loadAddon(fitAddon);
     linkProvider = terminal.registerLinkProvider(
       createTerminalLinkProvider(terminal, { projectRootPath }, (event, target) => {
-        void handleTerminalLink(event, target);
+        void handleTerminalLinkRef.current(event, target);
       })
     );
     terminal.loadAddon(searchAddon);
@@ -979,7 +989,7 @@ const Terminal = ({
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [sessionId, workspaceId, cwd, projectRootPath, handleResolvedLink, handleTerminalLink]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, workspaceId, cwd, projectRootPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
