@@ -284,7 +284,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          RELEASE_DIR="apps/desktop/src-tauri/target/${{ matrix.target }}/release"
+          RELEASE_DIR="target/${{ matrix.target }}/release"
           BUNDLE_DIR="$RELEASE_DIR/bundle"
           OUT_DIR="$RUNNER_TEMP/desktop-artifacts/${{ matrix.target }}"
           mkdir -p "$OUT_DIR"
