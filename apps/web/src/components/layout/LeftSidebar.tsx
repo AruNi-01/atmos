@@ -197,13 +197,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         setIsLoadingFiles(true);
         setFileTreeData([]);
 
-        console.log(`[Req #${currentRequestId}] Fetching files for Project: ${projectId}, Workspace: ${workspaceId}, Path: ${effectivePath}`);
-
         try {
             const response = await fsApi.listProjectFiles(effectivePath, { showHidden });
 
             if (fetchRequestId.current === currentRequestId) {
-                console.log(`[Req #${currentRequestId}] Fetch success. Updating state.`);
                 setFileTreeData(response.tree);
                 setFileTreeProjectId(projectId);
                 setFileTreeWorkspaceId(workspaceId);
