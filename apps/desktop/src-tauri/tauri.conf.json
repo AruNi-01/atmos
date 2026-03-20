@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Atmos",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "identifier": "com.atmos.desktop",
   "build": {
     "beforeDevCommand": "bun --filter web dev",
