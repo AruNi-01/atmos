@@ -65,6 +65,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const [homeDir, setHomeDir] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -147,7 +148,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   return (
     <div
       className="flex h-7 items-stretch rounded-md border border-transparent bg-muted/40 transition-colors hover:border-border hover:bg-muted/60"
-      onMouseLeave={() => setIsExpanded(false)}
+      onMouseLeave={() => { if (!isDropdownOpen) setIsExpanded(false); }}
     >
       {/* Main Action Button */}
       <button
@@ -168,7 +169,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
       </button>
 
       {/* Dropdown Trigger */}
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={(open) => { setIsDropdownOpen(open); if (!open) setIsExpanded(false); }}>
         <DropdownMenuTrigger asChild>
           <button className="flex h-full items-center justify-center rounded-r-md px-1.5 outline-none transition-all duration-200 ease-out hover:bg-accent/50">
             <ChevronDown className="size-3 shrink-0 text-muted-foreground opacity-60 transition-opacity hover:opacity-100" />
