@@ -102,8 +102,10 @@ scripts/open-source/
 
 # ===== Agent =====
 .agent/
-.agents/
-!.agents/skills/atmos-release
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/atmos-release/
 .augment/
 .claude/
 .codex/
