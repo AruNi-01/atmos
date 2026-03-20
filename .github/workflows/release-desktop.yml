@@ -109,6 +109,7 @@ jobs:
       release_tag: ${{ steps.resolve.outputs.release_tag }}
       prerelease: ${{ steps.resolve.outputs.prerelease }}
       checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
+      build_matrix: ${{ steps.resolve.outputs.build_matrix }}
     steps:
       - name: Resolve values
         id: resolve
@@ -121,6 +122,13 @@ jobs:
             echo "release_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            BUILD_MATRIX='{"include":[
+              {"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"},
+              {"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"},
+              {"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""},
+              {"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}
+            ]}'
+            echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -128,6 +136,7 @@ jobs:
           RELEASE_TAG="${{ github.event.inputs.release_tag }}"
           PRERELEASE="${{ github.event.inputs.prerelease }}"
           CHECKOUT_REF="${{ github.event.inputs.ref }}"
+          PLATFORM="${{ github.event.inputs.platform }}"
 
           if [ -z "$CHECKOUT_REF" ]; then
             CHECKOUT_REF="main"
@@ -143,29 +152,42 @@ jobs:
           echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
           echo "checkout_ref=$CHECKOUT_REF" >> "$GITHUB_OUTPUT"
 
+          case "$PLATFORM" in
+            "" )
+              BUILD_MATRIX='{"include":[
+                {"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"},
+                {"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"},
+                {"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""},
+                {"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}
+              ]}'
+              ;;
+            "macos-14" )
+              BUILD_MATRIX='{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin"}]}'
+              ;;
+            "macos-15-intel" )
+              BUILD_MATRIX='{"include":[{"platform":"macos-15-intel","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin"}]}'
+              ;;
+            "ubuntu-22.04" )
+              BUILD_MATRIX='{"include":[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","args":""}]}'
+              ;;
+            "windows-latest" )
+              BUILD_MATRIX='{"include":[{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","args":""}]}'
+              ;;
+            * )
+              echo "❌ Unsupported platform input: $PLATFORM"
+              exit 1
+              ;;
+          esac
+
+          echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
+
   build-and-release:
     name: Build desktop (${{ matrix.target }})
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-       (github.event.inputs.platform == '' || github.event.inputs.platform == matrix.platform))
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: resolve-release-config
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - platform: "macos-14"
-            target: "aarch64-apple-darwin"
-            args: "--target aarch64-apple-darwin"
-          - platform: "macos-15-intel"
-            target: "x86_64-apple-darwin"
-            args: "--target x86_64-apple-darwin"
-          - platform: "ubuntu-22.04"
-            target: "x86_64-unknown-linux-gnu"
-            args: ""
-          - platform: "windows-latest"
-            target: "x86_64-pc-windows-msvc"
-            args: ""
+      matrix: ${{ fromJSON(needs.resolve-release-config.outputs.build_matrix) }}
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v5
