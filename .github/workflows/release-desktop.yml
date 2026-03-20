@@ -28,6 +28,17 @@ on:
         description: "Git ref to build (branch, tag or SHA)"
         required: false
         default: "main"
+      platform:
+        description: "Target platform (leave empty to build all)"
+        required: false
+        default: ""
+        type: choice
+        options:
+          - ""
+          - "macos-14"
+          - "macos-15-intel"
+          - "ubuntu-22.04"
+          - "windows-latest"
       create_release:
         description: "Create GitHub Release"
         required: true
@@ -134,7 +145,10 @@ jobs:
 
   build-and-release:
     name: Build desktop (${{ matrix.target }})
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.platform == '' || github.event.inputs.platform == matrix.platform))
     needs: resolve-release-config
     strategy:
       fail-fast: false
