@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::menu::{MenuBuilder, MenuItem};
+use tauri::menu::{MenuBuilder, MenuItem, SubmenuBuilder};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::{Listener, Manager, PhysicalPosition, PhysicalSize, Position, Size};
 use tauri::utils::config::Color;
@@ -205,13 +205,49 @@ fn main() {
                 }
             });
 
+            // ── macOS application menu ────────────────────────────────────
+            // A proper Edit submenu is required on macOS so that the AppKit
+            // responder chain correctly forwards keyboard events (including
+            // IME composition) to the WKWebView.  Without it, Chinese IME
+            // Shift+key combos (for punctuation like ！？（）) need a double
+            // press because the first keydown is swallowed by the system.
+            #[cfg(target_os = "macos")]
+            {
+                let app_menu = SubmenuBuilder::new(app, "Atmos")
+                    .about(None)
+                    .separator()
+                    .hide()
+                    .hide_others()
+                    .show_all()
+                    .separator()
+                    .quit()
+                    .build()?;
+                let edit_menu = SubmenuBuilder::new(app, "Edit")
+                    .undo()
+                    .redo()
+                    .separator()
+                    .cut()
+                    .copy()
+                    .paste()
+                    .select_all()
+                    .build()?;
+                let window_menu = SubmenuBuilder::new(app, "Window")
+                    .minimize()
+                    .close_window()
+                    .build()?;
+                let menu = MenuBuilder::new(app)
+                    .items(&[&app_menu, &edit_menu, &window_menu])
+                    .build()?;
+                app.set_menu(menu)?;
+            }
+
             let quit_item = MenuItem::with_id(app, "quit", "Quit Atmos", true, None::<&str>)?;
             let show_item = MenuItem::with_id(app, "show", "Show Atmos", true, None::<&str>)?;
-            let menu = MenuBuilder::new(app)
+            let tray_menu = MenuBuilder::new(app)
                 .items(&[&show_item, &quit_item])
                 .build()?;
             TrayIconBuilder::new()
-                .menu(&menu)
+                .menu(&tray_menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
                     "show" => {
