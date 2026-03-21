@@ -62,7 +62,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p tap/Casks
-          node source/scripts/homebrew/generate-cask.mjs \
+          cd source
+          node scripts/homebrew/generate-cask.mjs \
             --tag "${{ steps.release.outputs.tag }}" \
             --owner "${SOURCE_REPO%%/*}" \
             --repo "${SOURCE_REPO##*/}" \
@@ -70,7 +71,7 @@ jobs:
             --name "Atmos" \
             --desc "Atmosphere for Agentic Builders" \
             --homepage "https://atmos.land" \
-            --output "tap/${CASK_PATH}"
+            --output "../tap/${CASK_PATH}"
 
       - name: Generate tap README
         shell: bash
