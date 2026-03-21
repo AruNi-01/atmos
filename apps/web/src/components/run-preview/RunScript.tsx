@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Play, Settings, Plus, X, Command, Lock, Unlock, Square, CircleOff, Skull } from "lucide-react";
+import { Play, Settings, Plus, X, Command, Lock, Unlock, Square, CircleOff, Skull, Loader2 } from "lucide-react";
 import { Terminal } from "@/components/terminal/Terminal";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTab, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@workspace/ui";
@@ -388,23 +388,28 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
 
           {/* Content */}
           <div className="flex-1 overflow-hidden relative">
-            {hasBeenActive && tabs.map(tab => (
+            {hasBeenActive && !currentProjectPath && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  <span className="text-sm">Loading Workspace...</span>
+                </div>
+              </div>
+            )}
+            {hasBeenActive && currentProjectPath && tabs.map(tab => (
               <div
                 key={tab.id}
                 className={cn("absolute inset-0", activeTabId === tab.id ? "z-10" : "z-0 invisible")}
               >
                 <Terminal
                   ref={(el) => { terminalRefs.current[tab.id] = el; }}
-                  // Using a consistent session ID strategy for "Run Script" tabs
-                  // This ensures that when the user switches tabs and comes back, or switches workspace and comes back (if component remounts),
-                  // we attempt to reconnect to the same session if it's still alive.
                   sessionId={`run-script-${workspaceId || projectId}-${tab.id}-${sessionVersions[tab.id] || 0}`}
                   workspaceId={workspaceId || projectId || ""}
                   projectName={projectName}
                   workspaceName={workspaceName || "Main"}
                   terminalName={`run-script`}
                   noTmux={true}
-                  cwd={workspaceName ? undefined : (currentProjectPath || undefined)}
+                  cwd={currentProjectPath}
                   onData={(data) => handleTerminalData(tab.id, data)}
                   readOnly={tab.id === '1' ? isLocked : false}
                   onInputWhileReadOnly={() => {
@@ -418,11 +423,9 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                       });
                     }
                   }}
-                // We treat these as ephemeral in UI but persistent in backend session for this view
                 />
               </div>
             ))}
-            {!hasBeenActive && null}
           </div>
         </Tabs>
 

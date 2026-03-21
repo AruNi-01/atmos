@@ -229,26 +229,52 @@ impl GitEngine {
         Ok(parse_worktree_list(&stdout))
     }
 
-    /// Get the default branch of a repository
-    pub fn get_default_branch(&self, repo_path: &Path) -> Result<String> {
+    /// Get the default branch of a repository from locally available refs only.
+    pub fn get_default_branch(&self, repo_path: &Path) -> Result<Option<String>> {
+        // 1. Try origin/HEAD symbolic ref (set by git clone)
         if let Some(stdout) = try_run_git(
             repo_path,
             &["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
         )? {
-            let branch = stdout
-                .trim()
-                .strip_prefix("origin/")
-                .unwrap_or("main")
-                .to_string();
-            return Ok(branch);
+            let branch = stdout.trim().strip_prefix("origin/").unwrap_or(stdout.trim());
+            if !branch.is_empty() {
+                return Ok(Some(branch.to_string()));
+            }
         }
 
-        // Fallback: read HEAD
-        if let Some(stdout) = try_run_git(repo_path, &["rev-parse", "--abbrev-ref", "HEAD"])? {
-            return Ok(stdout.trim().to_string());
+        // 2. Prefer well-known default branches if we already have the remote refs locally.
+        if let Ok(branches) = self.list_remote_branches(repo_path) {
+            for candidate in &["main", "master"] {
+                if branches.iter().any(|b| b == candidate) {
+                    return Ok(Some(candidate.to_string()));
+                }
+            }
         }
 
-        Ok("main".to_string())
+        // 3. Fall back to well-known local branches.
+        if let Some(stdout) = try_run_git(
+            repo_path,
+            &[
+                "for-each-ref",
+                "refs/heads/main",
+                "refs/heads/master",
+                "--format=%(refname:short)",
+            ],
+        )? {
+            if let Some(branch) = stdout.lines().map(str::trim).find(|branch| !branch.is_empty()) {
+                return Ok(Some(branch.to_string()));
+            }
+        }
+
+        // 4. Last resort: whatever local HEAD points to, if not detached.
+        if let Some(stdout) = try_run_git(repo_path, &["symbolic-ref", "--short", "HEAD"])? {
+            let branch = stdout.trim();
+            if !branch.is_empty() && branch != "HEAD" {
+                return Ok(Some(branch.to_string()));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Check the git status of a worktree/repository

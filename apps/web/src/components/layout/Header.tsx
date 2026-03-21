@@ -37,7 +37,6 @@ import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
-import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
@@ -68,7 +67,6 @@ const Header: React.FC = () => {
   const setupProgress = useProjectStore(s => s.setupProgress);
   const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
   const { setGlobalSearchOpen } = useDialogStore();
-  const [, setAgentChatOpen] = useAgentChatUrl();
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
@@ -77,7 +75,7 @@ const Header: React.FC = () => {
   const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] = useState(false);
   const [actionsCollapsed, setActionsCollapsed] = useState(false);
   useEffect(() => {
-    try { const v = localStorage.getItem("header-actions-collapsed"); if (v === "true") setActionsCollapsed(true); } catch {}
+    try { const v = localStorage.getItem("header-actions-collapsed"); if (v === "true") setActionsCollapsed(true); } catch { }
   }, []);
   const [actionsWidth, setActionsWidth] = useState(0);
   const actionsContentRef = useRef<HTMLDivElement | null>(null);
@@ -423,9 +421,9 @@ const Header: React.FC = () => {
   // Status indicator color
   const getStatusColor = () => {
     if (hasUncommittedChanges || hasUnpushedCommits) {
-      return 'bg-amber-500';
+      return 'bg-warning';
     }
-    return 'bg-green-500';
+    return 'bg-success';
   };
 
   const getStatusTooltip = () => {
@@ -556,22 +554,22 @@ const Header: React.FC = () => {
       </div>
 
       {/* Center: Git Context Flow */}
-      {currentWorkspace && (
+      {(currentWorkspace || currentProject) && (
         <div className={cn(
-          "relative z-10 desktop-no-drag flex items-center space-x-3 bg-muted/40 px-3 py-1.5 rounded-md border border-transparent transition-all duration-300 ease-out h-8",
-          isEditingCurrentBranch
+          "relative z-10 desktop-no-drag flex items-center space-x-2 bg-muted/40 px-3 py-1.5 rounded-md border border-transparent transition-all duration-300 ease-out h-8",
+          currentWorkspace && isEditingCurrentBranch
             ? "border-sidebar-border bg-background shadow-xs w-fit"
             : "hover:bg-muted/60 hover:border-border w-fit max-w-[500px]"
         )}>
-          {/* Current Branch (from workspace) */}
-          <div className="flex items-center space-x-2 shrink-0">
+          {/* Current Branch (from workspace or project main) */}
+          <div className="flex items-center space-x-1 shrink-0">
             <span
               role="status"
               aria-label={getStatusTooltip()}
               className={cn("size-2 rounded-full transition-colors shrink-0", getStatusColor())}
               title={getStatusTooltip()}
             />
-            {isEditingCurrentBranch ? (
+            {currentWorkspace && isEditingCurrentBranch ? (
               <div className="flex items-center space-x-1 animate-in fade-in zoom-in-95 duration-200">
                 <Input
                   value={editedCurrentBranch}
@@ -586,7 +584,7 @@ const Header: React.FC = () => {
                 />
                 <button
                   onClick={handleSaveCurrentBranch}
-                  className="size-6 flex items-center justify-center hover:bg-green-500/10 rounded-sm text-green-500 transition-colors shrink-0 relative z-20"
+                  className="relative z-20 flex size-6 items-center justify-center rounded-sm text-success transition-colors hover:bg-success/10 shrink-0"
                   aria-label="Save current branch"
                 >
                   <Check className="size-3.5" />
@@ -601,32 +599,36 @@ const Header: React.FC = () => {
               </div>
             ) : (
               <div
-                role="button"
-                tabIndex={0}
-                className="flex items-center space-x-1.5 cursor-pointer group/branch py-0.5 px-1 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors overflow-hidden"
-                onClick={() => setIsEditingCurrentBranch(true)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsEditingCurrentBranch(true); } }}
+                role={currentWorkspace ? "button" : undefined}
+                tabIndex={currentWorkspace ? 0 : undefined}
+                className={cn(
+                  "flex items-center space-x-1.5 py-0.5 px-1 rounded transition-colors overflow-hidden",
+                  currentWorkspace && "cursor-pointer group/branch hover:bg-accent"
+                )}
+                onClick={currentWorkspace ? () => setIsEditingCurrentBranch(true) : undefined}
+                onKeyDown={currentWorkspace ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsEditingCurrentBranch(true); } } : undefined}
               >
                 <span className="text-[13px] font-medium text-foreground truncate block max-w-[120px]">
                   {displayCurrentBranch}
                 </span>
                 {(hasUncommittedChanges || hasUnpushedCommits) && (
-                  <span className="text-[11px] text-amber-500 font-medium shrink-0">
+                  <span className="text-[11px] text-warning font-medium shrink-0">
                     {hasUncommittedChanges && `+${uncommittedCount}`}
                     {hasUncommittedChanges && hasUnpushedCommits && ' '}
                     {hasUnpushedCommits && `↑${unpushedCount}`}
                   </span>
                 )}
-                <Edit2 className="size-2.5 opacity-0 group-hover/branch:opacity-100 transition-opacity text-muted-foreground shrink-0" />
+                {currentWorkspace && (
+                  <Edit2 className="size-2.5 opacity-0 group-hover/branch:opacity-100 transition-opacity text-muted-foreground shrink-0" />
+                )}
               </div>
             )}
           </div>
 
-          <ArrowRight className="size-3 text-muted-foreground/50 shrink-0" />
+          <ArrowRight className="size-3 text-muted-foreground/50 shrink-0 -ml-1" />
 
           {/* Target Branch (selectable, saved to project) */}
-          <div className="flex items-center space-x-2 shrink-0 min-w-0">
-            <span className="size-2 rounded-full bg-muted-foreground/30 shrink-0" />
+          <div className="flex items-center shrink-0 min-w-0">
             <DropdownMenu
               open={isTargetBranchOpen}
               onOpenChange={(open) => {
@@ -635,7 +637,7 @@ const Header: React.FC = () => {
               }}
             >
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-black/5 dark:hover:bg-white/5 max-w-full">
+                <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-accent max-w-full">
                   <span className="opacity-50 shrink-0">origin/</span>
                   <span className="truncate block max-w-[100px]">{displayTargetBranch}</span>
                   <Edit2 className="size-2.5 opacity-0 group-hover/target:opacity-100 transition-opacity ml-0.5 shrink-0" />
@@ -720,157 +722,168 @@ const Header: React.FC = () => {
                 actionsCollapsed && "pointer-events-none"
               )}
             >
-                <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
+              <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Agent Chat Settings"
+                    className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                    onClick={() => {
+                      cancelChatPopoverClose();
+                      setChatPopoverOpen((open) => !open);
+                    }}
+                    onMouseEnter={() => {
+                      cancelChatPopoverClose();
+                      setChatPopoverOpen(true);
+                    }}
+                    onMouseLeave={() => scheduleChatPopoverClose()}
+                    onFocus={() => {
+                      cancelChatPopoverClose();
+                      setChatPopoverOpen(true);
+                    }}
+                  >
+                    <Bot className="size-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  sideOffset={8}
+                  className="w-48 p-3 bg-popover border border-border shadow-md"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  onMouseEnter={() => cancelChatPopoverClose()}
+                  onMouseLeave={() => scheduleChatPopoverClose()}
+                >
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm text-popover-foreground">Floating Ball</span>
+                    <Switch
+                      checked={layout.floatingBall}
+                      onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
+                    />
+                  </label>
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-popover-foreground">Opacity</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">{layout.opacity}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={20}
+                      max={100}
+                      value={layout.opacity}
+                      onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
+                      aria-label="Chat panel opacity"
+                      className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <button
+                aria-label="LLM Providers"
+                className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                onClick={() => setLlmProvidersOpen(true)}
+                title="Lightweight AI Providers"
+              >
+                <BrainCircuit className="size-4" />
+              </button>
+
+              <UsagePopover />
+              <TokenUsageDialog />
+
+              <div
+                aria-hidden="true"
+                className="h-4 w-px rounded-full bg-border"
+              />
+
+              {isDesktopRuntime && (
+                <Popover
+                  open={desktopWebPopoverOpen}
+                  onOpenChange={(open) => {
+                    setDesktopWebPopoverOpen(open);
+                    if (open) {
+                      void refreshDesktopWebStatus();
+                    }
+                  }}
+                >
                   <PopoverTrigger asChild>
                     <button
-                      aria-label="Agent Chat"
+                      aria-label="Open in Web"
                       className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                      onClick={() => { setChatPopoverOpen(false); setAgentChatOpen(true); }}
-                      onMouseEnter={() => setChatPopoverOpen(true)}
-                      onMouseLeave={() => scheduleChatPopoverClose()}
+                      title={desktopWebStatus === 'ready' ? 'Open in Web' : 'Start Web'}
                     >
-                      <Bot className="size-4" />
+                      <Globe className="size-4" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent
-                    align="end"
-                    sideOffset={8}
-                    className="w-48 p-3 bg-popover border border-border shadow-md"
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                    onMouseEnter={() => cancelChatPopoverClose()}
-                    onMouseLeave={() => scheduleChatPopoverClose()}
-                  >
-                    <label className="flex items-center justify-between cursor-pointer">
-                      <span className="text-sm text-popover-foreground">Floating Ball</span>
-                      <Switch
-                        checked={layout.floatingBall}
-                        onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
-                      />
-                    </label>
-                    <div className="mt-3 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-popover-foreground">Opacity</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{layout.opacity}%</span>
+                  <PopoverContent align="end" sideOffset={8} className="w-80 p-3 bg-popover border border-border shadow-md">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            "size-2 rounded-full",
+                            desktopWebStatus === 'ready'
+                              ? 'bg-success'
+                              : desktopWebStatus === 'checking'
+                                ? 'bg-warning'
+                                : 'bg-muted-foreground/50'
+                          )} />
+                          <p className="text-sm font-medium text-popover-foreground">
+                            {desktopWebStatus === 'ready' ? 'Web access is ready' : 'Browser access via sidecar'}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {desktopWebStatus === 'ready'
+                            ? 'Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches.'
+                            : 'Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there.'}
+                        </p>
                       </div>
-                      <input
-                        type="range"
-                        min={20}
-                        max={100}
-                        value={layout.opacity}
-                        onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
-                        aria-label="Chat panel opacity"
-                        className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
-                      />
+
+                      {browserUrl && (
+                        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
+                          {browserUrl}
+                        </div>
+                      )}
+
+                      <Button
+                        onClick={() => void handleOpenDesktopWeb()}
+                        disabled={isOpeningDesktopWeb}
+                        className="w-full cursor-pointer"
+                      >
+                        {isOpeningDesktopWeb
+                          ? 'Starting...'
+                          : desktopWebStatus === 'ready'
+                            ? 'Open In Web'
+                            : 'Start Web'}
+                        <ExternalLink className="size-4" />
+                      </Button>
                     </div>
                   </PopoverContent>
                 </Popover>
+              )}
 
+              <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
+              {!isDesktopRuntime && (
                 <button
-                  aria-label="LLM Providers"
-                  className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                  onClick={() => setLlmProvidersOpen(true)}
-                  title="Lightweight AI Providers"
-                >
-                  <BrainCircuit className="size-4" />
-                </button>
-
-                <UsagePopover />
-                <TokenUsageDialog />
-
-                <div
-                  aria-hidden="true"
-                  className="h-4 w-px rounded-full bg-border"
-                />
-
-                {isDesktopRuntime && (
-                  <Popover
-                    open={desktopWebPopoverOpen}
-                    onOpenChange={(open) => {
-                      setDesktopWebPopoverOpen(open);
-                      if (open) {
-                        void refreshDesktopWebStatus();
-                      }
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <button
-                        aria-label="Open in Web"
-                        className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                        title={desktopWebStatus === 'ready' ? 'Open in Web' : 'Start Web'}
-                      >
-                        <Globe className="size-4" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" sideOffset={8} className="w-80 p-3 bg-popover border border-border shadow-md">
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              "size-2 rounded-full",
-                              desktopWebStatus === 'ready'
-                                ? 'bg-green-500'
-                                : desktopWebStatus === 'checking'
-                                ? 'bg-amber-500'
-                                : 'bg-muted-foreground/50'
-                            )} />
-                            <p className="text-sm font-medium text-popover-foreground">
-                              {desktopWebStatus === 'ready' ? 'Web access is ready' : 'Browser access via sidecar'}
-                            </p>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {desktopWebStatus === 'ready'
-                              ? 'Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches.'
-                              : 'Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there.'}
-                          </p>
-                        </div>
-
-                        {browserUrl && (
-                          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
-                            {browserUrl}
-                          </div>
-                        )}
-
-                        <Button
-                          onClick={() => void handleOpenDesktopWeb()}
-                          disabled={isOpeningDesktopWeb}
-                          className="w-full cursor-pointer"
-                        >
-                          {isOpeningDesktopWeb
-                            ? 'Starting...'
-                            : desktopWebStatus === 'ready'
-                            ? 'Open In Web'
-                            : 'Start Web'}
-                          <ExternalLink className="size-4" />
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
-
-                <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
-                {!isDesktopRuntime && (
-                  <button
-                    onClick={toggleFullScreen}
-                    aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
-                    className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                  >
-                    {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-                  </button>
-                )}
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  aria-label="Settings"
+                  onClick={toggleFullScreen}
+                  aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
                   className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
                 >
-                  <Settings className="size-4" />
+                  {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
                 </button>
+              )}
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                aria-label="Settings"
+                className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+              >
+                <Settings className="size-4" />
+              </button>
             </div>
           </motion.div>
 
           <button
             type="button"
             aria-label={actionsCollapsed ? "Expand header actions" : "Collapse header actions"}
-            onClick={() => setActionsCollapsed((value) => { const next = !value; try { localStorage.setItem("header-actions-collapsed", String(next)); } catch {} return next; })}
+            onClick={() => setActionsCollapsed((value) => { const next = !value; try { localStorage.setItem("header-actions-collapsed", String(next)); } catch { } return next; })}
             className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
           >
             {actionsCollapsed ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}

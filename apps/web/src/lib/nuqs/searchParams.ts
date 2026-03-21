@@ -70,7 +70,7 @@ export type AgentManagerView = "manager" | "sessions";
 
 export const agentManagerParams = {
   agentView: parseAsStringEnum<AgentManagerView>(["manager", "sessions"]).withDefault("manager"),
-  agentTab: parseAsStringEnum<AgentTab>(["installed", "registry", "custom"]).withDefault("installed"),
+  agentTab: parseAsStringEnum<AgentTab>(["installed", "registry", "custom"]).withDefault("registry"),
   agentQ: parseAsString.withDefault(""),
 };
 

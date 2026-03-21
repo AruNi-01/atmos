@@ -155,7 +155,8 @@ impl WorkspaceService {
         } else {
             self.git_engine
                 .get_default_branch(repo_path)
-                .unwrap_or_else(|_| "main".to_string())
+                .unwrap_or(None)
+                .unwrap_or_else(|| "main".to_string())
         };
 
         let existing_branches: HashSet<String> = self
@@ -359,7 +360,8 @@ impl WorkspaceService {
         let base_branch = if workspace.base_branch.trim().is_empty() {
             self.git_engine
                 .get_default_branch(repo_path)
-                .unwrap_or("main".to_string())
+                .unwrap_or(None)
+                .unwrap_or_else(|| "main".to_string())
         } else {
             workspace.base_branch.clone()
         };

@@ -389,7 +389,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                     : "bg-background border-border hover:border-primary/30 hover:shadow-md cursor-pointer hover:bg-muted/50"
                                 )}
                               >
-                                <div className="flex items-center gap-5 min-w-0 flex-1">
+                                <div className="flex items-center gap-5 min-w-0 flex-1 overflow-hidden">
                                   <div className="flex items-center gap-4 w-[260px] shrink-0">
                                     <div className={cn(
                                       "size-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 uppercase border transition-transform group-hover:scale-105",
@@ -418,7 +418,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
 
                                   <ArrowRight className="size-4 text-muted-foreground/30 shrink-0 group-hover:translate-x-0.5 transition-transform" />
 
-                                  <div className="flex items-center gap-4 min-w-0 shrink-0 w-[460px] max-w-full">
+                                  <div className="flex items-center gap-4 min-w-0 flex-1">
                                     <div className="flex items-center gap-2.5 min-w-0 max-w-[220px] shrink bg-muted/30 px-2.5 py-1 rounded-lg border border-border/50">
                                       <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
                                       <OverflowTooltip
@@ -432,18 +432,18 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                     {(ws.displayName || ws.name) !== ws.branch && (
                                       <OverflowTooltip
                                         text={ws.displayName || ws.name}
-                                        className="w-[220px] shrink-0 text-xs text-muted-foreground/60 italic"
+                                        className="min-w-0 flex-1 text-xs text-muted-foreground/60 italic"
                                       />
                                     )}
                                   </div>
 
                                   {ws.isArchivedRemote ? (
-                                    <div className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
+                                    <div className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
                                       <Archive className="size-3" />
                                       ARCHIVED
                                     </div>
                                   ) : (
-                                    <div className="ml-auto flex items-center gap-2 shrink-0">
+                                    <div className="flex items-center gap-2 shrink-0">
                                       {hasGitInfo ? (
                                         <>
                                           {status.uncommitted !== undefined && status.uncommitted > 0 && (

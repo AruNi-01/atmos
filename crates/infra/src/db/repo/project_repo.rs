@@ -47,6 +47,7 @@ impl<'a> ProjectRepo<'a> {
         main_file_path: String,
         sidebar_order: i32,
         border_color: Option<String>,
+        target_branch: Option<String>,
     ) -> Result<project::Model> {
         let base = BaseFields::new();
 
@@ -60,7 +61,7 @@ impl<'a> ProjectRepo<'a> {
             sidebar_order: Set(sidebar_order),
             border_color: Set(border_color),
             is_open: Set(true),
-            target_branch: Set(None), // Default to None, will use repository's default branch
+            target_branch: Set(target_branch),
             terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
         };
@@ -141,6 +142,29 @@ impl<'a> ProjectRepo<'a> {
             return Err(crate::error::InfraError::Custom("Project not found".into()));
         }
         Ok(())
+    }
+
+    /// Atomically initialize the project target branch only when it is still unset.
+    pub async fn update_target_branch_if_null(
+        &self,
+        guid: &str,
+        target_branch: String,
+    ) -> Result<bool> {
+        let result = project::Entity::update_many()
+            .col_expr(
+                project::Column::TargetBranch,
+                Expr::value(Some(target_branch)),
+            )
+            .col_expr(
+                project::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(project::Column::Guid.eq(guid))
+            .filter(project::Column::IsDeleted.eq(false))
+            .filter(project::Column::TargetBranch.is_null())
+            .exec(self.db)
+            .await?;
+        Ok(result.rows_affected > 0)
     }
 
     /// 获取项目终端布局

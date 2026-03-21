@@ -330,8 +330,45 @@ jobs:
           projectPath: apps/desktop
           tagName: ${{ needs.resolve-release-config.outputs.release_tag }}
           releaseName: Atmos Desktop __VERSION__
-          releaseDraft: false
+          releaseDraft: true
           prerelease: ${{ needs.resolve-release-config.outputs.prerelease == 'true' }}
           includeUpdaterJson: true
           generateReleaseNotes: true
           args: ${{ matrix.args }}
+
+  publish-release:
+    name: Publish GitHub Release
+    if: needs.resolve-release-config.outputs.create_release == 'true'
+    needs: [resolve-release-config, build-and-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_ID=$(
+            curl -sS -f \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            | jq -r --arg tag "${RELEASE_TAG}" '.[] | select(.tag_name == $tag) | .id' \
+            | head -n 1
+          )
+
+          if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
+            echo "Release for tag ${RELEASE_TAG} was not found in the release list." >&2
+            exit 1
+          fi
+
+          curl -sS -f -X PATCH \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -d '{"draft": false}'
+
+          echo "✅ Published release ${RELEASE_TAG} (id=${RELEASE_ID})"

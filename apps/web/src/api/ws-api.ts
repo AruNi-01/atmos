@@ -1220,6 +1220,12 @@ export interface FunctionSettings {
     auto_save?: boolean;
     line_wrap?: boolean;
   };
+  inner_browser?: {
+    favorite_site?: Array<{
+      url: string;
+      name?: string;
+    }>;
+  };
   terminal?: {
     file_link_open_mode?: 'atmos' | 'finder' | 'app';
     file_link_open_app?: string;
