@@ -231,6 +231,7 @@ impl GitEngine {
 
     /// Get the default branch of a repository
     pub fn get_default_branch(&self, repo_path: &Path) -> Result<String> {
+        // 1. Try origin/HEAD symbolic ref (set by git clone)
         if let Some(stdout) = try_run_git(
             repo_path,
             &["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
@@ -243,9 +244,29 @@ impl GitEngine {
             return Ok(branch);
         }
 
-        // Fallback: read HEAD
-        if let Some(stdout) = try_run_git(repo_path, &["rev-parse", "--abbrev-ref", "HEAD"])? {
-            return Ok(stdout.trim().to_string());
+        // 2. Check if origin/main or origin/master exists
+        if let Ok(branches) = self.list_remote_branches(repo_path) {
+            for candidate in &["main", "master"] {
+                if branches.iter().any(|b| b == candidate) {
+                    return Ok(candidate.to_string());
+                }
+            }
+        }
+
+        // 3. Query remote for default branch (network call, slower)
+        if let Some(stdout) = try_run_git(
+            repo_path,
+            &["remote", "show", "origin"],
+        )? {
+            for line in stdout.lines() {
+                let trimmed = line.trim();
+                if let Some(branch) = trimmed.strip_prefix("HEAD branch:") {
+                    let branch = branch.trim();
+                    if branch != "(unknown)" {
+                        return Ok(branch.to_string());
+                    }
+                }
+            }
         }
 
         Ok("main".to_string())

@@ -410,7 +410,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           p.id === data.projectId 
             ? {
                 ...p,
-                targetBranch: newWorkspace.baseBranch || p.targetBranch,
+                targetBranch: p.targetBranch || newWorkspace.baseBranch,
                 workspaces: sortWorkspaces([...p.workspaces, newWorkspace]),
               }
             : p

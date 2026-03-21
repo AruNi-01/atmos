@@ -37,8 +37,12 @@ impl ProjectService {
         border_color: Option<String>,
     ) -> Result<project::Model> {
         let repo = ProjectRepo::new(&self.db);
+        let default_branch = self
+            .git_engine
+            .get_default_branch(std::path::Path::new(&main_file_path))
+            .ok();
         Ok(repo
-            .create(name, main_file_path, sidebar_order, border_color)
+            .create(name, main_file_path, sidebar_order, border_color, default_branch)
             .await?)
     }
 

@@ -24,7 +24,7 @@
         "titleBarStyle": "Overlay",
         "trafficLightPosition": {
           "x": 14,
-          "y": 24
+          "y": 22
         },
         "alwaysOnTop": true,
         "visible": true
@@ -41,7 +41,7 @@
         "titleBarStyle": "Overlay",
         "trafficLightPosition": {
           "x": 14,
-          "y": 24
+          "y": 22
         },
         "visible": false
       }

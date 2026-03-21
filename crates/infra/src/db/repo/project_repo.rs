@@ -47,6 +47,7 @@ impl<'a> ProjectRepo<'a> {
         main_file_path: String,
         sidebar_order: i32,
         border_color: Option<String>,
+        target_branch: Option<String>,
     ) -> Result<project::Model> {
         let base = BaseFields::new();
 
@@ -60,7 +61,7 @@ impl<'a> ProjectRepo<'a> {
             sidebar_order: Set(sidebar_order),
             border_color: Set(border_color),
             is_open: Set(true),
-            target_branch: Set(None), // Default to None, will use repository's default branch
+            target_branch: Set(target_branch),
             terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
         };
