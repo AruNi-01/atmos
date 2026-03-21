@@ -416,22 +416,24 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                         isWorkspacesExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                     )}>
                         <div className="overflow-hidden border-t border-sidebar-border/30">
-                            <div className="grid grid-cols-1 @[200px]:grid-cols-2 @[300px]:grid-cols-3">
+                            <div className="grid grid-cols-1 @[200px]:grid-cols-2">
                                 {[
                                     { id: 'workspaces', label: 'Workspaces', icon: SquareKanban, path: '/workspaces' },
                                     { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
                                     { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
                                     { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
-                                ].map((item) => {
+                                ].map((item, index) => {
                                     const Icon = item.icon;
                                     const isActive = currentView === item.id;
+                                    const isLeftColumnOnTwoCol = index % 2 === 0;
                                     return (
                                         <div
                                             key={item.id}
                                             onClick={() => router.push(item.path)}
                                             className={cn(
-                                                "group relative h-12 cursor-pointer overflow-hidden transition-all duration-300 border-r border-sidebar-border/30 last:border-r-0 outline-none",
+                                                "group relative h-12 cursor-pointer overflow-hidden transition-all duration-300 outline-none",
                                                 "border-b border-b-sidebar-border/30 transition-colors",
+                                                isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
                                                 isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                                             )}
                                         >

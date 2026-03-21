@@ -208,17 +208,17 @@ export const AgentManagerView: React.FC = () => {
                 <Globe className="size-4" />
                 ACP Registry
                 {!mgr.loading && (
-                  <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground tabular-nums">
-                    {mgr.registryAgents.length}
+                  <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium text-sky-700 dark:text-sky-400 tabular-nums">
+                    {mgr.registryCount}
                   </span>
                 )}
               </TabsTrigger>
               <TabsTrigger value="installed">
                 <Download className="size-4" />
                 Installed
-                {!mgr.loading && mgr.installedCount + mgr.customAgents.length > 0 && (
+                {!mgr.loading && mgr.installedCount + mgr.filteredCustomAgents.length > 0 && (
                   <span className="ml-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
-                    {mgr.installedCount + mgr.customAgents.length}
+                    {mgr.installedCount + mgr.filteredCustomAgents.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -248,7 +248,7 @@ export const AgentManagerView: React.FC = () => {
                             key={item.id}
                             item={item}
                             index={index}
-                            installingRegistryId={mgr.installingRegistryId}
+                            installingRegistryIds={mgr.installingRegistryIds}
                             removingRegistryId={mgr.removingRegistryId}
                             onInstall={mgr.handleInstallRegistry}
                             onRemoveRequest={mgr.setRemoveConfirmDialog}
@@ -274,7 +274,7 @@ export const AgentManagerView: React.FC = () => {
             <TabsContent keepMounted value="installed">
               {mgr.loading ? <AgentSkeletonGrid /> : (
                 <>
-                  {mgr.installedAgents.length > 0 || mgr.customAgents.length > 0 ? (
+                  {mgr.installedAgents.length > 0 || mgr.filteredCustomAgents.length > 0 ? (
                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                       <AnimatePresence mode="popLayout" initial={false}>
                         {mgr.installedAgents.map((item, index) => (
@@ -282,13 +282,13 @@ export const AgentManagerView: React.FC = () => {
                             key={item.id}
                             item={item}
                             index={index}
-                            installingRegistryId={mgr.installingRegistryId}
+                            installingRegistryIds={mgr.installingRegistryIds}
                             removingRegistryId={mgr.removingRegistryId}
                             onInstall={mgr.handleInstallRegistry}
                             onRemoveRequest={mgr.setRemoveConfirmDialog}
                           />
                         ))}
-                        {mgr.customAgents.map((agent, index) => (
+                        {mgr.filteredCustomAgents.map((agent, index) => (
                           <CustomAgentCard
                             key={`custom-${agent.name}`}
                             agent={agent}

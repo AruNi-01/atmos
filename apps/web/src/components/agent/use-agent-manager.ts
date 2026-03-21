@@ -11,7 +11,7 @@ export function useAgentManager(query: string) {
   const [customAgents, setCustomAgents] = React.useState<CustomAgent[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
-  const [installingRegistryId, setInstallingRegistryId] = React.useState<string | null>(null);
+  const [installingRegistryIds, setInstallingRegistryIds] = React.useState<Set<string>>(() => new Set());
   const [removingRegistryId, setRemovingRegistryId] = React.useState<string | null>(null);
   const [removingCustomName, setRemovingCustomName] = React.useState<string | null>(null);
   const [overwriteDialog, setOverwriteDialog] = React.useState<{
@@ -25,6 +25,23 @@ export function useAgentManager(query: string) {
   const [removeCustomConfirmDialog, setRemoveCustomConfirmDialog] = React.useState<{
     name: string;
   } | null>(null);
+
+  const markRegistryInstalling = React.useCallback((registryId: string) => {
+    setInstallingRegistryIds((prev) => {
+      const next = new Set(prev);
+      next.add(registryId);
+      return next;
+    });
+  }, []);
+
+  const clearRegistryInstalling = React.useCallback((registryId: string) => {
+    setInstallingRegistryIds((prev) => {
+      if (!prev.has(registryId)) return prev;
+      const next = new Set(prev);
+      next.delete(registryId);
+      return next;
+    });
+  }, []);
 
   const loadData = React.useCallback(async (forceRefresh = false) => {
     try {
@@ -50,39 +67,58 @@ export function useAgentManager(query: string) {
     void loadData();
   }, [loadData]);
 
+  const normalizedQuery = React.useMemo(() => query.trim().toLowerCase(), [query]);
+
+  const matchesQuery = React.useCallback((item: RegistryAgent) => {
+    if (!normalizedQuery) return true;
+    return (
+      item.name.toLowerCase().includes(normalizedQuery) ||
+      item.id.toLowerCase().includes(normalizedQuery) ||
+      item.description.toLowerCase().includes(normalizedQuery) ||
+      item.version.toLowerCase().includes(normalizedQuery)
+    );
+  }, [normalizedQuery]);
+
   const filteredRegistry = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
     return registryAgents
-      .filter((item) => {
-        if (!q) return true;
-        return (
-          item.name.toLowerCase().includes(q) ||
-          item.id.toLowerCase().includes(q) ||
-          item.description.toLowerCase().includes(q) ||
-          item.version.toLowerCase().includes(q)
-        );
-      })
-      .sort((a, b) => {
-        if (a.installed !== b.installed) return a.installed ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
-  }, [registryAgents, query]);
+      .filter((item) => !item.installed)
+      .filter(matchesQuery)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [matchesQuery, registryAgents]);
 
   const installedAgents = React.useMemo(() => {
-    return filteredRegistry.filter((a) => a.installed);
-  }, [filteredRegistry]);
+    return registryAgents
+      .filter((item) => item.installed)
+      .filter(matchesQuery)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [matchesQuery, registryAgents]);
+
+  const registryCount = React.useMemo(() => {
+    return registryAgents.filter((a) => !a.installed).length;
+  }, [registryAgents]);
 
   const installedCount = React.useMemo(() => {
     return registryAgents.filter((a) => a.installed).length;
   }, [registryAgents]);
 
+  const filteredCustomAgents = React.useMemo(() => {
+    if (!normalizedQuery) return customAgents;
+    return customAgents.filter((agent) => {
+      const commandLine = [agent.command, ...agent.args].join(" ").toLowerCase();
+      return (
+        agent.name.toLowerCase().includes(normalizedQuery) ||
+        commandLine.includes(normalizedQuery)
+      );
+    });
+  }, [customAgents, normalizedQuery]);
+
   const handleInstallRegistry = async (registryId: string, forceOverwrite = false) => {
-    setInstallingRegistryId(registryId);
+    markRegistryInstalling(registryId);
     try {
       const result = await agentApi.installRegistry(registryId, forceOverwrite);
       if (result.needs_confirmation && result.overwrite_message) {
         setOverwriteDialog({ registryId, message: result.overwrite_message });
-        return; // Keep installingRegistryId set while dialog is open
+        return; // Keep this registry in installing state while dialog is open
       }
       toastManager.add({
         title: "Agent installed",
@@ -90,14 +126,14 @@ export function useAgentManager(query: string) {
         type: "success",
       });
       await loadData();
-      setInstallingRegistryId(null);
+      clearRegistryInstalling(registryId);
     } catch (error) {
       toastManager.add({
         title: "Install failed",
         description: error instanceof Error ? error.message : "Unknown error",
         type: "error",
       });
-      setInstallingRegistryId(null);
+      clearRegistryInstalling(registryId);
     }
   };
 
@@ -158,9 +194,13 @@ export function useAgentManager(query: string) {
   };
 
   const cancelOverwrite = React.useCallback(() => {
-    setOverwriteDialog(null);
-    setInstallingRegistryId(null);
-  }, []);
+    setOverwriteDialog((current) => {
+      if (current) {
+        clearRegistryInstalling(current.registryId);
+      }
+      return null;
+    });
+  }, [clearRegistryInstalling]);
 
   const cancelRemoveRegistry = React.useCallback(() => {
     setRemoveConfirmDialog(null);
@@ -175,7 +215,7 @@ export function useAgentManager(query: string) {
     customAgents,
     loading,
     refreshing,
-    installingRegistryId,
+    installingRegistryIds,
     removingRegistryId,
     removingCustomName,
     overwriteDialog,
@@ -183,7 +223,9 @@ export function useAgentManager(query: string) {
     removeCustomConfirmDialog,
     setRemoveConfirmDialog,
     setRemoveCustomConfirmDialog,
+    filteredCustomAgents,
     filteredRegistry,
+    registryCount,
     installedAgents,
     installedCount,
     handleInstallRegistry,

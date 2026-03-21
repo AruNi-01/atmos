@@ -26,7 +26,7 @@ import {
   Maximize,
   Minimize,
   Bot,
-  PopoverTrigger,
+  PopoverAnchor,
   PopoverContent,
   Popover,
   Switch,
@@ -48,6 +48,7 @@ import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
+import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { LlmProvidersModal } from './LlmProvidersModal';
@@ -61,6 +62,7 @@ const Header: React.FC = () => {
   const locale = params?.locale as string || 'en';
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { isLeftCollapsed, isRightCollapsed, showRightSidebar, toggleLeftSidebar, toggleRightSidebar } = useSidebarLayout();
+  const [, setAgentChatOpen] = useAgentChatUrl();
 
   const projects = useProjectStore(s => s.projects);
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
@@ -83,10 +85,17 @@ const Header: React.FC = () => {
   const desktopFullscreenRef = useRef<boolean | null>(null);
   const desktopFullscreenExitRafRef = useRef<number | null>(null);
   const scheduleChatPopoverClose = useCallback(() => {
-    chatPopoverTimerRef.current = setTimeout(() => setChatPopoverOpen(false), 200);
+    if (chatPopoverTimerRef.current) clearTimeout(chatPopoverTimerRef.current);
+    chatPopoverTimerRef.current = setTimeout(() => {
+      setChatPopoverOpen(false);
+      chatPopoverTimerRef.current = null;
+    }, 200);
   }, []);
   const cancelChatPopoverClose = useCallback(() => {
-    if (chatPopoverTimerRef.current) { clearTimeout(chatPopoverTimerRef.current); chatPopoverTimerRef.current = null; }
+    if (chatPopoverTimerRef.current) {
+      clearTimeout(chatPopoverTimerRef.current);
+      chatPopoverTimerRef.current = null;
+    }
   }, []);
 
   useLayoutEffect(() => {
@@ -106,6 +115,14 @@ const Header: React.FC = () => {
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (chatPopoverTimerRef.current) {
+        clearTimeout(chatPopoverTimerRef.current);
+      }
     };
   }, []);
   useEffect(() => {
@@ -722,36 +739,31 @@ const Header: React.FC = () => {
                 actionsCollapsed && "pointer-events-none"
               )}
             >
-              <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
-                <PopoverTrigger asChild>
+              <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen} modal={false}>
+                <PopoverAnchor asChild>
                   <button
                     type="button"
-                    aria-label="Agent Chat Settings"
+                    aria-label="Open Agent Chat"
+                    title="Open Agent Chat"
                     className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                    onClick={() => {
-                      cancelChatPopoverClose();
-                      setChatPopoverOpen((open) => !open);
-                    }}
+                    onClick={() => setAgentChatOpen(true)}
                     onMouseEnter={() => {
                       cancelChatPopoverClose();
                       setChatPopoverOpen(true);
                     }}
                     onMouseLeave={() => scheduleChatPopoverClose()}
-                    onFocus={() => {
-                      cancelChatPopoverClose();
-                      setChatPopoverOpen(true);
-                    }}
                   >
                     <Bot className="size-4" />
                   </button>
-                </PopoverTrigger>
+                </PopoverAnchor>
                 <PopoverContent
                   align="end"
                   sideOffset={8}
                   className="w-48 p-3 bg-popover border border-border shadow-md"
                   onOpenAutoFocus={(e) => e.preventDefault()}
-                  onMouseEnter={() => cancelChatPopoverClose()}
-                  onMouseLeave={() => scheduleChatPopoverClose()}
+                  onCloseAutoFocus={(e) => e.preventDefault()}
+                  onMouseEnter={cancelChatPopoverClose}
+                  onMouseLeave={scheduleChatPopoverClose}
                 >
                   <label className="flex items-center justify-between cursor-pointer">
                     <span className="text-sm text-popover-foreground">Floating Ball</span>

@@ -666,14 +666,14 @@ export const SkillsView: React.FC = () => {
                 <TabsTrigger value="market">
                   <Store className="size-4" />
                   Market
-                  <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                  <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium tabular-nums text-sky-700 dark:text-sky-400">
                     {marketCategories.reduce((total, category) => total + category.items.length, 0)}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger value="resources">
                   <BookOpen className="size-4" />
                   Resources
-                  <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                  <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium tabular-nums text-sky-700 dark:text-sky-400">
                     {resourceCategories.reduce((total, category) => total + category.items.length, 0)}
                   </span>
                 </TabsTrigger>

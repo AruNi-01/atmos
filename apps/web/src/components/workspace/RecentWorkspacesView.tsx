@@ -392,7 +392,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                 <div className="flex items-center gap-5 min-w-0 flex-1 overflow-hidden">
                                   <div className="flex items-center gap-4 w-[260px] shrink-0">
                                     <div className={cn(
-                                      "size-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 uppercase border transition-transform group-hover:scale-105",
+                                      "size-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 uppercase border",
                                       ws.isArchivedRemote
                                         ? "bg-muted text-muted-foreground border-border"
                                         : "bg-primary/10 text-primary border-primary/20 shadow-sm"

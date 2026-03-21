@@ -47,7 +47,7 @@ export function needsUpdate(
 export interface AgentCardProps {
   item: RegistryAgent;
   index: number;
-  installingRegistryId: string | null;
+  installingRegistryIds: Set<string>;
   removingRegistryId: string | null;
   onInstall: (registryId: string, forceOverwrite?: boolean) => void;
   onRemoveRequest: (info: { registryId: string; name: string }) => void;
@@ -56,11 +56,13 @@ export interface AgentCardProps {
 export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
   item,
   index,
-  installingRegistryId,
+  installingRegistryIds,
   removingRegistryId,
   onInstall,
   onRemoveRequest,
 }) {
+  const isInstalling = installingRegistryIds.has(item.id);
+
   return (
     <motion.div
       key={item.id}
@@ -156,10 +158,10 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
             <Button
               size="sm"
               onClick={() => void onInstall(item.id)}
-              disabled={installingRegistryId === item.id}
+              disabled={isInstalling}
               className="h-8 rounded-lg px-4"
             >
-              {installingRegistryId === item.id ? (
+              {isInstalling ? (
                 <>
                   <Loader2 className="mr-1 size-3 animate-spin" />
                   Installing
@@ -179,10 +181,10 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
                     size="sm"
                     variant="outline"
                     onClick={() => void onInstall(item.id, true)}
-                    disabled={installingRegistryId === item.id}
+                    disabled={isInstalling}
                     className="h-8 rounded-lg px-3 text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all"
                   >
-                    {installingRegistryId === item.id ? (
+                    {isInstalling ? (
                       <>
                         <Loader2 className="mr-1 size-3 animate-spin" />
                         Updating
