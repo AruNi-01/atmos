@@ -634,11 +634,12 @@ const Terminal = ({
 
   const handleResolvedLink = useCallback(async (event: MouseEvent, rawText: string) => {
     const resolved = await resolveTerminalLink(rawText, {
+      cwdPath: cwd,
       projectRootPath,
     });
 
     await handleTerminalLink(event, resolved);
-  }, [handleTerminalLink, projectRootPath]);
+  }, [cwd, handleTerminalLink, projectRootPath]);
 
   useEffect(() => {
     handleTerminalLinkRef.current = handleTerminalLink;
@@ -683,6 +684,7 @@ const Terminal = ({
     void (async () => {
       for (const candidate of candidates) {
         const resolved = await resolveTerminalLink(candidate, {
+          cwdPath: cwd,
           projectRootPath,
         });
         if (!resolved || resolved.type === "external") {
@@ -693,7 +695,7 @@ const Terminal = ({
         return;
       }
     })();
-  }, [getAnchorCandidates, handleTerminalLink, projectRootPath]);
+  }, [cwd, getAnchorCandidates, handleTerminalLink, projectRootPath]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -740,7 +742,7 @@ const Terminal = ({
           terminal,
           bufferLineNumber,
           column,
-          { projectRootPath },
+          { cwdPath: cwd, projectRootPath },
         );
         if (!resolved || resolved.type === "external") {
           return;
@@ -770,7 +772,7 @@ const Terminal = ({
     return () => {
       container.removeEventListener("click", handleNativeClickCapture, true);
     };
-  }, [handleTerminalAnchorActivation, handleTerminalLink, projectRootPath]);
+  }, [cwd, handleTerminalAnchorActivation, handleTerminalLink, projectRootPath]);
 
   // Initialize terminal
   useEffect(() => {
@@ -810,7 +812,7 @@ const Terminal = ({
     terminal.unicode.activeVersion = "11";
     terminal.loadAddon(fitAddon);
     linkProvider = terminal.registerLinkProvider(
-      createTerminalLinkProvider(terminal, { projectRootPath }, (event, target) => {
+      createTerminalLinkProvider(terminal, { cwdPath: cwd, projectRootPath }, (event, target) => {
         void handleTerminalLinkRef.current(event, target);
       })
     );

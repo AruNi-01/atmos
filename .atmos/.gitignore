@@ -1,1 +1,8 @@
 attachments/
+# Workspace-local Atmos state must not be shared across git worktrees.
+# Keep context/ and reviews/ ignored so new workspaces do not inherit
+# project-specific requirements, tasks, or review artifacts.
+# When adding new files or directories under .atmos/, decide whether they are
+# safe to sync across workspaces or should be added to this ignore list.
+context/
+reviews/

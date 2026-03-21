@@ -233,6 +233,8 @@ pub enum WsAction {
     WorkspaceListArchived,
     /// 重试 Workspace 设置 (脚本执行)
     WorkspaceRetrySetup,
+    /// 跳过失败的 setup script，直接完成 workspace 初始化
+    WorkspaceSkipSetupScript,
     /// 确认 LLM 生成的 TODO 并继续 setup
     WorkspaceConfirmTodos,
     /// 检查项目是否可以删除（从归档模态）
@@ -334,6 +336,8 @@ pub enum WsAction {
     LlmProvidersGet,
     /// Overwrite ~/.atmos/llm/providers.json
     LlmProvidersUpdate,
+    /// Test an LLM provider with streaming output
+    LlmProviderTest,
 }
 
 /// 服务端主动推送的事件类型
@@ -348,6 +352,8 @@ pub enum WsEvent {
     TokenUsageUpdated,
     /// Git commit message 流式生成 chunk
     GitCommitMessageChunk,
+    /// LLM provider test 流式输出 chunk
+    LlmProviderTestChunk,
 }
 
 // ===== 消息通知数据结构 =====
@@ -369,6 +375,8 @@ pub struct WorkspaceSetupProgressNotification {
     pub status: String,
     #[serde(default)]
     pub step_key: Option<String>,
+    #[serde(default)]
+    pub failed_step_key: Option<String>,
     pub step_title: String,
     /// 脚本输出内容 (按需发送)
     pub output: Option<String>,
@@ -935,6 +943,18 @@ pub struct WorkspaceArchiveRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceRetrySetupRequest {
     pub guid: String,
+    pub failed_step_key: String,
+    #[serde(default)]
+    pub initial_requirement: Option<String>,
+    #[serde(default)]
+    pub github_issue: Option<GithubIssuePayload>,
+    #[serde(default)]
+    pub auto_extract_todos: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceSkipSetupScriptRequest {
+    pub guid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1367,6 +1387,13 @@ pub struct FunctionSettingsUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmProvidersUpdateRequest {
     pub config: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmProviderTestRequest {
+    pub stream_id: String,
+    pub provider_id: Option<String>,
+    pub provider: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

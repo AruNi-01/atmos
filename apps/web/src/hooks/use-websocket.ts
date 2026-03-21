@@ -70,6 +70,7 @@ export type WsAction =
   | "workspace_list_archived"
   | "workspace_unarchive"
   | "workspace_retry_setup"
+  | "workspace_skip_setup_script"
   | "workspace_confirm_todos"
   // Project 检查操作
   | "project_check_can_delete"
@@ -89,6 +90,7 @@ export type WsAction =
   | "function_settings_update"
   | "llm_providers_get"
   | "llm_providers_update"
+  | "llm_provider_test"
   // Agent 操作
   | "agent_list"
   | "agent_install"

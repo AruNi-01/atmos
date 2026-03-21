@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { GeistPixelCircle } from 'geist/font/pixel';
+import { GeistPixelSquare } from 'geist/font/pixel';
 import { cn } from '@workspace/ui';
 import LogoSvg from '@workspace/ui/components/logo-svg';
 
@@ -23,7 +23,7 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
       <div
         className={cn(
           'group flex w-full max-w-3xl items-center justify-between cursor-default select-none',
-          GeistPixelCircle.className
+          GeistPixelSquare.className
         )}
       >
         <span

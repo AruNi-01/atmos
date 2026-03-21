@@ -59,7 +59,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   progress,
   onFinish,
 }) => {
-  const { status, stepTitle, output, workspaceId, stepKey, lastStepKey, setupContext } =
+  const { status, stepTitle, output, workspaceId, stepKey, lastStepKey, failedStepKey, setupContext } =
     progress;
   const retryWorkspaceSetup = useProjectStore((s) => s.retryWorkspaceSetup);
 
@@ -161,6 +161,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const [localCountdown, setLocalCountdown] = useState(5);
   const [isHovered, setIsHovered] = useState(false);
   const [isConfirmingTodos, setIsConfirmingTodos] = useState(false);
+  const [isSkippingSetupScript, setIsSkippingSetupScript] = useState(false);
   const [isTodoEditing, setIsTodoEditing] = useState(false);
   const [editedTodoOutput, setEditedTodoOutput] = useState<string | null>(null);
 
@@ -250,6 +251,12 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     }
   }, [progress.requiresConfirmation, progress.status, progress.stepKey]);
 
+  useEffect(() => {
+    if (status !== "error") {
+      setIsSkippingSetupScript(false);
+    }
+  }, [status]);
+
   useHotkeys(
     "mod+enter",
     () => {
@@ -271,6 +278,25 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       toastManager.add({
         title: "Could not continue setup",
         description: "Failed to save the generated TODOs into task.md.",
+        type: "error",
+      });
+    }
+  };
+
+  const canSkipSetupScript = status === "error" && failedStepKey === "run_setup_script";
+
+  const handleSkipSetupScript = async () => {
+    if (!workspaceId || isSkippingSetupScript) return;
+
+    try {
+      setIsSkippingSetupScript(true);
+      await wsWorkspaceApi.skipSetupScript(workspaceId);
+    } catch (error) {
+      console.error("Failed to skip setup script:", error);
+      setIsSkippingSetupScript(false);
+      toastManager.add({
+        title: "Could not skip setup script",
+        description: "Failed to mark the workspace as ready.",
         type: "error",
       });
     }
@@ -545,14 +571,34 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               <ArrowRight className="size-5" />
             </Button>
           ) : status === "error" ? (
-            <Button
-              variant="destructive"
-              size="lg"
-              className="rounded-sm px-12 shadow-lg transition-all hover:scale-105 active:scale-95"
-              onClick={() => retryWorkspaceSetup(workspaceId)}
-            >
-              Retry Initialization
-            </Button>
+            <>
+              {canSkipSetupScript && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="rounded-sm px-8 shadow-lg transition-all hover:scale-105 active:scale-95"
+                  disabled={isSkippingSetupScript}
+                  onClick={handleSkipSetupScript}
+                >
+                  {isSkippingSetupScript ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Skipping...
+                    </>
+                  ) : (
+                    "Skip"
+                  )}
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                size="lg"
+                className="rounded-sm px-12 shadow-lg transition-all hover:scale-105 active:scale-95"
+                onClick={() => retryWorkspaceSetup(workspaceId)}
+              >
+                Retry Initialization
+              </Button>
+            </>
           ) : progress.requiresConfirmation ? (
             <Button
               size="lg"

@@ -9,6 +9,7 @@ import {
 } from "@/lib/desktop-external-url";
 
 type LinkRoutingContext = {
+  cwdPath?: string;
   projectRootPath?: string;
 };
 
@@ -222,7 +223,9 @@ async function resolveInternalPath(
   pathText: string,
   context: LinkRoutingContext,
 ): Promise<ResolvedFileLink | ResolvedDirectoryLink | null> {
-  const roots = [context.projectRootPath].filter(Boolean) as string[];
+  const roots = Array.from(
+    new Set([context.cwdPath, context.projectRootPath].filter(Boolean) as string[])
+  );
   if (roots.length === 0 && !isAbsolutePath(pathText) && !pathText.startsWith("~/")) {
     return null;
   }

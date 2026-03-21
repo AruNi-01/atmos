@@ -1,29 +1,17 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BrainCircuit,
   Check,
-  ChevronDown,
-  Copy,
   Languages,
   LoaderCircle,
-  Plus,
   Save,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import {
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -35,14 +23,13 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  ScrollArea,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Switch,
   Skeleton,
+  Switch,
   cn,
   toastManager,
 } from "@workspace/ui";
@@ -56,6 +43,7 @@ import {
   type SessionTitleFormatConfig,
 } from "@/api/ws-api";
 import { WIKI_LANGUAGE_OPTIONS } from "@/components/wiki/wiki-languages";
+import { useWebSocketStore } from "@/hooks/use-websocket";
 
 type ProviderDraft = {
   clientKey: string;
@@ -114,6 +102,7 @@ const KIND_OPTIONS: Array<{
 ];
 
 const DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS = "4096";
+const DEFAULT_PROVIDER_TIMEOUT_MS = "20000";
 const FEATURE_LANGUAGE_OPTIONS = WIKI_LANGUAGE_OPTIONS.filter(
   (option) => option.value !== "other",
 );
@@ -399,6 +388,24 @@ function modalStateToFile(state: ModalDraftState): LlmProvidersFile {
   };
 }
 
+function providerDraftToEntry(provider: ProviderDraft): LlmProviderEntry {
+  const trimmedTimeout = provider.timeout_ms.trim();
+  const trimmedMaxOutputTokens = provider.max_output_tokens.trim();
+
+  return {
+    enabled: provider.enabled,
+    displayName: provider.name.trim() || null,
+    kind: provider.kind,
+    base_url: provider.base_url.trim(),
+    api_key: provider.api_key.trim(),
+    model: provider.model.trim(),
+    timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
+    max_output_tokens: trimmedMaxOutputTokens
+      ? parseInt(trimmedMaxOutputTokens, 10)
+      : null,
+  };
+}
+
 function providerLabel(
   provider: Pick<ProviderDraft, "name" | "persistedId">,
 ): string {
@@ -419,7 +426,7 @@ function newProviderDraft(existing: ProviderDraft[]): ProviderDraft {
     base_url: "",
     api_key: "",
     model: "",
-    timeout_ms: "8000",
+    timeout_ms: DEFAULT_PROVIDER_TIMEOUT_MS,
     max_output_tokens: "",
   };
 }
@@ -438,137 +445,116 @@ function sessionTitleFormatPreview(format: SessionTitleFormatConfig): string {
   const segments: string[] = [];
   if (format.include_agent_name) segments.push("[agentName]");
   if (format.include_project_name) segments.push("[projectName]");
-  segments.push(
-    format.include_intent_emoji ? "🎨 title desc" : "title desc",
-  );
+  segments.push(format.include_intent_emoji ? "🎨 title desc" : "title desc");
   return segments.join(" | ");
 }
 
-export function LlmProvidersModal({
+function scheduleSaveStateReset(
+  setState: React.Dispatch<React.SetStateAction<SaveState>>,
+  timerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
+) {
+  if (timerRef.current) {
+    clearTimeout(timerRef.current);
+  }
+  timerRef.current = setTimeout(() => {
+    setState("idle");
+    timerRef.current = null;
+  }, 3000);
+}
+
+function useResetTimer(timerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) {
+  useEffect(
+    () => () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    },
+    [timerRef],
+  );
+}
+
+export function LlmProviderEditorDialog({
   open,
   onOpenChange,
+  providerId,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  providerId?: string | null;
+  onSaved?: () => void;
 }) {
   const [version, setVersion] = useState(1);
   const [providers, setProviders] = useState<ProviderDraft[]>([]);
   const [routingDraft, setRoutingDraft] = useState<RoutingDraft>(EMPTY_ROUTING);
-  const [selectedProviderKey, setSelectedProviderKey] = useState<string | null>(
-    null,
-  );
-  const [providerEditor, setProviderEditor] = useState<ProviderDraft | null>(
-    null,
-  );
+  const [providerEditor, setProviderEditor] = useState<ProviderDraft | null>(null);
   const [loading, setLoading] = useState(false);
-  const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
   const [providerSaveState, setProviderSaveState] = useState<SaveState>("idle");
-  const [titleFormatSaveState, setTitleFormatSaveState] =
-    useState<SaveState>("idle");
   const [providerNameTouched, setProviderNameTouched] = useState(false);
   const [providerSaveAttempted, setProviderSaveAttempted] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [providersExpanded, setProvidersExpanded] = useState(true);
-  const [routingExpanded, setRoutingExpanded] = useState(true);
-  const [sessionTitleFormatOpen, setSessionTitleFormatOpen] = useState(false);
-  const [sessionTitleFormatDraft, setSessionTitleFormatDraft] =
-    useState<SessionTitleFormatConfig>(DEFAULT_SESSION_TITLE_FORMAT);
-  const routingResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const providerResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const titleFormatResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const [testPopoverOpen, setTestPopoverOpen] = useState(false);
+  const [testStatus, setTestStatus] = useState<"idle" | "testing" | "pass" | "fail">("idle");
+  const [testOutput, setTestOutput] = useState("");
+  const providerResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const providerTestUnsubscribeRef = useRef<(() => void) | null>(null);
 
-  const scheduleSaveStateReset = useCallback(
-    (
-      setState: React.Dispatch<React.SetStateAction<SaveState>>,
-      timerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
-    ) => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      timerRef.current = setTimeout(() => {
-        setState("idle");
-        timerRef.current = null;
-      }, 3000);
-    },
-    [],
-  );
-
+  useResetTimer(providerResetTimerRef);
   useEffect(
     () => () => {
-      if (routingResetTimerRef.current) {
-        clearTimeout(routingResetTimerRef.current);
-      }
-      if (providerResetTimerRef.current) {
-        clearTimeout(providerResetTimerRef.current);
-      }
-      if (titleFormatResetTimerRef.current) {
-        clearTimeout(titleFormatResetTimerRef.current);
-      }
+      providerTestUnsubscribeRef.current?.();
     },
     [],
   );
 
-  const loadConfig = useCallback(
-    async (preferredPersistedId?: string | null, silent = false) => {
-      if (!silent) setLoading(true);
-      try {
-        const config = await llmProvidersApi.get();
-        const nextState = fileToModalState(config);
-        setVersion(nextState.version);
-        setProviders(nextState.providers);
-        setRoutingDraft(nextState.routing);
-        setSessionTitleFormatDraft(
-          normalizeSessionTitleFormat(
-            nextState.routing.features.session_title_format,
-          ),
+  const loadConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      const config = await llmProvidersApi.get();
+      const nextState = fileToModalState(config);
+      setVersion(nextState.version);
+      setProviders(nextState.providers);
+      setRoutingDraft(nextState.routing);
+
+      if (providerId) {
+        const selected = nextState.providers.find(
+          (provider) => provider.persistedId === providerId,
         );
-
-        const selected =
-          (preferredPersistedId
-            ? nextState.providers.find(
-                (provider) => provider.persistedId === preferredPersistedId,
-              )
-            : null) ??
-          nextState.providers[0] ??
-          null;
-
-        setSelectedProviderKey(selected?.clientKey ?? null);
-        setProviderEditor(selected ? { ...selected } : null);
-        setProviderNameTouched(false);
-        setProviderSaveAttempted(false);
-      } catch (error) {
-        toastManager.add({
-          title: "Failed to load LLM settings",
-          description: error instanceof Error ? error.message : "Unknown error",
-          type: "error",
-        });
-      } finally {
-        setLoading(false);
+        if (!selected) {
+          toastManager.add({
+            title: "Provider not found",
+            description: "The selected provider no longer exists.",
+            type: "error",
+          });
+          onOpenChange(false);
+          return;
+        }
+        setProviderEditor({ ...selected });
+      } else {
+        setProviderEditor(newProviderDraft(nextState.providers));
       }
-    },
-    [],
-  );
+
+      setProviderNameTouched(false);
+      setProviderSaveAttempted(false);
+      setProviderSaveState("idle");
+      setTestStatus("idle");
+      setTestOutput("");
+    } catch (error) {
+      toastManager.add({
+        title: "Failed to load provider settings",
+        description: error instanceof Error ? error.message : "Unknown error",
+        type: "error",
+      });
+      onOpenChange(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [onOpenChange, providerId]);
 
   useEffect(() => {
     if (!open) return;
-    setRoutingExpanded(true);
     void loadConfig();
-  }, [open, loadConfig]);
-
-  const providerOptions = useMemo(
-    () =>
-      providers.map((provider) => ({
-        value: provider.clientKey,
-        label: providerLabel(provider),
-      })),
-    [providers],
-  );
+  }, [loadConfig, open]);
 
   const providerEditorCandidates = useMemo(() => {
     if (!providerEditor) return providers;
@@ -590,50 +576,52 @@ export function LlmProvidersModal({
   const showProviderNameIssue =
     !!providerNameIssue && (providerNameTouched || providerSaveAttempted);
 
-  const selectProvider = (provider: ProviderDraft) => {
-    setSelectedProviderKey(provider.clientKey);
-    setProviderEditor({ ...provider });
-    setProviderNameTouched(false);
-    setProviderSaveAttempted(false);
-  };
+  const handleTestProvider = async () => {
+    if (!providerEditor) return;
 
-  const handleAddProvider = () => {
-    const draft = newProviderDraft(providers);
-    setSelectedProviderKey(draft.clientKey);
-    setProviderEditor(draft);
-    setProviderNameTouched(false);
-    setProviderSaveAttempted(false);
-  };
+    setTestPopoverOpen(true);
+    setTestStatus("testing");
+    setTestOutput("");
+    providerTestUnsubscribeRef.current?.();
 
-  const handleSaveRouting = async () => {
-    const validationError = validateRouting(routingDraft, providers);
-    if (validationError) {
-      toastManager.add({
-        title: "Invalid routing settings",
-        description: validationError,
-        type: "error",
+    const streamId = crypto.randomUUID();
+    let streamedOutput = "";
+
+    providerTestUnsubscribeRef.current = useWebSocketStore
+      .getState()
+      .onEvent("llm_provider_test_chunk", (payload) => {
+        if (
+          typeof payload !== "object" ||
+          payload === null ||
+          (payload as { stream_id?: unknown }).stream_id !== streamId
+        ) {
+          return;
+        }
+
+        const chunk = (payload as { chunk?: unknown }).chunk;
+        if (typeof chunk !== "string" || chunk.length === 0) return;
+
+        streamedOutput += chunk;
+        setTestOutput(streamedOutput);
       });
-      return;
-    }
 
-    setRoutingSaveState("saving");
     try {
-      await llmProvidersApi.update(
-        modalStateToFile({
-          version,
-          providers,
-          routing: routingDraft,
-        }),
-      );
-      setRoutingSaveState("saved");
-      scheduleSaveStateReset(setRoutingSaveState, routingResetTimerRef);
-    } catch (error) {
-      setRoutingSaveState("idle");
-      toastManager.add({
-        title: "Failed to save routing settings",
-        description: error instanceof Error ? error.message : "Unknown error",
-        type: "error",
+      const result = await llmProvidersApi.testProvider({
+        stream_id: streamId,
+        provider_id: providerEditor.persistedId || null,
+        provider: providerDraftToEntry(providerEditor),
       });
+      setTestStatus("pass");
+      setTestOutput(streamedOutput || result.text || "");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setTestStatus("fail");
+      setTestOutput(
+        streamedOutput ? `${streamedOutput}\n\n[ERROR] ${message}` : `[ERROR] ${message}`,
+      );
+    } finally {
+      providerTestUnsubscribeRef.current?.();
+      providerTestUnsubscribeRef.current = null;
     }
   };
 
@@ -660,8 +648,6 @@ export function LlmProvidersModal({
       ),
       providerEditor,
     ];
-    const nextPersistedId =
-      buildDraftIdMap(nextProviders).get(providerEditor.clientKey) ?? null;
 
     setProviderSaveState("saving");
     try {
@@ -674,11 +660,471 @@ export function LlmProvidersModal({
       );
       setProviderSaveState("saved");
       scheduleSaveStateReset(setProviderSaveState, providerResetTimerRef);
-      await loadConfig(nextPersistedId, true);
+      onSaved?.();
+      onOpenChange(false);
     } catch (error) {
       setProviderSaveState("idle");
       toastManager.add({
         title: "Failed to save provider",
+        description: error instanceof Error ? error.message : "Unknown error",
+        type: "error",
+      });
+    }
+  };
+
+  const handleDeleteProvider = async () => {
+    if (!providerEditor?.persistedId) return;
+
+    const nextProviders = providers.filter(
+      (provider) => provider.clientKey !== providerEditor.clientKey,
+    );
+    const nextRouting: RoutingDraft = {
+      features: {
+        session_title:
+          routingDraft.features.session_title === providerEditor.clientKey
+            ? null
+            : routingDraft.features.session_title,
+        git_commit:
+          routingDraft.features.git_commit === providerEditor.clientKey
+            ? null
+            : routingDraft.features.git_commit,
+        git_commit_language: normalizeFeatureLanguage(
+          routingDraft.features.git_commit_language,
+        ),
+        workspace_issue_todo:
+          routingDraft.features.workspace_issue_todo === providerEditor.clientKey
+            ? null
+            : routingDraft.features.workspace_issue_todo,
+        workspace_issue_todo_language: normalizeFeatureLanguage(
+          routingDraft.features.workspace_issue_todo_language,
+        ),
+        session_title_format: normalizeSessionTitleFormat(
+          routingDraft.features.session_title_format,
+        ),
+      },
+    };
+
+    setProviderSaveState("saving");
+    try {
+      await llmProvidersApi.update(
+        modalStateToFile({
+          version,
+          providers: nextProviders,
+          routing: nextRouting,
+        }),
+      );
+      toastManager.add({ title: "Provider deleted", type: "success" });
+      onSaved?.();
+      onOpenChange(false);
+    } catch (error) {
+      setProviderSaveState("idle");
+      toastManager.add({
+        title: "Failed to delete provider",
+        description: error instanceof Error ? error.message : "Unknown error",
+        type: "error",
+      });
+    }
+  };
+
+  const selectedProviderIsUnsaved =
+    !!providerEditor && !providerEditor.persistedId;
+  const selectedProviderHint = selectedProviderIsUnsaved
+    ? "New provider"
+    : providerEditor
+      ? KIND_OPTIONS.find((item) => item.value === providerEditor.kind)?.hint
+      : null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(94vw,720px)] max-w-[720px] border-border bg-background p-0">
+        <DialogHeader className="border-b border-border px-6 py-5">
+          <DialogTitle className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-2xl border border-primary/20 bg-background/70 shadow-sm">
+              <BrainCircuit className="size-4 text-primary" />
+            </div>
+            {providerId ? "Edit Provider" : "Add Provider"}
+          </DialogTitle>
+          <DialogDescription>
+            {selectedProviderHint ?? "Configure a lightweight provider for background tasks."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-6 py-5">
+          {loading || !providerEditor ? (
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+              <Skeleton className="h-32 w-full rounded-xl" />
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field
+                label="Provider name"
+                labelAccessory={
+                  showProviderNameIssue && providerNameIssue ? (
+                    <span className="text-xs font-medium text-destructive">
+                      {providerNameIssue}
+                    </span>
+                  ) : null
+                }
+                error={showProviderNameIssue}
+              >
+                <Input
+                  value={providerEditor.name}
+                  onChange={(event) => {
+                    setProviderNameTouched(true);
+                    setProviderEditor((current) =>
+                      current ? { ...current, name: event.target.value } : current,
+                    );
+                  }}
+                  placeholder="OpenRouter Fast"
+                  className={cn(
+                    showProviderNameIssue &&
+                      "border-destructive focus-visible:ring-destructive/30",
+                  )}
+                />
+              </Field>
+
+              <Field label="Provider key">
+                <Input
+                  value={
+                    providerEditor.name.trim()
+                      ? slugifyProviderId(providerEditor.name)
+                      : ""
+                  }
+                  placeholder="Generated from name"
+                  disabled
+                />
+              </Field>
+
+              <Field label="Compatibility">
+                <Select
+                  value={providerEditor.kind}
+                  onValueChange={(value) => {
+                    const kind = value as LlmProviderKind;
+                    const shouldSeedAnthropicDefault =
+                      !providerEditor.max_output_tokens.trim() &&
+                      kind === "anthropic-compatible";
+                    setProviderEditor((current) =>
+                      current
+                        ? {
+                            ...current,
+                            kind,
+                            max_output_tokens: shouldSeedAnthropicDefault
+                              ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
+                              : current.max_output_tokens,
+                          }
+                        : current,
+                    );
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KIND_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              <Field label="Enabled">
+                <div className="flex h-10 items-center justify-between rounded-xl border border-border px-3">
+                  <span className="text-sm text-foreground">Provider status</span>
+                  <Switch
+                    checked={providerEditor.enabled}
+                    onCheckedChange={(checked) =>
+                      setProviderEditor((current) =>
+                        current ? { ...current, enabled: checked } : current,
+                      )
+                    }
+                  />
+                </div>
+              </Field>
+
+              <Field label="Timeout (ms)">
+                <Input
+                  value={providerEditor.timeout_ms}
+                  onChange={(event) =>
+                    setProviderEditor((current) =>
+                      current ? { ...current, timeout_ms: event.target.value } : current,
+                    )
+                  }
+                  placeholder={DEFAULT_PROVIDER_TIMEOUT_MS}
+                />
+              </Field>
+
+              <Field label="Max output tokens">
+                <Input
+                  value={providerEditor.max_output_tokens}
+                  onChange={(event) =>
+                    setProviderEditor((current) =>
+                      current
+                        ? { ...current, max_output_tokens: event.target.value }
+                        : current,
+                    )
+                  }
+                  placeholder={
+                    providerEditor.kind === "anthropic-compatible"
+                      ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
+                      : "Optional"
+                  }
+                />
+              </Field>
+
+              <Field label="Base URL" className="md:col-span-2">
+                <Input
+                  value={providerEditor.base_url}
+                  onChange={(event) =>
+                    setProviderEditor((current) =>
+                      current ? { ...current, base_url: event.target.value } : current,
+                    )
+                  }
+                  placeholder={
+                    providerEditor.kind === "anthropic-compatible"
+                      ? "https://api.anthropic.com"
+                      : "https://openrouter.ai/api/v1"
+                  }
+                />
+              </Field>
+
+              <Field label="API key" className="md:col-span-2">
+                <Input
+                  type="password"
+                  value={providerEditor.api_key}
+                  onChange={(event) =>
+                    setProviderEditor((current) =>
+                      current ? { ...current, api_key: event.target.value } : current,
+                    )
+                  }
+                  placeholder="sk-... or env:OPENROUTER_API_KEY"
+                />
+              </Field>
+
+              <Field label="Model" className="md:col-span-2">
+                <Input
+                  value={providerEditor.model}
+                  onChange={(event) =>
+                    setProviderEditor((current) =>
+                      current ? { ...current, model: event.target.value } : current,
+                    )
+                  }
+                  placeholder={
+                    providerEditor.kind === "anthropic-compatible"
+                      ? "claude-3-5-haiku-latest"
+                      : "openrouter/auto"
+                  }
+                />
+              </Field>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="border-t border-border px-6 py-4">
+          <div className="flex w-full items-center">
+            <div className="flex min-w-0 flex-1 items-center">
+              {providerId ? (
+                <Popover open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      disabled={providerSaveState === "saving" || loading}
+                    >
+                      <Trash2 className="size-4" />
+                      Delete
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 space-y-3 p-4" side="top" align="start">
+                    <p className="text-sm text-foreground">Delete this provider?</p>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setDeleteConfirmOpen(false);
+                          void handleDeleteProvider();
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+
+            <div className="flex flex-1 items-center justify-end gap-2">
+              {providerId ? (
+                <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+              ) : null}
+              <Popover open={testPopoverOpen} onOpenChange={setTestPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    className={cn(
+                      "px-3",
+                      testStatus === "pass" &&
+                        "text-emerald-700 hover:text-emerald-700 dark:text-emerald-300",
+                      testStatus === "fail" &&
+                        "text-destructive hover:text-destructive",
+                      testStatus === "testing" &&
+                        "text-amber-700 hover:text-amber-700 dark:text-amber-300",
+                    )}
+                    onClick={() => {
+                      void handleTestProvider();
+                    }}
+                    disabled={loading || !providerEditor}
+                  >
+                    {testStatus === "testing"
+                      ? "TESTING..."
+                      : testStatus === "pass"
+                        ? "PASS"
+                        : testStatus === "fail"
+                          ? "FAIL"
+                          : "TEST"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[420px] p-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-foreground">Provider Test</p>
+                      <Button variant="ghost" onClick={() => void handleTestProvider()}>
+                        RETEST
+                      </Button>
+                    </div>
+                    <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-muted/20 p-3 text-xs whitespace-pre-wrap text-foreground">
+                      {testOutput ||
+                        (testStatus === "testing"
+                          ? "Streaming response..."
+                          : "Click TEST to start.")}
+                    </pre>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <SaveStateButton
+                state={providerSaveState}
+                idleLabel={providerId ? "Save changes" : "Create provider"}
+                savingLabel="Saving..."
+                savedLabel="Saved"
+                onClick={() => void handleSaveProvider()}
+                disabled={providerSaveState === "saving" || loading || !providerEditor}
+                measureLabel={providerId ? "Save changes" : "Create provider"}
+              />
+            </div>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function LlmRoutingDialog({
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
+}) {
+  const [version, setVersion] = useState(1);
+  const [providers, setProviders] = useState<ProviderDraft[]>([]);
+  const [routingDraft, setRoutingDraft] = useState<RoutingDraft>(EMPTY_ROUTING);
+  const [loading, setLoading] = useState(false);
+  const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
+  const [titleFormatSaveState, setTitleFormatSaveState] =
+    useState<SaveState>("idle");
+  const [sessionTitleFormatOpen, setSessionTitleFormatOpen] = useState(false);
+  const [sessionTitleFormatDraft, setSessionTitleFormatDraft] =
+    useState<SessionTitleFormatConfig>(DEFAULT_SESSION_TITLE_FORMAT);
+  const routingResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleFormatResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useResetTimer(routingResetTimerRef);
+  useResetTimer(titleFormatResetTimerRef);
+
+  const loadConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      const config = await llmProvidersApi.get();
+      const nextState = fileToModalState(config);
+      setVersion(nextState.version);
+      setProviders(nextState.providers);
+      setRoutingDraft(nextState.routing);
+      setSessionTitleFormatDraft(
+        normalizeSessionTitleFormat(
+          nextState.routing.features.session_title_format,
+        ),
+      );
+      setRoutingSaveState("idle");
+      setTitleFormatSaveState("idle");
+    } catch (error) {
+      toastManager.add({
+        title: "Failed to load routing settings",
+        description: error instanceof Error ? error.message : "Unknown error",
+        type: "error",
+      });
+      onOpenChange(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    void loadConfig();
+  }, [loadConfig, open]);
+
+  const providerOptions = useMemo(
+    () =>
+      providers.map((provider) => ({
+        value: provider.clientKey,
+        label: providerLabel(provider),
+      })),
+    [providers],
+  );
+
+  const handleSaveRouting = async () => {
+    const validationError = validateRouting(routingDraft, providers);
+    if (validationError) {
+      toastManager.add({
+        title: "Invalid routing settings",
+        description: validationError,
+        type: "error",
+      });
+      return;
+    }
+
+    setRoutingSaveState("saving");
+    try {
+      await llmProvidersApi.update(
+        modalStateToFile({
+          version,
+          providers,
+          routing: routingDraft,
+        }),
+      );
+      setRoutingSaveState("saved");
+      scheduleSaveStateReset(setRoutingSaveState, routingResetTimerRef);
+      onSaved?.();
+    } catch (error) {
+      setRoutingSaveState("idle");
+      toastManager.add({
+        title: "Failed to save routing settings",
         description: error instanceof Error ? error.message : "Unknown error",
         type: "error",
       });
@@ -717,6 +1163,7 @@ export function LlmProvidersModal({
         setTitleFormatSaveState,
         titleFormatResetTimerRef,
       );
+      onSaved?.();
     } catch (error) {
       setTitleFormatSaveState("idle");
       toastManager.add({
@@ -727,773 +1174,255 @@ export function LlmProvidersModal({
     }
   };
 
-  const handleDuplicateProvider = (provider: ProviderDraft) => {
-    const duplicatedProvider: ProviderDraft = {
-      ...provider,
-      clientKey: nextProviderClientKey(providers),
-      persistedId: "",
-      name: provider.name.trim()
-        ? `${provider.name.trim()}_duplicate`
-        : `${fallbackProviderName(provider.persistedId || "provider")}_duplicate`,
-    };
-
-    setProviders((current) => [...current, duplicatedProvider]);
-    setSelectedProviderKey(duplicatedProvider.clientKey);
-    setProviderEditor({ ...duplicatedProvider });
-    setProviderNameTouched(false);
-    setProviderSaveAttempted(false);
-    setProviderSaveState("idle");
-  };
-
-  const handleDeleteProvider = async () => {
-    if (!providerEditor) return;
-
-    if (!providerEditor.persistedId) {
-      const fallback = providers[0] ?? null;
-      setSelectedProviderKey(fallback?.clientKey ?? null);
-      setProviderEditor(fallback ? { ...fallback } : null);
-      setProviderNameTouched(false);
-      setProviderSaveAttempted(false);
-      return;
-    }
-
-    const nextProviders = providers.filter(
-      (provider) => provider.clientKey !== providerEditor.clientKey,
-    );
-    const nextRouting: RoutingDraft = {
-      features: {
-        session_title:
-          routingDraft.features.session_title === providerEditor.clientKey
-            ? null
-            : routingDraft.features.session_title,
-        git_commit:
-          routingDraft.features.git_commit === providerEditor.clientKey
-            ? null
-            : routingDraft.features.git_commit,
-        git_commit_language: normalizeFeatureLanguage(
-          routingDraft.features.git_commit_language,
-        ),
-        workspace_issue_todo:
-          routingDraft.features.workspace_issue_todo ===
-          providerEditor.clientKey
-            ? null
-            : routingDraft.features.workspace_issue_todo,
-        workspace_issue_todo_language: normalizeFeatureLanguage(
-          routingDraft.features.workspace_issue_todo_language,
-        ),
-        session_title_format: normalizeSessionTitleFormat(
-          routingDraft.features.session_title_format,
-        ),
-      },
-    };
-
-    setProviderSaveState("saving");
-    try {
-      await llmProvidersApi.update(
-        modalStateToFile({
-          version,
-          providers: nextProviders,
-          routing: nextRouting,
-        }),
-      );
-      toastManager.add({ title: "Provider deleted", type: "success" });
-      const nextPersistedId = nextProviders[0]?.persistedId ?? null;
-      await loadConfig(nextPersistedId, true);
-    } catch (error) {
-      setProviderSaveState("idle");
-      toastManager.add({
-        title: "Failed to delete provider",
-        description: error instanceof Error ? error.message : "Unknown error",
-        type: "error",
-      });
-    } finally {
-      if (providerResetTimerRef.current) {
-        clearTimeout(providerResetTimerRef.current);
-        providerResetTimerRef.current = null;
-      }
-      setProviderSaveState("idle");
-    }
-  };
-
-  const selectedProviderIsUnsaved =
-    !!providerEditor && !providerEditor.persistedId;
-  const selectedProviderHint = selectedProviderIsUnsaved
-    ? "New provider"
-    : providerEditor
-      ? KIND_OPTIONS.find((item) => item.value === providerEditor.kind)?.hint
-      : null;
-
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="grid h-[min(900px,calc(100vh-2.5rem))] w-[min(96vw,1280px)] max-h-[calc(100vh-2.5rem)] max-w-[min(96vw,1280px)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:h-[min(900px,calc(100vh-4rem))] sm:max-h-[calc(100vh-4rem)] sm:max-w-[min(96vw,1280px)]">
-        <div className="relative overflow-hidden rounded-t-xl border-b border-border bg-[radial-gradient(circle_at_top_right,_hsl(var(--primary)/0.12),_transparent_40%),linear-gradient(135deg,_hsl(var(--muted)/0.9),_transparent)] px-6 py-5">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-[18px]">
-              <div className="flex size-10 items-center justify-center rounded-2xl border border-primary/20 bg-background/70 shadow-sm backdrop-blur">
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="w-[min(94vw,720px)] max-w-[720px] border-border bg-background p-0">
+          <DialogHeader className="border-b border-border px-6 py-5">
+            <DialogTitle className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-2xl border border-primary/20 bg-background/70 shadow-sm">
                 <BrainCircuit className="size-4 text-primary" />
               </div>
-              LLM Providers
+              Routing
             </DialogTitle>
-            <DialogDescription className="max-w-2xl">
-              Configure optional providers for short background tasks. such as
-              ACP session title or git commit generation.
+            <DialogDescription>
+              Choose which provider handles each lightweight background feature.
             </DialogDescription>
           </DialogHeader>
-        </div>
 
-        <div className="grid min-h-0 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)]">
-          {loading ? (
-            <>
-              {/* Left sidebar skeleton */}
-              <div className="min-h-0 border-b border-border bg-muted/20 lg:border-b-0 lg:border-r">
-                <div className="space-y-5 px-5 py-4">
-                  <div className="rounded-2xl border border-border bg-background/80 p-4 shadow-sm">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="mt-3 h-3 w-40" />
-                    <Skeleton className="mt-4 h-9 w-full rounded-lg" />
-                    <div className="mt-4 space-y-2">
-                      <Skeleton className="h-16 w-full rounded-2xl" />
-                      <Skeleton className="h-16 w-full rounded-2xl" />
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-background/80 p-4 shadow-sm">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="mt-3 h-3 w-48" />
-                    <div className="mt-4 space-y-4">
-                      <Skeleton className="h-9 w-full rounded-lg" />
-                      <Skeleton className="h-9 w-full rounded-lg" />
-                      <Skeleton className="h-9 w-full rounded-lg" />
-                    </div>
-                  </div>
-                </div>
+          <div className="space-y-5 px-6 py-5">
+            {loading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
+                <Skeleton className="h-20 w-full rounded-2xl" />
               </div>
-              {/* Right content skeleton */}
-              <div className="flex min-h-[420px] items-center justify-center p-10">
-                <div className="flex flex-col items-center gap-3">
-                  <Skeleton className="size-12 rounded-2xl" />
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-48" />
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-          <div className="min-h-0 border-b border-border bg-muted/20 lg:border-b-0 lg:border-r">
-            <ScrollArea className="h-full">
-              <div className="space-y-5 px-5 py-2">
-                <Collapsible
-                  open={providersExpanded}
-                  onOpenChange={setProvidersExpanded}
-                  className="rounded-2xl border border-border bg-background/80 shadow-sm"
-                >
-                  <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-2 p-4 text-left">
-                    <ChevronDown
-                      className={cn(
-                        "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
-                        providersExpanded && "rotate-180",
-                      )}
+            ) : (
+              <>
+                <FeatureSelect
+                  label="Session title generator"
+                  value={routingDraft.features.session_title}
+                  providerOptions={providerOptions}
+                  noneLabel="Disabled"
+                  action={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={handleOpenSessionTitleFormat}
+                      title="Edit session title format"
+                      aria-label="Edit session title format"
+                    >
+                      <SlidersHorizontal className="h-4 w-4" />
+                    </Button>
+                  }
+                  onChange={(value) =>
+                    setRoutingDraft((current) => ({
+                      ...current,
+                      features: {
+                        ...current.features,
+                        session_title: value,
+                      },
+                    }))
+                  }
+                />
+
+                <FeatureSelect
+                  label="Git commit generator"
+                  value={routingDraft.features.git_commit}
+                  providerOptions={providerOptions}
+                  noneLabel="Disabled"
+                  action={
+                    <FeatureLanguageAction
+                      value={routingDraft.features.git_commit_language}
+                      onChange={(language) =>
+                        setRoutingDraft((current) => ({
+                          ...current,
+                          features: {
+                            ...current.features,
+                            git_commit_language: language,
+                          },
+                        }))
+                      }
                     />
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      Providers
-                    </p>
-                  </CollapsibleTrigger>
+                  }
+                  onChange={(value) =>
+                    setRoutingDraft((current) => ({
+                      ...current,
+                      features: {
+                        ...current.features,
+                        git_commit: value,
+                      },
+                    }))
+                  }
+                />
 
-                  <CollapsibleContent>
-                    <div className="border-t border-border px-4 pb-4">
-                      <Button
-                        variant="outline"
-                        className="mt-4 w-full justify-start gap-2"
-                        onClick={handleAddProvider}
-                      >
-                        <Plus className="size-4" />
-                        Add provider
-                      </Button>
-
-                      <div className="mt-4 space-y-2">
-                        {providers.length === 0 ? (
-                          <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                            No saved providers yet.
-                          </div>
-                        ) : (
-                          providers.map((provider) => (
-                            <div
-                              key={provider.clientKey}
-                              className="flex items-center gap-2"
-                            >
-                              <div
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => selectProvider(provider)}
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter" || event.key === " ") {
-                                    event.preventDefault();
-                                    selectProvider(provider);
-                                  }
-                                }}
-                                className={cn(
-                                  "min-w-0 flex-1 cursor-pointer rounded-2xl border px-3 py-3 text-left transition-colors",
-                                  selectedProviderKey === provider.clientKey
-                                    ? "border-primary/40 bg-primary/10"
-                                    : "border-border bg-background hover:bg-accent/40",
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium text-foreground">
-                                      {providerLabel(provider)}
-                                    </p>
-                                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                                      {provider.persistedId}
-                                    </p>
-                                  </div>
-                                  <div
-                                    className="flex items-center gap-1.5"
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    <Switch
-                                      checked={provider.enabled}
-                                      onCheckedChange={(checked) => {
-                                        setProviders((current) =>
-                                          current.map((item) =>
-                                            item.clientKey ===
-                                            provider.clientKey
-                                              ? { ...item, enabled: checked }
-                                              : item,
-                                          ),
-                                        );
-                                        setProviderEditor((current) =>
-                                          current?.clientKey ===
-                                          provider.clientKey
-                                            ? { ...current, enabled: checked }
-                                            : current,
-                                        );
-                                      }}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="size-8 shrink-0 rounded-xl text-muted-foreground hover:text-foreground"
-                                      onClick={() =>
-                                        handleDuplicateProvider(provider)
-                                      }
-                                    >
-                                      <Copy className="size-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-
-                <Collapsible
-                  open={routingExpanded}
-                  onOpenChange={setRoutingExpanded}
-                  className="rounded-2xl border border-border bg-background/80 shadow-sm"
-                >
-                  <CollapsibleTrigger className="group flex w-full cursor-pointer items-center gap-2 p-4 text-left">
-                    <ChevronDown
-                      className={cn(
-                        "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
-                        routingExpanded && "rotate-180",
-                      )}
+                <FeatureSelect
+                  label="Workspace issue TODO extraction"
+                  value={routingDraft.features.workspace_issue_todo}
+                  providerOptions={providerOptions}
+                  noneLabel="Disabled"
+                  action={
+                    <FeatureLanguageAction
+                      value={routingDraft.features.workspace_issue_todo_language}
+                      onChange={(language) =>
+                        setRoutingDraft((current) => ({
+                          ...current,
+                          features: {
+                            ...current.features,
+                            workspace_issue_todo_language: language,
+                          },
+                        }))
+                      }
                     />
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      Routing
-                    </p>
-                  </CollapsibleTrigger>
-
-                  <CollapsibleContent>
-                    <div className="border-t border-border px-4 pb-4">
-                      <div className="mt-4 space-y-4">
-                        <FeatureSelect
-                          label="Session title generator"
-                          value={routingDraft.features.session_title}
-                          providerOptions={providerOptions}
-                          noneLabel="Disabled"
-                          action={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={handleOpenSessionTitleFormat}
-                              title="Edit session title format"
-                              aria-label="Edit session title format"
-                            >
-                              <SlidersHorizontal className="h-4 w-4" />
-                            </Button>
-                          }
-                          onChange={(value) =>
-                            setRoutingDraft((current) => ({
-                              ...current,
-                              features: {
-                                ...current.features,
-                                session_title: value,
-                              },
-                            }))
-                          }
-                        />
-
-                        <FeatureSelect
-                          label="Git commit generator"
-                          value={routingDraft.features.git_commit}
-                          providerOptions={providerOptions}
-                          noneLabel="Disabled"
-                          action={
-                            <FeatureLanguageAction
-                              value={routingDraft.features.git_commit_language}
-                              onChange={(language) =>
-                                setRoutingDraft((current) => ({
-                                  ...current,
-                                  features: {
-                                    ...current.features,
-                                    git_commit_language: language,
-                                  },
-                                }))
-                              }
-                            />
-                          }
-                          onChange={(value) =>
-                            setRoutingDraft((current) => ({
-                              ...current,
-                              features: {
-                                ...current.features,
-                                git_commit: value,
-                              },
-                            }))
-                          }
-                        />
-
-                        <FeatureSelect
-                          label="Workspace issue TODO extraction"
-                          value={routingDraft.features.workspace_issue_todo}
-                          providerOptions={providerOptions}
-                          noneLabel="Disabled"
-                          action={
-                            <FeatureLanguageAction
-                              value={
-                                routingDraft.features.workspace_issue_todo_language
-                              }
-                              onChange={(language) =>
-                                setRoutingDraft((current) => ({
-                                  ...current,
-                                  features: {
-                                    ...current.features,
-                                    workspace_issue_todo_language: language,
-                                  },
-                                }))
-                              }
-                            />
-                          }
-                          onChange={(value) =>
-                            setRoutingDraft((current) => ({
-                              ...current,
-                              features: {
-                                ...current.features,
-                                workspace_issue_todo: value,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="mt-4 flex justify-end">
-                        <SaveStateButton
-                          state={routingSaveState}
-                          idleLabel="Save"
-                          savingLabel="Saving..."
-                          savedLabel="Saved"
-                          onClick={handleSaveRouting}
-                          disabled={routingSaveState === "saving"}
-                          measureLabel="Save"
-                        />
-                      </div>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-            </ScrollArea>
+                  }
+                  onChange={(value) =>
+                    setRoutingDraft((current) => ({
+                      ...current,
+                      features: {
+                        ...current.features,
+                        workspace_issue_todo: value,
+                      },
+                    }))
+                  }
+                />
+              </>
+            )}
           </div>
 
-          <div className="min-h-0 min-w-0 bg-background">
-            <ScrollArea className="h-full">
-              <div className="px-5 py-2">
-                {providerEditor ? (
-                  <section className="rounded-3xl border border-border bg-[linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--muted)/0.18))] p-5 shadow-sm">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">
-                          Provider
-                        </p>
-                        <h3 className="mt-1 text-lg font-semibold text-foreground">
-                          {providerLabel(providerEditor) || "New provider"}
-                        </h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {selectedProviderHint ??
-                            "Configure and save a lightweight provider"}
-                        </p>
-                      </div>
+          <DialogFooter className="border-t border-border px-6 py-4">
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+            <SaveStateButton
+              state={routingSaveState}
+              idleLabel="Save"
+              savingLabel="Saving..."
+              savedLabel="Saved"
+              onClick={() => void handleSaveRouting()}
+              disabled={routingSaveState === "saving" || loading}
+              measureLabel="Save"
+            />
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-                      <div className="flex items-center gap-3">
-                        <Popover open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive"
-                              disabled={providerSaveState === "saving"}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-56 space-y-3 p-4" side="bottom" align="end">
-                            <p className="text-sm text-foreground">Delete this provider?</p>
-                            <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmOpen(false)}>
-                                Cancel
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  setDeleteConfirmOpen(false);
-                                  handleDeleteProvider();
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    </div>
+      <Dialog
+        open={sessionTitleFormatOpen}
+        onOpenChange={setSessionTitleFormatOpen}
+      >
+        <DialogContent className="w-[min(94vw,640px)] max-w-[640px] border-border bg-background p-0">
+          <DialogHeader className="border-b border-border px-6 py-5">
+            <DialogTitle>Session Title Format</DialogTitle>
+            <DialogDescription>
+              The final title is assembled as a structured format. Temporary
+              sessions automatically skip the project segment even when enabled.
+            </DialogDescription>
+          </DialogHeader>
 
-                    <div className="mt-5 grid gap-4 md:grid-cols-2">
-                      <Field
-                        label="Provider name"
-                        labelAccessory={
-                          showProviderNameIssue && providerNameIssue ? (
-                            <span className="text-xs font-medium text-destructive">
-                              {providerNameIssue}
-                            </span>
-                          ) : null
-                        }
-                        error={showProviderNameIssue}
-                      >
-                        <Input
-                          value={providerEditor.name}
-                          onChange={(event) => {
-                            setProviderNameTouched(true);
-                            setProviderEditor((current) =>
-                              current
-                                ? { ...current, name: event.target.value }
-                                : current,
-                            );
-                          }}
-                          placeholder="OpenRouter Fast"
-                          className={cn(
-                            showProviderNameIssue &&
-                              "border-destructive focus-visible:ring-destructive/30",
-                          )}
-                        />
-                      </Field>
+          <div className="space-y-5 px-6 py-5">
+            <div className="rounded-2xl border border-border bg-muted/20 p-4">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Final format
+              </p>
+              <p className="mt-2 font-mono text-sm text-foreground">
+                {sessionTitleFormatPreview(sessionTitleFormatDraft)}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                `projectName` comes from the current working directory basename.
+                Temp sessions skip this segment automatically.
+              </p>
+            </div>
 
-                      <Field label="Provider key">
-                        <Input
-                          value={
-                            providerEditor.name.trim()
-                              ? slugifyProviderId(providerEditor.name)
-                              : ""
-                          }
-                          placeholder="Will be generated from the provider name"
-                          disabled
-                        />
-                      </Field>
-
-                      <Field label="Compatibility">
-                        <Select
-                          value={providerEditor.kind}
-                          onValueChange={(value) => {
-                            const kind = value as LlmProviderKind;
-                            const shouldSeedAnthropicDefault =
-                              !providerEditor.max_output_tokens.trim() &&
-                              kind === "anthropic-compatible";
-                            setProviderEditor((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    kind,
-                                    max_output_tokens:
-                                      shouldSeedAnthropicDefault
-                                        ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
-                                        : current.max_output_tokens,
-                                  }
-                                : current,
-                            );
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {KIND_OPTIONS.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-
-                      <Field label="Timeout (ms)">
-                        <Input
-                          value={providerEditor.timeout_ms}
-                          onChange={(event) =>
-                            setProviderEditor((current) =>
-                              current
-                                ? { ...current, timeout_ms: event.target.value }
-                                : current,
-                            )
-                          }
-                          placeholder="8000"
-                        />
-                      </Field>
-
-                      <Field label="Max output tokens">
-                        <Input
-                          value={providerEditor.max_output_tokens}
-                          onChange={(event) =>
-                            setProviderEditor((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    max_output_tokens: event.target.value,
-                                  }
-                                : current,
-                            )
-                          }
-                          placeholder={
-                            providerEditor.kind === "anthropic-compatible"
-                              ? DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS
-                              : "Optional"
-                          }
-                        />
-                      </Field>
-
-                      <Field label="Base URL" className="md:col-span-2">
-                        <Input
-                          value={providerEditor.base_url}
-                          onChange={(event) =>
-                            setProviderEditor((current) =>
-                              current
-                                ? { ...current, base_url: event.target.value }
-                                : current,
-                            )
-                          }
-                          placeholder={
-                            providerEditor.kind === "anthropic-compatible"
-                              ? "https://api.anthropic.com"
-                              : "https://openrouter.ai/api/v1"
-                          }
-                        />
-                      </Field>
-
-                      <Field label="API key" className="md:col-span-2">
-                        <Input
-                          type="password"
-                          value={providerEditor.api_key}
-                          onChange={(event) =>
-                            setProviderEditor((current) =>
-                              current
-                                ? { ...current, api_key: event.target.value }
-                                : current,
-                            )
-                          }
-                          placeholder="sk-... or env:OPENROUTER_API_KEY"
-                        />
-                      </Field>
-
-                      <Field label="Model" className="md:col-span-2">
-                        <Input
-                          value={providerEditor.model}
-                          onChange={(event) =>
-                            setProviderEditor((current) =>
-                              current
-                                ? { ...current, model: event.target.value }
-                                : current,
-                            )
-                          }
-                          placeholder={
-                            providerEditor.kind === "anthropic-compatible"
-                              ? "claude-3-5-haiku-latest"
-                              : "openrouter/auto"
-                          }
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="mt-6 flex justify-end">
-                      <SaveStateButton
-                        state={providerSaveState}
-                        idleLabel="Save provider"
-                        savingLabel="Saving..."
-                        savedLabel="Saved"
-                        onClick={handleSaveProvider}
-                        disabled={providerSaveState === "saving"}
-                        measureLabel="Save provider"
-                      />
-                    </div>
-                  </section>
-                ) : (
-                  <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-border bg-[linear-gradient(135deg,_hsl(var(--muted)/0.6),_transparent)] p-10 text-center">
-                    <div className="flex max-w-sm flex-col items-center">
-                      <div className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-border bg-background/80 shadow-sm">
-                        <BrainCircuit className="size-5 text-primary" />
-                      </div>
-                      <p className="mt-4 text-sm font-medium text-foreground">
-                        Select a provider
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Choose a saved provider from the list, or add a new one
-                        to configure it.
-                      </p>
-                    </div>
-                  </div>
-                )}
+            <Field
+              label="Include Intent Emoji"
+              description="Prefix the title description with a single inferred intent emoji, such as 🎨 or 🐞."
+            >
+              <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
+                <div>
+                  <p className="text-sm text-foreground">Intent segment</p>
+                  <p className="text-xs text-muted-foreground">
+                    Example: 🎨 design a retry mechanism
+                  </p>
+                </div>
+                <Switch
+                  checked={!!sessionTitleFormatDraft.include_intent_emoji}
+                  onCheckedChange={(checked) =>
+                    setSessionTitleFormatDraft((current) => ({
+                      ...current,
+                      include_intent_emoji: !!checked,
+                    }))
+                  }
+                />
               </div>
-            </ScrollArea>
-          </div>
-            </>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+            </Field>
 
-    <Dialog
-      open={sessionTitleFormatOpen}
-      onOpenChange={setSessionTitleFormatOpen}
-    >
-      <DialogContent className="w-[min(94vw,640px)] max-w-[640px] border-border bg-background p-0">
-        <DialogHeader className="border-b border-border px-6 py-5">
-          <DialogTitle>Session Title Format</DialogTitle>
-          <DialogDescription>
-            The final title is assembled as a structured format. Temporary
-            sessions automatically skip the project segment even when enabled.
-          </DialogDescription>
-        </DialogHeader>
+            <Field
+              label="Include Agent Name"
+              description="Prefix titles with the current ACP agent display name."
+            >
+              <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
+                <div>
+                  <p className="text-sm text-foreground">Agent segment</p>
+                  <p className="text-xs text-muted-foreground">
+                    Example: Claude Agent | title desc
+                  </p>
+                </div>
+                <Switch
+                  checked={!!sessionTitleFormatDraft.include_agent_name}
+                  onCheckedChange={(checked) =>
+                    setSessionTitleFormatDraft((current) => ({
+                      ...current,
+                      include_agent_name: !!checked,
+                    }))
+                  }
+                />
+              </div>
+            </Field>
 
-        <div className="space-y-5 px-6 py-5">
-          <div className="rounded-2xl border border-border bg-muted/20 p-4">
-            <p className="text-xs font-semibold text-muted-foreground">
-              Final format
-            </p>
-            <p className="mt-2 font-mono text-sm text-foreground">
-              {sessionTitleFormatPreview(sessionTitleFormatDraft)}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              `projectName` comes from the current working directory basename.
-              Temp sessions skip this segment automatically.
-            </p>
+            <Field
+              label="Include Project Name"
+              description="Prefix titles with the current project or workspace directory name when available."
+            >
+              <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
+                <div>
+                  <p className="text-sm text-foreground">Project segment</p>
+                  <p className="text-xs text-muted-foreground">
+                    Example: my-project | title desc
+                  </p>
+                </div>
+                <Switch
+                  checked={!!sessionTitleFormatDraft.include_project_name}
+                  onCheckedChange={(checked) =>
+                    setSessionTitleFormatDraft((current) => ({
+                      ...current,
+                      include_project_name: !!checked,
+                    }))
+                  }
+                />
+              </div>
+            </Field>
           </div>
 
-          <Field
-            label="Include Intent Emoji"
-            description="Prefix the title description with a single inferred intent emoji, such as 🎨 or 🐞."
-          >
-            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
-              <div>
-                <p className="text-sm text-foreground">Intent segment</p>
-                <p className="text-xs text-muted-foreground">
-                  Example: 🎨 design a retry mechanism
-                </p>
-              </div>
-              <Switch
-                checked={!!sessionTitleFormatDraft.include_intent_emoji}
-                onCheckedChange={(checked) =>
-                  setSessionTitleFormatDraft((current) => ({
-                    ...current,
-                    include_intent_emoji: !!checked,
-                  }))
-                }
-              />
-            </div>
-          </Field>
-
-          <Field
-            label="Include Agent Name"
-            description="Prefix titles with the current ACP agent display name."
-          >
-            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
-              <div>
-                <p className="text-sm text-foreground">Agent segment</p>
-                <p className="text-xs text-muted-foreground">
-                  Example: Claude Agent | title desc
-                </p>
-              </div>
-              <Switch
-                checked={!!sessionTitleFormatDraft.include_agent_name}
-                onCheckedChange={(checked) =>
-                  setSessionTitleFormatDraft((current) => ({
-                    ...current,
-                    include_agent_name: !!checked,
-                  }))
-                }
-              />
-            </div>
-          </Field>
-
-          <Field
-            label="Include Project Name"
-            description="Prefix titles with the current project or workspace directory name when available."
-          >
-            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
-              <div>
-                <p className="text-sm text-foreground">Project segment</p>
-                <p className="text-xs text-muted-foreground">
-                  Example: my-project | title desc
-                </p>
-              </div>
-              <Switch
-                checked={!!sessionTitleFormatDraft.include_project_name}
-                onCheckedChange={(checked) =>
-                  setSessionTitleFormatDraft((current) => ({
-                    ...current,
-                    include_project_name: !!checked,
-                  }))
-                }
-              />
-            </div>
-          </Field>
-        </div>
-
-        <DialogFooter className="border-t border-border px-6 py-4">
-          <Button
-            variant="ghost"
-            onClick={() => setSessionTitleFormatOpen(false)}
-          >
-            Close
-          </Button>
-          <SaveStateButton
-            state={titleFormatSaveState}
-            idleLabel="Save format"
-            savingLabel="Saving..."
-            savedLabel="Saved"
-            onClick={handleSaveSessionTitleFormat}
-            disabled={titleFormatSaveState === "saving"}
-            measureLabel="Save format"
-          />
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter className="border-t border-border px-6 py-4">
+            <Button
+              variant="ghost"
+              onClick={() => setSessionTitleFormatOpen(false)}
+            >
+              Close
+            </Button>
+            <SaveStateButton
+              state={titleFormatSaveState}
+              idleLabel="Save format"
+              savingLabel="Saving..."
+              savedLabel="Saved"
+              onClick={() => void handleSaveSessionTitleFormat()}
+              disabled={titleFormatSaveState === "saving"}
+              measureLabel="Save format"
+            />
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -1553,14 +1482,6 @@ function FeatureLanguageAction({
     preset === "other" ? normalizeFeatureLanguage(value) ?? "" : "",
   );
 
-  useEffect(() => {
-    const nextPreset = resolveFeatureLanguagePreset(value);
-    setSelection(nextPreset);
-    setCustomValue(
-      nextPreset === "other" ? normalizeFeatureLanguage(value) ?? "" : "",
-    );
-  }, [value]);
-
   const applySelection = (nextSelection: string, nextCustomValue?: string) => {
     if (!nextSelection) {
       onChange(null);
@@ -1580,7 +1501,21 @@ function FeatureLanguageAction({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) {
+          const nextPreset = resolveFeatureLanguagePreset(value);
+          setSelection(nextPreset);
+          setCustomValue(
+            nextPreset === "other"
+              ? normalizeFeatureLanguage(value) ?? ""
+              : "",
+          );
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           type="button"

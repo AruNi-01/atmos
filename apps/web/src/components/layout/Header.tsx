@@ -1,20 +1,16 @@
 "use client";
-import React, { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
+import { useTheme } from "next-themes";
 import { useContextParams } from "@/hooks/use-context-params";
 import { llmProvidersModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
 import {
   ArrowRight,
-  Archive,
-  Bell,
   Search,
-  ThemeToggle,
   Edit2,
   Check,
   X,
-  AlertCircle,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -26,12 +22,23 @@ import {
   Maximize,
   Minimize,
   Bot,
-  PopoverAnchor,
-  PopoverContent,
-  Popover,
+  ChartColumnBig,
+  Laptop,
+  Moon,
+  Sun,
   Switch,
-  Button,
 } from '@workspace/ui';
+import {
+  Menu,
+  MenuItem,
+  MenuPanel,
+  MenuSeparator,
+  MenuShortcut,
+  MenuSubmenu,
+  MenuSubmenuPanel,
+  MenuSubmenuTrigger,
+  MenuTrigger,
+} from '@workspace/ui/components/animate-ui/components/base/menu';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useGitStore } from '@/hooks/use-git-store';
@@ -40,26 +47,20 @@ import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
-import { ArchivedWorkspacesModal } from '@/components/dialogs/ArchivedWorkspacesModal';
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
-import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
-import { BrainCircuit, ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SlidersHorizontal, SunMoon } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
-import { LlmProvidersModal } from './LlmProvidersModal';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
 
 const Header: React.FC = () => {
-  const params = useParams();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const locale = params?.locale as string || 'en';
+  const { setTheme, theme } = useTheme();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { isLeftCollapsed, isRightCollapsed, showRightSidebar, toggleLeftSidebar, toggleRightSidebar } = useSidebarLayout();
   const [, setAgentChatOpen] = useAgentChatUrl();
@@ -71,60 +72,12 @@ const Header: React.FC = () => {
   const { setGlobalSearchOpen } = useDialogStore();
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
-  const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
-  const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isTokenUsageOpen, setIsTokenUsageOpen] = useState(false);
   const [isDesktopFullscreen, setIsDesktopFullscreen] = useState(false);
   const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] = useState(false);
-  const [actionsCollapsed, setActionsCollapsed] = useState(false);
-  useEffect(() => {
-    try { const v = localStorage.getItem("header-actions-collapsed"); if (v === "true") setActionsCollapsed(true); } catch { }
-  }, []);
-  const [actionsWidth, setActionsWidth] = useState(0);
-  const actionsContentRef = useRef<HTMLDivElement | null>(null);
-  const chatPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const desktopFullscreenRef = useRef<boolean | null>(null);
   const desktopFullscreenExitRafRef = useRef<number | null>(null);
-  const scheduleChatPopoverClose = useCallback(() => {
-    if (chatPopoverTimerRef.current) clearTimeout(chatPopoverTimerRef.current);
-    chatPopoverTimerRef.current = setTimeout(() => {
-      setChatPopoverOpen(false);
-      chatPopoverTimerRef.current = null;
-    }, 200);
-  }, []);
-  const cancelChatPopoverClose = useCallback(() => {
-    if (chatPopoverTimerRef.current) {
-      clearTimeout(chatPopoverTimerRef.current);
-      chatPopoverTimerRef.current = null;
-    }
-  }, []);
-
-  useLayoutEffect(() => {
-    const node = actionsContentRef.current;
-    if (!node) return;
-
-    const updateWidth = () => {
-      setActionsWidth(node.scrollWidth);
-    };
-
-    updateWidth();
-
-    const observer = new ResizeObserver(() => updateWidth());
-    observer.observe(node);
-    window.addEventListener('resize', updateWidth);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', updateWidth);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (chatPopoverTimerRef.current) {
-        clearTimeout(chatPopoverTimerRef.current);
-      }
-    };
-  }, []);
   useEffect(() => {
     if (!isTauriRuntime()) return;
 
@@ -236,20 +189,12 @@ const Header: React.FC = () => {
     "llmProvidersModal",
     llmProvidersModalParams.llmProvidersModal
   );
-  const desktopWebSearch = useMemo(() => {
-    const query = searchParams.toString();
-    return query ? `?${query}` : '';
-  }, [searchParams]);
-  const {
-    browserUrl,
-    isDesktopRuntime,
-    isLaunching: isOpeningDesktopWeb,
-    openInBrowser,
-    refreshStatus: refreshDesktopWebStatus,
-    status: desktopWebStatus,
-  } = useDesktopWebLauncher(pathname, desktopWebSearch);
+  useEffect(() => {
+    if (isLlmProvidersOpen) {
+      setIsSettingsOpen(true);
+    }
+  }, [isLlmProvidersOpen]);
 
-  // Archive modal and delete dialog states
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
     isOpen: boolean;
     workspaceId: string;
@@ -279,15 +224,23 @@ const Header: React.FC = () => {
     };
   }, []);
 
-  const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
+  const toggleFullScreen = useCallback(async () => {
+    if (isTauriRuntime()) {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const currentWindow = getCurrentWindow();
+      await currentWindow.setFullscreen(!isDesktopFullscreen);
+      return;
     }
-  };
+
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      return;
+    }
+
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    }
+  }, [isDesktopFullscreen]);
 
   // Sync context when project/workspace changes
   useEffect(() => {
@@ -457,19 +410,8 @@ const Header: React.FC = () => {
     return issues.join(', ');
   };
 
-  const handleOpenDesktopWeb = useCallback(async () => {
-    const opened = await openInBrowser();
-    if (opened) {
-      setDesktopWebPopoverOpen(false);
-      return;
-    }
-
-    toastManager.add({
-      title: 'Web not ready',
-      description: 'The desktop web endpoint is still starting. Try again in a moment.',
-      type: 'error',
-    });
-  }, [openInBrowser]);
+  const resolvedThemeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
+  const isFullScreenActive = isTauriRuntime() ? isDesktopFullscreen : isFullScreen;
 
   const handleHeaderMouseDown = useCallback(async (event: React.MouseEvent<HTMLElement>) => {
     if (!isTauriRuntime()) return;
@@ -723,183 +665,160 @@ const Header: React.FC = () => {
           </kbd>
         </button>
 
-        <div className="desktop-no-drag flex items-center justify-end">
-          <motion.div
-            animate={{
-              width: actionsCollapsed ? 0 : actionsWidth,
-              opacity: actionsCollapsed ? 0 : 1,
-            }}
-            transition={{ type: "spring", stiffness: 360, damping: 34, mass: 0.8 }}
-            className="mr-2 shrink-0 overflow-hidden"
-          >
-            <div
-              ref={actionsContentRef}
-              className={cn(
-                "flex w-max items-center gap-3",
-                actionsCollapsed && "pointer-events-none"
-              )}
-            >
-              <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen} modal={false}>
-                <PopoverAnchor asChild>
-                  <button
-                    type="button"
-                    aria-label="Open Agent Chat"
-                    title="Open Agent Chat"
-                    className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                    onClick={() => setAgentChatOpen(true)}
-                    onMouseEnter={() => {
-                      cancelChatPopoverClose();
-                      setChatPopoverOpen(true);
-                    }}
-                    onMouseLeave={() => scheduleChatPopoverClose()}
-                  >
-                    <Bot className="size-4" />
-                  </button>
-                </PopoverAnchor>
-                <PopoverContent
-                  align="end"
-                  sideOffset={8}
-                  className="w-48 p-3 bg-popover border border-border shadow-md"
-                  onOpenAutoFocus={(e) => e.preventDefault()}
-                  onCloseAutoFocus={(e) => e.preventDefault()}
-                  onMouseEnter={cancelChatPopoverClose}
-                  onMouseLeave={scheduleChatPopoverClose}
-                >
-                  <label className="flex items-center justify-between cursor-pointer">
-                    <span className="text-sm text-popover-foreground">Floating Ball</span>
-                    <Switch
-                      checked={layout.floatingBall}
-                      onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
-                    />
-                  </label>
-                  <div className="mt-3 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-popover-foreground">Opacity</span>
-                      <span className="text-xs text-muted-foreground tabular-nums">{layout.opacity}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={20}
-                      max={100}
-                      value={layout.opacity}
-                      onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
-                      aria-label="Chat panel opacity"
-                      className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
-                    />
-                  </div>
-                </PopoverContent>
-              </Popover>
+        <div className="desktop-no-drag flex items-center justify-end gap-2">
+          <UsagePopover />
 
-              <button
-                aria-label="LLM Providers"
-                className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                onClick={() => setLlmProvidersOpen(true)}
-                title="Lightweight AI Providers"
-              >
-                <BrainCircuit className="size-4" />
-              </button>
-
-              <UsagePopover />
-              <TokenUsageDialog />
-
-              <div
-                aria-hidden="true"
-                className="h-4 w-px rounded-full bg-border"
-              />
-
-              {isDesktopRuntime && (
-                <Popover
-                  open={desktopWebPopoverOpen}
-                  onOpenChange={(open) => {
-                    setDesktopWebPopoverOpen(open);
-                    if (open) {
-                      void refreshDesktopWebStatus();
-                    }
-                  }}
-                >
-                  <PopoverTrigger asChild>
-                    <button
-                      aria-label="Open in Web"
-                      className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                      title={desktopWebStatus === 'ready' ? 'Open in Web' : 'Start Web'}
-                    >
-                      <Globe className="size-4" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" sideOffset={8} className="w-80 p-3 bg-popover border border-border shadow-md">
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "size-2 rounded-full",
-                            desktopWebStatus === 'ready'
-                              ? 'bg-success'
-                              : desktopWebStatus === 'checking'
-                                ? 'bg-warning'
-                                : 'bg-muted-foreground/50'
-                          )} />
-                          <p className="text-sm font-medium text-popover-foreground">
-                            {desktopWebStatus === 'ready' ? 'Web access is ready' : 'Browser access via sidecar'}
-                          </p>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {desktopWebStatus === 'ready'
-                            ? 'Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches.'
-                            : 'Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there.'}
-                        </p>
-                      </div>
-
-                      {browserUrl && (
-                        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
-                          {browserUrl}
-                        </div>
-                      )}
-
-                      <Button
-                        onClick={() => void handleOpenDesktopWeb()}
-                        disabled={isOpeningDesktopWeb}
-                        className="w-full cursor-pointer"
-                      >
-                        {isOpeningDesktopWeb
-                          ? 'Starting...'
-                          : desktopWebStatus === 'ready'
-                            ? 'Open In Web'
-                            : 'Start Web'}
-                        <ExternalLink className="size-4" />
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-
-              <ThemeToggle className="size-8 hover:bg-accent text-muted-foreground hover:text-accent-foreground" />
-              {!isDesktopRuntime && (
+          <Menu open={isActionMenuOpen} onOpenChange={setIsActionMenuOpen}>
+            <MenuTrigger
+              render={
                 <button
-                  onClick={toggleFullScreen}
-                  aria-label={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
-                  className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+                  type="button"
+                  aria-label="Open actions menu"
+                  className="size-8 flex items-center justify-center rounded-md text-base font-medium tracking-[0.18em] text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
                 >
-                  {isFullScreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+                  <span className="translate-x-[0.08em]">···</span>
                 </button>
-              )}
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                aria-label="Settings"
-                className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
+              }
+            />
+            <MenuPanel align="end" sideOffset={8} className="w-56">
+              <MenuItem
+                closeOnClick
+                onClick={() => {
+                  setIsSettingsOpen(true);
+                  setIsActionMenuOpen(false);
+                }}
               >
                 <Settings className="size-4" />
-              </button>
-            </div>
-          </motion.div>
+                Settings
+              </MenuItem>
 
-          <button
-            type="button"
-            aria-label={actionsCollapsed ? "Expand header actions" : "Collapse header actions"}
-            onClick={() => setActionsCollapsed((value) => { const next = !value; try { localStorage.setItem("header-actions-collapsed", String(next)); } catch { } return next; })}
-            className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-          >
-            {actionsCollapsed ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
-          </button>
+              <MenuSubmenu>
+                <MenuSubmenuTrigger className="[&_[data-slot=chevron]]:ml-2">
+                  <span className="flex items-center gap-2">
+                    <SunMoon className="size-4 text-muted-foreground" />
+                    <span>Theme</span>
+                  </span>
+                  <span className="ml-auto text-xs tracking-wide text-muted-foreground">
+                    {resolvedThemeLabel}
+                  </span>
+                </MenuSubmenuTrigger>
+                <MenuSubmenuPanel className="w-44">
+                  <MenuItem
+                    closeOnClick
+                    onClick={() => {
+                      setTheme("light");
+                      setIsActionMenuOpen(false);
+                    }}
+                  >
+                    <Sun className="size-4" />
+                    Light
+                    {theme === "light" ? <MenuShortcut>Current</MenuShortcut> : null}
+                  </MenuItem>
+                  <MenuItem
+                    closeOnClick
+                    onClick={() => {
+                      setTheme("dark");
+                      setIsActionMenuOpen(false);
+                    }}
+                  >
+                    <Moon className="size-4" />
+                    Dark
+                    {theme === "dark" ? <MenuShortcut>Current</MenuShortcut> : null}
+                  </MenuItem>
+                  <MenuItem
+                    closeOnClick
+                    onClick={() => {
+                      setTheme("system");
+                      setIsActionMenuOpen(false);
+                    }}
+                  >
+                    <Laptop className="size-4" />
+                    System
+                    {theme === "system" ? <MenuShortcut>Current</MenuShortcut> : null}
+                  </MenuItem>
+                </MenuSubmenuPanel>
+              </MenuSubmenu>
+
+              <MenuItem
+                closeOnClick
+                onClick={() => {
+                  void toggleFullScreen();
+                  setIsActionMenuOpen(false);
+                }}
+              >
+                {isFullScreenActive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+                {isFullScreenActive ? "Exit Full Screen" : "Enter Full Screen"}
+              </MenuItem>
+
+              <MenuSeparator />
+
+              <MenuSubmenu>
+                <MenuSubmenuTrigger>
+                  <span className="flex items-center gap-2">
+                    <Bot className="size-4 text-muted-foreground" />
+                    <span>Agent</span>
+                  </span>
+                </MenuSubmenuTrigger>
+                <MenuSubmenuPanel className="w-64">
+                  <MenuItem
+                    closeOnClick
+                    onClick={() => {
+                      setAgentChatOpen(true);
+                      setIsActionMenuOpen(false);
+                    }}
+                  >
+                    Open Agent Chat
+                  </MenuItem>
+
+                  <MenuItem
+                    closeOnClick={false}
+                    onClick={() => updateLayout({ floatingBall: !layout.floatingBall })}
+                  >
+                    <span>Floating Ball</span>
+                    <span className="ml-auto">
+                      <Switch
+                        checked={layout.floatingBall}
+                        onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
+                        onClick={(event) => event.stopPropagation()}
+                      />
+                    </span>
+                  </MenuItem>
+
+                  <MenuItem closeOnClick={false} className="pr-3">
+                    <div className="flex w-full items-center gap-3">
+                      <span className="min-w-14 text-sm text-foreground">Opacity</span>
+                      <input
+                        type="range"
+                        min={20}
+                        max={100}
+                        value={layout.opacity}
+                        onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
+                        aria-label="Agent floating ball opacity"
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/18 accent-foreground/35"
+                      />
+                      <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
+                        {layout.opacity}%
+                      </span>
+                    </div>
+                  </MenuItem>
+                </MenuSubmenuPanel>
+              </MenuSubmenu>
+
+              <MenuItem
+                closeOnClick
+                onClick={() => {
+                  setIsTokenUsageOpen(true);
+                  setIsActionMenuOpen(false);
+                }}
+              >
+                <ChartColumnBig className="size-4" />
+                Token Usage
+              </MenuItem>
+            </MenuPanel>
+          </Menu>
+
           <AnimatePresence initial={false}>
             {showRightSidebar ? (
               <motion.div
@@ -924,7 +843,11 @@ const Header: React.FC = () => {
         </div>
       </div>
 
-
+      <TokenUsageDialog
+        open={isTokenUsageOpen}
+        onOpenChange={setIsTokenUsageOpen}
+        hideTrigger
+      />
 
       {/* Delete Workspace Dialog */}
       {deleteWorkspaceDialog && (
@@ -976,14 +899,15 @@ const Header: React.FC = () => {
         onClose={() => setSkillsModalOpen(false)}
       />
 
-      <LlmProvidersModal
-        open={isLlmProvidersOpen}
-        onOpenChange={setLlmProvidersOpen}
-      />
-
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => {
+          setIsSettingsOpen(false);
+          if (isLlmProvidersOpen) {
+            void setLlmProvidersOpen(false);
+          }
+        }}
+        activeSectionOverride={isLlmProvidersOpen ? 'ai' : null}
       />
     </header>
   );

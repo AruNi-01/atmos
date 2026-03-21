@@ -687,7 +687,7 @@ const CenterStage: React.FC = () => {
 
           <TabsTab
             value="terminal"
-            className="group/terminal relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-0 grow-0 shrink-0 justify-start rounded-none border-0!"
+            className="group/terminal relative h-full! pl-4 pr-2 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-0 grow-0 shrink-0 justify-start rounded-none border-0!"
           >
             <span className="relative size-3.5 shrink-0">
               <TerminalIcon
@@ -719,7 +719,9 @@ const CenterStage: React.FC = () => {
                   className={cn(
                     "absolute left-[13px] top-1/2 -translate-y-1/2 size-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all",
                     activeValue === "terminal"
-                      ? "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto"
+                      ? agentDropdownOpen
+                        ? "opacity-100 scale-100 rotate-0 pointer-events-auto"
+                        : "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto"
                       : "hidden"
                   )}
                   onClick={handleQuickAddDefaultAgent}
@@ -883,7 +885,7 @@ const CenterStage: React.FC = () => {
         </TabsList>
 
         {/* Main Content Area - Panels are direct children of Tabs flex-col container */}
-        {/* 
+        {/*
           Terminal is kept mounted and uses CSS visibility to avoid re-initialization.
           This prevents terminal sessions from restarting when switching tabs.
         */}

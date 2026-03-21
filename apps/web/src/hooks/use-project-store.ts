@@ -43,6 +43,12 @@ export interface WorkspaceSetupProgress {
     | 'extract_todos'
     | 'run_setup_script'
     | 'ready';
+  failedStepKey?:
+    | 'create_worktree'
+    | 'write_requirement'
+    | 'extract_todos'
+    | 'run_setup_script'
+    | 'ready';
   stepTitle: string;
   output: string;
   replaceOutput?: boolean;
@@ -54,6 +60,11 @@ export interface WorkspaceSetupProgress {
     hasRequirementStep: boolean;
     autoExtractTodos: boolean;
     hasSetupScript: boolean;
+  };
+  retryContext?: {
+    initialRequirement?: string | null;
+    githubIssue?: WorkspaceModel['github_issue'];
+    autoExtractTodos: boolean;
   };
 }
 
@@ -68,6 +79,7 @@ interface WorkspaceSetupProgressEventPayload {
   workspace_id: string;
   status: WorkspaceSetupProgress['status'];
   step_key?: WorkspaceSetupProgress['stepKey'];
+  failed_step_key?: WorkspaceSetupProgress['failedStepKey'];
   step_title: string;
   output?: string;
   replace_output?: boolean;
@@ -127,6 +139,8 @@ function isWorkspaceSetupProgressEventPayload(
         typeof (payload.setup_context as Record<string, unknown>).has_setup_script === 'boolean')) &&
     (payload.step_key == null ||
       (typeof payload.step_key === 'string' && validStepKeys.includes(payload.step_key))) &&
+    (payload.failed_step_key == null ||
+      (typeof payload.failed_step_key === 'string' && validStepKeys.includes(payload.failed_step_key))) &&
     validStatus.includes(payload.status)
   );
 }
@@ -404,6 +418,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                 output: '',
                 success: true,
                 setupContext,
+                retryContext: {
+                  initialRequirement: data.initialRequirement ?? null,
+                  githubIssue: data.githubIssue,
+                  autoExtractTodos: !!data.autoExtractTodos,
+                },
               }
         },
         projects: state.projects.map(p => 
@@ -480,6 +499,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                   hasRequirementStep: false,
                   autoExtractTodos: false,
                   hasSetupScript,
+                },
+                retryContext: {
+                  initialRequirement: null,
+                  githubIssue: undefined,
+                  autoExtractTodos: false,
                 },
               }
         },
@@ -776,6 +800,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } else if (progress.status === 'error') {
       lastStatus = existing?.status !== 'error' ? existing?.status : existing?.lastStatus;
       lastStepKey = progress.stepKey ?? existing?.stepKey ?? existing?.lastStepKey;
+    } else if (progress.status === 'completed') {
+      lastStatus = existing?.status !== 'error' ? existing?.status : existing?.lastStatus;
+      lastStepKey = progress.stepKey ?? existing?.stepKey ?? existing?.lastStepKey;
     } else if (progress.status !== existing?.status) {
       // If moving to a new status that isn't error, update lastStatus to the PREVIOUS status
       if (existing?.status && existing.status !== 'error') {
@@ -799,7 +826,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             : progress.stepTitle,
           lastStatus: lastStatus,
           lastStepKey,
+          failedStepKey:
+            progress.status === 'error'
+              ? progress.failedStepKey ?? progress.stepKey ?? existing?.failedStepKey
+              : progress.status === 'completed'
+                ? undefined
+                : existing?.failedStepKey,
           setupContext: progress.setupContext ?? existing?.setupContext,
+          retryContext: progress.retryContext ?? existing?.retryContext,
           output: shouldIgnoreRegression
               ? (existing?.output || '')
               : progress.output !== undefined &&
@@ -819,7 +853,18 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   }),
   retryWorkspaceSetup: async (workspaceId) => {
     try {
-      await useWebSocketStore.getState().send('workspace_retry_setup', { guid: workspaceId });
+      const progress = get().setupProgress[workspaceId];
+      if (!progress?.failedStepKey) {
+        throw new Error('No failed setup step recorded');
+      }
+
+      await useWebSocketStore.getState().send('workspace_retry_setup', {
+        guid: workspaceId,
+        failed_step_key: progress.failedStepKey,
+        initial_requirement: progress.retryContext?.initialRequirement ?? null,
+        github_issue: progress.retryContext?.githubIssue ?? null,
+        auto_extract_todos: progress.retryContext?.autoExtractTodos ?? false,
+      });
     } catch (error) {
       console.error('Failed to retry setup:', error);
       toastManager.add({
@@ -843,6 +888,7 @@ export function subscribeToWorkspaceSetupProgress(): () => void {
       workspaceId: data.workspace_id,
       status: data.status,
       stepKey: data.step_key,
+      failedStepKey: data.failed_step_key,
       stepTitle: data.step_title,
       output: data.output || '',
       replaceOutput: data.replace_output,

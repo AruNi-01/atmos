@@ -895,6 +895,14 @@ export const wsWorkspaceApi = {
     });
   },
 
+  skipSetupScript: async (
+    guid: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_skip_setup_script", {
+      guid,
+    });
+  },
+
   /**
    * 更新 Workspace 排序
    */
@@ -1271,6 +1279,10 @@ export interface LlmProvidersFile {
   providers: Record<string, LlmProviderEntry>;
 }
 
+export interface LlmProviderTestResponse {
+  text: string;
+}
+
 export const functionSettingsApi = {
   get: async (): Promise<FunctionSettings> => {
     return wsRequest<FunctionSettings>("function_settings_get");
@@ -1296,6 +1308,14 @@ export const llmProvidersApi = {
 
   update: async (config: LlmProvidersFile): Promise<{ ok: boolean }> => {
     return wsRequest<{ ok: boolean }>("llm_providers_update", { config });
+  },
+
+  testProvider: async (params: {
+    stream_id: string;
+    provider_id?: string | null;
+    provider: LlmProviderEntry;
+  }): Promise<LlmProviderTestResponse> => {
+    return wsRequest<LlmProviderTestResponse>("llm_provider_test", params, 120_000);
   },
 };
 

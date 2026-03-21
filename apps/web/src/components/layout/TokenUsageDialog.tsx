@@ -224,8 +224,28 @@ const lightHeatmapPalette = [
   "#20a689",
 ] as const;
 
-export function TokenUsageDialog() {
-  const [open, setOpen] = React.useState(false);
+type TokenUsageDialogProps = {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+};
+
+export function TokenUsageDialog({
+  open: openProp,
+  onOpenChange,
+  hideTrigger = false,
+}: TokenUsageDialogProps = {}) {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = React.useCallback(
+    (nextOpen: boolean) => {
+      if (openProp === undefined) {
+        setInternalOpen(nextOpen);
+      }
+      onOpenChange?.(nextOpen);
+    },
+    [onOpenChange, openProp],
+  );
   const [overview, setOverview] = React.useState<TokenUsageOverviewResponse | null>(null);
   const [selectedYear, setSelectedYear] = React.useState("");
   const [resolution, setResolution] = React.useState<Resolution>("month");
@@ -480,15 +500,17 @@ export function TokenUsageDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button
-          aria-label="Token usage"
-          className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-          title="Token usage"
-        >
-          <ChartColumnBig className="size-4" />
-        </button>
-      </DialogTrigger>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          <button
+            aria-label="Token usage"
+            className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+            title="Token usage"
+          >
+            <ChartColumnBig className="size-4" />
+          </button>
+        </DialogTrigger>
+      ) : null}
 
       <DialogContent
         showCloseButton={false}

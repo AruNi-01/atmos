@@ -229,7 +229,8 @@ impl WorkspaceService {
 
             candidate
         } else {
-            let mut final_name = format!("{project_scope}/{}", initial_handle);
+            let mut final_name =
+                Self::with_project_scope(&project_scope, initial_handle.as_str());
             let mut attempt = 0;
             const MAX_ATTEMPTS: u32 = 50;
 
@@ -251,7 +252,7 @@ impl WorkspaceService {
                 let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
                 let generated =
                     workspace_name_generator::generate_workspace_name(&existing_vec, &prefix);
-                final_name = format!("{project_scope}/{generated}");
+                final_name = Self::with_project_scope(&project_scope, generated.as_str());
             }
 
             final_name
@@ -727,6 +728,15 @@ impl WorkspaceService {
             "workspace".to_string()
         } else {
             sanitized
+        }
+    }
+
+    fn with_project_scope(project_scope: &str, workspace_name: &str) -> String {
+        let scoped_prefix = format!("{project_scope}/");
+        if workspace_name.starts_with(&scoped_prefix) {
+            workspace_name.to_string()
+        } else {
+            format!("{project_scope}/{workspace_name}")
         }
     }
 
