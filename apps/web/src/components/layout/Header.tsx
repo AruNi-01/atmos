@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
 import { useTheme } from "next-themes";
 import { useContextParams } from "@/hooks/use-context-params";
@@ -22,9 +23,13 @@ import {
   Maximize,
   Minimize,
   Bot,
+  Button,
   ChartColumnBig,
   Laptop,
   Moon,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Sun,
   Switch,
 } from '@workspace/ui';
@@ -51,15 +56,18 @@ import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialo
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
+import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
-import { ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SlidersHorizontal, SunMoon } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SlidersHorizontal, SunMoon } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
 
 const Header: React.FC = () => {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { setTheme, theme } = useTheme();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { isLeftCollapsed, isRightCollapsed, showRightSidebar, toggleLeftSidebar, toggleRightSidebar } = useSidebarLayout();
@@ -73,6 +81,7 @@ const Header: React.FC = () => {
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isTokenUsageOpen, setIsTokenUsageOpen] = useState(false);
   const [isDesktopFullscreen, setIsDesktopFullscreen] = useState(false);
   const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] = useState(false);
@@ -194,6 +203,18 @@ const Header: React.FC = () => {
       setIsSettingsOpen(true);
     }
   }, [isLlmProvidersOpen]);
+  const desktopWebSearch = useMemo(() => {
+    const query = searchParams.toString();
+    return query ? `?${query}` : '';
+  }, [searchParams]);
+  const {
+    browserUrl,
+    isDesktopRuntime,
+    isLaunching: isOpeningDesktopWeb,
+    openInBrowser,
+    refreshStatus: refreshDesktopWebStatus,
+    status: desktopWebStatus,
+  } = useDesktopWebLauncher(pathname, desktopWebSearch);
 
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
     isOpen: boolean;
@@ -409,6 +430,20 @@ const Header: React.FC = () => {
     }
     return issues.join(', ');
   };
+
+  const handleOpenDesktopWeb = useCallback(async () => {
+    const opened = await openInBrowser();
+    if (opened) {
+      setDesktopWebPopoverOpen(false);
+      return;
+    }
+
+    toastManager.add({
+      title: 'Web not ready',
+      description: 'The desktop web endpoint is still starting. Try again in a moment.',
+      type: 'error',
+    });
+  }, [openInBrowser]);
 
   const resolvedThemeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
   const isFullScreenActive = isTauriRuntime() ? isDesktopFullscreen : isFullScreen;
@@ -666,6 +701,71 @@ const Header: React.FC = () => {
         </button>
 
         <div className="desktop-no-drag flex items-center justify-end gap-2">
+          {isDesktopRuntime ? (
+            <Popover
+              open={desktopWebPopoverOpen}
+              onOpenChange={(open) => {
+                setDesktopWebPopoverOpen(open);
+                if (open) {
+                  void refreshDesktopWebStatus();
+                }
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  aria-label="Open in Web"
+                  className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                  title={desktopWebStatus === 'ready' ? 'Open in Web' : 'Start Web'}
+                >
+                  <Globe className="size-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" sideOffset={8} className="w-80 p-3 bg-popover border border-border shadow-md">
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "size-2 rounded-full",
+                        desktopWebStatus === 'ready'
+                          ? 'bg-success'
+                          : desktopWebStatus === 'checking'
+                            ? 'bg-warning'
+                            : 'bg-muted-foreground/50'
+                      )} />
+                      <p className="text-sm font-medium text-popover-foreground">
+                        {desktopWebStatus === 'ready' ? 'Web access is ready' : 'Browser access via sidecar'}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {desktopWebStatus === 'ready'
+                        ? 'Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches.'
+                        : 'Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there.'}
+                    </p>
+                  </div>
+
+                  {browserUrl ? (
+                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
+                      {browserUrl}
+                    </div>
+                  ) : null}
+
+                  <Button
+                    onClick={() => void handleOpenDesktopWeb()}
+                    disabled={isOpeningDesktopWeb}
+                    className="w-full cursor-pointer"
+                  >
+                    {isOpeningDesktopWeb
+                      ? 'Starting...'
+                      : desktopWebStatus === 'ready'
+                        ? 'Open In Web'
+                        : 'Start Web'}
+                    <ExternalLink className="size-4" />
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : null}
+
           <UsagePopover />
 
           <Menu open={isActionMenuOpen} onOpenChange={setIsActionMenuOpen}>
