@@ -1,8 +1,7 @@
 name: Sync Homebrew Tap
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 on:
   release:
@@ -27,6 +26,7 @@ jobs:
       TAP_REPO: AruNi-01/homebrew-tap
       SOURCE_REPO: AruNi-01/atmos
       CASK_PATH: Casks/atmos.rb
+      HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
     steps:
       - name: Resolve release tag
         id: release
@@ -101,6 +101,14 @@ jobs:
           token: ${{ secrets.HOMEBREW_TAP_PAT }}
           path: homebrew-tap
 
+      - name: Validate tap token
+        shell: bash
+        run: |
+          if [ -z "${HOMEBREW_TAP_PAT}" ]; then
+            echo "HOMEBREW_TAP_PAT is not configured."
+            exit 1
+          fi
+
       - name: Copy generated tap files
         shell: bash
         run: |
@@ -112,6 +120,8 @@ jobs:
         shell: bash
         run: |
           cd homebrew-tap
+
+          git remote set-url origin "https://x-access-token:${HOMEBREW_TAP_PAT}@github.com/${TAP_REPO}.git"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
