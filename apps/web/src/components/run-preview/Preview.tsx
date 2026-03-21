@@ -57,7 +57,7 @@ const normalizeUrl = (value: string): string => {
 
   if (!/^https?:\/\//.test(trimmed)) {
     const isLocal =
-      /^(localhost|127\.0\.0\.\d+|0\.0\.0\.0|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|\[::1\])(:\d+)?/.test(
+      /^(localhost|127\.0\.0\.\d+|0\.0\.0\.0|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|\[::1\])(?::\d+)?(?:[/?#]|$)/.test(
         trimmed,
       );
     return isLocal ? `http://${trimmed}` : `https://${trimmed}`;
@@ -111,6 +111,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const [renameDraft, setRenameDraft] = useState("");
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const historyIndexRef = useRef(-1);
+  const skipExternalHistorySyncRef = useRef(false);
 
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
   const canGoBack = historyIndex > 0;
@@ -150,41 +151,65 @@ export const Preview: React.FC<PreviewProps> = ({
     }
   }, []);
 
+  const pushHistoryEntry = useCallback((finalUrl: string) => {
+    setHistory((prev) => {
+      const currentIndex = historyIndexRef.current;
+      const nextHistory = [...prev.slice(0, currentIndex + 1), finalUrl];
+
+      if (nextHistory.length > MAX_HISTORY_LENGTH) {
+        const drop = nextHistory.length - MAX_HISTORY_LENGTH;
+        const nextIndex = currentIndex + 1 - drop;
+        historyIndexRef.current = nextIndex;
+        setHistoryIndex(nextIndex);
+        return nextHistory.slice(drop);
+      }
+
+      const nextIndex = currentIndex + 1;
+      historyIndexRef.current = nextIndex;
+      setHistoryIndex(nextIndex);
+      return nextHistory;
+    });
+  }, []);
+
   const navigateToUrl = useCallback(
     (nextValue: string, pushHistory = true) => {
       const finalUrl = normalizeUrl(nextValue);
       if (!finalUrl) return;
 
+      skipExternalHistorySyncRef.current = true;
       setUrl(finalUrl);
       setActiveUrl(finalUrl);
       setIframeKey((prev) => prev + 1);
 
       if (!pushHistory) return;
-
-      setHistory((prev) => {
-        const currentIndex = historyIndexRef.current;
-        const nextHistory = [...prev.slice(0, currentIndex + 1), finalUrl];
-
-        if (nextHistory.length > MAX_HISTORY_LENGTH) {
-          const drop = nextHistory.length - MAX_HISTORY_LENGTH;
-          const nextIndex = currentIndex + 1 - drop;
-          historyIndexRef.current = nextIndex;
-          setHistoryIndex(nextIndex);
-          return nextHistory.slice(drop);
-        }
-
-        const nextIndex = currentIndex + 1;
-        historyIndexRef.current = nextIndex;
-        setHistoryIndex(nextIndex);
-        return nextHistory;
-      });
+      pushHistoryEntry(finalUrl);
     },
-    [setActiveUrl, setUrl],
+    [pushHistoryEntry, setActiveUrl, setUrl],
   );
 
   useEffect(() => {
     historyIndexRef.current = historyIndex;
   }, [historyIndex]);
+
+  useEffect(() => {
+    if (!normalizedActiveUrl) return;
+
+    if (skipExternalHistorySyncRef.current) {
+      skipExternalHistorySyncRef.current = false;
+      return;
+    }
+
+    const currentEntry =
+      historyIndexRef.current >= 0
+        ? canonicalizeUrl(history[historyIndexRef.current] ?? "")
+        : "";
+
+    if (currentEntry === normalizedActiveUrl) {
+      return;
+    }
+
+    pushHistoryEntry(normalizedActiveUrl);
+  }, [history, normalizedActiveUrl, pushHistoryEntry]);
 
   useEffect(() => {
     let mounted = true;
@@ -254,6 +279,7 @@ export const Preview: React.FC<PreviewProps> = ({
 
     const newIndex = historyIndex - 1;
     const previousUrl = history[newIndex];
+    skipExternalHistorySyncRef.current = true;
     historyIndexRef.current = newIndex;
     setHistoryIndex(newIndex);
     setUrl(previousUrl);
@@ -266,6 +292,7 @@ export const Preview: React.FC<PreviewProps> = ({
 
     const newIndex = historyIndex + 1;
     const nextUrl = history[newIndex];
+    skipExternalHistorySyncRef.current = true;
     historyIndexRef.current = newIndex;
     setHistoryIndex(newIndex);
     setUrl(nextUrl);
@@ -552,7 +579,7 @@ export const Preview: React.FC<PreviewProps> = ({
                     "shrink-0 rounded-sm p-0.5 transition-colors",
                     normalizedActiveUrl
                       ? activeFavorite
-                        ? "text-amber-500 hover:text-amber-600"
+                        ? "text-favorite hover:opacity-80"
                         : "text-muted-foreground hover:text-foreground"
                       : "pointer-events-none text-muted-foreground/30",
                   )}

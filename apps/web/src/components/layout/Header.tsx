@@ -37,7 +37,6 @@ import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
-import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { gitApi, wsWorkspaceApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
@@ -68,7 +67,6 @@ const Header: React.FC = () => {
   const setupProgress = useProjectStore(s => s.setupProgress);
   const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
   const { setGlobalSearchOpen } = useDialogStore();
-  const [, setAgentChatOpen] = useAgentChatUrl();
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [chatPopoverOpen, setChatPopoverOpen] = useState(false);
@@ -423,9 +421,9 @@ const Header: React.FC = () => {
   // Status indicator color
   const getStatusColor = () => {
     if (hasUncommittedChanges || hasUnpushedCommits) {
-      return 'bg-amber-500';
+      return 'bg-warning';
     }
-    return 'bg-green-500';
+    return 'bg-success';
   };
 
   const getStatusTooltip = () => {
@@ -586,7 +584,7 @@ const Header: React.FC = () => {
                 />
                 <button
                   onClick={handleSaveCurrentBranch}
-                  className="size-6 flex items-center justify-center hover:bg-green-500/10 rounded-sm text-green-500 transition-colors shrink-0 relative z-20"
+                  className="relative z-20 flex size-6 items-center justify-center rounded-sm text-success transition-colors hover:bg-success/10 shrink-0"
                   aria-label="Save current branch"
                 >
                   <Check className="size-3.5" />
@@ -605,7 +603,7 @@ const Header: React.FC = () => {
                 tabIndex={currentWorkspace ? 0 : undefined}
                 className={cn(
                   "flex items-center space-x-1.5 py-0.5 px-1 rounded transition-colors overflow-hidden",
-                  currentWorkspace && "cursor-pointer group/branch hover:bg-black/5 dark:hover:bg-white/5"
+                  currentWorkspace && "cursor-pointer group/branch hover:bg-accent"
                 )}
                 onClick={currentWorkspace ? () => setIsEditingCurrentBranch(true) : undefined}
                 onKeyDown={currentWorkspace ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsEditingCurrentBranch(true); } } : undefined}
@@ -614,7 +612,7 @@ const Header: React.FC = () => {
                   {displayCurrentBranch}
                 </span>
                 {(hasUncommittedChanges || hasUnpushedCommits) && (
-                  <span className="text-[11px] text-amber-500 font-medium shrink-0">
+                  <span className="text-[11px] text-warning font-medium shrink-0">
                     {hasUncommittedChanges && `+${uncommittedCount}`}
                     {hasUncommittedChanges && hasUnpushedCommits && ' '}
                     {hasUnpushedCommits && `↑${unpushedCount}`}
@@ -639,7 +637,7 @@ const Header: React.FC = () => {
               }}
             >
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-black/5 dark:hover:bg-white/5 max-w-full">
+                <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-accent max-w-full">
                   <span className="opacity-50 shrink-0">origin/</span>
                   <span className="truncate block max-w-[100px]">{displayTargetBranch}</span>
                   <Edit2 className="size-2.5 opacity-0 group-hover/target:opacity-100 transition-opacity ml-0.5 shrink-0" />
@@ -727,11 +725,22 @@ const Header: React.FC = () => {
               <Popover open={chatPopoverOpen} onOpenChange={setChatPopoverOpen}>
                 <PopoverTrigger asChild>
                   <button
-                    aria-label="Agent Chat"
+                    type="button"
+                    aria-label="Agent Chat Settings"
                     className="size-8 flex items-center justify-center hover:bg-accent rounded-md text-muted-foreground hover:text-accent-foreground transition-colors ease-out duration-200"
-                    onClick={() => { setChatPopoverOpen(false); setAgentChatOpen(true); }}
-                    onMouseEnter={() => setChatPopoverOpen(true)}
+                    onClick={() => {
+                      cancelChatPopoverClose();
+                      setChatPopoverOpen((open) => !open);
+                    }}
+                    onMouseEnter={() => {
+                      cancelChatPopoverClose();
+                      setChatPopoverOpen(true);
+                    }}
                     onMouseLeave={() => scheduleChatPopoverClose()}
+                    onFocus={() => {
+                      cancelChatPopoverClose();
+                      setChatPopoverOpen(true);
+                    }}
                   >
                     <Bot className="size-4" />
                   </button>
@@ -812,9 +821,9 @@ const Header: React.FC = () => {
                           <span className={cn(
                             "size-2 rounded-full",
                             desktopWebStatus === 'ready'
-                              ? 'bg-green-500'
+                              ? 'bg-success'
                               : desktopWebStatus === 'checking'
-                                ? 'bg-amber-500'
+                                ? 'bg-warning'
                                 : 'bg-muted-foreground/50'
                           )} />
                           <p className="text-sm font-medium text-popover-foreground">

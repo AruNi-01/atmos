@@ -355,9 +355,15 @@ jobs:
             curl -sS -f \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" \
-            | jq -r '.id'
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            | jq -r --arg tag "${RELEASE_TAG}" '.[] | select(.tag_name == $tag) | .id' \
+            | head -n 1
           )
+
+          if [ -z "${RELEASE_ID}" ] || [ "${RELEASE_ID}" = "null" ]; then
+            echo "Release for tag ${RELEASE_TAG} was not found in the release list." >&2
+            exit 1
+          fi
 
           curl -sS -f -X PATCH \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \

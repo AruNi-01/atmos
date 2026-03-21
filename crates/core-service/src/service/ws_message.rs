@@ -1211,20 +1211,16 @@ impl WsMessageService {
             )
             .await?;
 
-        // Initialize the project's target branch only if it hasn't been set yet.
-        // Don't overwrite an existing target branch when creating a new workspace.
-        if let Ok(Some(project)) = self.project_service.get_project(req.project_guid.clone()).await {
-            if project.target_branch.is_none() {
-                if let Err(e) = self.project_service
-                    .update_target_branch(
-                        req.project_guid.clone(),
-                        Some(workspace.model.base_branch.clone()),
-                    )
-                    .await
-                {
-                    tracing::warn!("Failed to initialize target branch: {e}");
-                }
-            }
+        // Initialize the project's target branch only if it is still unset.
+        if let Err(e) = self
+            .project_service
+            .update_target_branch_if_null(
+                req.project_guid.clone(),
+                workspace.model.base_branch.clone(),
+            )
+            .await
+        {
+            tracing::warn!("Failed to initialize target branch: {e}");
         }
 
         // Spawn setup in background

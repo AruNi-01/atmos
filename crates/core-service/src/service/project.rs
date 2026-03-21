@@ -40,7 +40,7 @@ impl ProjectService {
         let default_branch = self
             .git_engine
             .get_default_branch(std::path::Path::new(&main_file_path))
-            .ok();
+            .unwrap_or(None);
         Ok(repo
             .create(name, main_file_path, sidebar_order, border_color, default_branch)
             .await?)
@@ -105,6 +105,17 @@ impl ProjectService {
     ) -> Result<()> {
         let repo = ProjectRepo::new(&self.db);
         Ok(repo.update_target_branch(&guid, target_branch).await?)
+    }
+
+    pub async fn update_target_branch_if_null(
+        &self,
+        guid: String,
+        target_branch: String,
+    ) -> Result<bool> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo
+            .update_target_branch_if_null(&guid, target_branch)
+            .await?)
     }
 
     pub async fn get_project(&self, guid: String) -> Result<Option<project::Model>> {
