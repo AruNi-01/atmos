@@ -383,14 +383,14 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                 transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
                                 onClick={() => handleSelect(ws)}
                                 className={cn(
-                                  "group relative flex items-center justify-between p-4 rounded-xl border transition-all text-left w-full",
+                                  "group relative flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border p-4 text-left transition-all md:flex-row md:items-center md:justify-between",
                                   ws.isArchivedRemote
                                     ? "bg-muted/30 border-border/40 opacity-60 cursor-not-allowed"
                                     : "bg-background border-border hover:border-primary/30 hover:shadow-md cursor-pointer hover:bg-muted/50"
                                 )}
                               >
-                                <div className="flex items-center gap-5 min-w-0 flex-1 overflow-hidden">
-                                  <div className="flex items-center gap-4 w-[260px] shrink-0">
+                                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 overflow-hidden md:flex-nowrap md:gap-5">
+                                  <div className="flex min-w-0 flex-[1_1_240px] items-center gap-4 md:max-w-[260px]">
                                     <div className={cn(
                                       "size-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 uppercase border",
                                       ws.isArchivedRemote
@@ -416,10 +416,10 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                     </div>
                                   </div>
 
-                                  <ArrowRight className="size-4 text-muted-foreground/30 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                                  <ArrowRight className="hidden size-4 shrink-0 text-muted-foreground/30 transition-transform group-hover:translate-x-0.5 md:block" />
 
-                                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                                    <div className="flex items-center gap-2.5 min-w-0 max-w-[220px] shrink bg-muted/30 px-2.5 py-1 rounded-lg border border-border/50">
+                                  <div className="flex min-w-0 flex-[1_1_280px] items-center gap-3 overflow-hidden md:gap-4">
+                                    <div className="flex min-w-0 max-w-full shrink items-center gap-2.5 rounded-lg border border-border/50 bg-muted/30 px-2.5 py-1 md:max-w-[220px]">
                                       <GitBranch className="size-3.5 text-muted-foreground shrink-0" />
                                       <OverflowTooltip
                                         text={ws.branch}
@@ -438,12 +438,12 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                   </div>
 
                                   {ws.isArchivedRemote ? (
-                                    <div className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
+                                    <div className="ml-auto shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1 text-[10px] font-bold text-muted-foreground shadow-sm">
                                       <Archive className="size-3" />
                                       ARCHIVED
                                     </div>
                                   ) : (
-                                    <div className="flex items-center gap-2 shrink-0">
+                                    <div className="ml-auto flex items-center gap-2 shrink-0">
                                       {hasGitInfo ? (
                                         <>
                                           {status.uncommitted !== undefined && status.uncommitted > 0 && (
@@ -462,7 +462,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                                   )}
                                 </div>
 
-                                <div className="w-[110px] text-right text-[11px] font-medium text-muted-foreground/70 shrink-0 pl-6 tabular-nums">
+                                <div className="w-full shrink-0 pl-14 text-left text-[11px] font-medium tabular-nums text-muted-foreground/70 md:w-[110px] md:pl-6 md:text-right">
                                   {ws.createdAt && !isNaN(parseUTCDate(ws.createdAt).getTime()) ? format(parseUTCDate(ws.createdAt), 'MMM d, yyyy') : '-'}
                                 </div>
                               </motion.button>
