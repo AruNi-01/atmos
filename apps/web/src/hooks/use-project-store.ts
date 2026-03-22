@@ -578,14 +578,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await wsWorkspaceApi.delete(workspaceId);
 
       // Safety timeout: if no WS progress event arrives within 30s, resolve the toast
+      // Use 'info' instead of 'success' since we don't know the actual cleanup outcome
       setTimeout(() => {
         if (deleteProgressToasts.has(workspaceId)) {
           deleteProgressToasts.delete(workspaceId);
           toastManager.update(toastId, {
             title: 'Deleted',
             description: `Workspace "${workspaceName}" removed (cleanup may still be running)`,
-            type: 'success',
-            timeout: 3000,
+            type: 'info',
+            timeout: 5000,
           });
         }
       }, 30_000);

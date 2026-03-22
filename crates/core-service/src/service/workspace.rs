@@ -783,27 +783,28 @@ impl WorkspaceService {
         Ok(None)
     }
 
-    /// 删除工作区（软删除 + 清理 worktree）
+    /// 删除工作区（软删除 + 后台清理 worktree）
     pub async fn delete_workspace(&self, guid: String) -> Result<()> {
         // Get cleanup info before deleting
         let cleanup_info = self.get_workspace_cleanup_info(&guid).await?;
 
-        // Soft delete from database first
+        // Soft delete from database first (instant)
         self.soft_delete_workspace(&guid).await?;
 
-        // Then clean up worktree (ignore errors - workspace may not have worktree)
-        if let Some((repo_path, workspace_name, branch)) = cleanup_info {
-            let repo_path = Path::new(&repo_path);
-            if let Err(e) =
-                self.git_engine
-                    .remove_worktree(repo_path, &workspace_name, &branch)
-            {
-                tracing::warn!(
-                    "Failed to remove worktree for workspace {}: {}",
-                    workspace_name,
-                    e
-                );
-            }
+        // Clean up worktree in background (non-blocking)
+        if let Some((repo_path_str, workspace_name, branch)) = cleanup_info {
+            tokio::task::spawn_blocking(move || {
+                let repo_path = Path::new(&repo_path_str);
+                if let Err(e) =
+                    GitEngine::new().remove_worktree(repo_path, &workspace_name, &branch)
+                {
+                    tracing::warn!(
+                        "Failed to remove worktree for workspace {}: {}",
+                        workspace_name,
+                        e
+                    );
+                }
+            });
         }
 
         Ok(())
