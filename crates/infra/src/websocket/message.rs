@@ -372,6 +372,8 @@ pub enum WsEvent {
     GitCommitMessageChunk,
     /// LLM provider test 流式输出 chunk
     LlmProviderTestChunk,
+    /// 工作区删除进度
+    WorkspaceDeleteProgress,
 }
 
 // ===== 消息通知数据结构 =====
@@ -407,6 +409,16 @@ pub struct WorkspaceSetupProgressNotification {
     pub countdown: Option<u32>,
     #[serde(default)]
     pub setup_context: Option<WorkspaceSetupContextNotification>,
+}
+
+/// 工作区删除进度通知数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceDeleteProgressNotification {
+    pub workspace_id: String,
+    /// 当前步骤: "removing_worktree", "removing_branch", "removing_remote_branch", "completed", "error"
+    pub step: String,
+    pub message: String,
+    pub success: bool,
 }
 
 // ===== 文件系统操作数据结构 =====

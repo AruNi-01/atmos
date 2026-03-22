@@ -2,7 +2,7 @@
 
 import { useEffect, ReactNode } from 'react';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { subscribeToWorkspaceSetupProgress } from '@/hooks/use-project-store';
+import { subscribeToWorkspaceSetupProgress, subscribeToWorkspaceDeleteProgress } from '@/hooks/use-project-store';
 
 interface WebSocketProviderProps {
   children: ReactNode;
@@ -55,8 +55,12 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   }, [connect]);
 
   useEffect(() => {
-    const unsubscribe = subscribeToWorkspaceSetupProgress();
-    return unsubscribe;
+    const unsubscribeSetup = subscribeToWorkspaceSetupProgress();
+    const unsubscribeDelete = subscribeToWorkspaceDeleteProgress();
+    return () => {
+      unsubscribeSetup();
+      unsubscribeDelete();
+    };
   }, []);
 
   return <>{children}</>;

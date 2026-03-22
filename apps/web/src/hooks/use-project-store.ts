@@ -222,6 +222,9 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
 }
 
 // 等待 WebSocket 连接
+// Track delete progress toast IDs by workspace ID
+const deleteProgressToasts = new Map<string, { toastId: string; workspaceName: string }>();
+
 async function waitForConnection(timeoutMs = 5000): Promise<void> {
   const { connectionState, connect } = useWebSocketStore.getState();
   
@@ -559,27 +562,48 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       };
     });
 
+    const workspaceName = workspaceBeingDeleted?.displayName || workspaceBeingDeleted?.name || 'Untitled';
+    const toastId = String(toastManager.add({
+      title: 'Deleting workspace',
+      description: `"${workspaceName}" — cleaning up files...`,
+      type: 'loading',
+      timeout: 0,
+    }));
+
+    // Store toast id so the WS event handler can update it
+    deleteProgressToasts.set(workspaceId, { toastId, workspaceName });
+
     try {
       await waitForConnection();
       await wsWorkspaceApi.delete(workspaceId);
 
-      toastManager.add({ 
-        title: 'Deleted', 
-        description: `Workspace "${workspaceBeingDeleted?.displayName || workspaceBeingDeleted?.name || 'Untitled'}" removed`, 
-        type: 'info' 
-      });
+      // Safety timeout: if no WS progress event arrives within 30s, resolve the toast
+      // Use 'info' instead of 'success' since we don't know the actual cleanup outcome
+      setTimeout(() => {
+        if (deleteProgressToasts.has(workspaceId)) {
+          deleteProgressToasts.delete(workspaceId);
+          toastManager.update(toastId, {
+            title: 'Deleted',
+            description: `Workspace "${workspaceName}" removed (cleanup may still be running)`,
+            type: 'info',
+            timeout: 5000,
+          });
+        }
+      }, 30_000);
     } catch (error) {
+      deleteProgressToasts.delete(workspaceId);
+      toastManager.update(toastId, {
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete workspace',
+        type: 'error',
+        timeout: 5000,
+      });
       set({
         projects: previousState.projects,
         activeWorkspaceId: previousState.activeWorkspaceId,
         setupProgress: previousState.setupProgress,
       });
       console.error('Error deleting workspace:', error);
-      toastManager.add({ 
-        title: 'Error', 
-        description: error instanceof Error ? error.message : 'Failed to delete workspace', 
-        type: 'error' 
-      });
       throw error;
     }
   },
@@ -904,5 +928,61 @@ export function subscribeToWorkspaceSetupProgress(): () => void {
           }
         : undefined,
     });
+  });
+}
+
+interface WorkspaceDeleteProgressPayload {
+  workspace_id: string;
+  step: string;
+  message: string;
+  success: boolean;
+}
+
+function isWorkspaceDeleteProgressPayload(data: unknown): data is WorkspaceDeleteProgressPayload {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'workspace_id' in data &&
+    'step' in data &&
+    'message' in data
+  );
+}
+
+/**
+ * Subscribe to workspace_delete_progress events.
+ * Updates the loading toast with step-by-step cleanup progress.
+ */
+export function subscribeToWorkspaceDeleteProgress(): () => void {
+  return useWebSocketStore.getState().onEvent('workspace_delete_progress', (data: unknown) => {
+    if (!isWorkspaceDeleteProgressPayload(data)) return;
+
+    const entry = deleteProgressToasts.get(data.workspace_id);
+    if (!entry) return;
+
+    const { toastId, workspaceName } = entry;
+
+    if (data.step === 'completed') {
+      toastManager.update(toastId, {
+        title: 'Deleted',
+        description: `Workspace "${workspaceName}" removed`,
+        type: 'success',
+        timeout: 3000,
+      });
+      deleteProgressToasts.delete(data.workspace_id);
+    } else if (data.step === 'error') {
+      toastManager.update(toastId, {
+        title: 'Cleanup warning',
+        description: `"${workspaceName}" deleted but cleanup failed: ${data.message}`,
+        type: 'warning',
+        timeout: 5000,
+      });
+      deleteProgressToasts.delete(data.workspace_id);
+    } else {
+      toastManager.update(toastId, {
+        title: 'Deleting workspace',
+        description: `"${workspaceName}" — ${data.message}`,
+        type: 'loading',
+      });
+    }
   });
 }

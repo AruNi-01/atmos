@@ -90,10 +90,8 @@ const Logo = ({ className, animate = true }: { className?: string; animate?: boo
         <TextScramble
           className='text-primary text-xl font-bold uppercase select-none inline-block tabular-nums tracking-widest cursor-default min-w-[5ch]'
           trigger={isHovered}
-          duration={1}
-          characterSet='. '
         >
-          ATMOS Landing...
+          ATMOS
         </TextScramble>
       </div>
     </div>
