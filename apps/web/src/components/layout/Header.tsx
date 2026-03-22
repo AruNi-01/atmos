@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useQueryState } from "nuqs";
 import { useTheme } from "next-themes";
+import { useHotkeys } from "react-hotkeys-hook";
 import { useContextParams } from "@/hooks/use-context-params";
 import { llmProvidersModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
 import {
@@ -32,6 +33,10 @@ import {
   PopoverTrigger,
   Sun,
   Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@workspace/ui';
 import {
   Menu,
@@ -83,6 +88,7 @@ const Header: React.FC = () => {
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isTokenUsageOpen, setIsTokenUsageOpen] = useState(false);
+  const [isUsagePopoverOpen, setIsUsagePopoverOpen] = useState(false);
   const [isDesktopFullscreen, setIsDesktopFullscreen] = useState(false);
   const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] = useState(false);
   const desktopFullscreenRef = useRef<boolean | null>(null);
@@ -262,6 +268,53 @@ const Header: React.FC = () => {
       await document.exitFullscreen();
     }
   }, [isDesktopFullscreen]);
+
+  // Keyboard shortcuts using react-hotkeys-hook
+  useHotkeys('mod+b', toggleLeftSidebar, {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Toggle left sidebar'
+  });
+
+  useHotkeys('mod+[', () => window.history.back(), {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Go back'
+  });
+
+  useHotkeys('mod+]', () => window.history.forward(), {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Go forward'
+  });
+
+  useHotkeys('mod+r', () => window.location.reload(), {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Refresh page'
+  });
+
+  useHotkeys('mod+u', () => setIsUsagePopoverOpen(prev => !prev), {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Toggle AI Usage'
+  });
+
+  useHotkeys('mod+m', () => setIsActionMenuOpen(prev => !prev), {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Toggle menu'
+  });
+
+  useHotkeys('mod+shift+b', () => {
+    if (showRightSidebar) {
+      toggleRightSidebar();
+    }
+  }, {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Toggle right sidebar'
+  });
 
   // Sync context when project/workspace changes
   useEffect(() => {
@@ -469,20 +522,21 @@ const Header: React.FC = () => {
   }, []);
 
   return (
-    <header
-      onMouseDown={handleHeaderMouseDown}
-      className={cn(
-        "relative flex h-12 items-center justify-between border-b border-sidebar-border px-4 select-none transition-[padding] duration-300 ease-out",
-        isTauriRuntime() && "desktop-drag-region",
-        isTauriRuntime() && (isDesktopFullscreen ? "pl-4" : "pl-[92px]")
-      )}
-    >
-      {isTauriRuntime() ? (
-        <div
-          className="pointer-events-none absolute inset-0 z-0 desktop-drag-region"
-          data-tauri-drag-region="true"
-        />
-      ) : null}
+    <TooltipProvider>
+      <header
+        onMouseDown={handleHeaderMouseDown}
+        className={cn(
+          "relative flex h-12 items-center justify-between border-b border-sidebar-border px-4 select-none transition-[padding] duration-300 ease-out",
+          isTauriRuntime() && "desktop-drag-region",
+          isTauriRuntime() && (isDesktopFullscreen ? "pl-4" : "pl-[92px]")
+        )}
+      >
+        {isTauriRuntime() ? (
+          <div
+            className="pointer-events-none absolute inset-0 z-0 desktop-drag-region"
+            data-tauri-drag-region="true"
+          />
+        ) : null}
 
       {/* Left: Identity */}
       <div
@@ -491,39 +545,87 @@ const Header: React.FC = () => {
           isDesktopFullscreenExiting ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
         )}
       >
-        <button
-          type="button"
-          aria-label={isLeftCollapsed ? "Expand left sidebar" : "Collapse left sidebar"}
-          onClick={toggleLeftSidebar}
-          className="desktop-no-drag inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={isLeftCollapsed ? "Expand left sidebar" : "Collapse left sidebar"}
+              onClick={toggleLeftSidebar}
+              className="desktop-no-drag inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="flex items-center gap-2">
+              <span>{isLeftCollapsed ? "Expand Left Sidebar" : "Collapse Left Sidebar"}</span>
+              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <span className="text-xs">⌘</span>B
+              </kbd>
+            </div>
+          </TooltipContent>
+        </Tooltip>
         <div className="desktop-no-drag flex h-8 items-center gap-1">
-          <button
-            type="button"
-            aria-label="Go back"
-            onClick={() => window.history.back()}
-            className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <ChevronLeft className="size-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Go forward"
-            onClick={() => window.history.forward()}
-            className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <ChevronRight className="size-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Refresh page"
-            onClick={() => window.location.reload()}
-            className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            <RefreshCw className="size-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Go back"
+                onClick={() => window.history.back()}
+                className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex items-center gap-2">
+                <span>Back</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>[
+                </kbd>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Go forward"
+                onClick={() => window.history.forward()}
+                className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex items-center gap-2">
+                <span>Forward</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>]
+                </kbd>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Refresh page"
+                onClick={() => window.location.reload()}
+                className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                <RefreshCw className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex items-center gap-2">
+                <span>Refresh</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>R
+                </kbd>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <div
           className={cn(
@@ -766,20 +868,44 @@ const Header: React.FC = () => {
             </Popover>
           ) : null}
 
-          <UsagePopover />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <UsagePopover open={isUsagePopoverOpen} onOpenChange={setIsUsagePopoverOpen} />
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex items-center gap-2">
+                <span>AI Usage</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>U
+                </kbd>
+              </div>
+            </TooltipContent>
+          </Tooltip>
 
           <Menu open={isActionMenuOpen} onOpenChange={setIsActionMenuOpen}>
-            <MenuTrigger
-              render={
-                <button
-                  type="button"
-                  aria-label="Open actions menu"
-                  className="size-8 flex items-center justify-center rounded-md text-base font-medium tracking-[0.18em] text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                >
-                  <span className="translate-x-[0.08em]">···</span>
-                </button>
-              }
-            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <MenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      aria-label="Open actions menu"
+                      className="size-8 flex items-center justify-center rounded-md text-base font-medium tracking-[0.18em] text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <span className="translate-x-[0.08em]">···</span>
+                    </button>
+                  }
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="flex items-center gap-2">
+                  <span>Menu</span>
+                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                    <span className="text-xs">⌘</span>M
+                  </kbd>
+                </div>
+              </TooltipContent>
+            </Tooltip>
             <MenuPanel align="end" sideOffset={8} className="w-56">
               <MenuItem
                 closeOnClick
@@ -929,14 +1055,26 @@ const Header: React.FC = () => {
                 transition={{ duration: 0.18, ease: 'easeOut' }}
                 className="flex"
               >
-                <button
-                  type="button"
-                  aria-label={isRightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
-                  onClick={toggleRightSidebar}
-                  className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                >
-                  {isRightCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={isRightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
+                      onClick={toggleRightSidebar}
+                      className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                    >
+                      {isRightCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="flex items-center gap-2">
+                      <span>{isRightCollapsed ? "Expand Right Sidebar" : "Collapse Right Sidebar"}</span>
+                      <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                        <span className="text-xs">⌘</span><span className="text-xs">⇧</span>B
+                      </kbd>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
               </motion.div>
             ) : null}
           </AnimatePresence>
@@ -1009,7 +1147,8 @@ const Header: React.FC = () => {
         }}
         activeSectionOverride={isLlmProvidersOpen ? 'ai' : null}
       />
-    </header>
+      </header>
+    </TooltipProvider>
   );
 };
 

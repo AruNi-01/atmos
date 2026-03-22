@@ -1085,9 +1085,16 @@ const EMPTY_AGGREGATE: UsageAggregateResponse = {
   soonest_reset_at: null,
 };
 
-export function UsagePopover() {
+interface UsagePopoverProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenChange }: UsagePopoverProps = {}) {
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
   const [overview, setOverview] = useState<UsageOverviewResponse | null>(null);
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
   const [error, setError] = useState<string | null>(null);
@@ -1448,15 +1455,28 @@ export function UsagePopover() {
   }, []);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          aria-label="Usage"
-          className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-        >
-          <Gauge className="size-3.5" />
-        </button>
-      </PopoverTrigger>
+    <TooltipProvider>
+      <Popover open={open} onOpenChange={setOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button
+                aria-label="Usage"
+                className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+              >
+                <Gauge className="size-3.5" />
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="flex items-center gap-2">
+              <span>AI Quota Usage</span>
+              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <span className="text-xs">⌘</span>U
+              </kbd>
+            </div>
+          </TooltipContent>
+        </Tooltip>
       <PopoverContent
         align="end"
         sideOffset={10}
@@ -1789,5 +1809,6 @@ export function UsagePopover() {
         </div>
       </PopoverContent>
     </Popover>
+    </TooltipProvider>
   );
 }
