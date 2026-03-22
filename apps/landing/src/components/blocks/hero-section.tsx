@@ -31,9 +31,9 @@ const HeroSection = () => {
         delay={0.1}
         className='mx-auto flex max-w-6xl flex-col gap-12 px-4 py-12 min-[1147px]:border-x sm:gap-16 sm:px-6 sm:py-20 lg:gap-20 lg:px-8 lg:py-28'
       >
-        <div className='flex flex-col space-y-6 sm:space-y-8 w-full max-w-4xl'>
+        <div className='flex flex-col sm:flex-row sm:items-end justify-between w-full space-y-6 sm:space-y-0'>
           <MotionPreset fade blur transition={{ duration: 0.9 }} delay={0.2}>
-            <div className={`flex flex-col gap-3 md:gap-4 text-4xl font-bold md:text-5xl lg:text-7xl tracking-tight ${GeistPixelSquare.className}`}>
+            <div className={`flex flex-col gap-3 md:gap-4 text-4xl font-bold md:text-5xl lg:text-7xl tracking-tight w-fit ${GeistPixelSquare.className}`}>
               <div className='flex items-center gap-3 sm:gap-4 flex-wrap'>
                 <MotionPreset
                   slide={{ direction: 'left', offset: 40 }}
@@ -102,27 +102,27 @@ const HeroSection = () => {
                 >
                   <span>Builders</span>
                 </MotionPreset>
-                
-                <MotionPreset fade slide blur transition={{ duration: 0.5 }} delay={1.7} className="ml-auto flex items-end mb-1 md:mb-2 lg:mb-3">
-                  <div className="flex">
-                    <CraftButton className="rounded-full shadow-lg" asChild>
-                      <Link 
-                        href='#ready-download'
-                        onClick={(e) => {
-                          e.preventDefault();
-                          const el = document.getElementById('ready-download') || document.getElementById('download');
-                          if (el) el.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        <CraftButtonLabel className="font-sans text-base md:text-lg font-medium tracking-normal">Get Started</CraftButtonLabel>
-                        <CraftButtonIcon>
-                          <ArrowRightIcon className='size-4 md:size-5 stroke-2 rotate-45 transition-transform duration-300 group-hover:rotate-90' />
-                        </CraftButtonIcon>
-                      </Link>
-                    </CraftButton>
-                  </div>
-                </MotionPreset>
               </div>
+            </div>
+          </MotionPreset>
+
+          <MotionPreset fade slide blur transition={{ duration: 0.5 }} delay={1.7} className="flex-shrink-0">
+            <div className="flex">
+              <CraftButton className="rounded-full shadow-lg h-auto px-5 py-2.5 md:px-6 md:py-3 lg:px-8 lg:py-3.5" asChild>
+                <Link
+                  href='#ready-download'
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const el = document.getElementById('ready-download') || document.getElementById('download');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <CraftButtonLabel className="font-sans text-lg md:text-xl lg:text-2xl font-medium tracking-normal">Get Started</CraftButtonLabel>
+                  <CraftButtonIcon>
+                    <ArrowRightIcon className='size-4 md:size-5 lg:size-6 stroke-2 rotate-45 transition-transform duration-300 group-hover:rotate-90' />
+                  </CraftButtonIcon>
+                </Link>
+              </CraftButton>
             </div>
           </MotionPreset>
         </div>
