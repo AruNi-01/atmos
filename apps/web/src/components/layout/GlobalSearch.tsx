@@ -202,6 +202,20 @@ export function GlobalSearch() {
     description: 'Toggle global search'
   });
 
+  // Keyboard shortcut to switch tabs when search is open
+  useHotkeys('tab', () => {
+    if (!isGlobalSearchOpen) return;
+    const tabs: SearchTab[] = ['app', 'files', 'code'];
+    const currentIndex = tabs.indexOf(globalSearchTab);
+    const nextIndex = (currentIndex + 1) % tabs.length;
+    setGlobalSearchTab(tabs[nextIndex]);
+  }, {
+    enabled: isGlobalSearchOpen,
+    enableOnFormTags: true,
+    preventDefault: true,
+    description: 'Switch search tabs'
+  });
+
   // Reset search when dialog closes
   useEffect(() => {
     if (!isGlobalSearchOpen) {
@@ -625,6 +639,26 @@ export function GlobalSearch() {
 
     return groups;
   }, [filteredAppItems]);
+
+  // Select first result when results change
+  useEffect(() => {
+    if (!isGlobalSearchOpen) return;
+
+    // Clear selection when no results or query is empty
+    if (searchQuery.trim() === '') {
+      setSelectedValue('');
+      return;
+    }
+
+    // Select first result based on current tab
+    if (globalSearchTab === 'app' && filteredAppItems.length > 0) {
+      setSelectedValue(filteredAppItems[0].id);
+    } else if (globalSearchTab === 'files' && filteredFiles.length > 0) {
+      setSelectedValue(filteredFiles[0].path);
+    } else if (globalSearchTab === 'code' && codeSearchResults.length > 0) {
+      setSelectedValue(`${codeSearchResults[0].file_path}:${codeSearchResults[0].line_number}`);
+    }
+  }, [globalSearchTab, searchQuery, filteredAppItems, filteredFiles, codeSearchResults, isGlobalSearchOpen]);
 
   const handleFileSelect = (path: string) => {
     // Search results open in pinned mode since user explicitly searched for them
