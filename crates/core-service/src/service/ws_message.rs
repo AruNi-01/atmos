@@ -151,37 +151,46 @@ impl WsMessageService {
         )
         .await;
 
-        if let Err(e) =
-            tokio::task::spawn_blocking({
-                let repo_path = std::path::PathBuf::from(&repo_path_str);
-                let workspace_name = workspace_name.clone();
-                let branch = branch.clone();
-                move || {
-                    GitEngine::new().remove_worktree(&repo_path, &workspace_name, &branch)
-                }
-            })
-            .await
-            .unwrap_or_else(|e| Err(core_engine::EngineError::Git(e.to_string())))
-        {
-            tracing::warn!(
-                "Failed to remove worktree for workspace {}: {}",
-                workspace_name,
-                e
-            );
-            // Non-fatal: still report completed
-        }
+        let cleanup_result = tokio::task::spawn_blocking({
+            let repo_path = std::path::PathBuf::from(&repo_path_str);
+            let workspace_name = workspace_name.clone();
+            let branch = branch.clone();
+            move || GitEngine::new().remove_worktree(&repo_path, &workspace_name, &branch)
+        })
+        .await
+        .unwrap_or_else(|e| Err(core_engine::EngineError::Git(e.to_string())));
 
-        // Done
-        Self::send_workspace_delete_progress(
-            &manager,
-            WorkspaceDeleteProgressNotification {
-                workspace_id: workspace_id.clone(),
-                step: "completed".into(),
-                message: "Workspace cleanup completed".into(),
-                success: true,
-            },
-        )
-        .await;
+        match cleanup_result {
+            Ok(()) => {
+                Self::send_workspace_delete_progress(
+                    &manager,
+                    WorkspaceDeleteProgressNotification {
+                        workspace_id: workspace_id.clone(),
+                        step: "completed".into(),
+                        message: "Workspace cleanup completed".into(),
+                        success: true,
+                    },
+                )
+                .await;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to remove worktree for workspace {}: {}",
+                    workspace_name,
+                    e
+                );
+                Self::send_workspace_delete_progress(
+                    &manager,
+                    WorkspaceDeleteProgressNotification {
+                        workspace_id: workspace_id.clone(),
+                        step: "error".into(),
+                        message: format!("{}", e),
+                        success: false,
+                    },
+                )
+                .await;
+            }
+        }
 
         tracing::info!(
             "Background workspace cleanup completed for {}",
@@ -1440,10 +1449,10 @@ impl WsMessageService {
         self.workspace_service.soft_delete_workspace(&guid).await?;
 
         // Spawn background task for worktree cleanup with progress notifications
-        if let Some((repo_path_str, workspace_name, branch)) = cleanup_info {
-            if let Some(manager) = self.ws_manager.get().cloned() {
-                let workspace_id = guid.clone();
+        if let Some(manager) = self.ws_manager.get().cloned() {
+            let workspace_id = guid.clone();
 
+            if let Some((repo_path_str, workspace_name, branch)) = cleanup_info {
                 tokio::spawn(async move {
                     Self::execute_workspace_cleanup(
                         manager,
@@ -1454,6 +1463,18 @@ impl WsMessageService {
                     )
                     .await;
                 });
+            } else {
+                // No worktree to clean up — send completed immediately
+                Self::send_workspace_delete_progress(
+                    &manager,
+                    WorkspaceDeleteProgressNotification {
+                        workspace_id,
+                        step: "completed".into(),
+                        message: "Workspace cleanup completed".into(),
+                        success: true,
+                    },
+                )
+                .await;
             }
         }
 
@@ -2819,7 +2840,7 @@ set -x
     async fn handle_github_pr_detail(&self, req: GithubPrDetailRequest) -> Result<Value> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft"];
+        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels"];
         let mut output = self
             .github_engine
             .run_gh(&args)
