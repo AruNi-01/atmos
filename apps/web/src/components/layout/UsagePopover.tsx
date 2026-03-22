@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Command,
   KeyRound,
   Blocks,
   Coins,
@@ -1472,7 +1473,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
             <div className="flex items-center gap-2">
               <span>AI Quota Usage</span>
               <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                <span className="text-xs">⌘</span>U
+                <Command className="size-3" /><span className="text-xs">U</span>
               </kbd>
             </div>
           </TooltipContent>

@@ -65,7 +65,7 @@ import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
-import { ArrowBigUp, ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SlidersHorizontal, SunMoon } from "lucide-react";
+import { ArrowBigUp, ChevronLeft, ChevronRight, Command, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SlidersHorizontal, SunMoon } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
@@ -560,7 +560,7 @@ const Header: React.FC = () => {
             <div className="flex items-center gap-2">
               <span>{isLeftCollapsed ? "Expand Left Sidebar" : "Collapse Left Sidebar"}</span>
               <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                <span className="text-xs">⌘</span>B
+                <Command className="size-3" /><span className="text-xs">B</span>
               </kbd>
             </div>
           </TooltipContent>
@@ -581,7 +581,7 @@ const Header: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span>Back</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  <span className="text-xs">⌘</span>[
+                  <Command className="size-3" /><span className="text-xs">[</span>
                 </kbd>
               </div>
             </TooltipContent>
@@ -601,7 +601,7 @@ const Header: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span>Forward</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  <span className="text-xs">⌘</span>]
+                  <Command className="size-3" /><span className="text-xs">]</span>
                 </kbd>
               </div>
             </TooltipContent>
@@ -621,7 +621,7 @@ const Header: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span>Refresh</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  <span className="text-xs">⌘</span>R
+                  <Command className="size-3" /><span className="text-xs">R</span>
                 </kbd>
               </div>
             </TooltipContent>
@@ -873,12 +873,12 @@ const Header: React.FC = () => {
               <UsagePopover open={isUsagePopoverOpen} onOpenChange={setIsUsagePopoverOpen} />
             </TooltipTrigger>
             <TooltipContent>
-              <div className="flex items-center gap-2">
-                <span>AI Usage</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  <span className="text-xs">⌘</span>U
-                </kbd>
-              </div>
+            <div className="flex items-center gap-2">
+              <span>AI Usage</span>
+              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <Command className="size-3" /><span className="text-xs">U</span>
+              </kbd>
+            </div>
             </TooltipContent>
           </Tooltip>
 
@@ -898,12 +898,12 @@ const Header: React.FC = () => {
                 />
               </TooltipTrigger>
               <TooltipContent>
-                <div className="flex items-center gap-2">
-                  <span>Menu</span>
-                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                    <span className="text-xs">⌘</span>M
-                  </kbd>
-                </div>
+              <div className="flex items-center gap-2">
+                <span>Menu</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <Command className="size-3" /><span className="text-xs">M</span>
+                </kbd>
+              </div>
               </TooltipContent>
             </Tooltip>
             <MenuPanel align="end" sideOffset={8} className="w-56">
@@ -1070,7 +1070,7 @@ const Header: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span>{isRightCollapsed ? "Expand Right Sidebar" : "Collapse Right Sidebar"}</span>
                       <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                        <span className="text-xs">⌘</span><ArrowBigUp className="size-3" /><span className="text-xs">B</span>
+                        <Command className="size-3" /><ArrowBigUp className="size-3" /><span className="text-xs">B</span>
                       </kbd>
                     </div>
                   </TooltipContent>
