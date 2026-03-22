@@ -38,7 +38,8 @@ use infra::{
     UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest,
     WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
-    WorkspaceSetupContextNotification, WorkspaceSetupProgressNotification,
+    WorkspaceDeleteProgressNotification, WorkspaceSetupContextNotification,
+    WorkspaceSetupProgressNotification,
     WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
     WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
@@ -120,6 +121,72 @@ impl WsMessageService {
         // connection that triggered it. Broadcast by workspace_id instead of
         // pinning updates to a potentially stale conn_id from the original request.
         let _ = manager.broadcast(&message).await;
+    }
+
+    async fn send_workspace_delete_progress(
+        manager: &Arc<infra::WsManager>,
+        payload: WorkspaceDeleteProgressNotification,
+    ) {
+        let message =
+            WsMessage::notification(WsEvent::WorkspaceDeleteProgress, json!(payload));
+        let _ = manager.broadcast(&message).await;
+    }
+
+    async fn execute_workspace_cleanup(
+        manager: Arc<infra::WsManager>,
+        workspace_id: String,
+        repo_path_str: String,
+        workspace_name: String,
+        branch: String,
+    ) {
+        // Step 1: Remove worktree (this is the slow part)
+        Self::send_workspace_delete_progress(
+            &manager,
+            WorkspaceDeleteProgressNotification {
+                workspace_id: workspace_id.clone(),
+                step: "removing_worktree".into(),
+                message: "Removing worktree files...".into(),
+                success: false,
+            },
+        )
+        .await;
+
+        if let Err(e) =
+            tokio::task::spawn_blocking({
+                let repo_path = std::path::PathBuf::from(&repo_path_str);
+                let workspace_name = workspace_name.clone();
+                let branch = branch.clone();
+                move || {
+                    GitEngine::new().remove_worktree(&repo_path, &workspace_name, &branch)
+                }
+            })
+            .await
+            .unwrap_or_else(|e| Err(core_engine::EngineError::Git(e.to_string())))
+        {
+            tracing::warn!(
+                "Failed to remove worktree for workspace {}: {}",
+                workspace_name,
+                e
+            );
+            // Non-fatal: still report completed
+        }
+
+        // Done
+        Self::send_workspace_delete_progress(
+            &manager,
+            WorkspaceDeleteProgressNotification {
+                workspace_id: workspace_id.clone(),
+                step: "completed".into(),
+                message: "Workspace cleanup completed".into(),
+                success: true,
+            },
+        )
+        .await;
+
+        tracing::info!(
+            "Background workspace cleanup completed for {}",
+            workspace_name
+        );
     }
 
     #[cfg(unix)]
@@ -1361,7 +1428,35 @@ impl WsMessageService {
     }
 
     async fn handle_workspace_delete(&self, req: WorkspaceDeleteRequest) -> Result<Value> {
-        self.workspace_service.delete_workspace(req.guid).await?;
+        let guid = req.guid;
+
+        // Get cleanup info before soft-deleting
+        let cleanup_info = self
+            .workspace_service
+            .get_workspace_cleanup_info(&guid)
+            .await?;
+
+        // Soft delete from database first (instant)
+        self.workspace_service.soft_delete_workspace(&guid).await?;
+
+        // Spawn background task for worktree cleanup with progress notifications
+        if let Some((repo_path_str, workspace_name, branch)) = cleanup_info {
+            if let Some(manager) = self.ws_manager.get().cloned() {
+                let workspace_id = guid.clone();
+
+                tokio::spawn(async move {
+                    Self::execute_workspace_cleanup(
+                        manager,
+                        workspace_id,
+                        repo_path_str,
+                        workspace_name,
+                        branch,
+                    )
+                    .await;
+                });
+            }
+        }
+
         Ok(json!({ "success": true }))
     }
 

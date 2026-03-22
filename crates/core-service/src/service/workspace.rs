@@ -758,33 +758,55 @@ impl WorkspaceService {
         Ok(repo.update_order(&guid, order).await?)
     }
 
-    /// 删除工作区
-    pub async fn delete_workspace(&self, guid: String) -> Result<()> {
+    /// 删除工作区（仅软删除数据库记录，不清理 worktree）
+    pub async fn soft_delete_workspace(&self, guid: &str) -> Result<()> {
         let workspace_repo = WorkspaceRepo::new(&self.db);
+        Ok(workspace_repo.soft_delete(guid).await?)
+    }
 
-        // Get workspace info before deleting
-        if let Some(workspace) = workspace_repo.find_by_guid(&guid).await? {
-            // Get project to find repo path
+    /// 获取工作区的 worktree 清理所需信息
+    pub async fn get_workspace_cleanup_info(
+        &self,
+        guid: &str,
+    ) -> Result<Option<(String, String, String)>> {
+        let workspace_repo = WorkspaceRepo::new(&self.db);
+        if let Some(workspace) = workspace_repo.find_by_guid(guid).await? {
             let project_repo = ProjectRepo::new(&self.db);
             if let Some(project) = project_repo.find_by_guid(&workspace.project_guid).await? {
-                let repo_path = Path::new(&project.main_file_path);
+                return Ok(Some((
+                    project.main_file_path.clone(),
+                    workspace.name.clone(),
+                    workspace.branch.clone(),
+                )));
+            }
+        }
+        Ok(None)
+    }
 
-                // Remove the git worktree (ignore errors - workspace may not have worktree)
-                if let Err(e) =
-                    self.git_engine
-                        .remove_worktree(repo_path, &workspace.name, &workspace.branch)
-                {
-                    tracing::warn!(
-                        "Failed to remove worktree for workspace {}: {}",
-                        workspace.name,
-                        e
-                    );
-                }
+    /// 删除工作区（软删除 + 清理 worktree）
+    pub async fn delete_workspace(&self, guid: String) -> Result<()> {
+        // Get cleanup info before deleting
+        let cleanup_info = self.get_workspace_cleanup_info(&guid).await?;
+
+        // Soft delete from database first
+        self.soft_delete_workspace(&guid).await?;
+
+        // Then clean up worktree (ignore errors - workspace may not have worktree)
+        if let Some((repo_path, workspace_name, branch)) = cleanup_info {
+            let repo_path = Path::new(&repo_path);
+            if let Err(e) =
+                self.git_engine
+                    .remove_worktree(repo_path, &workspace_name, &branch)
+            {
+                tracing::warn!(
+                    "Failed to remove worktree for workspace {}: {}",
+                    workspace_name,
+                    e
+                );
             }
         }
 
-        // Soft delete from database
-        Ok(workspace_repo.soft_delete(&guid).await?)
+        Ok(())
     }
 
     /// 置顶工作区
