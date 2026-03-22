@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { GeistPixelSquare } from 'geist/font/pixel'
 
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import LogoSvg from '@workspace/ui/components/logo-svg'
@@ -17,7 +18,7 @@ const Footer = () => {
       >
         <Link
           href='/#hero'
-          className='flex w-full items-center justify-between'
+          className={`flex w-full items-center justify-between ${GeistPixelSquare.className}`}
         >
           <span className='text-[26vw] font-black uppercase leading-[0.75] tracking-tighter lg:text-[16rem] xl:text-[19rem]'>
             A

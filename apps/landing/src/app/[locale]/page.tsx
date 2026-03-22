@@ -6,9 +6,7 @@ import Services from "@/components/blocks/services";
 import Footer from "@/components/layout/footer";
 import FAQ from "@/components/blocks/faq";
 import FeatureShowcase from "@/components/blocks/feature-showcase";
-import Benefits from "@/components/blocks/benefits";
-import { ZapIcon, ChartSplineIcon, FilesIcon } from 'lucide-react';
-import AtmosPreview from '@/assets/img/atmos_preview.png';
+import ReadyDownload from "@/components/blocks/ready-download";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -47,26 +45,6 @@ export default async function LandingPage({ params }: Props) {
 
 // ... existing imports
 
-const featuresList = [
-  {
-    icon: <ZapIcon className='text-primary' />,
-    title: 'Unified Operating Surface',
-    description: "Manage multiple projects, branches, and workspaces with built-in context, without switching tools.",
-    image: AtmosPreview
-  },
-  {
-    icon: <ChartSplineIcon className='text-primary' />,
-    title: 'Persistent Terminal Sessions',
-    description: "Keep long-lived, tmux-backed terminal sessions that survive refreshes, reconnects, and app restarts.",
-    image: AtmosPreview
-  },
-  {
-    icon: <FilesIcon className='text-primary' />,
-    title: 'Deep GitHub Integration',
-    description: "Manage the full PR lifecycle, AI-assisted commits, and CI operations from the same interface.",
-    image: AtmosPreview
-  }
-]
 
 const faqItems = [
   {
@@ -92,8 +70,8 @@ function LandingContent() {
         <HeroSection />
         <FeatureShowcase />
         <Services />
-        <Benefits featuresList={featuresList} />
         <FAQ faqItems={faqItems} />
+        <ReadyDownload />
       </main>
       <Footer />
     </div>

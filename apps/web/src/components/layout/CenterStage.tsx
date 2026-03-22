@@ -694,7 +694,9 @@ const CenterStage: React.FC = () => {
                 className={cn(
                   "size-3.5 absolute inset-0 transition-all duration-200",
                   activeValue === "terminal"
-                    ? "group-hover/terminal:opacity-0 group-hover/terminal:scale-50 group-hover/terminal:rotate-[-20deg]"
+                    ? agentDropdownOpen
+                      ? "opacity-0 scale-50 rotate-[-20deg]"
+                      : "group-hover/terminal:opacity-0 group-hover/terminal:scale-50 group-hover/terminal:rotate-[-20deg]"
                     : ""
                 )}
               />

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { GeistPixelSquare } from 'geist/font/pixel'
 import { ArrowUpRightIcon, RocketIcon } from 'lucide-react'
 import { Button } from '@workspace/ui/components/ui/button'
 import {
@@ -43,7 +44,7 @@ const HeroSection = () => {
           </MotionPreset>
 
           <MotionPreset fade blur transition={{ duration: 0.9 }} delay={0.2}>
-            <div className='flex flex-col gap-2 text-2xl font-bold sm:text-3xl lg:text-5xl'>
+            <div className={`flex flex-col gap-2 text-2xl font-bold sm:text-3xl lg:text-5xl ${GeistPixelSquare.className}`}>
               <div className='flex items-center gap-2.25'>
                 <MotionPreset
                   slide={{ direction: 'left', offset: 40 }}

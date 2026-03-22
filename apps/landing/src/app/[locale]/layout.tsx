@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
-import { GeistPixelSquare } from "geist/font/pixel";
+import { GeistSans } from 'geist/font/sans';
 import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
@@ -11,7 +11,7 @@ import { TooltipProvider } from "@workspace/ui/components/ui/tooltip";
 import Header from "@/components/layout/header";
 import "../globals.css";
 
-const geistSans = GeistPixelSquare;
+
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -61,7 +61,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         )}
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${geistSans.className} antialiased`}
+        className={`${GeistSans.variable} ${geistMono.variable} ${GeistSans.className} antialiased`}
       >
         <ThemeProvider
           attribute="class"
