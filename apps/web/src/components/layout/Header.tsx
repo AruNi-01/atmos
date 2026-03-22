@@ -276,13 +276,13 @@ const Header: React.FC = () => {
     description: 'Toggle left sidebar'
   });
 
-  useHotkeys('mod+[', () => window.history.back(), {
+  useHotkeys('mod+leftbracket', () => window.history.back(), {
     enableOnFormTags: false,
     preventDefault: true,
     description: 'Go back'
   });
 
-  useHotkeys('mod+]', () => window.history.forward(), {
+  useHotkeys('mod+rightbracket', () => window.history.forward(), {
     enableOnFormTags: false,
     preventDefault: true,
     description: 'Go forward'
