@@ -65,7 +65,7 @@ import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
-import { ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SlidersHorizontal, SunMoon } from "lucide-react";
+import { ArrowBigUp, ChevronLeft, ChevronRight, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SlidersHorizontal, SunMoon } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
@@ -1070,7 +1070,7 @@ const Header: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span>{isRightCollapsed ? "Expand Right Sidebar" : "Collapse Right Sidebar"}</span>
                       <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                        <span className="text-xs">⌘</span><span className="text-xs">⇧</span>B
+                        <span className="text-xs">⌘</span><ArrowBigUp className="size-3" /><span className="text-xs">B</span>
                       </kbd>
                     </div>
                   </TooltipContent>
