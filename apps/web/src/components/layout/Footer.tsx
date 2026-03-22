@@ -96,15 +96,15 @@ const Footer: React.FC = () => {
               <div className="font-semibold mb-1.5 flex items-center justify-between gap-4">
                 <span>Active Connections</span>
                 {connections.length > 0 && (
-                  <span className="font-normal text-muted-foreground">{connections.length}</span>
+                  <span className="font-normal text-background/90">{connections.length}</span>
                 )}
               </div>
               {connectionState !== 'connected' ? (
-                <div className="text-muted-foreground">Not connected</div>
+                <div className="text-background/90">Not connected</div>
               ) : loading && connections.length === 0 ? (
-                <div className="text-muted-foreground">Loading...</div>
+                <div className="text-background/90">Loading...</div>
               ) : connections.length === 0 ? (
-                <div className="text-muted-foreground">No connections</div>
+                <div className="text-background/90">No connections</div>
               ) : (
                 <div className="space-y-1.5">
                   {Object.entries(grouped).map(([type, conns]) => {
@@ -116,13 +116,13 @@ const Footer: React.FC = () => {
                           <span className={cn("inline-block rounded-sm px-1 py-px text-[9px] font-bold leading-tight", style)}>
                             {label}
                           </span>
-                          <span className="text-muted-foreground">{conns.length}</span>
+                          <span className="text-background/90">{conns.length}</span>
                         </div>
                         <div className="pl-2 space-y-px">
                           {conns.map((conn) => (
                             <div key={conn.id} className="flex items-center justify-between gap-3">
-                              <span className="text-muted-foreground tabular-nums">{shortId(conn.id)}</span>
-                              <span className="text-muted-foreground/60 tabular-nums">{formatIdleTime(conn.idle_secs)}</span>
+                              <span className="text-background/90 tabular-nums">{shortId(conn.id)}</span>
+                              <span className="text-background/70 tabular-nums">{formatIdleTime(conn.idle_secs)}</span>
                             </div>
                           ))}
                         </div>
