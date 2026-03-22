@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useContextParams } from "@/hooks/use-context-params";
@@ -134,6 +134,7 @@ export function GlobalSearch() {
   const [codeSearchTruncated, setCodeSearchTruncated] = useState(false);
   const [selectedValue, setSelectedValue] = useState<string>("");
   const [hoveredValue, setHoveredValue] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Fullscreen state
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -209,6 +210,8 @@ export function GlobalSearch() {
     const currentIndex = tabs.indexOf(globalSearchTab);
     const nextIndex = (currentIndex + 1) % tabs.length;
     setGlobalSearchTab(tabs[nextIndex]);
+    // Focus input after tab switch
+    setTimeout(() => inputRef.current?.focus(), 0);
   }, {
     enabled: isGlobalSearchOpen,
     enableOnFormTags: true,
@@ -877,6 +880,7 @@ export function GlobalSearch() {
       </div>
 
       <CommandInputWithoutBorder
+        ref={inputRef}
         placeholder="Search for apps, files, or code..."
         value={searchQuery}
         onValueChange={setSearchQuery}
