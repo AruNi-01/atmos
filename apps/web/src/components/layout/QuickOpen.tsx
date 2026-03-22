@@ -1,5 +1,6 @@
 import React from 'react';
 import { Command } from 'lucide-react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,17 +104,12 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
     }
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
-        e.preventDefault();
-        handleMainClick();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleMainClick]);
+  // Keyboard shortcut to open with last used app
+  useHotkeys('mod+o', handleMainClick, {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Open in external app'
+  });
 
   const currentApp = QUICK_OPEN_APP_MAP[lastUsedApp] || QUICK_OPEN_APP_MAP['Finder'];
   const CurrentLabel = currentApp?.label || 'Open';

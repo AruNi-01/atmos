@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useTheme } from 'next-themes';
@@ -195,17 +196,11 @@ export function GlobalSearch() {
   }, [subView, currentEffectivePath]);
 
   // Keyboard shortcut to open search
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setGlobalSearchOpen(!isGlobalSearchOpen);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isGlobalSearchOpen, setGlobalSearchOpen]);
+  useHotkeys('mod+k', () => setGlobalSearchOpen(!isGlobalSearchOpen), {
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Toggle global search'
+  });
 
   // Reset search when dialog closes
   useEffect(() => {
