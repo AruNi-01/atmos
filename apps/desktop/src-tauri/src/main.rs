@@ -235,14 +235,35 @@ fn main() {
                     .minimize()
                     .close_window()
                     .build()?;
+
+                let navigation_menu = SubmenuBuilder::new(app, "Navigation")
+                    .item(&MenuItem::with_id(app, "back", "Back", true, Some("Command+["))?)
+                    .item(&MenuItem::with_id(app, "forward", "Forward", true, Some("Command+]"))?)
+                    .build()?;
                 let menu = MenuBuilder::new(app)
-                    .items(&[&app_menu, &edit_menu, &window_menu])
+                    .items(&[&app_menu, &edit_menu, &window_menu, &navigation_menu])
                     .build()?;
                 app.set_menu(menu)?;
             }
 
             let quit_item = MenuItem::with_id(app, "quit", "Quit Atmos", true, None::<&str>)?;
             let show_item = MenuItem::with_id(app, "show", "Show Atmos", true, None::<&str>)?;
+
+            // Handle navigation menu events
+            let app_handle_for_menu = app.handle().clone();
+            app.on_menu_event(move |app_handle, event| match event.id.as_ref() {
+                "back" => {
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.eval("window.history.back()");
+                    }
+                }
+                "forward" => {
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.eval("window.history.forward()");
+                    }
+                }
+                _ => {}
+            });
             let tray_menu = MenuBuilder::new(app)
                 .items(&[&show_item, &quit_item])
                 .build()?;

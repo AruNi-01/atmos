@@ -276,23 +276,26 @@ const Header: React.FC = () => {
     description: 'Toggle left sidebar'
   });
 
-  useHotkeys(['mod+[', 'mod+leftbracket'], (e) => {
-    e.preventDefault();
-    window.history.back();
-  }, {
-    enableOnFormTags: false,
-    preventDefault: true,
-    description: 'Go back'
-  });
+  // In Tauri (desktop), navigation shortcuts are handled by native menu
+  if (!isTauriRuntime()) {
+    useHotkeys(['mod+[', 'mod+leftbracket'], (e) => {
+      e.preventDefault();
+      window.history.back();
+    }, {
+      enableOnFormTags: false,
+      preventDefault: true,
+      description: 'Go back'
+    });
 
-  useHotkeys(['mod+]', 'mod+rightbracket'], (e) => {
-    e.preventDefault();
-    window.history.forward();
-  }, {
-    enableOnFormTags: false,
-    preventDefault: true,
-    description: 'Go forward'
-  });
+    useHotkeys(['mod+]', 'mod+rightbracket'], (e) => {
+      e.preventDefault();
+      window.history.forward();
+    }, {
+      enableOnFormTags: false,
+      preventDefault: true,
+      description: 'Go forward'
+    });
+  }
 
   useHotkeys('mod+r', () => window.location.reload(), {
     enableOnFormTags: false,
