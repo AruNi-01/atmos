@@ -798,7 +798,7 @@ const Header: React.FC = () => {
           <Search className="size-3.5" />
           <span className="flex-1 text-left">Search...</span>
           <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-            <span className="text-xs">⌘</span>K
+            <Command className="size-3" /><span className="text-xs">K</span>
           </kbd>
         </button>
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Command } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -136,7 +137,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
           Open
         </span>
         <kbd className={`pointer-events-none hidden h-4 select-none items-center gap-1 overflow-hidden rounded border bg-muted font-mono text-[10px] font-medium text-muted-foreground transition-all duration-200 ease-out sm:flex ${isExpanded ? 'ml-2 max-w-16 px-1.5 opacity-100' : 'ml-0 max-w-0 px-0 opacity-0'}`}>
-          <span className="text-xs">⌘</span>O
+          <Command className="size-3" /><span className="text-xs">O</span>
         </kbd>
       </button>
 
