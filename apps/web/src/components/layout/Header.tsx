@@ -559,7 +559,7 @@ const Header: React.FC = () => {
           <TooltipContent>
             <div className="flex items-center gap-2">
               <span>{isLeftCollapsed ? "Expand Left Sidebar" : "Collapse Left Sidebar"}</span>
-              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                 <Command className="size-3" /><span className="text-xs">B</span>
               </kbd>
             </div>
@@ -580,7 +580,7 @@ const Header: React.FC = () => {
             <TooltipContent>
               <div className="flex items-center gap-2">
                 <span>Back</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                   <Command className="size-3" /><span className="text-xs">[</span>
                 </kbd>
               </div>
@@ -600,7 +600,7 @@ const Header: React.FC = () => {
             <TooltipContent>
               <div className="flex items-center gap-2">
                 <span>Forward</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                   <Command className="size-3" /><span className="text-xs">]</span>
                 </kbd>
               </div>
@@ -620,7 +620,7 @@ const Header: React.FC = () => {
             <TooltipContent>
               <div className="flex items-center gap-2">
                 <span>Refresh</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                   <Command className="size-3" /><span className="text-xs">R</span>
                 </kbd>
               </div>
@@ -741,7 +741,7 @@ const Header: React.FC = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="w-72 p-3 bg-background overflow-visible">
                 <div className="space-y-2">
-                  <p className="text-[12px] text-muted-foreground">Select target branch</p>
+                  <p className="text-[12px] text-foreground/90">Select target branch</p>
                   <Input
                     value={targetBranchFilter}
                     onChange={(e) => setTargetBranchFilter(e.target.value)}
@@ -797,7 +797,7 @@ const Header: React.FC = () => {
         >
           <Search className="size-3.5" />
           <span className="flex-1 text-left">Search...</span>
-          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
             <Command className="size-3" /><span className="text-xs">K</span>
           </kbd>
         </button>
@@ -875,7 +875,7 @@ const Header: React.FC = () => {
             <TooltipContent>
             <div className="flex items-center gap-2">
               <span>AI Usage</span>
-              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                 <Command className="size-3" /><span className="text-xs">U</span>
               </kbd>
             </div>
@@ -900,7 +900,7 @@ const Header: React.FC = () => {
               <TooltipContent>
               <div className="flex items-center gap-2">
                 <span>Menu</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                   <Command className="size-3" /><span className="text-xs">M</span>
                 </kbd>
               </div>
@@ -921,10 +921,10 @@ const Header: React.FC = () => {
               <MenuSubmenu>
                 <MenuSubmenuTrigger className="[&_[data-slot=chevron]]:ml-2">
                   <span className="flex items-center gap-2">
-                    <SunMoon className="size-4 text-muted-foreground" />
+                    <SunMoon className="size-4 text-foreground/90" />
                     <span>Theme</span>
                   </span>
-                  <span className="ml-auto text-xs tracking-wide text-muted-foreground">
+                  <span className="ml-auto text-xs tracking-wide text-foreground/90">
                     {resolvedThemeLabel}
                   </span>
                 </MenuSubmenuTrigger>
@@ -981,7 +981,7 @@ const Header: React.FC = () => {
               <MenuSubmenu>
                 <MenuSubmenuTrigger>
                   <span className="flex items-center gap-2">
-                    <Bot className="size-4 text-muted-foreground" />
+                    <Bot className="size-4 text-foreground/90" />
                     <span>Agent</span>
                   </span>
                 </MenuSubmenuTrigger>
@@ -1069,7 +1069,7 @@ const Header: React.FC = () => {
                   <TooltipContent>
                     <div className="flex items-center gap-2">
                       <span>{isRightCollapsed ? "Expand Right Sidebar" : "Collapse Right Sidebar"}</span>
-                      <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                      <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                         <Command className="size-3" /><ArrowBigUp className="size-3" /><span className="text-xs">B</span>
                       </kbd>
                     </div>

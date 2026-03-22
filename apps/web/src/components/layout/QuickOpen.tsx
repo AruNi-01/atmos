@@ -132,7 +132,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
         <span className={`ml-0 overflow-hidden whitespace-nowrap text-[13px] font-medium text-muted-foreground transition-all duration-200 ease-out ${isExpanded ? 'ml-2 max-w-24 opacity-100 text-foreground' : 'max-w-0 opacity-0'}`}>
           Open
         </span>
-        <kbd className={`pointer-events-none hidden h-4 select-none items-center gap-1 overflow-hidden rounded border bg-muted font-mono text-[10px] font-medium text-muted-foreground transition-all duration-200 ease-out sm:flex ${isExpanded ? 'ml-2 max-w-16 px-1.5 opacity-100' : 'ml-0 max-w-0 px-0 opacity-0'}`}>
+        <kbd className={`pointer-events-none hidden h-4 select-none items-center gap-1 overflow-hidden rounded border bg-muted font-mono text-[10px] font-medium text-foreground/90 transition-all duration-200 ease-out sm:flex ${isExpanded ? 'ml-2 max-w-16 px-1.5 opacity-100' : 'ml-0 max-w-0 px-0 opacity-0'}`}>
           <Command className="size-3" /><span className="text-xs">O</span>
         </kbd>
       </button>

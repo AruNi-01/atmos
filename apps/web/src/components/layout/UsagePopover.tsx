@@ -464,7 +464,7 @@ function ProviderSwitch({
           ? "border-border/75 bg-accent/75 text-foreground shadow-[0_14px_30px_-22px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.06)]"
           : active
             ? "text-foreground/85 hover:bg-muted/55"
-            : "text-muted-foreground/55 hover:bg-muted/45 hover:text-muted-foreground"
+            : "text-muted-foreground/55 hover:bg-muted/45 hover:text-foreground/90"
       )}
     >
       <div
@@ -548,7 +548,7 @@ function AutoRefreshCountdownBadge({ targetTimeMs }: { targetTimeMs: number }) {
       data-tick={milliseconds}
       className="h-7 gap-1.5 rounded-sm px-1 text-[10px] font-medium text-foreground shadow-none"
     >
-      <UiTimerIcon size="sm" loading className="text-muted-foreground" />
+      <UiTimerIcon size="sm" loading className="text-foreground/90" />
       <TimerDisplay
         size="sm"
         time={time}
@@ -579,7 +579,7 @@ function ProviderManualSetupForm({
     <div className="mt-3 rounded-[12px] border border-border/60 bg-muted/20 p-3">
       <div className="grid gap-2.5">
         <div className="grid gap-1">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
             Region
           </div>
           <Select value={region} onValueChange={setRegion} disabled={isSaving}>
@@ -599,11 +599,11 @@ function ProviderManualSetupForm({
 
         <div className="grid gap-1">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
               API Key
             </div>
             {manualSetup.api_key_configured ? (
-              <div className="text-[10px] text-muted-foreground">Stored locally</div>
+              <div className="text-[10px] text-foreground/90">Stored locally</div>
             ) : null}
           </div>
           <Input
@@ -681,7 +681,7 @@ function AggregateDetail({
             ariaLabel="All provider usage switch"
           />
         </div>
-        <div className="text-sm font-medium text-muted-foreground">
+        <div className="text-sm font-medium text-foreground/90">
           Active {aggregate.enabled_count}/{aggregate.total_count}
         </div>
       </div>
@@ -700,7 +700,7 @@ function AggregateDetail({
           ))}
         </AnimatePresence>
       ) : (
-        <div className="rounded-[16px] border border-border/60 bg-background/60 px-4 py-3 text-sm text-muted-foreground">
+        <div className="rounded-[16px] border border-border/60 bg-background/60 px-4 py-3 text-sm text-foreground/90">
           No active providers
         </div>
       )}
@@ -777,7 +777,7 @@ function AggregateProviderRow({
               </div>
             </div>
             {planLabel ? (
-              <div className="truncate text-[11px] text-muted-foreground">{planLabel}</div>
+              <div className="truncate text-[11px] text-foreground/90">{planLabel}</div>
             ) : null}
           </div>
         </div>
@@ -790,7 +790,7 @@ function AggregateProviderRow({
                   : (creditsBalance ?? creditsState ?? "Active")
                 : "Not detected"}
             </div>
-            <div className="text-[11px] text-muted-foreground">
+            <div className="text-[11px] text-foreground/90">
               {isDetected
                 ? primaryMetric?.percent !== null && primaryMetric?.percent !== undefined
                   ? primaryMetric.label
@@ -821,7 +821,7 @@ function AggregateProviderRow({
                 <div className="min-w-0">
                   <div className="truncate text-sm text-foreground">{accountLabel}</div>
                   {periodLabel ? (
-                    <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    <div className="mt-0.5 truncate text-[11px] text-foreground/90">
                       {periodLabel}
                     </div>
                   ) : null}
@@ -831,7 +831,7 @@ function AggregateProviderRow({
                     className="mt-1"
                   />
                 </div>
-                <div className="text-right text-[11px] text-muted-foreground">
+                <div className="text-right text-[11px] text-foreground/90">
                   {provider.fetch_state.status}
                 </div>
               </div>
@@ -848,7 +848,7 @@ function AggregateProviderRow({
                       ) : null}
                       <div className="mt-1 flex items-center justify-between gap-4 text-[11px]">
                         <div className="text-foreground">{displayMetricUsedText(metric)}</div>
-                        <div className="text-muted-foreground">
+                        <div className="text-foreground/90">
                           {metric.percent !== null && metric.percent !== undefined
                             ? displayResetText(
                                 metric.resetText,
@@ -862,7 +862,7 @@ function AggregateProviderRow({
                 ) : (
                   <div>
                     <div className="text-sm font-medium text-foreground">Usage</div>
-                    <div className="mt-1 text-[11px] text-muted-foreground">No usage data</div>
+                    <div className="mt-1 text-[11px] text-foreground/90">No usage data</div>
                   </div>
                 )}
 
@@ -871,7 +871,7 @@ function AggregateProviderRow({
                     <div className="text-foreground">Credits</div>
                     <div className="text-right">
                       <div className="text-foreground">{creditsBalance ?? "Unknown"}</div>
-                      <div className="text-[11px] text-muted-foreground">{creditsState ?? "Credits"}</div>
+                      <div className="text-[11px] text-foreground/90">{creditsState ?? "Credits"}</div>
                     </div>
                   </div>
                 ) : null}
@@ -881,7 +881,7 @@ function AggregateProviderRow({
                     <div className="flex items-start justify-between gap-4">
                       <div className="text-sm font-medium text-foreground">{section.title}</div>
                       {sectionHeaderValue(provider, section) ? (
-                        <div className="text-right text-[11px] text-muted-foreground">
+                        <div className="text-right text-[11px] text-foreground/90">
                           {sectionHeaderValue(provider, section)}
                         </div>
                       ) : null}
@@ -889,7 +889,7 @@ function AggregateProviderRow({
                     <div className="mt-2 space-y-1.5">
                       {visibleSectionRows(provider, section).map((row) => (
                         <div key={`${section.title}:${row.label}`} className="flex items-start justify-between gap-4 text-[11px]">
-                          <div className="text-muted-foreground">{row.label}</div>
+                          <div className="text-foreground/90">{row.label}</div>
                           <div className="text-right text-foreground">{row.value}</div>
                         </div>
                       ))}
@@ -901,8 +901,8 @@ function AggregateProviderRow({
           ) : (
             <div className="space-y-2">
               <div className="text-sm font-medium text-foreground">Detection required</div>
-              <div className="text-[11px] leading-5 text-muted-foreground">{detectHint}</div>
-              <div className="rounded-[12px] bg-muted/35 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+              <div className="text-[11px] leading-5 text-foreground/90">{detectHint}</div>
+              <div className="rounded-[12px] bg-muted/35 px-3 py-2 text-[11px] leading-5 text-foreground/90">
                 {provider.auth_state.setup_hint ??
                   "Sign in to the local app or add a supported local token/config so Atmos can detect this provider."}
               </div>
@@ -962,7 +962,7 @@ function ProviderDetail({
               />
             </div>
             {provider.id === "zed" && periodLabel ? (
-              <div className="mt-1 text-sm text-muted-foreground">{periodLabel}</div>
+              <div className="mt-1 text-sm text-foreground/90">{periodLabel}</div>
             ) : null}
             <UsagePortalLink
               providerId={provider.id}
@@ -973,7 +973,7 @@ function ProviderDetail({
           <div className="text-right">
             <div className="text-sm text-foreground">{accountLabel}</div>
             {planLabel ? (
-              <div className="mt-1 text-sm text-muted-foreground">{planLabel}</div>
+              <div className="mt-1 text-sm text-foreground/90">{planLabel}</div>
             ) : null}
           </div>
         </div>
@@ -989,7 +989,7 @@ function ProviderDetail({
           ) : null}
           <div className="mt-2 flex items-center justify-between gap-4 text-sm">
             <div className="text-foreground">{displayMetricUsedText(metric)}</div>
-            <div className="text-muted-foreground">
+            <div className="text-foreground/90">
               {metric.percent !== null && metric.percent !== undefined
                 ? displayResetText(metric.resetText, provider.subscription_summary?.reset_at)
                 : null}
@@ -1004,15 +1004,15 @@ function ProviderDetail({
           <div className="mt-4 h-2 rounded-full bg-muted/60" />
           <div className="mt-2 flex items-center justify-between gap-4 text-sm">
             <div className="text-foreground">{creditsBalance ?? creditsState ?? "Unknown"}</div>
-            <div className="text-muted-foreground">{creditsState && creditsBalance ? creditsState : null}</div>
+            <div className="text-foreground/90">{creditsState && creditsBalance ? creditsState : null}</div>
           </div>
           {warningText ? (
-            <div className="mt-3 text-sm leading-6 text-muted-foreground">{warningText}</div>
+            <div className="mt-3 text-sm leading-6 text-foreground/90">{warningText}</div>
           ) : null}
         </section>
       ) : warningText ? (
         <section className="border-t border-border/70 pt-5">
-          <div className="text-sm leading-6 text-muted-foreground">{warningText}</div>
+          <div className="text-sm leading-6 text-foreground/90">{warningText}</div>
           {provider.manual_setup && provider.fetch_state.status !== "ready" ? (
             <ProviderManualSetupForm
               key={`${provider.id}:${provider.manual_setup.selected_region ?? "auto"}:${provider.manual_setup.api_key_configured ? "configured" : "empty"}`}
@@ -1030,7 +1030,7 @@ function ProviderDetail({
           <div className="flex items-start justify-between gap-4">
             <div className="text-[18px] font-semibold tracking-tight text-foreground">{section.title}</div>
             {sectionHeaderValue(provider, section) ? (
-              <div className="pt-1 text-right text-sm text-muted-foreground">
+              <div className="pt-1 text-right text-sm text-foreground/90">
                 {sectionHeaderValue(provider, section)}
               </div>
             ) : null}
@@ -1038,7 +1038,7 @@ function ProviderDetail({
           <div className="mt-3 space-y-2">
             {visibleSectionRows(provider, section).map((row) => (
               <div key={`${section.title}:${row.label}`} className="flex items-start justify-between gap-4 text-sm">
-                <div className="text-muted-foreground">{row.label}</div>
+                <div className="text-foreground/90">{row.label}</div>
                 <div className="text-right text-foreground">{row.value}</div>
               </div>
             ))}
@@ -1472,7 +1472,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
           <TooltipContent>
             <div className="flex items-center gap-2">
               <span>AI Quota Usage</span>
-              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
                 <Command className="size-3" /><span className="text-xs">U</span>
               </kbd>
             </div>
@@ -1614,7 +1614,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       />
                     </div>
                   ) : (
-                    <div className="px-4 text-sm text-muted-foreground">Select a provider to inspect usage.</div>
+                    <div className="px-4 text-sm text-foreground/90">Select a provider to inspect usage.</div>
                   )}
                 </div>
                 </ScrollArea>
@@ -1623,7 +1623,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
           </div>
 
           <div className="px-0 pb-3 pt-3">
-            <div className="flex items-center justify-between gap-3 px-4 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-3 px-4 text-xs text-foreground/90">
               <div
                 className="flex items-center"
                 onMouseEnter={() => {
@@ -1678,7 +1678,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                                     </div>
                                   </div>
                                   {nextAutoRefreshHint ? (
-                                    <div className="flex min-h-4 items-center whitespace-nowrap text-[11px] text-muted-foreground">
+                                    <div className="flex min-h-4 items-center whitespace-nowrap text-[11px] text-foreground/90">
                                       <span>{nextAutoRefreshHint.suffix}&nbsp;</span>
                                       <span className="font-medium text-foreground">
                                         {nextAutoRefreshHint.value}
@@ -1714,7 +1714,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                                     </ToggleGroupItem>
                                   ))}
                                 </ToggleGroup>
-                                <div className="text-[11px] text-muted-foreground">
+                                <div className="text-[11px] text-foreground/90">
                                   Click the active interval again to turn it off.
                                 </div>
                               </div>
@@ -1751,7 +1751,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                         className="absolute inset-0 inline-flex h-7 w-full items-center gap-1 whitespace-nowrap"
                       >
-                        <span className="text-[11px] text-muted-foreground">Next update</span>
+                        <span className="text-[11px] text-foreground/90">Next update</span>
                         <AutoRefreshCountdownBadge targetTimeMs={autoRefreshTargetMs} />
                       </motion.div>
                     ) : (
