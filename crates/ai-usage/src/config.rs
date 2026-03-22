@@ -1,5 +1,6 @@
-use crate::models::{ProviderManualSetup, ProviderManualSetupOption};
+use crate::models::{ConfiguredApiKey, ProviderManualSetup, ProviderManualSetupOption};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
@@ -12,10 +13,21 @@ struct ProviderConfigFile {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct ProviderConfigEntry {
+    // Legacy single-key fields (read-only for backward compat)
     #[serde(default)]
     region: Option<String>,
     #[serde(default)]
     api_key: Option<String>,
+    // Multi-key list (new format)
+    #[serde(default)]
+    keys: Vec<NamedApiKey>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct NamedApiKey {
+    pub id: String,
+    pub region: Option<String>,
+    pub api_key: String,
 }
 
 fn provider_config_path() -> Option<PathBuf> {
@@ -53,6 +65,25 @@ fn provider_entry(provider_id: &str) -> Option<ProviderConfigEntry> {
         .providers
         .get(provider_id)
         .cloned()
+}
+
+/// Returns all named API keys for a provider, including migration from the legacy single-key format.
+pub(crate) fn provider_config_api_keys(provider_id: &str) -> Vec<NamedApiKey> {
+    let Some(entry) = provider_entry(provider_id) else {
+        return Vec::new();
+    };
+    if !entry.keys.is_empty() {
+        return entry.keys;
+    }
+    // Migrate legacy single-key entry
+    if let Some(api_key) = entry.api_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()) {
+        return vec![NamedApiKey {
+            id: derive_key_id(provider_id, &api_key),
+            region: entry.region,
+            api_key,
+        }];
+    }
+    Vec::new()
 }
 
 fn region_options(provider_id: &str) -> Vec<ProviderManualSetupOption> {
@@ -94,25 +125,28 @@ pub(crate) fn provider_manual_setup(provider_id: &str) -> Option<ProviderManualS
     if options.is_empty() {
         return None;
     }
-    let entry = provider_entry(provider_id);
+    let keys = provider_config_api_keys(provider_id);
+    let api_key_configured = !keys.is_empty();
+    let configured_keys = keys
+        .iter()
+        .map(|k| ConfiguredApiKey {
+            id: k.id.clone(),
+            region: k.region.clone(),
+        })
+        .collect();
     Some(ProviderManualSetup {
-        selected_region: entry
-            .as_ref()
-            .and_then(|value| value.region.clone())
-            .or_else(|| Some("auto".to_string())),
+        selected_region: Some("auto".to_string()),
         region_options: options,
-        api_key_configured: entry
-            .as_ref()
-            .and_then(|value| value.api_key.as_ref())
-            .is_some_and(|value| !value.trim().is_empty()),
+        api_key_configured,
+        configured_keys,
     })
 }
 
 pub(crate) fn provider_config_api_key(provider_id: &str) -> Option<String> {
-    provider_entry(provider_id)?
-        .api_key
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+    provider_config_api_keys(provider_id)
+        .into_iter()
+        .next()
+        .map(|k| k.api_key)
 }
 
 pub(crate) fn provider_config_region(provider_id: &str) -> Option<String> {
@@ -126,31 +160,105 @@ pub(crate) fn provider_config_source_label() -> Option<String> {
     provider_config_path().map(|path| path.display().to_string())
 }
 
+fn derive_key_id(provider_id: &str, api_key: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(provider_id.as_bytes());
+    hasher.update(b":");
+    hasher.update(api_key.as_bytes());
+    let result = hasher.finalize();
+    hex::encode(&result[..8])
+}
+
+/// Add a new API key entry. Returns the ID of the new key, or the existing ID if duplicate.
+pub(crate) fn add_provider_api_key(
+    provider_id: &str,
+    region: Option<String>,
+    api_key: String,
+) -> String {
+    let api_key = api_key.trim().to_string();
+    let id = derive_key_id(provider_id, &api_key);
+    let mut state = load_provider_config_file();
+    let entry = state.providers.entry(provider_id.to_string()).or_default();
+
+    // Migrate legacy key if needed
+    if entry.keys.is_empty() {
+        if let Some(legacy_key) = entry.api_key.take().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()) {
+            let legacy_id = derive_key_id(provider_id, &legacy_key);
+            let legacy_region = entry.region.take();
+            entry.keys.push(NamedApiKey {
+                id: legacy_id,
+                region: legacy_region,
+                api_key: legacy_key,
+            });
+        }
+        entry.region = None;
+    }
+
+    // Update if already present, otherwise append
+    let region_cleaned = region
+        .map(|r| r.trim().to_lowercase())
+        .filter(|r| !r.is_empty());
+    if let Some(existing) = entry.keys.iter_mut().find(|k| k.id == id) {
+        existing.region = region_cleaned;
+    } else {
+        entry.keys.push(NamedApiKey {
+            id: id.clone(),
+            region: region_cleaned,
+            api_key,
+        });
+    }
+
+    save_provider_config_file(&state);
+    id
+}
+
+/// Delete an API key entry by ID.
+pub(crate) fn delete_provider_api_key(provider_id: &str, key_id: &str) {
+    let mut state = load_provider_config_file();
+    let entry = state.providers.entry(provider_id.to_string()).or_default();
+
+    // Migrate legacy key first so we can match by ID
+    if entry.keys.is_empty() {
+        if let Some(legacy_key) = entry.api_key.take().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()) {
+            let legacy_id = derive_key_id(provider_id, &legacy_key);
+            let legacy_region = entry.region.take();
+            entry.keys.push(NamedApiKey {
+                id: legacy_id,
+                region: legacy_region,
+                api_key: legacy_key,
+            });
+        }
+        entry.region = None;
+    }
+
+    entry.keys.retain(|k| k.id != key_id);
+
+    save_provider_config_file(&state);
+}
+
+/// After auto-detecting a region for a key stored as "auto", write back the
+/// concrete region so it won't be re-probed on every fetch.
+pub(crate) fn update_provider_api_key_region(provider_id: &str, key_id: &str, region: &str) {
+    let mut state = load_provider_config_file();
+    if let Some(entry) = state.providers.get_mut(provider_id) {
+        if let Some(key) = entry.keys.iter_mut().find(|k| k.id == key_id) {
+            let current = key.region.as_deref().unwrap_or("auto");
+            if current == "auto" || current.is_empty() {
+                key.region = Some(region.to_string());
+                save_provider_config_file(&state);
+            }
+        }
+    }
+}
+
 pub(crate) fn persist_provider_manual_setup(
     provider_id: &str,
     region: Option<String>,
     api_key: Option<String>,
 ) {
-    let mut state = load_provider_config_file();
-    let entry = state.providers.entry(provider_id.to_string()).or_default();
-
-    if let Some(region) = region {
-        let cleaned = region.trim().to_lowercase();
-        entry.region = if cleaned.is_empty() {
-            None
-        } else {
-            Some(cleaned)
-        };
+    if let Some(api_key) = api_key.filter(|k| !k.trim().is_empty()) {
+        add_provider_api_key(provider_id, region, api_key);
     }
-
-    if let Some(api_key) = api_key {
-        let cleaned = api_key.trim().to_string();
-        entry.api_key = if cleaned.is_empty() {
-            None
-        } else {
-            Some(cleaned)
-        };
-    }
-
-    save_provider_config_file(&state);
+    // If no api_key provided (region-only update), this is a no-op in the new model
+    // since region is now per-key
 }

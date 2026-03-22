@@ -231,10 +231,16 @@ export interface UsageManualSetupOptionResponse {
   label: string;
 }
 
+export interface UsageConfiguredApiKey {
+  id: string;
+  region: string | null;
+}
+
 export interface UsageManualSetupResponse {
   selected_region: string | null;
   region_options: UsageManualSetupOptionResponse[];
   api_key_configured: boolean;
+  configured_keys: UsageConfiguredApiKey[];
 }
 
 export interface UsageSubscriptionSummaryResponse {
@@ -512,6 +518,36 @@ export const usageWsApi = {
         provider_id: providerId,
         region,
         api_key: apiKey ?? null,
+      },
+      45_000,
+    );
+  },
+
+  addProviderApiKey: async (
+    providerId: string,
+    region: string | null,
+    apiKey: string,
+  ): Promise<UsageOverviewResponse> => {
+    return wsRequest<UsageOverviewResponse>(
+      "usage_add_provider_api_key",
+      {
+        provider_id: providerId,
+        region,
+        api_key: apiKey,
+      },
+      45_000,
+    );
+  },
+
+  deleteProviderApiKey: async (
+    providerId: string,
+    keyId: string,
+  ): Promise<UsageOverviewResponse> => {
+    return wsRequest<UsageOverviewResponse>(
+      "usage_delete_provider_api_key",
+      {
+        provider_id: providerId,
+        key_id: keyId,
       },
       45_000,
     );

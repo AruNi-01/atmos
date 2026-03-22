@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::env;
 
-use crate::config::{provider_config_api_key, provider_config_region};
+use crate::config::{provider_config_api_keys, provider_config_region, update_provider_api_key_region};
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
@@ -105,16 +105,70 @@ struct ZaiSnapshot {
 }
 
 pub(crate) async fn fetch_zai_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
-    let api_key = zai_api_key();
     let browser_source = load_zai_browser_cookie_source().ok().flatten();
     let mut snapshots = Vec::new();
     let mut warnings = Vec::new();
 
-    for region in preferred_regions() {
-        match fetch_region(client, api_key.as_deref(), browser_source.as_ref(), region).await {
-            Ok(Some(snapshot)) => snapshots.push(snapshot),
-            Ok(None) => {}
-            Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
+    // Collect all configured API keys (env vars take priority as a single key)
+    let env_key = ["Z_AI_API_KEY", "ZHIPU_API_KEY", "ZAI_API_KEY"]
+        .into_iter()
+        .find_map(|key| clean_env_value(env::var(key).ok()));
+
+    if let Some(api_key) = env_key {
+        // Env var path: use the global preferred-regions logic (single key)
+        let regions = preferred_regions();
+        let auto_detect = regions.len() > 1;
+        for region in regions {
+            match fetch_region(client, Some(&api_key), browser_source.as_ref(), region).await {
+                Ok(Some(snapshot)) => {
+                    snapshots.push(snapshot);
+                    if auto_detect {
+                        break;
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
+            }
+        }
+    } else {
+        // Config-file path: iterate over all named keys
+        let config_keys = provider_config_api_keys("zai");
+        for named_key in &config_keys {
+            let key_regions = regions_for_key(named_key.region.as_deref());
+            let auto_detect = key_regions.len() > 1;
+            for region in key_regions {
+                match fetch_region(client, Some(&named_key.api_key), browser_source.as_ref(), region).await {
+                    Ok(Some(snapshot)) => {
+                        if auto_detect {
+                            // Write back the detected region so "auto" is resolved once
+                            update_provider_api_key_region("zai", &named_key.id, region.label().to_lowercase().as_str());
+                        }
+                        snapshots.push(snapshot);
+                        if auto_detect {
+                            break;
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
+                }
+            }
+        }
+        // Browser-only fallback if no config keys
+        if config_keys.is_empty() {
+            let regions = preferred_regions();
+            let auto_detect = regions.len() > 1;
+            for region in regions {
+                match fetch_region(client, None, browser_source.as_ref(), region).await {
+                    Ok(Some(snapshot)) => {
+                        snapshots.push(snapshot);
+                        if auto_detect {
+                            break;
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
+                }
+            }
         }
     }
 
@@ -200,11 +254,12 @@ pub(crate) async fn fetch_zai_live(client: &Client) -> Result<LiveFetchResult, P
     })
 }
 
-fn zai_api_key() -> Option<String> {
-    ["Z_AI_API_KEY", "ZHIPU_API_KEY", "ZAI_API_KEY"]
-        .into_iter()
-        .find_map(|key| clean_env_value(env::var(key).ok()))
-        .or_else(|| provider_config_api_key("zai"))
+fn regions_for_key(region: Option<&str>) -> Vec<ZaiRegion> {
+    match region {
+        Some("global") => vec![ZaiRegion::Global],
+        Some("china") => vec![ZaiRegion::China],
+        _ => vec![ZaiRegion::Global, ZaiRegion::China],
+    }
 }
 
 async fn fetch_region(

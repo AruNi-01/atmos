@@ -45,6 +45,8 @@ export type WsAction =
   | "usage_set_provider_switch"
   | "usage_set_all_providers_switch"
   | "usage_set_provider_manual_setup"
+  | "usage_add_provider_api_key"
+  | "usage_delete_provider_api_key"
   | "usage_set_auto_refresh"
   // Project 操作
   | "project_list"

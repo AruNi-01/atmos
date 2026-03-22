@@ -6,7 +6,7 @@ use tokio::task::JoinHandle;
 use tokio::time::MissedTickBehavior;
 use tracing::{debug, info, warn};
 
-use crate::config::persist_provider_manual_setup;
+use crate::config::{add_provider_api_key, delete_provider_api_key, persist_provider_manual_setup};
 use crate::constants::CACHE_TTL_SECS;
 use crate::models::{
     AutoRefreshConfig, FetchStateStatus, ProviderStatus, UsageAggregate, UsageFetchIssue,
@@ -169,6 +169,45 @@ impl UsageService {
         api_key: Option<String>,
     ) -> UsageOverview {
         persist_provider_manual_setup(provider_id, region, api_key);
+
+        let cached_previous = self.cache.read().await.clone();
+        let overview = self
+            .refresh_provider_overview(provider_id, cached_previous)
+            .await;
+        let overview = self.with_auto_refresh_config(overview).await;
+
+        let mut cache = self.cache.write().await;
+        *cache = Some(CachedOverview {
+            fetched_at: unix_now(),
+            overview: overview.clone(),
+        });
+        overview
+    }
+
+    pub async fn add_provider_api_key(
+        &self,
+        provider_id: &str,
+        region: Option<String>,
+        api_key: String,
+    ) -> UsageOverview {
+        add_provider_api_key(provider_id, region, api_key);
+
+        let cached_previous = self.cache.read().await.clone();
+        let overview = self
+            .refresh_provider_overview(provider_id, cached_previous)
+            .await;
+        let overview = self.with_auto_refresh_config(overview).await;
+
+        let mut cache = self.cache.write().await;
+        *cache = Some(CachedOverview {
+            fetched_at: unix_now(),
+            overview: overview.clone(),
+        });
+        overview
+    }
+
+    pub async fn delete_provider_api_key(&self, provider_id: &str, key_id: &str) -> UsageOverview {
+        delete_provider_api_key(provider_id, key_id);
 
         let cached_previous = self.cache.read().await.clone();
         let overview = self

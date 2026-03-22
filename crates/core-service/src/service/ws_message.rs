@@ -33,8 +33,9 @@ use infra::{
     ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
     SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
-    UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest, UsageOverviewRequest,
-    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
+    UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
+    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
+    UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest,
     WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
     WorkspaceSetupContextNotification, WorkspaceSetupProgressNotification,
@@ -287,6 +288,14 @@ impl WsMessageService {
             }
             WsAction::UsageSetProviderManualSetup => {
                 self.handle_usage_set_provider_manual_setup(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::UsageAddProviderApiKey => {
+                self.handle_usage_add_provider_api_key(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::UsageDeleteProviderApiKey => {
+                self.handle_usage_delete_provider_api_key(parse_request(request.data)?)
                     .await
             }
             WsAction::UsageSetAutoRefresh => {
@@ -1119,6 +1128,28 @@ impl WsMessageService {
         let overview = self
             .usage_service
             .set_provider_manual_setup(&req.provider_id, req.region, req.api_key)
+            .await;
+        Ok(json!(overview))
+    }
+
+    async fn handle_usage_add_provider_api_key(
+        &self,
+        req: UsageAddProviderApiKeyRequest,
+    ) -> Result<Value> {
+        let overview = self
+            .usage_service
+            .add_provider_api_key(&req.provider_id, req.region, req.api_key)
+            .await;
+        Ok(json!(overview))
+    }
+
+    async fn handle_usage_delete_provider_api_key(
+        &self,
+        req: UsageDeleteProviderApiKeyRequest,
+    ) -> Result<Value> {
+        let overview = self
+            .usage_service
+            .delete_provider_api_key(&req.provider_id, &req.key_id)
             .await;
         Ok(json!(overview))
     }

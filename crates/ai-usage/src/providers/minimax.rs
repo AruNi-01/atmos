@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::env;
 
-use crate::config::{provider_config_api_key, provider_config_region};
+use crate::config::{provider_config_api_keys, provider_config_region, update_provider_api_key_region};
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
@@ -122,23 +122,67 @@ struct MiniMaxSnapshot {
 }
 
 pub(crate) async fn fetch_minimax_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
-    let api_token = minimax_api_token();
     let browser_source = load_minimax_browser_cookie_source().ok().flatten();
     let mut snapshots = Vec::new();
     let mut warnings = Vec::new();
 
-    for region in preferred_regions() {
-        match fetch_region(
-            client,
-            api_token.as_deref(),
-            browser_source.as_ref(),
-            region,
-        )
-        .await
-        {
-            Ok(Some(snapshot)) => snapshots.push(snapshot),
-            Ok(None) => {}
-            Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
+    let env_token = clean_env_value(env::var("MINIMAX_API_KEY").ok());
+
+    if let Some(api_token) = env_token {
+        // Env var path: use the global preferred-regions logic (single key)
+        let regions = preferred_regions();
+        let auto_detect = regions.len() > 1;
+        for region in regions {
+            match fetch_region(client, Some(&api_token), browser_source.as_ref(), region).await {
+                Ok(Some(snapshot)) => {
+                    snapshots.push(snapshot);
+                    if auto_detect {
+                        break;
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
+            }
+        }
+    } else {
+        // Config-file path: iterate over all named keys
+        let config_keys = provider_config_api_keys("minimax");
+        for named_key in &config_keys {
+            let key_regions = regions_for_key(named_key.region.as_deref());
+            let auto_detect = key_regions.len() > 1;
+            for region in key_regions {
+                match fetch_region(client, Some(&named_key.api_key), browser_source.as_ref(), region).await {
+                    Ok(Some(snapshot)) => {
+                        if auto_detect {
+                            // Write back the detected region so "auto" is resolved once
+                            update_provider_api_key_region("minimax", &named_key.id, region.label().to_lowercase().as_str());
+                        }
+                        snapshots.push(snapshot);
+                        if auto_detect {
+                            break;
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
+                }
+            }
+        }
+        // Browser-only fallback if no config keys
+        if config_keys.is_empty() {
+            let regions = preferred_regions();
+            let auto_detect = regions.len() > 1;
+            for region in regions {
+                match fetch_region(client, None, browser_source.as_ref(), region).await {
+                    Ok(Some(snapshot)) => {
+                        snapshots.push(snapshot);
+                        if auto_detect {
+                            break;
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(error) => warnings.push(format!("{}: {}", region.label(), error)),
+                }
+            }
         }
     }
 
@@ -214,8 +258,12 @@ pub(crate) async fn fetch_minimax_live(client: &Client) -> Result<LiveFetchResul
     })
 }
 
-fn minimax_api_token() -> Option<String> {
-    clean_env_value(env::var("MINIMAX_API_KEY").ok()).or_else(|| provider_config_api_key("minimax"))
+fn regions_for_key(region: Option<&str>) -> Vec<MiniMaxRegion> {
+    match region {
+        Some("global") => vec![MiniMaxRegion::Global],
+        Some("china") => vec![MiniMaxRegion::China],
+        _ => vec![MiniMaxRegion::Global, MiniMaxRegion::China],
+    }
 }
 
 async fn fetch_region(

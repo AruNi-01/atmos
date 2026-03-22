@@ -103,6 +103,20 @@ pub struct UsageProviderManualSetupRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageAddProviderApiKeyRequest {
+    pub provider_id: String,
+    #[serde(default)]
+    pub region: Option<String>,
+    pub api_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageDeleteProviderApiKeyRequest {
+    pub provider_id: String,
+    pub key_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageAutoRefreshRequest {
     #[serde(default)]
     pub interval_minutes: Option<u64>,
@@ -183,6 +197,10 @@ pub enum WsAction {
     UsageSetAllProvidersSwitch,
     /// 更新 provider 的手动配置
     UsageSetProviderManualSetup,
+    /// 添加 provider API key
+    UsageAddProviderApiKey,
+    /// 删除 provider API key
+    UsageDeleteProviderApiKey,
     /// 更新 ALL usage 的自动刷新周期
     UsageSetAutoRefresh,
 

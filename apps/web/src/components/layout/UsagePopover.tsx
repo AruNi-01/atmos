@@ -14,7 +14,9 @@ import {
   Blocks,
   Coins,
   Gauge,
+  Plus,
   RefreshCcw,
+  Trash2,
 } from "lucide-react";
 import {
   Button,
@@ -559,76 +561,142 @@ function AutoRefreshCountdownBadge({ targetTimeMs }: { targetTimeMs: number }) {
   );
 }
 
-function ProviderManualSetupForm({
+function regionOptionLabel(region: string | null, options: UsageManualSetupResponse["region_options"]): string {
+  if (!region || region === "auto") return "Auto";
+  return options.find((o) => o.value === region)?.label ?? region;
+}
+
+function ProviderApiKeyManager({
   providerId,
   manualSetup,
-  onSave,
+  onAddKey,
+  onDeleteKey,
   isSaving,
+  deletingKeyId,
 }: {
   providerId: string;
   manualSetup: UsageManualSetupResponse;
-  onSave: (providerId: string, region: string, apiKey: string) => void;
+  onAddKey: (providerId: string, region: string, apiKey: string) => void;
+  onDeleteKey: (providerId: string, keyId: string) => void;
   isSaving: boolean;
+  deletingKeyId: string | null;
 }) {
-  const [region, setRegion] = useState(manualSetup.selected_region ?? "auto");
+  const [region, setRegion] = useState("auto");
   const [apiKey, setApiKey] = useState("");
+  const [showAddForm, setShowAddForm] = useState(manualSetup.configured_keys.length === 0);
   const selectedRegion =
     region === "global" || region === "china" ? (region as ProviderRegion) : null;
 
+  const handleAdd = () => {
+    if (!apiKey.trim()) return;
+    onAddKey(providerId, region, apiKey.trim());
+    setApiKey("");
+    setShowAddForm(false);
+  };
+
   return (
-    <div className="mt-3 rounded-[12px] border border-border/60 bg-muted/20 p-3">
-      <div className="grid gap-2.5">
-        <div className="grid gap-1">
-          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
-            Region
-          </div>
-          <Select value={region} onValueChange={setRegion} disabled={isSaving}>
-            <SelectTrigger className="h-8 w-full rounded-[10px] bg-background/70 text-xs">
-              <SelectValue placeholder="Select region" />
-            </SelectTrigger>
-            <SelectContent>
-              {manualSetup.region_options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <UsagePortalLink providerId={providerId} region={selectedRegion} className="mt-1" />
-        </div>
-
-        <div className="grid gap-1">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
-              API Key
+    <div className="mt-3 space-y-2">
+      {/* Configured keys list */}
+      {manualSetup.configured_keys.length > 0 ? (
+        <div className="rounded-[12px] border border-border/60 bg-muted/20 divide-y divide-border/40">
+          {manualSetup.configured_keys.map((key) => (
+            <div key={key.id} className="flex items-center justify-between gap-3 px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <KeyRound className="size-3.5 shrink-0 text-foreground/60" />
+                <span className="text-xs text-foreground truncate">
+                  {regionOptionLabel(key.region, manualSetup.region_options)} Key
+                </span>
+                <span className="text-[10px] text-foreground/50 font-mono truncate">···{key.id.slice(-4)}</span>
+              </div>
+              <button
+                type="button"
+                aria-label="Delete key"
+                onClick={() => onDeleteKey(providerId, key.id)}
+                disabled={deletingKeyId === key.id}
+                className="shrink-0 rounded-md p-1 text-foreground/50 hover:text-destructive hover:bg-destructive/10 disabled:opacity-40 transition-colors"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
             </div>
-            {manualSetup.api_key_configured ? (
-              <div className="text-[10px] text-foreground/90">Stored locally</div>
-            ) : null}
-          </div>
-          <Input
-            type="password"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-            placeholder={manualSetup.api_key_configured ? "Replace stored key" : "Paste API key"}
-            disabled={isSaving}
-            className="h-8 rounded-[10px] bg-background/70 text-xs"
-          />
+          ))}
         </div>
+      ) : null}
 
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onSave(providerId, region, apiKey)}
-            disabled={isSaving || (!apiKey.trim() && region === (manualSetup.selected_region ?? "auto"))}
-            className="h-8 rounded-[10px] px-3 text-xs"
-          >
-            Save
-          </Button>
+      {/* Add key toggle */}
+      {!showAddForm && (
+        <button
+          type="button"
+          onClick={() => setShowAddForm(true)}
+          className="flex items-center gap-1.5 text-[11px] text-foreground/60 hover:text-foreground transition-colors"
+        >
+          <Plus className="size-3.5" />
+          Add API Key
+        </button>
+      )}
+
+      {/* Add key form */}
+      {showAddForm && (
+        <div className="rounded-[12px] border border-border/60 bg-muted/20 p-3">
+          <div className="grid gap-2.5">
+            <div className="grid gap-1">
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
+                Region
+              </div>
+              <Select value={region} onValueChange={setRegion} disabled={isSaving}>
+                <SelectTrigger className="h-8 w-full rounded-[10px] bg-background/70 text-xs">
+                  <SelectValue placeholder="Select region" />
+                </SelectTrigger>
+                <SelectContent>
+                  {manualSetup.region_options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <UsagePortalLink providerId={providerId} region={selectedRegion} className="mt-1" />
+            </div>
+
+            <div className="grid gap-1">
+              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
+                API Key
+              </div>
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") handleAdd(); }}
+                placeholder="Paste API key"
+                disabled={isSaving}
+                className="h-8 rounded-[10px] bg-background/70 text-xs"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              {manualSetup.configured_keys.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => { setShowAddForm(false); setApiKey(""); }}
+                  className="text-[11px] text-foreground/50 hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+              ) : <div />}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleAdd}
+                disabled={isSaving || !apiKey.trim()}
+                className="h-8 rounded-[10px] px-3 text-xs"
+              >
+                {isSaving ? "Saving…" : "Add Key"}
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -639,9 +707,11 @@ function AggregateDetail({
   providerOrder,
   onToggleAllProviders,
   onToggleProvider,
-  onSaveManualSetup,
+  onAddApiKey,
+  onDeleteApiKey,
   isAllSwitching,
   savingManualSetupProviderId,
+  deletingKeyId,
   switchingProviderId,
 }: {
   aggregate: UsageAggregateResponse;
@@ -649,9 +719,11 @@ function AggregateDetail({
   providerOrder: string[];
   onToggleAllProviders: (enabled: boolean) => void;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
-  onSaveManualSetup: (providerId: string, region: string, apiKey: string) => void;
+  onAddApiKey: (providerId: string, region: string, apiKey: string) => void;
+  onDeleteApiKey: (providerId: string, keyId: string) => void;
   isAllSwitching: boolean;
   savingManualSetupProviderId: string | null;
+  deletingKeyId: string | null;
   switchingProviderId: string | null;
 }) {
   const providerOrderIndex = useMemo(
@@ -693,8 +765,10 @@ function AggregateDetail({
               key={provider.id}
               provider={provider}
               onToggleProvider={onToggleProvider}
-              onSaveManualSetup={onSaveManualSetup}
+              onAddApiKey={onAddApiKey}
+              onDeleteApiKey={onDeleteApiKey}
               isSavingManualSetup={savingManualSetupProviderId === provider.id}
+              deletingKeyId={deletingKeyId}
               isSwitching={switchingProviderId === provider.id}
             />
           ))}
@@ -711,14 +785,18 @@ function AggregateDetail({
 function AggregateProviderRow({
   provider,
   onToggleProvider,
-  onSaveManualSetup,
+  onAddApiKey,
+  onDeleteApiKey,
   isSavingManualSetup,
+  deletingKeyId,
   isSwitching,
 }: {
   provider: UsageProviderResponse;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
-  onSaveManualSetup: (providerId: string, region: string, apiKey: string) => void;
+  onAddApiKey: (providerId: string, region: string, apiKey: string) => void;
+  onDeleteApiKey: (providerId: string, keyId: string) => void;
   isSavingManualSetup: boolean;
+  deletingKeyId: string | null;
   isSwitching: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -897,6 +975,19 @@ function AggregateProviderRow({
                   </div>
                 ))}
               </div>
+
+              {provider.manual_setup ? (
+                <div className="mt-3.5 border-t border-border/60 pt-3">
+                  <ProviderApiKeyManager
+                    providerId={provider.id}
+                    manualSetup={provider.manual_setup}
+                    onAddKey={onAddApiKey}
+                    onDeleteKey={onDeleteApiKey}
+                    isSaving={isSavingManualSetup}
+                    deletingKeyId={deletingKeyId}
+                  />
+                </div>
+              ) : null}
             </>
           ) : (
             <div className="space-y-2">
@@ -907,12 +998,13 @@ function AggregateProviderRow({
                   "Sign in to the local app or add a supported local token/config so Atmos can detect this provider."}
               </div>
               {provider.manual_setup ? (
-                <ProviderManualSetupForm
-                  key={`${provider.id}:${provider.manual_setup.selected_region ?? "auto"}:${provider.manual_setup.api_key_configured ? "configured" : "empty"}`}
+                <ProviderApiKeyManager
                   providerId={provider.id}
                   manualSetup={provider.manual_setup}
-                  onSave={onSaveManualSetup}
+                  onAddKey={onAddApiKey}
+                  onDeleteKey={onDeleteApiKey}
                   isSaving={isSavingManualSetup}
+                  deletingKeyId={deletingKeyId}
                 />
               ) : null}
             </div>
@@ -928,14 +1020,18 @@ function AggregateProviderRow({
 function ProviderDetail({
   provider,
   onToggleProvider,
-  onSaveManualSetup,
+  onAddApiKey,
+  onDeleteApiKey,
   isSavingManualSetup,
+  deletingKeyId,
   isSwitching,
 }: {
   provider: UsageProviderResponse;
   onToggleProvider: (providerId: string, enabled: boolean) => void;
-  onSaveManualSetup: (providerId: string, region: string, apiKey: string) => void;
+  onAddApiKey: (providerId: string, region: string, apiKey: string) => void;
+  onDeleteApiKey: (providerId: string, keyId: string) => void;
   isSavingManualSetup: boolean;
+  deletingKeyId: string | null;
   isSwitching: boolean;
 }) {
   const { accountLabel, planLabel, periodLabel } = providerIdentity(provider);
@@ -1013,15 +1109,6 @@ function ProviderDetail({
       ) : warningText ? (
         <section className="border-t border-border/70 pt-5">
           <div className="text-sm leading-6 text-foreground/90">{warningText}</div>
-          {provider.manual_setup && provider.fetch_state.status !== "ready" ? (
-            <ProviderManualSetupForm
-              key={`${provider.id}:${provider.manual_setup.selected_region ?? "auto"}:${provider.manual_setup.api_key_configured ? "configured" : "empty"}`}
-              providerId={provider.id}
-              manualSetup={provider.manual_setup}
-              onSave={onSaveManualSetup}
-              isSaving={isSavingManualSetup}
-            />
-          ) : null}
         </section>
       ) : null}
 
@@ -1046,14 +1133,15 @@ function ProviderDetail({
         </section>
       ))}
 
-      {!showCredits && !warningText && provider.manual_setup && provider.fetch_state.status !== "ready" ? (
+      {provider.manual_setup ? (
         <section className="border-t border-border/70 pt-5">
-          <ProviderManualSetupForm
-            key={`${provider.id}:${provider.manual_setup.selected_region ?? "auto"}:${provider.manual_setup.api_key_configured ? "configured" : "empty"}`}
+          <ProviderApiKeyManager
             providerId={provider.id}
             manualSetup={provider.manual_setup}
-            onSave={onSaveManualSetup}
+            onAddKey={onAddApiKey}
+            onDeleteKey={onDeleteApiKey}
             isSaving={isSavingManualSetup}
+            deletingKeyId={deletingKeyId}
           />
         </section>
       ) : null}
@@ -1103,6 +1191,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [switchingProviderId, setSwitchingProviderId] = useState<string | null>(null);
   const [savingManualSetupProviderId, setSavingManualSetupProviderId] = useState<string | null>(null);
+  const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null);
   const [isFooterHovered, setIsFooterHovered] = useState(false);
   const [isAutoRefreshPopoverOpen, setIsAutoRefreshPopoverOpen] = useState(false);
   const [isUpdatingAutoRefresh, setIsUpdatingAutoRefresh] = useState(false);
@@ -1175,24 +1264,35 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     }
   }, []);
 
-  const saveProviderManualSetup = useCallback(
+  const addProviderApiKey = useCallback(
     async (providerId: string, region: string, apiKey: string) => {
       setSavingManualSetupProviderId(providerId);
       setError(null);
 
       try {
-        const next = await usageWsApi.setProviderManualSetup(
-          providerId,
-          region,
-          apiKey.trim() ? apiKey.trim() : null
-        );
+        const next = await usageWsApi.addProviderApiKey(providerId, region || null, apiKey);
         setOverview(next);
-      } catch (setupError) {
-        setError(
-          setupError instanceof Error ? setupError.message : "Failed to save provider setup"
-        );
+      } catch (addError) {
+        setError(addError instanceof Error ? addError.message : "Failed to add API key");
       } finally {
         setSavingManualSetupProviderId(null);
+      }
+    },
+    []
+  );
+
+  const deleteProviderApiKey = useCallback(
+    async (providerId: string, keyId: string) => {
+      setDeletingKeyId(keyId);
+      setError(null);
+
+      try {
+        const next = await usageWsApi.deleteProviderApiKey(providerId, keyId);
+        setOverview(next);
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete API key");
+      } finally {
+        setDeletingKeyId(null);
       }
     },
     []
@@ -1599,8 +1699,10 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                         onToggleProvider={toggleProviderSwitch}
                         isAllSwitching={switchingProviderId === ALL_PROVIDER_SWITCH_ID}
                         switchingProviderId={switchingProviderId}
-                        onSaveManualSetup={saveProviderManualSetup}
+                        onAddApiKey={addProviderApiKey}
+                        onDeleteApiKey={deleteProviderApiKey}
                         savingManualSetupProviderId={savingManualSetupProviderId}
+                        deletingKeyId={deletingKeyId}
                       />
                     </div>
                   ) : selectedProvider ? (
@@ -1608,8 +1710,10 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       <ProviderDetail
                         provider={selectedProvider}
                         onToggleProvider={toggleProviderSwitch}
-                        onSaveManualSetup={saveProviderManualSetup}
+                        onAddApiKey={addProviderApiKey}
+                        onDeleteApiKey={deleteProviderApiKey}
                         isSavingManualSetup={savingManualSetupProviderId === selectedProvider.id}
+                        deletingKeyId={deletingKeyId}
                         isSwitching={switchingProviderId === selectedProvider.id}
                       />
                     </div>

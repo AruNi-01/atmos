@@ -90,7 +90,9 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
 
       for (const content of hunk.hunkContent) {
         if (content.type === 'context') {
-          for (const _line of content.lines) {
+          // content.lines may be number (count) or string[] (lines) depending on version
+          const lineCount = Array.isArray(content.lines) ? (content.lines as string[]).length : (content.lines as number);
+          for (let i = 0; i < lineCount; i++) {
             const info: LineTypeInfo = { type: 'context', oldLine, newLine };
             oldMap.set(oldLine, info);
             newMap.set(newLine, info);

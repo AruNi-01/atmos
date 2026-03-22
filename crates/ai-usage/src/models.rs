@@ -98,10 +98,18 @@ pub struct ProviderManualSetupOption {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ConfiguredApiKey {
+    pub id: String,
+    pub region: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProviderManualSetup {
     pub selected_region: Option<String>,
     pub region_options: Vec<ProviderManualSetupOption>,
     pub api_key_configured: bool,
+    #[serde(default)]
+    pub configured_keys: Vec<ConfiguredApiKey>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
