@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
+import { useQueryStates } from "nuqs";
 import { Preview } from './Preview';
 import { RunScript } from './RunScript';
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { previewUrlParams } from "@/lib/nuqs/searchParams";
 
 interface RunPreviewPanelProps {
   workspaceId: string | null;
@@ -23,18 +25,39 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
   const [isRunScriptCollapsed, setIsRunScriptCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Lifted state from Preview
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [activePreviewUrl, setActivePreviewUrl] = useState("");
+  const [{ pvUrl: previewUrlParam, pvActive: activePreviewUrlParam }, setPreviewUrlParams] =
+    useQueryStates(previewUrlParams);
+  const [previewUrl, setPreviewUrl] = useState(previewUrlParam);
+  const [activePreviewUrl, setActivePreviewUrl] = useState(activePreviewUrlParam);
 
-  const handleDetectedUrl = (url: string) => {
-    // Only auto-set if empty or user hasn't typed anything meaningful yet?
-    // Or always overwrite? User request: "Run 运行成功后，自动把 url 设置到 上面的 Preview 组件中"
-    // Usually, we want to update it.
-    // Let's update both input and active url to make it clear.
+  React.useEffect(() => {
+    setPreviewUrl((previous) => (previous === previewUrlParam ? previous : previewUrlParam));
+  }, [previewUrlParam]);
+
+  React.useEffect(() => {
+    setActivePreviewUrl((previous) => (
+      previous === activePreviewUrlParam ? previous : activePreviewUrlParam
+    ));
+  }, [activePreviewUrlParam]);
+
+  React.useEffect(() => {
+    if (previewUrl === previewUrlParam && activePreviewUrl === activePreviewUrlParam) return;
+    void setPreviewUrlParams({
+      pvUrl: previewUrl,
+      pvActive: activePreviewUrl,
+    });
+  }, [
+    activePreviewUrl,
+    activePreviewUrlParam,
+    previewUrl,
+    previewUrlParam,
+    setPreviewUrlParams,
+  ]);
+
+  const handleDetectedUrl = useCallback((url: string) => {
     setPreviewUrl(url);
     setActivePreviewUrl(url);
-  };
+  }, []);
 
   return (
     <PanelGroup
@@ -50,6 +73,8 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
           setUrl={setPreviewUrl}
           activeUrl={activePreviewUrl}
           setActiveUrl={setActivePreviewUrl}
+          workspaceId={workspaceId}
+          projectId={projectId}
         />
       </Panel>
 

@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Atmos Inspector",
+  "description": "Cross-port preview element selection bridge for Atmos.",
+  "version": "0.1.0",
+  "permissions": [],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://[::1]/*",
+    "https://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://[::1]/*",
+        "https://localhost/*"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "preview-runtime.js",
+        "injected.js"
+      ],
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "http://[::1]/*",
+        "https://localhost/*"
+      ]
+    }
+  ]
+}

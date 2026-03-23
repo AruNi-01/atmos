@@ -1,5 +1,6 @@
 mod commands;
 mod logging;
+mod preview_bridge;
 mod state;
 
 use std::collections::VecDeque;
@@ -100,6 +101,7 @@ fn main() {
                 api_token: api_token.clone(),
                 desktop_log_level: logging::compiled_log_level(),
                 sidecar_child: Mutex::new(None),
+                preview_bridge: Mutex::new(None),
                 window_state_path,
                 splash_close_allowed: AtomicBool::new(false),
                 theme_ready: AtomicBool::new(false),
@@ -316,6 +318,7 @@ fn main() {
             #[cfg(target_os = "macos")]
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
+                    preview_bridge::hide_preview_window(&window.app_handle());
                     api.prevent_close();
                     if window.is_fullscreen().unwrap_or(false) {
                         let handle = window.clone();
@@ -338,6 +341,7 @@ fn main() {
                         });
                     } else {
                         persist_main_window_state(window);
+                        preview_bridge::hide_preview_window(&window.app_handle());
                         let _ = window.hide();
                     }
                 } else if window.label() == "splashscreen" {
@@ -350,6 +354,9 @@ fn main() {
             if window.label() == "main" {
                 match event {
                     tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Destroyed => {
+                        if matches!(event, tauri::WindowEvent::Destroyed) {
+                            let _ = preview_bridge::close_preview_window(&window.app_handle());
+                        }
                         persist_main_window_state(window)
                     }
                     tauri::WindowEvent::Resized(_) => {
@@ -365,6 +372,13 @@ fn main() {
             commands::write_log,
             commands::open_in_external_editor,
             commands::send_notification,
+            commands::preview_bridge_open,
+            commands::preview_bridge_update_bounds,
+            commands::preview_bridge_navigate,
+            commands::preview_bridge_enter_pick_mode,
+            commands::preview_bridge_clear_selection,
+            commands::preview_bridge_close,
+            commands::preview_bridge_event,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
@@ -373,6 +387,7 @@ fn main() {
         // Sidecar cleanup on ALL exit paths:
         // tray "Quit", Cmd+Q, dock "Quit", system shutdown, etc.
         tauri::RunEvent::Exit => {
+            let _ = preview_bridge::close_preview_window(&app_handle);
             let child = {
                 let state = app_handle.state::<AppState>();
                 state.sidecar_child.lock().ok().and_then(|mut g| g.take())

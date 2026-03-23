@@ -10,6 +10,22 @@ export interface SelectionInfo {
   endLine: number;
   selectedText: string;
   language?: string;
+  sourceType?: 'text' | 'element';
+  pageUrl?: string;
+  selector?: string;
+  tagName?: string;
+  attributesSummary?: string;
+  textPreview?: string;
+  htmlPreview?: string;
+  framework?: string;
+  componentName?: string;
+  componentFilePath?: string;
+  componentLine?: number;
+  componentColumn?: number;
+  componentChain?: string[];
+  sourceConfidence?: 'high' | 'medium' | 'low';
+  sourceDebugSignals?: string[];
+  transportMode?: 'same-origin' | 'extension' | 'desktop-native';
   // Wiki-specific
   sectionTitle?: string;
   pageTitle?: string;
@@ -25,6 +41,13 @@ function formatLineRange(start: number, end: number): string {
 
 function getLanguageFromPath(filePath: string): string {
   return detectCodeLanguage(filePath);
+}
+
+function truncateText(value: string | undefined, limit: number): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
 
 /**
@@ -131,4 +154,69 @@ export function formatWikiSelectionForAI(
   }
 
   return output;
+}
+
+/**
+ * Format Preview element selection for AI
+ */
+export function formatPreviewSelectionForAI(
+  info: SelectionInfo,
+  userNote?: string
+): string {
+  const textPreview = truncateText(info.textPreview || info.selectedText, 280);
+  const htmlPreview = truncateText(info.htmlPreview, 2000);
+  const componentChain = info.componentChain?.filter(Boolean) ?? [];
+  const sourceDebugSignals = info.sourceDebugSignals?.filter(Boolean) ?? [];
+  const sourceParts = [
+    info.componentFilePath,
+    info.componentLine != null ? String(info.componentLine) : null,
+    info.componentColumn != null ? String(info.componentColumn) : null,
+  ].filter(Boolean);
+
+  let output = `## Preview Element\n`;
+  output += `- **Page**: \`${info.pageUrl || info.filePath}\`\n`;
+  if (info.selector) {
+    output += `- **Selector**: \`${info.selector}\`\n`;
+  }
+  if (info.tagName) {
+    output += `- **Tag**: \`${info.tagName}\`\n`;
+  }
+  if (info.attributesSummary) {
+    output += `- **Attributes**: ${info.attributesSummary}\n`;
+  }
+  if (info.framework) {
+    output += `- **Framework**: ${info.framework}\n`;
+  }
+  if (info.transportMode) {
+    output += `- **Source Mode**: ${info.transportMode}\n`;
+  }
+  if (info.componentName) {
+    output += `- **Source Component**: \`${info.componentName}\`\n`;
+  }
+  if (componentChain.length > 1) {
+    output += `- **Source Component Chain**: ${componentChain.join(' -> ')}\n`;
+  }
+  if (sourceParts.length > 0) {
+    output += `- **Source**: \`${sourceParts.join(':')}\`\n`;
+  }
+  if (info.sourceConfidence) {
+    output += `- **Confidence**: ${info.sourceConfidence}\n`;
+  }
+  if (sourceDebugSignals.length > 0) {
+    output += `- **Confidence Signals**: ${sourceDebugSignals.join(', ')}\n`;
+  }
+
+  if (textPreview) {
+    output += `\n### Element Text\n${textPreview}\n`;
+  }
+
+  if (htmlPreview) {
+    output += `\n### Element HTML\n\`\`\`html\n${htmlPreview}\n\`\`\`\n`;
+  }
+
+  if (userNote?.trim()) {
+    output += `\n## Note\n${userNote.trim()}`;
+  }
+
+  return output.trimEnd();
 }

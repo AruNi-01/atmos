@@ -1,4 +1,5 @@
 use crate::logging::{self, LogLevel};
+use crate::preview_bridge::{self, PreviewBridgeBounds};
 use crate::state::AppState;
 use serde_json::json;
 
@@ -65,4 +66,57 @@ pub async fn send_notification(
         .body(&body)
         .show()
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn preview_bridge_open(
+    app: tauri::AppHandle,
+    session_id: String,
+    url: String,
+    bounds: PreviewBridgeBounds,
+) -> Result<(), String> {
+    preview_bridge::open_preview_window(&app, &session_id, &url, bounds)
+}
+
+#[tauri::command]
+pub fn preview_bridge_update_bounds(
+    app: tauri::AppHandle,
+    bounds: PreviewBridgeBounds,
+) -> Result<(), String> {
+    preview_bridge::update_preview_bounds(&app, bounds)
+}
+
+#[tauri::command]
+pub fn preview_bridge_navigate(
+    app: tauri::AppHandle,
+    session_id: String,
+    url: String,
+) -> Result<(), String> {
+    preview_bridge::navigate_preview_window(&app, &session_id, &url)
+}
+
+#[tauri::command]
+pub fn preview_bridge_enter_pick_mode(
+    app: tauri::AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    preview_bridge::enter_pick_mode(&app, &session_id)
+}
+
+#[tauri::command]
+pub fn preview_bridge_clear_selection(
+    app: tauri::AppHandle,
+    session_id: String,
+) -> Result<(), String> {
+    preview_bridge::clear_selection(&app, &session_id)
+}
+
+#[tauri::command]
+pub fn preview_bridge_close(app: tauri::AppHandle) -> Result<(), String> {
+    preview_bridge::close_preview_window(&app)
+}
+
+#[tauri::command]
+pub fn preview_bridge_event(app: tauri::AppHandle, payload: serde_json::Value) -> Result<(), String> {
+    preview_bridge::forward_runtime_event(&app, payload)
 }
