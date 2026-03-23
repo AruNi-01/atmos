@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::webview::PageLoadEvent;
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Position, Size, WebviewUrl,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Position, Size, WebviewUrl,
     WebviewWindow, WebviewWindowBuilder,
 };
 use tauri::Url;
@@ -116,10 +116,16 @@ fn sync_pick_mode(webview: &WebviewWindow, session_id: &str, pick_mode: bool) {
 
 fn apply_bounds(window: &WebviewWindow, bounds: PreviewBridgeBounds) -> Result<(), String> {
     window
-        .set_position(Position::Physical(PhysicalPosition::new(bounds.x, bounds.y)))
+        .set_position(Position::Logical(LogicalPosition::new(
+            bounds.x as f64,
+            bounds.y as f64,
+        )))
         .map_err(|error| error.to_string())?;
     window
-        .set_size(Size::Physical(PhysicalSize::new(bounds.width, bounds.height)))
+        .set_size(Size::Logical(LogicalSize::new(
+            bounds.width as f64,
+            bounds.height as f64,
+        )))
         .map_err(|error| error.to_string())?;
     Ok(())
 }
