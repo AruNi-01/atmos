@@ -72,7 +72,7 @@ const Portfolio = () => {
                 className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4! transition-all duration-300'
                 asChild
               >
-                <Link href='https://github.com/AruNi-01/atmos'>
+                <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
                   Details <EyeIcon className='stroke-foreground group-hover:stroke-primary-foreground' />
                 </Link>
               </Button>
@@ -102,7 +102,7 @@ const Portfolio = () => {
                 className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4! transition-all duration-300'
                 asChild
               >
-                <Link href='https://github.com/AruNi-01/atmos'>
+                <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
                   Details <EyeIcon className='stroke-foreground group-hover:stroke-primary-foreground' />
                 </Link>
               </Button>
@@ -131,7 +131,7 @@ const Portfolio = () => {
                 className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4! transition-all duration-300'
                 asChild
               >
-                <Link href='https://github.com/AruNi-01/atmos'>
+                <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
                   Details <EyeIcon className='stroke-foreground group-hover:stroke-primary-foreground' />
                 </Link>
               </Button>
@@ -161,7 +161,7 @@ const Portfolio = () => {
                 className='group-hover:bg-primary! group-hover:border-primary group-hover:text-primary-foreground! rounded-full px-4! transition-all duration-300'
                 asChild
               >
-                <Link href='https://github.com/AruNi-01/atmos'>
+                <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
                   Details <EyeIcon className='stroke-foreground group-hover:stroke-primary-foreground' />
                 </Link>
               </Button>
