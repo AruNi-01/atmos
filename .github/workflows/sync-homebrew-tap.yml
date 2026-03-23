@@ -7,6 +7,11 @@ on:
   release:
     types:
       - published
+  workflow_run:
+    workflows:
+      - Desktop CI & Release
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       release_tag:
@@ -18,7 +23,8 @@ jobs:
     name: Update shared homebrew-tap
     if: >
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.release.tag_name, 'desktop-v')
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'desktop-v')) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'desktop-v'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,6 +42,12 @@ jobs:
             TAG="${{ github.event.inputs.release_tag }}"
             if [ -z "$TAG" ]; then
               echo "release_tag is required when running manually."
+              exit 1
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            TAG="${{ github.event.workflow_run.head_branch }}"
+            if [[ ! "$TAG" =~ ^desktop-v.+$ ]]; then
+              echo "workflow_run event but branch is not a desktop tag: $TAG"
               exit 1
             fi
           else
