@@ -174,7 +174,9 @@ fn main() {
                                 let state = app_handle.state::<AppState>();
                                 state.theme_ready.store(false, Ordering::SeqCst);
                             }
-                            let url = format!("http://127.0.0.1:{}", p);
+                            let app_version = app_handle.package_info().version.to_string();
+                            let url =
+                                format!("http://127.0.0.1:{}?desktop_app_version={}", p, app_version);
                             let _ = main.navigate(url.parse().expect("valid url"));
                         }
                     }

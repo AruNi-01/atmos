@@ -30,6 +30,7 @@ import {
   toastManager,
 } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
+import { isTauriRuntime } from "@/lib/desktop-runtime";
 
 type ViewMode = "desktop" | "mobile";
 
@@ -109,9 +110,14 @@ export const Preview: React.FC<PreviewProps> = ({
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [renamingUrl, setRenamingUrl] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [isDesktopWindowFullscreen, setIsDesktopWindowFullscreen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const historyIndexRef = useRef(-1);
   const skipExternalHistorySyncRef = useRef(false);
+  const isMacDesktop = useMemo(
+    () => isTauriRuntime() && typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent),
+    [],
+  );
 
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
   const canGoBack = historyIndex > 0;
@@ -260,6 +266,45 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [favoritesListOpen]);
 
   useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    let disposed = false;
+    let unlistenResize: (() => void) | undefined;
+
+    const syncFullscreen = async () => {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const fullscreen = await getCurrentWindow().isFullscreen();
+      if (!disposed) {
+        setIsDesktopWindowFullscreen(fullscreen);
+      }
+    };
+
+    void syncFullscreen();
+
+    void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+      const currentWindow = getCurrentWindow();
+      const unlisten = await currentWindow.onResized(() => {
+        void syncFullscreen();
+      });
+
+      if (disposed) {
+        unlisten();
+        return;
+      }
+
+      unlistenResize = unlisten;
+    });
+
+    return () => {
+      disposed = true;
+      unlistenResize?.();
+    };
+  }, []);
+
+  const needsDesktopPreviewSafeInset =
+    isMaximized && isMacDesktop && !isDesktopWindowFullscreen;
+
+  useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape" && isMaximized) {
         setIsMaximized(false);
@@ -362,14 +407,16 @@ export const Preview: React.FC<PreviewProps> = ({
       <div
         className={cn(
           "shrink-0",
-          isToolbarHidden && "group/toolbar pt-3 transition-all duration-300 hover:pt-0",
+          needsDesktopPreviewSafeInset && "pt-8",
+          isToolbarHidden && "group/toolbar relative z-10 h-3 overflow-visible",
         )}
       >
         <div
           className={cn(
             "flex h-10 items-center gap-2 overflow-hidden bg-muted/10 px-2 transition-all duration-300 ease-in-out",
             isToolbarHidden &&
-              "h-0 opacity-0 group-hover/toolbar:h-10 group-hover/toolbar:opacity-100",
+              "absolute inset-x-0 top-0 z-20 -translate-y-full rounded-b-md border-b border-border/60 bg-background/92 shadow-lg backdrop-blur-md opacity-0 group-hover/toolbar:translate-y-0 group-hover/toolbar:opacity-100",
+            isToolbarHidden && needsDesktopPreviewSafeInset && "top-8",
           )}
         >
           <div className="flex shrink-0 items-center gap-1">
@@ -691,8 +738,9 @@ export const Preview: React.FC<PreviewProps> = ({
             ref={iframeRef}
             src={activeUrl}
             onLoad={handleIframeLoad}
+            style={{ colorScheme: "dark" }}
             className={cn(
-              "h-full bg-white transition-all duration-300",
+              "block h-full border-0 bg-white outline-none transition-all duration-300",
               viewMode === "mobile" ? "w-[375px] border-x border-border shadow-sm" : "w-full",
             )}
             title="Preview"

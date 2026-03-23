@@ -974,16 +974,20 @@ const Header: React.FC = () => {
                 </MenuSubmenuPanel>
               </MenuSubmenu>
 
-              <MenuItem
-                closeOnClick
-                onClick={() => {
-                  void toggleFullScreen();
-                  setIsActionMenuOpen(false);
-                }}
-              >
-                {isFullScreenActive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-                {isFullScreenActive ? "Exit Full Screen" : "Enter Full Screen"}
-              </MenuItem>
+              {!isTauriRuntime() ? (
+                <>
+                  <MenuItem
+                    closeOnClick
+                    onClick={() => {
+                      void toggleFullScreen();
+                      setIsActionMenuOpen(false);
+                    }}
+                  >
+                    {isFullScreenActive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+                    {isFullScreenActive ? "Exit Full Screen" : "Enter Full Screen"}
+                  </MenuItem>
+                </>
+              ) : null}
 
               <MenuSeparator />
 
@@ -1019,8 +1023,8 @@ const Header: React.FC = () => {
                     </span>
                   </MenuItem>
 
-                  <MenuItem closeOnClick={false} className="pr-3">
-                    <div className="flex w-full items-center gap-3">
+                  <MenuItem closeOnClick={false}>
+                    <div className="flex w-full items-center gap-2">
                       <span className="min-w-14 text-sm text-foreground">Opacity</span>
                       <input
                         type="range"
