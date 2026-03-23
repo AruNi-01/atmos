@@ -51,7 +51,8 @@ impl TokenUsageCollector for TokscaleCollector {
         query: &TokenUsageQuery,
         force_source_sync: bool,
     ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
-        let sync_outcome = crate::cursor_sync::maybe_sync_cursor_csv(query, force_source_sync).await;
+        let sync_outcome =
+            crate::cursor_sync::maybe_sync_cursor_csv(query, force_source_sync).await;
 
         let options = tokscale_options(query);
 
@@ -152,7 +153,8 @@ impl TokenUsageService {
             }
         }
 
-        self.collect_and_store(query, cache_key, refresh, refresh).await
+        self.collect_and_store(query, cache_key, refresh, refresh)
+            .await
     }
 
     pub fn subscribe_updates(&self) -> broadcast::Receiver<TokenUsageUpdate> {

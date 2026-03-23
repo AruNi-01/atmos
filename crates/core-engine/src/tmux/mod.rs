@@ -678,10 +678,12 @@ impl TmuxEngine {
 
         let content = self.run_tmux(&[
             "capture-pane",
-            "-t", &target,
-            "-p",           // print to stdout
-            "-e",           // include ANSI escape sequences
-            "-S", &start_line,
+            "-t",
+            &target,
+            "-p", // print to stdout
+            "-e", // include ANSI escape sequences
+            "-S",
+            &start_line,
         ])?;
 
         Ok(content)

@@ -11,8 +11,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::menu::{MenuBuilder, MenuItem, SubmenuBuilder};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-use tauri::{Listener, Manager, PhysicalPosition, PhysicalSize, Position, Size};
 use tauri::utils::config::Color;
+use tauri::{Listener, Manager, PhysicalPosition, PhysicalSize, Position, Size};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::Notify;
@@ -237,8 +237,20 @@ fn main() {
                     .build()?;
 
                 let navigation_menu = SubmenuBuilder::new(app, "Navigation")
-                    .item(&MenuItem::with_id(app, "back", "Back", true, Some("Command+["))?)
-                    .item(&MenuItem::with_id(app, "forward", "Forward", true, Some("Command+]"))?)
+                    .item(&MenuItem::with_id(
+                        app,
+                        "back",
+                        "Back",
+                        true,
+                        Some("Command+["),
+                    )?)
+                    .item(&MenuItem::with_id(
+                        app,
+                        "forward",
+                        "Forward",
+                        true,
+                        Some("Command+]"),
+                    )?)
                     .build()?;
                 let menu = MenuBuilder::new(app)
                     .items(&[&app_menu, &edit_menu, &window_menu, &navigation_menu])

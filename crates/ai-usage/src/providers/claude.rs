@@ -100,20 +100,18 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
     if claude_token_needs_refresh(&credentials) {
         if let Some(refresh_token) = credentials.refresh_token.as_deref() {
             debug!("Claude OAuth access token expired or expiring soon, refreshing");
-            credentials.access_token =
-                refresh_claude_access_token(client, refresh_token).await?;
+            credentials.access_token = refresh_claude_access_token(client, refresh_token).await?;
         }
     }
 
     let payload = match request_claude_usage(client, &credentials.access_token).await {
         Ok(payload) => payload,
-        Err(error)
-            if error.contains("401")
-                || error.contains("403")
-                || error.contains("429") =>
-        {
+        Err(error) if error.contains("401") || error.contains("403") || error.contains("429") => {
             if let Some(refresh_token) = credentials.refresh_token.as_deref() {
-                debug!("Claude OAuth usage request failed ({}), attempting token refresh", error);
+                debug!(
+                    "Claude OAuth usage request failed ({}), attempting token refresh",
+                    error
+                );
                 credentials.access_token =
                     refresh_claude_access_token(client, refresh_token).await?;
                 request_claude_usage(client, &credentials.access_token)
@@ -265,9 +263,7 @@ async fn refresh_claude_access_token(
         ])
         .send()
         .await
-        .map_err(|error| {
-            ProviderError::Fetch(format!("Claude token refresh failed: {error}"))
-        })?;
+        .map_err(|error| ProviderError::Fetch(format!("Claude token refresh failed: {error}")))?;
 
     if !response.status().is_success() {
         return Err(ProviderError::Fetch(format!(
@@ -283,11 +279,12 @@ async fn refresh_claude_access_token(
             ProviderError::Fetch(format!("Invalid Claude refresh payload: {error}"))
         })?;
 
-    payload.access_token.filter(|v| !v.is_empty()).ok_or_else(|| {
-        ProviderError::Fetch(
-            "Claude refresh response missing access_token".to_string(),
-        )
-    })
+    payload
+        .access_token
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| {
+            ProviderError::Fetch("Claude refresh response missing access_token".to_string())
+        })
 }
 
 async fn request_claude_usage(

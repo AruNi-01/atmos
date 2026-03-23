@@ -31,19 +31,18 @@ struct ProviderMetadataFile {
     cursor: CursorProviderMetadata,
 }
 
-pub(crate) async fn maybe_sync_cursor_csv(query: &TokenUsageQuery, force_refresh: bool) -> CursorSyncOutcome {
+pub(crate) async fn maybe_sync_cursor_csv(
+    query: &TokenUsageQuery,
+    force_refresh: bool,
+) -> CursorSyncOutcome {
     if !query_includes_cursor(query) {
-        return CursorSyncOutcome {
-            warnings: vec![],
-        };
+        return CursorSyncOutcome { warnings: vec![] };
     }
 
     let cache_path = cursor_cache_path();
     let metadata_path = provider_metadata_path();
     if !force_refresh && is_within_cooldown(&cache_path) {
-        return CursorSyncOutcome {
-            warnings: vec![],
-        };
+        return CursorSyncOutcome { warnings: vec![] };
     }
 
     let session_source = match ai_usage::load_cursor_session_token() {
@@ -171,7 +170,9 @@ async fn fetch_and_cache_csv(
 
     let status = response.status();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
-        return Err("Cursor session token expired or invalid. Please update your token.".to_string());
+        return Err(
+            "Cursor session token expired or invalid. Please update your token.".to_string(),
+        );
     }
     if !status.is_success() {
         return Err(format!("Cursor CSV API returned {status}"));
@@ -201,8 +202,7 @@ async fn fetch_and_cache_csv(
 
 fn merge_csv_to_cache(fetched_csv: &str, cache_path: &PathBuf) -> Result<bool, String> {
     if let Some(parent) = cache_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create cache directory: {e}"))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create cache directory: {e}"))?;
     }
 
     let existing_csv = fs::read_to_string(cache_path).ok();
@@ -269,7 +269,10 @@ fn load_provider_metadata(path: &PathBuf) -> ProviderMetadataFile {
     serde_json::from_str::<ProviderMetadataFile>(&contents).unwrap_or_default()
 }
 
-fn persist_provider_metadata(path: &PathBuf, metadata: &ProviderMetadataFile) -> Result<(), String> {
+fn persist_provider_metadata(
+    path: &PathBuf,
+    metadata: &ProviderMetadataFile,
+) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create metadata directory: {e}"))?;

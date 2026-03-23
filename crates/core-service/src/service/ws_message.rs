@@ -29,20 +29,19 @@ use infra::{
     GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
-    GithubPrReopenRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest,
-    ProjectCreateRequest, ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
-    SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
-    UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
-    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
-    UsageProviderSwitchRequest, WorkspaceArchiveRequest,
-    WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest,
-    WorkspaceListRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
-    WorkspaceDeleteProgressNotification, WorkspaceSetupContextNotification,
-    WorkspaceSetupProgressNotification,
-    WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
-    WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest,
-    WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
+    GithubPrReopenRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
+    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
+    ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
+    ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest, SkillsGetRequest,
+    SkillsSetEnabledRequest, SyncSingleSystemSkillRequest, UsageAddProviderApiKeyRequest,
+    UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest, UsageDeleteProviderApiKeyRequest,
+    UsageOverviewRequest, UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
+    WorkspaceArchiveRequest, WorkspaceConfirmTodosRequest, WorkspaceCreateRequest,
+    WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest, WorkspaceListRequest,
+    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
+    WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest,
+    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
 };
 use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
@@ -54,7 +53,7 @@ use tokio::sync::OnceCell;
 
 use crate::error::{Result, ServiceError};
 use crate::service::git_commit_message::GitCommitMessageGenerator;
-use crate::{AgentService, ProjectService, WorkspaceService};
+use crate::{AgentService, ProjectService, TerminalService, WorkspaceService};
 
 /// WebSocket message service for handling all business logic via WebSocket.
 pub struct WsMessageService {
@@ -64,6 +63,7 @@ pub struct WsMessageService {
     github_engine: core_engine::GithubEngine,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
+    terminal_service: Arc<TerminalService>,
     agent_service: Arc<AgentService>,
     usage_service: Arc<UsageService>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
@@ -127,8 +127,7 @@ impl WsMessageService {
         manager: &Arc<infra::WsManager>,
         payload: WorkspaceDeleteProgressNotification,
     ) {
-        let message =
-            WsMessage::notification(WsEvent::WorkspaceDeleteProgress, json!(payload));
+        let message = WsMessage::notification(WsEvent::WorkspaceDeleteProgress, json!(payload));
         let _ = manager.broadcast(&message).await;
     }
 
@@ -251,6 +250,7 @@ impl WsMessageService {
     pub fn new(
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
+        terminal_service: Arc<TerminalService>,
         agent_service: Arc<AgentService>,
         usage_service: Arc<UsageService>,
     ) -> Self {
@@ -261,6 +261,7 @@ impl WsMessageService {
             github_engine: core_engine::GithubEngine::new(),
             project_service,
             workspace_service,
+            terminal_service,
             agent_service,
             usage_service,
             ws_manager: OnceCell::new(),
@@ -1438,6 +1439,11 @@ impl WsMessageService {
 
     async fn handle_workspace_delete(&self, req: WorkspaceDeleteRequest) -> Result<Value> {
         let guid = req.guid;
+        let tmux_session = self
+            .workspace_service
+            .resolve_tmux_session_name(&guid, &self.terminal_service.tmux_engine())
+            .await
+            .ok();
 
         // Get cleanup info before soft-deleting
         let cleanup_info = self
@@ -1447,6 +1453,12 @@ impl WsMessageService {
 
         // Soft delete from database first (instant)
         self.workspace_service.soft_delete_workspace(&guid).await?;
+
+        if let Some(session_name) = tmux_session {
+            self.terminal_service
+                .cleanup_workspace_terminal_state(&guid, &session_name)
+                .await;
+        }
 
         // Spawn background task for worktree cleanup with progress notifications
         if let Some(manager) = self.ws_manager.get().cloned() {
@@ -1830,7 +1842,10 @@ impl WsMessageService {
                     )
                     .await;
 
-                    if let Err(error) = workspace_service.ensure_worktree_ready(workspace_id.clone()).await {
+                    if let Err(error) = workspace_service
+                        .ensure_worktree_ready(workspace_id.clone())
+                        .await
+                    {
                         Self::send_setup_failure(
                             &manager,
                             &conn_id,
@@ -1884,7 +1899,10 @@ impl WsMessageService {
                             &plan,
                             step,
                             "Requirement Initialization Failed",
-                            format!("\r\n\x1b[31mError writing requirement: {}\x1b[0m\r\n", error),
+                            format!(
+                                "\r\n\x1b[31mError writing requirement: {}\x1b[0m\r\n",
+                                error
+                            ),
                             true,
                         )
                         .await;
@@ -1928,7 +1946,8 @@ impl WsMessageService {
                     .await;
 
                     let mut streamed_markdown = String::new();
-                    let mut rx = match workspace_service.stream_workspace_issue_todos(&issue).await {
+                    let mut rx = match workspace_service.stream_workspace_issue_todos(&issue).await
+                    {
                         Ok(rx) => rx,
                         Err(error) => {
                             Self::send_setup_failure(
@@ -3270,9 +3289,11 @@ set -x
             response_format: ResponseFormat::Text,
         };
 
-        let mut rx = generate_text_stream(&resolved, request).await.map_err(|e| {
-            ServiceError::Validation(format!("Failed to start provider test stream: {e}"))
-        })?;
+        let mut rx = generate_text_stream(&resolved, request)
+            .await
+            .map_err(|e| {
+                ServiceError::Validation(format!("Failed to start provider test stream: {e}"))
+            })?;
 
         let ws_manager = self.ws_manager.get().cloned();
         let mut full_text = String::new();

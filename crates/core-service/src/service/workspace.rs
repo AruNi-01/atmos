@@ -1,6 +1,6 @@
 use crate::error::{Result, ServiceError};
 use crate::utils::workspace_name_generator;
-use core_engine::{FsEngine, GitEngine};
+use core_engine::{FsEngine, GitEngine, TmuxEngine};
 use infra::db::entities::workspace;
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use infra::GithubIssuePayload;
@@ -229,8 +229,7 @@ impl WorkspaceService {
 
             candidate
         } else {
-            let mut final_name =
-                Self::with_project_scope(&project_scope, initial_handle.as_str());
+            let mut final_name = Self::with_project_scope(&project_scope, initial_handle.as_str());
             let mut attempt = 0;
             const MAX_ATTEMPTS: u32 = 50;
 
@@ -781,6 +780,26 @@ impl WorkspaceService {
             }
         }
         Ok(None)
+    }
+
+    /// Resolve the tmux session name used for a workspace.
+    ///
+    /// This prefers the human-readable `{project}_{workspace}` naming scheme and
+    /// falls back to the legacy workspace-id-based session name when lookup fails.
+    pub async fn resolve_tmux_session_name(
+        &self,
+        guid: &str,
+        tmux_engine: &TmuxEngine,
+    ) -> Result<String> {
+        let workspace_repo = WorkspaceRepo::new(&self.db);
+        if let Some(workspace) = workspace_repo.find_by_guid(guid).await? {
+            let project_repo = ProjectRepo::new(&self.db);
+            if let Some(project) = project_repo.find_by_guid(&workspace.project_guid).await? {
+                return Ok(tmux_engine.get_session_name_from_names(&project.name, &workspace.name));
+            }
+        }
+
+        Ok(tmux_engine.get_session_name(guid))
     }
 
     /// 删除工作区（软删除 + 后台清理 worktree）

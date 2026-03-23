@@ -122,17 +122,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_service_for_startup = Arc::clone(&agent_service);
     let usage_service = Arc::new(UsageService::default());
     let token_usage_service = Arc::new(TokenUsageService::default());
+    let terminal_service = Arc::new(TerminalService::new());
 
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
         Arc::clone(&project_service),
         Arc::clone(&workspace_service),
+        Arc::clone(&terminal_service),
         Arc::clone(&agent_service),
         Arc::clone(&usage_service),
     ));
-
-    // Terminal service for PTY management
-    let terminal_service = Arc::new(TerminalService::new());
 
     // CRITICAL: Clean up stale tmux client sessions from previous crashes/hot-reloads.
     // During development with hot-reload, the process may be killed before cleanup.

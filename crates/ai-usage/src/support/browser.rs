@@ -157,7 +157,10 @@ pub(crate) fn load_zai_browser_cookie_source() -> Result<Option<BrowserCookieSou
 
 pub(crate) fn load_zed_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
 {
-    load_browser_cookie_source(&["zed.dev", "cloud.zed.dev", "dashboard.zed.dev"], &["zed.session"])
+    load_browser_cookie_source(
+        &["zed.dev", "cloud.zed.dev", "dashboard.zed.dev"],
+        &["zed.session"],
+    )
 }
 
 pub(crate) fn load_workos_browser_cookie_source(

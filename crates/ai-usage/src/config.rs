@@ -76,7 +76,11 @@ pub(crate) fn provider_config_api_keys(provider_id: &str) -> Vec<NamedApiKey> {
         return entry.keys;
     }
     // Migrate legacy single-key entry
-    if let Some(api_key) = entry.api_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()) {
+    if let Some(api_key) = entry
+        .api_key
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty())
+    {
         return vec![NamedApiKey {
             id: derive_key_id(provider_id, &api_key),
             region: entry.region,
@@ -182,7 +186,12 @@ pub(crate) fn add_provider_api_key(
 
     // Migrate legacy key if needed
     if entry.keys.is_empty() {
-        if let Some(legacy_key) = entry.api_key.take().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()) {
+        if let Some(legacy_key) = entry
+            .api_key
+            .take()
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty())
+        {
             let legacy_id = derive_key_id(provider_id, &legacy_key);
             let legacy_region = entry.region.take();
             entry.keys.push(NamedApiKey {
@@ -219,7 +228,12 @@ pub(crate) fn delete_provider_api_key(provider_id: &str, key_id: &str) {
 
     // Migrate legacy key first so we can match by ID
     if entry.keys.is_empty() {
-        if let Some(legacy_key) = entry.api_key.take().map(|k| k.trim().to_string()).filter(|k| !k.is_empty()) {
+        if let Some(legacy_key) = entry
+            .api_key
+            .take()
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty())
+        {
             let legacy_id = derive_key_id(provider_id, &legacy_key);
             let legacy_region = entry.region.take();
             entry.keys.push(NamedApiKey {

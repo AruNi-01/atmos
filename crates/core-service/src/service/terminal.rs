@@ -1011,13 +1011,7 @@ impl TerminalService {
                 let target = format!("{}:{}.0", tmux_session, window_index);
                 return self
                     .tmux_engine
-                    .run_tmux_pub(&[
-                        "display-message",
-                        "-t",
-                        &target,
-                        "-p",
-                        "#{alternate_on}",
-                    ])
+                    .run_tmux_pub(&["display-message", "-t", &target, "-p", "#{alternate_on}"])
                     .map(|r| r.trim() == "1")
                     .unwrap_or(false);
             }
@@ -1311,6 +1305,56 @@ impl TerminalService {
             Err(e) => {
                 warn!("Failed to list tmux sessions for cleanup: {}", e);
             }
+        }
+    }
+
+    /// Clean up all terminal state associated with a workspace being deleted.
+    ///
+    /// This detaches live grouped client sessions, removes their PTY handles from
+    /// memory, then kills the workspace's backing tmux session.
+    pub async fn cleanup_workspace_terminal_state(&self, workspace_id: &str, tmux_session: &str) {
+        let matching_handles = {
+            let mut sessions = self.sessions.lock().await;
+            let matching_ids: Vec<String> = sessions
+                .iter()
+                .filter(|(_, handle)| {
+                    handle.workspace_id == workspace_id
+                        || handle.tmux_session.as_deref() == Some(tmux_session)
+                })
+                .map(|(session_id, _)| session_id.clone())
+                .collect();
+
+            matching_ids
+                .into_iter()
+                .filter_map(|session_id| {
+                    sessions
+                        .remove(&session_id)
+                        .map(|handle| (session_id, handle))
+                })
+                .collect::<Vec<_>>()
+        };
+
+        if !matching_handles.is_empty() {
+            let sock = std::path::PathBuf::from(self.tmux_engine.socket_file_path());
+            for (session_id, handle) in &matching_handles {
+                let _ = handle.command_tx.send(SessionCommand::Close {
+                    client_session: handle.client_session.clone(),
+                    socket_path: Some(sock.clone()),
+                });
+                debug!(
+                    "Sent workspace cleanup signal to terminal session: {}",
+                    session_id
+                );
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+
+        if let Err(error) = self.tmux_engine.kill_session(tmux_session) {
+            warn!(
+                "Failed to kill tmux session {} during workspace cleanup: {}",
+                tmux_session, error
+            );
         }
     }
 }

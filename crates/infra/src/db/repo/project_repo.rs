@@ -189,9 +189,7 @@ impl<'a> ProjectRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom(
-                "Project not found".into(),
-            ));
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
         }
         Ok(())
     }
@@ -206,9 +204,16 @@ impl<'a> ProjectRepo<'a> {
     }
 
     /// 更新项目最大化终端 ID
-    pub async fn update_maximized_terminal_id(&self, guid: &str, terminal_id: Option<String>) -> Result<()> {
+    pub async fn update_maximized_terminal_id(
+        &self,
+        guid: &str,
+        terminal_id: Option<String>,
+    ) -> Result<()> {
         let result = project::Entity::update_many()
-            .col_expr(project::Column::MaximizedTerminalId, Expr::value(terminal_id))
+            .col_expr(
+                project::Column::MaximizedTerminalId,
+                Expr::value(terminal_id),
+            )
             .col_expr(
                 project::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
@@ -218,9 +223,7 @@ impl<'a> ProjectRepo<'a> {
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom(
-                "Project not found".into(),
-            ));
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
         }
         Ok(())
     }

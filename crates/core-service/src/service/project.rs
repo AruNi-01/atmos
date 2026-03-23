@@ -42,7 +42,13 @@ impl ProjectService {
             .get_default_branch(std::path::Path::new(&main_file_path))
             .unwrap_or(None);
         Ok(repo
-            .create(name, main_file_path, sidebar_order, border_color, default_branch)
+            .create(
+                name,
+                main_file_path,
+                sidebar_order,
+                border_color,
+                default_branch,
+            )
             .await?)
     }
 
@@ -147,8 +153,14 @@ impl ProjectService {
     }
 
     /// Update project maximized terminal ID
-    pub async fn update_maximized_terminal_id(&self, guid: String, terminal_id: Option<String>) -> Result<()> {
+    pub async fn update_maximized_terminal_id(
+        &self,
+        guid: String,
+        terminal_id: Option<String>,
+    ) -> Result<()> {
         let repo = ProjectRepo::new(&self.db);
-        Ok(repo.update_maximized_terminal_id(&guid, terminal_id).await?)
+        Ok(repo
+            .update_maximized_terminal_id(&guid, terminal_id)
+            .await?)
     }
 }

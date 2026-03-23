@@ -96,24 +96,14 @@ pub async fn list_tmux_sessions(
 /// Resolve workspace_id to tmux session name. Tries workspace lookup (for name-based sessions)
 /// then falls back to workspace_id-based session name.
 async fn resolve_session_name(state: &AppState, workspace_id: &str) -> Option<String> {
-    if let Ok(Some(ws)) = state
+    if let Ok(session_name) = state
         .workspace_service
-        .get_workspace(workspace_id.to_string())
+        .resolve_tmux_session_name(workspace_id, &state.terminal_service.tmux_engine())
         .await
     {
-        if let Ok(Some(proj)) = state
-            .project_service
-            .get_project(ws.model.project_guid.clone())
-            .await
-        {
-            return Some(
-                state
-                    .terminal_service
-                    .tmux_engine()
-                    .get_session_name_from_names(&proj.name, &ws.model.name),
-            );
-        }
+        return Some(session_name);
     }
+
     if let Ok(Some(proj)) = state
         .project_service
         .get_project(workspace_id.to_string())

@@ -5,7 +5,9 @@ use axum::{
 use infra::db::entities::project;
 use serde::Deserialize;
 
-use crate::api::dto::{ApiResponse, GitValidationResponse, MessageResponse, TerminalLayoutResponse};
+use crate::api::dto::{
+    ApiResponse, GitValidationResponse, MessageResponse, TerminalLayoutResponse,
+};
 use crate::{app_state::AppState, error::ApiResult};
 
 #[derive(Deserialize)]
@@ -154,4 +156,3 @@ pub async fn update_maximized_terminal_id(
         message: "Maximized terminal ID updated",
     })))
 }
-

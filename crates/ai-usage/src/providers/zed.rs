@@ -160,9 +160,7 @@ pub(crate) async fn fetch_zed_live(client: &Client) -> Result<LiveFetchResult, P
         let cap_str = cap_dollars
             .map(|c| format!(" / ${:.2}", c))
             .unwrap_or_default();
-        let pct_str = percent
-            .map(|p| format!(" ({:.0}%)", p))
-            .unwrap_or_default();
+        let pct_str = percent.map(|p| format!(" ({:.0}%)", p)).unwrap_or_default();
         usage_rows.push(DetailRow {
             label: "Token spend".to_string(),
             value: format!("${:.2}{}{}", used, cap_str, pct_str),

@@ -2,7 +2,9 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::env;
 
-use crate::config::{provider_config_api_keys, provider_config_region, update_provider_api_key_region};
+use crate::config::{
+    provider_config_api_keys, provider_config_region, update_provider_api_key_region,
+};
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
@@ -151,11 +153,22 @@ pub(crate) async fn fetch_minimax_live(client: &Client) -> Result<LiveFetchResul
             let key_regions = regions_for_key(named_key.region.as_deref());
             let auto_detect = key_regions.len() > 1;
             for region in key_regions {
-                match fetch_region(client, Some(&named_key.api_key), browser_source.as_ref(), region).await {
+                match fetch_region(
+                    client,
+                    Some(&named_key.api_key),
+                    browser_source.as_ref(),
+                    region,
+                )
+                .await
+                {
                     Ok(Some(snapshot)) => {
                         if auto_detect {
                             // Write back the detected region so "auto" is resolved once
-                            update_provider_api_key_region("minimax", &named_key.id, region.label().to_lowercase().as_str());
+                            update_provider_api_key_region(
+                                "minimax",
+                                &named_key.id,
+                                region.label().to_lowercase().as_str(),
+                            );
                         }
                         snapshots.push(snapshot);
                         if auto_detect {

@@ -109,7 +109,24 @@ pub async fn delete_workspace(
     State(state): State<AppState>,
     Path(guid): Path<String>,
 ) -> ApiResult<Json<ApiResponse<MessageResponse>>> {
-    state.workspace_service.delete_workspace(guid).await?;
+    let tmux_session = state
+        .workspace_service
+        .resolve_tmux_session_name(&guid, &state.terminal_service.tmux_engine())
+        .await
+        .ok();
+
+    state
+        .workspace_service
+        .delete_workspace(guid.clone())
+        .await?;
+
+    if let Some(session_name) = tmux_session {
+        state
+            .terminal_service
+            .cleanup_workspace_terminal_state(&guid, &session_name)
+            .await;
+    }
+
     Ok(Json(ApiResponse::success(MessageResponse {
         message: "Workspace deleted",
     })))

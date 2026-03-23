@@ -236,7 +236,10 @@ impl GitEngine {
             repo_path,
             &["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
         )? {
-            let branch = stdout.trim().strip_prefix("origin/").unwrap_or(stdout.trim());
+            let branch = stdout
+                .trim()
+                .strip_prefix("origin/")
+                .unwrap_or(stdout.trim());
             if !branch.is_empty() {
                 return Ok(Some(branch.to_string()));
             }
@@ -261,7 +264,11 @@ impl GitEngine {
                 "--format=%(refname:short)",
             ],
         )? {
-            if let Some(branch) = stdout.lines().map(str::trim).find(|branch| !branch.is_empty()) {
+            if let Some(branch) = stdout
+                .lines()
+                .map(str::trim)
+                .find(|branch| !branch.is_empty())
+            {
                 return Ok(Some(branch.to_string()));
             }
         }

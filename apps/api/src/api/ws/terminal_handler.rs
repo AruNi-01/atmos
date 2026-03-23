@@ -521,7 +521,10 @@ async fn handle_terminal_message(
                     ClientTerminalMessage::TerminalResize { cols, rows } => {
                         if let Err(e) = terminal_service.resize(session_id, cols, rows).await {
                             error!("Failed to resize session {}: {}", session_id, e);
-                        } else if terminal_service.is_alternate_screen_active(session_id).await {
+                        } else if terminal_service
+                            .is_alternate_screen_active(session_id)
+                            .await
+                        {
                             // Full-screen TUI app is active (alternate screen buffer).
                             // With smcup@:rmcup@ disabled, tmux draws TUI content into the
                             // normal buffer. On resize, old TUI frames leak into xterm.js
