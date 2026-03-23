@@ -138,14 +138,12 @@ export type PreviewViewMode = "desktop" | "mobile";
 
 export const previewToolbarParams = {
   pvView: parseAsStringEnum<PreviewViewMode>(["desktop", "mobile"]).withDefault("desktop"),
-  pvMax: parseAsBoolean.withDefault(false),
   pvToolbar: parseAsBoolean.withDefault(false),
   pvPick: parseAsBoolean.withDefault(false),
 };
 
 export const previewUrlParams = {
   pvUrl: parseAsString.withDefault(""),
-  pvActive: parseAsString.withDefault(""),
 };
 
 // ---------------------------------------------------------------------------

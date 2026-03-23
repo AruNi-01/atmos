@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useState, useRef } from 'react';
-import { useQueryStates } from "nuqs";
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryState } from "nuqs";
 import { Preview } from './Preview';
 import { RunScript } from './RunScript';
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "@workspace/ui";
@@ -25,39 +25,25 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
   const [isRunScriptCollapsed, setIsRunScriptCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const [{ pvUrl: previewUrlParam, pvActive: activePreviewUrlParam }, setPreviewUrlParams] =
-    useQueryStates(previewUrlParams);
-  const [previewUrl, setPreviewUrl] = useState(previewUrlParam);
-  const [activePreviewUrl, setActivePreviewUrl] = useState(activePreviewUrlParam);
+  const [committedPreviewUrl, setCommittedPreviewUrl] = useQueryState("pvUrl", previewUrlParams.pvUrl);
+  const [previewUrl, setPreviewUrlDraft] = useState(committedPreviewUrl);
 
-  React.useEffect(() => {
-    setPreviewUrl((previous) => (previous === previewUrlParam ? previous : previewUrlParam));
-  }, [previewUrlParam]);
+  useEffect(() => {
+    setPreviewUrlDraft((previous) => (previous === committedPreviewUrl ? previous : committedPreviewUrl));
+  }, [committedPreviewUrl]);
 
-  React.useEffect(() => {
-    setActivePreviewUrl((previous) => (
-      previous === activePreviewUrlParam ? previous : activePreviewUrlParam
-    ));
-  }, [activePreviewUrlParam]);
+  const setPreviewUrl = useCallback((nextUrl: string) => {
+    setPreviewUrlDraft(nextUrl);
+  }, []);
 
-  React.useEffect(() => {
-    if (previewUrl === previewUrlParam && activePreviewUrl === activePreviewUrlParam) return;
-    void setPreviewUrlParams({
-      pvUrl: previewUrl,
-      pvActive: activePreviewUrl,
-    });
-  }, [
-    activePreviewUrl,
-    activePreviewUrlParam,
-    previewUrl,
-    previewUrlParam,
-    setPreviewUrlParams,
-  ]);
+  const setActivePreviewUrl = useCallback((nextUrl: string) => {
+    void setCommittedPreviewUrl(nextUrl);
+  }, [setCommittedPreviewUrl]);
 
   const handleDetectedUrl = useCallback((url: string) => {
-    setPreviewUrl(url);
-    setActivePreviewUrl(url);
-  }, []);
+    setPreviewUrlDraft(url);
+    void setCommittedPreviewUrl(url);
+  }, [setCommittedPreviewUrl]);
 
   return (
     <PanelGroup
@@ -71,7 +57,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
         <Preview
           url={previewUrl}
           setUrl={setPreviewUrl}
-          activeUrl={activePreviewUrl}
+          activeUrl={committedPreviewUrl}
           setActiveUrl={setActivePreviewUrl}
           workspaceId={workspaceId}
           projectId={projectId}

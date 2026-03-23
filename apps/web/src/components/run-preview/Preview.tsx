@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQueryStates } from "nuqs";
 import {
   ArrowLeft,
@@ -32,6 +32,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  TextShimmer,
   cn,
   toastManager,
 } from "@workspace/ui";
@@ -113,6 +114,26 @@ const canonicalizeUrl = (value: string): string => {
   }
 };
 
+const isLocalPreviewTarget = (value: string): boolean => {
+  if (!value) return false;
+
+  try {
+    const { hostname } = new URL(value);
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0" ||
+      hostname === "::1" ||
+      hostname === "[::1]" ||
+      /^127\.\d+\.\d+\.\d+$/.test(hostname) ||
+      /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
+      /^192\.168\.\d+\.\d+$/.test(hostname)
+    );
+  } catch {
+    return false;
+  }
+};
+
 const deriveFavoriteName = (title: string, url: string): string => {
   const trimmedTitle = title.trim();
   if (trimmedTitle) return trimmedTitle;
@@ -141,6 +162,8 @@ export const Preview: React.FC<PreviewProps> = ({
   const [extensionDownloadStarted, setExtensionDownloadStarted] = useState(false);
   const [isDownloadingExtension, setIsDownloadingExtension] = useState(false);
   const [isRecheckingExtension, setIsRecheckingExtension] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [toolbarWidth, setToolbarWidth] = useState(0);
   const [favoriteNameDraft, setFavoriteNameDraft] = useState("");
   const [favoriteSearch, setFavoriteSearch] = useState("");
@@ -161,74 +184,38 @@ export const Preview: React.FC<PreviewProps> = ({
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null);
   const [{
     pvView: viewModeParam,
-    pvMax: isMaximizedParam,
     pvToolbar: isToolbarHiddenParam,
     pvPick: isElementPickerEnabledParam,
   }, setPreviewToolbarParams] = useQueryStates(previewToolbarParams);
-  const [viewMode, setViewMode] = useState<ViewMode>(viewModeParam);
-  const [isMaximized, setIsMaximized] = useState(isMaximizedParam);
-  const [isToolbarHidden, setIsToolbarHidden] = useState(isToolbarHiddenParam);
-  const [isElementPickerEnabled, setIsElementPickerEnabled] = useState(isElementPickerEnabledParam);
+  const viewMode: ViewMode = viewModeParam === "mobile" ? "mobile" : "desktop";
+  const isToolbarHidden = isToolbarHiddenParam;
+  const isElementPickerEnabled = isElementPickerEnabledParam;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const previewSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const previewRootRef = useRef<HTMLDivElement | null>(null);
   const toolbarRowRef = useRef<HTMLDivElement | null>(null);
   const selectionPopoverRef = useRef<HTMLDivElement | null>(null);
   const historyIndexRef = useRef(-1);
   const skipExternalHistorySyncRef = useRef(false);
   const transportControllerRef = useRef<PreviewBridgeController | null>(null);
   const transportSessionIdRef = useRef<string | null>(null);
+  const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const isMacDesktop = useMemo(
     () => isTauriRuntime() && typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent),
     [],
   );
 
-  useEffect(() => {
-    setViewMode((previous) => (previous === viewModeParam ? previous : viewModeParam));
-  }, [viewModeParam]);
+  const setViewMode = useCallback((nextViewMode: ViewMode) => {
+    void setPreviewToolbarParams({ pvView: nextViewMode });
+  }, [setPreviewToolbarParams]);
 
-  useEffect(() => {
-    setIsMaximized((previous) => (previous === isMaximizedParam ? previous : isMaximizedParam));
-  }, [isMaximizedParam]);
+  const setIsToolbarHidden = useCallback((nextIsToolbarHidden: boolean) => {
+    void setPreviewToolbarParams({ pvToolbar: nextIsToolbarHidden });
+  }, [setPreviewToolbarParams]);
 
-  useEffect(() => {
-    setIsToolbarHidden((previous) => (
-      previous === isToolbarHiddenParam ? previous : isToolbarHiddenParam
-    ));
-  }, [isToolbarHiddenParam]);
-
-  useEffect(() => {
-    setIsElementPickerEnabled((previous) => (
-      previous === isElementPickerEnabledParam ? previous : isElementPickerEnabledParam
-    ));
-  }, [isElementPickerEnabledParam]);
-
-  useEffect(() => {
-    if (
-      viewMode === viewModeParam &&
-      isMaximized === isMaximizedParam &&
-      isToolbarHidden === isToolbarHiddenParam &&
-      isElementPickerEnabled === isElementPickerEnabledParam
-    ) {
-      return;
-    }
-
-    void setPreviewToolbarParams({
-      pvView: viewMode,
-      pvMax: isMaximized,
-      pvToolbar: isToolbarHidden,
-      pvPick: isElementPickerEnabled,
-    });
-  }, [
-    isElementPickerEnabled,
-    isElementPickerEnabledParam,
-    isMaximized,
-    isMaximizedParam,
-    isToolbarHidden,
-    isToolbarHiddenParam,
-    setPreviewToolbarParams,
-    viewMode,
-    viewModeParam,
-  ]);
+  const setIsElementPickerEnabled = useCallback((nextIsElementPickerEnabled: boolean) => {
+    void setPreviewToolbarParams({ pvPick: nextIsElementPickerEnabled });
+  }, [setPreviewToolbarParams]);
 
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
   const preferredTransportMode = useMemo<PreviewTransportMode | 'unavailable'>(() => {
@@ -239,9 +226,12 @@ export const Preview: React.FC<PreviewProps> = ({
       if (nextUrl.origin === window.location.origin) {
         return 'same-origin';
       }
-      return isTauriRuntime() ? 'desktop-native' : 'extension';
+      if (isTauriRuntime()) {
+        return 'desktop-native';
+      }
+      return isLocalPreviewTarget(normalizedActiveUrl) ? 'extension' : 'unavailable';
     } catch {
-      return isTauriRuntime() ? 'desktop-native' : 'extension';
+      return isTauriRuntime() ? 'desktop-native' : 'unavailable';
     }
   }, [normalizedActiveUrl]);
   const canGoBack = historyIndex > 0;
@@ -322,26 +312,6 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [historyIndex]);
 
   useEffect(() => {
-    if (!normalizedActiveUrl) return;
-
-    if (skipExternalHistorySyncRef.current) {
-      skipExternalHistorySyncRef.current = false;
-      return;
-    }
-
-    const currentEntry =
-      historyIndexRef.current >= 0
-        ? canonicalizeUrl(history[historyIndexRef.current] ?? "")
-        : "";
-
-    if (currentEntry === normalizedActiveUrl) {
-      return;
-    }
-
-    pushHistoryEntry(normalizedActiveUrl);
-  }, [history, normalizedActiveUrl, pushHistoryEntry]);
-
-  useEffect(() => {
     let mounted = true;
 
     const loadFavorites = async () => {
@@ -375,6 +345,15 @@ export const Preview: React.FC<PreviewProps> = ({
   useEffect(() => {
     setCurrentPageTitle("");
   }, [normalizedActiveUrl]);
+
+  useLayoutEffect(() => {
+    if (!activeUrl || preferredTransportMode === 'desktop-native') {
+      setIsPreviewLoading(false);
+      return;
+    }
+
+    setIsPreviewLoading(true);
+  }, [activeUrl, iframeKey, preferredTransportMode]);
 
   useEffect(() => {
     if (!favoritePopoverOpen) return;
@@ -824,18 +803,21 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [createPreviewSessionId, createTransportHandlers, normalizedActiveUrl, preferredTransportMode, teardownTransport]);
 
   const handleIframeLoad = useCallback(() => {
+    setIsPreviewLoading(false);
+
     if (preferredTransportMode === 'same-origin') {
       syncSameOriginPreviewAccess();
     } else {
       setCurrentPageTitle("");
     }
 
-    if (isElementPickerEnabled && preferredTransportMode !== 'desktop-native') {
-      void connectIframeTransport();
-    } else if (preferredTransportMode === 'extension') {
-      void connectIframeTransport({ enterPickMode: false });
+    if (iframeLoadResolveRef.current) {
+      const resolve = iframeLoadResolveRef.current;
+      iframeLoadResolveRef.current = null;
+      resolve();
+      return;
     }
-  }, [connectIframeTransport, isElementPickerEnabled, preferredTransportMode, syncSameOriginPreviewAccess]);
+  }, [preferredTransportMode, syncSameOriginPreviewAccess]);
 
   useEffect(() => {
     if (!normalizedActiveUrl) {
@@ -863,14 +845,35 @@ export const Preview: React.FC<PreviewProps> = ({
       teardownTransport(false);
     }
 
-    setTransportState((previous) => ({
-      ...previous,
+    setTransportState({
       mode: preferredTransportMode,
-      connected: previous.mode === preferredTransportMode ? previous.connected : false,
-      message: preferredTransportMode === 'extension' ? PREVIEW_EXTENSION_REQUIRED_MESSAGE : '',
-      capabilities: previous.mode === preferredTransportMode ? previous.capabilities : [],
-    }));
+      connected: false,
+      message:
+        preferredTransportMode === 'extension'
+          ? PREVIEW_EXTENSION_REQUIRED_MESSAGE
+          : preferredTransportMode === 'same-origin'
+            ? ''
+            : PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
+      capabilities: [],
+    });
   }, [normalizedActiveUrl, preferredTransportMode, syncDesktopPreview, teardownTransport]);
+
+  useEffect(() => {
+    if (!normalizedActiveUrl || preferredTransportMode !== 'extension') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void connectIframeTransport({
+        enterPickMode: false,
+        awaitHandshake: true,
+      });
+    }, 1_000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [connectIframeTransport, normalizedActiveUrl, preferredTransportMode]);
 
   useEffect(() => {
     if (transportControllerRef.current?.mode === 'desktop-native') return;
@@ -942,6 +945,13 @@ export const Preview: React.FC<PreviewProps> = ({
     };
   }, []);
 
+  useLayoutEffect(() => {
+    const toolbarRow = toolbarRowRef.current;
+    if (!toolbarRow) return;
+
+    setToolbarWidth(toolbarRow.getBoundingClientRect().width);
+  }, [isMaximized]);
+
   useEffect(() => () => teardownTransport(false), [teardownTransport]);
 
   const handleToggleElementPicker = useCallback(async () => {
@@ -981,14 +991,18 @@ export const Preview: React.FC<PreviewProps> = ({
     setIsElementPickerEnabled(true);
   }, [connectIframeTransport, isElementPickerEnabled, normalizedActiveUrl, preferredTransportMode, setIsElementPickerEnabled, syncDesktopPreview, teardownTransport]);
 
-  const transportModeLabel = transportState.mode === 'desktop-native'
+  const resolvedTransportMode =
+    transportState.mode === 'unavailable' && normalizedActiveUrl
+      ? preferredTransportMode
+      : transportState.mode;
+  const transportModeLabel = resolvedTransportMode === 'desktop-native'
     ? 'Desktop'
-    : transportState.mode === 'extension'
+    : resolvedTransportMode === 'extension'
       ? transportState.connected ? 'Extension' : 'Extension required'
-      : transportState.mode === 'same-origin'
+      : resolvedTransportMode === 'same-origin'
         ? 'Same-origin'
         : 'Unavailable';
-  const shouldShowExtensionInstall = transportState.mode === 'extension' && !transportState.connected;
+  const shouldShowExtensionInstall = resolvedTransportMode === 'extension' && !transportState.connected;
 
   const handleDownloadExtension = useCallback(async () => {
     if (typeof window === "undefined" || isDownloadingExtension) return;
@@ -1038,6 +1052,13 @@ export const Preview: React.FC<PreviewProps> = ({
 
     setIsRecheckingExtension(true);
     try {
+      // Reload the iframe so the extension's content script gets injected
+      // into the page (content scripts only run on page load).
+      setIframeKey((prev) => prev + 1);
+      await new Promise<void>((resolve) => {
+        iframeLoadResolveRef.current = resolve;
+      });
+
       const connected = await connectIframeTransport({
         enterPickMode: false,
         awaitHandshake: true,
@@ -1057,11 +1078,15 @@ export const Preview: React.FC<PreviewProps> = ({
 
   const elementPickerTitle = !activeUrl
     ? "Enter a URL first"
+    : preferredTransportMode === 'unavailable'
+      ? "Element picker unavailable"
     : isElementPickerEnabled
       ? "Disable element picker"
       : "Enable element picker";
   const elementPickerTooltip = !activeUrl
     ? "Enter a URL first."
+    : preferredTransportMode === 'unavailable'
+      ? "Element selection is only available for same-origin pages, local development URLs, or the desktop preview."
     : preferredTransportMode === 'desktop-native'
       ? `${isElementPickerEnabled ? "Disable" : "Enable"} element selection. Source component detection runs through the desktop native preview and supports React, Vue, Angular, and Svelte.`
       : preferredTransportMode === 'extension'
@@ -1072,11 +1097,13 @@ export const Preview: React.FC<PreviewProps> = ({
   const shouldHideToolbarNavigation = toolbarWidth > 0 && toolbarWidth < 700;
   const shouldHideToolbarExternalActions = toolbarWidth > 0 && toolbarWidth < 620;
   const shouldHideToolbarUtilityActions = toolbarWidth > 0 && toolbarWidth < 540;
+  const shouldUseCompactToolbar = toolbarWidth > 0 && toolbarWidth < 760;
   const shouldStackPreviewHomeCards = toolbarWidth > 0 && toolbarWidth < 900;
   const shouldStackPreviewHomeNotes = toolbarWidth > 0 && toolbarWidth < 760;
 
-  return (
+  const previewContent = (
     <div
+      ref={previewRootRef}
       className={cn(
         "flex flex-col overflow-hidden bg-background transition-all duration-300 ease-in-out",
         isMaximized
@@ -1103,7 +1130,7 @@ export const Preview: React.FC<PreviewProps> = ({
           <div
             className={cn(
               "flex shrink-0 items-center gap-1",
-              shouldHideToolbarViewControls && "hidden",
+              (shouldHideToolbarViewControls || shouldUseCompactToolbar) && "hidden",
             )}
           >
             <div className="flex items-center rounded-md border border-border p-0.5">
@@ -1258,7 +1285,7 @@ export const Preview: React.FC<PreviewProps> = ({
           <div
             className={cn(
               "flex shrink-0 items-center gap-0.5",
-              shouldHideToolbarNavigation && "hidden",
+              (shouldHideToolbarNavigation || shouldUseCompactToolbar) && "hidden",
             )}
           >
             <button
@@ -1380,7 +1407,7 @@ export const Preview: React.FC<PreviewProps> = ({
             </Popover>
           </div>
 
-          {shouldHideToolbarExternalActions ? null : (
+          {shouldHideToolbarExternalActions || shouldUseCompactToolbar ? null : (
             <button
               onClick={() => {
                 if (!normalizedActiveUrl) return;
@@ -1396,109 +1423,86 @@ export const Preview: React.FC<PreviewProps> = ({
             </button>
           )}
 
-          {shouldHideToolbarExternalActions ? null : (
-            <TooltipProvider delayDuration={150}>
-              <Tooltip
-                open={isElementPickerTooltipOpen}
-                onOpenChange={setIsElementPickerTooltipOpen}
-                disableHoverableContent
-              >
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <button
-                      onClick={handleToggleElementPicker}
-                      disabled={!activeUrl}
-                      className={cn(
-                        "shrink-0 rounded-sm p-1.5 transition-colors",
-                        activeUrl
-                          ? isElementPickerEnabled
-                            ? "text-blue-500 hover:bg-muted hover:text-blue-400"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                          : "cursor-not-allowed text-muted-foreground/30",
-                      )}
-                      aria-label={elementPickerTitle}
-                    >
-                      <SquareMousePointer className="size-3.5" />
-                    </button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[280px] text-xs leading-relaxed">
-                  {elementPickerTooltip}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {activeUrl ? (
-            shouldShowExtensionInstall ? (
-              <Popover open={extensionPopoverOpen} onOpenChange={setExtensionPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "hidden shrink-0 cursor-pointer items-center rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 transition-colors hover:bg-amber-500/15 dark:text-amber-300 md:flex",
-                      shouldHideToolbarStatus && "md:hidden",
-                    )}
-                  >
-                    <span className="font-medium">Extension required</span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="end"
-                  sideOffset={8}
-                  className="w-[320px] space-y-3 p-3"
-                  onOpenAutoFocus={(event) => event.preventDefault()}
-                  onPointerDownOutside={(event) => event.preventDefault()}
-                  onInteractOutside={(event) => event.preventDefault()}
-                  onEscapeKeyDown={(event) => event.preventDefault()}
+          {activeUrl && !shouldUseCompactToolbar ? (
+            <div
+              className={cn(
+                "hidden shrink-0 items-center overflow-hidden rounded-md border border-border/60 bg-background/60 md:flex",
+                shouldHideToolbarStatus && "md:hidden",
+              )}
+            >
+              <TooltipProvider delayDuration={150}>
+                <Tooltip
+                  open={isElementPickerTooltipOpen}
+                  onOpenChange={setIsElementPickerTooltipOpen}
+                  disableHoverableContent
                 >
-                  {extensionDownloadStarted ? (
-                    <div className="space-y-3">
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        The extension package has been downloaded. Pages that reject iframe embedding still need the desktop preview.
-                      </p>
-                      <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
-                        <li>Unzip <span className="font-medium text-foreground">atmos-inspector-extension.zip</span>.</li>
-                        <li>Open <span className="font-medium text-foreground">chrome://extensions</span> or <span className="font-medium text-foreground">edge://extensions</span>.</li>
-                        <li>Turn on <span className="font-medium text-foreground">Developer mode</span>.</li>
-                        <li>Click <span className="font-medium text-foreground">Load unpacked</span>.</li>
-                        <li>Select the extracted <span className="font-medium text-foreground">atmos-inspector-extension</span> folder.</li>
-                        <li>Return to Atmos and reload the target page, then start element selection again.</li>
-                      </ol>
-                      <div className="flex items-center justify-between gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setExtensionPopoverOpen(false)}
-                        >
-                          Close
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={isRecheckingExtension}
-                          onClick={() => {
-                            void handleRecheckExtension();
-                          }}
-                        >
-                          {isRecheckingExtension ? 'Rechecking…' : 'Recheck'}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop preview.
-                      </p>
-                      <div className="flex items-center justify-between gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setExtensionPopoverOpen(false)}
-                        >
-                          Close
-                        </Button>
-                        <div className="flex items-center gap-2">
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <button
+                        onClick={handleToggleElementPicker}
+                        disabled={!activeUrl || preferredTransportMode === 'unavailable'}
+                        className={cn(
+                          "flex h-6 items-center justify-center px-2 leading-none transition-colors",
+                          activeUrl && preferredTransportMode !== 'unavailable'
+                            ? isElementPickerEnabled
+                              ? "text-blue-500 hover:bg-muted hover:text-blue-400"
+                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                            : "cursor-not-allowed text-muted-foreground/30",
+                        )}
+                        aria-label={elementPickerTitle}
+                      >
+                        <SquareMousePointer className="size-3.5" />
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[280px] text-xs leading-relaxed">
+                    {elementPickerTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <div className="h-5 w-px bg-border/60" />
+
+              {shouldShowExtensionInstall ? (
+                <Popover open={extensionPopoverOpen} onOpenChange={setExtensionPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-6 items-center px-2 text-[11px] leading-none font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-300"
+                    >
+                      {transportModeLabel}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    sideOffset={8}
+                    className="w-[320px] space-y-3 p-3"
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    onPointerDownOutside={(event) => event.preventDefault()}
+                    onInteractOutside={(event) => event.preventDefault()}
+                    onEscapeKeyDown={(event) => event.preventDefault()}
+                  >
+                    {extensionDownloadStarted ? (
+                      <div className="space-y-3">
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          The extension package has been downloaded. Pages that reject iframe embedding still need the desktop preview.
+                        </p>
+                        <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
+                          <li>Unzip <span className="font-medium text-foreground">atmos-inspector-extension.zip</span>.</li>
+                          <li>Open <span className="font-medium text-foreground">chrome://extensions</span> or <span className="font-medium text-foreground">edge://extensions</span>.</li>
+                          <li>Turn on <span className="font-medium text-foreground">Developer mode</span>.</li>
+                          <li>Click <span className="font-medium text-foreground">Load unpacked</span>.</li>
+                          <li>Select the extracted <span className="font-medium text-foreground">atmos-inspector-extension</span> folder.</li>
+                          <li>Return to Atmos and reload the target page, then start element selection again.</li>
+                        </ol>
+                        <div className="flex items-center justify-between gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExtensionPopoverOpen(false)}
+                          >
+                            Close
+                          </Button>
                           <Button
                             size="sm"
                             variant="secondary"
@@ -1509,35 +1513,56 @@ export const Preview: React.FC<PreviewProps> = ({
                           >
                             {isRecheckingExtension ? 'Rechecking…' : 'Recheck'}
                           </Button>
-                          <Button
-                            size="sm"
-                            disabled={isDownloadingExtension}
-                            onClick={() => {
-                              void handleDownloadExtension();
-                            }}
-                          >
-                            {isDownloadingExtension ? 'Preparing…' : 'Install'}
-                          </Button>
                         </div>
                       </div>
-                    </>
-                  )}
-                </PopoverContent>
-              </Popover>
-            ) : (
-              <div
-                className={cn(
-                  "hidden shrink-0 items-center rounded-md border border-border/60 px-2 py-1 text-[11px] text-muted-foreground md:flex",
-                  shouldHideToolbarStatus && "md:hidden",
-                )}
-              >
-                <span className="font-medium text-foreground/80">Mode:</span>
-                <span className="ml-1">{transportModeLabel}</span>
-              </div>
-            )
+                    ) : (
+                      <>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop preview.
+                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExtensionPopoverOpen(false)}
+                          >
+                            Close
+                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={isRecheckingExtension}
+                              onClick={() => {
+                                void handleRecheckExtension();
+                              }}
+                            >
+                              {isRecheckingExtension ? 'Rechecking…' : 'Recheck'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={isDownloadingExtension}
+                              onClick={() => {
+                                void handleDownloadExtension();
+                              }}
+                            >
+                              {isDownloadingExtension ? 'Preparing…' : 'Install'}
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div className="flex h-6 items-center px-2 text-[11px] leading-none font-medium text-muted-foreground">
+                  {transportModeLabel}
+                </div>
+              )}
+            </div>
           ) : null}
 
-          {shouldHideToolbarUtilityActions ? null : (
+          {shouldHideToolbarUtilityActions || shouldUseCompactToolbar ? null : (
             <button
               onClick={() => setIsToolbarHidden(!isToolbarHidden)}
               className="shrink-0 rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -1613,21 +1638,59 @@ export const Preview: React.FC<PreviewProps> = ({
               ) : null}
             </div>
           ) : (
-            <iframe
-              key={iframeKey}
-              ref={iframeRef}
-              src={activeUrl}
-              onLoad={handleIframeLoad}
-              style={{ colorScheme: "dark" }}
-              className={cn(
-                "block h-full border-0 bg-white outline-none transition-all duration-300",
-                viewMode === "mobile" ? "w-[375px] border-x border-border shadow-sm" : "w-full",
-              )}
-              title="Preview"
-            />
+            <>
+              <iframe
+                key={iframeKey}
+                ref={iframeRef}
+                src={activeUrl}
+                onLoad={handleIframeLoad}
+                style={{ colorScheme: "dark" }}
+                className={cn(
+                  "block h-full border-0 bg-white outline-none transition-all duration-300",
+                  viewMode === "mobile" ? "w-[375px] border-x border-border shadow-sm" : "w-full",
+                )}
+                title="Preview"
+              />
+              {isPreviewLoading ? (
+                <div
+                  className={cn(
+                    "absolute inset-0 z-20 flex items-center justify-center bg-background",
+                    viewMode === "mobile" && "mx-auto w-[375px]",
+                  )}
+                >
+                  <div className="flex h-full w-full flex-col justify-center px-4 py-6 sm:px-6 sm:py-8">
+                    <div className="mx-auto w-full max-w-4xl">
+                      <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-xl bg-muted" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="h-3 w-28 rounded bg-muted" />
+                          <div className="h-2.5 w-40 max-w-full rounded bg-muted/80 sm:w-56" />
+                        </div>
+                      </div>
+                      <div className="mt-6 space-y-4">
+                        <div className="h-[28vh] min-h-32 rounded-2xl bg-muted/50" />
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="h-16 rounded-xl bg-muted/60" />
+                          <div className="h-16 rounded-xl bg-muted/40" />
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <TextShimmer
+                          as="p"
+                          duration={1.8}
+                          className="text-sm font-medium sm:text-base"
+                        >
+                          Loading preview...
+                        </TextShimmer>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </>
           )
         ) : (
-          <div className="flex h-full w-full items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
+          <div className="flex h-full w-full items-start justify-center overflow-y-auto px-4 py-8 sm:px-6 sm:py-10">
             <div className="w-full max-w-4xl">
               <div className="space-y-3">
                 <div
@@ -1706,4 +1769,6 @@ export const Preview: React.FC<PreviewProps> = ({
       </div>
     </div>
   );
+
+  return previewContent;
 };
