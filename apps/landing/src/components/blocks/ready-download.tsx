@@ -18,6 +18,7 @@ import { TextShimmer } from '@workspace/ui/components/ui/text-shimmer'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
 import { PrimaryFlowButton } from '@workspace/ui/components/ui/flow-button'
 import { Button } from '@workspace/ui/components/ui/button'
+import { Badge } from '@workspace/ui/components/ui/badge'
 
 const ReadyDownload = () => {
   const [copied, setCopied] = useState(false)
@@ -82,12 +83,11 @@ const ReadyDownload = () => {
             transition={{ duration: 0.5 }}
             className='flex max-w-3xl flex-col items-center space-y-8 text-center'
           >
-            <div className='bg-muted/50 text-foreground ring-border flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium ring-1'>
-              <span className='bg-primary/20 flex size-2 items-center justify-center rounded-full'>
-                <span className='bg-primary size-1.5 rounded-full' />
-              </span>
-              Desktop app is now available
-            </div>
+            <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
+              <Badge variant='outline' className='rounded-none'>
+                Desktop App Available
+              </Badge>
+            </MotionPreset>
 
             <h2 className='text-4xl font-semibold tracking-tight md:text-5xl lg:text-6xl'>
               Ready to elevate your Agentic workspace?

@@ -2,7 +2,7 @@ import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import HeroSection from "@/components/blocks/hero-section";
 import Portfolio from "@/components/blocks/portfolio";
-import Services from "@/components/blocks/services";
+import LatestChanges from "@/components/blocks/latest-changes";
 import Footer from "@/components/layout/footer";
 import FAQ from "@/components/blocks/faq";
 import FeatureShowcase from "@/components/blocks/feature-showcase";
@@ -69,7 +69,7 @@ function LandingContent() {
       <main className='relative flex flex-col overflow-x-clip *:scroll-mt-15.5'>
         <HeroSection />
         <FeatureShowcase />
-        <Services />
+        <LatestChanges />
         <FAQ faqItems={faqItems} />
         <ReadyDownload />
       </main>
