@@ -132,13 +132,14 @@
     };
   }
 
-  function createPreviewOverlay(doc) {
+  function createPreviewOverlay(win, doc, options) {
     const root = doc.createElement('div');
     root.dataset.atmosPreviewOverlay = 'true';
     root.style.position = 'fixed';
     root.style.inset = '0';
     root.style.pointerEvents = 'none';
     root.style.zIndex = '2147483646';
+    root.style.cursor = 'inherit';
     doc.documentElement.appendChild(root);
 
     function createBox(color) {
@@ -150,6 +151,7 @@
       box.style.pointerEvents = 'none';
       box.style.display = 'none';
       box.style.boxSizing = 'border-box';
+      box.style.cursor = 'inherit';
       root.appendChild(box);
       return box;
     }
@@ -170,6 +172,7 @@
       label.style.whiteSpace = 'nowrap';
       label.style.overflow = 'hidden';
       label.style.textOverflow = 'ellipsis';
+      label.style.cursor = 'inherit';
       root.appendChild(label);
       return label;
     }
@@ -178,6 +181,77 @@
     const lockedBox = createBox('#f97316');
     const hoverLabel = createLabel();
     const lockedLabel = createLabel();
+    const toolbar = doc.createElement('div');
+    toolbar.style.position = 'fixed';
+    toolbar.style.display = 'none';
+    toolbar.style.alignItems = 'center';
+    toolbar.style.gap = '6px';
+    toolbar.style.padding = '6px';
+    toolbar.style.borderRadius = '12px';
+    toolbar.style.border = '1px solid rgba(148, 163, 184, 0.22)';
+    toolbar.style.background = 'rgba(15, 23, 42, 0.96)';
+    toolbar.style.boxShadow = '0 16px 40px rgba(15, 23, 42, 0.35)';
+    toolbar.style.pointerEvents = 'auto';
+    toolbar.style.zIndex = '2147483647';
+    toolbar.style.backdropFilter = 'blur(10px)';
+    root.appendChild(toolbar);
+
+    function createToolbarButton(label) {
+      const button = doc.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.style.height = '28px';
+      button.style.padding = '0 10px';
+      button.style.borderRadius = '8px';
+      button.style.border = '1px solid rgba(148, 163, 184, 0.22)';
+      button.style.background = 'rgba(30, 41, 59, 0.96)';
+      button.style.color = '#f8fafc';
+      button.style.fontSize = '12px';
+      button.style.fontWeight = '600';
+      button.style.fontFamily = 'ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif';
+      button.style.cursor = 'pointer';
+      button.style.pointerEvents = 'auto';
+      button.addEventListener('mouseenter', function () {
+        button.style.background = 'rgba(51, 65, 85, 0.98)';
+      });
+      button.addEventListener('mouseleave', function () {
+        button.style.background = 'rgba(30, 41, 59, 0.96)';
+      });
+      button.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }, true);
+      button.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }, true);
+      toolbar.appendChild(button);
+      return button;
+    }
+
+    const cancelButton = createToolbarButton('Cancel');
+    const copyButton = createToolbarButton('Copy for AI');
+
+    function placeToolbar(rect) {
+      if (!options || !options.showSelectionToolbar) {
+        toolbar.style.display = 'none';
+        return;
+      }
+
+      var estimatedWidth = 168;
+      var estimatedHeight = 40;
+      var rawX = rect.x + Math.min(rect.width, 220) / 2 - estimatedWidth / 2;
+      var belowY = rect.y + rect.height + 12;
+      var aboveY = rect.y - estimatedHeight - 12;
+      var top = belowY + estimatedHeight <= win.innerHeight - 8
+        ? belowY
+        : Math.max(8, aboveY);
+      var left = Math.max(8, Math.min(rawX, Math.max(8, win.innerWidth - estimatedWidth - 8)));
+
+      toolbar.style.left = left + 'px';
+      toolbar.style.top = top + 'px';
+      toolbar.style.display = 'flex';
+    }
 
     function place(box, label, rect, text) {
       box.style.display = 'block';
@@ -192,6 +266,14 @@
     }
 
     return {
+      setCursor(cursor) {
+        var nextCursor = cursor || 'default';
+        root.style.cursor = nextCursor;
+        hoverBox.style.cursor = nextCursor;
+        lockedBox.style.cursor = nextCursor;
+        hoverLabel.style.cursor = nextCursor;
+        lockedLabel.style.cursor = nextCursor;
+      },
       updateHover(rect, label) {
         place(hoverBox, hoverLabel, rect, label);
       },
@@ -201,10 +283,18 @@
       },
       lock(rect, label) {
         place(lockedBox, lockedLabel, rect, label);
+        placeToolbar(rect);
       },
       clearLocked() {
         lockedBox.style.display = 'none';
         lockedLabel.style.display = 'none';
+        toolbar.style.display = 'none';
+      },
+      onCancel(handler) {
+        cancelButton.onclick = handler;
+      },
+      onCopy(handler) {
+        copyButton.onclick = handler;
       },
       destroy() {
         root.remove();
@@ -683,7 +773,9 @@
   function createRuntime(config) {
     var win = config.win || window;
     var doc = win.document;
-    var overlay = createPreviewOverlay(doc);
+    var overlay = createPreviewOverlay(win, doc, {
+      showSelectionToolbar: !!config.showSelectionToolbar,
+    });
     var state = {
       enabled: false,
       hovered: null,
@@ -726,6 +818,7 @@
       state.locked = null;
       overlay.clearLocked();
       overlay.clearHover();
+      overlay.setCursor('default');
       if (notifyHost) {
         emit({ type: 'atmos-preview:cleared' });
       } else {
@@ -758,10 +851,16 @@
       var target = event.target;
       if (!(target instanceof Element) || isIgnoredElement(target)) {
         overlay.clearHover();
+        overlay.setCursor('default');
         state.hovered = null;
         return;
       }
       state.hovered = target;
+      var computedCursor = '';
+      try {
+        computedCursor = win.getComputedStyle(target).cursor || '';
+      } catch (_) {}
+      overlay.setCursor(computedCursor);
       var rect = getPreviewElementRect(target);
       overlay.updateHover(rect, buildElementSelector(target));
     }
@@ -782,9 +881,40 @@
       clearSelection(true);
     }
 
+    function syncLockedOverlay() {
+      if (!state.locked) return;
+      if (!doc.contains(state.locked)) {
+        clearSelection(true);
+        return;
+      }
+      var rect = getPreviewElementRect(state.locked);
+      overlay.lock(rect, buildElementSelector(state.locked));
+    }
+
     doc.addEventListener('mousemove', handleMouseMove, true);
     doc.addEventListener('click', handleClick, true);
     win.addEventListener('keydown', handleKeyDown, true);
+    win.addEventListener('scroll', syncLockedOverlay, true);
+    win.addEventListener('resize', syncLockedOverlay, true);
+
+    overlay.onCancel(function (event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      clearSelection(true);
+    });
+    overlay.onCopy(function (event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (!state.locked) return;
+      emit({
+        type: 'atmos-preview:toolbar-action',
+        action: 'copy',
+      });
+    });
 
     var lastKnownPath = win.location.pathname + win.location.hash;
     var lastKnownTitle = getPageTitle();
@@ -855,12 +985,15 @@
         state.hovered = null;
         overlay.clearLocked();
         overlay.clearHover();
+        overlay.setCursor('default');
       },
       destroy: function () {
         state.enabled = false;
         doc.removeEventListener('mousemove', handleMouseMove, true);
         doc.removeEventListener('click', handleClick, true);
         win.removeEventListener('keydown', handleKeyDown, true);
+        win.removeEventListener('scroll', syncLockedOverlay, true);
+        win.removeEventListener('resize', syncLockedOverlay, true);
         win.removeEventListener('popstate', handlePopState);
         if (titleObserver) {
           titleObserver.disconnect();

@@ -7,6 +7,7 @@ interface PreviewBridgeEventPayload {
   sessionId: string;
   pageUrl: string;
   pageTitle?: string;
+  action?: 'copy';
   capabilities?: string[];
   rect?: {
     x: number;
@@ -58,11 +59,11 @@ export async function listenDesktopPreviewBridge(
   return unlisten;
 }
 
-export function getPreviewViewportBounds(element: HTMLElement): PreviewTransportViewport {
+export async function getPreviewViewportBounds(element: HTMLElement): Promise<PreviewTransportViewport> {
   const rect = element.getBoundingClientRect();
   return {
-    x: Math.round(window.screenX + rect.left),
-    y: Math.round(window.screenY + rect.top),
+    x: Math.round(rect.left),
+    y: Math.round(rect.top),
     width: Math.round(rect.width),
     height: Math.round(rect.height),
   };

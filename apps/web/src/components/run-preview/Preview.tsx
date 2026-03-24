@@ -42,7 +42,7 @@ import { functionSettingsApi } from "@/api/ws-api";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/lib/nuqs/searchParams";
 import { SelectionPopover } from "@/components/selection/SelectionPopover";
-import type { SelectionInfo } from "@/lib/format-selection-for-ai";
+import { formatPreviewSelectionForAI, type SelectionInfo } from "@/lib/format-selection-for-ai";
 import type { PreviewHelperCapability, PreviewHelperPayload } from "./preview-helper/types";
 import type {
   PreviewTransportMode,
@@ -238,6 +238,8 @@ export const Preview: React.FC<PreviewProps> = ({
   const iframeUrlWatcherCleanupRef = useRef<(() => void) | null>(null);
   const transportControllerRef = useRef<PreviewBridgeController | null>(null);
   const transportSessionIdRef = useRef<string | null>(null);
+  const desktopPreviewUrlRef = useRef<string | null>(null);
+  const desktopPreviewViewportRef = useRef<string | null>(null);
   const desktopConnectingRef = useRef(false);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
@@ -476,6 +478,8 @@ export const Preview: React.FC<PreviewProps> = ({
     const activeController = transportControllerRef.current;
     transportControllerRef.current = null;
     transportSessionIdRef.current = null;
+    desktopPreviewUrlRef.current = null;
+    desktopPreviewViewportRef.current = null;
     extensionConnectingRef.current = false;
     if (activeController) {
       void Promise.resolve(activeController.destroy());
@@ -726,10 +730,34 @@ export const Preview: React.FC<PreviewProps> = ({
     };
 
     setSelectionInfo(nextSelectionInfo);
-    setSelectionPopoverPosition(getPopoverPositionFromRect(payload.rect));
-    setSelectionPopoverVisible(true);
+    if (mode === 'desktop-native') {
+      setSelectionPopoverVisible(false);
+    } else {
+      setSelectionPopoverPosition(getPopoverPositionFromRect(payload.rect));
+      setSelectionPopoverVisible(true);
+    }
     setSelectionPopoverExpanded(false);
   }, [getPopoverPositionFromRect]);
+
+  const handleDesktopToolbarCopy = useCallback(async () => {
+    if (!selectionInfo || selectionInfo.transportMode !== 'desktop-native') return;
+
+    try {
+      await navigator.clipboard.writeText(formatPreviewSelectionForAI(selectionInfo));
+      toastManager.add({
+        title: 'Copied',
+        description: 'Selection copied for AI',
+        type: 'success',
+      });
+      dismissSelectionPopover();
+    } catch {
+      toastManager.add({
+        title: 'Failed to copy',
+        description: 'Could not copy to clipboard',
+        type: 'error',
+      });
+    }
+  }, [dismissSelectionPopover, selectionInfo]);
 
   const createTransportHandlers = useCallback((
     mode: PreviewTransportMode,
@@ -761,6 +789,12 @@ export const Preview: React.FC<PreviewProps> = ({
       handleSelectedPayload(mode, payload);
       extraHandlers?.onSelected?.(payload);
     },
+    onToolbarAction: (action: 'copy') => {
+      if (mode === 'desktop-native' && action === 'copy') {
+        void handleDesktopToolbarCopy();
+      }
+      extraHandlers?.onToolbarAction?.(action);
+    },
     onCleared: () => {
       dismissSelectionPopover(false);
       extraHandlers?.onCleared?.();
@@ -778,6 +812,9 @@ export const Preview: React.FC<PreviewProps> = ({
       extraHandlers?.onError?.(message);
     },
     onNavigationChanged: (nextUrl: string, pageTitle?: string) => {
+      if (mode === 'desktop-native') {
+        desktopPreviewUrlRef.current = canonicalizeUrl(nextUrl);
+      }
       setUrl(nextUrl);
       setActiveUrl(nextUrl);
       if (pageTitle !== undefined) {
@@ -790,7 +827,7 @@ export const Preview: React.FC<PreviewProps> = ({
       setCurrentPageTitle(pageTitle);
       extraHandlers?.onTitleChanged?.(pageTitle);
     },
-  }), [dismissSelectionPopover, handleSelectedPayload, pushHistoryEntry, setActiveUrl, setUrl]);
+  }), [dismissSelectionPopover, handleDesktopToolbarCopy, handleSelectedPayload, pushHistoryEntry, setActiveUrl, setUrl]);
 
   const connectIframeTransport = useCallback(async (options?: {
     enterPickMode?: boolean;
@@ -896,10 +933,17 @@ export const Preview: React.FC<PreviewProps> = ({
       return;
     }
 
-    const viewport = getPreviewViewportBounds(desktopViewportRef.current);
+    const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
+    const viewportKey = JSON.stringify(viewport);
     if (transportControllerRef.current?.mode === 'desktop-native' && transportSessionIdRef.current) {
-      await transportControllerRef.current.navigate?.(normalizedActiveUrl);
-      await transportControllerRef.current.updateViewport?.(viewport);
+      if (desktopPreviewUrlRef.current !== normalizedActiveUrl) {
+        await transportControllerRef.current.navigate?.(normalizedActiveUrl);
+        desktopPreviewUrlRef.current = normalizedActiveUrl;
+      }
+      if (desktopPreviewViewportRef.current !== viewportKey) {
+        await transportControllerRef.current.updateViewport?.(viewport);
+        desktopPreviewViewportRef.current = viewportKey;
+      }
       setTransportState((previous) => ({
         ...previous,
         mode: 'desktop-native',
@@ -920,6 +964,8 @@ export const Preview: React.FC<PreviewProps> = ({
         viewport,
         ...createTransportHandlers('desktop-native'),
       });
+      desktopPreviewUrlRef.current = normalizedActiveUrl;
+      desktopPreviewViewportRef.current = viewportKey;
       setTransportState({
         mode: 'desktop-native',
         connected: true,
@@ -946,7 +992,7 @@ export const Preview: React.FC<PreviewProps> = ({
       return;
     }
     await transportControllerRef.current.show?.();
-    await transportControllerRef.current.updateViewport?.(getPreviewViewportBounds(desktopViewportRef.current));
+    await transportControllerRef.current.updateViewport?.(await getPreviewViewportBounds(desktopViewportRef.current));
   }, [normalizedActiveUrl, preferredTransportMode, syncDesktopPreview]);
 
   const hideDesktopPreview = useCallback(async () => {
@@ -1131,7 +1177,7 @@ export const Preview: React.FC<PreviewProps> = ({
 
     const syncBounds = async () => {
       if (disposed || transportControllerRef.current?.mode !== 'desktop-native' || !desktopViewportRef.current) return;
-      await transportControllerRef.current.updateViewport?.(getPreviewViewportBounds(desktopViewportRef.current));
+      await transportControllerRef.current.updateViewport?.(await getPreviewViewportBounds(desktopViewportRef.current));
     };
 
     resizeObserver = new ResizeObserver(() => {
@@ -1175,25 +1221,22 @@ export const Preview: React.FC<PreviewProps> = ({
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
+    if (preferredTransportMode !== 'desktop-native' || !isActive || !normalizedActiveUrl) return;
 
-    const handleBlur = () => {
-      if (preferredTransportMode !== 'desktop-native') return;
-      void hideDesktopPreview();
-    };
-
-    const handleFocus = () => {
-      if (preferredTransportMode !== 'desktop-native' || !isActive || !normalizedActiveUrl) return;
-      void showDesktopPreview();
-    };
-
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
+    let rafId = 0;
+    const timeoutId = window.setTimeout(() => {
+      rafId = window.requestAnimationFrame(() => {
+        void showDesktopPreview();
+      });
+    }, 320);
 
     return () => {
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
+      window.clearTimeout(timeoutId);
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
     };
-  }, [hideDesktopPreview, isActive, normalizedActiveUrl, preferredTransportMode, showDesktopPreview]);
+  }, [isActive, isMaximized, normalizedActiveUrl, preferredTransportMode, showDesktopPreview]);
 
   useEffect(() => {
     const toolbarRow = toolbarRowRef.current;
@@ -1326,6 +1369,8 @@ export const Preview: React.FC<PreviewProps> = ({
     transportState.mode === 'unavailable' && normalizedActiveUrl
       ? preferredTransportMode
       : transportState.mode;
+  const canAutoHideToolbar = resolvedTransportMode !== 'desktop-native';
+  const effectiveIsToolbarHidden = canAutoHideToolbar && isToolbarHidden;
   const transportModeLabel = resolvedTransportMode === 'desktop-native'
     ? 'Desktop'
     : resolvedTransportMode === 'extension'
@@ -1334,6 +1379,12 @@ export const Preview: React.FC<PreviewProps> = ({
         ? 'Same-origin'
         : 'Unavailable';
   const shouldShowExtensionInstall = resolvedTransportMode === 'extension' && !transportState.connected;
+
+  useEffect(() => {
+    if (!canAutoHideToolbar && isToolbarHidden) {
+      setIsToolbarHidden(false);
+    }
+  }, [canAutoHideToolbar, isToolbarHidden, setIsToolbarHidden]);
 
   const handleDownloadExtension = useCallback(async () => {
     if (typeof window === "undefined" || isDownloadingExtension) return;
@@ -1437,7 +1488,7 @@ export const Preview: React.FC<PreviewProps> = ({
         className={cn(
           "shrink-0",
           needsDesktopPreviewSafeInset && "pt-8",
-          isToolbarHidden && "group/toolbar relative z-10 h-1.5 overflow-visible",
+          effectiveIsToolbarHidden && "group/toolbar relative z-10 h-1.5 overflow-visible",
           toolbarHoverSuppressed && "pointer-events-none",
         )}
       >
@@ -1445,9 +1496,9 @@ export const Preview: React.FC<PreviewProps> = ({
           ref={toolbarRowRef}
           className={cn(
             "flex h-10 items-center gap-2 overflow-hidden bg-muted/10 px-2 transition-all duration-300 ease-in-out",
-            isToolbarHidden &&
+            effectiveIsToolbarHidden &&
               "absolute inset-x-0 top-0 z-20 -translate-y-full rounded-b-md border-b border-border/60 bg-background/92 shadow-lg backdrop-blur-md opacity-0 group-hover/toolbar:translate-y-0 group-hover/toolbar:opacity-100",
-            isToolbarHidden && needsDesktopPreviewSafeInset && "top-8",
+            effectiveIsToolbarHidden && needsDesktopPreviewSafeInset && "top-8",
           )}
         >
           <div
@@ -1972,13 +2023,13 @@ export const Preview: React.FC<PreviewProps> = ({
             </div>
           ) : null}
 
-          {shouldHideToolbarUtilityActions || shouldUseCompactToolbar ? null : (
+          {shouldHideToolbarUtilityActions || shouldUseCompactToolbar || !canAutoHideToolbar ? null : (
             <button
-              onClick={() => setIsToolbarHidden(!isToolbarHidden)}
+              onClick={() => setIsToolbarHidden(!effectiveIsToolbarHidden)}
               className="shrink-0 rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              title={isToolbarHidden ? "Show Toolbar" : "Auto-hide Toolbar"}
+              title={effectiveIsToolbarHidden ? "Show Toolbar" : "Auto-hide Toolbar"}
             >
-              {isToolbarHidden ? (
+              {effectiveIsToolbarHidden ? (
                 <PanelTopOpen className="size-3.5" />
               ) : (
                 <PanelTopClose className="size-3.5" />
@@ -2009,17 +2060,19 @@ export const Preview: React.FC<PreviewProps> = ({
           setIsElementPickerTooltipOpen(false);
         }}
       >
-        <SelectionPopover
-          isVisible={selectionPopoverVisible}
-          position={selectionPopoverPosition}
-          selectionInfo={selectionInfo}
-          isExpanded={selectionPopoverExpanded}
-          onExpand={() => setSelectionPopoverExpanded(true)}
-          onDismiss={dismissSelectionPopover}
-          type="preview"
-          popoverRef={selectionPopoverRef}
-          positioning="fixed"
-        />
+        {resolvedTransportMode !== 'desktop-native' ? (
+          <SelectionPopover
+            isVisible={selectionPopoverVisible}
+            position={selectionPopoverPosition}
+            selectionInfo={selectionInfo}
+            isExpanded={selectionPopoverExpanded}
+            onExpand={() => setSelectionPopoverExpanded(true)}
+            onDismiss={dismissSelectionPopover}
+            type="preview"
+            popoverRef={selectionPopoverRef}
+            positioning="fixed"
+          />
+        ) : null}
         {favoritesListOpen ? (
           <button
             type="button"

@@ -1,10 +1,13 @@
-use crate::state::{AppState, DesktopPreviewBridgeState};
+use crate::{
+    logging::{self, LogLevel},
+    state::{AppState, DesktopPreviewBridgeState},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::webview::PageLoadEvent;
 use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Position, Size, WebviewUrl,
-    WebviewWindow, WebviewWindowBuilder,
+    Webview, WebviewBuilder,
 };
 use tauri::Url;
 
@@ -33,6 +36,7 @@ fn desktop_bridge_script() -> String {
   if (!invoke || !window.__ATMOS_PREVIEW_RUNTIME__) return;
   const controller = window.__ATMOS_PREVIEW_RUNTIME__.createRuntime({{
     win: window,
+    showSelectionToolbar: true,
     emit(message) {{
       invoke('preview_bridge_event', {{ payload: message }}).catch(() => {{}});
     }},
@@ -96,7 +100,12 @@ fn emit_navigation_changed(app: &AppHandle, session_id: &str, url: &str) {
     );
 }
 
-fn sync_pick_mode(webview: &WebviewWindow, session_id: &str, pick_mode: bool) {
+fn log_preview(app: &AppHandle, message: impl AsRef<str>) {
+    let path = logging::app_log_path(app, "desktop.log");
+    logging::append_log_with_level(&path, LogLevel::Debug, &format!("[preview] {}", message.as_ref()));
+}
+
+fn sync_pick_mode(webview: &Webview, session_id: &str, pick_mode: bool) {
     let script = if pick_mode {
         format!(
             "window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.enterPickMode({:?});",
@@ -114,14 +123,14 @@ fn sync_pick_mode(webview: &WebviewWindow, session_id: &str, pick_mode: bool) {
     ));
 }
 
-fn apply_bounds(window: &WebviewWindow, bounds: PreviewBridgeBounds) -> Result<(), String> {
-    window
+fn apply_bounds(webview: &Webview, bounds: PreviewBridgeBounds) -> Result<(), String> {
+    webview
         .set_position(Position::Logical(LogicalPosition::new(
             bounds.x as f64,
             bounds.y as f64,
         )))
         .map_err(|error| error.to_string())?;
-    window
+    webview
         .set_size(Size::Logical(LogicalSize::new(
             bounds.width as f64,
             bounds.height as f64,
@@ -136,6 +145,13 @@ pub fn open_preview_window(
     url: &str,
     bounds: PreviewBridgeBounds,
 ) -> Result<(), String> {
+    log_preview(
+        app,
+        format!(
+            "open session={} url={} bounds=({}, {}, {}x{})",
+            session_id, url, bounds.x, bounds.y, bounds.width, bounds.height
+        ),
+    );
     update_bridge_state(
         app,
         DesktopPreviewBridgeState {
@@ -145,7 +161,8 @@ pub fn open_preview_window(
         },
     )?;
 
-    if let Some(existing) = app.get_webview_window(PREVIEW_INSPECTOR_LABEL) {
+    if let Some(existing) = app.get_webview(PREVIEW_INSPECTOR_LABEL) {
+        log_preview(app, "reusing existing preview child webview");
         apply_bounds(&existing, bounds)?;
         existing
             .navigate(url.parse::<Url>().map_err(|error| error.to_string())?)
@@ -154,47 +171,47 @@ pub fn open_preview_window(
         return Ok(());
     }
 
+    let main_window = app
+        .get_window("main")
+        .ok_or_else(|| "main window not available".to_string())?;
     let app_handle = app.clone();
-    let preview = WebviewWindowBuilder::new(
-        app,
-        PREVIEW_INSPECTOR_LABEL,
-        WebviewUrl::External(url.parse::<Url>().map_err(|error| error.to_string())?),
-    )
-    .decorations(false)
-    .shadow(false)
-    .skip_taskbar(true)
-    .always_on_top(true)
-    .focused(false)
-    .position(bounds.x as f64, bounds.y as f64)
-    .inner_size(bounds.width as f64, bounds.height as f64)
-    .initialization_script(desktop_bridge_script())
-    .on_page_load(move |webview, payload| {
-        if payload.event() != PageLoadEvent::Finished {
-            return;
-        }
+    let preview = main_window
+        .add_child(
+            WebviewBuilder::new(
+                PREVIEW_INSPECTOR_LABEL,
+                WebviewUrl::External(url.parse::<Url>().map_err(|error| error.to_string())?),
+            )
+            .initialization_script(desktop_bridge_script())
+            .on_page_load(move |webview, payload| {
+                if payload.event() != PageLoadEvent::Finished {
+                    return;
+                }
 
-        if let Some(state) = bridge_state(&app_handle) {
-            let _ = webview.eval(format!(
-                "window.__ATMOS_PREVIEW_SESSION_ID__ = {:?}; window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.announceReady({:?});",
-                state.session_id, state.session_id
-            ));
-            if state.pick_mode {
-                let _ = webview.eval(format!(
-                    "window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.enterPickMode({:?});",
-                    state.session_id
-                ));
-            }
-            emit_navigation_changed(&app_handle, &state.session_id, payload.url().as_str());
-        }
-    })
-    .build()
-    .map_err(|error| error.to_string())?;
+                if let Some(state) = bridge_state(&app_handle) {
+                    let _ = webview.eval(format!(
+                        "window.__ATMOS_PREVIEW_SESSION_ID__ = {:?}; window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.announceReady({:?});",
+                        state.session_id, state.session_id
+                    ));
+                    if state.pick_mode {
+                        let _ = webview.eval(format!(
+                            "window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.enterPickMode({:?});",
+                            state.session_id
+                        ));
+                    }
+                    emit_navigation_changed(&app_handle, &state.session_id, payload.url().as_str());
+                }
+            }),
+            Position::Logical(LogicalPosition::new(bounds.x as f64, bounds.y as f64)),
+            Size::Logical(LogicalSize::new(bounds.width as f64, bounds.height as f64)),
+        )
+        .map_err(|error| error.to_string())?;
 
     preview.show().map_err(|error| error.to_string())?;
     Ok(())
 }
 
 pub fn navigate_preview_window(app: &AppHandle, session_id: &str, url: &str) -> Result<(), String> {
+    log_preview(app, format!("navigate session={} url={}", session_id, url));
     update_bridge_state(
         app,
         DesktopPreviewBridgeState {
@@ -205,7 +222,7 @@ pub fn navigate_preview_window(app: &AppHandle, session_id: &str, url: &str) -> 
     )?;
 
     let preview = app
-        .get_webview_window(PREVIEW_INSPECTOR_LABEL)
+        .get_webview(PREVIEW_INSPECTOR_LABEL)
         .ok_or_else(|| "preview inspector window not open".to_string())?;
     preview
         .navigate(url.parse::<Url>().map_err(|error| error.to_string())?)
@@ -213,8 +230,15 @@ pub fn navigate_preview_window(app: &AppHandle, session_id: &str, url: &str) -> 
 }
 
 pub fn update_preview_bounds(app: &AppHandle, bounds: PreviewBridgeBounds) -> Result<(), String> {
+    log_preview(
+        app,
+        format!(
+            "update-bounds ({}, {}, {}x{})",
+            bounds.x, bounds.y, bounds.width, bounds.height
+        ),
+    );
     let preview = app
-        .get_webview_window(PREVIEW_INSPECTOR_LABEL)
+        .get_webview(PREVIEW_INSPECTOR_LABEL)
         .ok_or_else(|| "preview inspector window not open".to_string())?;
     apply_bounds(&preview, bounds)
 }
@@ -226,7 +250,7 @@ pub fn enter_pick_mode(app: &AppHandle, session_id: &str) -> Result<(), String> 
     update_bridge_state(app, next_state)?;
 
     let preview = app
-        .get_webview_window(PREVIEW_INSPECTOR_LABEL)
+        .get_webview(PREVIEW_INSPECTOR_LABEL)
         .ok_or_else(|| "preview inspector window not open".to_string())?;
     sync_pick_mode(&preview, session_id, true);
     Ok(())
@@ -239,7 +263,7 @@ pub fn clear_selection(app: &AppHandle, session_id: &str) -> Result<(), String> 
     update_bridge_state(app, next_state)?;
 
     let preview = app
-        .get_webview_window(PREVIEW_INSPECTOR_LABEL)
+        .get_webview(PREVIEW_INSPECTOR_LABEL)
         .ok_or_else(|| "preview inspector window not open".to_string())?;
     preview
         .eval("window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.clearSelection?.() ?? window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.exitPickMode?.();")
@@ -247,7 +271,8 @@ pub fn clear_selection(app: &AppHandle, session_id: &str) -> Result<(), String> 
 }
 
 pub fn close_preview_window(app: &AppHandle) -> Result<(), String> {
-    if let Some(preview) = app.get_webview_window(PREVIEW_INSPECTOR_LABEL) {
+    log_preview(app, "close");
+    if let Some(preview) = app.get_webview(PREVIEW_INSPECTOR_LABEL) {
         let _ = preview.eval("window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.destroy();");
         preview.close().map_err(|error| error.to_string())?;
     }
@@ -255,19 +280,24 @@ pub fn close_preview_window(app: &AppHandle) -> Result<(), String> {
 }
 
 pub fn hide_preview_window(app: &AppHandle) {
-    if let Some(preview) = app.get_webview_window(PREVIEW_INSPECTOR_LABEL) {
+    log_preview(app, "hide");
+    if let Some(preview) = app.get_webview(PREVIEW_INSPECTOR_LABEL) {
         let _ = preview.hide();
     }
 }
 
 pub fn show_preview_window(app: &AppHandle) -> Result<(), String> {
-    if let Some(preview) = app.get_webview_window(PREVIEW_INSPECTOR_LABEL) {
+    log_preview(app, "show");
+    if let Some(preview) = app.get_webview(PREVIEW_INSPECTOR_LABEL) {
         preview.show().map_err(|error| error.to_string())?;
     }
     Ok(())
 }
 
 pub fn forward_runtime_event(app: &AppHandle, payload: Value) -> Result<(), String> {
+    if let Some(event_type) = payload.get("type").and_then(|value| value.as_str()) {
+        log_preview(app, format!("runtime-event {}", event_type));
+    }
     let event_name = match payload
         .get("type")
         .and_then(|value| value.as_str())
@@ -276,6 +306,7 @@ pub fn forward_runtime_event(app: &AppHandle, payload: Value) -> Result<(), Stri
         "atmos-preview:ready" => "desktop-preview:ready",
         "atmos-preview:hover" => "desktop-preview:hover",
         "atmos-preview:selected" => "desktop-preview:selected",
+        "atmos-preview:toolbar-action" => "desktop-preview:toolbar-action",
         "atmos-preview:cleared" => "desktop-preview:cleared",
         "atmos-preview:error" => "desktop-preview:error",
         "atmos-preview:navigation-changed" => "desktop-preview:navigation-changed",

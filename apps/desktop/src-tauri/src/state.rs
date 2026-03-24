@@ -30,6 +30,7 @@ pub struct AppState {
     pub preview_bridge: Mutex<Option<DesktopPreviewBridgeState>>,
     pub window_state_path: PathBuf,
     pub splash_close_allowed: AtomicBool,
+    pub startup_failed: AtomicBool,
     pub theme_ready: AtomicBool,
     pub theme_ready_notify: Notify,
 }

@@ -74,6 +74,12 @@ export type PreviewHelperMessage =
       pageTitle: string;
     }
   | {
+      type: 'atmos-preview:toolbar-action';
+      sessionId: string;
+      pageUrl: string;
+      action: 'copy';
+    }
+  | {
       type: 'atmos-preview:pong';
       sessionId: string;
       pageUrl: string;

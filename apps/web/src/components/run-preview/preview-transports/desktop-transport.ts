@@ -32,6 +32,10 @@ export async function connectDesktopPreviewTransport(
         sourceLocation: (payload.sourceLocation as never) ?? null,
       });
     }),
+    listenDesktopPreviewBridge('desktop-preview:toolbar-action', (payload) => {
+      if (payload.sessionId !== options.sessionId || payload.action !== 'copy') return;
+      options.onToolbarAction?.(payload.action);
+    }),
     listenDesktopPreviewBridge('desktop-preview:cleared', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
       options.onCleared?.();
