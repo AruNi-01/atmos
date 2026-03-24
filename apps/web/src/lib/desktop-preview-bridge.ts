@@ -6,6 +6,7 @@ import type { PreviewTransportViewport } from '@/components/run-preview/preview-
 interface PreviewBridgeEventPayload {
   sessionId: string;
   pageUrl: string;
+  pageTitle?: string;
   capabilities?: string[];
   rect?: {
     x: number;

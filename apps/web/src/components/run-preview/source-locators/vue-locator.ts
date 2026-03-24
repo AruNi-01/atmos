@@ -103,7 +103,7 @@ function normalizeVueChain(candidates: VueComponentCandidate[]): string[] {
         ? userCandidates
         : uniqueCandidates;
 
-  return finalCandidates.slice(0, 5).map((candidate) => candidate.name);
+  return finalCandidates.slice(0, 5).map((candidate) => candidate.name).reverse();
 }
 
 function scoreVueCandidate(candidate: VueComponentCandidate): number {

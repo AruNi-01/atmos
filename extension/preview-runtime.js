@@ -1,6 +1,8 @@
 (function () {
   if (window.__ATMOS_PREVIEW_RUNTIME__) return;
 
+  var EXTENSION_VERSION = '0.1.2';
+
   function truncateText(value, limit) {
     const normalized = (value || '').replace(/\s+/g, ' ').trim();
     if (!normalized) return '';
@@ -39,12 +41,15 @@
         break;
       }
 
-      const testId =
-        current.getAttribute('data-testid') ||
-        current.getAttribute('data-test') ||
-        current.getAttribute('data-cy');
+      var testAttrNames = ['data-testid', 'data-test', 'data-cy'];
+      var testAttrName = null;
+      var testId = null;
+      for (var ti = 0; ti < testAttrNames.length; ti++) {
+        var val = current.getAttribute(testAttrNames[ti]);
+        if (val) { testAttrName = testAttrNames[ti]; testId = val; break; }
+      }
       if (testId) {
-        parts.unshift(tagName + '[data-testid="' + testId + '"]');
+        parts.unshift(tagName + '[' + testAttrName + '="' + testId + '"]');
         break;
       }
 
@@ -290,9 +295,10 @@
       })
       .filter(function (candidate) { return !isNoise(candidate.name); })
       .slice(0, 5)
-      .map(function (candidate) { return candidate.name; });
+      .map(function (candidate) { return candidate.name; })
+      .reverse();
     if (!chain.length) {
-      chain = candidates.slice(0, 5).map(function (candidate) { return candidate.name; });
+      chain = candidates.slice(0, 5).map(function (candidate) { return candidate.name; }).reverse();
     }
     var filePath = best.source && (best.source.filePath || best.source.fileName);
     var line = best.source && (best.source.lineNumber || best.source.line);
@@ -349,7 +355,7 @@
     };
   }
 
-  function locateVue(element, win) {
+  function locateVue(element) {
     var start = null;
     var current = element;
     while (current) {
@@ -426,9 +432,10 @@
       })
       .filter(function (candidate) { return !isNoise(candidate.name); })
       .slice(0, 5)
-      .map(function (candidate) { return candidate.name; });
+      .map(function (candidate) { return candidate.name; })
+      .reverse();
     if (!chain.length) {
-      chain = candidates.slice(0, 5).map(function (candidate) { return candidate.name; });
+      chain = candidates.slice(0, 5).map(function (candidate) { return candidate.name; }).reverse();
     }
     var debug = [];
     var scoreValue = 0;
@@ -517,7 +524,8 @@
         return list.findIndex(function (item) { return item.name === candidate.name; }) === index;
       })
       .slice(0, 5)
-      .map(function (candidate) { return candidate.name; });
+      .map(function (candidate) { return candidate.name; })
+      .reverse();
     var best = candidates[0];
     var rootComponents = ng.getRootComponents ? ng.getRootComponents(element) || [] : [];
     var hasDirectiveMetadata = !!(best.instance && ng.getDirectiveMetadata && ng.getDirectiveMetadata(best.instance));
@@ -553,7 +561,7 @@
     };
   }
 
-  function locateSvelte(element, win) {
+  function locateSvelte(element) {
     function getMeta(node) {
       return node && node.__svelte_meta ? node.__svelte_meta : null;
     }
@@ -588,7 +596,7 @@
     if (!candidates.length) return null;
 
     var best = candidates[0];
-    var chain = candidates.slice(0, 5).map(function (candidate) { return candidate.componentName; });
+    var chain = candidates.slice(0, 5).map(function (candidate) { return candidate.componentName; }).reverse();
     var debug = [];
     var scoreValue = 0;
     if (best.componentName) {
@@ -656,9 +664,9 @@
   }
 
   function locateSourceForElement(element, win) {
-    return locateVue(element, win) ||
+    return locateVue(element) ||
       locateAngular(element, win) ||
-      (hasSvelteMetaInDocument(win) ? locateSvelte(element, win) : null) ||
+      (hasSvelteMetaInDocument(win) ? locateSvelte(element) : null) ||
       locateReact(element) ||
       null;
   }
@@ -666,7 +674,7 @@
   function getCapabilities(win) {
     var capabilities = ['dom-inspection', 'element-selection'];
     if (locateReact(win.document.body || win.document.documentElement)) capabilities.push('source-locator:react');
-    if (locateVue(win.document.body || win.document.documentElement, win)) capabilities.push('source-locator:vue');
+    if (locateVue(win.document.body || win.document.documentElement)) capabilities.push('source-locator:vue');
     if (locateAngular(win.document.body || win.document.documentElement, win)) capabilities.push('source-locator:angular');
     if (hasSvelteMetaInDocument(win)) capabilities.push('source-locator:svelte');
     return capabilities;
@@ -691,6 +699,10 @@
       }, message));
     }
 
+    function getPageTitle() {
+      return (doc.title || '').trim();
+    }
+
     function isIgnoredElement(element) {
       if (!element || !element.closest) return true;
       if (element.closest('[data-atmos-preview-overlay="true"]')) return true;
@@ -705,6 +717,8 @@
       emit({
         type: 'atmos-preview:ready',
         capabilities: getCapabilities(win),
+        extensionVersion: EXTENSION_VERSION,
+        pageTitle: getPageTitle(),
       });
     }
 
@@ -714,6 +728,11 @@
       overlay.clearHover();
       if (notifyHost) {
         emit({ type: 'atmos-preview:cleared' });
+      } else {
+        // Host-initiated clear also disables pick mode so hover
+        // overlays do not reappear after the selection is removed.
+        state.enabled = false;
+        state.hovered = null;
       }
     }
 
@@ -767,6 +786,56 @@
     doc.addEventListener('click', handleClick, true);
     win.addEventListener('keydown', handleKeyDown, true);
 
+    var lastKnownPath = win.location.pathname + win.location.hash;
+    var lastKnownTitle = getPageTitle();
+    var originalPushState = win.history.pushState.bind(win.history);
+    var originalReplaceState = win.history.replaceState.bind(win.history);
+    var titleObserverTarget = doc.head || doc.documentElement;
+    var titleObserver = null;
+
+    function checkUrlChange() {
+      var currentPath = win.location.pathname + win.location.hash;
+      if (currentPath !== lastKnownPath) {
+        lastKnownPath = currentPath;
+        var currentUrl = win.location.href;
+        var currentTitle = getPageTitle();
+        lastKnownTitle = currentTitle;
+        emit({
+          type: 'atmos-preview:navigation-changed',
+          pageUrl: currentUrl,
+          pageTitle: currentTitle,
+        });
+      }
+    }
+
+    function handlePopState() { checkUrlChange(); }
+    win.addEventListener('popstate', handlePopState);
+    if (titleObserverTarget && typeof win.MutationObserver === 'function') {
+      titleObserver = new win.MutationObserver(function () {
+        var nextTitle = getPageTitle();
+        if (nextTitle === lastKnownTitle) return;
+        lastKnownTitle = nextTitle;
+        emit({
+          type: 'atmos-preview:title-changed',
+          pageTitle: nextTitle,
+        });
+      });
+      titleObserver.observe(titleObserverTarget, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+    }
+
+    win.history.pushState = function () {
+      originalPushState.apply(win.history, arguments);
+      checkUrlChange();
+    };
+    win.history.replaceState = function () {
+      originalReplaceState.apply(win.history, arguments);
+      checkUrlChange();
+    };
+
     return {
       announceReady: announceReady,
       enterPickMode: function (sessionId) {
@@ -775,14 +844,29 @@
         emit({
           type: 'atmos-preview:ready',
           capabilities: getCapabilities(win),
+          extensionVersion: EXTENSION_VERSION,
+          pageTitle: getPageTitle(),
         });
       },
       clearSelection: clearSelection,
+      exitPickMode: function () {
+        state.enabled = false;
+        state.locked = null;
+        state.hovered = null;
+        overlay.clearLocked();
+        overlay.clearHover();
+      },
       destroy: function () {
         state.enabled = false;
         doc.removeEventListener('mousemove', handleMouseMove, true);
         doc.removeEventListener('click', handleClick, true);
         win.removeEventListener('keydown', handleKeyDown, true);
+        win.removeEventListener('popstate', handlePopState);
+        if (titleObserver) {
+          titleObserver.disconnect();
+        }
+        win.history.pushState = originalPushState;
+        win.history.replaceState = originalReplaceState;
         overlay.destroy();
       },
     };

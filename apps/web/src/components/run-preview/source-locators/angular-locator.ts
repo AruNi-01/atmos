@@ -39,11 +39,7 @@ function getAngularComponentName(instance: unknown): string | null {
     };
   };
 
-  return (
-    typed.constructor?.ɵcmp?.type?.name ||
-    typed.constructor?.name ||
-    null
-  );
+  return typed.constructor?.ɵcmp?.type?.name || null;
 }
 
 function getAngularParentInstance(instance: unknown): unknown {
@@ -70,7 +66,8 @@ function normalizeAngularChain(candidates: AngularComponentCandidate[]): string[
   return candidates
     .filter((candidate, index) => candidates.findIndex((item) => item.name === candidate.name) === index)
     .slice(0, 5)
-    .map((candidate) => candidate.name);
+    .map((candidate) => candidate.name)
+    .reverse();
 }
 
 function evaluateAngularConfidence(

@@ -148,13 +148,14 @@ function evaluateSvelteConfidence(bestCandidate: SvelteCandidate | null, compone
 
 export const svelteSourceLocator: SourceLocatorAdapter = {
   id: 'svelte',
-  canHandle: (win) => hasSvelteMetaInDocument(win),
-  locate: (element) => {
+  canHandle: () => true,
+  locate: (element, win) => {
+    if (!hasSvelteMetaInDocument(win)) return null;
     const candidates = collectSvelteCandidates(element);
     if (candidates.length === 0) return null;
 
     const bestCandidate = candidates[0] ?? null;
-    const componentChain = candidates.slice(0, 5).map((candidate) => candidate.componentName);
+    const componentChain = candidates.slice(0, 5).map((candidate) => candidate.componentName).reverse();
     const confidenceEvaluation = evaluateSvelteConfidence(bestCandidate, componentChain);
 
     return {

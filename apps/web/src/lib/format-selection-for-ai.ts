@@ -211,7 +211,12 @@ export function formatPreviewSelectionForAI(
   }
 
   if (htmlPreview) {
-    output += `\n### Element HTML\n\`\`\`html\n${htmlPreview}\n\`\`\`\n`;
+    const longestBacktickRun = (htmlPreview.match(/`+/g) ?? []).reduce(
+      (max, run) => Math.max(max, run.length),
+      0,
+    );
+    const fence = longestBacktickRun >= 3 ? '~'.repeat(longestBacktickRun + 1) : '```';
+    output += `\n### Element HTML\n${fence}html\n${htmlPreview}\n${fence}\n`;
   }
 
   if (userNote?.trim()) {

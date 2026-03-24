@@ -117,6 +117,17 @@ pub fn preview_bridge_close(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn preview_bridge_show(app: tauri::AppHandle) -> Result<(), String> {
+    preview_bridge::show_preview_window(&app)
+}
+
+#[tauri::command]
+pub fn preview_bridge_hide(app: tauri::AppHandle) -> Result<(), String> {
+    preview_bridge::hide_preview_window(&app);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn preview_bridge_event(app: tauri::AppHandle, payload: serde_json::Value) -> Result<(), String> {
     preview_bridge::forward_runtime_event(&app, payload)
 }

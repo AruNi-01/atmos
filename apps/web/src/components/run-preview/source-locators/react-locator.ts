@@ -121,7 +121,7 @@ function normalizeComponentChain(candidates: FiberCandidate[]): string[] {
         ? userFacingCandidates
         : uniqueCandidates;
 
-  return finalCandidates.slice(0, 5).map((candidate) => candidate.name);
+  return finalCandidates.slice(0, 5).map((candidate) => candidate.name).reverse();
 }
 
 function scoreCandidate(candidate: FiberCandidate): number {
@@ -234,8 +234,8 @@ export const reactSourceLocator: SourceLocatorAdapter = {
       componentName: bestCandidate.name,
       displayName: bestCandidate.name,
       filePath,
-      line: source?.lineNumber || source?.line,
-      column: source?.columnNumber || source?.column,
+      line: source?.lineNumber ?? source?.line,
+      column: source?.columnNumber ?? source?.column,
       componentChain,
       confidence: confidenceEvaluation.confidence,
       debug: confidenceEvaluation.debug,

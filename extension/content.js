@@ -8,6 +8,12 @@
         script.parentNode.removeChild(script);
       }
     };
+    script.onerror = function () {
+      console.warn('[Atmos Inspector] Failed to load ' + chrome.runtime.getURL(file));
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
     (document.head || document.documentElement).appendChild(script);
   }
 

@@ -37,6 +37,8 @@ export type PreviewHelperMessage =
       sessionId: string;
       pageUrl: string;
       capabilities: PreviewHelperCapability[];
+      extensionVersion?: string;
+      pageTitle?: string;
     }
   | {
       type: 'atmos-preview:hover';
@@ -58,4 +60,22 @@ export type PreviewHelperMessage =
       sessionId: string;
       pageUrl: string;
       error: string;
+    }
+  | {
+      type: 'atmos-preview:navigation-changed';
+      sessionId: string;
+      pageUrl: string;
+      pageTitle?: string;
+    }
+  | {
+      type: 'atmos-preview:title-changed';
+      sessionId: string;
+      pageUrl: string;
+      pageTitle: string;
+    }
+  | {
+      type: 'atmos-preview:pong';
+      sessionId: string;
+      pageUrl: string;
+      pageTitle?: string;
     };

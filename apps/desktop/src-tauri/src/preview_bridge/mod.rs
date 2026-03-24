@@ -20,7 +20,7 @@ pub struct PreviewBridgeBounds {
 }
 
 fn runtime_script() -> &'static str {
-    include_str!("../../../../web/public/atmos-inspector-extension/preview-runtime.js")
+    include_str!("../../../../../extension/preview-runtime.js")
 }
 
 fn desktop_bridge_script() -> String {
@@ -45,7 +45,7 @@ fn desktop_bridge_script() -> String {
       controller.enterPickMode(sessionId);
     }},
     clearSelection() {{
-      controller.clearSelection(false);
+      controller.exitPickMode();
     }},
     destroy() {{
       controller.destroy();
@@ -242,7 +242,7 @@ pub fn clear_selection(app: &AppHandle, session_id: &str) -> Result<(), String> 
         .get_webview_window(PREVIEW_INSPECTOR_LABEL)
         .ok_or_else(|| "preview inspector window not open".to_string())?;
     preview
-        .eval("window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.clearSelection();")
+        .eval("window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.clearSelection?.() ?? window.__ATMOS_DESKTOP_PREVIEW_BRIDGE__?.exitPickMode?.();")
         .map_err(|error| error.to_string())
 }
 
@@ -260,6 +260,13 @@ pub fn hide_preview_window(app: &AppHandle) {
     }
 }
 
+pub fn show_preview_window(app: &AppHandle) -> Result<(), String> {
+    if let Some(preview) = app.get_webview_window(PREVIEW_INSPECTOR_LABEL) {
+        preview.show().map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
 pub fn forward_runtime_event(app: &AppHandle, payload: Value) -> Result<(), String> {
     let event_name = match payload
         .get("type")
@@ -267,9 +274,12 @@ pub fn forward_runtime_event(app: &AppHandle, payload: Value) -> Result<(), Stri
         .unwrap_or_default()
     {
         "atmos-preview:ready" => "desktop-preview:ready",
+        "atmos-preview:hover" => "desktop-preview:hover",
         "atmos-preview:selected" => "desktop-preview:selected",
         "atmos-preview:cleared" => "desktop-preview:cleared",
         "atmos-preview:error" => "desktop-preview:error",
+        "atmos-preview:navigation-changed" => "desktop-preview:navigation-changed",
+        "atmos-preview:title-changed" => "desktop-preview:title-changed",
         _ => return Ok(()),
     };
 

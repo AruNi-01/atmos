@@ -12,12 +12,17 @@ export function connectSameOriginPreviewTransport(
     onSelected: handlers.onSelected,
     onCleared: handlers.onCleared,
     onError: handlers.onError,
+    onNavigationChanged: handlers.onNavigationChanged,
+    onTitleChanged: handlers.onTitleChanged,
   });
 
   return {
     mode: 'same-origin',
     enterPickMode() {
-      // Same-origin mode is active as soon as the helper is installed.
+      helper.enterPickMode();
+    },
+    exitPickMode() {
+      helper.exitPickMode();
     },
     clearSelection(notifyHost = false) {
       helper.clearSelection(notifyHost);

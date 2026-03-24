@@ -1,26 +1,8 @@
 import { NextResponse } from 'next/server';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
+import { loadExtensionFile, EXTENSION_FILES } from '../_shared/extension-loader';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const EXTENSION_ROOT = path.join(
-  process.cwd(),
-  'public',
-  'atmos-inspector-extension',
-);
-
-const EXTENSION_FILES = [
-  'manifest.json',
-  'background.js',
-  'content.js',
-  'injected.js',
-  'preview-runtime.js',
-] as const;
-
-const GITHUB_RAW_BASE =
-  'https://raw.githubusercontent.com/AruNi-01/atmos/main/apps/web/public/atmos-inspector-extension';
 
 const encoder = new TextEncoder();
 
@@ -133,50 +115,14 @@ function createZip(entries: Array<{ name: string; content: Uint8Array }>): Uint8
   return concatChunks([localFileData, centralDirectory, endRecord]);
 }
 
-async function loadLocalEntries() {
-  const loaded = await Promise.all(
-    EXTENSION_FILES.map(async (name) => {
-      const filePath = path.join(EXTENSION_ROOT, name);
-      const content = await readFile(filePath);
-      return {
-        name,
-        content: new Uint8Array(content),
-      };
-    }),
-  );
-
-  return loaded;
-}
-
-async function loadGithubEntries() {
-  const loaded = await Promise.all(
-    EXTENSION_FILES.map(async (name) => {
-      const response = await fetch(`${GITHUB_RAW_BASE}/${name}`, {
-        cache: 'no-store',
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${name} from GitHub`);
-      }
-      const content = new Uint8Array(await response.arrayBuffer());
-      return {
-        name,
-        content,
-      };
-    }),
-  );
-
-  return loaded;
-}
-
 export async function GET() {
   try {
-    let entries;
-
-    try {
-      entries = await loadLocalEntries();
-    } catch {
-      entries = await loadGithubEntries();
-    }
+    const entries = await Promise.all(
+      EXTENSION_FILES.map(async (name) => ({
+        name,
+        content: await loadExtensionFile(name),
+      })),
+    );
 
     const zipData = createZip(entries);
 

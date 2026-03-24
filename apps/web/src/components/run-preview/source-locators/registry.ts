@@ -7,7 +7,7 @@ import type { SourceLocationResult, SourceLocatorAdapter } from './types';
 const adapters: SourceLocatorAdapter[] = [vueSourceLocator, angularSourceLocator, svelteSourceLocator, reactSourceLocator];
 
 export function getRegisteredSourceLocators(): SourceLocatorAdapter[] {
-  return adapters;
+  return adapters.slice();
 }
 
 export function getAvailableSourceLocatorCapabilities(win: Window): string[] {

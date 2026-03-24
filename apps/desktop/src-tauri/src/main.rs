@@ -359,6 +359,13 @@ fn main() {
                         }
                         persist_main_window_state(window)
                     }
+                    tauri::WindowEvent::Focused(focused) => {
+                        if !focused {
+                            preview_bridge::hide_preview_window(&window.app_handle());
+                        } else {
+                            let _ = preview_bridge::show_preview_window(&window.app_handle());
+                        }
+                    }
                     tauri::WindowEvent::Resized(_) => {
                         persist_main_window_state(window);
                     }
@@ -378,6 +385,8 @@ fn main() {
             commands::preview_bridge_enter_pick_mode,
             commands::preview_bridge_clear_selection,
             commands::preview_bridge_close,
+            commands::preview_bridge_show,
+            commands::preview_bridge_hide,
             commands::preview_bridge_event,
         ])
         .build(tauri::generate_context!())

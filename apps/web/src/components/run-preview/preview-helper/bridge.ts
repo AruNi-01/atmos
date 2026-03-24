@@ -3,20 +3,23 @@ import type { PreviewHelperCapability, PreviewHelperMessage, PreviewHelperPayloa
 export interface PreviewBridgeOptions {
   sessionId: string;
   pageUrl: string;
+  parentOrigin: string;
 }
 
 export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOptions) {
+  const targetOrigin = options.parentOrigin || '*';
   const post = (message: PreviewHelperMessage) => {
-    win.parent.postMessage(message, '*');
+    win.parent.postMessage(message, targetOrigin);
   };
 
   return {
-    ready(capabilities: PreviewHelperCapability[]) {
+    ready(capabilities: PreviewHelperCapability[], pageTitle?: string) {
       post({
         type: 'atmos-preview:ready',
         sessionId: options.sessionId,
         pageUrl: options.pageUrl,
         capabilities,
+        pageTitle,
       });
     },
     hover(rect: PreviewHelperPayload['rect']) {
@@ -47,6 +50,22 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
         sessionId: options.sessionId,
         pageUrl: options.pageUrl,
         error,
+      });
+    },
+    navigationChanged(pageUrl: string, pageTitle?: string) {
+      post({
+        type: 'atmos-preview:navigation-changed',
+        sessionId: options.sessionId,
+        pageUrl,
+        pageTitle,
+      });
+    },
+    titleChanged(pageTitle: string) {
+      post({
+        type: 'atmos-preview:title-changed',
+        sessionId: options.sessionId,
+        pageUrl: win.location.href,
+        pageTitle,
       });
     },
   };

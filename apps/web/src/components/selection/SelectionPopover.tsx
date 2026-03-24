@@ -200,11 +200,11 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     : [];
   const previewSourceConfidence = type === 'preview' ? displayInfo.sourceConfidence : null;
   const previewConfidenceLabelClassName = previewSourceConfidence === 'high'
-    ? 'border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400'
+    ? 'border-success/30 bg-success/10 text-success'
     : previewSourceConfidence === 'medium'
-      ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+      ? 'border-warning/30 bg-warning/10 text-warning'
       : previewSourceConfidence === 'low'
-        ? 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
+        ? 'border-destructive/30 bg-destructive/10 text-destructive'
         : 'border-border bg-muted/40 text-muted-foreground';
 
   return (
@@ -342,7 +342,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               autoFocus
             />
 
-            {previewDebugSignals.length > 0 ? (
+            {previewDebugSignals.length > 0 || previewSourceConfidence ? (
               <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-[11px] font-medium text-muted-foreground">
@@ -359,9 +359,11 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                     </span>
                   ) : null}
                 </div>
-                <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
-                  {previewDebugSignals.join(', ')}
-                </div>
+                {previewDebugSignals.length > 0 ? (
+                  <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
+                    {previewDebugSignals.join(', ')}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

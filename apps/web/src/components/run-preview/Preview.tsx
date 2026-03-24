@@ -20,6 +20,7 @@ import {
   SquareMousePointer,
   Smartphone,
   Star,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -36,6 +37,7 @@ import {
   cn,
   toastManager,
 } from "@workspace/ui";
+import { fetchExtensionDownload, fetchExtensionVersion } from "@/api/preview";
 import { functionSettingsApi } from "@/api/ws-api";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/lib/nuqs/searchParams";
@@ -66,6 +68,7 @@ interface PreviewProps {
   setUrl: (url: string) => void;
   activeUrl: string;
   setActiveUrl: (url: string) => void;
+  isActive?: boolean;
   workspaceId?: string | null;
   projectId?: string;
 }
@@ -85,6 +88,7 @@ const PREVIEW_EXTENSION_REQUIRED_MESSAGE =
 const MAX_HISTORY_LENGTH = 100;
 
 const normalizeUrl = (value: string): string => {
+  if (!value) return "";
   const trimmed = value.trim();
   if (!trimmed) return "";
 
@@ -121,6 +125,7 @@ const isLocalPreviewTarget = (value: string): boolean => {
     const { hostname } = new URL(value);
     return (
       hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
       hostname === "127.0.0.1" ||
       hostname === "0.0.0.0" ||
       hostname === "::1" ||
@@ -145,13 +150,42 @@ const deriveFavoriteName = (title: string, url: string): string => {
   }
 };
 
+const splitDisplayUrl = (value: string): { protocol: string; address: string } => {
+  const normalized = normalizeUrl(value);
+  if (!normalized) {
+    return { protocol: "", address: "" };
+  }
+
+  try {
+    const parsed = new URL(normalized);
+    return {
+      protocol: `${parsed.protocol}//`,
+      address: `${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`,
+    };
+  } catch {
+    const matched = normalized.match(/^(https?:\/\/)(.*)$/i);
+    if (matched) {
+      return {
+        protocol: matched[1],
+        address: matched[2],
+      };
+    }
+    return {
+      protocol: "",
+      address: normalized,
+    };
+  }
+};
+
 export const Preview: React.FC<PreviewProps> = ({
   url,
   setUrl,
   activeUrl,
   setActiveUrl,
+  isActive = true,
 }) => {
   const [iframeKey, setIframeKey] = useState(0);
+  const [iframeSrc, setIframeSrc] = useState(activeUrl);
   const [isElementPickerTooltipOpen, setIsElementPickerTooltipOpen] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -168,6 +202,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const [favoriteNameDraft, setFavoriteNameDraft] = useState("");
   const [favoriteSearch, setFavoriteSearch] = useState("");
   const [currentPageTitle, setCurrentPageTitle] = useState("");
+  const [isUrlInputFocused, setIsUrlInputFocused] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [renamingUrl, setRenamingUrl] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -190,16 +225,25 @@ export const Preview: React.FC<PreviewProps> = ({
   const viewMode: ViewMode = viewModeParam === "mobile" ? "mobile" : "desktop";
   const isToolbarHidden = isToolbarHiddenParam;
   const isElementPickerEnabled = isElementPickerEnabledParam;
+  const isElementPickerEnabledRef = useRef(isElementPickerEnabled);
+  isElementPickerEnabledRef.current = isElementPickerEnabled;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const previewSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const desktopViewportRef = useRef<HTMLDivElement | null>(null);
   const previewRootRef = useRef<HTMLDivElement | null>(null);
   const toolbarRowRef = useRef<HTMLDivElement | null>(null);
+  const urlInputRef = useRef<HTMLInputElement | null>(null);
   const selectionPopoverRef = useRef<HTMLDivElement | null>(null);
   const historyIndexRef = useRef(-1);
   const skipExternalHistorySyncRef = useRef(false);
+  const iframeUrlWatcherCleanupRef = useRef<(() => void) | null>(null);
   const transportControllerRef = useRef<PreviewBridgeController | null>(null);
   const transportSessionIdRef = useRef<string | null>(null);
+  const desktopConnectingRef = useRef(false);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
+  const extensionVersionRef = useRef<string | null>(null);
+  const extensionConnectingRef = useRef(false);
+  const [extensionUpdateAvailable, setExtensionUpdateAvailable] = useState(false);
+  const [extensionUpdatePopoverOpen, setExtensionUpdatePopoverOpen] = useState(false);
   const isMacDesktop = useMemo(
     () => isTauriRuntime() && typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent),
     [],
@@ -209,7 +253,14 @@ export const Preview: React.FC<PreviewProps> = ({
     void setPreviewToolbarParams({ pvView: nextViewMode });
   }, [setPreviewToolbarParams]);
 
+  const [toolbarHoverSuppressed, setToolbarHoverSuppressed] = useState(false);
+  const toolbarSuppressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setIsToolbarHidden = useCallback((nextIsToolbarHidden: boolean) => {
+    if (nextIsToolbarHidden) {
+      setToolbarHoverSuppressed(true);
+      if (toolbarSuppressTimerRef.current) clearTimeout(toolbarSuppressTimerRef.current);
+      toolbarSuppressTimerRef.current = setTimeout(() => setToolbarHoverSuppressed(false), 400);
+    }
     void setPreviewToolbarParams({ pvToolbar: nextIsToolbarHidden });
   }, [setPreviewToolbarParams]);
 
@@ -218,16 +269,22 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [setPreviewToolbarParams]);
 
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
+  const normalizedDraftUrl = useMemo(() => canonicalizeUrl(url ?? ""), [url]);
+  const displayUrlParts = useMemo(() => splitDisplayUrl(url ?? ""), [url]);
+  const displayPageTitle = useMemo(
+    () => (normalizedDraftUrl && normalizedDraftUrl === normalizedActiveUrl ? currentPageTitle.trim() : ""),
+    [currentPageTitle, normalizedActiveUrl, normalizedDraftUrl],
+  );
   const preferredTransportMode = useMemo<PreviewTransportMode | 'unavailable'>(() => {
     if (!normalizedActiveUrl || typeof window === "undefined") return 'unavailable';
 
     try {
+      if (isTauriRuntime()) {
+        return 'desktop-native';
+      }
       const nextUrl = new URL(normalizedActiveUrl);
       if (nextUrl.origin === window.location.origin) {
         return 'same-origin';
-      }
-      if (isTauriRuntime()) {
-        return 'desktop-native';
       }
       return isLocalPreviewTarget(normalizedActiveUrl) ? 'extension' : 'unavailable';
     } catch {
@@ -296,20 +353,42 @@ export const Preview: React.FC<PreviewProps> = ({
       const finalUrl = normalizeUrl(nextValue);
       if (!finalUrl) return;
 
+      setIsUrlInputFocused(false);
+      if (canonicalizeUrl(finalUrl) !== normalizedActiveUrl) {
+        setCurrentPageTitle("");
+      }
       skipExternalHistorySyncRef.current = true;
       setUrl(finalUrl);
       setActiveUrl(finalUrl);
+      setIframeSrc(finalUrl);
       setIframeKey((prev) => prev + 1);
 
       if (!pushHistory) return;
       pushHistoryEntry(finalUrl);
     },
-    [pushHistoryEntry, setActiveUrl, setUrl],
+    [normalizedActiveUrl, pushHistoryEntry, setActiveUrl, setUrl],
   );
+
+  const focusUrlInput = useCallback(() => {
+    setIsUrlInputFocused(true);
+    window.requestAnimationFrame(() => {
+      urlInputRef.current?.focus();
+      urlInputRef.current?.select();
+    });
+  }, []);
 
   useEffect(() => {
     historyIndexRef.current = historyIndex;
   }, [historyIndex]);
+
+  useEffect(() => {
+    if (!activeUrl) return;
+    if (history.length > 0) return;
+    setHistory([activeUrl]);
+    historyIndexRef.current = 0;
+    setHistoryIndex(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- seed history once on mount
+  }, [activeUrl]);
 
   useEffect(() => {
     let mounted = true;
@@ -342,18 +421,14 @@ export const Preview: React.FC<PreviewProps> = ({
     };
   }, []);
 
-  useEffect(() => {
-    setCurrentPageTitle("");
-  }, [normalizedActiveUrl]);
-
   useLayoutEffect(() => {
-    if (!activeUrl || preferredTransportMode === 'desktop-native') {
+    if (!iframeSrc || preferredTransportMode === 'desktop-native') {
       setIsPreviewLoading(false);
       return;
     }
 
     setIsPreviewLoading(true);
-  }, [activeUrl, iframeKey, preferredTransportMode]);
+  }, [iframeSrc, iframeKey, preferredTransportMode]);
 
   useEffect(() => {
     if (!favoritePopoverOpen) return;
@@ -391,6 +466,9 @@ export const Preview: React.FC<PreviewProps> = ({
     setSelectionInfo(null);
     if (resetPreviewSelection) {
       void Promise.resolve(transportControllerRef.current?.clearSelection(false));
+      if (isElementPickerEnabledRef.current) {
+        void Promise.resolve(transportControllerRef.current?.enterPickMode());
+      }
     }
   }, []);
 
@@ -398,6 +476,7 @@ export const Preview: React.FC<PreviewProps> = ({
     const activeController = transportControllerRef.current;
     transportControllerRef.current = null;
     transportSessionIdRef.current = null;
+    extensionConnectingRef.current = false;
     if (activeController) {
       void Promise.resolve(activeController.destroy());
     }
@@ -458,6 +537,7 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [isMaximized, setIsMaximized]);
 
   const handleRefresh = () => {
+    if (!url) return;
     navigateToUrl(url);
   };
 
@@ -474,11 +554,14 @@ export const Preview: React.FC<PreviewProps> = ({
 
     const newIndex = historyIndex - 1;
     const previousUrl = history[newIndex];
+    if (!previousUrl) return;
+    setCurrentPageTitle("");
     skipExternalHistorySyncRef.current = true;
     historyIndexRef.current = newIndex;
     setHistoryIndex(newIndex);
     setUrl(previousUrl);
     setActiveUrl(previousUrl);
+    setIframeSrc(previousUrl);
     setIframeKey((prev) => prev + 1);
   };
 
@@ -487,11 +570,14 @@ export const Preview: React.FC<PreviewProps> = ({
 
     const newIndex = historyIndex + 1;
     const nextUrl = history[newIndex];
+    if (!nextUrl) return;
+    setCurrentPageTitle("");
     skipExternalHistorySyncRef.current = true;
     historyIndexRef.current = newIndex;
     setHistoryIndex(newIndex);
     setUrl(nextUrl);
     setActiveUrl(nextUrl);
+    setIframeSrc(nextUrl);
     setIframeKey((prev) => prev + 1);
   };
 
@@ -534,6 +620,13 @@ export const Preview: React.FC<PreviewProps> = ({
 
     setRenamingUrl(null);
     setRenameDraft("");
+  };
+
+  const handleDeleteFavorite = async (site: FavoriteSite) => {
+    const nextFavorites = favorites.filter(
+      (item) => canonicalizeUrl(item.url) !== canonicalizeUrl(site.url),
+    );
+    await persistFavorites(nextFavorites);
   };
 
   const getIframeAccess = useCallback(() => {
@@ -584,7 +677,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const getPopoverPositionFromRect = useCallback((rect: { x: number; y: number; width: number; height: number }) => {
     const targetBounds =
       transportControllerRef.current?.mode === 'desktop-native'
-        ? previewSurfaceRef.current?.getBoundingClientRect()
+        ? desktopViewportRef.current?.getBoundingClientRect()
         : iframeRef.current?.getBoundingClientRect();
 
     if (!targetBounds) {
@@ -642,14 +735,27 @@ export const Preview: React.FC<PreviewProps> = ({
     mode: PreviewTransportMode,
     extraHandlers?: PreviewBridgeEventHandlers,
   ) => ({
-    onReady: (capabilities: PreviewHelperCapability[]) => {
+    onReady: (
+      capabilities: PreviewHelperCapability[],
+      extensionVersion?: string,
+      pageTitle?: string,
+    ) => {
+      if (extensionVersion) {
+        extensionVersionRef.current = extensionVersion;
+      }
+      if (mode === 'extension') {
+        extensionConnectingRef.current = false;
+      }
+      if (pageTitle !== undefined) {
+        setCurrentPageTitle(pageTitle);
+      }
       setTransportState({
         mode,
         connected: true,
         message: "",
         capabilities,
       });
-      extraHandlers?.onReady?.(capabilities);
+      extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle);
     },
     onSelected: (payload: PreviewHelperPayload) => {
       handleSelectedPayload(mode, payload);
@@ -660,6 +766,9 @@ export const Preview: React.FC<PreviewProps> = ({
       extraHandlers?.onCleared?.();
     },
     onError: (message: string) => {
+      if (mode === 'extension') {
+        extensionConnectingRef.current = false;
+      }
       setTransportState((previous) => ({
         ...previous,
         mode,
@@ -668,11 +777,20 @@ export const Preview: React.FC<PreviewProps> = ({
       }));
       extraHandlers?.onError?.(message);
     },
-    onNavigationChanged: (nextUrl: string) => {
-      setCurrentPageTitle(nextUrl);
-      extraHandlers?.onNavigationChanged?.(nextUrl);
+    onNavigationChanged: (nextUrl: string, pageTitle?: string) => {
+      setUrl(nextUrl);
+      setActiveUrl(nextUrl);
+      if (pageTitle !== undefined) {
+        setCurrentPageTitle(pageTitle);
+      }
+      pushHistoryEntry(nextUrl);
+      extraHandlers?.onNavigationChanged?.(nextUrl, pageTitle);
     },
-  }), [dismissSelectionPopover, handleSelectedPayload]);
+    onTitleChanged: (pageTitle: string) => {
+      setCurrentPageTitle(pageTitle);
+      extraHandlers?.onTitleChanged?.(pageTitle);
+    },
+  }), [dismissSelectionPopover, handleSelectedPayload, pushHistoryEntry, setActiveUrl, setUrl]);
 
   const connectIframeTransport = useCallback(async (options?: {
     enterPickMode?: boolean;
@@ -699,13 +817,13 @@ export const Preview: React.FC<PreviewProps> = ({
 
       teardownTransport(false);
       transportSessionIdRef.current = sessionId;
-      transportControllerRef.current = connectSameOriginPreviewTransport(access.frameWindow, sessionId, handlers);
       setTransportState({
         mode: 'same-origin',
         connected: false,
         message: '',
         capabilities: [],
       });
+      transportControllerRef.current = connectSameOriginPreviewTransport(access.frameWindow, sessionId, handlers);
       if (shouldEnterPickMode) {
         void Promise.resolve(transportControllerRef.current.enterPickMode());
       }
@@ -736,6 +854,7 @@ export const Preview: React.FC<PreviewProps> = ({
 
     teardownTransport(false);
     transportSessionIdRef.current = sessionId;
+    extensionConnectingRef.current = true;
     transportControllerRef.current = connectExtensionPreviewTransport({
       frameWindow,
       pageUrl: normalizedActiveUrl,
@@ -745,12 +864,15 @@ export const Preview: React.FC<PreviewProps> = ({
       autoEnterPickMode: shouldEnterPickMode,
       ...handlers,
     });
-    setTransportState({
+    setTransportState((previous) => ({
       mode: 'extension',
-      connected: false,
-      message: PREVIEW_EXTENSION_REQUIRED_MESSAGE,
-      capabilities: [],
-    });
+      connected: previous.mode === 'extension' ? previous.connected : false,
+      message:
+        previous.mode === 'extension' && previous.connected
+          ? ''
+          : PREVIEW_EXTENSION_REQUIRED_MESSAGE,
+      capabilities: previous.mode === 'extension' ? previous.capabilities : [],
+    }));
     if (shouldAwaitHandshake) {
       const result = await Promise.race([
         new Promise<boolean>((resolve) => {
@@ -767,14 +889,14 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [createPreviewSessionId, createTransportHandlers, normalizedActiveUrl, preferredTransportMode, syncSameOriginPreviewAccess, teardownTransport]);
 
   const syncDesktopPreview = useCallback(async () => {
-    if (preferredTransportMode !== 'desktop-native' || !normalizedActiveUrl || !previewSurfaceRef.current) {
+    if (preferredTransportMode !== 'desktop-native' || !normalizedActiveUrl || !desktopViewportRef.current) {
       if (transportControllerRef.current?.mode === 'desktop-native') {
         teardownTransport(false);
       }
       return;
     }
 
-    const viewport = getPreviewViewportBounds(previewSurfaceRef.current);
+    const viewport = getPreviewViewportBounds(desktopViewportRef.current);
     if (transportControllerRef.current?.mode === 'desktop-native' && transportSessionIdRef.current) {
       await transportControllerRef.current.navigate?.(normalizedActiveUrl);
       await transportControllerRef.current.updateViewport?.(viewport);
@@ -785,30 +907,107 @@ export const Preview: React.FC<PreviewProps> = ({
       return;
     }
 
+    if (desktopConnectingRef.current) return;
+    desktopConnectingRef.current = true;
+
     teardownTransport(false);
     const sessionId = createPreviewSessionId();
     transportSessionIdRef.current = sessionId;
-    transportControllerRef.current = await connectDesktopPreviewTransport({
-      sessionId,
-      pageUrl: normalizedActiveUrl,
-      viewport,
-      ...createTransportHandlers('desktop-native'),
-    });
-    setTransportState({
-      mode: 'desktop-native',
-      connected: true,
-      message: '',
-      capabilities: [],
-    });
+    try {
+      transportControllerRef.current = await connectDesktopPreviewTransport({
+        sessionId,
+        pageUrl: normalizedActiveUrl,
+        viewport,
+        ...createTransportHandlers('desktop-native'),
+      });
+      setTransportState({
+        mode: 'desktop-native',
+        connected: true,
+        message: '',
+        capabilities: [],
+      });
+    } catch (error) {
+      console.error('[preview] desktop transport connect failed:', error);
+      setTransportState({
+        mode: 'desktop-native',
+        connected: false,
+        message: `Failed to open preview window: ${error instanceof Error ? error.message : String(error)}`,
+        capabilities: [],
+      });
+    } finally {
+      desktopConnectingRef.current = false;
+    }
   }, [createPreviewSessionId, createTransportHandlers, normalizedActiveUrl, preferredTransportMode, teardownTransport]);
+
+  const showDesktopPreview = useCallback(async () => {
+    if (preferredTransportMode !== 'desktop-native' || !normalizedActiveUrl || !desktopViewportRef.current) return;
+    if (transportControllerRef.current?.mode !== 'desktop-native') {
+      await syncDesktopPreview();
+      return;
+    }
+    await transportControllerRef.current.show?.();
+    await transportControllerRef.current.updateViewport?.(getPreviewViewportBounds(desktopViewportRef.current));
+  }, [normalizedActiveUrl, preferredTransportMode, syncDesktopPreview]);
+
+  const hideDesktopPreview = useCallback(async () => {
+    if (transportControllerRef.current?.mode !== 'desktop-native') return;
+    await transportControllerRef.current.hide?.();
+  }, []);
 
   const handleIframeLoad = useCallback(() => {
     setIsPreviewLoading(false);
 
+    iframeUrlWatcherCleanupRef.current?.();
+    iframeUrlWatcherCleanupRef.current = null;
+
     if (preferredTransportMode === 'same-origin') {
       syncSameOriginPreviewAccess();
+      try {
+        const iframeWin = iframeRef.current?.contentWindow;
+        if (iframeWin) {
+          const iframeUrl = iframeWin.location.href;
+          const iframeTitle = iframeWin.document.title?.trim() ?? "";
+          setCurrentPageTitle(iframeTitle);
+          if (canonicalizeUrl(iframeUrl) !== normalizedActiveUrl) {
+            setUrl(iframeUrl);
+            setActiveUrl(iframeUrl);
+            pushHistoryEntry(iframeUrl);
+          }
+
+          let lastWatchedPath = iframeWin.location.pathname + iframeWin.location.hash;
+
+          const pollId = window.setInterval(() => {
+            try {
+              const currentPath = iframeWin.location.pathname + iframeWin.location.hash;
+              if (currentPath === lastWatchedPath) return;
+              lastWatchedPath = currentPath;
+              const currentUrl = iframeWin.location.href;
+              if (transportControllerRef.current) return;
+              const currentTitle = iframeWin.document.title?.trim() ?? "";
+              setUrl(currentUrl);
+              setActiveUrl(currentUrl);
+              setCurrentPageTitle(currentTitle);
+              pushHistoryEntry(currentUrl);
+            } catch {
+              window.clearInterval(pollId);
+            }
+          }, 260);
+
+          iframeUrlWatcherCleanupRef.current = () => {
+            window.clearInterval(pollId);
+          };
+        }
+      } catch {
+        // Cross-origin — cannot read iframe URL
+      }
     } else {
       setCurrentPageTitle("");
+      if (isActive && preferredTransportMode === 'extension') {
+        void connectIframeTransport({
+          enterPickMode: isElementPickerEnabled,
+          awaitHandshake: false,
+        });
+      }
     }
 
     if (iframeLoadResolveRef.current) {
@@ -817,10 +1016,20 @@ export const Preview: React.FC<PreviewProps> = ({
       resolve();
       return;
     }
-  }, [preferredTransportMode, syncSameOriginPreviewAccess]);
+  }, [
+    connectIframeTransport,
+    isActive,
+    isElementPickerEnabled,
+    normalizedActiveUrl,
+    preferredTransportMode,
+    pushHistoryEntry,
+    setActiveUrl,
+    setUrl,
+    syncSameOriginPreviewAccess,
+  ]);
 
   useEffect(() => {
-    if (!normalizedActiveUrl) {
+    if (!iframeSrc) {
       setTransportState({
         mode: 'unavailable',
         connected: false,
@@ -837,7 +1046,11 @@ export const Preview: React.FC<PreviewProps> = ({
         mode: 'desktop-native',
         message: previous.message,
       }));
-      void syncDesktopPreview();
+      if (isActive) {
+        void syncDesktopPreview();
+      } else {
+        void hideDesktopPreview();
+      }
       return;
     }
 
@@ -845,45 +1058,70 @@ export const Preview: React.FC<PreviewProps> = ({
       teardownTransport(false);
     }
 
-    setTransportState({
+    setTransportState((previous) => ({
       mode: preferredTransportMode,
-      connected: false,
+      connected:
+        preferredTransportMode === 'extension' && previous.mode === 'extension'
+          ? previous.connected
+          : false,
       message:
         preferredTransportMode === 'extension'
-          ? PREVIEW_EXTENSION_REQUIRED_MESSAGE
+          ? previous.mode === 'extension' && previous.connected
+            ? ''
+            : PREVIEW_EXTENSION_REQUIRED_MESSAGE
           : preferredTransportMode === 'same-origin'
             ? ''
             : PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
-      capabilities: [],
-    });
-  }, [normalizedActiveUrl, preferredTransportMode, syncDesktopPreview, teardownTransport]);
+      capabilities:
+        preferredTransportMode === 'extension' && previous.mode === 'extension'
+          ? previous.capabilities
+          : [],
+    }));
+  }, [hideDesktopPreview, iframeSrc, iframeKey, isActive, preferredTransportMode, syncDesktopPreview, teardownTransport]);
 
   useEffect(() => {
-    if (!normalizedActiveUrl || preferredTransportMode !== 'extension') {
+    if (!isActive || !iframeSrc || preferredTransportMode !== 'extension') {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
+      if (
+        transportControllerRef.current?.mode === 'extension' &&
+        (transportState.connected || extensionConnectingRef.current)
+      ) {
+        return;
+      }
       void connectIframeTransport({
-        enterPickMode: false,
+        enterPickMode: isElementPickerEnabled,
         awaitHandshake: true,
       });
-    }, 1_000);
+    }, 600);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [connectIframeTransport, normalizedActiveUrl, preferredTransportMode]);
+  }, [
+    connectIframeTransport,
+    iframeSrc,
+    iframeKey,
+    isActive,
+    isElementPickerEnabled,
+    preferredTransportMode,
+    transportState.connected,
+  ]);
 
   useEffect(() => {
     if (transportControllerRef.current?.mode === 'desktop-native') return;
     teardownTransport(false);
-  }, [activeUrl, iframeKey, teardownTransport]);
+    if (preferredTransportMode !== 'extension') {
+      setIsElementPickerEnabled(false);
+    }
+  }, [iframeSrc, iframeKey, preferredTransportMode, setIsElementPickerEnabled, teardownTransport]);
 
   useEffect(() => {
     if (preferredTransportMode !== 'desktop-native') return;
 
-    const surface = previewSurfaceRef.current;
+    const surface = desktopViewportRef.current;
     if (!surface) return;
 
     let disposed = false;
@@ -892,8 +1130,8 @@ export const Preview: React.FC<PreviewProps> = ({
     let unlistenResized: (() => void) | undefined;
 
     const syncBounds = async () => {
-      if (disposed || transportControllerRef.current?.mode !== 'desktop-native' || !previewSurfaceRef.current) return;
-      await transportControllerRef.current.updateViewport?.(getPreviewViewportBounds(previewSurfaceRef.current));
+      if (disposed || transportControllerRef.current?.mode !== 'desktop-native' || !desktopViewportRef.current) return;
+      await transportControllerRef.current.updateViewport?.(getPreviewViewportBounds(desktopViewportRef.current));
     };
 
     resizeObserver = new ResizeObserver(() => {
@@ -904,13 +1142,16 @@ export const Preview: React.FC<PreviewProps> = ({
 
     if (isTauriRuntime()) {
       void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+        if (disposed) return;
         const currentWindow = getCurrentWindow();
         unlistenMoved = await currentWindow.onMoved(() => {
           void syncBounds();
         });
+        if (disposed) { unlistenMoved(); unlistenMoved = undefined; return; }
         unlistenResized = await currentWindow.onResized(() => {
           void syncBounds();
         });
+        if (disposed) { unlistenResized(); unlistenResized = undefined; }
       });
     }
 
@@ -922,6 +1163,37 @@ export const Preview: React.FC<PreviewProps> = ({
       unlistenResized?.();
     };
   }, [preferredTransportMode]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    if (preferredTransportMode !== 'desktop-native' || !isActive || !normalizedActiveUrl) {
+      void hideDesktopPreview();
+      return;
+    }
+    void showDesktopPreview();
+  }, [hideDesktopPreview, isActive, normalizedActiveUrl, preferredTransportMode, showDesktopPreview]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+
+    const handleBlur = () => {
+      if (preferredTransportMode !== 'desktop-native') return;
+      void hideDesktopPreview();
+    };
+
+    const handleFocus = () => {
+      if (preferredTransportMode !== 'desktop-native' || !isActive || !normalizedActiveUrl) return;
+      void showDesktopPreview();
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [hideDesktopPreview, isActive, normalizedActiveUrl, preferredTransportMode, showDesktopPreview]);
 
   useEffect(() => {
     const toolbarRow = toolbarRowRef.current;
@@ -952,17 +1224,69 @@ export const Preview: React.FC<PreviewProps> = ({
     setToolbarWidth(toolbarRow.getBoundingClientRect().width);
   }, [isMaximized]);
 
-  useEffect(() => () => teardownTransport(false), [teardownTransport]);
+  useEffect(() => () => {
+    teardownTransport(false);
+    iframeUrlWatcherCleanupRef.current?.();
+    iframeUrlWatcherCleanupRef.current = null;
+  }, [teardownTransport]);
+
+  const checkExtensionUpdate = useCallback(async () => {
+    if (preferredTransportMode !== 'extension') return;
+    const installedVersion = extensionVersionRef.current;
+    if (!installedVersion) return;
+
+    try {
+      const lastCheck = Number(localStorage.getItem('atmos-ext-version-check-ts') || '0');
+      if (Date.now() - lastCheck < 86_400_000) return;
+
+      localStorage.setItem('atmos-ext-version-check-ts', String(Date.now()));
+      const latestVersion = await fetchExtensionVersion();
+      setExtensionUpdateAvailable(latestVersion !== installedVersion);
+    } catch {
+      // Silently ignore version check failures
+    }
+  }, [preferredTransportMode]);
+
+  const handleDownloadExtensionUpdate = useCallback(async () => {
+    if (typeof window === 'undefined' || isDownloadingExtension) return;
+    setIsDownloadingExtension(true);
+    try {
+      const blob = await fetchExtensionDownload();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = 'atmos-inspector-extension.zip';
+      anchor.rel = 'noopener';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1_000);
+
+      setExtensionUpdateAvailable(false);
+      setExtensionUpdatePopoverOpen(false);
+      toastManager.add({
+        type: 'success',
+        title: 'Extension update downloaded',
+        description: 'Replace the old extension folder with the new one and reload.',
+      });
+    } catch (error) {
+      toastManager.add({
+        type: 'error',
+        title: 'Failed to download extension',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      setIsDownloadingExtension(false);
+    }
+  }, [isDownloadingExtension]);
 
   const handleToggleElementPicker = useCallback(async () => {
     if (!normalizedActiveUrl) return;
 
     if (isElementPickerEnabled) {
       setIsElementPickerEnabled(false);
-      await Promise.resolve(transportControllerRef.current?.clearSelection(false));
-      if (transportControllerRef.current?.mode !== 'desktop-native') {
-        teardownTransport(false);
-      }
+      await Promise.resolve(transportControllerRef.current?.exitPickMode());
+      dismissSelectionPopover(false);
       return;
     }
 
@@ -971,6 +1295,12 @@ export const Preview: React.FC<PreviewProps> = ({
         await syncDesktopPreview();
       }
       await Promise.resolve(transportControllerRef.current?.enterPickMode());
+      setIsElementPickerEnabled(true);
+      return;
+    }
+
+    if (transportControllerRef.current && transportState.connected) {
+      await Promise.resolve(transportControllerRef.current.enterPickMode());
       setIsElementPickerEnabled(true);
       return;
     }
@@ -989,7 +1319,8 @@ export const Preview: React.FC<PreviewProps> = ({
     }
 
     setIsElementPickerEnabled(true);
-  }, [connectIframeTransport, isElementPickerEnabled, normalizedActiveUrl, preferredTransportMode, setIsElementPickerEnabled, syncDesktopPreview, teardownTransport]);
+    void checkExtensionUpdate();
+  }, [checkExtensionUpdate, connectIframeTransport, dismissSelectionPopover, isElementPickerEnabled, normalizedActiveUrl, preferredTransportMode, setIsElementPickerEnabled, syncDesktopPreview, transportState.connected]);
 
   const resolvedTransportMode =
     transportState.mode === 'unavailable' && normalizedActiveUrl
@@ -1010,16 +1341,7 @@ export const Preview: React.FC<PreviewProps> = ({
     setIsDownloadingExtension(true);
 
     try {
-      const response = await fetch('/api/preview/extension-download', {
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(payload?.error || 'Failed to download the extension package.');
-      }
-
-      const blob = await response.blob();
+      const blob = await fetchExtensionDownload();
       const objectUrl = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = objectUrl;
@@ -1115,7 +1437,8 @@ export const Preview: React.FC<PreviewProps> = ({
         className={cn(
           "shrink-0",
           needsDesktopPreviewSafeInset && "pt-8",
-          isToolbarHidden && "group/toolbar relative z-10 h-3 overflow-visible",
+          isToolbarHidden && "group/toolbar relative z-10 h-1.5 overflow-visible",
+          toolbarHoverSuppressed && "pointer-events-none",
         )}
       >
         <div
@@ -1270,6 +1593,14 @@ export const Preview: React.FC<PreviewProps> = ({
                                 >
                                   <Pencil className="size-3.5" />
                                 </button>
+                                <button
+                                  onClick={() => void handleDeleteFavorite(site)}
+                                  type="button"
+                                  className="rounded-sm p-1 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover/item:opacity-100"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
                               </div>
                             )}
                           </div>
@@ -1332,17 +1663,48 @@ export const Preview: React.FC<PreviewProps> = ({
             >
               <Home className="size-3.5" />
             </button>
-            <input
-              className="h-full min-w-0 flex-1 border-none bg-transparent text-xs focus:outline-none placeholder:text-muted-foreground/50"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  handleRefresh();
-                }
-              }}
-              placeholder="Enter URL..."
-            />
+            {isUrlInputFocused ? (
+              <input
+                ref={urlInputRef}
+                className="h-full min-w-0 flex-1 border-none bg-transparent text-xs text-foreground focus:outline-none placeholder:text-muted-foreground/50"
+                value={url ?? ""}
+                onBlur={() => setIsUrlInputFocused(false)}
+                onChange={(event) => setUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleRefresh();
+                  }
+                }}
+                placeholder="Enter URL..."
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={focusUrlInput}
+                className="flex h-full min-w-0 flex-1 items-center gap-0.5 overflow-hidden rounded-sm px-0.5 text-left"
+                title={url || "Enter URL..."}
+              >
+                {displayUrlParts.address ? (
+                  <>
+                    {displayUrlParts.protocol ? (
+                      <span className="shrink-0 text-xs text-muted-foreground/70">
+                        {displayUrlParts.protocol}
+                      </span>
+                    ) : null}
+                    <span className="truncate text-xs text-foreground">
+                      {displayUrlParts.address}
+                    </span>
+                    {displayPageTitle ? (
+                      <span className="truncate text-xs text-muted-foreground">
+                        / {displayPageTitle}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground/50">Enter URL...</span>
+                )}
+              </button>
+            )}
 
             <Popover open={favoritePopoverOpen} onOpenChange={setFavoritePopoverOpen}>
               <PopoverTrigger asChild>
@@ -1442,10 +1804,10 @@ export const Preview: React.FC<PreviewProps> = ({
                         onClick={handleToggleElementPicker}
                         disabled={!activeUrl || preferredTransportMode === 'unavailable'}
                         className={cn(
-                          "flex h-6 items-center justify-center px-2 leading-none transition-colors",
+                          "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
                           activeUrl && preferredTransportMode !== 'unavailable'
                             ? isElementPickerEnabled
-                              ? "text-blue-500 hover:bg-muted hover:text-blue-400"
+                              ? "text-blue-400 hover:bg-blue-400/10 hover:text-blue-300"
                               : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                             : "cursor-not-allowed text-muted-foreground/30",
                         )}
@@ -1461,6 +1823,54 @@ export const Preview: React.FC<PreviewProps> = ({
                 </Tooltip>
               </TooltipProvider>
 
+              {extensionUpdateAvailable ? (
+                <Popover open={extensionUpdatePopoverOpen} onOpenChange={setExtensionUpdatePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-6 cursor-pointer items-center px-1.5 text-[11px] leading-none font-medium text-emerald-400 transition-colors hover:text-emerald-300"
+                    >
+                      Update
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    sideOffset={8}
+                    className="w-[320px] space-y-3 p-3"
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                  >
+                    <p className="text-xs font-medium text-foreground">Extension update available</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      A newer version of the Atmos Inspector extension is available. Download and replace the old files to get the latest features and fixes.
+                    </p>
+                    <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
+                      <li>Download the new extension package below.</li>
+                      <li>Unzip and <span className="font-medium text-foreground">replace</span> the old <span className="font-medium text-foreground">atmos-inspector-extension</span> folder.</li>
+                      <li>Open <span className="font-medium text-foreground">chrome://extensions</span> and click the <span className="font-medium text-foreground">reload ↻</span> button on the extension card.</li>
+                      <li>Reload the target page in Atmos Preview.</li>
+                    </ol>
+                    <div className="flex items-center justify-between gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExtensionUpdatePopoverOpen(false)}
+                      >
+                        Later
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={isDownloadingExtension}
+                        onClick={() => {
+                          void handleDownloadExtensionUpdate();
+                        }}
+                      >
+                        {isDownloadingExtension ? 'Preparing…' : 'Download update'}
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              ) : null}
+
               <div className="h-5 w-px bg-border/60" />
 
               {shouldShowExtensionInstall ? (
@@ -1468,7 +1878,7 @@ export const Preview: React.FC<PreviewProps> = ({
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className="flex h-6 items-center px-2 text-[11px] leading-none font-medium text-amber-700 transition-colors hover:bg-amber-500/10 dark:text-amber-300"
+                      className="flex h-6 cursor-pointer items-center px-2 text-[11px] leading-none font-medium text-foreground transition-colors hover:bg-accent/50"
                     >
                       {transportModeLabel}
                     </button>
@@ -1591,7 +2001,6 @@ export const Preview: React.FC<PreviewProps> = ({
       </div>
 
       <div
-        ref={previewSurfaceRef}
         className="relative flex flex-1 justify-center overflow-hidden"
         onPointerEnter={() => {
           setIsElementPickerTooltipOpen(false);
@@ -1622,6 +2031,7 @@ export const Preview: React.FC<PreviewProps> = ({
         {activeUrl ? (
           preferredTransportMode === 'desktop-native' ? (
             <div
+              ref={desktopViewportRef}
               className={cn(
                 "flex h-full w-full flex-col items-center justify-center gap-3 border border-dashed border-border/60 bg-muted/10 px-6 text-center",
                 viewMode === "mobile" ? "w-[375px]" : "w-full",
@@ -1642,7 +2052,7 @@ export const Preview: React.FC<PreviewProps> = ({
               <iframe
                 key={iframeKey}
                 ref={iframeRef}
-                src={activeUrl}
+                src={iframeSrc}
                 onLoad={handleIframeLoad}
                 style={{ colorScheme: "dark" }}
                 className={cn(

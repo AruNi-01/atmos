@@ -94,6 +94,7 @@ Atmos Web 侧接入方式：
 - 默认允许：
   - `http://localhost:3030`
   - `http://127.0.0.1:3030`
+  - `http://[::1]:3030`
   - 后续可加正式 Atmos origin
 - 每条消息都校验：
   - `sessionId`

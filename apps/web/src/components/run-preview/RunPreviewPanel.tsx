@@ -59,6 +59,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
           setUrl={setPreviewUrl}
           activeUrl={committedPreviewUrl}
           setActiveUrl={setActivePreviewUrl}
+          isActive={isActive}
           workspaceId={workspaceId}
           projectId={projectId}
         />
@@ -134,6 +135,7 @@ function VerticalResizeHandle({
           onCollapse();
         }}
         title={isCollapsed ? "Expand" : "Collapse"}
+        aria-label={isCollapsed ? "Expand panel" : "Collapse panel"}
         className={cn(
           "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
           // Center horizontally

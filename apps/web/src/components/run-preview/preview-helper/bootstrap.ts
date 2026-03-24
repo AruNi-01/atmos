@@ -7,13 +7,21 @@ import type { PreviewHelperCapability, PreviewHelperPayload } from './types';
 
 interface InstallPreviewHelperOptions {
   sessionId: string;
-  onReady?: (capabilities: PreviewHelperCapability[]) => void;
+  onReady?: (
+    capabilities: PreviewHelperCapability[],
+    extensionVersion?: string,
+    pageTitle?: string,
+  ) => void;
   onSelected?: (payload: PreviewHelperPayload) => void;
   onCleared?: () => void;
   onError?: (message: string) => void;
+  onNavigationChanged?: (url: string, pageTitle?: string) => void;
+  onTitleChanged?: (pageTitle: string) => void;
 }
 
 export interface PreviewHelperController {
+  enterPickMode: () => void;
+  exitPickMode: () => void;
   clearSelection: (notifyHost?: boolean) => void;
   destroy: () => void;
 }
@@ -33,6 +41,10 @@ function isIgnoredElement(element: Element): boolean {
   return rect.width < 4 || rect.height < 4;
 }
 
+function getPageTitle(win: Window): string {
+  return win.document.title?.trim() ?? '';
+}
+
 export function installPreviewHelper(
   win: Window,
   options: InstallPreviewHelperOptions,
@@ -41,9 +53,16 @@ export function installPreviewHelper(
   const elementCtor = doc.defaultView?.Element ?? Element;
   const overlay = createPreviewOverlay(doc);
   const state = createPreviewSelectionState();
+  let parentOrigin = '*';
+  try {
+    parentOrigin = win.parent.location.origin;
+  } catch {
+    // Cross-origin — parentOrigin stays as '*', but same-origin callers get a restricted target.
+  }
   const bridge = createPreviewHelperBridge(win, {
     sessionId: options.sessionId,
     pageUrl: win.location.href,
+    parentOrigin,
   });
 
   const clearSelection = (notifyHost: boolean = false) => {
@@ -53,6 +72,11 @@ export function installPreviewHelper(
     if (notifyHost) {
       options.onCleared?.();
       bridge.cleared();
+    } else {
+      // Host-initiated clear also disables pick mode so hover
+      // overlays do not reappear after the selection is removed.
+      state.enabled = false;
+      state.hovered = null;
     }
   };
 
@@ -72,6 +96,7 @@ export function installPreviewHelper(
   };
 
   const handleMouseMove = (event: MouseEvent) => {
+    if (!state.enabled) return;
     if (state.locked) {
       overlay.clearHover();
       return;
@@ -89,7 +114,12 @@ export function installPreviewHelper(
   };
 
   const handleClick = (event: MouseEvent) => {
-    if (state.locked) return;
+    if (!state.enabled) return;
+    if (state.locked) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const target = event.target;
     if (!isInspectableElement(target, elementCtor) || isIgnoredElement(target)) return;
     event.preventDefault();
@@ -100,7 +130,7 @@ export function installPreviewHelper(
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape') return;
+    if (!state.enabled || event.key !== 'Escape') return;
     clearSelection(true);
   };
 
@@ -108,20 +138,84 @@ export function installPreviewHelper(
   doc.addEventListener('click', handleClick, true);
   win.addEventListener('keydown', handleKeyDown, true);
 
+  let lastKnownPath = win.location.pathname + win.location.hash;
+  let lastKnownTitle = getPageTitle(win);
+  const originalPushState = win.history.pushState.bind(win.history);
+  const originalReplaceState = win.history.replaceState.bind(win.history);
+  const emitTitleChange = (pageTitle: string) => {
+    options.onTitleChanged?.(pageTitle);
+    bridge.titleChanged(pageTitle);
+  };
+
+  const checkUrlChange = () => {
+    const currentPath = win.location.pathname + win.location.hash;
+    if (currentPath !== lastKnownPath) {
+      lastKnownPath = currentPath;
+      const currentUrl = win.location.href;
+      const currentTitle = getPageTitle(win);
+      lastKnownTitle = currentTitle;
+      options.onNavigationChanged?.(currentUrl, currentTitle);
+      bridge.navigationChanged(currentUrl, currentTitle);
+    }
+  };
+
+  const handlePopState = () => checkUrlChange();
+  win.addEventListener('popstate', handlePopState);
+  const titleObserverTarget = doc.head ?? doc.documentElement;
+  const titleObserver =
+    titleObserverTarget && typeof MutationObserver === 'function'
+      ? new MutationObserver(() => {
+          const nextTitle = getPageTitle(win);
+          if (nextTitle === lastKnownTitle) return;
+          lastKnownTitle = nextTitle;
+          emitTitleChange(nextTitle);
+        })
+      : null;
+  titleObserver?.observe(titleObserverTarget, {
+    subtree: true,
+    childList: true,
+    characterData: true,
+  });
+
+  win.history.pushState = function (...args: Parameters<typeof originalPushState>) {
+    originalPushState(...args);
+    checkUrlChange();
+  };
+  win.history.replaceState = function (...args: Parameters<typeof originalReplaceState>) {
+    originalReplaceState(...args);
+    checkUrlChange();
+  };
+
   const capabilities: PreviewHelperCapability[] = [
     'dom-inspection',
     'element-selection',
     ...getAvailableSourceLocatorCapabilities(win) as PreviewHelperCapability[],
   ];
-  options.onReady?.(capabilities);
-  bridge.ready(capabilities);
+  const initialTitle = getPageTitle(win);
+  lastKnownTitle = initialTitle;
+  options.onReady?.(capabilities, undefined, initialTitle);
+  bridge.ready(capabilities, initialTitle);
 
   return {
+    enterPickMode() {
+      state.enabled = true;
+    },
+    exitPickMode() {
+      state.enabled = false;
+      state.locked = null;
+      state.hovered = null;
+      overlay.clearLocked();
+      overlay.clearHover();
+    },
     clearSelection,
     destroy() {
       doc.removeEventListener('mousemove', handleMouseMove, true);
       doc.removeEventListener('click', handleClick, true);
       win.removeEventListener('keydown', handleKeyDown, true);
+      win.removeEventListener('popstate', handlePopState);
+      titleObserver?.disconnect();
+      win.history.pushState = originalPushState;
+      win.history.replaceState = originalReplaceState;
       overlay.destroy();
     },
   };

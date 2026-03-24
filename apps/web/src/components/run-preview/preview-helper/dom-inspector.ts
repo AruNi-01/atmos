@@ -21,7 +21,7 @@ function collectStableAttributes(element: Element): string[] {
   const pairs = stableNames
     .map((name) => [name, element.getAttribute(name)] as const)
     .filter(([, value]) => !!value)
-    .map(([name, value]) => `[${name}="${value}"]`);
+    .map(([name, value]) => `[${name}="${escapeCssValue(value!)}"]`);
 
   return pairs;
 }
