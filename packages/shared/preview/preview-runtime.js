@@ -1,4 +1,4 @@
-// Mirror of packages/shared/preview/preview-runtime.js for the unpacked browser extension.
+// Canonical preview runtime shared by the desktop preview bridge and browser extension.
 (function () {
   if (window.__ATMOS_PREVIEW_RUNTIME__) return;
 
@@ -134,28 +134,21 @@
   }
 
   function createPreviewOverlay(win, doc, options) {
-    const root = doc.createElement('div');
-    root.dataset.atmosPreviewOverlay = 'true';
-    root.style.position = 'fixed';
-    root.style.inset = '0';
-    root.style.pointerEvents = 'none';
-    root.style.zIndex = '2147483646';
-    root.style.cursor = 'inherit';
-    doc.documentElement.appendChild(root);
-
     function createBox(color) {
-      const box = doc.createElement('div');
-      box.dataset.atmosPreviewOverlay = 'true';
-      box.style.position = 'fixed';
-      box.style.border = '2px solid ' + color;
-      box.style.borderRadius = '8px';
-      box.style.background = color === '#2563eb' ? 'rgba(37, 99, 235, 0.08)' : 'rgba(249, 115, 22, 0.12)';
-      box.style.pointerEvents = 'none';
-      box.style.display = 'none';
-      box.style.boxSizing = 'border-box';
-      box.style.cursor = 'inherit';
-      root.appendChild(box);
-      return box;
+      var segments = ['top', 'right', 'bottom', 'left'].map(function () {
+        var segment = doc.createElement('div');
+        segment.dataset.atmosPreviewOverlay = 'true';
+        segment.style.position = 'fixed';
+        segment.style.background = color;
+        segment.style.pointerEvents = 'none';
+        segment.style.display = 'none';
+        segment.style.zIndex = '2147483646';
+        doc.documentElement.appendChild(segment);
+        return segment;
+      });
+      return {
+        segments: segments,
+      };
     }
 
     function createLabel() {
@@ -175,8 +168,8 @@
       label.style.whiteSpace = 'nowrap';
       label.style.overflow = 'hidden';
       label.style.textOverflow = 'ellipsis';
-      label.style.cursor = 'inherit';
-      root.appendChild(label);
+      label.style.zIndex = '2147483647';
+      doc.documentElement.appendChild(label);
       return label;
     }
 
@@ -184,13 +177,6 @@
     const lockedBox = createBox('#f97316');
     const hoverLabel = createLabel();
     const lockedLabel = createLabel();
-    const chromeRoot = doc.createElement('div');
-    chromeRoot.dataset.atmosPreviewOverlay = 'true';
-    chromeRoot.style.position = 'fixed';
-    chromeRoot.style.inset = '0';
-    chromeRoot.style.pointerEvents = 'none';
-    chromeRoot.style.zIndex = '2147483647';
-    doc.documentElement.appendChild(chromeRoot);
 
     function stopPropagation(event) {
       event.stopPropagation();
@@ -232,14 +218,14 @@
       button.style.display = 'inline-flex';
       button.style.alignItems = 'center';
       button.style.justifyContent = 'center';
-      button.style.gap = '10px';
-      button.style.height = '44px';
+      button.style.gap = '8px';
+      button.style.height = '34px';
       button.style.border = '0';
       button.style.outline = 'none';
       button.style.cursor = 'pointer';
       button.style.pointerEvents = 'auto';
       button.style.fontFamily = 'ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif';
-      button.style.fontSize = '16px';
+      button.style.fontSize = '13px';
       button.style.lineHeight = '1';
       button.style.transition = 'background 140ms ease, color 140ms ease, transform 140ms ease, opacity 140ms ease';
       button.addEventListener('mousedown', function (event) {
@@ -255,12 +241,12 @@
     function createToolbarIconButton(path, title) {
       const button = createButtonBase();
       button.title = title;
-      button.style.width = '44px';
-      button.style.minWidth = '44px';
-      button.style.borderRadius = '12px';
+      button.style.width = '34px';
+      button.style.minWidth = '34px';
+      button.style.borderRadius = '9px';
       button.style.background = 'transparent';
       button.style.color = '#f5f5f7';
-      button.appendChild(createSvgIcon(path, 22));
+      button.appendChild(createSvgIcon(path, 17));
       button.addEventListener('mouseenter', function () {
         button.style.background = 'rgba(255, 255, 255, 0.08)';
       });
@@ -273,12 +259,12 @@
     function createToolbarTextButton(iconPath, label, title) {
       const button = createButtonBase();
       button.title = title || label;
-      button.style.padding = '0 18px';
-      button.style.borderRadius = '14px';
+      button.style.padding = '0 12px';
+      button.style.borderRadius = '10px';
       button.style.background = 'transparent';
       button.style.color = '#f5f5f7';
       button.style.fontWeight = '600';
-      button.appendChild(createSvgIcon(iconPath, 22));
+      button.appendChild(createSvgIcon(iconPath, 17));
       const text = doc.createElement('span');
       text.textContent = label;
       button.appendChild(text);
@@ -293,10 +279,10 @@
 
     function createFooterButton(label, variant, iconPath) {
       const button = createButtonBase();
-      button.style.padding = '0 18px';
-      button.style.borderRadius = '16px';
+      button.style.padding = '0 15px';
+      button.style.borderRadius = '12px';
       button.style.fontWeight = '600';
-      button.style.minWidth = label === 'Cancel' ? '116px' : '232px';
+      button.style.minWidth = label === 'Cancel' ? '88px' : '152px';
       if (variant === 'primary') {
         button.style.background = '#f4f4f6';
         button.style.color = '#1f1f24';
@@ -305,7 +291,7 @@
         button.style.color = '#f5f5f7';
       }
       if (iconPath) {
-        button.appendChild(createSvgIcon(iconPath, 22));
+        button.appendChild(createSvgIcon(iconPath, 17));
       }
       const text = doc.createElement('span');
       text.textContent = label;
@@ -324,37 +310,41 @@
     toolbar.style.position = 'fixed';
     toolbar.style.display = 'none';
     toolbar.style.alignItems = 'center';
-    toolbar.style.gap = '4px';
-    toolbar.style.padding = '6px';
-    toolbar.style.borderRadius = '16px';
+    toolbar.style.gap = '3px';
+    toolbar.style.padding = '4px';
+    toolbar.style.borderRadius = '12px';
     toolbar.style.border = '1px solid rgba(255, 255, 255, 0.14)';
     toolbar.style.background = 'rgba(23, 23, 27, 0.96)';
     toolbar.style.boxShadow = '0 14px 36px rgba(0, 0, 0, 0.28)';
     toolbar.style.pointerEvents = 'auto';
     toolbar.style.backdropFilter = 'blur(16px)';
     toolbar.style.webkitBackdropFilter = 'blur(16px)';
-    chromeRoot.appendChild(toolbar);
+    toolbar.style.zIndex = '2147483647';
+    toolbar.style.width = 'auto';
+    toolbar.style.whiteSpace = 'nowrap';
+    doc.documentElement.appendChild(toolbar);
 
     const detailsCard = doc.createElement('div');
     detailsCard.dataset.atmosPreviewOverlay = 'true';
     detailsCard.style.position = 'fixed';
     detailsCard.style.display = 'none';
     detailsCard.style.pointerEvents = 'auto';
-    detailsCard.style.borderRadius = '18px';
+    detailsCard.style.borderRadius = '16px';
     detailsCard.style.border = '1px solid rgba(255, 255, 255, 0.14)';
     detailsCard.style.background = 'rgba(27, 27, 32, 0.98)';
     detailsCard.style.boxShadow = '0 22px 50px rgba(0, 0, 0, 0.34)';
     detailsCard.style.backdropFilter = 'blur(18px)';
     detailsCard.style.webkitBackdropFilter = 'blur(18px)';
-    detailsCard.style.padding = '22px 24px 24px';
+    detailsCard.style.padding = '18px 20px 20px';
     detailsCard.style.boxSizing = 'border-box';
-    chromeRoot.appendChild(detailsCard);
+    detailsCard.style.zIndex = '2147483647';
+    doc.documentElement.appendChild(detailsCard);
 
     [toolbar, detailsCard].forEach(function (node) {
-      node.addEventListener('mousedown', stopPropagation, true);
-      node.addEventListener('mouseup', stopPropagation, true);
-      node.addEventListener('click', stopPropagation, true);
-      node.addEventListener('dblclick', stopPropagation, true);
+      node.addEventListener('mousedown', stopPropagation);
+      node.addEventListener('mouseup', stopPropagation);
+      node.addEventListener('click', stopPropagation);
+      node.addEventListener('dblclick', stopPropagation);
     });
 
     const cancelIconPath = '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>';
@@ -371,9 +361,9 @@
 
     const sourceSummary = doc.createElement('div');
     sourceSummary.style.color = '#b9b9c2';
-    sourceSummary.style.fontSize = '15px';
-    sourceSummary.style.lineHeight = '1.45';
-    sourceSummary.style.marginBottom = '18px';
+    sourceSummary.style.fontSize = '13px';
+    sourceSummary.style.lineHeight = '1.4';
+    sourceSummary.style.marginBottom = '14px';
     sourceSummary.style.whiteSpace = 'nowrap';
     sourceSummary.style.overflow = 'hidden';
     sourceSummary.style.textOverflow = 'ellipsis';
@@ -385,27 +375,27 @@
     noteInput.spellcheck = false;
     noteInput.dataset.atmosPreviewOverlay = 'true';
     noteInput.style.width = '100%';
-    noteInput.style.minHeight = '156px';
+    noteInput.style.minHeight = '104px';
     noteInput.style.resize = 'none';
     noteInput.style.boxSizing = 'border-box';
-    noteInput.style.borderRadius = '18px';
+    noteInput.style.borderRadius = '12px';
     noteInput.style.border = '1px solid rgba(255, 255, 255, 0.14)';
     noteInput.style.background = 'rgba(41, 41, 47, 0.98)';
     noteInput.style.boxShadow = 'inset 0 0 0 1px rgba(255, 255, 255, 0.05)';
     noteInput.style.color = '#f5f5f7';
-    noteInput.style.padding = '20px 22px';
-    noteInput.style.fontSize = '16px';
-    noteInput.style.lineHeight = '1.55';
+    noteInput.style.padding = '12px 14px';
+    noteInput.style.fontSize = '13px';
+    noteInput.style.lineHeight = '1.45';
     noteInput.style.outline = 'none';
-    noteInput.style.marginBottom = '22px';
-    noteInput.addEventListener('mousedown', stopPropagation, true);
-    noteInput.addEventListener('mouseup', stopPropagation, true);
-    noteInput.addEventListener('click', stopPropagation, true);
+    noteInput.style.marginBottom = '16px';
+    noteInput.addEventListener('mousedown', stopPropagation);
+    noteInput.addEventListener('mouseup', stopPropagation);
+    noteInput.addEventListener('click', stopPropagation);
     detailsCard.appendChild(noteInput);
 
     const confidenceSection = doc.createElement('div');
     confidenceSection.style.display = 'none';
-    confidenceSection.style.marginBottom = '24px';
+    confidenceSection.style.marginBottom = '18px';
     detailsCard.appendChild(confidenceSection);
 
     const confidenceHeader = doc.createElement('div');
@@ -413,13 +403,13 @@
     confidenceHeader.style.alignItems = 'center';
     confidenceHeader.style.justifyContent = 'space-between';
     confidenceHeader.style.gap = '12px';
-    confidenceHeader.style.marginBottom = '14px';
+    confidenceHeader.style.marginBottom = '10px';
     confidenceSection.appendChild(confidenceHeader);
 
     const confidenceTitle = doc.createElement('div');
     confidenceTitle.textContent = 'Source Code Confidence';
     confidenceTitle.style.color = '#b9b9c2';
-    confidenceTitle.style.fontSize = '14px';
+    confidenceTitle.style.fontSize = '12px';
     confidenceTitle.style.fontWeight = '600';
     confidenceHeader.appendChild(confidenceTitle);
 
@@ -427,30 +417,30 @@
     confidenceBadge.style.display = 'inline-flex';
     confidenceBadge.style.alignItems = 'center';
     confidenceBadge.style.justifyContent = 'center';
-    confidenceBadge.style.minWidth = '76px';
-    confidenceBadge.style.padding = '0 16px';
-    confidenceBadge.style.height = '38px';
+    confidenceBadge.style.minWidth = '64px';
+    confidenceBadge.style.padding = '0 12px';
+    confidenceBadge.style.height = '30px';
     confidenceBadge.style.borderRadius = '999px';
-    confidenceBadge.style.fontSize = '14px';
+    confidenceBadge.style.fontSize = '11px';
     confidenceBadge.style.fontWeight = '700';
     confidenceBadge.style.letterSpacing = '0.12em';
     confidenceHeader.appendChild(confidenceBadge);
 
     const confidenceSignals = doc.createElement('div');
-    confidenceSignals.style.borderRadius = '16px';
+    confidenceSignals.style.borderRadius = '12px';
     confidenceSignals.style.border = '1px solid rgba(255, 255, 255, 0.1)';
     confidenceSignals.style.background = 'rgba(35, 35, 41, 0.85)';
-    confidenceSignals.style.padding = '16px 18px';
+    confidenceSignals.style.padding = '12px 14px';
     confidenceSignals.style.color = '#b9b9c2';
-    confidenceSignals.style.fontSize = '14px';
-    confidenceSignals.style.lineHeight = '1.55';
+    confidenceSignals.style.fontSize = '12px';
+    confidenceSignals.style.lineHeight = '1.45';
     confidenceSection.appendChild(confidenceSignals);
 
     const footer = doc.createElement('div');
     footer.style.display = 'flex';
     footer.style.alignItems = 'center';
     footer.style.justifyContent = 'space-between';
-    footer.style.gap = '18px';
+    footer.style.gap = '12px';
     detailsCard.appendChild(footer);
 
     const footerCancelButton = createFooterButton('Cancel', 'ghost');
@@ -530,11 +520,14 @@
       currentRect = rect;
       renderSelectionMeta();
 
-      var toolbarWidth = 294;
-      var toolbarHeight = 56;
-      var detailsWidth = Math.min(640, Math.max(320, win.innerWidth - 16));
-      var detailsHeight = expanded ? 346 : 0;
-      var gap = expanded ? 12 : 0;
+      toolbar.style.width = 'auto';
+      toolbar.style.visibility = 'hidden';
+      toolbar.style.display = 'inline-flex';
+      var toolbarWidth = Math.max(156, Math.ceil(toolbar.getBoundingClientRect().width));
+      var toolbarHeight = 42;
+      var detailsWidth = Math.min(480, Math.max(280, win.innerWidth - 16));
+      var detailsHeight = expanded ? 260 : 0;
+      var gap = expanded ? 10 : 0;
       var totalHeight = toolbarHeight + detailsHeight + gap;
       var centerX = rect.x + Math.min(rect.width, 220) / 2;
       var belowTop = rect.y + rect.height + 12;
@@ -548,8 +541,8 @@
 
       toolbar.style.left = toolbarLeft + 'px';
       toolbar.style.top = top + 'px';
-      toolbar.style.width = toolbarWidth + 'px';
-      toolbar.style.display = 'flex';
+      toolbar.style.visibility = 'visible';
+      toolbar.style.display = 'inline-flex';
 
       detailsCard.style.left = detailsLeft + 'px';
       detailsCard.style.top = (top + toolbarHeight + gap) + 'px';
@@ -587,31 +580,57 @@
     });
 
     function place(box, label, rect, text) {
-      box.style.display = 'block';
-      box.style.left = rect.x + 'px';
-      box.style.top = rect.y + 'px';
-      box.style.width = rect.width + 'px';
-      box.style.height = rect.height + 'px';
+      var thickness = 2;
+      var width = Math.max(rect.width, thickness);
+      var height = Math.max(rect.height, thickness);
+      var top = box.segments[0];
+      var right = box.segments[1];
+      var bottom = box.segments[2];
+      var left = box.segments[3];
+
+      top.style.display = 'block';
+      top.style.left = rect.x + 'px';
+      top.style.top = rect.y + 'px';
+      top.style.width = width + 'px';
+      top.style.height = thickness + 'px';
+
+      bottom.style.display = 'block';
+      bottom.style.left = rect.x + 'px';
+      bottom.style.top = (rect.y + height - thickness) + 'px';
+      bottom.style.width = width + 'px';
+      bottom.style.height = thickness + 'px';
+
+      left.style.display = 'block';
+      left.style.left = rect.x + 'px';
+      left.style.top = rect.y + 'px';
+      left.style.width = thickness + 'px';
+      left.style.height = height + 'px';
+
+      right.style.display = 'block';
+      right.style.left = (rect.x + width - thickness) + 'px';
+      right.style.top = rect.y + 'px';
+      right.style.width = thickness + 'px';
+      right.style.height = height + 'px';
+
       label.style.display = text ? 'block' : 'none';
       label.textContent = text || '';
       label.style.left = rect.x + 'px';
       label.style.top = Math.max(8, rect.y - 32) + 'px';
     }
 
+    function clearBox(box) {
+      box.segments.forEach(function (segment) {
+        segment.style.display = 'none';
+      });
+    }
+
     return {
-      setCursor(cursor) {
-        var nextCursor = cursor || 'default';
-        root.style.cursor = nextCursor;
-        hoverBox.style.cursor = nextCursor;
-        lockedBox.style.cursor = nextCursor;
-        hoverLabel.style.cursor = nextCursor;
-        lockedLabel.style.cursor = nextCursor;
-      },
+      setCursor() {},
       updateHover(rect, label) {
         place(hoverBox, hoverLabel, rect, label);
       },
       clearHover() {
-        hoverBox.style.display = 'none';
+        clearBox(hoverBox);
         hoverLabel.style.display = 'none';
       },
       lock(rect, label, meta) {
@@ -622,7 +641,7 @@
         placeToolbar(rect);
       },
       clearLocked() {
-        lockedBox.style.display = 'none';
+        clearBox(lockedBox);
         lockedLabel.style.display = 'none';
         toolbar.style.display = 'none';
         detailsCard.style.display = 'none';
@@ -640,8 +659,10 @@
       destroy() {
         toolbar.remove();
         detailsCard.remove();
-        chromeRoot.remove();
-        root.remove();
+        hoverBox.segments.forEach(function (segment) { segment.remove(); });
+        lockedBox.segments.forEach(function (segment) { segment.remove(); });
+        hoverLabel.remove();
+        lockedLabel.remove();
       },
     };
   }

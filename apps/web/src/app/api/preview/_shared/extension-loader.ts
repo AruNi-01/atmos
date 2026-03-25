@@ -21,13 +21,32 @@ const LOCAL_EXTENSION_ROOT = path.resolve(
 const GITHUB_RAW_BASE =
   'https://raw.githubusercontent.com/AruNi-01/atmos/main/extension';
 
+const LOCAL_SHARED_PREVIEW_RUNTIME = path.resolve(
+  process.cwd(),
+  '..',
+  '..',
+  'packages',
+  'shared',
+  'preview',
+  'preview-runtime.js',
+);
+
+const GITHUB_SHARED_PREVIEW_RUNTIME =
+  'https://raw.githubusercontent.com/AruNi-01/atmos/main/packages/shared/preview/preview-runtime.js';
+
 async function loadLocal(name: string): Promise<Uint8Array> {
-  const filePath = path.join(LOCAL_EXTENSION_ROOT, name);
+  const filePath =
+      name === 'preview-runtime.js'
+        ? LOCAL_SHARED_PREVIEW_RUNTIME
+        : path.join(LOCAL_EXTENSION_ROOT, name);
   return new Uint8Array(await readFile(filePath));
 }
 
 async function loadFromGitHub(name: string): Promise<Uint8Array> {
-  const url = `${GITHUB_RAW_BASE}/${name}`;
+  const url =
+      name === 'preview-runtime.js'
+        ? GITHUB_SHARED_PREVIEW_RUNTIME
+        : `${GITHUB_RAW_BASE}/${name}`;
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`GitHub fetch failed for ${name}: ${response.status}`);

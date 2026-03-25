@@ -27,9 +27,11 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
 
   const [committedPreviewUrl, setCommittedPreviewUrl] = useQueryState("pvUrl", previewUrlParams.pvUrl);
   const [previewUrl, setPreviewUrlDraft] = useState(committedPreviewUrl);
+  const [localActiveUrl, setLocalActiveUrl] = useState(committedPreviewUrl);
 
   useEffect(() => {
     setPreviewUrlDraft((previous) => (previous === committedPreviewUrl ? previous : committedPreviewUrl));
+    setLocalActiveUrl((previous) => (previous === committedPreviewUrl ? previous : committedPreviewUrl));
   }, [committedPreviewUrl]);
 
   const setPreviewUrl = useCallback((nextUrl: string) => {
@@ -37,11 +39,13 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
   }, []);
 
   const setActivePreviewUrl = useCallback((nextUrl: string) => {
+    setLocalActiveUrl(nextUrl);
     void setCommittedPreviewUrl(nextUrl);
   }, [setCommittedPreviewUrl]);
 
   const handleDetectedUrl = useCallback((url: string) => {
     setPreviewUrlDraft(url);
+    setLocalActiveUrl(url);
     void setCommittedPreviewUrl(url);
   }, [setCommittedPreviewUrl]);
 
@@ -57,7 +61,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
         <Preview
           url={previewUrl}
           setUrl={setPreviewUrl}
-          activeUrl={committedPreviewUrl}
+          activeUrl={localActiveUrl}
           setActiveUrl={setActivePreviewUrl}
           isActive={isActive}
           workspaceId={workspaceId}

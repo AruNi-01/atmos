@@ -8,6 +8,7 @@ interface PreviewBridgeEventPayload {
   pageUrl: string;
   pageTitle?: string;
   action?: 'copy';
+  note?: string;
   capabilities?: string[];
   rect?: {
     x: number;

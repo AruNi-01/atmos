@@ -53,11 +53,12 @@ export interface PreviewBridgeEventHandlers {
     pageTitle?: string,
   ) => void;
   onSelected?: (payload: PreviewHelperPayload) => void;
-  onToolbarAction?: (action: 'copy') => void;
+  onToolbarAction?: (action: 'copy', note?: string) => void;
   onCleared?: () => void;
   onError?: (message: string) => void;
   onNavigationChanged?: (url: string, pageTitle?: string) => void;
   onTitleChanged?: (pageTitle: string) => void;
+  onCursorChange?: (cursor: string) => void;
 }
 
 export interface PreviewBridgeController {

@@ -78,6 +78,7 @@ export type PreviewHelperMessage =
       sessionId: string;
       pageUrl: string;
       action: 'copy';
+      note?: string;
     }
   | {
       type: 'atmos-preview:pong';

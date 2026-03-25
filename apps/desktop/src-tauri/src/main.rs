@@ -371,6 +371,7 @@ fn main() {
             commands::preview_bridge_show,
             commands::preview_bridge_hide,
             commands::preview_bridge_event,
+            commands::preview_bridge_probe_url,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

@@ -22,9 +22,13 @@ function run(command, args, options = {}) {
 // Temporarily move them out of the way so `next build` succeeds.
 const webApiDir = join(rootDir, "apps/web/src/app/api");
 const webApiBackup = join(rootDir, "apps/web/src/app/_api_desktop_backup");
+const webDevLock = join(rootDir, "apps/web/.next/dev/lock");
 const hasApiDir = existsSync(webApiDir);
 if (hasApiDir) {
   renameSync(webApiDir, webApiBackup);
+}
+if (existsSync(webDevLock)) {
+  rmSync(webDevLock, { force: true });
 }
 
 try {

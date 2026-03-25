@@ -23,7 +23,7 @@ pub struct PreviewBridgeBounds {
 }
 
 fn runtime_script() -> &'static str {
-    include_str!("../../../../../extension/preview-runtime.js")
+    include_str!("../../../../../packages/shared/preview/preview-runtime.js")
 }
 
 fn desktop_bridge_script() -> String {
@@ -55,6 +55,44 @@ fn desktop_bridge_script() -> String {
       controller.destroy();
     }},
   }};
+
+  function resolveAutoCursor(el) {{
+    var tag = el.tagName ? el.tagName.toLowerCase() : '';
+    if (tag === 'textarea' || el.isContentEditable) return 'text';
+    if (tag === 'input') {{
+      var it = (el.getAttribute('type') || 'text').toLowerCase();
+      return 'text search url tel email password number'.split(' ').indexOf(it) >= 0 ? 'text' : 'default';
+    }}
+    if ((tag === 'a' && el.hasAttribute('href')) || (el.closest && el.closest('a[href]'))) return 'pointer';
+    if (tag === 'label' && el.closest && el.closest('label')) {{
+      var ctrl = el.htmlFor ? document.getElementById(el.htmlFor) : el.querySelector('input,textarea,select');
+      if (ctrl) return resolveAutoCursor(ctrl);
+    }}
+    if (tag === 'button' || tag === 'select' || tag === 'summary') return 'default';
+    if (el.closest && el.closest('button')) return 'default';
+    return 'default';
+  }}
+
+  var lastSyncedCursor = '';
+  document.addEventListener('mousemove', function(ev) {{
+    var sid = window.__ATMOS_PREVIEW_SESSION_ID__;
+    if (!sid) return;
+    var t = ev.target;
+    if (!(t instanceof Element)) return;
+    if (t.closest && t.closest('[data-atmos-preview-overlay="true"]')) return;
+    var c = '';
+    try {{ c = window.getComputedStyle(t).cursor || ''; }} catch(_) {{}}
+    var next = c || 'default';
+    if (next === 'auto') next = resolveAutoCursor(t);
+    if (next === lastSyncedCursor) return;
+    lastSyncedCursor = next;
+    invoke('preview_bridge_event', {{ payload: {{
+      type: 'atmos-preview:cursor-changed',
+      sessionId: sid,
+      pageUrl: window.location.href,
+      cursor: next,
+    }} }}).catch(function(){{}});
+  }}, false);
 }})();
 "#,
         runtime_script()
@@ -121,6 +159,68 @@ fn sync_pick_mode(webview: &Webview, session_id: &str, pick_mode: bool) {
         "window.__ATMOS_PREVIEW_SESSION_ID__ = {:?}; {}",
         session_id, script
     ));
+}
+
+fn emit_error_page_probe(webview: &Webview, session_id: &str, page_url: &str) {
+    let script = format!(
+        r#"
+(() => {{
+  const invoke = window.__TAURI_INTERNALS__?.invoke;
+  if (!invoke) return;
+  const href = window.location.href || {page_url:?};
+  const title = document.title?.trim() || '';
+  const bodyText = document.body?.innerText?.trim() || '';
+  const combined = `${{title}}\n${{bodyText}}`;
+  const markers = [
+    'This site can’t provide a secure connection',
+    "This site can't provide a secure connection",
+    "This page isn’t working",
+    "This page isn't working",
+    'sent an invalid response',
+    'ERR_SSL_PROTOCOL_ERROR',
+    'ERR_CERT_',
+    'ERR_CONNECTION_',
+    'ERR_NAME_NOT_RESOLVED',
+    'ERR_ADDRESS_UNREACHABLE',
+    'ERR_INTERNET_DISCONNECTED',
+    '此网站无法提供安全连接',
+    '发送的响应无效',
+  ];
+  const errorCode = combined.match(/\bERR_[A-Z0-9_]+\b/)?.[0] || '';
+  const hasMarker = markers.some((marker) => combined.includes(marker));
+  const isErrorPage =
+    href.startsWith('chrome-error://') ||
+    href.startsWith('edge-error://') ||
+    href.startsWith('webkit-error-page://') ||
+    Boolean(errorCode) ||
+    hasMarker;
+
+  if (!isErrorPage) return;
+
+  const lines = bodyText
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  const details = [];
+  if (title) details.push(title);
+  if (errorCode && !details.includes(errorCode)) details.push(errorCode);
+  for (const line of lines) {{
+    if (!details.includes(line)) details.push(line);
+  }}
+
+  invoke('preview_bridge_event', {{
+    payload: {{
+      type: 'atmos-preview:error',
+      sessionId: {session_id:?},
+      pageUrl: {page_url:?},
+      error: ['Preview failed to load.', ...details].join('\n'),
+    }},
+  }}).catch(() => {{}});
+}})();
+"#
+    );
+    let _ = webview.eval(script);
 }
 
 fn apply_bounds(webview: &Webview, bounds: PreviewBridgeBounds) -> Result<(), String> {
@@ -199,6 +299,7 @@ pub fn open_preview_window(
                         ));
                     }
                     emit_navigation_changed(&app_handle, &state.session_id, payload.url().as_str());
+                    emit_error_page_probe(&webview, &state.session_id, payload.url().as_str());
                 }
             }),
             Position::Logical(LogicalPosition::new(bounds.x as f64, bounds.y as f64)),
@@ -311,6 +412,7 @@ pub fn forward_runtime_event(app: &AppHandle, payload: Value) -> Result<(), Stri
         "atmos-preview:error" => "desktop-preview:error",
         "atmos-preview:navigation-changed" => "desktop-preview:navigation-changed",
         "atmos-preview:title-changed" => "desktop-preview:title-changed",
+        "atmos-preview:cursor-changed" => "desktop-preview:cursor-changed",
         _ => return Ok(()),
     };
 

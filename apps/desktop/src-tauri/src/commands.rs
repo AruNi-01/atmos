@@ -2,6 +2,7 @@ use crate::logging::{self, LogLevel};
 use crate::preview_bridge::{self, PreviewBridgeBounds};
 use crate::state::AppState;
 use serde_json::json;
+use std::time::Duration;
 
 #[tauri::command]
 pub fn get_api_config(state: tauri::State<AppState>) -> Result<serde_json::Value, String> {
@@ -130,4 +131,23 @@ pub fn preview_bridge_hide(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn preview_bridge_event(app: tauri::AppHandle, payload: serde_json::Value) -> Result<(), String> {
     preview_bridge::forward_runtime_event(&app, payload)
+}
+
+#[tauri::command]
+pub async fn preview_bridge_probe_url(url: String) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(&url).map_err(|error| format!("Invalid URL: {}", error))?;
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(4))
+        .timeout(Duration::from_secs(6))
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()
+        .map_err(|error| format!("Failed to initialize preview probe: {}", error))?;
+
+    client
+        .get(parsed)
+        .send()
+        .await
+        .map_err(|error| format!("Failed to load preview URL: {}", error))?;
+
+    Ok(())
 }

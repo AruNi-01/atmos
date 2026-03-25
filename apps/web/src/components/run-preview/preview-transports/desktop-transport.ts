@@ -34,7 +34,7 @@ export async function connectDesktopPreviewTransport(
     }),
     listenDesktopPreviewBridge('desktop-preview:toolbar-action', (payload) => {
       if (payload.sessionId !== options.sessionId || payload.action !== 'copy') return;
-      options.onToolbarAction?.(payload.action);
+      options.onToolbarAction?.(payload.action, payload.note);
     }),
     listenDesktopPreviewBridge('desktop-preview:cleared', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
@@ -51,6 +51,10 @@ export async function connectDesktopPreviewTransport(
     listenDesktopPreviewBridge('desktop-preview:title-changed', (payload) => {
       if (payload.sessionId !== options.sessionId || typeof payload.pageTitle !== 'string') return;
       options.onTitleChanged?.(payload.pageTitle);
+    }),
+    listenDesktopPreviewBridge('desktop-preview:cursor-changed', (payload) => {
+      if (payload.sessionId !== options.sessionId) return;
+      options.onCursorChange?.((payload as { cursor?: string }).cursor || 'default');
     }),
   ]);
 
