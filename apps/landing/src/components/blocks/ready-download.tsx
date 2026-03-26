@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-import { DownloadIcon, ArrowRightIcon, ChevronDownIcon, TerminalIcon, MonitorIcon, CheckIcon, CopyIcon } from 'lucide-react'
+import { ArrowRightIcon, ChevronDownIcon, CheckIcon, CopyIcon } from 'lucide-react'
 import Link from 'next/link'
 
 import {
@@ -16,9 +16,9 @@ import {
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { TextShimmer } from '@workspace/ui/components/ui/text-shimmer'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
-import { PrimaryFlowButton } from '@workspace/ui/components/ui/flow-button'
 import { Button } from '@workspace/ui/components/ui/button'
 import { Badge } from '@workspace/ui/components/ui/badge'
+import { OsIcon } from '@/components/os-icon'
 
 const ReadyDownload = () => {
   const [copied, setCopied] = useState(false)
@@ -101,7 +101,7 @@ const ReadyDownload = () => {
               <div className='flex items-center isolate overflow-hidden rounded-lg relative ring-2 ring-primary/60 w-full sm:w-72'>
                 <Button size='lg' className='flex-1 h-14 rounded-r-none px-6 text-base font-medium hover:bg-primary transition-colors border-r border-primary-foreground/20' asChild>
                   <Link href={downloadLinks.macAppleSilicon} target='_blank' rel='noopener noreferrer'>
-                    <DownloadIcon className='mr-2 size-5' />
+                    <OsIcon os='apple' className='size-5' />
                     Download for MacOS
                   </Link>
                 </Button>
@@ -116,25 +116,27 @@ const ReadyDownload = () => {
                   <DropdownMenuContent align='end' className='w-[calc(100vw-2rem)] sm:w-72 font-medium'>
                     <DropdownMenuItem asChild>
                       <Link href={downloadLinks.macAppleSilicon} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
+                        <OsIcon os='apple' className='size-4' />
                         MacOS (Apple Silicon)
                         <span className='ml-auto text-xs text-muted-foreground'>Default</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href={downloadLinks.macIntel} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
+                        <OsIcon os='apple' className='size-4' />
                         MacOS (Intel)
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href={downloadLinks.windows} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
-                        <MonitorIcon className='mr-2 size-4 opacity-50' />
+                        <OsIcon os='windows' className='size-4' />
                         Windows (x64)
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href={downloadLinks.linux} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
-                        <TerminalIcon className='mr-2 size-4 opacity-50' />
+                        <OsIcon os='linux' className='size-4' />
                         Linux (AppImage)
                       </Link>
                     </DropdownMenuItem>

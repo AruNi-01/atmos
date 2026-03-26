@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atmos Startup Error</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #000000;
+        --text: #f5f7fb;
+        --muted: rgba(214, 219, 231, 0.68);
+        --line: rgba(255, 255, 255, 0.12);
+        --line-strong: rgba(255, 255, 255, 0.18);
+        --surface: rgba(255, 255, 255, 0.03);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      @font-face {
+        font-family: "Hack Nerd Font Mono";
+        src: url("/fonts/HackNerdFontMono-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: "Hack Nerd Font Mono";
+        src: url("/fonts/HackNerdFontMono-Bold.ttf") format("truetype");
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Hack Nerd Font Mono", "Hack Nerd Font", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        padding: 40px;
+      }
+
+      .panel {
+        width: min(760px, 100%);
+      }
+
+      .eyebrow {
+        margin-bottom: 18px;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3.25rem);
+        line-height: 1;
+        letter-spacing: -0.03em;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.8;
+      }
+
+      .intro {
+        margin-top: 14px;
+        max-width: 62ch;
+      }
+
+      .cause,
+      code {
+        display: block;
+        border: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .cause {
+        margin-top: 32px;
+        padding: 20px 22px;
+        border-radius: 18px;
+        font-size: 14px;
+        line-height: 1.8;
+        word-break: break-word;
+      }
+
+      .meta {
+        margin-top: 22px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .log-row {
+        display: flex;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .label {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      code {
+        flex: 1;
+        padding: 14px 16px;
+        border-radius: 16px;
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.7;
+        word-break: break-all;
+      }
+
+      button {
+        appearance: none;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 0 16px;
+        font: inherit;
+        cursor: pointer;
+        color: var(--text);
+        background: transparent;
+        transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+      }
+
+      button:hover {
+        border-color: var(--line-strong);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 20px;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+
+        .log-row {
+          flex-direction: column;
+        }
+
+        button {
+          width: 100%;
+          min-height: 48px;
+          padding: 12px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="panel">
+      <div class="eyebrow">Startup Error</div>
+      <h1>Atmos couldn't start</h1>
+      <p class="intro">The desktop app hit a startup error. This page only shows the root cause. Full details remain in the log file.</p>
+      <div class="cause" id="root-cause"></div>
+      <div class="meta">
+        <div class="label">Log file</div>
+        <div class="log-row">
+          <code id="log-path"></code>
+          <button id="copy-path" type="button">Copy</button>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const rootCause = params.get("rootCause") || "Unknown startup error.";
+      const logPath = params.get("logPath") || "";
+
+      const rootCauseNode = document.getElementById("root-cause");
+      const logPathNode = document.getElementById("log-path");
+
+      if (rootCauseNode) rootCauseNode.textContent = rootCause;
+      if (logPathNode) logPathNode.textContent = logPath;
+
+      const copyText = async (value) => {
+        if (!value) throw new Error("empty");
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+          return;
+        }
+
+        const input = document.createElement("textarea");
+        input.value = value;
+        input.setAttribute("readonly", "");
+        input.style.position = "absolute";
+        input.style.left = "-9999px";
+        document.body.appendChild(input);
+        input.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(input);
+        if (!ok) throw new Error("copy failed");
+      };
+
+      document.getElementById("copy-path")?.addEventListener("click", async () => {
+        try {
+          await copyText(logPath);
+          const button = document.getElementById("copy-path");
+          if (button) {
+            const prev = button.textContent;
+            button.textContent = "Copied";
+            window.setTimeout(() => {
+              button.textContent = prev;
+            }, 1200);
+          }
+        } catch (_error) {
+          const button = document.getElementById("copy-path");
+          if (button) {
+            const prev = button.textContent;
+            button.textContent = "Copy failed";
+            window.setTimeout(() => {
+              button.textContent = prev;
+            }, 1200);
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

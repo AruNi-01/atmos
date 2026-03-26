@@ -1,5 +1,6 @@
 mod commands;
 mod logging;
+mod preview_bridge;
 mod state;
 
 use std::collections::VecDeque;
@@ -13,7 +14,6 @@ use tauri::menu::{MenuBuilder, MenuItem, SubmenuBuilder};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::utils::config::Color;
 use tauri::{Listener, Manager, PhysicalPosition, PhysicalSize, Position, Size};
-use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::Notify;
 use tokio::time::{sleep, timeout};
@@ -28,6 +28,11 @@ const SPLASH_BACKGROUND_COLOR: Color = Color(6, 7, 11, 255);
 struct StartupDiagnostics {
     stdout: VecDeque<String>,
     stderr: VecDeque<String>,
+    log_path: PathBuf,
+}
+
+struct StartupFailure {
+    root_cause: String,
     log_path: PathBuf,
 }
 
@@ -55,21 +60,21 @@ impl StartupDiagnostics {
         logging::append_log(&self.log_path, line);
     }
 
-    fn startup_error(&self, summary: impl Into<String>) -> String {
-        let mut message = summary.into();
+    fn startup_error(&self, summary: impl Into<String>) -> StartupFailure {
+        let summary = clean_error_text(&summary.into());
+        let root_cause = self
+            .stderr
+            .iter()
+            .rev()
+            .map(|line| clean_error_text(line))
+            .find(|line| is_meaningful_error_line(line))
+            .filter(|line| !line.is_empty())
+            .unwrap_or(summary);
 
-        if !self.stderr.is_empty() {
-            message.push_str("\n\nRecent stderr:\n");
-            message.push_str(&self.stderr.iter().cloned().collect::<Vec<_>>().join("\n"));
+        StartupFailure {
+            root_cause,
+            log_path: self.log_path.clone(),
         }
-
-        if !self.stdout.is_empty() {
-            message.push_str("\n\nRecent stdout:\n");
-            message.push_str(&self.stdout.iter().cloned().collect::<Vec<_>>().join("\n"));
-        }
-
-        message.push_str(&format!("\n\nLog file: {}", self.log_path.display()));
-        message
     }
 }
 
@@ -100,8 +105,10 @@ fn main() {
                 api_token: api_token.clone(),
                 desktop_log_level: logging::compiled_log_level(),
                 sidecar_child: Mutex::new(None),
+                preview_bridge: Mutex::new(None),
                 window_state_path,
                 splash_close_allowed: AtomicBool::new(false),
+                startup_failed: AtomicBool::new(false),
                 theme_ready: AtomicBool::new(false),
                 theme_ready_notify: Notify::new(),
             });
@@ -137,27 +144,8 @@ fn main() {
                 let has_static = static_dir.is_some();
 
                 if let Err(err) = spawn_and_wait_sidecar(&app_handle, api_token, static_dir).await {
-                    eprintln!("Failed to start sidecar: {err}");
-
-                    // Close splashscreen so it doesn't linger behind the dialog
-                    if let Some(splash) = app_handle.get_webview_window("splashscreen") {
-                        let state = app_handle.state::<AppState>();
-                        state.splash_close_allowed.store(true, Ordering::SeqCst);
-                        let _ = splash.close();
-                    }
-
-                    let handle = app_handle.clone();
-                    app_handle
-                        .dialog()
-                        .message(format!(
-                            "Atmos backend failed to start:\n\n{}\n\nThe app will now exit.",
-                            err
-                        ))
-                        .title("Atmos Startup Error")
-                        .kind(MessageDialogKind::Error)
-                        .show(move |_| {
-                            handle.exit(1);
-                        });
+                    eprintln!("Failed to start sidecar: {}", err.root_cause);
+                    show_startup_error(&app_handle, &err);
                     return;
                 }
 
@@ -264,7 +252,6 @@ fn main() {
             let show_item = MenuItem::with_id(app, "show", "Show Atmos", true, None::<&str>)?;
 
             // Handle navigation menu events
-            let app_handle_for_menu = app.handle().clone();
             app.on_menu_event(move |app_handle, event| match event.id.as_ref() {
                 "back" => {
                     if let Some(w) = app_handle.get_webview_window("main") {
@@ -316,6 +303,12 @@ fn main() {
             #[cfg(target_os = "macos")]
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
+                    let state = window.app_handle().state::<AppState>();
+                    if state.startup_failed.load(Ordering::SeqCst) {
+                        window.app_handle().exit(1);
+                        return;
+                    }
+                    preview_bridge::hide_preview_window(&window.app_handle());
                     api.prevent_close();
                     if window.is_fullscreen().unwrap_or(false) {
                         let handle = window.clone();
@@ -338,6 +331,7 @@ fn main() {
                         });
                     } else {
                         persist_main_window_state(window);
+                        preview_bridge::hide_preview_window(&window.app_handle());
                         let _ = window.hide();
                     }
                 } else if window.label() == "splashscreen" {
@@ -350,6 +344,9 @@ fn main() {
             if window.label() == "main" {
                 match event {
                     tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Destroyed => {
+                        if matches!(event, tauri::WindowEvent::Destroyed) {
+                            let _ = preview_bridge::close_preview_window(&window.app_handle());
+                        }
                         persist_main_window_state(window)
                     }
                     tauri::WindowEvent::Resized(_) => {
@@ -365,6 +362,16 @@ fn main() {
             commands::write_log,
             commands::open_in_external_editor,
             commands::send_notification,
+            commands::preview_bridge_open,
+            commands::preview_bridge_update_bounds,
+            commands::preview_bridge_navigate,
+            commands::preview_bridge_enter_pick_mode,
+            commands::preview_bridge_clear_selection,
+            commands::preview_bridge_close,
+            commands::preview_bridge_show,
+            commands::preview_bridge_hide,
+            commands::preview_bridge_event,
+            commands::preview_bridge_probe_url,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
@@ -373,6 +380,7 @@ fn main() {
         // Sidecar cleanup on ALL exit paths:
         // tray "Quit", Cmd+Q, dock "Quit", system shutdown, etc.
         tauri::RunEvent::Exit => {
+            let _ = preview_bridge::close_preview_window(&app_handle);
             let child = {
                 let state = app_handle.state::<AppState>();
                 state.sidecar_child.lock().ok().and_then(|mut g| g.take())
@@ -598,7 +606,7 @@ async fn spawn_and_wait_sidecar(
     app_handle: &tauri::AppHandle,
     api_token: String,
     static_dir: Option<PathBuf>,
-) -> Result<(), String> {
+) -> Result<(), StartupFailure> {
     let sidecar_log_path = logging::app_log_path(app_handle, "sidecar-api.log");
     let mut diagnostics = StartupDiagnostics::new(sidecar_log_path.clone());
 
@@ -608,7 +616,10 @@ async fn spawn_and_wait_sidecar(
         .unwrap_or_else(|_| PathBuf::from(".atmos-desktop"));
     let data_dir_str = data_dir
         .to_str()
-        .ok_or_else(|| "invalid data dir".to_string())?
+        .ok_or_else(|| StartupFailure {
+            root_cause: "Invalid app data directory".to_string(),
+            log_path: sidecar_log_path.clone(),
+        })?
         .to_string();
 
     let port = std::env::var("ATMOS_PORT").unwrap_or_else(|_| "30303".into());
@@ -637,7 +648,10 @@ async fn spawn_and_wait_sidecar(
     let mut sidecar_cmd = app_handle
         .shell()
         .sidecar("api")
-        .map_err(|e| e.to_string())?
+        .map_err(|e| StartupFailure {
+            root_cause: clean_error_text(&e.to_string()),
+            log_path: sidecar_log_path.clone(),
+        })?
         .env("PATH", &path)
         .env("ATMOS_PORT", &port)
         .env("ATMOS_LOCAL_TOKEN", &api_token)
@@ -661,14 +675,20 @@ async fn spawn_and_wait_sidecar(
         }
     }
 
-    let (mut rx, child) = sidecar_cmd.spawn().map_err(|e| e.to_string())?;
+    let (mut rx, child) = sidecar_cmd.spawn().map_err(|e| StartupFailure {
+        root_cause: clean_error_text(&e.to_string()),
+        log_path: sidecar_log_path.clone(),
+    })?;
 
     {
         let app_state = app_handle.state::<AppState>();
         let mut guard = app_state
             .sidecar_child
             .lock()
-            .map_err(|_| "state lock poisoned".to_string())?;
+            .map_err(|_| StartupFailure {
+                root_cause: "State lock poisoned".to_string(),
+                log_path: sidecar_log_path.clone(),
+            })?;
         *guard = Some(child);
     }
 
@@ -704,7 +724,10 @@ async fn spawn_and_wait_sidecar(
                             let mut guard = app_state
                                 .api_port
                                 .lock()
-                                .map_err(|_| "state lock poisoned".to_string())?;
+                                .map_err(|_| StartupFailure {
+                                    root_cause: "State lock poisoned".to_string(),
+                                    log_path: sidecar_log_path.clone(),
+                                })?;
                             *guard = Some(port);
                         }
                         wait_for_api(port).await.map_err(|error| {
@@ -803,11 +826,108 @@ fn push_bounded_line(lines: &mut VecDeque<String>, line: &str) {
 
 fn normalized_output(raw: &[u8]) -> Option<String> {
     let line = String::from_utf8_lossy(raw);
-    let trimmed = line.trim();
+    let cleaned = strip_ansi_sequences(&line);
+    let trimmed = cleaned.trim();
     if trimmed.is_empty() {
         None
     } else {
         Some(trimmed.to_string())
+    }
+}
+
+fn strip_ansi_sequences(value: &str) -> String {
+    let mut cleaned = String::with_capacity(value.len());
+    let mut chars = value.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\u{1b}' {
+            if chars.peek() == Some(&'[') {
+                let _ = chars.next();
+                while let Some(next) = chars.next() {
+                    if ('@'..='~').contains(&next) {
+                        break;
+                    }
+                }
+                continue;
+            }
+        }
+
+        cleaned.push(ch);
+    }
+
+    cleaned
+}
+
+fn clean_error_text(value: &str) -> String {
+    let mut text = strip_ansi_sequences(value).trim().to_string();
+
+    if let Some(rest) = text.strip_prefix("Error:") {
+        text = rest.trim().to_string();
+    }
+
+    if text.starts_with('"') && text.ends_with('"') && text.len() > 1 {
+        text = text[1..text.len() - 1].to_string();
+    }
+
+    text
+}
+
+fn is_meaningful_error_line(value: &str) -> bool {
+    let trimmed = value.trim();
+    !trimmed.is_empty()
+        && !trimmed.starts_with("API sidecar terminated early")
+        && !trimmed.starts_with("API sidecar process error:")
+        && !trimmed.starts_with("TERMINATED code=")
+}
+
+fn percent_encode_for_url_component(value: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut encoded = String::with_capacity(value.len());
+
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                encoded.push(byte as char)
+            }
+            _ => {
+                encoded.push('%');
+                encoded.push(HEX[(byte >> 4) as usize] as char);
+                encoded.push(HEX[(byte & 0x0f) as usize] as char);
+            }
+        }
+    }
+
+    encoded
+}
+
+fn startup_error_page_path(failure: &StartupFailure) -> String {
+    let root_cause = percent_encode_for_url_component(&failure.root_cause);
+    let log_path = percent_encode_for_url_component(&failure.log_path.display().to_string());
+    format!("/startup-error.html?rootCause={root_cause}&logPath={log_path}")
+}
+
+fn show_startup_error(app_handle: &tauri::AppHandle, failure: &StartupFailure) {
+    let state = app_handle.state::<AppState>();
+    state.startup_failed.store(true, Ordering::SeqCst);
+    state.splash_close_allowed.store(true, Ordering::SeqCst);
+
+    if let Some(splash) = app_handle.get_webview_window("splashscreen") {
+        let _ = splash.close();
+    }
+
+    if let Some(main) = app_handle.get_webview_window("main") {
+        let _ = main.set_background_color(Some(SPLASH_BACKGROUND_COLOR));
+        let target = main
+            .url()
+            .ok()
+            .and_then(|current| current.join(&startup_error_page_path(failure)).ok())
+            .or_else(|| "tauri://localhost/startup-error.html".parse().ok());
+
+        if let Some(url) = target {
+            let _ = main.navigate(url);
+        }
+        let _ = main.show();
+        let _ = main.set_focus();
     }
 }
 

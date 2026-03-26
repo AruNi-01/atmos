@@ -132,6 +132,21 @@ export const rightSidebarParams = {
 };
 
 // ---------------------------------------------------------------------------
+// Preview toolbar – view mode & toolbar toggles
+// ---------------------------------------------------------------------------
+export type PreviewViewMode = "desktop" | "mobile";
+
+export const previewToolbarParams = {
+  pvView: parseAsStringEnum<PreviewViewMode>(["desktop", "mobile"]).withDefault("desktop"),
+  pvToolbar: parseAsBoolean.withDefault(false),
+  pvPick: parseAsBoolean.withDefault(false),
+};
+
+export const previewUrlParams = {
+  pvUrl: parseAsString.withDefault(""),
+};
+
+// ---------------------------------------------------------------------------
 // ChatSessions – filter & search
 // ---------------------------------------------------------------------------
 export const chatSessionsParams = {

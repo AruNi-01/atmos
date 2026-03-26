@@ -3,10 +3,13 @@
   "identifier": "default",
   "description": "Default capability set for Atmos desktop",
   "windows": ["main", "splashscreen"],
+  "webviews": ["preview-inspector"],
   "remote": {
     "urls": [
       "http://127.0.0.1:*",
-      "http://localhost:*"
+      "http://localhost:*",
+      "https://127.0.0.1:*",
+      "https://localhost:*"
     ]
   },
   "permissions": [
@@ -28,6 +31,7 @@
     "notification:allow-notify",
     "opener:default",
     "updater:default",
+    "process:allow-exit",
     "process:allow-restart"
   ]
 }

@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -18,13 +18,32 @@ function run(command, args, options = {}) {
   }
 }
 
-run("bun", ["--filter", "web", "build"], {
-  env: {
-    ...process.env,
-    BUILD_TARGET: "desktop",
-    ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
-  },
-});
+// Static export (output: "export") does not support API Route Handlers.
+// Temporarily move them out of the way so `next build` succeeds.
+const webApiDir = join(rootDir, "apps/web/src/app/api");
+const webApiBackup = join(rootDir, "apps/web/src/app/_api_desktop_backup");
+const webDevLock = join(rootDir, "apps/web/.next/dev/lock");
+const hasApiDir = existsSync(webApiDir);
+if (hasApiDir) {
+  renameSync(webApiDir, webApiBackup);
+}
+if (existsSync(webDevLock)) {
+  rmSync(webDevLock, { force: true });
+}
+
+try {
+  run("bun", ["--filter", "web", "build"], {
+    env: {
+      ...process.env,
+      BUILD_TARGET: "desktop",
+      ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
+    },
+  });
+} finally {
+  if (hasApiDir) {
+    renameSync(webApiBackup, webApiDir);
+  }
+}
 
 let targetTriple = process.env.TARGET_TRIPLE;
 if (!targetTriple) {

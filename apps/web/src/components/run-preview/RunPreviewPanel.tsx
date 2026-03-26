@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryState } from "nuqs";
 import { Preview } from './Preview';
 import { RunScript } from './RunScript';
 import { Panel, PanelGroup, PanelResizeHandle, ImperativePanelHandle } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import { ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { previewUrlParams } from "@/lib/nuqs/searchParams";
 
 interface RunPreviewPanelProps {
   workspaceId: string | null;
@@ -23,18 +25,29 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
   const [isRunScriptCollapsed, setIsRunScriptCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Lifted state from Preview
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [activePreviewUrl, setActivePreviewUrl] = useState("");
+  const [committedPreviewUrl, setCommittedPreviewUrl] = useQueryState("pvUrl", previewUrlParams.pvUrl);
+  const [previewUrl, setPreviewUrlDraft] = useState(committedPreviewUrl);
+  const [localActiveUrl, setLocalActiveUrl] = useState(committedPreviewUrl);
 
-  const handleDetectedUrl = (url: string) => {
-    // Only auto-set if empty or user hasn't typed anything meaningful yet?
-    // Or always overwrite? User request: "Run 运行成功后，自动把 url 设置到 上面的 Preview 组件中"
-    // Usually, we want to update it.
-    // Let's update both input and active url to make it clear.
-    setPreviewUrl(url);
-    setActivePreviewUrl(url);
-  };
+  useEffect(() => {
+    setPreviewUrlDraft((previous) => (previous === committedPreviewUrl ? previous : committedPreviewUrl));
+    setLocalActiveUrl((previous) => (previous === committedPreviewUrl ? previous : committedPreviewUrl));
+  }, [committedPreviewUrl]);
+
+  const setPreviewUrl = useCallback((nextUrl: string) => {
+    setPreviewUrlDraft(nextUrl);
+  }, []);
+
+  const setActivePreviewUrl = useCallback((nextUrl: string) => {
+    setLocalActiveUrl(nextUrl);
+    void setCommittedPreviewUrl(nextUrl);
+  }, [setCommittedPreviewUrl]);
+
+  const handleDetectedUrl = useCallback((url: string) => {
+    setPreviewUrlDraft(url);
+    setLocalActiveUrl(url);
+    void setCommittedPreviewUrl(url);
+  }, [setCommittedPreviewUrl]);
 
   return (
     <PanelGroup
@@ -48,8 +61,11 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
         <Preview
           url={previewUrl}
           setUrl={setPreviewUrl}
-          activeUrl={activePreviewUrl}
+          activeUrl={localActiveUrl}
           setActiveUrl={setActivePreviewUrl}
+          isActive={isActive}
+          workspaceId={workspaceId}
+          projectId={projectId}
         />
       </Panel>
 
@@ -123,6 +139,7 @@ function VerticalResizeHandle({
           onCollapse();
         }}
         title={isCollapsed ? "Expand" : "Collapse"}
+        aria-label={isCollapsed ? "Expand panel" : "Collapse panel"}
         className={cn(
           "absolute z-50 flex size-5 items-center justify-center rounded-full bg-muted border border-border shadow-lg transition-all duration-200 hover:bg-muted/80 hover:scale-110 opacity-0 group-hover:opacity-100",
           // Center horizontally

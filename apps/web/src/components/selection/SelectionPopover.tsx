@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Copy, ChevronDown, Check, Paperclip } from 'lucide-react';
+import { Copy, ChevronDown, Check, Paperclip, X } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -15,10 +15,11 @@ import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import {
   formatEditorSelectionForAI,
   formatDiffSelectionForAI,
+  formatPreviewSelectionForAI,
   formatWikiSelectionForAI,
 } from '@/lib/format-selection-for-ai';
 
-export type SelectionType = 'editor' | 'diff' | 'wiki';
+export type SelectionType = 'editor' | 'diff' | 'wiki' | 'preview';
 
 export interface SelectionCopiedPayload {
   type: SelectionType;
@@ -27,7 +28,7 @@ export interface SelectionCopiedPayload {
   includeNote: boolean;
 }
 
-export interface SelectionAttachedPayload extends SelectionCopiedPayload {}
+export type SelectionAttachedPayload = SelectionCopiedPayload;
 
 interface SelectionPopoverProps {
   isVisible: boolean;
@@ -67,11 +68,6 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   const animationFrameRef = useRef<number>(0);
   const canAttach = type === 'wiki' && typeof onAttach === 'function';
 
-  // Keep track of the last valid selection info for the exit animation
-  if (selectionInfo && selectionInfo !== lastSelectionInfo) {
-    setLastSelectionInfo(selectionInfo);
-  }
-
   // Use the prop if available (active state), otherwise use cached version (exit animation state)
   const displayInfo = selectionInfo || lastSelectionInfo;
   
@@ -80,8 +76,13 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   const isActive = isVisible && !!selectionInfo;
 
   useEffect(() => {
+    if (selectionInfo) {
+      setLastSelectionInfo(selectionInfo);
+    }
+  }, [selectionInfo]);
+
+  useEffect(() => {
     if (isActive) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShouldRender(true);
       setIsAnimatingIn(false);
       animationFrameRef.current = requestAnimationFrame(() => {
@@ -114,6 +115,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     const note = includeNote ? userNote : undefined;
     if (type === 'diff') return formatDiffSelectionForAI(displayInfo, note);
     if (type === 'wiki') return formatWikiSelectionForAI(displayInfo, note);
+    if (type === 'preview') return formatPreviewSelectionForAI(displayInfo, note);
     return formatEditorSelectionForAI(displayInfo, note);
   }, [displayInfo, type, userNote]);
 
@@ -191,6 +193,19 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       ? `L${displayInfo.startLine}`
       : `L${displayInfo.startLine}-L${displayInfo.endLine}`)
     : null;
+  const previewComponentLabel = type === 'preview' ? displayInfo.componentName?.trim() : null;
+  const previewFrameworkLabel = type === 'preview' ? displayInfo.framework?.trim() : null;
+  const previewDebugSignals = type === 'preview'
+    ? (displayInfo.sourceDebugSignals?.filter(Boolean) ?? [])
+    : [];
+  const previewSourceConfidence = type === 'preview' ? displayInfo.sourceConfidence : null;
+  const previewConfidenceLabelClassName = previewSourceConfidence === 'high'
+    ? 'border-success/30 bg-success/10 text-success'
+    : previewSourceConfidence === 'medium'
+      ? 'border-warning/30 bg-warning/10 text-warning'
+      : previewSourceConfidence === 'low'
+        ? 'border-destructive/30 bg-destructive/10 text-destructive'
+        : 'border-border bg-muted/40 text-muted-foreground';
 
   return (
     <div
@@ -216,6 +231,18 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       <Popover open={isExpanded} onOpenChange={(open) => !open && onDismiss()}>
         <PopoverAnchor asChild>
           <div className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-md">
+            {type === 'preview' ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={onDismiss}
+                title="Cancel selection"
+              >
+                <X className="h-3.5 w-3.5" />
+                Cancel
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="icon"
@@ -235,7 +262,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 size="icon"
                 className="h-7 w-7"
                 onClick={() => void handleAttach(false)}
-                title="Attach to Wiki Ask"
+                title="Attach to Agent"
                 disabled={attaching}
               >
                 <Paperclip className="h-3.5 w-3.5" />
@@ -288,6 +315,23 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                   </span>
                 </>
               )}
+              {previewFrameworkLabel && (
+                <>
+                  <span className="shrink-0">·</span>
+                  <span className="shrink-0 capitalize">{previewFrameworkLabel}</span>
+                </>
+              )}
+              {previewComponentLabel && (
+                <>
+                  <span className="shrink-0">·</span>
+                  <span
+                    className="max-w-[140px] shrink overflow-hidden text-ellipsis whitespace-nowrap font-medium text-foreground"
+                    title={previewComponentLabel}
+                  >
+                    {previewComponentLabel}
+                  </span>
+                </>
+              )}
             </div>
 
             <Textarea
@@ -297,6 +341,31 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               className="min-h-[80px] text-sm resize-none"
               autoFocus
             />
+
+            {previewDebugSignals.length > 0 || previewSourceConfidence ? (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] font-medium text-muted-foreground">
+                    Source Code Confidence
+                  </div>
+                  {previewSourceConfidence ? (
+                    <span
+                      className={cn(
+                        'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]',
+                        previewConfidenceLabelClassName,
+                      )}
+                    >
+                      {previewSourceConfidence}
+                    </span>
+                  ) : null}
+                </div>
+                {previewDebugSignals.length > 0 ? (
+                  <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
+                    {previewDebugSignals.join(', ')}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="flex justify-end gap-2">
               <Button
