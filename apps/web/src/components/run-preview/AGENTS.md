@@ -266,8 +266,8 @@ function handleClick(event) {
 | File | Role |
 |------|------|
 | `apps/desktop/src-tauri/src/preview_bridge/mod.rs` | Rust-side bridge: opens/manages the child webview, injects `desktop_bridge_script()`, forwards events between child webview and main window |
-| `packages/shared/preview/preview-runtime.js` | Canonical runtime shared by desktop bridge (via `include_str!`) and extension. Creates overlay, handles pick mode, emits selection events |
-| `extension/preview-runtime.js` | Extension-specific copy of the runtime (rendered inside iframe, has full overlay with `setCursor`) |
+| `packages/shared/preview/preview-runtime.js` | Desktop variant of the runtime (embedded via `include_str!`). Uses per-segment border overlays and no-op `setCursor()` for Tauri's cross-origin child webview |
+| `extension/preview-runtime.js` | Extension variant of the runtime. Uses single-box overlays with working `setCursor()` and larger UI. Both variants share inspection logic and public API |
 | `Preview.tsx` | React component: toolbar UI, transport management, cursor application (`onCursorChange` sets `viewport.style.cursor`) |
 | `preview-transports/desktop-transport.ts` | Connects to the desktop child webview via Tauri IPC events |
 
@@ -280,7 +280,7 @@ function handleClick(event) {
 - [ ] New overlay elements with text content will inherit correct cursor from `resolveAutoCursor` — no special handling needed
 - [ ] Event handlers on overlay buttons must use **bubbling** (no `true` third argument) since the click target may be a child SVG element
 - [ ] In pick mode, `handleClick` must always call `preventDefault()` before any early return — never let the browser navigate
-- [ ] Keep `packages/shared/preview/preview-runtime.js` and `extension/preview-runtime.js` in sync for overlay structure and event handling
+- [ ] When changing inspection logic or public API in one `preview-runtime.js`, update the other variant too. Overlay/cursor differences are intentional and variant-specific — do NOT sync those
 
 ### React callback / Tauri IPC
 - [ ] Before adding state to a `useCallback` dependency array, trace the full chain to `showDesktopPreview` — if it reaches there, use a ref instead

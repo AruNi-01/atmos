@@ -1,4 +1,13 @@
-// Mirror of packages/shared/preview/preview-runtime.js for the unpacked browser extension.
+// Extension-specific preview runtime for the unpacked browser extension.
+// This is NOT a mirror of packages/shared/preview/preview-runtime.js — the two
+// files have intentionally diverged:
+//   - This version uses a single root container + single-box overlays and a
+//     working setCursor(), suitable for running directly in the target page.
+//   - packages/shared/ uses per-segment border overlays and a no-op setCursor(),
+//     designed for Tauri's cross-origin child webview where cursor is managed
+//     natively by the Rust bridge.
+// Both files share the same inspection logic (locateReact, locateVue, etc.) and
+// public API shape (createRuntime). Keep those in sync when changing either file.
 (function () {
   if (window.__ATMOS_PREVIEW_RUNTIME__) return;
 
