@@ -82,7 +82,7 @@ const Header: React.FC = () => {
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
   const setupProgress = useProjectStore(s => s.setupProgress);
   const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
-  const { setGlobalSearchOpen } = useDialogStore();
+  const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -506,6 +506,14 @@ const Header: React.FC = () => {
       type: 'error',
     });
   }, [openInBrowser]);
+
+  const isAnyHeaderOverlayOpen =
+    isActionMenuOpen || desktopWebPopoverOpen || isUsagePopoverOpen ||
+    isTokenUsageOpen || isSettingsOpen || isSkillsModalOpen || isTargetBranchOpen;
+
+  useEffect(() => {
+    setHeaderHasOpenOverlay(isAnyHeaderOverlayOpen);
+  }, [isAnyHeaderOverlayOpen, setHeaderHasOpenOverlay]);
 
   const resolvedThemeLabel = theme === "light" ? "Light" : theme === "dark" ? "Dark" : "System";
   const isFullScreenActive = isTauriRuntime() ? isDesktopFullscreen : isFullScreen;

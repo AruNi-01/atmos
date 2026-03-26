@@ -40,6 +40,8 @@ import {
 } from "@workspace/ui";
 import { fetchExtensionDownload, fetchExtensionVersion } from "@/api/preview";
 import { functionSettingsApi } from "@/api/ws-api";
+import { useDialogStore } from "@/hooks/use-dialog-store";
+import { useSidebarLayout } from "@/components/layout/SidebarLayoutContext";
 import { invokeDesktopPreviewBridge } from "@/lib/desktop-preview-bridge";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/lib/nuqs/searchParams";
@@ -360,9 +362,13 @@ export const Preview: React.FC<PreviewProps> = ({
   setActiveUrl,
   isActive = true,
 }) => {
+  const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
+  const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
+  const { isRightCollapsed } = useSidebarLayout();
   const [iframeKey, setIframeKey] = useState(0);
   const [iframeSrc, setIframeSrc] = useState(activeUrl);
   const [requestedIframeUrl, setRequestedIframeUrl] = useState(activeUrl);
+  const [navigationToken, setNavigationToken] = useState(0);
   const [desktopCommittedUrl, setDesktopCommittedUrl] = useState(activeUrl);
   const desktopCommittedUrlRef = useRef(activeUrl);
   const [isElementPickerTooltipOpen, setIsElementPickerTooltipOpen] = useState(false);
@@ -478,9 +484,14 @@ export const Preview: React.FC<PreviewProps> = ({
     }
   }, [normalizedActiveUrl]);
   const shouldSuspendDesktopPreview =
-      preferredTransportMode === 'desktop-native' && (favoritesListOpen || favoritePopoverOpen);
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex < history.length - 1;
+      preferredTransportMode === 'desktop-native' && (
+        favoritesListOpen || favoritePopoverOpen ||
+        headerHasOpenOverlay || isGlobalSearchOpen ||
+        isRightCollapsed
+      );
+  const clampedHistoryIndex = Math.max(0, Math.min(historyIndex, history.length - 1));
+  const canGoBack = clampedHistoryIndex > 0;
+  const canGoForward = clampedHistoryIndex < history.length - 1;
 
   const activeFavorite = useMemo(
     () => favorites.find((site) => canonicalizeUrl(site.url) === normalizedActiveUrl) ?? null,
@@ -518,7 +529,8 @@ export const Preview: React.FC<PreviewProps> = ({
 
   const pushHistoryEntry = useCallback((finalUrl: string) => {
     setHistory((prev) => {
-      const currentIndex = historyIndexRef.current;
+      const rawIndex = historyIndexRef.current;
+      const currentIndex = Math.max(0, Math.min(rawIndex, prev.length - 1));
       const nextHistory = [...prev.slice(0, currentIndex + 1), finalUrl];
 
       if (nextHistory.length > MAX_HISTORY_LENGTH) {
@@ -550,6 +562,7 @@ export const Preview: React.FC<PreviewProps> = ({
       setUrl(finalUrl);
       setActiveUrl(finalUrl);
       setRequestedIframeUrl(finalUrl);
+      setNavigationToken((prev) => prev + 1);
       if (isTauriRuntime()) {
         desktopCommittedUrlRef.current = "";
         setDesktopCommittedUrl("");
@@ -764,43 +777,64 @@ export const Preview: React.FC<PreviewProps> = ({
     teardownTransport();
   }, [setActiveUrl, setCurrentPageTitle, setIsElementPickerEnabled, setUrl, teardownTransport]);
 
+  const navigateIframeInPlace = useCallback(
+    (targetUrl: string): boolean => {
+      if (preferredTransportMode === 'desktop-native') {
+        const controller = transportControllerRef.current;
+        if (controller?.mode !== 'desktop-native' || !controller.navigate) return false;
+
+        skipExternalHistorySyncRef.current = true;
+        setPreviewLoadError(null);
+        setCurrentPageTitle("");
+        setUrl(targetUrl);
+        setActiveUrl(targetUrl);
+        void controller.navigate(targetUrl);
+        return true;
+      }
+
+      try {
+        const iframeWin = iframeRef.current?.contentWindow;
+        if (!iframeWin) return false;
+
+        iframeUrlWatcherCleanupRef.current?.();
+        iframeUrlWatcherCleanupRef.current = null;
+        skipExternalHistorySyncRef.current = true;
+        setPreviewLoadError(null);
+        setCurrentPageTitle("");
+        setUrl(targetUrl);
+        setActiveUrl(targetUrl);
+        iframeWin.location.replace(targetUrl);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [preferredTransportMode, setActiveUrl, setUrl],
+  );
+
   const handleGoBack = () => {
     if (!canGoBack) return;
 
-    const newIndex = historyIndex - 1;
+    const newIndex = clampedHistoryIndex - 1;
     const previousUrl = history[newIndex];
     if (!previousUrl) return;
-    setCurrentPageTitle("");
-    setPreviewLoadError(null);
-    skipExternalHistorySyncRef.current = true;
     historyIndexRef.current = newIndex;
     setHistoryIndex(newIndex);
-    setUrl(previousUrl);
-    setActiveUrl(previousUrl);
-    setRequestedIframeUrl(previousUrl);
-    if (isTauriRuntime()) {
-      desktopCommittedUrlRef.current = "";
-      setDesktopCommittedUrl("");
+    if (!navigateIframeInPlace(previousUrl)) {
+      navigateToUrl(previousUrl, false);
     }
   };
 
   const handleGoForward = () => {
     if (!canGoForward) return;
 
-    const newIndex = historyIndex + 1;
+    const newIndex = clampedHistoryIndex + 1;
     const nextUrl = history[newIndex];
     if (!nextUrl) return;
-    setCurrentPageTitle("");
-    setPreviewLoadError(null);
-    skipExternalHistorySyncRef.current = true;
     historyIndexRef.current = newIndex;
     setHistoryIndex(newIndex);
-    setUrl(nextUrl);
-    setActiveUrl(nextUrl);
-    setRequestedIframeUrl(nextUrl);
-    if (isTauriRuntime()) {
-      desktopCommittedUrlRef.current = "";
-      setDesktopCommittedUrl("");
+    if (!navigateIframeInPlace(nextUrl)) {
+      navigateToUrl(nextUrl, false);
     }
   };
 
@@ -1361,23 +1395,20 @@ export const Preview: React.FC<PreviewProps> = ({
   ]);
 
   useEffect(() => {
-    if (!requestedIframeUrl || !isActive) {
-      return;
-    }
-
-    let disposed = false;
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => {
-      controller.abort();
-    }, 4500);
+    if (!requestedIframeUrl || !isActive) return;
 
     setPreviewLoadError(null);
     setIsPreviewLoading(true);
-    if (preferredTransportMode === 'desktop-native') {
-      void hideDesktopPreview();
-    }
 
     if (preferredTransportMode === 'desktop-native') {
+      void hideDesktopPreview();
+
+      let disposed = false;
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => {
+        controller.abort();
+      }, 4500);
+
       void invokeDesktopPreviewBridge('preview_bridge_probe_url', {
         url: requestedIframeUrl,
       }).then(() => {
@@ -1392,33 +1423,18 @@ export const Preview: React.FC<PreviewProps> = ({
         setPreviewLoadError(createPreviewNetworkError(requestedIframeUrl, error));
         setIsPreviewLoading(false);
       });
-    } else {
-      void fetch(requestedIframeUrl, {
-        method: "GET",
-        mode: "no-cors",
-        cache: "no-store",
-        signal: controller.signal,
-      }).then(() => {
-        if (disposed) return;
-        setIframeSrc(requestedIframeUrl);
-        setIframeKey((previous) => previous + 1);
-      }).catch((error) => {
-        if (disposed) return;
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
 
-        setPreviewLoadError(createPreviewNetworkError(requestedIframeUrl, error));
-        setIsPreviewLoading(false);
-      });
+      return () => {
+        disposed = true;
+        window.clearTimeout(timeoutId);
+        controller.abort();
+      };
     }
 
-    return () => {
-      disposed = true;
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [hideDesktopPreview, isActive, preferredTransportMode, requestedIframeUrl]);
+    setIframeSrc(requestedIframeUrl);
+    setIframeKey((previous) => previous + 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- navigationToken forces re-run for back/forward/refresh even when URL is unchanged
+  }, [hideDesktopPreview, isActive, preferredTransportMode, requestedIframeUrl, navigationToken]);
 
   useEffect(() => {
     if (

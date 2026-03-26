@@ -113,6 +113,9 @@ interface DialogStore {
   isCodeReviewDialogOpen: boolean;
   setCodeReviewDialogOpen: (open: boolean) => void;
 
+  headerHasOpenOverlay: boolean;
+  setHeaderHasOpenOverlay: (open: boolean) => void;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   activeActionRun: any | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -300,6 +303,9 @@ export const useDialogStore = create<DialogStore>((set, get) => ({
 
   isCodeReviewDialogOpen: false,
   setCodeReviewDialogOpen: (open) => set({ isCodeReviewDialogOpen: open }),
+
+  headerHasOpenOverlay: false,
+  setHeaderHasOpenOverlay: (open) => set({ headerHasOpenOverlay: open }),
 
   activeActionRun: null,
   setActiveActionRun: (run) => set({ activeActionRun: run }),
