@@ -64,22 +64,35 @@ fn desktop_bridge_script() -> String {
       return 'text search url tel email password number'.split(' ').indexOf(it) >= 0 ? 'text' : 'default';
     }}
     if ((tag === 'a' && el.hasAttribute('href')) || (el.closest && el.closest('a[href]'))) return 'pointer';
-    if (tag === 'label' && el.closest && el.closest('label')) {{
+    if (tag === 'label') {{
       var ctrl = el.htmlFor ? document.getElementById(el.htmlFor) : el.querySelector('input,textarea,select');
       if (ctrl) return resolveAutoCursor(ctrl);
     }}
     if (tag === 'button' || tag === 'select' || tag === 'summary') return 'default';
     if (el.closest && el.closest('button')) return 'default';
+    if ('img video canvas audio iframe object embed svg hr'.split(' ').indexOf(tag) >= 0) return 'default';
+    try {{
+      var us = window.getComputedStyle(el).userSelect || '';
+      if (us === 'none') return 'default';
+    }} catch(_) {{}}
+    var cn = el.childNodes;
+    for (var ci = 0; ci < cn.length; ci++) {{
+      if (cn[ci].nodeType === 3 && /\S/.test(cn[ci].nodeValue || '')) return 'text';
+    }}
     return 'default';
   }}
 
   var lastSyncedCursor = '';
+  document.addEventListener('mousedown', function(ev) {{
+    var dt = ev.target;
+    if (dt instanceof Element && dt.closest && dt.closest('[data-atmos-preview-overlay="true"]')) return;
+    lastSyncedCursor = '';
+  }}, true);
   document.addEventListener('mousemove', function(ev) {{
     var sid = window.__ATMOS_PREVIEW_SESSION_ID__;
     if (!sid) return;
     var t = ev.target;
     if (!(t instanceof Element)) return;
-    if (t.closest && t.closest('[data-atmos-preview-overlay="true"]')) return;
     var c = '';
     try {{ c = window.getComputedStyle(t).cursor || ''; }} catch(_) {{}}
     var next = c || 'default';

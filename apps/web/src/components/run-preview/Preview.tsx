@@ -364,6 +364,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const [iframeSrc, setIframeSrc] = useState(activeUrl);
   const [requestedIframeUrl, setRequestedIframeUrl] = useState(activeUrl);
   const [desktopCommittedUrl, setDesktopCommittedUrl] = useState(activeUrl);
+  const desktopCommittedUrlRef = useRef(activeUrl);
   const [isElementPickerTooltipOpen, setIsElementPickerTooltipOpen] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -439,6 +440,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const toolbarSuppressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setIsToolbarHidden = useCallback((nextIsToolbarHidden: boolean) => {
     if (nextIsToolbarHidden) {
+      setDesktopToolbarHovered(false);
       setToolbarHoverSuppressed(true);
       if (toolbarSuppressTimerRef.current) clearTimeout(toolbarSuppressTimerRef.current);
       toolbarSuppressTimerRef.current = setTimeout(() => setToolbarHoverSuppressed(false), 400);
@@ -451,6 +453,8 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [setPreviewToolbarParams]);
 
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
+  const normalizedActiveUrlRef = useRef(normalizedActiveUrl);
+  normalizedActiveUrlRef.current = normalizedActiveUrl;
   const normalizedDraftUrl = useMemo(() => canonicalizeUrl(url ?? ""), [url]);
   const displayUrlParts = useMemo(() => splitDisplayUrl(url ?? ""), [url]);
   const displayPageTitle = useMemo(
@@ -538,7 +542,7 @@ export const Preview: React.FC<PreviewProps> = ({
       if (!finalUrl) return;
 
       setIsUrlInputFocused(false);
-      if (canonicalizeUrl(finalUrl) !== normalizedActiveUrl) {
+      if (canonicalizeUrl(finalUrl) !== normalizedActiveUrlRef.current) {
         setCurrentPageTitle("");
       }
       setPreviewLoadError(null);
@@ -547,13 +551,14 @@ export const Preview: React.FC<PreviewProps> = ({
       setActiveUrl(finalUrl);
       setRequestedIframeUrl(finalUrl);
       if (isTauriRuntime()) {
+        desktopCommittedUrlRef.current = "";
         setDesktopCommittedUrl("");
       }
 
       if (!pushHistory) return;
       pushHistoryEntry(finalUrl);
     },
-    [normalizedActiveUrl, pushHistoryEntry, setActiveUrl, setUrl],
+    [pushHistoryEntry, setActiveUrl, setUrl],
   );
 
   const userEditedUrlRef = useRef(false);
@@ -753,6 +758,7 @@ export const Preview: React.FC<PreviewProps> = ({
     setIsElementPickerEnabled(false);
     setPreviewLoadError(null);
     setRequestedIframeUrl("");
+    desktopCommittedUrlRef.current = "";
     setDesktopCommittedUrl("");
     setIframeSrc("");
     teardownTransport();
@@ -773,6 +779,7 @@ export const Preview: React.FC<PreviewProps> = ({
     setActiveUrl(previousUrl);
     setRequestedIframeUrl(previousUrl);
     if (isTauriRuntime()) {
+      desktopCommittedUrlRef.current = "";
       setDesktopCommittedUrl("");
     }
   };
@@ -792,6 +799,7 @@ export const Preview: React.FC<PreviewProps> = ({
     setActiveUrl(nextUrl);
     setRequestedIframeUrl(nextUrl);
     if (isTauriRuntime()) {
+      desktopCommittedUrlRef.current = "";
       setDesktopCommittedUrl("");
     }
   };
@@ -950,11 +958,15 @@ export const Preview: React.FC<PreviewProps> = ({
     setSelectionPopoverExpanded(false);
   }, [getPopoverPositionFromRect]);
 
+  const selectionInfoRef = useRef<SelectionInfo | null>(null);
+  selectionInfoRef.current = selectionInfo;
+
   const handleDesktopToolbarCopy = useCallback(async (userNote?: string) => {
-    if (!selectionInfo || selectionInfo.transportMode !== 'desktop-native') return;
+    const info = selectionInfoRef.current;
+    if (!info || info.transportMode !== 'desktop-native') return;
 
     try {
-      await navigator.clipboard.writeText(formatPreviewSelectionForAI(selectionInfo, userNote));
+      await navigator.clipboard.writeText(formatPreviewSelectionForAI(info, userNote));
       toastManager.add({
         title: 'Copied',
         description: 'Selection copied for AI',
@@ -968,7 +980,7 @@ export const Preview: React.FC<PreviewProps> = ({
         type: 'error',
       });
     }
-  }, [dismissSelectionPopover, selectionInfo]);
+  }, [dismissSelectionPopover]);
 
   const createTransportHandlers = useCallback((
     mode: PreviewTransportMode,
@@ -1020,9 +1032,10 @@ export const Preview: React.FC<PreviewProps> = ({
       if (mode === 'desktop-native') {
         const loadError = parseTransportLoadError(
           message,
-          desktopPreviewUrlRef.current ?? normalizedActiveUrl,
+          desktopPreviewUrlRef.current ?? normalizedActiveUrlRef.current,
         );
         if (loadError) {
+          desktopCommittedUrlRef.current = "";
           setDesktopCommittedUrl("");
           setPreviewLoadError(loadError);
           setIsPreviewLoading(false);
@@ -1041,10 +1054,13 @@ export const Preview: React.FC<PreviewProps> = ({
       if (mode === 'desktop-native') {
         const canonicalUrl = canonicalizeUrl(nextUrl);
         desktopPreviewUrlRef.current = canonicalUrl;
-        setDesktopCommittedUrl(canonicalUrl);
+        desktopCommittedUrlRef.current = canonicalUrl;
         setIsPreviewLoading(false);
         const viewport = desktopViewportRef.current;
         if (viewport) viewport.style.cursor = '';
+        if (document.activeElement === urlInputRef.current) {
+          urlInputRef.current?.blur();
+        }
       }
       setUrl(nextUrl);
       setActiveUrl(nextUrl);
@@ -1067,15 +1083,18 @@ export const Preview: React.FC<PreviewProps> = ({
       if (viewport) {
         viewport.style.cursor = cursor;
       }
+      if (document.activeElement === urlInputRef.current) {
+        urlInputRef.current?.blur();
+      }
       extraHandlers?.onCursorChange?.(cursor);
     },
-  }), [dismissSelectionPopover, handleDesktopToolbarCopy, handleSelectedPayload, normalizedActiveUrl, pushHistoryEntry, setActiveUrl, setUrl]);
+  }), [dismissSelectionPopover, handleDesktopToolbarCopy, handleSelectedPayload, pushHistoryEntry, setActiveUrl, setUrl]);
 
   const connectIframeTransport = useCallback(async (options?: {
     enterPickMode?: boolean;
     awaitHandshake?: boolean;
   }) => {
-    if (!normalizedActiveUrl) return false;
+    if (!normalizedActiveUrlRef.current) return false;
 
     const sessionId = createPreviewSessionId();
     const shouldEnterPickMode = options?.enterPickMode ?? true;
@@ -1136,7 +1155,7 @@ export const Preview: React.FC<PreviewProps> = ({
     extensionConnectingRef.current = true;
     transportControllerRef.current = connectExtensionPreviewTransport({
       frameWindow,
-      pageUrl: normalizedActiveUrl,
+      pageUrl: normalizedActiveUrlRef.current,
       sessionId,
       parentOrigin: window.location.origin,
       allowedOrigins: [window.location.origin, 'http://localhost:3030', 'http://127.0.0.1:3030'],
@@ -1165,10 +1184,11 @@ export const Preview: React.FC<PreviewProps> = ({
       return result;
     }
     return true;
-  }, [createPreviewSessionId, createTransportHandlers, normalizedActiveUrl, preferredTransportMode, syncSameOriginPreviewAccess, teardownTransport]);
+  }, [createPreviewSessionId, createTransportHandlers, preferredTransportMode, syncSameOriginPreviewAccess, teardownTransport]);
 
   const syncDesktopPreview = useCallback(async () => {
-    if (preferredTransportMode !== 'desktop-native' || !desktopCommittedUrl || !desktopViewportRef.current) {
+    const committedUrl = desktopCommittedUrlRef.current;
+    if (preferredTransportMode !== 'desktop-native' || !committedUrl || !desktopViewportRef.current) {
       if (transportControllerRef.current?.mode === 'desktop-native') {
         teardownTransport(false);
       }
@@ -1178,9 +1198,9 @@ export const Preview: React.FC<PreviewProps> = ({
     const viewport = await getPreviewViewportBounds(desktopViewportRef.current);
     const viewportKey = JSON.stringify(viewport);
     if (transportControllerRef.current?.mode === 'desktop-native' && transportSessionIdRef.current) {
-      if (desktopPreviewUrlRef.current !== desktopCommittedUrl) {
-        await transportControllerRef.current.navigate?.(desktopCommittedUrl);
-        desktopPreviewUrlRef.current = desktopCommittedUrl;
+      if (desktopPreviewUrlRef.current !== committedUrl) {
+        await transportControllerRef.current.navigate?.(committedUrl);
+        desktopPreviewUrlRef.current = committedUrl;
       }
       if (desktopPreviewViewportRef.current !== viewportKey) {
         await transportControllerRef.current.updateViewport?.(viewport);
@@ -1202,11 +1222,11 @@ export const Preview: React.FC<PreviewProps> = ({
     try {
       transportControllerRef.current = await connectDesktopPreviewTransport({
         sessionId,
-        pageUrl: desktopCommittedUrl,
+        pageUrl: committedUrl,
         viewport,
         ...createTransportHandlers('desktop-native'),
       });
-      desktopPreviewUrlRef.current = desktopCommittedUrl;
+      desktopPreviewUrlRef.current = committedUrl;
       desktopPreviewViewportRef.current = viewportKey;
       setTransportState({
         mode: 'desktop-native',
@@ -1228,7 +1248,7 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [createPreviewSessionId, createTransportHandlers, desktopCommittedUrl, preferredTransportMode, teardownTransport]);
 
   const showDesktopPreview = useCallback(async () => {
-    if (preferredTransportMode !== 'desktop-native' || !desktopCommittedUrl || !desktopViewportRef.current) return;
+    if (preferredTransportMode !== 'desktop-native' || !desktopCommittedUrlRef.current || !desktopViewportRef.current) return;
     if (transportControllerRef.current?.mode !== 'desktop-native') {
       await syncDesktopPreview();
       return;
@@ -1278,7 +1298,7 @@ export const Preview: React.FC<PreviewProps> = ({
           const iframeUrl = iframeWin.location.href;
           const iframeTitle = iframeWin.document.title?.trim() ?? "";
           setCurrentPageTitle(iframeTitle);
-          if (canonicalizeUrl(iframeUrl) !== normalizedActiveUrl) {
+          if (canonicalizeUrl(iframeUrl) !== normalizedActiveUrlRef.current) {
             setUrl(iframeUrl);
             setActiveUrl(iframeUrl);
             if (!shouldSkipHistoryPush) {
@@ -1333,7 +1353,6 @@ export const Preview: React.FC<PreviewProps> = ({
     iframeSrc,
     isActive,
     isElementPickerEnabled,
-    normalizedActiveUrl,
     preferredTransportMode,
     pushHistoryEntry,
     setActiveUrl,
@@ -1363,9 +1382,11 @@ export const Preview: React.FC<PreviewProps> = ({
         url: requestedIframeUrl,
       }).then(() => {
         if (disposed) return;
+        desktopCommittedUrlRef.current = requestedIframeUrl;
         setDesktopCommittedUrl(requestedIframeUrl);
       }).catch((error) => {
         if (disposed) return;
+        desktopCommittedUrlRef.current = "";
         setDesktopCommittedUrl("");
         void hideDesktopPreview();
         setPreviewLoadError(createPreviewNetworkError(requestedIframeUrl, error));
@@ -1700,7 +1721,7 @@ export const Preview: React.FC<PreviewProps> = ({
   }, [isDownloadingExtension]);
 
   const handleToggleElementPicker = useCallback(async () => {
-    if (!normalizedActiveUrl) return;
+    if (!normalizedActiveUrlRef.current) return;
 
     if (isElementPickerEnabled) {
       setIsElementPickerEnabled(false);
@@ -1739,7 +1760,7 @@ export const Preview: React.FC<PreviewProps> = ({
 
     setIsElementPickerEnabled(true);
     void checkExtensionUpdate();
-  }, [checkExtensionUpdate, connectIframeTransport, dismissSelectionPopover, isElementPickerEnabled, normalizedActiveUrl, preferredTransportMode, setIsElementPickerEnabled, syncDesktopPreview, transportState.connected]);
+  }, [checkExtensionUpdate, connectIframeTransport, dismissSelectionPopover, isElementPickerEnabled, preferredTransportMode, setIsElementPickerEnabled, syncDesktopPreview, transportState.connected]);
 
   const resolvedTransportMode =
     transportState.mode === 'unavailable' && normalizedActiveUrl

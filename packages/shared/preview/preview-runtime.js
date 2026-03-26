@@ -230,11 +230,11 @@
       button.style.transition = 'background 140ms ease, color 140ms ease, transform 140ms ease, opacity 140ms ease';
       button.addEventListener('mousedown', function (event) {
         event.stopPropagation();
-      }, true);
+      });
       button.addEventListener('click', function (event) {
         event.preventDefault();
         event.stopPropagation();
-      }, true);
+      });
       return button;
     }
 
@@ -354,7 +354,11 @@
     const topCancelButton = createToolbarTextButton(cancelIconPath, 'Cancel', 'Cancel selection');
     const quickCopyButton = createToolbarIconButton(copyIconPath, 'Copy for AI');
     const expandButton = createToolbarIconButton(chevronDownIconPath, 'Add note');
-    expandButton.style.transformOrigin = '50% 50%';
+    var expandIcon = expandButton.firstChild;
+    if (expandIcon) {
+      expandIcon.style.transition = 'transform 200ms ease';
+      expandIcon.style.transformOrigin = '50% 50%';
+    }
     toolbar.appendChild(topCancelButton);
     toolbar.appendChild(quickCopyButton);
     toolbar.appendChild(expandButton);
@@ -456,7 +460,9 @@
 
     function setExpanded(nextExpanded) {
       expanded = !!nextExpanded;
-      expandButton.style.transform = expanded ? 'rotate(180deg)' : 'rotate(0deg)';
+      if (expandIcon) {
+        expandIcon.style.transform = expanded ? 'rotate(180deg)' : 'rotate(0deg)';
+      }
       detailsCard.style.display = expanded ? 'block' : 'none';
       if (currentRect) {
         placeToolbar(currentRect);
@@ -1239,11 +1245,13 @@
     }
 
     function handleClick(event) {
-      if (!state.enabled || state.locked) return;
+      if (!state.enabled) return;
       var target = event.target;
-      if (!(target instanceof Element) || isIgnoredElement(target)) return;
+      if (target instanceof Element && target.closest && target.closest('[data-atmos-preview-overlay="true"]')) return;
       event.preventDefault();
       event.stopPropagation();
+      if (state.locked) return;
+      if (!(target instanceof Element) || isIgnoredElement(target)) return;
       state.locked = target;
       overlay.clearHover();
       selectElement(target);
