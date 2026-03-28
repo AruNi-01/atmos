@@ -15,7 +15,8 @@ use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
-    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CustomAgentAddRequest,
+    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CodeAgentCustomUpdateRequest,
+    CustomAgentAddRequest,
     CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsListDirRequest,
     FsListProjectFilesRequest, FsReadFileRequest, FsSearchContentRequest, FsSearchDirsRequest,
     FsValidateGitPathRequest, FsWriteFileRequest, FunctionSettingsUpdateRequest,
@@ -619,6 +620,13 @@ impl WsMessageService {
             }
             WsAction::LlmProviderTest => {
                 self.handle_llm_provider_test(conn_id, parse_request(request.data)?)
+                    .await
+            }
+
+            // Code Agent Custom Settings
+            WsAction::CodeAgentCustomGet => self.handle_code_agent_custom_get().await,
+            WsAction::CodeAgentCustomUpdate => {
+                self.handle_code_agent_custom_update(parse_request(request.data)?)
                     .await
             }
         }
@@ -3232,6 +3240,63 @@ set -x
         Ok(json!({ "ok": true }))
     }
 
+    // ===== Code Agent Custom Settings Handlers =====
+
+    async fn handle_code_agent_custom_get(&self) -> Result<Value> {
+        let path = terminal_code_agent_path();
+        if path.exists() {
+            let content = std::fs::read_to_string(&path).map_err(|e| {
+                ServiceError::Validation(format!(
+                    "Failed to read terminal_code_agent.json: {}",
+                    e
+                ))
+            })?;
+            let val: Value = serde_json::from_str(&content).unwrap_or(json!({ "agents": [] }));
+            Ok(val)
+        } else {
+            Ok(json!({ "agents": [] }))
+        }
+    }
+
+    async fn handle_code_agent_custom_update(
+        &self,
+        req: CodeAgentCustomUpdateRequest,
+    ) -> Result<Value> {
+        let path = terminal_code_agent_path();
+        let deduped_agents = req
+            .agents
+            .as_array()
+            .map(|items| {
+                let mut seen = std::collections::HashSet::new();
+                items
+                    .iter()
+                    .filter_map(|item| {
+                        let id = item.get("id")?.as_str()?.trim();
+                        if id.is_empty() || !seen.insert(id.to_string()) {
+                            return None;
+                        }
+                        Some(item.clone())
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let data = json!({ "agents": deduped_agents });
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                ServiceError::Validation(format!("Failed to create ~/.atmos/agent dir: {}", e))
+            })?;
+        }
+        let pretty = serde_json::to_string_pretty(&data).map_err(|e| {
+            ServiceError::Validation(format!("Failed to serialize terminal_code_agent: {}", e))
+        })?;
+        std::fs::write(&path, pretty).map_err(|e| {
+            ServiceError::Validation(format!("Failed to write terminal_code_agent.json: {}", e))
+        })?;
+
+        Ok(json!({ "ok": true }))
+    }
+
     async fn handle_llm_providers_get(&self) -> Result<Value> {
         let store = FileLlmConfigStore::new()
             .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
@@ -3337,6 +3402,14 @@ fn function_settings_path() -> std::path::PathBuf {
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".atmos")
         .join("function_settings.json")
+}
+
+fn terminal_code_agent_path() -> std::path::PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".atmos")
+        .join("agent")
+        .join("terminal_code_agent.json")
 }
 
 /// Parse request data from JSON Value.

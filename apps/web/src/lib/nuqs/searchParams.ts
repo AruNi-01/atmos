@@ -88,6 +88,13 @@ export const llmProvidersModalParams = {
   llmProvidersModal: parseAsBoolean.withDefault(false),
 };
 
+export type SettingsModalTab = "about" | "terminal" | "code-agent" | "ai";
+
+export const settingsModalParams = {
+  settingsModal: parseAsBoolean.withDefault(false),
+  activeSettingTab: parseAsStringEnum<SettingsModalTab>(["about", "terminal", "code-agent", "ai"]).withDefault("about"),
+};
+
 // ---------------------------------------------------------------------------
 // OverviewTab – PR detail modal
 // ---------------------------------------------------------------------------

@@ -1355,6 +1355,24 @@ export const llmProvidersApi = {
   },
 };
 
+export interface CodeAgentCustomEntry {
+  id: string;
+  label: string;
+  cmd: string;
+  flags: string;
+  enabled?: boolean;
+}
+
+export const codeAgentCustomApi = {
+  get: async (): Promise<{ agents: CodeAgentCustomEntry[] }> => {
+    return wsRequest<{ agents: CodeAgentCustomEntry[] }>("code_agent_custom_get");
+  },
+
+  update: async (agents: CodeAgentCustomEntry[]): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("code_agent_custom_update", { agents });
+  },
+};
+
 // ===== Agent API =====
 
 export const agentApi = {

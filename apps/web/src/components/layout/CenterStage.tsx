@@ -36,10 +36,10 @@ import { cn } from "@/lib/utils";
 import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
 import { useShallow } from "zustand/react/shallow";
 import { useGitStore } from "@/hooks/use-git-store";
-import { Plus, BookOpen, RefreshCw, Star } from "lucide-react";
-import { AGENT_OPTIONS, type AgentId } from "@/components/wiki/AgentSelect";
+import { Plus, BookOpen, RefreshCw, Star, Bot } from "lucide-react";
+import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
-import { functionSettingsApi } from "@/api/ws-api";
+import { codeAgentCustomApi, type CodeAgentCustomEntry, functionSettingsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { useQueryStates } from "nuqs";
@@ -128,7 +128,7 @@ const CenterStage: React.FC = () => {
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
   const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
-  const terminalLabelRef = React.useRef<HTMLSpanElement>(null);
+  const [terminalTabCollapseRatio, setTerminalTabCollapseRatio] = React.useState(0);
   const reloadingFilesRef = React.useRef<Set<string>>(new Set());
   const projectWikiTerminalGridRef = React.useRef<TerminalGridHandle>(null);
   const [projectWikiVisibleMap, setProjectWikiVisibleMap] = React.useState<Record<string, boolean>>({});
@@ -146,7 +146,7 @@ const CenterStage: React.FC = () => {
 
   // Agent dropdown state
   const [agentDropdownOpen, setAgentDropdownOpen] = React.useState(false);
-  const [defaultAgentId, setDefaultAgentId] = React.useState<AgentId>("claude");
+  const [defaultAgentId, setDefaultAgentId] = React.useState<string>("claude");
   const agentDropdownTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Code Review tab state
@@ -359,11 +359,7 @@ const CenterStage: React.FC = () => {
 
     const applyScrollStyle = () => {
       const ratio = Math.min(container.scrollLeft / 64, 1);
-      const label = terminalLabelRef.current;
-      if (!label) return;
-      label.style.opacity = `${1 - ratio}`;
-      label.style.width = `${72 * (1 - ratio)}px`;
-      label.style.marginLeft = "0px";
+      setTerminalTabCollapseRatio((prev) => (Math.abs(prev - ratio) < 0.01 ? prev : ratio));
     };
 
     const handleScroll = () => {
@@ -395,6 +391,12 @@ const CenterStage: React.FC = () => {
       container.removeEventListener("wheel", handleWheel);
     };
   }, [effectiveContextId, openFiles.length, projectWikiTabVisible, codeReviewTabVisible]);
+
+  const terminalIconOnly = terminalTabCollapseRatio >= 0.9;
+  const terminalLabelVisibility = terminalIconOnly ? 0 : 1 - terminalTabCollapseRatio;
+  const terminalTabPaddingLeft = terminalIconOnly ? 16 : 16 - terminalTabCollapseRatio * 4;
+  const terminalTabPaddingRight = terminalIconOnly ? 16 : 8 + terminalTabCollapseRatio * 4;
+  const terminalQuickActionLeft = terminalIconOnly ? 14 : terminalTabPaddingLeft - 3;
 
   React.useEffect(() => {
     if (!effectiveContextId || !activeValue) return;
@@ -485,29 +487,88 @@ const CenterStage: React.FC = () => {
     return () => clearTimeout(t);
   }, [codeReviewPendingCommand, effectiveContextId, codeReviewTabVisible, activeValue]);
 
-  const handleAddAgent = (name: string) => {
+  // Agent custom settings (built-ins + custom agents) from terminal_code_agent.json
+  const [agentCustomSettings, setAgentCustomSettings] = React.useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
+  const [customAgents, setCustomAgents] = React.useState<CodeAgentCustomEntry[]>([]);
+
+  // Load agent custom settings and custom agents
+  React.useEffect(() => {
+    if (isSetupActive) return;
+    Promise.all([
+      functionSettingsApi.get(),
+      codeAgentCustomApi.get(),
+    ]).then(([settings, customData]) => {
+      const saved = (settings as Record<string, unknown>)?.agent_cli as Record<string, unknown> | undefined;
+      const allAgents = Array.isArray(customData?.agents) ? customData.agents : [];
+      const builtInEntries = allAgents.filter((agent: CodeAgentCustomEntry) =>
+        AGENT_OPTIONS.some((option) => option.id === agent.id)
+      );
+      const builtInSettings = Object.fromEntries(
+        builtInEntries.map((agent: CodeAgentCustomEntry) => [agent.id, { cmd: agent.cmd, flags: agent.flags, enabled: agent.enabled !== false }])
+      );
+      setAgentCustomSettings(builtInSettings);
+      const agentId = saved?.center_fix_terminal_default_agent as string | undefined;
+      if (agentId) {
+        const isBuiltIn = AGENT_OPTIONS.some((a) => a.id === agentId);
+        const isCustom = customData?.agents?.some((a: CodeAgentCustomEntry) => a.id === agentId);
+        if (isBuiltIn || isCustom) {
+          setDefaultAgentId(agentId);
+        }
+      }
+      if (customData?.agents && Array.isArray(customData.agents)) {
+        setCustomAgents(customData.agents.filter((a: CodeAgentCustomEntry) =>
+          !AGENT_OPTIONS.some((option) => option.id === a.id) && a.label && a.cmd
+        ));
+      }
+    }).catch(() => {});
+  }, [isSetupActive]);
+
+  const visibleBuiltInAgents = React.useMemo(
+    () => AGENT_OPTIONS.filter((agent) => (agentCustomSettings[agent.id]?.enabled ?? true)),
+    [agentCustomSettings]
+  );
+  const visibleCustomAgents = React.useMemo(
+    () => customAgents.filter((agent) => agent.enabled !== false),
+    [customAgents]
+  );
+  const visibleQuickOpenIds = React.useMemo(
+    () => new Set([
+      ...visibleBuiltInAgents.map((agent) => agent.id),
+      ...visibleCustomAgents.map((agent) => agent.id),
+    ]),
+    [visibleBuiltInAgents, visibleCustomAgents]
+  );
+
+  const handleAddAgent = (agentId: string) => {
     if (terminalGridRef.current) {
       // Switch to terminal tab if not active
       if (activeFilePath) {
         setActiveFile(null, effectiveContextId || undefined);
       }
-      terminalGridRef.current.addTerminal(name);
+
+      // Check built-in agents first
+      const builtIn = AGENT_OPTIONS.find((a) => a.id === agentId);
+      if (builtIn) {
+        const custom = agentCustomSettings[agentId];
+        const cmd = custom?.cmd?.trim() || builtIn.cmd;
+        const flags = custom?.flags?.trim() || "";
+        const command = flags ? `${cmd} ${flags}` : cmd;
+        terminalGridRef.current.prefillTerminal({ title: builtIn.label, command });
+        return;
+      }
+
+      // Check custom agents
+      const customAgent = customAgents.find((a) => a.id === agentId);
+      if (customAgent) {
+        const cmd = customAgent.cmd.trim();
+        const flags = customAgent.flags?.trim() || "";
+        const command = flags ? `${cmd} ${flags}` : cmd;
+        terminalGridRef.current.prefillTerminal({ title: customAgent.label, command });
+      }
     }
   };
 
-  // Load default agent from function_settings
-  React.useEffect(() => {
-    if (isSetupActive) return;
-    functionSettingsApi.get().then((settings) => {
-      const saved = (settings as Record<string, unknown>)?.agent_cli as Record<string, unknown> | undefined;
-      const agentId = saved?.center_fix_terminal_default_agent as string | undefined;
-      if (agentId && AGENT_OPTIONS.some((a) => a.id === agentId)) {
-        setDefaultAgentId(agentId as AgentId);
-      }
-    }).catch(() => {});
-  }, [isSetupActive]);
-
-  const handleSetDefaultAgent = (agentId: AgentId) => {
+  const handleSetDefaultAgent = (agentId: string) => {
     setDefaultAgentId(agentId);
     functionSettingsApi.update("agent_cli", "center_fix_terminal_default_agent", agentId).catch(() => {});
   };
@@ -515,8 +576,8 @@ const CenterStage: React.FC = () => {
   const handleQuickAddDefaultAgent = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    const agent = AGENT_OPTIONS.find((a) => a.id === defaultAgentId);
-    if (agent) handleAddAgent(agent.label);
+    const fallbackAgentId = visibleBuiltInAgents[0]?.id ?? visibleCustomAgents[0]?.id;
+    handleAddAgent(visibleQuickOpenIds.has(defaultAgentId) ? defaultAgentId : (fallbackAgentId || defaultAgentId));
     setAgentDropdownOpen(false);
   };
 
@@ -687,7 +748,11 @@ const CenterStage: React.FC = () => {
 
           <TabsTab
             value="terminal"
-            className="group/terminal relative h-full! pl-4 pr-2 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-0 grow-0 shrink-0 justify-start rounded-none border-0!"
+            className="group/terminal relative h-full! data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-0 grow-0 shrink-0 justify-start rounded-none border-0!"
+            style={{
+              paddingLeft: `${terminalTabPaddingLeft}px`,
+              paddingRight: `${terminalTabPaddingRight}px`,
+            }}
           >
             <span className="relative size-3.5 shrink-0">
               <TerminalIcon
@@ -702,12 +767,10 @@ const CenterStage: React.FC = () => {
               />
             </span>
             <span
-              ref={terminalLabelRef}
               className="inline-block text-[13px] font-medium text-pretty whitespace-nowrap"
               style={{
-                opacity: 1,
-                width: "72px",
-                marginLeft: "0px",
+                opacity: terminalLabelVisibility,
+                width: `${72 * terminalLabelVisibility}px`,
                 overflow: "hidden",
               }}
             >
@@ -719,13 +782,14 @@ const CenterStage: React.FC = () => {
                 <div
                   role="button"
                   className={cn(
-                    "absolute left-[13px] top-1/2 -translate-y-1/2 size-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all",
-                    activeValue === "terminal"
+                    "absolute top-1/2 -translate-y-1/2 size-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all",
+                    activeValue === "terminal" && visibleQuickOpenIds.size > 0
                       ? agentDropdownOpen
                         ? "opacity-100 scale-100 rotate-0 pointer-events-auto"
                         : "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto"
                       : "hidden"
                   )}
+                  style={{ left: `${terminalQuickActionLeft}px` }}
                   onClick={handleQuickAddDefaultAgent}
                   onMouseEnter={handleAgentDropdownEnter}
                   onMouseLeave={handleAgentDropdownLeave}
@@ -740,8 +804,8 @@ const CenterStage: React.FC = () => {
                 onMouseLeave={handleAgentDropdownLeave}
                 onCloseAutoFocus={(e) => e.preventDefault()}
               >
-                {AGENT_OPTIONS.map((opt) => (
-                  <DropdownMenuItem key={opt.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(opt.label); setAgentDropdownOpen(false); }}>
+                {visibleBuiltInAgents.map((opt) => (
+                  <DropdownMenuItem key={opt.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(opt.id); setAgentDropdownOpen(false); }}>
                     <AgentIcon registryId={opt.id} name={opt.label} size={16} />
                     <span className="flex-1">{opt.label}</span>
                     <button
@@ -760,6 +824,31 @@ const CenterStage: React.FC = () => {
                     </button>
                   </DropdownMenuItem>
                 ))}
+                {visibleCustomAgents.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {visibleCustomAgents.map((agent) => (
+                      <DropdownMenuItem key={agent.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(agent.id); setAgentDropdownOpen(false); }}>
+                        <Bot className="size-4 text-muted-foreground" />
+                        <span className="flex-1">{agent.label}</span>
+                        <button
+                          className={cn(
+                            "size-5 flex items-center justify-center rounded-sm shrink-0 transition-opacity",
+                            defaultAgentId === agent.id
+                              ? "opacity-100"
+                              : "opacity-0 group-hover/agent-item:opacity-100 hover:bg-muted-foreground/20"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetDefaultAgent(agent.id);
+                          }}
+                        >
+                          <Star className={cn("size-3.5", defaultAgentId === agent.id ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
+                        </button>
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </TabsTab>
@@ -772,7 +861,7 @@ const CenterStage: React.FC = () => {
               <TooltipTrigger asChild>
                 <TabsTab
                   value="project-wiki"
-                  className="group/pw !h-full pl-4 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                  className="group/pw relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
                 >
                   <TerminalIcon className="size-3.5 shrink-0" />
                   <span className="text-[13px] font-medium text-pretty">Project Wiki</span>
@@ -783,7 +872,7 @@ const CenterStage: React.FC = () => {
                       e.stopPropagation();
                       setProjectWikiCloseConfirmOpen(true);
                     }}
-                    className="size-4 flex items-center justify-center shrink-0 ml-0 rounded-sm opacity-0 group-hover/pw:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
+                    className="absolute right-3 top-1/2 size-4 -translate-y-1/2 flex items-center justify-center rounded-sm opacity-0 group-hover/pw:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
                   >
                     <X className="size-3" />
                   </span>
@@ -799,7 +888,7 @@ const CenterStage: React.FC = () => {
               <TooltipTrigger asChild>
                 <TabsTab
                   value="code-review"
-                  className="group/cr !h-full pl-4 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                  className="group/cr relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
                 >
                   <TerminalIcon className="size-3.5 shrink-0 text-blue-500" />
                   <span className="text-[13px] font-medium text-pretty">Code Review</span>
@@ -810,7 +899,7 @@ const CenterStage: React.FC = () => {
                       e.stopPropagation();
                       setCodeReviewCloseConfirmOpen(true);
                     }}
-                    className="size-4 flex items-center justify-center shrink-0 ml-0 rounded-sm opacity-0 group-hover/cr:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
+                    className="absolute right-3 top-1/2 size-4 -translate-y-1/2 flex items-center justify-center rounded-sm opacity-0 group-hover/cr:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
                   >
                     <X className="size-3" />
                   </span>

@@ -356,6 +356,12 @@ pub enum WsAction {
     LlmProvidersUpdate,
     /// Test an LLM provider with streaming output
     LlmProviderTest,
+
+    // ===== Code Agent Custom Settings =====
+    /// Read ~/.atmos/agent/terminal_code_agent.json
+    CodeAgentCustomGet,
+    /// Overwrite ~/.atmos/agent/terminal_code_agent.json
+    CodeAgentCustomUpdate,
 }
 
 /// 服务端主动推送的事件类型
@@ -1424,6 +1430,12 @@ pub struct LlmProviderTestRequest {
     pub stream_id: String,
     pub provider_id: Option<String>,
     pub provider: serde_json::Value,
+}
+
+/// Overwrite the entire terminal_code_agent.json with the provided JSON value.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeAgentCustomUpdateRequest {
+    pub agents: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

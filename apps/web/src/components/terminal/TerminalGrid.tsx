@@ -63,6 +63,8 @@ export interface TerminalGridHandle {
   createOrFocusAndRunTerminal: (options: { title: string; command: string }) => Promise<void>;
   /** Remove terminal pane by tmux window name. Used when killing backend tmux window before replace. */
   removeTerminalByTmuxWindowName: (tmuxWindowName: string) => void;
+  /** Create a new terminal and pre-fill command text without executing it */
+  prefillTerminal: (options: { title: string; command: string }) => void;
 }
 
 const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
@@ -228,6 +230,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         terminalRefsMap.current.delete(paneId);
       }
       removeTerminalFromScope(paneId);
+    },
+    prefillTerminal: ({ title, command }) => {
+      const paneId = addTerminal(title);
+      // Pre-fill without \r so the command is typed but not executed
+      pendingCommandsRef.current.set(paneId, command);
     },
   }), [workspaceId, addTerminal, getPaneId, removeTerminalFromScope]);
 

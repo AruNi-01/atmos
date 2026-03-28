@@ -63,6 +63,15 @@ export * from "./components/ui/border-beam";
 export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
 export { TextScramble } from "./components/ui/text-scramble";
+export {
+  Sidebar as MotionSidebar,
+  SidebarContent as MotionSidebarContent,
+  SidebarHeader as MotionSidebarHeader,
+  SidebarMenu as MotionSidebarMenu,
+  SidebarMenuButton as MotionSidebarMenuButton,
+  SidebarMenuItem as MotionSidebarMenuItem,
+  SidebarProvider as MotionSidebarProvider,
+} from "./components/animate-ui/components/radix/sidebar";
 
 // AI Elements
 export * from "./components/ai-elements/message";

@@ -16,7 +16,8 @@ pub use heartbeat::{HeartbeatMonitor, DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_TIMEO
 pub use manager::{ConnectionInfo, WsManager};
 pub use message::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
-    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CustomAgentAddRequest,
+    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CodeAgentCustomUpdateRequest,
+    CustomAgentAddRequest,
     CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FileTreeNode, FsEntry, FsListDirRequest,
     FsListDirResponse, FsListProjectFilesRequest, FsListProjectFilesResponse, FsReadFileRequest,
     FsReadFileResponse, FsSearchContentRequest, FsSearchContentResponse, FsSearchDirsRequest,

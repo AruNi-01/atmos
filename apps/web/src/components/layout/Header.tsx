@@ -6,7 +6,7 @@ import { useQueryState } from "nuqs";
 import { useTheme } from "next-themes";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useContextParams } from "@/hooks/use-context-params";
-import { llmProvidersModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
+import { llmProvidersModalParams, settingsModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
 import {
   ArrowRight,
   Search,
@@ -195,8 +195,8 @@ const Header: React.FC = () => {
 
   // Fullscreen state
   const [isFullScreen, setIsFullScreen] = useState(false);
-  // Settings modal state
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // Settings modal state (URL-persisted via nuqs)
+  const [isSettingsOpen, setIsSettingsOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
 
   // Skills modal state (URL-persisted via nuqs)
   const [isSkillsModalOpen, setSkillsModalOpen] = useQueryState("skillsModal", skillsModalParams.skillsModal);
@@ -206,9 +206,9 @@ const Header: React.FC = () => {
   );
   useEffect(() => {
     if (isLlmProvidersOpen) {
-      setIsSettingsOpen(true);
+      void setIsSettingsOpen(true);
     }
-  }, [isLlmProvidersOpen]);
+  }, [isLlmProvidersOpen, setIsSettingsOpen]);
   const desktopWebSearch = useMemo(() => {
     const query = searchParams.toString();
     return query ? `?${query}` : '';
@@ -927,7 +927,7 @@ const Header: React.FC = () => {
               <MenuItem
                 closeOnClick
                 onClick={() => {
-                  setIsSettingsOpen(true);
+                  void setIsSettingsOpen(true);
                   setIsActionMenuOpen(false);
                 }}
               >
@@ -1161,7 +1161,7 @@ const Header: React.FC = () => {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => {
-          setIsSettingsOpen(false);
+          void setIsSettingsOpen(false);
           if (isLlmProvidersOpen) {
             void setLlmProvidersOpen(false);
           }

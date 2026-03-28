@@ -93,6 +93,9 @@ export type WsAction =
   | "llm_providers_get"
   | "llm_providers_update"
   | "llm_provider_test"
+  // Code Agent custom settings
+  | "code_agent_custom_get"
+  | "code_agent_custom_update"
   // Agent 操作
   | "agent_list"
   | "agent_install"

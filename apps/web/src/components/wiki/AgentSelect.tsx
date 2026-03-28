@@ -14,14 +14,14 @@ import { AgentIcon } from "@/components/agent/AgentIcon";
 export const AGENT_OPTIONS = [
   { id: "claude", label: "Claude Code", cmd: "claude", yoloFlag: "--dangerously-skip-permissions" },
   { id: "codex", label: "Codex", cmd: "codex", yoloFlag: "--dangerously-bypass-approvals-and-sandbox" },
-  { id: "gemini", label: "Gemini", cmd: "gemini", yoloFlag: "-y" },
-  { id: "amp", label: "Amp", cmd: "amp", yoloFlag: "-x" },
+  { id: "gemini", label: "Gemini", cmd: "gemini", yoloFlag: "--yolo" },
+  { id: "amp", label: "Amp", cmd: "amp", yoloFlag: "" },
   { id: "droid", label: "Droid", cmd: "droid", yoloFlag: "" },
   { id: "opencode", label: "OpenCode", cmd: "opencode", yoloFlag: "--yolo" },
   { id: "kimi", label: "Kimi", cmd: "kimi", yoloFlag: "" },
   { id: "cursor", label: "Cursor Agent", cmd: "agent", yoloFlag: "--force" },
   { id: "kilocode", label: "Kilo Code", cmd: "kilocode", yoloFlag: "" },
-  { id: "kiro", label: "Kiro", cmd: "kiro", yoloFlag: "" },
+  { id: "kiro", label: "Kiro", cmd: "kiro-cli", yoloFlag: "" },
 ] as const;
 
 export type AgentId = (typeof AGENT_OPTIONS)[number]["id"];

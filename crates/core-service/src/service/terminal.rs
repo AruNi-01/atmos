@@ -1248,8 +1248,12 @@ impl TerminalService {
             );
         }
 
-        // Also clean up any stale client sessions that might have leaked
-        self.cleanup_stale_client_sessions();
+        // NOTE: Do NOT call cleanup_stale_client_sessions() here.
+        // When multiple API instances share the same tmux socket (e.g., a desktop
+        // sidecar on port 30303 and a dev server on port 30301), this instance's
+        // "stale" sessions include the OTHER instance's live sessions. Cleaning
+        // them up on shutdown would kill terminals owned by the other instance.
+        // Stale cleanup should only happen on startup, gated by --cleanup-stale-clients.
     }
 
     /// Clean up stale tmux client sessions from previous crashes or hot-reloads.

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useQueryState } from 'nuqs';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -27,8 +29,17 @@ import {
   Switch,
   cn,
   toastManager,
+  MotionSidebar,
+  MotionSidebarContent,
+  MotionSidebarHeader,
+  MotionSidebarMenu,
+  MotionSidebarMenuButton,
+  MotionSidebarMenuItem,
+  MotionSidebarProvider,
 } from '@workspace/ui';
-import { BrainCircuit, Check, ChevronDown, Download, ExternalLink, Info, Languages, RefreshCw, SlidersHorizontal, SquareTerminal } from 'lucide-react';
+import { Bot, BrainCircuit, Building2, Check, ChevronDown, Download, ExternalLink, Info, Languages, LoaderCircle, Plus, RefreshCw, Route, Save, SlidersHorizontal, SquareTerminal, Trash2 } from 'lucide-react';
+import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
+import { AgentIcon } from '@/components/agent/AgentIcon';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { AtmosWordmark } from '@/components/ui/AtmosWordmark';
 import {
@@ -46,10 +57,11 @@ import {
   QUICK_OPEN_APP_OPTIONS,
   QuickOpenAppIcon,
 } from '@/components/layout/quick-open-apps';
-import { llmProvidersApi, type LlmProvidersFile, type SessionTitleFormatConfig } from '@/api/ws-api';
+import { codeAgentCustomApi, type CodeAgentCustomEntry, llmProvidersApi, type LlmProvidersFile, type SessionTitleFormatConfig } from '@/api/ws-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
+import { settingsModalParams } from '@/lib/nuqs/searchParams';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -69,6 +81,12 @@ const SETTINGS_SECTIONS = [
     label: 'Terminal',
     description: 'Terminal preferences and link behavior',
     icon: SquareTerminal,
+  },
+  {
+    id: 'code-agent',
+    label: 'Code Agent',
+    description: 'Agent startup commands and custom parameters',
+    icon: Bot,
   },
   {
     id: 'ai',
@@ -128,6 +146,88 @@ function sessionTitleFormatPreview(format: SessionTitleFormatConfig): string {
   return segments.join(' | ');
 }
 
+const BUILT_IN_AGENT_IDS = new Set<string>(AGENT_OPTIONS.map((agent) => agent.id));
+
+function isBuiltInAgentId(id: string): boolean {
+  return BUILT_IN_AGENT_IDS.has(id);
+}
+
+function dedupeCodeAgentEntries(entries: CodeAgentCustomEntry[]): CodeAgentCustomEntry[] {
+  const deduped = new Map<string, CodeAgentCustomEntry>();
+  for (const entry of entries) {
+    const id = entry.id?.trim();
+    if (!id) continue;
+    deduped.set(id, { ...entry, id, enabled: entry.enabled !== false });
+  }
+  return Array.from(deduped.values());
+}
+
+function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
+  const next: Record<string, { cmd?: string; flags?: string; enabled?: boolean }> = {};
+
+  for (const agent of AGENT_OPTIONS) {
+    const entry = entries.find((item) => item.id === agent.id);
+    if (!entry) continue;
+
+    const cmd = entry.cmd !== agent.cmd ? entry.cmd : undefined;
+    const flags = entry.flags !== (agent.yoloFlag || '') ? entry.flags : undefined;
+    const enabled = entry.enabled === false ? false : undefined;
+    if (!cmd && !flags && enabled === undefined) continue;
+
+    next[agent.id] = {};
+    if (cmd !== undefined) next[agent.id].cmd = cmd;
+    if (flags !== undefined) next[agent.id].flags = flags;
+    if (enabled !== undefined) next[agent.id].enabled = enabled;
+  }
+
+  return next;
+}
+
+function buildBuiltInEntries(
+  overrides: Record<string, { cmd?: string; flags?: string; enabled?: boolean }>,
+): CodeAgentCustomEntry[] {
+  return AGENT_OPTIONS.flatMap((agent) => {
+    const draft = overrides[agent.id];
+    const cmd = draft?.cmd ?? agent.cmd;
+    const flags = draft?.flags ?? (agent.yoloFlag || '');
+    const enabled = draft?.enabled ?? true;
+    const changed = cmd !== agent.cmd || flags !== (agent.yoloFlag || '') || enabled !== true;
+
+    if (!changed) return [];
+
+    return [{
+      id: agent.id,
+      label: agent.label,
+      cmd,
+      flags,
+      enabled,
+    }];
+  });
+}
+
+function SaveActionButton({
+  saving,
+  onClick,
+  className,
+}: {
+  saving?: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      onClick={onClick}
+      disabled={saving}
+      className={cn('h-8 rounded-lg px-3 shadow-sm', className)}
+    >
+      {saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+      Save
+    </Button>
+  );
+}
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
@@ -136,7 +236,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const installInFlightRef = React.useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
   const [appVersion, setAppVersion] = useState('');
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('about');
+  const [activeSection, setActiveSection] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [llmConfig, setLlmConfig] = useState<LlmProvidersFile | null>(null);
   const [isLlmConfigLoading, setIsLlmConfigLoading] = useState(false);
   const [providerDialogState, setProviderDialogState] = useState<{
@@ -154,6 +254,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     output: string;
   }>>({});
   const providerTestUnsubscribeRef = useRef<Record<string, (() => void) | null>>({});
+  // Code Agent settings persisted in ~/.atmos/agent/terminal_code_agent.json
+  const [agentCustomSettings, setAgentCustomSettings] = useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
+  const [savedAgentCustomSettings, setSavedAgentCustomSettings] = useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
+  const [agentSettingsLoading, setAgentSettingsLoading] = useState(false);
+  const [savingBuiltInAgentIds, setSavingBuiltInAgentIds] = useState<Record<string, boolean>>({});
+  const [syncingBuiltInEnabledIds, setSyncingBuiltInEnabledIds] = useState<Record<string, boolean>>({});
+  const [builtInAgentsExpanded, setBuiltInAgentsExpanded] = useState(false);
+  const [customAgentsExpanded, setCustomAgentsExpanded] = useState(false);
+  const [builtInAgentOpen, setBuiltInAgentOpen] = useState<Record<string, boolean>>({});
+  const [customAgentOpen, setCustomAgentOpen] = useState<Record<string, boolean>>({});
+  const [customAgents, setCustomAgents] = useState<CodeAgentCustomEntry[]>([]);
+  const [savedCustomAgents, setSavedCustomAgents] = useState<CodeAgentCustomEntry[]>([]);
+  const [savingCustomAgentIds, setSavingCustomAgentIds] = useState<Record<string, boolean>>({});
+  const [syncingCustomEnabledIds, setSyncingCustomEnabledIds] = useState<Record<string, boolean>>({});
+  const [removingCustomAgentIds, setRemovingCustomAgentIds] = useState<Record<string, boolean>>({});
   const {
     fileLinkOpenMode,
     fileLinkOpenApp,
@@ -173,10 +288,278 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     void loadTerminalLinkSettings();
   }, [loadTerminalLinkSettings]);
 
+  // Load agent custom settings when modal opens
+  const loadAgentSettings = React.useCallback(async () => {
+    setAgentSettingsLoading(true);
+    try {
+      const customData = await codeAgentCustomApi.get();
+      const allAgents = dedupeCodeAgentEntries(
+        Array.isArray(customData?.agents) ? customData.agents : [],
+      );
+      const builtInEntries = allAgents.filter((agent) => isBuiltInAgentId(agent.id));
+      const customEntries = allAgents.filter((agent) => !isBuiltInAgentId(agent.id));
+      const builtInOverrides = buildBuiltInOverrides(builtInEntries);
+
+      setAgentCustomSettings(builtInOverrides);
+      setSavedAgentCustomSettings(builtInOverrides);
+      setCustomAgents(customEntries);
+      setSavedCustomAgents(customEntries);
+      setBuiltInAgentsExpanded(false);
+      setCustomAgentsExpanded(false);
+      setBuiltInAgentOpen({});
+      setCustomAgentOpen({});
+    } catch {
+      // ignore
+    } finally {
+      setAgentSettingsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void loadAgentSettings();
+  }, [isOpen, loadAgentSettings]);
+
   useEffect(() => {
     if (!isOpen || !activeSectionOverride) return;
-    setActiveSection(activeSectionOverride);
-  }, [activeSectionOverride, isOpen]);
+    void setActiveSection(activeSectionOverride);
+  }, [activeSectionOverride, isOpen, setActiveSection]);
+
+  const persistCodeAgents = React.useCallback(async (agents: CodeAgentCustomEntry[]) => {
+    const nextAgents = dedupeCodeAgentEntries(agents);
+    await codeAgentCustomApi.update(nextAgents);
+    return nextAgents;
+  }, []);
+
+  const handleAgentSettingChange = React.useCallback((agentId: string, field: 'cmd' | 'flags' | 'enabled', value: string | boolean) => {
+    setAgentCustomSettings((prev) => ({
+      ...prev,
+      [agentId]: { ...prev[agentId], [field]: value },
+    }));
+  }, []);
+
+  const handleSaveBuiltInAgent = React.useCallback(async (agentId: string) => {
+    const nextBuiltInSettings = {
+      ...savedAgentCustomSettings,
+      [agentId]: agentCustomSettings[agentId] ?? {},
+    };
+
+    if (
+      (nextBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
+        AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
+      (nextBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')
+    ) {
+      delete nextBuiltInSettings[agentId];
+    }
+
+    setSavingBuiltInAgentIds((prev) => ({ ...prev, [agentId]: true }));
+    try {
+      const nextBuiltInEntries = buildBuiltInEntries(nextBuiltInSettings);
+      await persistCodeAgents([
+        ...savedCustomAgents,
+        ...nextBuiltInEntries,
+      ]);
+      setSavedAgentCustomSettings(nextBuiltInSettings);
+    } catch (error) {
+      toastManager.add({
+        title: 'Failed to save built-in agent',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error',
+      });
+    } finally {
+      setSavingBuiltInAgentIds((prev) => {
+        const next = { ...prev };
+        delete next[agentId];
+        return next;
+      });
+    }
+  }, [agentCustomSettings, persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
+
+  const handleBuiltInEnabledChange = React.useCallback(async (agentId: string, enabled: boolean) => {
+    const previousEnabled = savedAgentCustomSettings[agentId]?.enabled ?? true;
+    setAgentCustomSettings((prev) => ({
+      ...prev,
+      [agentId]: { ...prev[agentId], enabled },
+    }));
+    setSyncingBuiltInEnabledIds((prev) => ({ ...prev, [agentId]: true }));
+
+    const nextSavedBuiltInSettings = {
+      ...savedAgentCustomSettings,
+      [agentId]: { ...savedAgentCustomSettings[agentId], enabled },
+    };
+
+    if (
+      (nextSavedBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
+        AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
+      (nextSavedBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '') &&
+      (nextSavedBuiltInSettings[agentId]?.enabled ?? true) === true
+    ) {
+      delete nextSavedBuiltInSettings[agentId];
+    }
+
+    try {
+      await persistCodeAgents([
+        ...savedCustomAgents,
+        ...buildBuiltInEntries(nextSavedBuiltInSettings),
+      ]);
+      setSavedAgentCustomSettings(nextSavedBuiltInSettings);
+    } catch (error) {
+      setAgentCustomSettings((prev) => ({
+        ...prev,
+        [agentId]: { ...prev[agentId], enabled: previousEnabled },
+      }));
+      toastManager.add({
+        title: 'Failed to update agent visibility',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error',
+      });
+    } finally {
+      setSyncingBuiltInEnabledIds((prev) => {
+        const next = { ...prev };
+        delete next[agentId];
+        return next;
+      });
+    }
+  }, [persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
+
+  const handleAddCustomAgent = React.useCallback(() => {
+    const id = `custom_${Date.now()}`;
+    setCustomAgents((prev) => {
+      return [...prev, { id, label: '', cmd: '', flags: '', enabled: true }];
+    });
+    setCustomAgentsExpanded(true);
+    setCustomAgentOpen((prev) => ({ ...prev, [id]: true }));
+  }, []);
+
+  const handleRemoveCustomAgent = React.useCallback((id: string) => {
+    const wasSaved = savedCustomAgents.some((agent) => agent.id === id);
+    setCustomAgents((prev) => prev.filter((agent) => agent.id !== id));
+    setCustomAgentOpen((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+    if (!wasSaved) return;
+
+    setRemovingCustomAgentIds((prev) => ({ ...prev, [id]: true }));
+    const nextSavedCustomAgents = savedCustomAgents.filter((agent) => agent.id !== id);
+    void persistCodeAgents([
+      ...buildBuiltInEntries(savedAgentCustomSettings),
+      ...nextSavedCustomAgents,
+    ]).then(() => {
+      setSavedCustomAgents(nextSavedCustomAgents);
+    }).catch((error) => {
+      toastManager.add({
+        title: 'Failed to remove custom agent',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error',
+      });
+      void loadAgentSettings();
+    }).finally(() => {
+      setRemovingCustomAgentIds((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    });
+  }, [loadAgentSettings, persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
+
+  const handleCustomAgentChange = React.useCallback((id: string, field: keyof CodeAgentCustomEntry, value: string | boolean) => {
+    setCustomAgents((prev) => {
+      return prev.map((agent) => (agent.id === id ? { ...agent, [field]: value } : agent));
+    });
+  }, []);
+
+  const handleSaveCustomAgent = React.useCallback(async (id: string) => {
+    const currentAgent = customAgents.find((agent) => agent.id === id);
+    if (!currentAgent) return;
+
+    if (!currentAgent.label.trim() || !currentAgent.cmd.trim()) {
+      toastManager.add({
+        title: 'Custom agent is incomplete',
+        description: 'Name and command are required before saving.',
+        type: 'error',
+      });
+      return;
+    }
+
+    setSavingCustomAgentIds((prev) => ({ ...prev, [id]: true }));
+    try {
+      const normalizedAgent: CodeAgentCustomEntry = {
+        ...currentAgent,
+        label: currentAgent.label.trim(),
+        cmd: currentAgent.cmd.trim(),
+        flags: currentAgent.flags.trim(),
+        enabled: currentAgent.enabled !== false,
+      };
+      const nextSavedCustomAgents = dedupeCodeAgentEntries([
+        ...savedCustomAgents.filter((agent) => agent.id !== id),
+        normalizedAgent,
+      ]).filter((agent) => !isBuiltInAgentId(agent.id));
+
+      await persistCodeAgents([
+        ...buildBuiltInEntries(savedAgentCustomSettings),
+        ...nextSavedCustomAgents,
+      ]);
+
+      setCustomAgents((prev) => prev.map((agent) => (
+        agent.id === id ? normalizedAgent : agent
+      )));
+      setSavedCustomAgents(nextSavedCustomAgents);
+    } catch (error) {
+      toastManager.add({
+        title: 'Failed to save custom agent',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error',
+      });
+    } finally {
+      setSavingCustomAgentIds((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+  }, [customAgents, persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
+
+  const handleCustomAgentEnabledChange = React.useCallback(async (id: string, enabled: boolean) => {
+    const savedAgent = savedCustomAgents.find((agent) => agent.id === id);
+    setCustomAgents((prev) => prev.map((agent) => (
+      agent.id === id ? { ...agent, enabled } : agent
+    )));
+
+    if (!savedAgent) return;
+
+    setSyncingCustomEnabledIds((prev) => ({ ...prev, [id]: true }));
+    const nextSavedCustomAgents = savedCustomAgents.map((agent) => (
+      agent.id === id ? { ...agent, enabled } : agent
+    ));
+
+    try {
+      await persistCodeAgents([
+        ...buildBuiltInEntries(savedAgentCustomSettings),
+        ...nextSavedCustomAgents,
+      ]);
+      setSavedCustomAgents(nextSavedCustomAgents);
+    } catch (error) {
+      setCustomAgents((prev) => prev.map((agent) => (
+        agent.id === id ? { ...agent, enabled: savedAgent.enabled !== false } : agent
+      )));
+      toastManager.add({
+        title: 'Failed to update agent visibility',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error',
+      });
+    } finally {
+      setSyncingCustomEnabledIds((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+  }, [persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
 
   const loadLlmConfig = React.useCallback(async () => {
     setIsLlmConfigLoading(true);
@@ -361,7 +744,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const isChecking = status.stage === 'checking';
   const isDownloading = status.stage === 'downloading';
   const isInstalling = status.stage === 'installing';
-  const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === activeSection) ?? SETTINGS_SECTIONS[0];
+  const resolvedActiveSection = activeSection ?? 'about';
+  const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === resolvedActiveSection) ?? SETTINGS_SECTIONS[0];
   const activeTerminalLinkMode =
     TERMINAL_LINK_MODE_OPTIONS.find((option) => option.value === fileLinkOpenMode) ?? TERMINAL_LINK_MODE_OPTIONS[0];
   const activeQuickOpenApp = QUICK_OPEN_APP_MAP[fileLinkOpenApp];
@@ -521,43 +905,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           Manage ATMOS settings, product information, and desktop updates.
         </DialogDescription>
 
-        <div className="grid h-full grid-cols-[240px_minmax(0,1fr)]">
-          <aside className="flex h-full flex-col border-r border-border bg-muted/20">
-            <div className="border-b border-border px-5 py-5">
-              <p className="text-[12px] font-semibold text-muted-foreground">
-                Settings
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Setting atmos to personalize your experience.
-              </p>
-            </div>
+        <div className="grid h-full min-h-0 grid-cols-[240px_minmax(0,1fr)]">
+          <aside className="h-full min-h-0 border-r border-border bg-background text-sidebar-foreground">
+            <MotionSidebarProvider className="h-full min-h-0">
+              <MotionSidebar
+                collapsible="none"
+                className="h-full w-full border-0 bg-transparent text-sidebar-foreground"
+                containerClassName="h-full"
+              >
+                <MotionSidebarHeader className="gap-0 border-b border-border px-5 py-5">
+                  <p className="text-[12px] font-semibold text-sidebar-foreground/70">
+                    Settings
+                  </p>
+                  <p className="mt-2 text-xs text-sidebar-foreground/70">
+                    Setting atmos to personalize your experience.
+                  </p>
+                </MotionSidebarHeader>
 
-            <nav className="flex flex-1 flex-col gap-1 p-3">
-              {SETTINGS_SECTIONS.map((section) => {
-                const Icon = section.icon;
-                const isActive = activeSection === section.id;
+                <MotionSidebarContent className="overflow-y-auto p-3">
+                  <MotionSidebarMenu>
+                    {SETTINGS_SECTIONS.map((section) => {
+                      const Icon = section.icon;
+                      const isActive = resolvedActiveSection === section.id;
 
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => setActiveSection(section.id)}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors',
-                      isActive
-                        ? 'border-border bg-background text-foreground shadow-sm'
-                        : 'border-transparent text-muted-foreground hover:bg-background/60 hover:text-foreground'
-                    )}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+                      return (
+                        <MotionSidebarMenuItem key={section.id}>
+                          <MotionSidebarMenuButton
+                            type="button"
+                            isActive={isActive}
+                            onClick={() => void setActiveSection(section.id)}
+                            className="h-10 gap-3 rounded-lg px-3 text-left"
+                          >
+                            <Icon className="size-4 shrink-0" />
+                            <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
+                          </MotionSidebarMenuButton>
+                        </MotionSidebarMenuItem>
+                      );
+                    })}
+                  </MotionSidebarMenu>
+                </MotionSidebarContent>
+              </MotionSidebar>
+            </MotionSidebarProvider>
           </aside>
 
-          <section className="flex min-h-0 flex-col overflow-hidden">
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
             <div className="px-8 py-4">
               <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
                 {activeSectionMeta.label}
@@ -570,9 +961,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="border-b border-border" />
             </div>
 
-            <ScrollArea className="h-full min-h-0 flex-1">
-              <div className="px-8 py-6">
-                {activeSection === 'about' ? (
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <ScrollArea className="size-full">
+                <div className="px-8 py-6">
+                {resolvedActiveSection === 'about' ? (
                   <>
                     <div className="mb-10 mt-4">
                       <AtmosWordmark className="w-full" />
@@ -625,7 +1017,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       )}
                     </div>
                   </>
-                ) : activeSection === 'terminal' ? (
+                ) : resolvedActiveSection === 'terminal' ? (
                   <div className="overflow-hidden rounded-2xl border border-border">
                     <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
                       <div>
@@ -697,6 +1089,267 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
                   </div>
+                ) : resolvedActiveSection === 'code-agent' ? (
+                  <div className="space-y-4">
+                    <Collapsible
+                      open={builtInAgentsExpanded}
+                      onOpenChange={setBuiltInAgentsExpanded}
+                      className="overflow-hidden rounded-2xl border border-border"
+                    >
+                      <div className="flex items-start justify-between gap-4 px-6 py-5">
+                        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+                          <div className="flex items-start gap-3">
+                            <span className="relative mt-0.5 size-5 shrink-0">
+                              <Bot className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-base font-medium text-foreground">Built-in Agents</p>
+                              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                                Customize the startup command and parameters for each built-in code agent.
+                              </p>
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                      </div>
+
+                      <CollapsibleContent>
+                        {agentSettingsLoading ? (
+                          <div className="space-y-3 border-t border-border px-6 py-4">
+                            <Skeleton className="h-14 w-full rounded-xl" />
+                            <Skeleton className="h-14 w-full rounded-xl" />
+                            <Skeleton className="h-14 w-full rounded-xl" />
+                          </div>
+                        ) : (
+                          <div className="border-t border-border px-4">
+                            {AGENT_OPTIONS.map((agent) => {
+                              const custom = agentCustomSettings[agent.id];
+                              const isOpen = builtInAgentOpen[agent.id] ?? false;
+                              const savedAgent = savedAgentCustomSettings[agent.id];
+                              const isDirty =
+                                (savedAgent?.cmd ?? agent.cmd) !== (custom?.cmd ?? agent.cmd) ||
+                                (savedAgent?.flags ?? (agent.yoloFlag || '')) !== (custom?.flags ?? (agent.yoloFlag || ''));
+                              const isSaving = !!savingBuiltInAgentIds[agent.id];
+                              const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
+                              const enabled = custom?.enabled ?? true;
+                              const summary = [custom?.cmd ?? agent.cmd, custom?.flags ?? (agent.yoloFlag || '')]
+                                .filter(Boolean)
+                                .join(' ');
+
+                              return (
+                                <Collapsible
+                                  key={agent.id}
+                                  open={isOpen}
+                                  onOpenChange={(open) => setBuiltInAgentOpen((prev) => ({ ...prev, [agent.id]: open }))}
+                                  className="border-b border-border px-2 py-4 last:border-b-0"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                                      <span className="relative size-5 shrink-0">
+                                        <span className="absolute inset-0 transition-opacity duration-150 group-hover:opacity-0">
+                                          <AgentIcon
+                                            registryId={agent.id}
+                                            name={agent.label}
+                                            size={20}
+                                          />
+                                        </span>
+                                        <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-foreground">{agent.label}</p>
+                                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                                          {summary || 'No parameters'}
+                                        </p>
+                                      </div>
+                                    </CollapsibleTrigger>
+
+                                    <div className="flex items-center gap-3">
+                                      {(isDirty || isSaving) && (
+                                        <SaveActionButton
+                                          saving={isSaving}
+                                          onClick={() => void handleSaveBuiltInAgent(agent.id)}
+                                        />
+                                      )}
+                                      <Switch
+                                        checked={enabled}
+                                        disabled={isSyncingEnabled}
+                                        onCheckedChange={(checked) => {
+                                          void handleBuiltInEnabledChange(agent.id, !!checked);
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <CollapsibleContent>
+                                    <div className="grid grid-cols-2 gap-3 pt-4">
+                                      <div>
+                                        <label className="mb-1 block text-xs text-muted-foreground">Command</label>
+                                        <Input
+                                          value={custom?.cmd ?? agent.cmd}
+                                          placeholder={agent.cmd}
+                                          onChange={(e) => handleAgentSettingChange(agent.id, 'cmd', e.target.value)}
+                                          className="h-9 text-sm font-mono"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="mb-1 block text-xs text-muted-foreground">Parameters</label>
+                                        <Input
+                                          value={custom?.flags ?? (agent.yoloFlag || '')}
+                                          placeholder={agent.yoloFlag || 'No default parameters'}
+                                          onChange={(e) => handleAgentSettingChange(agent.id, 'flags', e.target.value)}
+                                          className="h-9 text-sm font-mono"
+                                        />
+                                      </div>
+                                    </div>
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Collapsible
+                      open={customAgentsExpanded}
+                      onOpenChange={setCustomAgentsExpanded}
+                      className="overflow-hidden rounded-2xl border border-border"
+                    >
+                      <div className="flex items-start justify-between gap-4 px-6 py-5">
+                        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+                          <div className="flex items-start gap-3">
+                            <span className="relative mt-0.5 size-5 shrink-0">
+                              <Bot className="absolute inset-0 size-5 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
+                              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-base font-medium text-foreground">Custom Agents</p>
+                              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                                Add your own agents with custom commands and parameters.
+                              </p>
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <Button variant="outline" onClick={handleAddCustomAgent}>
+                          <Plus className="mr-2 size-4" />
+                          Add Agent
+                        </Button>
+                      </div>
+
+                      <CollapsibleContent>
+                        {customAgents.length === 0 ? (
+                          <div className="border-t border-border px-6 py-5 text-sm text-muted-foreground">
+                            No custom agents configured yet. Click &quot;Add Agent&quot; to create one.
+                          </div>
+                        ) : (
+                          <div className="border-t border-border px-4">
+                            {customAgents.map((agent) => {
+                              const isOpen = customAgentOpen[agent.id] ?? false;
+                              const savedAgent = savedCustomAgents.find((item) => item.id === agent.id);
+                              const isDirty =
+                                !savedAgent ||
+                                savedAgent.label !== agent.label ||
+                                savedAgent.cmd !== agent.cmd ||
+                                savedAgent.flags !== agent.flags;
+                              const isSaving = !!savingCustomAgentIds[agent.id];
+                              const isSyncingEnabled = !!syncingCustomEnabledIds[agent.id];
+                              const isRemoving = !!removingCustomAgentIds[agent.id];
+                              const enabled = agent.enabled !== false;
+                              const summary = [agent.cmd, agent.flags].filter(Boolean).join(' ');
+
+                              return (
+                                <Collapsible
+                                  key={agent.id}
+                                  open={isOpen}
+                                  onOpenChange={(open) => setCustomAgentOpen((prev) => ({ ...prev, [agent.id]: open }))}
+                                  className="border-b border-border px-2 py-4 last:border-b-0"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                                      <span className="relative size-5 shrink-0">
+                                        <Bot className="absolute inset-0 size-5 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
+                                        <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-medium text-foreground">
+                                          {agent.label || 'New Agent'}
+                                        </p>
+                                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                                          {summary || 'No parameters'}
+                                        </p>
+                                      </div>
+                                    </CollapsibleTrigger>
+
+                                    <div className="flex items-center gap-3">
+                                      {(isDirty || isSaving) && (
+                                        <SaveActionButton
+                                          saving={isSaving}
+                                          onClick={() => void handleSaveCustomAgent(agent.id)}
+                                        />
+                                      )}
+                                      <Switch
+                                        checked={enabled}
+                                        disabled={isSyncingEnabled}
+                                        onCheckedChange={(checked) => {
+                                          void handleCustomAgentEnabledChange(agent.id, !!checked);
+                                        }}
+                                      />
+                                    </div>
+                                    <button
+                                      className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                      onClick={() => handleRemoveCustomAgent(agent.id)}
+                                      title="Remove agent"
+                                      disabled={isRemoving}
+                                    >
+                                      {isRemoving ? (
+                                        <LoaderCircle className="size-4 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="size-4" />
+                                      )}
+                                    </button>
+                                  </div>
+
+                                  <CollapsibleContent>
+                                    <div className="space-y-3 pt-4">
+                                      <div>
+                                        <label className="mb-1 block text-xs text-muted-foreground">Name</label>
+                                        <Input
+                                          value={agent.label}
+                                          placeholder="Agent name"
+                                          onChange={(e) => handleCustomAgentChange(agent.id, 'label', e.target.value)}
+                                          className="h-9 text-sm font-medium"
+                                        />
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                          <label className="mb-1 block text-xs text-muted-foreground">Command</label>
+                                          <Input
+                                            value={agent.cmd}
+                                            placeholder="e.g. my-agent"
+                                            onChange={(e) => handleCustomAgentChange(agent.id, 'cmd', e.target.value)}
+                                            className="h-9 text-sm font-mono"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="mb-1 block text-xs text-muted-foreground">Parameters</label>
+                                          <Input
+                                            value={agent.flags}
+                                            placeholder="e.g. --yolo"
+                                            onChange={(e) => handleCustomAgentChange(agent.id, 'flags', e.target.value)}
+                                            className="h-9 text-sm font-mono"
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </CollapsibleContent>
+                                </Collapsible>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     <Collapsible
@@ -705,13 +1358,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="overflow-hidden rounded-2xl border border-border"
                     >
                       <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-                        <CollapsibleTrigger className="flex min-w-0 cursor-pointer items-start gap-2 pt-0.5 text-left">
-                          <ChevronDown
-                            className={cn(
-                              'mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200',
-                              providersExpanded && 'rotate-180'
-                            )}
-                          />
+                        <CollapsibleTrigger className="group flex min-w-0 cursor-pointer items-start gap-2 pt-0.5 text-left">
+                          <span className="relative mt-1 size-4 shrink-0">
+                            <Building2 className="absolute inset-0 size-4 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
+                            <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                          </span>
                           <div className="min-w-0">
                             <p className="text-base font-medium text-foreground">Providers</p>
                             <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -860,13 +1511,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="overflow-hidden rounded-2xl border border-border"
                     >
                       <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-                        <CollapsibleTrigger className="flex min-w-0 cursor-pointer items-start gap-2 pt-0.5 text-left">
-                          <ChevronDown
-                            className={cn(
-                              'mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200',
-                              routingExpanded && 'rotate-180'
-                            )}
-                          />
+                        <CollapsibleTrigger className="group flex min-w-0 cursor-pointer items-start gap-2 pt-0.5 text-left">
+                          <span className="relative mt-1 size-4 shrink-0">
+                            <Route className="absolute inset-0 size-4 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
+                            <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                          </span>
                           <div className="min-w-0">
                             <p className="text-base font-medium text-foreground">Routing</p>
                             <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -1165,8 +1814,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </Collapsible>
                   </div>
                 )}
-              </div>
-            </ScrollArea>
+                </div>
+              </ScrollArea>
+            </div>
           </section>
         </div>
 
