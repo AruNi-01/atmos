@@ -19,13 +19,7 @@ import {
 export type FixedTab = "overview" | "terminal" | "wiki" | "project-wiki" | "code-review";
 
 export const centerStageParams = {
-  tab: parseAsStringEnum<FixedTab>([
-    "overview",
-    "terminal",
-    "wiki",
-    "project-wiki",
-    "code-review",
-  ]).withDefault("terminal"),
+  tab: parseAsString.withDefault("terminal"),
   wikiPage: parseAsString,
 };
 

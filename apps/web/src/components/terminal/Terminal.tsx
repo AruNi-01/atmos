@@ -64,6 +64,8 @@ import { useTerminalLinkSettings } from "@/hooks/use-terminal-link-settings";
 const TERMINAL_FONT_REGULAR_PATH = "/fonts/HackNerdFontMono-Regular.ttf";
 const TERMINAL_FONT_BOLD_PATH = "/fonts/HackNerdFontMono-Bold.ttf";
 const NERD_FONT_TEST_GLYPH = "\uE0B6";
+const TERMINAL_INPUT_READY_DEBOUNCE_MS = 180;
+const TERMINAL_INPUT_READY_FALLBACK_MS = 1200;
 let terminalFontLoadPromise: Promise<void> | null = null;
 
 function toAbsoluteAssetUrl(path: string): string {
@@ -308,9 +310,40 @@ const Terminal = ({
   // Batch terminal writes via rAF to reduce xterm.js render passes
   const pendingWriteRef = useRef("");
   const rafScheduledRef = useRef(false);
+  const inputReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputReadyFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputReadyNotifiedRef = useRef(false);
   // When true, suppress writing PTY output to xterm.js (used during reconnect
   // to discard tmux's initial redraw — we replace it with the captured snapshot).
   const suppressOutputRef = useRef(false);
+
+  const notifyInputReady = useCallback(() => {
+    if (inputReadyNotifiedRef.current) return;
+    inputReadyNotifiedRef.current = true;
+    onSessionReady?.(sessionId);
+  }, [onSessionReady, sessionId]);
+
+  const scheduleInputReady = useCallback(() => {
+    if (inputReadyNotifiedRef.current) return;
+    if (inputReadyTimerRef.current) {
+      clearTimeout(inputReadyTimerRef.current);
+    }
+    inputReadyTimerRef.current = setTimeout(() => {
+      inputReadyTimerRef.current = null;
+      notifyInputReady();
+    }, TERMINAL_INPUT_READY_DEBOUNCE_MS);
+  }, [notifyInputReady]);
+
+  const scheduleInputReadyFallback = useCallback(() => {
+    if (inputReadyNotifiedRef.current) return;
+    if (inputReadyFallbackTimerRef.current) {
+      clearTimeout(inputReadyFallbackTimerRef.current);
+    }
+    inputReadyFallbackTimerRef.current = setTimeout(() => {
+      inputReadyFallbackTimerRef.current = null;
+      notifyInputReady();
+    }, TERMINAL_INPUT_READY_FALLBACK_MS);
+  }, [notifyInputReady]);
 
   const handleOutput = useCallback((data: string) => {
     if (data && !suppressOutputRef.current) {
@@ -327,11 +360,23 @@ const Terminal = ({
         });
       }
     }
+    if (data && status === "connected") {
+      scheduleInputReady();
+    }
     onData?.(data); // Forward original for parent (e.g. URL detection)
-  }, [onData]);
+  }, [onData, scheduleInputReady, status]);
 
   const handleConnected = useCallback(() => {
     setStatus("connected");
+    inputReadyNotifiedRef.current = false;
+    if (inputReadyTimerRef.current) {
+      clearTimeout(inputReadyTimerRef.current);
+      inputReadyTimerRef.current = null;
+    }
+    if (inputReadyFallbackTimerRef.current) {
+      clearTimeout(inputReadyFallbackTimerRef.current);
+      inputReadyFallbackTimerRef.current = null;
+    }
 
     // Belt-and-suspenders: send current terminal dimensions immediately after WS opens.
     // This ensures the backend PTY has the correct size even if URL params were not processed.
@@ -340,11 +385,20 @@ const Terminal = ({
     }
     // Re-fit to ensure terminal matches current container dimensions
     fitAddonRef.current?.fit();
-    onSessionReady?.(sessionId);
-  }, [sessionId, onSessionReady]);
+    scheduleInputReadyFallback();
+  }, [scheduleInputReadyFallback]);
 
   const handleDisconnected = useCallback(() => {
     setStatus("disconnected");
+    inputReadyNotifiedRef.current = false;
+    if (inputReadyTimerRef.current) {
+      clearTimeout(inputReadyTimerRef.current);
+      inputReadyTimerRef.current = null;
+    }
+    if (inputReadyFallbackTimerRef.current) {
+      clearTimeout(inputReadyFallbackTimerRef.current);
+      inputReadyFallbackTimerRef.current = null;
+    }
     onSessionClose?.(sessionId);
   }, [sessionId, onSessionClose]);
 
@@ -372,8 +426,9 @@ const Terminal = ({
       suppressOutputRef.current = false;
       // Force tmux to redraw the live viewport, resyncing cursor state.
       sendResizeRef.current({ cols: term.cols, rows: term.rows });
+      scheduleInputReady();
     }, 1000);
-  }, []);
+  }, [scheduleInputReady]);
 
   const { isConnected, isReconnecting, sendInput, sendResize, sendDestroy, connect, disconnect } =
     useTerminalWebSocket({
@@ -391,6 +446,17 @@ const Terminal = ({
   useEffect(() => {
     sendResizeRef.current = sendResize;
   });
+
+  useEffect(() => {
+    return () => {
+      if (inputReadyTimerRef.current) {
+        clearTimeout(inputReadyTimerRef.current);
+      }
+      if (inputReadyFallbackTimerRef.current) {
+        clearTimeout(inputReadyFallbackTimerRef.current);
+      }
+    };
+  }, []);
 
   const uiStatus = isReconnecting ? "reconnecting" : status;
 

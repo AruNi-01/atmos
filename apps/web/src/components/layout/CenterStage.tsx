@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import {
   SquareTerminal as TerminalIcon,
   X,
-  Code,
   GitCompare,
   Circle,
   Loader2,
@@ -49,8 +48,6 @@ import { useContextParams } from "@/hooks/use-context-params";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
-import { RecentWorkspacesView } from "@/components/workspace/RecentWorkspacesView";
-import { ArchivedWorkspacesView } from "@/components/workspace/ArchivedWorkspacesView";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { WorkspacesManagementView } from "@/components/workspace/WorkspacesManagementView";
 import { SkillsView } from "@/components/skills/SkillsView";
@@ -58,7 +55,13 @@ import { TerminalManagerView } from "@/components/terminal/TerminalManagerView";
 import { AgentManagerView } from "@/components/agent/AgentManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
 import { systemApi } from "@/api/rest-api";
-import { PROJECT_WIKI_WINDOW_NAME, CODE_REVIEW_WINDOW_NAME } from "@/hooks/use-terminal-store";
+import {
+  PROJECT_WIKI_WINDOW_NAME,
+  CODE_REVIEW_WINDOW_NAME,
+  FIXED_TERMINAL_TAB_VALUE,
+  TERMINAL_TAB_VALUE_PREFIX,
+  useTerminalStore,
+} from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
 import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/hooks/use-app-router";
@@ -111,8 +114,12 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
   return <img {...iconProps} />;
 }
 
-const FIXED_TABS = new Set<string>(["overview", "terminal", "wiki", "project-wiki", "code-review"]);
+const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
+
+function isTerminalCenterTabValue(value: string | null | undefined): value is string {
+  return value === FIXED_TERMINAL_TAB_VALUE || !!value?.startsWith(TERMINAL_TAB_VALUE_PREFIX);
+}
 
 function getRelativePath(path: string, basePath?: string): string {
   if (!basePath) return path;
@@ -127,8 +134,8 @@ const CenterStage: React.FC = () => {
 
   const [fileToClose, setFileToClose] = React.useState<OpenFile | null>(null);
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
+  const terminalGridRefs = React.useRef<Record<string, TerminalGridHandle | null>>({});
   const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
-  const [terminalTabCollapseRatio, setTerminalTabCollapseRatio] = React.useState(0);
   const reloadingFilesRef = React.useRef<Set<string>>(new Set());
   const projectWikiTerminalGridRef = React.useRef<TerminalGridHandle>(null);
   const [projectWikiVisibleMap, setProjectWikiVisibleMap] = React.useState<Record<string, boolean>>({});
@@ -145,7 +152,7 @@ const CenterStage: React.FC = () => {
   } | null>(null);
 
   // Agent dropdown state
-  const [agentDropdownOpen, setAgentDropdownOpen] = React.useState(false);
+  const [agentDropdownTabId, setAgentDropdownTabId] = React.useState<string | null>(null);
   const [defaultAgentId, setDefaultAgentId] = React.useState<string>("claude");
   const agentDropdownTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -160,9 +167,30 @@ const CenterStage: React.FC = () => {
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
 
-  const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
+  const { workspaceId, effectiveContextId, currentView } = useContextParams();
+  const {
+    terminalTabs,
+    createTerminalTab,
+    closeTerminalTab,
+    setActiveTerminalTab,
+  } = useTerminalStore(
+    useShallow((state) => ({
+      terminalTabs: effectiveContextId
+        ? state.workspaceTerminalTabs[effectiveContextId]
+        : undefined,
+      createTerminalTab: state.createTerminalTab,
+      closeTerminalTab: state.closeTerminalTab,
+      setActiveTerminalTab: state.setActiveTerminalTab,
+    }))
+  );
   const setupProgressMap = useProjectStore((s) => s.setupProgress);
   const isSetupActive = workspaceId ? !!setupProgressMap[workspaceId] : false;
+  const visibleTerminalTabs = React.useMemo(
+    () => terminalTabs && terminalTabs.length > 0
+      ? terminalTabs
+      : [{ id: FIXED_TERMINAL_TAB_VALUE, title: "Term", closable: false }],
+    [terminalTabs]
+  );
 
   // Derive per-workspace visibility (default false for unseen workspaces)
   const projectWikiTabVisible = effectiveContextId ? (projectWikiVisibleMap[effectiveContextId] ?? false) : false;
@@ -171,15 +199,20 @@ const CenterStage: React.FC = () => {
   // --- URL-synced tab state ---
   const [{ tab: tabFromUrl, wikiPage: wikiPageFromUrl }, setUrlParams] = useQueryStates(centerStageParams);
 
-  const fixedTab: FixedTab = React.useMemo(() => {
+  const resolvedTab = React.useMemo(() => {
     if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return "terminal";
     if (tabFromUrl === "code-review" && !codeReviewTabVisible) return "terminal";
+    if (isTerminalCenterTabValue(tabFromUrl)) {
+      return visibleTerminalTabs.some((tab) => tab.id === tabFromUrl)
+        ? tabFromUrl
+        : FIXED_TERMINAL_TAB_VALUE;
+    }
     return tabFromUrl;
-  }, [tabFromUrl, projectWikiTabVisible, codeReviewTabVisible]);
+  }, [tabFromUrl, projectWikiTabVisible, codeReviewTabVisible, visibleTerminalTabs]);
 
   const setFixedTab = React.useCallback(
     (tab: FixedTab) => {
-      if (tab === fixedTab) return;
+      if (tab === resolvedTab) return;
       const updates: Parameters<typeof setUrlParams>[0] = { tab };
       // Clear wikiPage when leaving wiki tab
       if (tab !== "wiki") {
@@ -187,7 +220,7 @@ const CenterStage: React.FC = () => {
       }
       setUrlParams(updates);
     },
-    [fixedTab, setUrlParams]
+    [resolvedTab, setUrlParams]
   );
 
   const setWikiPage = React.useCallback(
@@ -266,7 +299,6 @@ const CenterStage: React.FC = () => {
     getActiveFilePath,
     setActiveFile,
     closeFile,
-    getActiveFile,
     pinFile,
     reloadFileContent,
   } = useEditorStore(
@@ -276,7 +308,6 @@ const CenterStage: React.FC = () => {
       getActiveFilePath: s.getActiveFilePath,
       setActiveFile: s.setActiveFile,
       closeFile: s.closeFile,
-      getActiveFile: s.getActiveFile,
       pinFile: s.pinFile,
       reloadFileContent: s.reloadFileContent,
     }))
@@ -335,8 +366,8 @@ const CenterStage: React.FC = () => {
   const openFiles = getOpenFiles(effectiveContextId || undefined);
   const activeFilePath = getActiveFilePath(effectiveContextId || undefined);
 
-  // activeValue 优先使用打开的文件路径，否则使用 fixedTab
-  const activeValue = activeFilePath || fixedTab;
+  // activeValue 优先使用打开的文件路径，否则使用当前 center tab
+  const activeValue = activeFilePath || resolvedTab;
 
   React.useEffect(() => {
     if (isSetupActive) return;
@@ -357,15 +388,6 @@ const CenterStage: React.FC = () => {
     const container = scrollableTabsRef.current;
     if (!container) return;
 
-    const applyScrollStyle = () => {
-      const ratio = Math.min(container.scrollLeft / 64, 1);
-      setTerminalTabCollapseRatio((prev) => (Math.abs(prev - ratio) < 0.01 ? prev : ratio));
-    };
-
-    const handleScroll = () => {
-      applyScrollStyle();
-    };
-
     const handleWheel = (event: WheelEvent) => {
       if (event.ctrlKey) return;
 
@@ -383,20 +405,16 @@ const CenterStage: React.FC = () => {
       container.scrollLeft = nextScrollLeft;
     };
 
-    applyScrollStyle();
-    container.addEventListener("scroll", handleScroll, { passive: true });
     container.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
-      container.removeEventListener("scroll", handleScroll);
       container.removeEventListener("wheel", handleWheel);
     };
-  }, [effectiveContextId, openFiles.length, projectWikiTabVisible, codeReviewTabVisible]);
+  }, [effectiveContextId, openFiles.length, projectWikiTabVisible, codeReviewTabVisible, visibleTerminalTabs.length]);
 
-  const terminalIconOnly = terminalTabCollapseRatio >= 0.9;
-  const terminalLabelVisibility = terminalIconOnly ? 0 : 1 - terminalTabCollapseRatio;
-  const terminalTabPaddingLeft = terminalIconOnly ? 16 : 16 - terminalTabCollapseRatio * 4;
-  const terminalTabPaddingRight = terminalIconOnly ? 16 : 8 + terminalTabCollapseRatio * 4;
-  const terminalQuickActionLeft = terminalIconOnly ? 14 : terminalTabPaddingLeft - 3;
+  React.useEffect(() => {
+    if (!effectiveContextId || !isTerminalCenterTabValue(activeValue)) return;
+    setActiveTerminalTab(effectiveContextId, activeValue);
+  }, [effectiveContextId, activeValue, setActiveTerminalTab]);
 
   React.useEffect(() => {
     if (!effectiveContextId || !activeValue) return;
@@ -418,8 +436,12 @@ const CenterStage: React.FC = () => {
       const map = JSON.parse(raw) as Record<string, string>;
       const last = map[effectiveContextId];
       if (!last || last === activeValue) return;
-      if (FIXED_TABS.has(last)) {
+      if (FIXED_TABS.has(last as string)) {
         setFixedTab(last as FixedTab);
+        return;
+      }
+      if (isTerminalCenterTabValue(last) && visibleTerminalTabs.some((tab) => tab.id === last)) {
+        setUrlParams({ tab: last, wikiPage: null });
         return;
       }
       const exists = openFiles.some((f) => f.path === last);
@@ -429,13 +451,13 @@ const CenterStage: React.FC = () => {
     } catch {
       // ignore storage errors
     }
-  }, [effectiveContextId, activeFilePath, activeValue, openFiles, setActiveFile, setFixedTab]);
+  }, [effectiveContextId, activeFilePath, activeValue, openFiles, setActiveFile, setFixedTab, setUrlParams, visibleTerminalTabs]);
 
   // Auto-scroll active tab into view when it changes or context/tabs are restored
   React.useEffect(() => {
     const container = scrollableTabsRef.current;
     if (!activeValue || !container) return;
-    if (FIXED_TABS.has(activeValue)) return;
+    if (FIXED_TABS.has(activeValue) || activeValue === FIXED_TERMINAL_TAB_VALUE) return;
 
     const timer = setTimeout(() => {
       const current = scrollableTabsRef.current;
@@ -452,7 +474,7 @@ const CenterStage: React.FC = () => {
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [activeValue, effectiveContextId, openFiles.length, projectWikiTabVisible, codeReviewTabVisible]);
+  }, [activeValue, effectiveContextId, openFiles.length, projectWikiTabVisible, codeReviewTabVisible, visibleTerminalTabs.length]);
 
   // Run pending wiki command when Project Wiki tab is active and grid is ready
   React.useEffect(() => {
@@ -531,40 +553,65 @@ const CenterStage: React.FC = () => {
     () => customAgents.filter((agent) => agent.enabled !== false),
     [customAgents]
   );
-  const visibleQuickOpenIds = React.useMemo(
-    () => new Set([
-      ...visibleBuiltInAgents.map((agent) => agent.id),
-      ...visibleCustomAgents.map((agent) => agent.id),
-    ]),
-    [visibleBuiltInAgents, visibleCustomAgents]
+  const terminalQuickOpenAgents = React.useMemo(
+    () => [
+      ...visibleBuiltInAgents.map((agent) => {
+        const custom = agentCustomSettings[agent.id];
+        const cmd = custom?.cmd?.trim() || agent.cmd;
+        const flags = custom?.flags?.trim() || agent.yoloFlag || "";
+        return {
+          id: agent.id,
+          label: agent.label,
+          command: flags ? `${cmd} ${flags}` : cmd,
+          iconType: "built-in" as const,
+        };
+      }),
+      ...visibleCustomAgents.map((agent) => {
+        const cmd = agent.cmd.trim();
+        const flags = agent.flags?.trim() || "";
+        return {
+          id: agent.id,
+          label: agent.label,
+          command: flags ? `${cmd} ${flags}` : cmd,
+          iconType: "custom" as const,
+        };
+      }),
+    ],
+    [agentCustomSettings, visibleBuiltInAgents, visibleCustomAgents]
   );
+  const handleAddAgent = (agentId: string, targetTerminalTabId: string = FIXED_TERMINAL_TAB_VALUE) => {
+    if (!effectiveContextId) return;
 
-  const handleAddAgent = (agentId: string) => {
-    if (terminalGridRef.current) {
-      // Switch to terminal tab if not active
-      if (activeFilePath) {
-        setActiveFile(null, effectiveContextId || undefined);
-      }
+    if (activeFilePath) {
+      setActiveFile(null, effectiveContextId);
+    }
 
-      // Check built-in agents first
-      const builtIn = AGENT_OPTIONS.find((a) => a.id === agentId);
-      if (builtIn) {
-        const custom = agentCustomSettings[agentId];
-        const cmd = custom?.cmd?.trim() || builtIn.cmd;
-        const flags = custom?.flags?.trim() || "";
-        const command = flags ? `${cmd} ${flags}` : cmd;
-        terminalGridRef.current.prefillTerminal({ title: builtIn.label, command });
-        return;
-      }
+    if (targetTerminalTabId !== activeValue) {
+      setActiveTerminalTab(effectiveContextId, targetTerminalTabId);
+      setUrlParams({ tab: targetTerminalTabId, wikiPage: null });
+    }
 
-      // Check custom agents
-      const customAgent = customAgents.find((a) => a.id === agentId);
-      if (customAgent) {
-        const cmd = customAgent.cmd.trim();
-        const flags = customAgent.flags?.trim() || "";
-        const command = flags ? `${cmd} ${flags}` : cmd;
-        terminalGridRef.current.prefillTerminal({ title: customAgent.label, command });
-      }
+    const targetGridRef = targetTerminalTabId === FIXED_TERMINAL_TAB_VALUE
+      ? terminalGridRef.current
+      : terminalGridRefs.current[targetTerminalTabId];
+    if (!targetGridRef) return;
+
+    const builtIn = AGENT_OPTIONS.find((a) => a.id === agentId);
+    if (builtIn) {
+      const custom = agentCustomSettings[agentId];
+      const cmd = custom?.cmd?.trim() || builtIn.cmd;
+      const flags = custom?.flags?.trim() || builtIn.yoloFlag || "";
+      const command = flags ? `${cmd} ${flags}` : cmd;
+      void targetGridRef.createAndRunTerminal({ title: builtIn.label, command });
+      return;
+    }
+
+    const customAgent = customAgents.find((a) => a.id === agentId);
+    if (customAgent) {
+      const cmd = customAgent.cmd.trim();
+      const flags = customAgent.flags?.trim() || "";
+      const command = flags ? `${cmd} ${flags}` : cmd;
+      void targetGridRef.createAndRunTerminal({ title: customAgent.label, command });
     }
   };
 
@@ -573,28 +620,40 @@ const CenterStage: React.FC = () => {
     functionSettingsApi.update("agent_cli", "center_fix_terminal_default_agent", agentId).catch(() => {});
   };
 
-  const handleQuickAddDefaultAgent = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const fallbackAgentId = visibleBuiltInAgents[0]?.id ?? visibleCustomAgents[0]?.id;
-    handleAddAgent(visibleQuickOpenIds.has(defaultAgentId) ? defaultAgentId : (fallbackAgentId || defaultAgentId));
-    setAgentDropdownOpen(false);
-  };
-
   const handleAgentDropdownEnter = () => {
     if (agentDropdownTimeoutRef.current) {
       clearTimeout(agentDropdownTimeoutRef.current);
     }
-    setAgentDropdownOpen(true);
+  };
+
+  const handleAgentDropdownOpen = (tabId: string) => {
+    handleAgentDropdownEnter();
+    setAgentDropdownTabId(tabId);
   };
 
   const handleAgentDropdownLeave = () => {
     agentDropdownTimeoutRef.current = setTimeout(() => {
-      setAgentDropdownOpen(false);
+      setAgentDropdownTabId(null);
     }, 150);
   };
 
-  const activeFile = getActiveFile(effectiveContextId || undefined);
+  const handleCreateTerminalCenterTab = React.useCallback(() => {
+    if (!effectiveContextId) return;
+    const nextTab = createTerminalTab(effectiveContextId);
+    setUrlParams({ tab: nextTab.id, wikiPage: null });
+    setAgentDropdownTabId(null);
+  }, [effectiveContextId, createTerminalTab, setUrlParams]);
+
+  const handleCloseTerminalCenterTab = React.useCallback((tabId: string) => {
+    if (!effectiveContextId || tabId === FIXED_TERMINAL_TAB_VALUE) return;
+    terminalGridRefs.current[tabId]?.destroyAllTerminals();
+    closeTerminalTab(effectiveContextId, tabId);
+    delete terminalGridRefs.current[tabId];
+    if (activeValue === tabId) {
+      setUrlParams({ tab: FIXED_TERMINAL_TAB_VALUE, wikiPage: null });
+    }
+  }, [activeValue, closeTerminalTab, effectiveContextId, setUrlParams]);
+
   const { currentRepoPath } = useGitStore();
 
   // Derive workspace and project info for OverviewTab
@@ -672,7 +731,13 @@ const CenterStage: React.FC = () => {
       <Tabs
         value={activeValue}
         onValueChange={(val) => {
-          if (FIXED_TABS.has(val)) {
+          if (isTerminalCenterTabValue(val)) {
+            if (effectiveContextId) {
+              setActiveTerminalTab(effectiveContextId, val);
+            }
+            setUrlParams({ tab: val, wikiPage: null });
+            setActiveFile(null, effectiveContextId || undefined);
+          } else if (FIXED_TABS.has(val)) {
             setFixedTab(val as FixedTab);
             setActiveFile(null, effectiveContextId || undefined);
           } else {
@@ -748,54 +813,50 @@ const CenterStage: React.FC = () => {
 
           <TabsTab
             value="terminal"
-            className="group/terminal relative h-full! data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-0 grow-0 shrink-0 justify-start rounded-none border-0!"
-            style={{
-              paddingLeft: `${terminalTabPaddingLeft}px`,
-              paddingRight: `${terminalTabPaddingRight}px`,
-            }}
+            className="group/terminal relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
           >
             <span className="relative size-3.5 shrink-0">
               <TerminalIcon
                 className={cn(
                   "size-3.5 absolute inset-0 transition-all duration-200",
-                  activeValue === "terminal"
-                    ? agentDropdownOpen
+                  activeValue === FIXED_TERMINAL_TAB_VALUE
+                    ? agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE
                       ? "opacity-0 scale-50 rotate-[-20deg]"
                       : "group-hover/terminal:opacity-0 group-hover/terminal:scale-50 group-hover/terminal:rotate-[-20deg]"
                     : ""
                 )}
               />
             </span>
-            <span
-              className="inline-block text-[13px] font-medium text-pretty whitespace-nowrap"
-              style={{
-                opacity: terminalLabelVisibility,
-                width: `${72 * terminalLabelVisibility}px`,
-                overflow: "hidden",
-              }}
-            >
-              Terminal
-            </span>
+            <span className="text-[13px] font-medium whitespace-nowrap">Term</span>
 
-            <DropdownMenu open={agentDropdownOpen} onOpenChange={(open) => { if (!open) setAgentDropdownOpen(false); }} modal={false}>
+            <DropdownMenu
+              open={agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setAgentDropdownTabId(null);
+                } else {
+                  handleAgentDropdownOpen(FIXED_TERMINAL_TAB_VALUE);
+                }
+              }}
+              modal={false}
+            >
               <DropdownMenuTrigger asChild>
-                <div
-                  role="button"
+                <button
+                  type="button"
                   className={cn(
                     "absolute top-1/2 -translate-y-1/2 size-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all",
-                    activeValue === "terminal" && visibleQuickOpenIds.size > 0
-                      ? agentDropdownOpen
+                    activeValue === FIXED_TERMINAL_TAB_VALUE
+                      ? agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE
                         ? "opacity-100 scale-100 rotate-0 pointer-events-auto"
                         : "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto"
                       : "hidden"
                   )}
-                  style={{ left: `${terminalQuickActionLeft}px` }}
-                  onClick={handleQuickAddDefaultAgent}
-                  onMouseEnter={handleAgentDropdownEnter}
+                  style={{ left: "12px" }}
+                  onMouseEnter={() => handleAgentDropdownOpen(FIXED_TERMINAL_TAB_VALUE)}
                   onMouseLeave={handleAgentDropdownLeave}
                 >
                   <Plus className="size-4" />
-                </div>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
@@ -804,8 +865,15 @@ const CenterStage: React.FC = () => {
                 onMouseLeave={handleAgentDropdownLeave}
                 onCloseAutoFocus={(e) => e.preventDefault()}
               >
+                <DropdownMenuItem onClick={handleCreateTerminalCenterTab}>
+                  <TerminalIcon className="size-4" />
+                  <span>Terminal Tab</span>
+                </DropdownMenuItem>
+                {(visibleBuiltInAgents.length > 0 || visibleCustomAgents.length > 0) && (
+                  <DropdownMenuSeparator />
+                )}
                 {visibleBuiltInAgents.map((opt) => (
-                  <DropdownMenuItem key={opt.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(opt.id); setAgentDropdownOpen(false); }}>
+                  <DropdownMenuItem key={opt.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(opt.id, FIXED_TERMINAL_TAB_VALUE); setAgentDropdownTabId(null); }}>
                     <AgentIcon registryId={opt.id} name={opt.label} size={16} />
                     <span className="flex-1">{opt.label}</span>
                     <button
@@ -828,7 +896,7 @@ const CenterStage: React.FC = () => {
                   <>
                     <DropdownMenuSeparator />
                     {visibleCustomAgents.map((agent) => (
-                      <DropdownMenuItem key={agent.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(agent.id); setAgentDropdownOpen(false); }}>
+                      <DropdownMenuItem key={agent.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(agent.id, FIXED_TERMINAL_TAB_VALUE); setAgentDropdownTabId(null); }}>
                         <Bot className="size-4 text-muted-foreground" />
                         <span className="flex-1">{agent.label}</span>
                         <button
@@ -853,8 +921,145 @@ const CenterStage: React.FC = () => {
             </DropdownMenu>
           </TabsTab>
 
-          <div ref={scrollableTabsRef} className="flex min-w-0 flex-1 overflow-x-auto no-scrollbar">
+          {visibleTerminalTabs
+            .filter((tab) => tab.id !== FIXED_TERMINAL_TAB_VALUE)
+            .map((tab) => (
+              <Tooltip key={tab.id}>
+                <TooltipTrigger asChild>
+                  <TabsTab
+                    value={tab.id}
+                    className="group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+                  >
+                    <span className="relative size-3.5 shrink-0">
+                      <TerminalIcon
+                        className={cn(
+                          "size-3.5 absolute inset-0 transition-all duration-200",
+                          agentDropdownTabId === tab.id
+                            ? "opacity-0 scale-50 rotate-[-20deg]"
+                            : activeValue === tab.id
+                              ? "group-hover/term-tab:opacity-0 group-hover/term-tab:scale-50 group-hover/term-tab:rotate-[-20deg]"
+                              : ""
+                        )}
+                      />
+                    </span>
+                    <span className="text-[13px] font-medium whitespace-nowrap">{tab.title}</span>
+                    <DropdownMenu
+                      open={agentDropdownTabId === tab.id}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          setAgentDropdownTabId(null);
+                        } else {
+                          handleAgentDropdownOpen(tab.id);
+                        }
+                      }}
+                      modal={false}
+                    >
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className={cn(
+                            "absolute left-3 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-all hover:bg-muted-foreground/20 hover:text-foreground",
+                            agentDropdownTabId === tab.id
+                              ? "opacity-100 scale-100 rotate-0"
+                              : activeValue === tab.id
+                                ? "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/term-tab:opacity-100 group-hover/term-tab:scale-100 group-hover/term-tab:rotate-0 group-hover/term-tab:pointer-events-auto"
+                                : "opacity-0 scale-50 rotate-60 pointer-events-none"
+                          )}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseEnter={() => handleAgentDropdownOpen(tab.id)}
+                          onMouseLeave={handleAgentDropdownLeave}
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="start"
+                        className="w-56"
+                        onMouseEnter={() => handleAgentDropdownOpen(tab.id)}
+                        onMouseLeave={handleAgentDropdownLeave}
+                        onCloseAutoFocus={(e) => e.preventDefault()}
+                      >
+                        <DropdownMenuItem onClick={handleCreateTerminalCenterTab}>
+                          <TerminalIcon className="size-4" />
+                          <span>Terminal Tab</span>
+                        </DropdownMenuItem>
+                        {(visibleBuiltInAgents.length > 0 || visibleCustomAgents.length > 0) && (
+                          <DropdownMenuSeparator />
+                        )}
+                        {visibleBuiltInAgents.map((opt) => (
+                          <DropdownMenuItem key={opt.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(opt.id, tab.id); setAgentDropdownTabId(null); }}>
+                            <AgentIcon registryId={opt.id} name={opt.label} size={16} />
+                            <span className="flex-1">{opt.label}</span>
+                            <button
+                              className={cn(
+                                "size-5 flex items-center justify-center rounded-sm shrink-0 transition-opacity",
+                                defaultAgentId === opt.id
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover/agent-item:opacity-100 hover:bg-muted-foreground/20"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSetDefaultAgent(opt.id);
+                              }}
+                            >
+                              <Star className={cn("size-3.5", defaultAgentId === opt.id ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
+                            </button>
+                          </DropdownMenuItem>
+                        ))}
+                        {visibleCustomAgents.length > 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            {visibleCustomAgents.map((agent) => (
+                              <DropdownMenuItem key={agent.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(agent.id, tab.id); setAgentDropdownTabId(null); }}>
+                                <Bot className="size-4 text-muted-foreground" />
+                                <span className="flex-1">{agent.label}</span>
+                                <button
+                                  className={cn(
+                                    "size-5 flex items-center justify-center rounded-sm shrink-0 transition-opacity",
+                                    defaultAgentId === agent.id
+                                      ? "opacity-100"
+                                      : "opacity-0 group-hover/agent-item:opacity-100 hover:bg-muted-foreground/20"
+                                  )}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetDefaultAgent(agent.id);
+                                  }}
+                                >
+                                  <Star className={cn("size-3.5", defaultAgentId === agent.id ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
+                                </button>
+                              </DropdownMenuItem>
+                            ))}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <div
+                      className={cn(
+                        "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center rounded-r-sm bg-linear-to-l from-muted/25 to-transparent pl-2.5 pr-1.5 backdrop-blur-[4px] transition-opacity duration-200",
+                        activeValue === tab.id
+                          ? "opacity-0 group-hover/term-tab:opacity-100"
+                          : "opacity-0"
+                      )}
+                    >
+                      <span
+                        role="button"
+                        aria-label={`Close ${tab.title}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCloseTerminalCenterTab(tab.id);
+                        }}
+                        className="flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground cursor-pointer"
+                      >
+                        <X className="size-3" />
+                      </span>
+                    </div>
+                  </TabsTab>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{tab.title}</TooltipContent>
+              </Tooltip>
+            ))}
 
+          <div ref={scrollableTabsRef} className="flex min-w-0 flex-1 overflow-x-auto no-scrollbar">
           {/* Project Wiki Tab - shown when wiki gen runs or tmux window exists */}
           {effectiveContextId && projectWikiTabVisible && (
             <Tooltip>
@@ -983,18 +1188,44 @@ const CenterStage: React.FC = () => {
         <div
           className={cn(
             "flex-1 min-h-0 min-w-0",
-            activeValue !== "terminal" && "hidden"
+            activeValue !== FIXED_TERMINAL_TAB_VALUE && "hidden"
           )}
         >
           <div className="h-full w-full">
             <TerminalGrid
               ref={terminalGridRef}
               workspaceId={effectiveContextId || ""}
+              quickOpenAgents={terminalQuickOpenAgents}
               className="h-full"
               isProjectContext={currentView === "project"}
             />
           </div>
         </div>
+
+        {effectiveContextId && visibleTerminalTabs
+          .filter((tab) => tab.id !== FIXED_TERMINAL_TAB_VALUE)
+          .map((tab) => (
+            <div
+              key={tab.id}
+              className={cn(
+                "flex-1 min-h-0 min-w-0",
+                activeValue !== tab.id && "hidden"
+              )}
+            >
+              <div className="h-full w-full">
+                <TerminalGrid
+                  ref={(instance) => {
+                    terminalGridRefs.current[tab.id] = instance;
+                  }}
+                  workspaceId={effectiveContextId}
+                  terminalTabId={tab.id}
+                  quickOpenAgents={terminalQuickOpenAgents}
+                  className="h-full"
+                  isProjectContext={currentView === "project"}
+                />
+              </div>
+            </div>
+          ))}
 
         {/* Project Wiki Tab Content - Same TerminalGrid/Mosaic UI, separate panes from main Terminal */}
         {effectiveContextId && projectWikiTabVisible && (

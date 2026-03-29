@@ -15,19 +15,17 @@ import {
   X,
   Columns,
   Rows,
-  Terminal as TerminalIcon,
+  Bot,
   Loader2,
   Plus,
-  Folder,
-  ChevronDown,
   Maximize2,
-  Bot,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, cn } from "@workspace/ui";
 import { Terminal, TerminalRef } from "./Terminal";
-import { useTerminalStore, PROJECT_WIKI_WINDOW_NAME } from "@/hooks/use-terminal-store";
+import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
+import { AgentIcon } from "@/components/agent/AgentIcon";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
@@ -47,6 +45,13 @@ export interface TerminalToolbarActions {
 interface TerminalGridProps {
   workspaceId: string;
   className?: string;
+  terminalTabId?: string;
+  quickOpenAgents?: Array<{
+    id: string;
+    label: string;
+    command: string;
+    iconType: "built-in" | "custom";
+  }>;
   /** When "project-wiki", uses separate panes/layout (does not affect main Terminal tab) */
   scope?: TerminalGridScope;
   /** Which toolbar action buttons to show. Default: all true. Use e.g. { split: false, maximize: false, close: false } for Project Wiki. */
@@ -65,6 +70,7 @@ export interface TerminalGridHandle {
   removeTerminalByTmuxWindowName: (tmuxWindowName: string) => void;
   /** Create a new terminal and pre-fill command text without executing it */
   prefillTerminal: (options: { title: string; command: string }) => void;
+  destroyAllTerminals: () => void;
 }
 
 const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
@@ -73,11 +79,13 @@ const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
   close: true,
 };
 
-export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, scope = "default", toolbarActions, isProjectContext = false }, ref) => {
+export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false }, ref) => {
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
   const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
+  const [splitMenuKey, setSplitMenuKey] = React.useState<string | null>(null);
+  const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isProjectWiki = scope === "project-wiki";
   const isCodeReview = scope === "code-review";
@@ -94,7 +102,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     getPaneIdByTmuxWindowName,
     splitTerminal: splitTerminalInStore,
     toggleMaximize,
-    workspaceMaximizedIds,
+    getMaximizedTerminalId,
     setDynamicTitle,
     getProjectWikiPanes,
     getProjectWikiLayout,
@@ -126,22 +134,22 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     ? getCodeReviewPanes(workspaceId)
     : isProjectWiki
     ? getProjectWikiPanes(workspaceId)
-    : getPanes(workspaceId);
+    : getPanes(workspaceId, terminalTabId);
   const layout = isCodeReview
     ? getCodeReviewLayout(workspaceId)
     : isProjectWiki
     ? getProjectWikiLayout(workspaceId)
-    : getLayout(workspaceId);
+    : getLayout(workspaceId, terminalTabId);
   const workspaceReady = isCodeReview
     ? isCodeReviewReady(workspaceId)
     : isProjectWiki
     ? isProjectWikiReady(workspaceId)
     : isWorkspaceReady(workspaceId);
-  const maximizedIds = isCodeReview
-    ? codeReviewMaximizedIds
+  const maximizedId = isCodeReview
+    ? codeReviewMaximizedIds[workspaceId]
     : isProjectWiki
-    ? projectWikiMaximizedIds
-    : workspaceMaximizedIds;
+    ? projectWikiMaximizedIds[workspaceId]
+    : getMaximizedTerminalId(workspaceId, terminalTabId);
 
   const projects = useProjectStore(s => s.projects);
   const isProjectsLoading = useProjectStore(s => s.isLoading);
@@ -188,17 +196,18 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     ? getCodeReviewPaneIdByTmuxWindowName
     : isProjectWiki
     ? getProjectWikiPaneIdByTmuxWindowName
-    : getPaneIdByTmuxWindowName;
+    : (ctxWorkspaceId: string, tmuxWindowName: string) =>
+        getPaneIdByTmuxWindowName(ctxWorkspaceId, tmuxWindowName, terminalTabId);
   const addTerminal = isCodeReview
     ? (title?: string) => addCodeReviewTerminal(workspaceId, title)
     : isProjectWiki
     ? (title?: string) => addProjectWikiTerminal(workspaceId, title)
-    : (title?: string) => addTerminalToStore(workspaceId, title);
+    : (title?: string) => addTerminalToStore(workspaceId, title, terminalTabId);
   const removeTerminalFromScope = isCodeReview
     ? (id: string) => removeCodeReviewTerminal(workspaceId, id)
     : isProjectWiki
     ? (id: string) => removeProjectWikiTerminal(workspaceId, id)
-    : (id: string) => removeTerminalFromStore(workspaceId, id);
+    : (id: string) => removeTerminalFromStore(workspaceId, id, terminalTabId);
 
   React.useImperativeHandle(ref, () => ({
     addTerminal: (title?: string) => addTerminal(title),
@@ -236,6 +245,12 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       // Pre-fill without \r so the command is typed but not executed
       pendingCommandsRef.current.set(paneId, command);
     },
+    destroyAllTerminals: () => {
+      for (const terminalRef of terminalRefsMap.current.values()) {
+        terminalRef.destroy();
+      }
+      terminalRefsMap.current.clear();
+    },
   }), [workspaceId, addTerminal, getPaneId, removeTerminalFromScope]);
 
   const setLayoutForScope = isCodeReview
@@ -260,8 +275,12 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     : setDynamicTitle;
 
   const onChange = useCallback((newLayout: MosaicNode<string> | null) => {
-    setLayoutForScope(workspaceId, newLayout);
-  }, [workspaceId, setLayoutForScope]);
+    if (isCodeReview || isProjectWiki) {
+      setLayoutForScope(workspaceId, newLayout);
+      return;
+    }
+    setLayoutForScope(workspaceId, newLayout, terminalTabId);
+  }, [workspaceId, setLayoutForScope, isCodeReview, isProjectWiki, terminalTabId]);
 
   const removeTerminal = useCallback((id: string) => {
     const terminalRef = terminalRefsMap.current.get(id);
@@ -273,12 +292,39 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }, [workspaceId, removeTerminalFromScope]);
 
   const splitTerminal = useCallback((id: string, direction: "row" | "column") => {
-    splitTerminalForScope(workspaceId, id, direction);
-  }, [workspaceId, splitTerminalForScope]);
+    if (isCodeReview || isProjectWiki) {
+      return splitTerminalForScope(workspaceId, id, direction);
+    }
+    return splitTerminalForScope(workspaceId, id, direction, terminalTabId);
+  }, [workspaceId, splitTerminalForScope, isCodeReview, isProjectWiki, terminalTabId]);
+
+  const splitAndRunAgent = useCallback((id: string, direction: "row" | "column", command: string) => {
+    const newPaneId = splitTerminal(id, direction);
+    if (!newPaneId) return;
+    pendingCommandsRef.current.set(newPaneId, command.trim() + "\r");
+    setSplitMenuKey(null);
+  }, [splitTerminal]);
+
+  const handleSplitMenuEnter = useCallback((key: string) => {
+    if (splitMenuTimeoutRef.current) {
+      clearTimeout(splitMenuTimeoutRef.current);
+    }
+    setSplitMenuKey(key);
+  }, []);
+
+  const handleSplitMenuLeave = useCallback(() => {
+    splitMenuTimeoutRef.current = setTimeout(() => {
+      setSplitMenuKey(null);
+    }, 120);
+  }, []);
 
   const onToggleMaximize = useCallback((id: string) => {
-    toggleMaximizeForScope(workspaceId, id);
-  }, [workspaceId, toggleMaximizeForScope]);
+    if (isCodeReview || isProjectWiki) {
+      toggleMaximizeForScope(workspaceId, id);
+      return;
+    }
+    toggleMaximizeForScope(workspaceId, id, terminalTabId);
+  }, [workspaceId, toggleMaximizeForScope, isCodeReview, isProjectWiki, terminalTabId]);
 
   const renderTile = useCallback((id: string, path: MosaicPath) => {
     const pane = panes[id];
@@ -291,7 +337,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       <MosaicWindow<string>
         path={path}
         title={displayTitle}
-        className={maximizedIds[workspaceId] === id ? "is-maximized" : ""}
+        className={maximizedId === id ? "is-maximized" : ""}
         renderToolbar={() => {
           const isClaude = pane.title.toLowerCase().includes("claude");
           const statusColor = isClaude ? "bg-yellow-500" : "bg-emerald-500";
@@ -310,35 +356,95 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
               {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-mosaic-toolbar-right">
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover/toolbar:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-0.5">
                     {actions.split && (
-                      <>
-                        <button
-                          className="terminal-mosaic-btn"
-                          onClick={() => splitTerminal(id, "row")}
-                          title="Split Horizontal"
+                      <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/toolbar:opacity-100">
+                        <DropdownMenu
+                          open={splitMenuKey === `${id}:row`}
+                          onOpenChange={(open) => setSplitMenuKey(open ? `${id}:row` : null)}
+                          modal={false}
                         >
-                          <Columns size={12} />
-                        </button>
-                        <button
-                          className="terminal-mosaic-btn"
-                          onClick={() => splitTerminal(id, "column")}
-                          title="Split Vertical"
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="terminal-mosaic-btn"
+                              onClick={() => splitTerminal(id, "row")}
+                              onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
+                              onMouseLeave={handleSplitMenuLeave}
+                              title="Split Horizontal"
+                            >
+                              <Columns size={12} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          {quickOpenAgents.length > 0 && (
+                            <DropdownMenuContent
+                              align="start"
+                              onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
+                              onMouseLeave={handleSplitMenuLeave}
+                              onCloseAutoFocus={(e) => e.preventDefault()}
+                            >
+                              {quickOpenAgents.map((agent) => (
+                                <DropdownMenuItem key={`row-${agent.id}`} onClick={() => splitAndRunAgent(id, "row", agent.command)}>
+                                  {agent.iconType === "built-in" ? (
+                                    <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+                                  ) : (
+                                    <Bot className="size-4 text-muted-foreground" />
+                                  )}
+                                  <span>{agent.label}</span>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          )}
+                        </DropdownMenu>
+                        <DropdownMenu
+                          open={splitMenuKey === `${id}:column`}
+                          onOpenChange={(open) => setSplitMenuKey(open ? `${id}:column` : null)}
+                          modal={false}
                         >
-                          <Rows size={12} />
-                        </button>
-                      </>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="terminal-mosaic-btn"
+                              onClick={() => splitTerminal(id, "column")}
+                              onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
+                              onMouseLeave={handleSplitMenuLeave}
+                              title="Split Vertical"
+                            >
+                              <Rows size={12} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          {quickOpenAgents.length > 0 && (
+                            <DropdownMenuContent
+                              align="start"
+                              onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
+                              onMouseLeave={handleSplitMenuLeave}
+                              onCloseAutoFocus={(e) => e.preventDefault()}
+                            >
+                              {quickOpenAgents.map((agent) => (
+                                <DropdownMenuItem key={`column-${agent.id}`} onClick={() => splitAndRunAgent(id, "column", agent.command)}>
+                                  {agent.iconType === "built-in" ? (
+                                    <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+                                  ) : (
+                                    <Bot className="size-4 text-muted-foreground" />
+                                  )}
+                                  <span>{agent.label}</span>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          )}
+                        </DropdownMenu>
+                      </div>
                     )}
+                    {(actions.maximize || actions.close) && (
+                      <div className={cn("flex items-center gap-0.5 transition-opacity", maximizedId === id ? "opacity-100" : "opacity-0 group-hover/toolbar:opacity-100")}>
                     {actions.maximize && (
                       <button
                         className={cn(
                           "terminal-mosaic-btn",
-                          maximizedIds[workspaceId] === id && "text-primary"
+                          maximizedId === id && "text-primary"
                         )}
                         onClick={() => onToggleMaximize(id)}
-                        title={maximizedIds[workspaceId] === id ? "Restore" : "Maximize"}
+                        title={maximizedId === id ? "Restore" : "Maximize"}
                       >
-                        {maximizedIds[workspaceId] === id ? (
+                        {maximizedId === id ? (
                           <div className="relative size-3 flex items-center justify-center">
                             <Maximize2 size={11} className="scale-75 opacity-70" />
                             <div className="absolute inset-0 border-[1.5px] border-current rounded-[1px] scale-50 translate-x-0.5 -translate-y-0.5" />
@@ -356,6 +462,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                       >
                         <X size={12} />
                       </button>
+                    )}
+                      </div>
                     )}
                   </div>
               </div>
@@ -383,7 +491,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             projectRootPath={projects.find((project) =>
               project.id === workspaceId || project.workspaces.some((workspace) => workspace.id === workspaceId)
             )?.mainFilePath}
-            onTitleChange={(title) => setDynamicTitleForScope(workspaceId, id, title)}
+            onTitleChange={(title) => {
+              if (isCodeReview || isProjectWiki) {
+                setDynamicTitleForScope(workspaceId, id, title);
+                return;
+              }
+              setDynamicTitleForScope(workspaceId, id, title, terminalTabId);
+            }}
             onSessionReady={() => {
               const cmd = pendingCommandsRef.current.get(id);
               if (cmd) {
@@ -395,7 +509,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         </div>
       </MosaicWindow>
     );
-  }, [panes, splitTerminal, removeTerminal, workspaceInfo, maximizedIds, workspaceId, onToggleMaximize, setDynamicTitleForScope, actions, projects]);
+  }, [panes, splitTerminal, removeTerminal, workspaceInfo, maximizedId, workspaceId, onToggleMaximize, setDynamicTitleForScope, actions, projects, isCodeReview, isProjectWiki, terminalTabId]);
 
   // Wait for workspace to be ready before rendering any Terminal components
   // This prevents duplicate tmux window creation during initialization
@@ -438,8 +552,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       </div>
     );
   }
-
-  const maximizedId = maximizedIds[workspaceId];
 
   return (
     <div
