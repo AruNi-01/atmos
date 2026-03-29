@@ -1,0 +1,55 @@
+use axum::{
+    extract::State,
+    routing::{get, post},
+    Json, Router,
+};
+use serde_json::Value;
+
+use crate::app_state::AppState;
+
+pub fn routes() -> Router<AppState> {
+    Router::new()
+        .route("/claude-code", post(handle_claude_code_hook))
+        .route("/codex", post(handle_codex_hook))
+        .route("/opencode", post(handle_opencode_hook))
+        .route("/sessions", get(list_hook_sessions))
+        .route("/sessions/clear-idle", post(clear_idle_sessions))
+}
+
+async fn handle_claude_code_hook(
+    State(state): State<AppState>,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    state.agent_hooks_service.handle_claude_code_event(&payload);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_codex_hook(
+    State(state): State<AppState>,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    state.agent_hooks_service.handle_codex_event(&payload);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_opencode_hook(
+    State(state): State<AppState>,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    state.agent_hooks_service.handle_opencode_event(&payload);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn list_hook_sessions(
+    State(state): State<AppState>,
+) -> Json<Value> {
+    let sessions = state.agent_hooks_service.get_all_sessions();
+    Json(serde_json::json!({ "sessions": sessions }))
+}
+
+async fn clear_idle_sessions(
+    State(state): State<AppState>,
+) -> Json<Value> {
+    let cleared = state.agent_hooks_service.clear_idle_sessions();
+    Json(serde_json::json!({ "cleared": cleared }))
+}

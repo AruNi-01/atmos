@@ -380,6 +380,8 @@ pub enum WsEvent {
     LlmProviderTestChunk,
     /// 工作区删除进度
     WorkspaceDeleteProgress,
+    /// Agent hook 状态变更
+    AgentHookStateChanged,
 }
 
 // ===== 消息通知数据结构 =====

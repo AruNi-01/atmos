@@ -14,8 +14,8 @@ use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
-    AgentService, MessagePushService, ProjectService, TerminalService, TestService,
-    WorkspaceService, WsMessageService,
+    AgentHooksService, AgentService, MessagePushService, ProjectService, TerminalService,
+    TestService, WorkspaceService, WsMessageService,
 };
 use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
@@ -123,6 +123,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let usage_service = Arc::new(UsageService::default());
     let token_usage_service = Arc::new(TokenUsageService::default());
     let terminal_service = Arc::new(TerminalService::new());
+    let agent_hooks_service = Arc::new(AgentHooksService::new());
 
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
@@ -171,6 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             message_push_service,
             terminal_service,
             token_usage_service: Arc::clone(&token_usage_service),
+            agent_hooks_service: Arc::clone(&agent_hooks_service),
         },
         ws_config,
         db,
@@ -182,6 +184,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| e.to_string())?;
 
     let ws_manager = app_state.ws_service.manager();
+
+    agent_hooks_service.set_ws_manager(Arc::clone(&ws_manager));
 
     spawn_ws_forwarder(
         usage_service.subscribe_updates(),

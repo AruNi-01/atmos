@@ -24,3 +24,4 @@ rand = "0.8"
 regex = "1.11.1"
 uuid = { version = "1.0", features = ["v4"] }
 libc = "0.2"
+chrono = { version = "0.4", features = ["serde"] }

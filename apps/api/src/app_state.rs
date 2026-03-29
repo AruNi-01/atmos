@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use core_service::{
-    AgentService, AgentSessionService, MessagePushService, ProjectService, TerminalService,
-    TestService, WorkspaceService, WsMessageService,
+    AgentHooksService, AgentService, AgentSessionService, MessagePushService, ProjectService,
+    TerminalService, TestService, WorkspaceService, WsMessageService,
 };
 use infra::{WsService, WsServiceConfig};
 use token_usage::TokenUsageService;
@@ -16,6 +16,7 @@ pub struct AppServices {
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
     pub token_usage_service: Arc<TokenUsageService>,
+    pub agent_hooks_service: Arc<AgentHooksService>,
 }
 
 #[derive(Clone)]
@@ -28,6 +29,7 @@ pub struct AppState {
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
     pub token_usage_service: Arc<TokenUsageService>,
+    pub agent_hooks_service: Arc<AgentHooksService>,
     pub ws_service: Arc<WsService>,
 }
 
@@ -54,6 +56,7 @@ impl AppState {
             message_push_service: services.message_push_service,
             terminal_service: services.terminal_service,
             token_usage_service: services.token_usage_service,
+            agent_hooks_service: services.agent_hooks_service,
             ws_service: Arc::new(ws_service),
         }
     }

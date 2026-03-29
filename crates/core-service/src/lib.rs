@@ -14,4 +14,5 @@ pub use service::terminal::{
 };
 pub use service::test::TestService;
 pub use service::workspace::{WorkspaceDto, WorkspaceService};
+pub use service::agent_hooks::AgentHooksService;
 pub use service::ws_message::WsMessageService;

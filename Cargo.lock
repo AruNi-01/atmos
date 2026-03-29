@@ -1083,6 +1083,7 @@ dependencies = [
  "ai-usage",
  "anyhow",
  "async-trait",
+ "chrono",
  "core-engine",
  "dirs 5.0.1",
  "infra",
