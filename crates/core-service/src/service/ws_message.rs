@@ -2867,7 +2867,7 @@ set -x
     async fn handle_github_pr_detail(&self, req: GithubPrDetailRequest) -> Result<Value> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels"];
+        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels,reviewRequests,participants"];
         let mut output = self
             .github_engine
             .run_gh(&args)
@@ -2886,6 +2886,20 @@ set -x
             }
         } else {
             tracing::warn!("Failed to fetch timeline for PR #{}", req.pr_number);
+        }
+
+        // Fetch PR review comments (inline code comments)
+        let review_comments_endpoint = format!(
+            "repos/{}/{}/pulls/{}/comments?per_page=100",
+            req.owner, req.repo, req.pr_number
+        );
+        let review_comments_args = vec!["api", &review_comments_endpoint];
+        if let Ok(review_comments) = self.github_engine.run_gh(&review_comments_args).await {
+            if let Some(obj) = output.as_object_mut() {
+                obj.insert("review_comments".to_string(), review_comments);
+            }
+        } else {
+            tracing::warn!("Failed to fetch review comments for PR #{}", req.pr_number);
         }
 
         Ok(output)
