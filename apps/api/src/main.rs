@@ -140,17 +140,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // cause "unable to allocate pty: Device not configured" system-wide.
     if cli.cleanup_stale_clients {
         terminal_service.cleanup_stale_client_sessions();
+
+        // Start background reaper that periodically cleans up orphaned tmux client
+        // sessions. During development, hot-reload can kill the process before
+        // graceful shutdown runs — the reaper catches these leaked PTYs every 30s.
+        //
+        // Only started when --cleanup-stale-clients is true (the default).
+        // When disabled, another API instance shares the same tmux socket and
+        // this instance's "stale" sessions include the other instance's live ones.
+        let _reaper_handle = terminal_service
+            .start_stale_session_reaper(std::time::Duration::from_secs(30));
+
+        info!("Terminal service initialized (with background stale session reaper)");
     } else {
-        info!("Skipping stale tmux client cleanup on startup");
+        info!("Terminal service initialized (stale client cleanup disabled)");
     }
-
-    // Start background reaper that periodically cleans up orphaned tmux client
-    // sessions. During development, hot-reload can kill the process before
-    // graceful shutdown runs — the reaper catches these leaked PTYs every 30s.
-    let _reaper_handle = terminal_service
-        .start_stale_session_reaper(std::time::Duration::from_secs(30));
-
-    info!("Terminal service initialized (with background stale session reaper)");
 
     // Configure WebSocket service
     let ws_config = WsServiceConfig {

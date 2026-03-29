@@ -1279,17 +1279,20 @@ impl TerminalService {
         // Collect the set of client session names that are currently active
         // so we don't kill live sessions. Killing a live session would cause
         // tmux to write "[exited]" / "can't find session" into the PTY output.
-        // Use try_lock to avoid blocking if sessions mutex is held.
-        let active_clients: std::collections::HashSet<String> = self
-            .sessions
-            .try_lock()
-            .map(|sessions| {
-                sessions
-                    .values()
-                    .filter_map(|h| h.client_session.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
+        //
+        // SAFETY: If the lock is contended we MUST skip cleanup entirely.
+        // Falling back to an empty set would make every live session look
+        // "stale" and get killed — a P1 data-loss scenario.
+        let active_clients: std::collections::HashSet<String> = match self.sessions.try_lock() {
+            Ok(sessions) => sessions
+                .values()
+                .filter_map(|h| h.client_session.clone())
+                .collect(),
+            Err(_) => {
+                debug!("Skipping stale client cleanup: sessions lock is contended");
+                return;
+            }
+        };
 
         match self.tmux_engine.list_sessions() {
             Ok(sessions) => {
