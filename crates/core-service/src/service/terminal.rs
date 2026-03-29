@@ -1043,21 +1043,27 @@ impl TerminalService {
     pub async fn close_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
-            // Use TmuxEngine's socket path for consistency
-            let sock = std::path::PathBuf::from(self.tmux_engine.socket_file_path());
+            // Kill the tmux client session FIRST (synchronously) to release the
+            // PTY immediately. This is critical for page-refresh scenarios:
+            // the browser kills old connections and opens new ones nearly
+            // simultaneously, so if we defer the kill to the PTY thread, both
+            // old and new PTYs overlap and the count grows with each refresh.
+            //
+            // Killing the client session causes the `tmux attach-session` process
+            // to exit, which produces EOF on the PTY reader → the PTY thread
+            // sees it and exits cleanly. We still send the Close command (without
+            // client_session) so the PTY thread breaks out of its command loop.
+            if let Some(ref client_session) = handle.client_session {
+                let _ = self.tmux_engine.kill_session(client_session);
+            }
 
-            // Send Close command WITH the client session info so the PTY thread
-            // can detach cleanly using `tmux detach-client` and then kill the
-            // client session. This avoids the race condition where kill_session
-            // runs before the PTY detaches, causing tmux to write "[exited]" /
-            // "can't find session" error output to the PTY.
+            // Tell the PTY thread to stop (it will see EOF from the killed
+            // client session and exit). Don't pass client_session since we
+            // already killed it above.
             let _ = handle.command_tx.send(SessionCommand::Close {
-                client_session: handle.client_session.clone(),
-                socket_path: Some(sock),
+                client_session: None,
+                socket_path: None,
             });
-
-            // NOTE: We intentionally do NOT call kill_session here.
-            // The PTY thread will kill the client session after detaching cleanly.
 
             info!(
                 "Terminal session closed (detached): {} - tmux window {:?}:{:?} preserved",
@@ -1246,24 +1252,22 @@ impl TerminalService {
             let handles: Vec<(String, SessionHandle)> = sessions.drain().collect();
             drop(sessions); // Release the lock early
 
-            let sock = std::path::PathBuf::from(self.tmux_engine.socket_file_path());
-
             for (session_id, handle) in &handles {
-                // Send close command to PTY thread with client session info
-                // so it can detach cleanly and then kill the client session
+                // Kill the tmux client session synchronously to free PTYs immediately
+                if let Some(ref client_session) = handle.client_session {
+                    let _ = self.tmux_engine.kill_session(client_session);
+                }
+
                 let _ = handle.command_tx.send(SessionCommand::Close {
-                    client_session: handle.client_session.clone(),
-                    socket_path: Some(sock.clone()),
+                    client_session: None,
+                    socket_path: None,
                 });
 
                 debug!("Sent shutdown signal to session: {}", session_id);
             }
 
-            // Give PTY threads a moment to clean up (they need to:
-            // 1. Process the Close command
-            // 2. Wait for the reader thread to see EOF
-            // 3. Exit cleanly)
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            // Brief wait for PTY threads to see EOF and exit
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
             info!(
                 "Terminal service shutdown complete: cleaned up {} sessions",
@@ -1555,11 +1559,14 @@ impl TerminalService {
         };
 
         if !matching_handles.is_empty() {
-            let sock = std::path::PathBuf::from(self.tmux_engine.socket_file_path());
             for (session_id, handle) in &matching_handles {
+                // Kill client session synchronously to free PTY immediately
+                if let Some(ref client_session) = handle.client_session {
+                    let _ = self.tmux_engine.kill_session(client_session);
+                }
                 let _ = handle.command_tx.send(SessionCommand::Close {
-                    client_session: handle.client_session.clone(),
-                    socket_path: Some(sock.clone()),
+                    client_session: None,
+                    socket_path: None,
                 });
                 debug!(
                     "Sent workspace cleanup signal to terminal session: {}",
@@ -1567,7 +1574,7 @@ impl TerminalService {
                 );
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         }
 
         if let Err(error) = self.tmux_engine.kill_session(tmux_session) {
