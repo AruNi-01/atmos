@@ -301,7 +301,9 @@ export const SystemPtySection: React.FC<{ pty: SystemPtyInfo; onCleanup?: () => 
             disabled={isCleaning}
             onClick={(e) => {
               e.stopPropagation();
-              onCleanup();
+              onCleanup().catch((err) => {
+                console.error('PTY cleanup failed:', err);
+              });
             }}
           >
             {isCleaning ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}

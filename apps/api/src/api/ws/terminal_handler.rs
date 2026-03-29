@@ -174,12 +174,20 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
     // If this session_id already has a live handle (e.g. from a previous
     // WebSocket that didn't finish cleanup before the new one connected —
     // common during hot-reload), close it first to free the PTY.
+    //
+    // close_session() only enqueues a SessionCommand::Close and returns
+    // immediately — the PTY thread still needs time to detach the tmux
+    // client and kill the atmos_client_* grouped session. Without this
+    // sleep the subsequent create_session would race: it calls
+    // create_grouped_session with the same client name that the old PTY
+    // thread is about to kill-session on.
     if terminal_service.session_exists(&session_id).await {
         debug!(
             "Session {} already exists — closing stale handle before re-creating",
             session_id
         );
         let _ = terminal_service.close_session(&session_id).await;
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     }
 
     let cwd = if let Some(path) = cwd {

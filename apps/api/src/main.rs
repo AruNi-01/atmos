@@ -148,8 +148,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Only started when --cleanup-stale-clients is true (the default).
         // When disabled, another API instance shares the same tmux socket and
         // this instance's "stale" sessions include the other instance's live ones.
-        let _reaper_handle = terminal_service
-            .start_stale_session_reaper(std::time::Duration::from_secs(30));
+        let _reaper_handle =
+            terminal_service.start_stale_session_reaper(std::time::Duration::from_secs(30));
 
         info!("Terminal service initialized (with background stale session reaper)");
     } else {
