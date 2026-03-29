@@ -367,12 +367,17 @@ pub async fn get_terminal_overview(
 }
 
 /// POST /api/system/terminal-cleanup
+///
+/// Performs a comprehensive PTY cleanup:
+/// 1. Kills stale atmos_client_* tmux grouped sessions
+/// 2. When PTY usage is critical (>=85%), also kills orphaned shell processes (PPID=1)
 pub async fn cleanup_terminals(
     State(state): State<AppState>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let terminal_service = &state.terminal_service;
     let tmux_engine = terminal_service.tmux_engine();
 
+    // Phase 1: Kill stale tmux client sessions
     let before_count = tmux_engine
         .list_sessions()
         .map(|sessions| {
@@ -395,16 +400,52 @@ pub async fn cleanup_terminals(
         })
         .unwrap_or(0);
 
-    let cleaned = before_count.saturating_sub(after_count);
+    let cleaned_clients = before_count.saturating_sub(after_count);
+
+    // Phase 2: Kill orphaned shell processes when PTY usage is still high.
+    // The main PTY hogs are usually orphaned zsh/bash processes (PPID=1),
+    // not tmux client sessions. Only do this when usage is critical so we
+    // don't accidentally kill legitimate shell processes.
+    let mut killed_orphans: u32 = 0;
+    let pty_critical = core_service::TerminalService::get_pty_usage()
+        .map(|(_, _, pct)| pct >= 85.0)
+        .unwrap_or(false);
+
+    if pty_critical {
+        let orphans = diagnostics::get_orphaned_processes();
+        if !orphans.is_empty() {
+            let pids: Vec<u32> = orphans
+                .iter()
+                .filter_map(|v| v["pid"].as_u64().map(|n| n as u32))
+                .collect();
+
+            for pid in &pids {
+                let result = std::process::Command::new("kill")
+                    .args(["-9", &pid.to_string()])
+                    .output();
+                if result.map(|o| o.status.success()).unwrap_or(false) {
+                    killed_orphans += 1;
+                }
+            }
+
+            if killed_orphans > 0 {
+                info!(
+                    "Killed {} orphaned shell processes during PTY cleanup",
+                    killed_orphans
+                );
+            }
+        }
+    }
 
     info!(
-        "Terminal cleanup complete: {} stale client sessions removed",
-        cleaned
+        "Terminal cleanup complete: {} stale client sessions removed, {} orphaned processes killed",
+        cleaned_clients, killed_orphans
     );
 
     Ok(Json(ApiResponse::success(json!({
-        "cleaned_client_sessions": cleaned,
+        "cleaned_client_sessions": cleaned_clients,
         "remaining_client_sessions": after_count,
+        "killed_orphans": killed_orphans,
     }))))
 }
 
