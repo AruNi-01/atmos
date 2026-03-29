@@ -3,6 +3,7 @@
 import { useEffect, ReactNode } from 'react';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useAgentHooksStore } from '@/hooks/use-agent-hooks-store';
+import { useAgentNotifications } from '@/hooks/use-agent-notifications';
 import { subscribeToWorkspaceSetupProgress, subscribeToWorkspaceDeleteProgress } from '@/hooks/use-project-store';
 
 interface WebSocketProviderProps {
@@ -72,6 +73,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       useAgentHooksStore.getState().cleanup();
     };
   }, [connectionState]);
+
+  useAgentNotifications();
 
   return <>{children}</>;
 }

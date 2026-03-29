@@ -96,6 +96,10 @@ export type WsAction =
   // Code Agent custom settings
   | "code_agent_custom_get"
   | "code_agent_custom_update"
+  // Notification settings
+  | "notification_settings_get"
+  | "notification_settings_update"
+  | "notification_test_push"
   // Agent 操作
   | "agent_list"
   | "agent_install"
