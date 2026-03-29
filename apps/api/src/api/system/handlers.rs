@@ -368,9 +368,11 @@ pub async fn get_terminal_overview(
 
 /// POST /api/system/terminal-cleanup
 ///
-/// Performs a comprehensive PTY cleanup:
+/// Performs a comprehensive PTY cleanup in escalating phases:
 /// 1. Kills stale atmos_client_* tmux grouped sessions
-/// 2. When PTY usage is critical (>=85%), also kills orphaned shell processes (PPID=1)
+/// 2. When PTY usage is still critical (>=85%), kills unused tmux windows
+///    (the shell processes inside them are the main PTY consumers)
+/// 3. If still critical, kills orphaned shell processes (PPID=1)
 pub async fn cleanup_terminals(
     State(state): State<AppState>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
@@ -402,16 +404,27 @@ pub async fn cleanup_terminals(
 
     let cleaned_clients = before_count.saturating_sub(after_count);
 
-    // Phase 2: Kill orphaned shell processes when PTY usage is still high.
-    // The main PTY hogs are usually orphaned zsh/bash processes (PPID=1),
-    // not tmux client sessions. Only do this when usage is critical so we
-    // don't accidentally kill legitimate shell processes.
-    let mut killed_orphans: u32 = 0;
+    // Phase 2: Kill unused tmux windows when PTY usage is still critical.
+    // Each tmux window holds a shell process (zsh/bash) that consumes a PTY.
+    // Over many hot-reload cycles, windows accumulate because close_session
+    // preserves them for persistence. This is the main source of PTY
+    // exhaustion — NOT orphaned processes or stale client sessions.
+    let mut killed_windows: u32 = 0;
     let pty_critical = core_service::TerminalService::get_pty_usage()
         .map(|(_, _, pct)| pct >= 85.0)
         .unwrap_or(false);
 
     if pty_critical {
+        killed_windows = terminal_service.cleanup_unused_tmux_windows();
+    }
+
+    // Phase 3: Kill orphaned shell processes (PPID=1) if still critical
+    let mut killed_orphans: u32 = 0;
+    let still_critical = core_service::TerminalService::get_pty_usage()
+        .map(|(_, _, pct)| pct >= 85.0)
+        .unwrap_or(false);
+
+    if still_critical {
         let orphans = diagnostics::get_orphaned_processes();
         if !orphans.is_empty() {
             let pids: Vec<u32> = orphans
@@ -438,13 +451,14 @@ pub async fn cleanup_terminals(
     }
 
     info!(
-        "Terminal cleanup complete: {} stale client sessions removed, {} orphaned processes killed",
-        cleaned_clients, killed_orphans
+        "Terminal cleanup: {} stale clients, {} unused windows, {} orphaned processes killed",
+        cleaned_clients, killed_windows, killed_orphans
     );
 
     Ok(Json(ApiResponse::success(json!({
         "cleaned_client_sessions": cleaned_clients,
         "remaining_client_sessions": after_count,
+        "killed_windows": killed_windows,
         "killed_orphans": killed_orphans,
     }))))
 }

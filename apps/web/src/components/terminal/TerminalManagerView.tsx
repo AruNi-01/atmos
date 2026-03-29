@@ -96,6 +96,8 @@ export const TerminalManagerView: React.FC = () => {
       const parts: string[] = [];
       if (result.cleaned_client_sessions > 0)
         parts.push(`${result.cleaned_client_sessions} stale sessions`);
+      if (result.killed_windows && result.killed_windows > 0)
+        parts.push(`${result.killed_windows} unused tmux windows`);
       if (result.killed_orphans && result.killed_orphans > 0)
         parts.push(`${result.killed_orphans} orphaned processes`);
       if (parts.length > 0) {

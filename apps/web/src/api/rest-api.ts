@@ -206,6 +206,7 @@ export interface TerminalOverviewResponse {
 export interface CleanupResponse {
   cleaned_client_sessions: number;
   remaining_client_sessions: number;
+  killed_windows?: number;
   killed_orphans?: number;
 }
 

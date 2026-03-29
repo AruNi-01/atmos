@@ -1338,6 +1338,82 @@ impl TerminalService {
         }
     }
 
+    /// Kill tmux windows in atmos sessions that are not backed by any active
+    /// `SessionHandle`. Each tmux window holds a shell process (zsh/bash) that
+    /// consumes a PTY device. Over many hot-reload cycles, windows accumulate
+    /// because `close_session` intentionally preserves them for persistence.
+    ///
+    /// This is the "nuclear" cleanup for PTY exhaustion: it kills the shell
+    /// processes by destroying their tmux windows. Only call this when PTY
+    /// usage is critical and normal cleanup didn't help.
+    ///
+    /// Returns the number of windows killed.
+    pub fn cleanup_unused_tmux_windows(&self) -> u32 {
+        // Collect the set of (tmux_session, window_index) pairs that are
+        // currently attached to an active SessionHandle.
+        let active_windows: std::collections::HashSet<(String, u32)> =
+            match self.sessions.try_lock() {
+                Ok(sessions) => sessions
+                    .values()
+                    .filter_map(|h| {
+                        if let (Some(ts), Some(wi)) = (&h.tmux_session, h.tmux_window_index) {
+                            Some((ts.clone(), wi))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect(),
+                Err(_) => {
+                    debug!("Skipping unused window cleanup: sessions lock is contended");
+                    return 0;
+                }
+            };
+
+        let atmos_sessions = match self.tmux_engine.list_atmos_sessions() {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("Failed to list atmos sessions for window cleanup: {}", e);
+                return 0;
+            }
+        };
+
+        let mut killed = 0u32;
+        for session in &atmos_sessions {
+            // Skip client sessions — they are cleaned up by cleanup_stale_client_sessions
+            if session.name.starts_with("atmos_client_") {
+                continue;
+            }
+
+            let windows = match self.tmux_engine.list_windows(&session.name) {
+                Ok(w) => w,
+                Err(_) => continue,
+            };
+
+            for window in &windows {
+                if !active_windows.contains(&(session.name.clone(), window.index)) {
+                    if let Err(e) = self.tmux_engine.kill_window(&session.name, window.index) {
+                        warn!(
+                            "Failed to kill unused tmux window {}:{}: {}",
+                            session.name, window.index, e
+                        );
+                    } else {
+                        killed += 1;
+                    }
+                }
+            }
+        }
+
+        if killed > 0 {
+            info!(
+                "Killed {} unused tmux windows (skipped {} active)",
+                killed,
+                active_windows.len()
+            );
+        }
+
+        killed
+    }
+
     /// Start a background task that periodically cleans up stale tmux client
     /// sessions. During development with hot-reload, the API process can be
     /// killed before graceful shutdown finishes, leaving orphaned `atmos_client_*`
