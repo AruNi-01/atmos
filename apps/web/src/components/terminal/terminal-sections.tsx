@@ -265,26 +265,50 @@ export const healthLabel: Record<PtyHealth, string> = {
   unknown: 'Unknown',
 };
 
-export const SystemPtySection: React.FC<{ pty: SystemPtyInfo }> = ({ pty }) => {
+export const SystemPtySection: React.FC<{ pty: SystemPtyInfo; onCleanup?: () => Promise<void>; isCleaning?: boolean }> = ({ pty, onCleanup, isCleaning }) => {
   const barPercent = pty.usage_percent != null ? Math.min(pty.usage_percent, 100) : 0;
+
+  const showCleanupInline = (pty.health === 'warning' || pty.health === 'critical') && onCleanup;
 
   return (
     <Collapsible className="rounded-lg border border-border bg-background p-5">
-      <CollapsibleTrigger className="group w-full text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
-        <span className="relative size-4 shrink-0">
-          <HardDrive className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
-          <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-        </span>
-        System PTY Usage
-        <span className="text-xs font-normal text-muted-foreground">
-          ({pty.os})
-        </span>
-        {pty.pty_current != null && pty.pty_max != null && (
-          <span className={cn("ml-auto text-xs font-medium group-data-[state=open]:hidden", healthColor[pty.health])}>
-            {pty.pty_current}/{pty.pty_max} &middot; {healthLabel[pty.health]}
+      <div className="flex items-center gap-2">
+        <CollapsibleTrigger className="group flex-1 text-sm font-semibold text-foreground flex items-center gap-2 cursor-pointer">
+          <span className="relative size-4 shrink-0">
+            <HardDrive className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
+            <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
           </span>
+          System PTY Usage
+          <span className="text-xs font-normal text-muted-foreground">
+            ({pty.os})
+          </span>
+          {pty.pty_current != null && pty.pty_max != null && (
+            <span className={cn("ml-auto text-xs font-medium group-data-[state=open]:hidden", healthColor[pty.health])}>
+              {pty.pty_current}/{pty.pty_max} &middot; {healthLabel[pty.health]}
+            </span>
+          )}
+        </CollapsibleTrigger>
+        {showCleanupInline && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "h-7 px-3 text-xs cursor-pointer gap-1.5 shrink-0",
+              pty.health === 'critical'
+                ? "text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                : "text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10"
+            )}
+            disabled={isCleaning}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCleanup();
+            }}
+          >
+            {isCleaning ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+            Clean Up
+          </Button>
         )}
-      </CollapsibleTrigger>
+      </div>
 
       <CollapsibleContent>
         <div className="space-y-4 pt-4">

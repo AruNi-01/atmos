@@ -137,6 +137,8 @@ export const TerminalManagerView: React.FC = () => {
 
   const hasStaleClients = (data?.tmux.stale_client_sessions ?? 0) > 0;
   const hasOrphans = (data?.orphaned_process_count ?? 0) > 0;
+  const ptyHealthBad = data?.system_pty.health === 'warning' || data?.system_pty.health === 'critical';
+  const showCleanupButton = hasStaleClients || ptyHealthBad;
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
@@ -155,16 +157,23 @@ export const TerminalManagerView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            {hasStaleClients && (
+            {showCleanupButton && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleCleanup}
                 disabled={isCleaning}
-                className="h-10 px-4 rounded-xl bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10 transition-all cursor-pointer font-medium text-xs shadow-sm"
+                className={cn(
+                  "h-10 px-4 rounded-xl transition-all cursor-pointer font-medium text-xs shadow-sm",
+                  data?.system_pty.health === 'critical'
+                    ? "bg-red-500/5 text-red-600 dark:text-red-400 border-red-500/20 hover:bg-red-500/10"
+                    : "bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10"
+                )}
               >
                 <Trash2 className={cn("mr-2 size-3.5", isCleaning && "animate-spin")} />
-                Clean Up ({data?.tmux.stale_client_sessions})
+                {hasStaleClients
+                  ? `Clean Up (${data?.tmux.stale_client_sessions})`
+                  : 'Clean Up PTYs'}
               </Button>
             )}
             <Button
@@ -286,7 +295,7 @@ export const TerminalManagerView: React.FC = () => {
               <SessionsGroupSection data={data} onKillServer={handleKillServer} onKillSession={handleKillSession} />
 
               {/* System PTY Usage */}
-              <SystemPtySection pty={data.system_pty} />
+              <SystemPtySection pty={data.system_pty} onCleanup={handleCleanup} isCleaning={isCleaning} />
 
               {/* PTY Device Details */}
               <PtyDeviceDetailSection devices={data.pty_devices} />
