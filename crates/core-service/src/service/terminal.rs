@@ -779,15 +779,34 @@ impl TerminalService {
         terminal_name: Option<String>,
         cwd: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+        // Proactively kill stale atmos_client_* sessions that are NOT in the
+        // active sessions HashMap. On page refresh, the browser drops old
+        // WebSocket connections and opens new ones nearly simultaneously.
+        // The old close_session handlers may not have run yet, leaving old
+        // atmos_client_* grouped sessions alive — each holding a bridge PTY.
+        // Cleaning them up here ensures PTY count stays stable across refreshes.
+        if let Ok(all_sessions) = self.tmux_engine.list_sessions() {
+            let active_clients: std::collections::HashSet<String> =
+                match self.sessions.try_lock() {
+                    Ok(sessions) => sessions
+                        .values()
+                        .filter_map(|h| h.client_session.clone())
+                        .collect(),
+                    Err(_) => std::collections::HashSet::new(),
+                };
+
+            for s in &all_sessions {
+                if s.name.starts_with("atmos_client_") && !active_clients.contains(&s.name) {
+                    let _ = self.tmux_engine.kill_session(&s.name);
+                }
+            }
+        }
+
         // Create a unique client session name with a monotonic counter suffix.
-        // This prevents the race where an old PTY thread's deferred
-        // `kill-session -t atmos_client_<id>` destroys a newly-created client
-        // session that would otherwise reuse the same name.
         let seq = self.client_session_counter.fetch_add(1, Ordering::Relaxed);
         let client_session_name = format!("atmos_client_{}_{}", session_id.replace('-', "_"), seq);
 
-        // Create the grouped session if it doesn't exist
-        // This ensures this pane has its own independent view of the windows
+        // Create the grouped session
         self.tmux_engine
             .create_grouped_session(&tmux_session, &client_session_name)
             .map_err(|e| {
