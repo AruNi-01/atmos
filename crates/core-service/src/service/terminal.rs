@@ -14,6 +14,7 @@ use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
@@ -190,6 +191,8 @@ pub struct TerminalService {
     creation_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
     /// Directory where shell shim scripts are installed (for dynamic title injection)
     shims_dir: Option<PathBuf>,
+    /// Flag to stop the background stale-session reaper on shutdown
+    reaper_running: Arc<AtomicBool>,
 }
 
 impl Default for TerminalService {
@@ -220,6 +223,7 @@ impl TerminalService {
             default_rows: 30,
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
+            reaper_running: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -244,6 +248,7 @@ impl TerminalService {
             default_rows: 30,
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
+            reaper_running: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -308,6 +313,8 @@ impl TerminalService {
         &self,
         params: CreateSessionParams,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+        self.check_pty_health_and_cleanup()?;
+
         let CreateSessionParams {
             session_id,
             workspace_id,
@@ -518,6 +525,8 @@ impl TerminalService {
         &self,
         params: CreateSimpleSessionParams,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+        self.check_pty_health_and_cleanup()?;
+
         let CreateSimpleSessionParams {
             session_id,
             workspace_id,
@@ -1212,6 +1221,9 @@ impl TerminalService {
     pub async fn shutdown(&self) {
         info!("Shutting down terminal service, cleaning up all sessions...");
 
+        // Stop the background reaper so it doesn't interfere with shutdown
+        self.reaper_running.store(false, Ordering::SeqCst);
+
         let mut sessions = self.sessions.lock().await;
         let count = sessions.len();
 
@@ -1310,6 +1322,120 @@ impl TerminalService {
                 warn!("Failed to list tmux sessions for cleanup: {}", e);
             }
         }
+    }
+
+    /// Start a background task that periodically cleans up stale tmux client
+    /// sessions. During development with hot-reload, the API process can be
+    /// killed before graceful shutdown finishes, leaving orphaned `atmos_client_*`
+    /// tmux sessions that each hold a PTY device. This reaper runs every
+    /// `interval` and reclaims those leaked PTYs automatically.
+    ///
+    /// Returns a `JoinHandle` that the caller can abort on shutdown.
+    pub fn start_stale_session_reaper(
+        self: &Arc<Self>,
+        interval: std::time::Duration,
+    ) -> tokio::task::JoinHandle<()> {
+        let service = Arc::clone(self);
+        self.reaper_running.store(true, Ordering::SeqCst);
+        let running = self.reaper_running.clone();
+
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(interval);
+            // The first tick fires immediately; skip it so we don't duplicate
+            // the startup cleanup that runs in main().
+            tick.tick().await;
+
+            while running.load(Ordering::SeqCst) {
+                tick.tick().await;
+                if !running.load(Ordering::SeqCst) {
+                    break;
+                }
+                service.cleanup_stale_client_sessions();
+            }
+            debug!("Stale session reaper stopped");
+        })
+    }
+
+    /// Check current system PTY usage and return (current, max, usage_percent).
+    /// Returns None if the information cannot be determined.
+    pub fn get_pty_usage() -> Option<(u64, u64, f64)> {
+        let os = std::env::consts::OS;
+
+        let pty_max: Option<u64> = if os == "macos" {
+            std::process::Command::new("sysctl")
+                .args(["-n", "kern.tty.ptmx_max"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .and_then(|s| s.trim().parse().ok())
+        } else {
+            std::fs::read_to_string("/proc/sys/kernel/pty/max")
+                .ok()
+                .and_then(|s| s.trim().parse().ok())
+        };
+
+        let pty_current: Option<u64> = if os == "macos" {
+            std::fs::read_dir("/dev").ok().map(|entries| {
+                entries
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.file_name().to_string_lossy().starts_with("ttys"))
+                    .count() as u64
+            })
+        } else {
+            std::fs::read_to_string("/proc/sys/kernel/pty/nr")
+                .ok()
+                .and_then(|s| s.trim().parse().ok())
+                .or_else(|| {
+                    std::fs::read_dir("/dev/pts")
+                        .ok()
+                        .map(|entries| entries.filter_map(|e| e.ok()).count() as u64)
+                })
+        };
+
+        match (pty_current, pty_max) {
+            (Some(cur), Some(max)) if max > 0 => {
+                Some((cur, max, (cur as f64 / max as f64) * 100.0))
+            }
+            _ => None,
+        }
+    }
+
+    /// Check PTY usage and perform emergency cleanup if usage is critical (>=85%).
+    /// Logs a warning at >=70%. Returns Ok(()) if usage is acceptable or cleanup
+    /// freed enough resources, Err if PTY pool is exhausted.
+    pub fn check_pty_health_and_cleanup(&self) -> Result<()> {
+        if let Some((current, max, pct)) = Self::get_pty_usage() {
+            if pct >= 85.0 {
+                warn!(
+                    "PTY usage critical: {}/{} ({:.1}%) — running emergency cleanup",
+                    current, max, pct
+                );
+                self.cleanup_stale_client_sessions();
+
+                if let Some((after_current, after_max, after_pct)) = Self::get_pty_usage() {
+                    if after_pct >= 95.0 {
+                        error!(
+                            "PTY pool nearly exhausted after cleanup: {}/{} ({:.1}%)",
+                            after_current, after_max, after_pct
+                        );
+                        return Err(ServiceError::Processing(format!(
+                            "PTY devices nearly exhausted ({}/{}). Close unused terminals or restart the application.",
+                            after_current, after_max
+                        )));
+                    }
+                    info!(
+                        "PTY usage after cleanup: {}/{} ({:.1}%)",
+                        after_current, after_max, after_pct
+                    );
+                }
+            } else if pct >= 70.0 {
+                warn!(
+                    "PTY usage elevated: {}/{} ({:.1}%) — consider closing unused terminals",
+                    current, max, pct
+                );
+            }
+        }
+        Ok(())
     }
 
     /// Clean up all terminal state associated with a workspace being deleted.

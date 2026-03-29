@@ -171,6 +171,17 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
 
     let terminal_service = state.terminal_service.clone();
 
+    // If this session_id already has a live handle (e.g. from a previous
+    // WebSocket that didn't finish cleanup before the new one connected —
+    // common during hot-reload), close it first to free the PTY.
+    if terminal_service.session_exists(&session_id).await {
+        debug!(
+            "Session {} already exists — closing stale handle before re-creating",
+            session_id
+        );
+        let _ = terminal_service.close_session(&session_id).await;
+    }
+
     let cwd = if let Some(path) = cwd {
         Some(path)
     } else if let Some(ref ws) = workspace_name {

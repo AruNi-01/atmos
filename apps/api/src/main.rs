@@ -143,7 +143,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         info!("Skipping stale tmux client cleanup on startup");
     }
-    info!("Terminal service initialized");
+
+    // Start background reaper that periodically cleans up orphaned tmux client
+    // sessions. During development, hot-reload can kill the process before
+    // graceful shutdown runs — the reaper catches these leaked PTYs every 30s.
+    let _reaper_handle = terminal_service
+        .start_stale_session_reaper(std::time::Duration::from_secs(30));
+
+    info!("Terminal service initialized (with background stale session reaper)");
 
     // Configure WebSocket service
     let ws_config = WsServiceConfig {
