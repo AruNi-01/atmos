@@ -14,7 +14,7 @@ use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
@@ -193,6 +193,10 @@ pub struct TerminalService {
     shims_dir: Option<PathBuf>,
     /// Flag to stop the background stale-session reaper on shutdown
     reaper_running: Arc<AtomicBool>,
+    /// Monotonic counter for generating unique tmux client session names.
+    /// Prevents the race where an old PTY thread's deferred `kill-session`
+    /// destroys a newly-created client session that reuses the same name.
+    client_session_counter: AtomicU64,
 }
 
 impl Default for TerminalService {
@@ -224,6 +228,7 @@ impl TerminalService {
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
             reaper_running: Arc::new(AtomicBool::new(false)),
+            client_session_counter: AtomicU64::new(0),
         }
     }
 
@@ -249,6 +254,7 @@ impl TerminalService {
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
             reaper_running: Arc::new(AtomicBool::new(false)),
+            client_session_counter: AtomicU64::new(0),
         }
     }
 
@@ -627,6 +633,8 @@ impl TerminalService {
         &self,
         params: AttachSessionParams,
     ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<String>)> {
+        self.check_pty_health_and_cleanup()?;
+
         let AttachSessionParams {
             session_id,
             workspace_id,
@@ -771,9 +779,12 @@ impl TerminalService {
         terminal_name: Option<String>,
         cwd: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
-        // Create a unique client session for this specific terminal pane
-        // Format: atmos_client_{session_id}
-        let client_session_name = format!("atmos_client_{}", session_id.replace('-', "_"));
+        // Create a unique client session name with a monotonic counter suffix.
+        // This prevents the race where an old PTY thread's deferred
+        // `kill-session -t atmos_client_<id>` destroys a newly-created client
+        // session that would otherwise reuse the same name.
+        let seq = self.client_session_counter.fetch_add(1, Ordering::Relaxed);
+        let client_session_name = format!("atmos_client_{}_{}", session_id.replace('-', "_"), seq);
 
         // Create the grouped session if it doesn't exist
         // This ensures this pane has its own independent view of the windows
