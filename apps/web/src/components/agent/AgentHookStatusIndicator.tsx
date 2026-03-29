@@ -65,12 +65,6 @@ interface AgentHookStatusIndicatorProps {
   tool?: string;
 }
 
-const STATE_LABELS: Record<AgentHookState, string> = {
-  idle: "IDLE",
-  running: "Running",
-  permission_request: "Waiting",
-};
-
 const STATE_DOT_COLORS: Record<AgentHookState, string> = {
   idle: "bg-emerald-500",
   running: "bg-blue-500",

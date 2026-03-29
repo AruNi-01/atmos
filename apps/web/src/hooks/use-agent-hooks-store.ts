@@ -128,7 +128,8 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
 
   clearIdleSessions: async () => {
     try {
-      const base = httpBase(getRuntimeApiConfig());
+      const config = await getRuntimeApiConfig();
+      const base = httpBase(config);
       await fetch(`${base}/hooks/sessions/clear-idle`, { method: "POST" });
       set((state) => {
         const sessions = new Map(state.sessions);
@@ -147,7 +148,8 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
 
 async function fetchInitialSessions(): Promise<AgentHookSession[]> {
   try {
-    const base = httpBase(getRuntimeApiConfig());
+    const config = await getRuntimeApiConfig();
+    const base = httpBase(config);
     const res = await fetch(`${base}/hooks/sessions`);
     if (!res.ok) return [];
     const data = await res.json();
