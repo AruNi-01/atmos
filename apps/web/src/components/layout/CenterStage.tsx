@@ -38,6 +38,8 @@ import { useGitStore } from "@/hooks/use-git-store";
 import { Plus, BookOpen, RefreshCw, Star, Bot } from "lucide-react";
 import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
+import { useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import { codeAgentCustomApi, type CodeAgentCustomEntry, functionSettingsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import WelcomePage from "@/components/welcome/WelcomePage";
@@ -116,6 +118,18 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
 
 const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
+
+function TerminalTabAgentIndicator() {
+  const globalState = useAgentHooksStore((s) => s.getGlobalState());
+  if (globalState === "idle") return null;
+  return (
+    <AgentHookStatusIndicator
+      state={globalState}
+      variant="compact"
+      className="ml-0.5"
+    />
+  );
+}
 
 function isTerminalCenterTabValue(value: string | null | undefined): value is string {
   return value === FIXED_TERMINAL_TAB_VALUE || !!value?.startsWith(TERMINAL_TAB_VALUE_PREFIX);
@@ -828,6 +842,7 @@ const CenterStage: React.FC = () => {
               />
             </span>
             <span className="text-[13px] font-medium whitespace-nowrap">Term</span>
+            <TerminalTabAgentIndicator />
 
             <DropdownMenu
               open={agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE}

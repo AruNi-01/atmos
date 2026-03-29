@@ -2,6 +2,7 @@
 
 import { useEffect, ReactNode } from 'react';
 import { useWebSocketStore } from '@/hooks/use-websocket';
+import { useAgentHooksStore } from '@/hooks/use-agent-hooks-store';
 import { subscribeToWorkspaceSetupProgress, subscribeToWorkspaceDeleteProgress } from '@/hooks/use-project-store';
 
 interface WebSocketProviderProps {
@@ -62,6 +63,15 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       unsubscribeDelete();
     };
   }, []);
+
+  useEffect(() => {
+    if (connectionState === 'connected') {
+      useAgentHooksStore.getState().init();
+    }
+    return () => {
+      useAgentHooksStore.getState().cleanup();
+    };
+  }, [connectionState]);
 
   return <>{children}</>;
 }

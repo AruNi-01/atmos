@@ -26,6 +26,8 @@ import { Terminal, TerminalRef } from "./Terminal";
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
+import { useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
@@ -78,6 +80,26 @@ const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
   maximize: true,
   close: true,
 };
+
+function TerminalPaneAgentStatus({ cwd }: { cwd?: string | null }) {
+  const sessions = useAgentHooksStore((s) => s.getSessionsByProjectPath(cwd ?? ""));
+
+  const paneState = (() => {
+    if (sessions.some((s) => s.state === "permission_request")) return "permission_request" as const;
+    if (sessions.some((s) => s.state === "running")) return "running" as const;
+    return "idle" as const;
+  })();
+
+  if (paneState === "idle") return null;
+
+  return (
+    <AgentHookStatusIndicator
+      state={paneState}
+      variant="full"
+      className="ml-2"
+    />
+  );
+}
 
 export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false }, ref) => {
   // Track terminal refs for each pane to call destroy on close
@@ -330,7 +352,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
 
-    // Display dynamic title (from shell shim) if available, otherwise the static title
     const displayTitle = pane.dynamicTitle || pane.title;
 
     return (
@@ -345,13 +366,12 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           return (
             <div className="terminal-mosaic-toolbar group/toolbar">
               <div className="terminal-mosaic-toolbar-left">
-                {/* Status Dot */}
                 <div className={cn("size-2 rounded-full", statusColor)} />
 
-                {/* Title — shows dynamic title (command name / cwd) when available */}
                 <span className="terminal-mosaic-title flex items-center gap-1.5 ml-1">
                   {displayTitle}
                 </span>
+                <TerminalPaneAgentStatus cwd={workspaceInfo?.localPath} />
               </div>
 
               {(actions.split || actions.maximize || actions.close) && (

@@ -27,6 +27,8 @@ import type { Workspace } from "@/types/types";
 import { formatRelativeTime } from "@atmos/shared";
 import { getWorkspaceShortName } from "@/utils/workspace";
 import { gitApi } from "@/api/ws-api";
+import { useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -151,6 +153,15 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const displayName = workspace.displayName?.trim() || shortName;
   const timeAgo = formatRelativeTime(workspace.createdAt);
 
+  const workspaceSessions = useAgentHooksStore((s) =>
+    s.getSessionsByProjectPath(workspace.localPath ?? "")
+  );
+  const workspaceAgentState = (() => {
+    if (workspaceSessions.some((s) => s.state === "permission_request")) return "permission_request" as const;
+    if (workspaceSessions.some((s) => s.state === "running")) return "running" as const;
+    return "idle" as const;
+  })();
+
   return (
     <>
       <div
@@ -188,7 +199,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
             </button>
           </div>
-          <div className="flex min-w-0 pl-5">
+          <div className="flex items-center min-w-0 pl-5 gap-1">
             {displayName ? (
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
@@ -202,6 +213,13 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               </TooltipProvider>
             ) : (
               <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
+            )}
+            {workspaceAgentState !== "idle" && (
+              <AgentHookStatusIndicator
+                state={workspaceAgentState}
+                variant="compact"
+                className="shrink-0"
+              />
             )}
           </div>
         </div>

@@ -35,6 +35,8 @@ import { PROJECT_COLOR_PRESETS } from "@/types/types";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
 import { WorkspaceItem } from "./WorkspaceItem";
+import { useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 export interface ProjectItemProps {
   project: Project;
@@ -107,6 +109,15 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const initialLetter = project.name.charAt(0).toUpperCase();
+
+  const projectSessions = useAgentHooksStore((s) =>
+    s.getSessionsByProjectPath(project.mainFilePath ?? "")
+  );
+  const projectAgentState = (() => {
+    if (projectSessions.some((s) => s.state === "permission_request")) return "permission_request" as const;
+    if (projectSessions.some((s) => s.state === "running")) return "running" as const;
+    return "idle" as const;
+  })();
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -200,6 +211,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             <span className="text-[13px] font-medium truncate text-sidebar-foreground group-hover/project:text-sidebar-foreground transition-colors">
               {project.name}
             </span>
+            {projectAgentState !== "idle" && (
+              <AgentHookStatusIndicator
+                state={projectAgentState}
+                variant="compact"
+                className="shrink-0"
+              />
+            )}
           </div>
         </div>
 
