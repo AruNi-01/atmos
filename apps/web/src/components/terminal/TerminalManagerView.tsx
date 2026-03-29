@@ -170,7 +170,7 @@ export const TerminalManagerView: React.FC = () => {
                     : "bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/10"
                 )}
               >
-                <Trash2 className={cn("mr-2 size-3.5", isCleaning && "animate-spin")} />
+                <Trash2 className="mr-2 size-3.5" />
                 {hasStaleClients
                   ? `Clean Up (${data?.tmux.stale_client_sessions})`
                   : 'Clean Up PTYs'}
@@ -180,11 +180,11 @@ export const TerminalManagerView: React.FC = () => {
               variant="outline"
               size="icon"
               onClick={loadData}
-              disabled={isLoading}
+              disabled={isLoading || isCleaning}
               className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
               title="Refresh Stats"
             >
-              <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
+              <RefreshCw className={cn("size-4", (isLoading || isCleaning) && "animate-spin")} />
             </Button>
           </div>
         </div>
