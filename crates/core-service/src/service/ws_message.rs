@@ -629,6 +629,16 @@ impl WsMessageService {
                 self.handle_code_agent_custom_update(parse_request(request.data)?)
                     .await
             }
+
+            // Notification settings are managed via REST endpoints (/hooks/notification/*)
+            WsAction::NotificationSettingsGet
+            | WsAction::NotificationSettingsUpdate
+            | WsAction::NotificationTestPush => {
+                Err(ServiceError::Processing(
+                    "Notification settings are managed via REST API at /hooks/notification/*"
+                        .into(),
+                ))
+            }
         }
     }
 

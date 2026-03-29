@@ -9,6 +9,8 @@ use tracing::{debug, warn};
 
 use infra::{WsEvent, WsManager, WsMessage};
 
+use super::notification::NotificationService;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentHookState {
@@ -66,6 +68,7 @@ pub struct AgentHookStateUpdate {
 pub struct AgentHooksService {
     sessions: RwLock<HashMap<String, AgentHookSession>>,
     ws_manager: RwLock<Option<Arc<WsManager>>>,
+    notification_service: RwLock<Option<Arc<NotificationService>>>,
 }
 
 impl AgentHooksService {
@@ -73,12 +76,16 @@ impl AgentHooksService {
         Self {
             sessions: RwLock::new(HashMap::new()),
             ws_manager: RwLock::new(None),
+            notification_service: RwLock::new(None),
         }
     }
 
     pub fn set_ws_manager(&self, manager: Arc<WsManager>) {
-        let mut ws = self.ws_manager.write();
-        *ws = Some(manager);
+        *self.ws_manager.write() = Some(manager);
+    }
+
+    pub fn set_notification_service(&self, service: Arc<NotificationService>) {
+        *self.notification_service.write() = Some(service);
     }
 
     pub fn get_all_sessions(&self) -> Vec<AgentHookSession> {
@@ -104,6 +111,12 @@ impl AgentHooksService {
 
     fn update_state(&self, session_id: &str, tool: AgentToolType, state: AgentHookState, project_path: Option<String>) {
         let timestamp = Utc::now().to_rfc3339();
+
+        let previous_state = {
+            let sessions = self.sessions.read();
+            sessions.get(session_id).map(|s| s.state)
+        };
+
         let session = AgentHookSession {
             session_id: session_id.to_string(),
             tool,
@@ -125,7 +138,11 @@ impl AgentHooksService {
             project_path: session.project_path,
         };
 
-        self.broadcast_state_update(update);
+        self.broadcast_state_update(update.clone());
+
+        if let Some(ref notification_service) = *self.notification_service.read() {
+            notification_service.on_agent_state_change(&update, previous_state);
+        }
     }
 
     fn broadcast_state_update(&self, update: AgentHookStateUpdate) {
