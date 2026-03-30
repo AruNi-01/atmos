@@ -9,9 +9,8 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  cn,
 } from "@workspace/ui";
-import { ChevronRight, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import { MarkdownCodeBlock } from "@/components/markdown/MarkdownRenderer";
@@ -81,18 +80,16 @@ function isBlockHidden(
   return false;
 }
 
-function buildStepsSummary(blocks: AssistantBlock[]): string {
-  let toolCount = 0;
-  let thinkCount = 0;
-  for (const b of blocks) {
-    if (b.type === "tool_call") toolCount++;
-    else if (b.type === "thinking") thinkCount++;
-  }
-  const parts: string[] = [];
-  if (toolCount > 0) parts.push(`${toolCount} tool use${toolCount > 1 ? "s" : ""}`);
-  if (thinkCount > 0) parts.push(`${thinkCount} thought${thinkCount > 1 ? "s" : ""}`);
-  if (parts.length === 0) return `${blocks.length} step${blocks.length > 1 ? "s" : ""}`;
-  return parts.join(", ");
+function ProcessDivider({ expanded }: { expanded: boolean }) {
+  return (
+    <div className="flex w-full items-center gap-2 py-1">
+      <div className="h-px flex-1 bg-border" />
+      <span className="shrink-0 text-xs text-muted-foreground">
+        {expanded ? "Hide process" : "Show process"}
+      </span>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
 }
 
 export function AssistantTurnView({
@@ -231,17 +228,11 @@ export function AssistantTurnView({
   };
 
   if (canCollapse && hasCollapsibleContent) {
-    const allCollapsible = [...intermediateBlocks, ...trailingBlocks];
-    const summary = buildStepsSummary(allCollapsible);
-
     return (
       <>
         <Collapsible open={stepsExpanded} onOpenChange={setStepsExpanded}>
-          <CollapsibleTrigger
-            className="flex w-full items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground py-1"
-          >
-            <ChevronRight className={cn("size-3.5 transition-transform", stepsExpanded && "rotate-90")} />
-            <span>{summary}</span>
+          <CollapsibleTrigger className="w-full cursor-pointer transition-colors hover:text-foreground">
+            <ProcessDivider expanded={stepsExpanded} />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
             {intermediateBlocks.map((block) => {
