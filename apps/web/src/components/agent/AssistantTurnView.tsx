@@ -149,16 +149,22 @@ export function AssistantTurnView({
 
   const intermediateBlocks = useMemo(() => {
     if (!canCollapse) return [];
-    return entry.blocks
-      .slice(0, lastVisibleTextIndex)
-      .filter(b => !isBlockHidden(b, vendor, claudeSubAgentParentIds));
+    const result: { block: AssistantBlock; origIndex: number }[] = [];
+    for (let i = 0; i < lastVisibleTextIndex; i++) {
+      const b = entry.blocks[i];
+      if (!isBlockHidden(b, vendor, claudeSubAgentParentIds)) result.push({ block: b, origIndex: i });
+    }
+    return result;
   }, [canCollapse, entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
 
   const trailingBlocks = useMemo(() => {
     if (!canCollapse) return [];
-    return entry.blocks
-      .slice(lastVisibleTextIndex + 1)
-      .filter(b => !isBlockHidden(b, vendor, claudeSubAgentParentIds));
+    const result: { block: AssistantBlock; origIndex: number }[] = [];
+    for (let i = lastVisibleTextIndex + 1; i < entry.blocks.length; i++) {
+      const b = entry.blocks[i];
+      if (!isBlockHidden(b, vendor, claudeSubAgentParentIds)) result.push({ block: b, origIndex: i });
+    }
+    return result;
   }, [canCollapse, entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
 
   const hasCollapsibleContent = intermediateBlocks.length > 0 || trailingBlocks.length > 0;
@@ -244,14 +250,12 @@ export function AssistantTurnView({
             <ProcessDivider expanded={stepsExpanded} />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
-            {intermediateBlocks.map((block) => {
-              const origIndex = entry.blocks.indexOf(block);
-              return <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>;
-            })}
-            {trailingBlocks.map((block) => {
-              const origIndex = entry.blocks.indexOf(block);
-              return <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>;
-            })}
+            {intermediateBlocks.map(({ block, origIndex }) => (
+              <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>
+            ))}
+            {trailingBlocks.map(({ block, origIndex }) => (
+              <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>
+            ))}
             <div className="flex w-full items-center gap-2 py-1">
               <div className="h-px flex-1 bg-border" />
               <span className="shrink-0 text-xs text-muted-foreground">Process end</span>
