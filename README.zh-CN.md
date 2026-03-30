@@ -1,5 +1,5 @@
-<h1 align="center"> ATMOS </h1>
-<h2 align="center">Atmosphere for Agentic Builders</h2>
+<p align="center" style="font-size: 2.5em; font-weight: bold; margin: 0; line-height: 1.2;">ATMOS</p>
+<p align="center" style="font-size: 1.25em; color: #666; margin-top: 8px;">Atmosphere for Agentic Builders</p>
 
 <p align="center">
   <a href="https://github.com/AruNi-01/atmos/actions/workflows/release-desktop.yml">
