@@ -248,6 +248,11 @@ export function AssistantTurnView({
               const origIndex = entry.blocks.indexOf(block);
               return <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>;
             })}
+            <div className="flex w-full items-center gap-2 py-1">
+              <div className="h-px flex-1 bg-border" />
+              <span className="shrink-0 text-xs text-muted-foreground">Process end</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
           </CollapsibleContent>
         </Collapsible>
 
