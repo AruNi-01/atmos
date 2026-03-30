@@ -9,6 +9,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
+  TextMorph,
 } from "@workspace/ui";
 import { ChevronRight, FileText } from "lucide-react";
 import { useContextParams } from "@/hooks/use-context-params";
@@ -85,7 +86,9 @@ function ProcessDivider({ expanded }: { expanded: boolean }) {
     <div className="flex w-full items-center gap-2 py-1">
       <div className="h-px flex-1 bg-border" />
       <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-        {expanded ? "Hide process" : "Show process"}
+        <TextMorph as="span" className="text-xs leading-none">
+          {expanded ? "Hide process" : "Show process"}
+        </TextMorph>
         <ChevronRight className={`size-3 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
       </span>
       <div className="h-px flex-1 bg-border" />
