@@ -87,8 +87,9 @@ function ProcessDivider({ expanded }: { expanded: boolean }) {
       <div className="h-px flex-1 bg-border" />
       <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
         <TextMorph as="span" className="text-xs leading-none">
-          {expanded ? "Hide process" : "Show process"}
+          {expanded ? "Hide" : "Show"}
         </TextMorph>
+        {" process"}
         <ChevronRight className={`size-3 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
       </span>
       <div className="h-px flex-1 bg-border" />
