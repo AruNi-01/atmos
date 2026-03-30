@@ -74,7 +74,9 @@ function isBlockHidden(
     block.type === "tool_call" &&
     vendor === "claude" &&
     block.parent_tool_call_id &&
-    claudeSubAgentParentIds.has(block.parent_tool_call_id)
+    claudeSubAgentParentIds.has(block.parent_tool_call_id) &&
+    block.tool.toLowerCase() !== "think" &&
+    block.tool.toLowerCase() !== "thought"
   ) return true;
   if (block.type === "text" && !block.content) return true;
   if (block.type === "thinking" && !block.content) return true;
