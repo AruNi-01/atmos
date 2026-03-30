@@ -137,7 +137,11 @@ export function AssistantTurnView({
     return -1;
   }, [entry.blocks]);
 
-  const canCollapse = !entry.isStreaming && lastVisibleTextIndex >= 0;
+  const isStreamingFinalText = entry.isStreaming === true
+    && lastVisibleTextIndex >= 0
+    && !entry.blocks.slice(lastVisibleTextIndex + 1).some(b => b.type === "text");
+
+  const canCollapse = lastVisibleTextIndex >= 0 && (!entry.isStreaming || isStreamingFinalText);
 
   const intermediateBlocks = useMemo(() => {
     if (!canCollapse) return [];
