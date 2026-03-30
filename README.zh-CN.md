@@ -1,8 +1,5 @@
 <h1 align="center"> ATMOS </h1>
-
 <h2 align="center">Atmosphere for Agentic Builders</h2>
-
-<p align="center">简体中文 | <a href="./README.md">English</a></p>
 
 <p align="center">
   <a href="https://github.com/AruNi-01/atmos/actions/workflows/release-desktop.yml">
@@ -19,15 +16,22 @@
   </a>
 </p>
 
+<p align="center">简体中文 | <a href="./README.md">English</a></p>
+
 ![Atmos 截图](./apps/landing/src/assets/img/atmos_preview.png)
 
 ## 功能亮点
 
-- AI Agent 工作区，支持流式对话、工具调用状态和自定义 Agent。
-- 基于 `tmux` 的持久化终端，会话在刷新或重启后依然可以续接。
-- 把 Git 与 GitHub 流程放在同一界面里，覆盖提交、Review 和 PR。
-- 提供 Project Wiki、全局搜索和快捷操作，减少上下文切换。
-- 桌面端支持多平台，底层由 Rust、Next.js 和 Tauri 驱动。
+- **多工作区开发** — 基于 Git worktree 的环境隔离，实现多环境下的 Agent 并行执行。
+- **Tmux 持久化会话** — 容错式终端管理，会话中断后可无缝恢复。
+- **内置轻量级编辑器** — 文件预览与行内编辑，随时随地切换回原始人 coding 模式。
+- **集成 Git 工作流** — Diff 视图、提交辅助、代码审查与 GitHub PR 管理一体化。
+- **技能管理系统** — 一键启用/禁用或删除 Agent 技能，灵活控制能力集合。
+- **全局 Agent 聊天面板** — 任意位置发起非终端 Chat 对话，基于 ACP 复用你的 Code Agent CLI。
+- **全局搜索/操作控制面板** — 键盘驱动的工作流，快速搜索与执行 Atmos 功能。
+- **用量分析看板** — AI 编码订阅额度跟踪、各 Agent Token 消耗与费用预估。
+- **Agent 状态通知** — 基于钩子的状态监控，支持原生通知与自托管推送服务。
+- **跨平台与远程访问** — Web 与桌面应用，移动端（规划中），集成内网穿透（ngrok/Tailscale/Cloudflare Tunnel）。
 
 ## 开始使用
 

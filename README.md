@@ -1,8 +1,5 @@
 <h1 align="center"> ATMOS </h1>
-
 <h2 align="center">Atmosphere for Agentic Builders</h2>
-
-<p align="center"><a href="./README.zh-CN.md">简体中文</a> | English</p>
 
 <p align="center">
   <a href="https://github.com/AruNi-01/atmos/actions/workflows/release-desktop.yml">
@@ -19,15 +16,22 @@
   </a>
 </p>
 
+<p align="center"><a href="./README.zh-CN.md">简体中文</a> | English</p>
+
 ![Atmos screenshot](./apps/landing/src/assets/img/atmos_preview.png)
 
 ## Features
 
-- AI agent workspace with streaming conversations, tool calls, and custom agent support.
-- Persistent terminals backed by `tmux`, so sessions survive refreshes and restarts.
-- Git and GitHub workflows in one place, including commit help, reviews, and pull requests.
-- Project Wiki, global search, and quick actions for faster navigation.
-- Cross-platform desktop app powered by a Rust backend, Next.js UI, and Tauri shell.
+- **Multi-Workspace Development** — Git worktree isolation for parallel agent execution across multiple environments.
+- **Persistent Tmux Sessions** — Fault-tolerant terminal management with tmux; sessions survive interruptions and restarts.
+- **Built-in Lightweight Editor** — File preview, inline editing, and switch back to manual coding mode anytime.
+- **Integrated Git Workflow** — Diff view, commit assistance, code review, and GitHub PR management in one place.
+- **Skill Management System** — Discover, enable/disable, and delete agent skills with one-click control.
+- **Global Agent Chat Panel** — Start non-terminal conversations from anywhere, powered by ACP to reuse your Code Agent CLI.
+- **Global Search & Command Palette** — Keyboard-driven workflow for searching and executing Atmos features.
+- **Usage Analytics Dashboard** — Track AI coding subscription quotas, agent token consumption, and cost estimation.
+- **Agent Status Notifications** — Hook-based status monitoring with native notifications and self-hosted push server support.
+- **Cross-Platform & Remote Access** — Web and desktop apps, mobile app (planned), integrated tunneling (ngrok/Tailscale/Cloudflare Tunnel).
 
 ## Get Started
 
