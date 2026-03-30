@@ -10,7 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui";
-import { FileText } from "lucide-react";
+import { ChevronRight, FileText } from "lucide-react";
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import { MarkdownCodeBlock } from "@/components/markdown/MarkdownRenderer";
@@ -84,8 +84,9 @@ function ProcessDivider({ expanded }: { expanded: boolean }) {
   return (
     <div className="flex w-full items-center gap-2 py-1">
       <div className="h-px flex-1 bg-border" />
-      <span className="shrink-0 text-xs text-muted-foreground">
+      <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
         {expanded ? "Hide process" : "Show process"}
+        <ChevronRight className={`size-3 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} />
       </span>
       <div className="h-px flex-1 bg-border" />
     </div>
