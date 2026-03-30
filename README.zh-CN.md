@@ -1,4 +1,4 @@
-<p align="center" style="font-size: 4em; font-weight: bold; margin: 0; line-height: 1.2;">ATMOS</p>
+<h1 align="center" style="border-bottom: none; padding-bottom: 0;">ATMOS</h1>
 <p align="center" style="font-size: 1.25em; color: #666; margin-top: 8px;">Atmosphere for Agentic Builders</p>
 
 <p align="center">
