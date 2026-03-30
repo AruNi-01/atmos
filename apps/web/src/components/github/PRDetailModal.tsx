@@ -1194,25 +1194,60 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 )}
               </SidebarSection>
 
-              {/* Participants */}
+              {/* Participants (derived from author, comments, reviews, review_comments) */}
               <SidebarSection title="Participants" icon={<Users className="size-3.5" />}>
-                {pr.participants && Array.isArray(pr.participants) && pr.participants.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {(pr.participants as Participant[]).map((p) => (
-                      <Tooltip key={p.login}>
-                        <TooltipTrigger asChild>
-                          <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
-                            <AvatarImage src={p.avatar_url || p.avatarUrl || `https://github.com/${p.login.replace('[bot]', '')}.png?size=32`} />
-                            <AvatarFallback className="text-[7px]">{p.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">{p.login}</TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground/60 italic">No participants</span>
-                )}
+                {(() => {
+                  const seen = new Map<string, string>();
+                  const addUser = (login?: string, avatar?: string) => {
+                    if (login && !seen.has(login)) {
+                      seen.set(login, avatar || `https://github.com/${login.replace('[bot]', '')}.png?size=32`);
+                    }
+                  };
+
+                  addUser(pr.author?.login, pr.author?.avatarUrl || pr.author?.avatar_url);
+
+                  if (pr.comments && Array.isArray(pr.comments)) {
+                    for (const c of pr.comments as { author?: { login?: string; avatarUrl?: string; avatar_url?: string } }[]) {
+                      addUser(c.author?.login, c.author?.avatarUrl || c.author?.avatar_url);
+                    }
+                  }
+                  if (pr.reviews && Array.isArray(pr.reviews)) {
+                    for (const r of pr.reviews as { author?: { login?: string; avatarUrl?: string; avatar_url?: string } }[]) {
+                      addUser(r.author?.login, r.author?.avatarUrl || r.author?.avatar_url);
+                    }
+                  }
+                  if (pr.review_comments && Array.isArray(pr.review_comments)) {
+                    for (const rc of pr.review_comments as ReviewComment[]) {
+                      addUser(rc.user?.login, rc.user?.avatar_url);
+                    }
+                  }
+                  if (pr.assignees && Array.isArray(pr.assignees)) {
+                    for (const a of pr.assignees as Assignee[]) {
+                      addUser(a.login, a.avatar_url || a.avatarUrl);
+                    }
+                  }
+
+                  const participants = Array.from(seen.entries());
+                  if (participants.length === 0) {
+                    return <span className="text-muted-foreground/60 italic">No participants</span>;
+                  }
+
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      {participants.map(([login, avatarUrl]) => (
+                        <Tooltip key={login}>
+                          <TooltipTrigger asChild>
+                            <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
+                              <AvatarImage src={avatarUrl} />
+                              <AvatarFallback className="text-[7px]">{login.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">{login}</TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  );
+                })()}
               </SidebarSection>
             </div>
             </TooltipProvider>
