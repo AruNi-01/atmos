@@ -79,10 +79,24 @@ async fn test_push_notification(
     State(state): State<AppState>,
     Json(payload): Json<Value>,
 ) -> Json<Value> {
-    let server_index = payload
-        .get("server_index")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as usize;
+    let Some(raw) = payload.get("server_index") else {
+        return Json(serde_json::json!({
+            "ok": false,
+            "error": "server_index is required",
+        }));
+    };
+    let Some(idx_u64) = raw.as_u64() else {
+        return Json(serde_json::json!({
+            "ok": false,
+            "error": "server_index must be a non-negative integer",
+        }));
+    };
+    let Ok(server_index) = usize::try_from(idx_u64) else {
+        return Json(serde_json::json!({
+            "ok": false,
+            "error": "server_index is out of range",
+        }));
+    };
 
     let settings = state.notification_service.get_settings();
     if server_index >= settings.push_servers.len() {

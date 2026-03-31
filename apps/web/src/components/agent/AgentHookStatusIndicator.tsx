@@ -93,9 +93,21 @@ function CompactIndicator({ state }: { state: AgentHookState }) {
   );
 }
 
-function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }) {
+function RunningFullSpinner({ tool }: { tool?: string }) {
   const spinnerChar = useFullSpinner();
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="inline-flex items-center font-mono text-[11px] leading-none text-muted-foreground/80 dark:text-muted-foreground">
+        {spinnerChar}
+      </span>
+      <TextShimmer as="span" className="text-[10px]" duration={1.5}>
+        {tool ? `${tool}: Running...` : "Agent running..."}
+      </TextShimmer>
+    </div>
+  );
+}
 
+function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }) {
   if (state === "idle") {
     return (
       <div className="flex items-center gap-1.5">
@@ -118,16 +130,7 @@ function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }
     );
   }
 
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="inline-flex items-center font-mono text-[11px] leading-none text-muted-foreground/80 dark:text-muted-foreground">
-        {spinnerChar}
-      </span>
-      <TextShimmer as="span" className="text-[10px]" duration={1.5}>
-        {tool ? `${tool}: Running...` : "Agent running..."}
-      </TextShimmer>
-    </div>
-  );
+  return <RunningFullSpinner tool={tool} />;
 }
 
 export function AgentHookStatusIndicator({

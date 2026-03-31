@@ -247,6 +247,69 @@ function NotifySettingsSection({
 }) {
   const [pushServersExpanded, setPushServersExpanded] = React.useState(false);
   const [testingServerId, setTestingServerId] = React.useState<string | null>(null);
+  const [pushServerLocalById, setPushServerLocalById] = React.useState<Record<string, PushServerConfig>>({});
+
+  React.useEffect(() => {
+    const ids = new Set(settings.push_servers.map(s => s.id));
+    setPushServerLocalById(prev => {
+      const next = { ...prev };
+      let changed = false;
+      for (const id of Object.keys(next)) {
+        if (!ids.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [settings.push_servers]);
+
+  const displayPushServer = React.useCallback(
+    (server: PushServerConfig) => pushServerLocalById[server.id] ?? server,
+    [pushServerLocalById],
+  );
+
+  const isPushFieldsDirty = React.useCallback(
+    (server: PushServerConfig) => {
+      const local = pushServerLocalById[server.id];
+      if (!local) return false;
+      return (
+        local.url !== server.url ||
+        (local.token ?? null) !== (server.token ?? null) ||
+        (local.topic ?? null) !== (server.topic ?? null) ||
+        (local.device_key ?? null) !== (server.device_key ?? null) ||
+        (local.custom_body_template ?? null) !== (server.custom_body_template ?? null)
+      );
+    },
+    [pushServerLocalById],
+  );
+
+  const setPushFields = React.useCallback((server: PushServerConfig, patch: Partial<PushServerConfig>) => {
+    setPushServerLocalById(prev => ({
+      ...prev,
+      [server.id]: { ...(prev[server.id] ?? server), ...patch },
+    }));
+  }, []);
+
+  const savePushFields = React.useCallback(
+    async (server: PushServerConfig) => {
+      const local = pushServerLocalById[server.id];
+      if (!local || !isPushFieldsDirty(server)) return;
+      await onUpdatePushServer(server.id, {
+        url: local.url,
+        token: local.token,
+        topic: local.topic,
+        device_key: local.device_key,
+        custom_body_template: local.custom_body_template,
+      });
+      setPushServerLocalById(prev => {
+        const next = { ...prev };
+        delete next[server.id];
+        return next;
+      });
+    },
+    [isPushFieldsDirty, onUpdatePushServer, pushServerLocalById],
+  );
 
   const handleAddServer = React.useCallback((serverType: PushServerType) => {
     const newServer: PushServerConfig = {
@@ -429,6 +492,8 @@ function NotifySettingsSection({
               {settings.push_servers.map((server) => {
                 const typeLabel = PUSH_SERVER_TYPE_OPTIONS.find(o => o.value === server.type)?.label ?? server.type;
                 const isTesting = testingServerId === server.id;
+                const display = displayPushServer(server);
+                const pushDirty = isPushFieldsDirty(server);
 
                 return (
                   <div key={server.id} className="border-b border-border px-2 py-4 last:border-b-0 space-y-3">
@@ -437,15 +502,27 @@ function NotifySettingsSection({
                         <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                           {typeLabel}
                         </span>
-                        <span className="text-sm truncate text-foreground">{server.url}</span>
+                        <span className="text-sm truncate text-foreground">{display.url}</span>
+                        {pushDirty && (
+                          <span className="text-[10px] font-medium text-amber-600 dark:text-amber-500 shrink-0">
+                            Unsaved
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
+                        {pushDirty && (
+                          <SaveActionButton
+                            saving={isSaving}
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => void savePushFields(server)}
+                          />
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-7 px-2 text-[11px]"
                           onClick={() => void handleTestServer(server.id)}
-                          disabled={isTesting}
+                          disabled={isTesting || pushDirty}
                         >
                           {isTesting ? 'TESTING...' : 'TEST'}
                         </Button>
@@ -467,20 +544,22 @@ function NotifySettingsSection({
                       <div>
                         <label className="mb-1 block text-xs text-muted-foreground">URL</label>
                         <Input
-                          value={server.url}
+                          value={display.url}
                           placeholder="https://..."
-                          onChange={(e) => void onUpdatePushServer(server.id, { url: e.target.value })}
+                          onChange={(e) => setPushFields(server, { url: e.target.value })}
                           className="h-8 text-xs font-mono"
+                          disabled={isSaving}
                         />
                       </div>
                       {(server.type === 'ntfy' || server.type === 'gotify') && (
                         <div>
                           <label className="mb-1 block text-xs text-muted-foreground">Token</label>
                           <Input
-                            value={server.token ?? ''}
+                            value={display.token ?? ''}
                             placeholder="Optional auth token"
-                            onChange={(e) => void onUpdatePushServer(server.id, { token: e.target.value || null })}
+                            onChange={(e) => setPushFields(server, { token: e.target.value || null })}
                             className="h-8 text-xs font-mono"
+                            disabled={isSaving}
                           />
                         </div>
                       )}
@@ -488,10 +567,11 @@ function NotifySettingsSection({
                         <div>
                           <label className="mb-1 block text-xs text-muted-foreground">Topic</label>
                           <Input
-                            value={server.topic ?? ''}
+                            value={display.topic ?? ''}
                             placeholder="atmos"
-                            onChange={(e) => void onUpdatePushServer(server.id, { topic: e.target.value || null })}
+                            onChange={(e) => setPushFields(server, { topic: e.target.value || null })}
                             className="h-8 text-xs font-mono"
+                            disabled={isSaving}
                           />
                         </div>
                       )}
@@ -499,10 +579,11 @@ function NotifySettingsSection({
                         <div>
                           <label className="mb-1 block text-xs text-muted-foreground">Device Key</label>
                           <Input
-                            value={server.device_key ?? ''}
+                            value={display.device_key ?? ''}
                             placeholder="Your Bark device key"
-                            onChange={(e) => void onUpdatePushServer(server.id, { device_key: e.target.value || null })}
+                            onChange={(e) => setPushFields(server, { device_key: e.target.value || null })}
                             className="h-8 text-xs font-mono"
+                            disabled={isSaving}
                           />
                         </div>
                       )}
@@ -511,10 +592,11 @@ function NotifySettingsSection({
                           <div>
                             <label className="mb-1 block text-xs text-muted-foreground">Auth Token</label>
                             <Input
-                              value={server.token ?? ''}
+                              value={display.token ?? ''}
                               placeholder="Optional Bearer token"
-                              onChange={(e) => void onUpdatePushServer(server.id, { token: e.target.value || null })}
+                              onChange={(e) => setPushFields(server, { token: e.target.value || null })}
                               className="h-8 text-xs font-mono"
+                              disabled={isSaving}
                             />
                           </div>
                           <div className="col-span-2">
@@ -522,10 +604,11 @@ function NotifySettingsSection({
                               Body template (optional, use {'{{title}}'}, {'{{body}}'}, {'{{tool}}'}, {'{{state}}'})
                             </label>
                             <Input
-                              value={server.custom_body_template ?? ''}
+                              value={display.custom_body_template ?? ''}
                               placeholder='{"text": "{{title}}: {{body}}"}'
-                              onChange={(e) => void onUpdatePushServer(server.id, { custom_body_template: e.target.value || null })}
+                              onChange={(e) => setPushFields(server, { custom_body_template: e.target.value || null })}
                               className="h-8 text-xs font-mono"
+                              disabled={isSaving}
                             />
                           </div>
                         </>

@@ -105,8 +105,9 @@ impl NotificationService {
     }
 
     pub fn update_settings(&self, new_settings: NotificationSettings) -> Result<(), String> {
+        let mut guard = self.settings.write();
         save_settings(&new_settings)?;
-        *self.settings.write() = new_settings;
+        *guard = new_settings;
         Ok(())
     }
 
@@ -366,6 +367,12 @@ fn save_settings(settings: &NotificationSettings) -> Result<(), String> {
     }
     let content = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
     std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = std::fs::Permissions::from_mode(0o600);
+        std::fs::set_permissions(&path, perms).map_err(|e| e.to_string())?;
+    }
     info!("Notification settings saved to {:?}", path);
     Ok(())
 }
