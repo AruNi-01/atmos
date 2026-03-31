@@ -98,7 +98,7 @@ function AgentStatusPopoverContent() {
 
       <div className="space-y-2">
         {Array.from(grouped.entries()).map(([path, pathSessions]) => {
-          const displayPath = path === "unknown" ? "Unknown project" : path.split("/").slice(-2).join("/");
+          const displayPath = path === "unknown" ? "Unknown project" : path.split(/[\\/]/).slice(-2).join("/");
           return (
             <div key={path} className="space-y-0.5">
               <div className="text-[10px] font-medium text-muted-foreground px-1 truncate" title={path}>

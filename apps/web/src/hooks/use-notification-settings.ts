@@ -34,6 +34,8 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 
 interface NotificationSettingsStore {
   settings: NotificationSettings;
+  /** Increments on each optimistic `updateSettings`; used to ignore stale rollbacks. */
+  _version: number;
   isLoading: boolean;
   isSaving: boolean;
 
@@ -57,6 +59,7 @@ async function getBase(): Promise<string> {
 export const useNotificationSettings = create<NotificationSettingsStore>(
   (set, get) => ({
     settings: DEFAULT_SETTINGS,
+    _version: 0,
     isLoading: false,
     isSaving: false,
 
@@ -78,7 +81,8 @@ export const useNotificationSettings = create<NotificationSettingsStore>(
 
     updateSettings: async (settings: NotificationSettings) => {
       const prev = get().settings;
-      set({ settings, isSaving: true });
+      const versionAtStart = get()._version + 1;
+      set({ settings, isSaving: true, _version: versionAtStart });
       try {
         const base = await getBase();
         const res = await fetch(`${base}/hooks/notification/settings`, {
@@ -87,10 +91,14 @@ export const useNotificationSettings = create<NotificationSettingsStore>(
           body: JSON.stringify(settings),
         });
         if (!res.ok) {
-          set({ settings: prev });
+          set((s) =>
+            s._version === versionAtStart ? { settings: prev } : {}
+          );
         }
       } catch {
-        set({ settings: prev });
+        set((s) =>
+          s._version === versionAtStart ? { settings: prev } : {}
+        );
       } finally {
         set({ isSaving: false });
       }
