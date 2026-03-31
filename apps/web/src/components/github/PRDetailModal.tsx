@@ -678,7 +678,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
               <div className="pt-4 flex flex-col gap-4">
                 {pr.body && (
-                  <div className="bg-sidebar-accent/30 p-4 rounded-md border border-sidebar-border shadow-inner text-[13px] shrink-0">
+                  <div className="p-4 rounded-md border border-border/50 text-[13px] shrink-0">
                     <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
                       {pr.body}
                     </MarkdownRenderer>
