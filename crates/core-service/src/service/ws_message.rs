@@ -2902,61 +2902,32 @@ set -x
             tracing::warn!("Failed to fetch review comments for PR #{}", req.pr_number);
         }
 
-        // Build participants list from REST API (has user.type to distinguish bots)
-        let issue_comments_endpoint = format!(
-            "repos/{}/{}/issues/{}/comments?per_page=100",
+        // Fetch participants via GraphQL (GitHub's authoritative participant list)
+        let graphql_query = format!(
+            r#"query {{ repository(owner: "{}", name: "{}") {{ pullRequest(number: {}) {{ participants(first: 50) {{ nodes {{ login avatarUrl }} }} }} }} }}"#,
             req.owner, req.repo, req.pr_number
         );
-        let issue_comments_args = vec!["api", &issue_comments_endpoint];
-        let mut participants = Vec::new();
-        let mut participant_logins = std::collections::HashSet::new();
-
-        // Add PR author (from REST API for accurate type info)
-        let pr_issue_endpoint = format!(
-            "repos/{}/{}/issues/{}",
-            req.owner, req.repo, req.pr_number
-        );
-        let pr_issue_args = vec!["api", &pr_issue_endpoint];
-        if let Ok(issue_data) = self.github_engine.run_gh(&pr_issue_args).await {
-            if let Some(user) = issue_data.get("user") {
-                let user_type = user.get("type").and_then(|t| t.as_str()).unwrap_or("User");
-                if user_type == "User" {
-                    if let Some(login) = user.get("login").and_then(|l| l.as_str()) {
-                        if participant_logins.insert(login.to_string()) {
-                            participants.push(json!({
-                                "login": login,
-                                "avatar_url": user.get("avatar_url").and_then(|a| a.as_str()).unwrap_or(""),
-                            }));
-                        }
-                    }
+        let graphql_query_arg = format!("query={}", graphql_query);
+        let graphql_args = vec!["api", "graphql", "-f", &graphql_query_arg];
+        if let Ok(gql_result) = self.github_engine.run_gh(&graphql_args).await {
+            if let Some(nodes) = gql_result
+                .pointer("/data/repository/pullRequest/participants/nodes")
+                .and_then(|v| v.as_array())
+            {
+                let participants: Vec<Value> = nodes
+                    .iter()
+                    .filter_map(|n| {
+                        let login = n.get("login")?.as_str()?;
+                        let avatar = n.get("avatarUrl").and_then(|a| a.as_str()).unwrap_or("");
+                        Some(json!({ "login": login, "avatar_url": avatar }))
+                    })
+                    .collect();
+                if let Some(obj) = output.as_object_mut() {
+                    obj.insert("participants".to_string(), json!(participants));
                 }
             }
-        }
-
-        // Add human commenters
-        if let Ok(comments_data) = self.github_engine.run_gh(&issue_comments_args).await {
-            if let Some(comments) = comments_data.as_array() {
-                for comment in comments {
-                    if let Some(user) = comment.get("user") {
-                        let user_type = user.get("type").and_then(|t| t.as_str()).unwrap_or("User");
-                        if user_type != "User" {
-                            continue;
-                        }
-                        if let Some(login) = user.get("login").and_then(|l| l.as_str()) {
-                            if participant_logins.insert(login.to_string()) {
-                                participants.push(json!({
-                                    "login": login,
-                                    "avatar_url": user.get("avatar_url").and_then(|a| a.as_str()).unwrap_or(""),
-                                }));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if let Some(obj) = output.as_object_mut() {
-            obj.insert("participants".to_string(), json!(participants));
+        } else {
+            tracing::warn!("Failed to fetch participants for PR #{}", req.pr_number);
         }
 
         // Enrich closingIssuesReferences with title and state
