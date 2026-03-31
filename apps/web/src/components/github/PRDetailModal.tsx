@@ -31,7 +31,8 @@ import { PatchDiff } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
 import { useGithubPRDetail } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2, FileCode, Users, CircleDot, Link2 } from 'lucide-react';
+import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2, FileCode, Users, CircleDot, Code } from 'lucide-react';
+import { getFileIconProps } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -286,7 +287,7 @@ function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
         className="flex items-center gap-2 px-3 py-2 w-full text-left bg-muted/30 hover:bg-muted/50 transition-colors border-b border-border/40"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <FileCode className="size-3.5 text-muted-foreground shrink-0" />
+        <img {...getFileIconProps({ name: thread.path.split('/').pop() || thread.path, isDir: false })} className="size-4 shrink-0" />
         <span className="text-[12px] font-mono text-foreground/80 truncate">{thread.path}</span>
         {thread.line && (
           <span className="text-[10px] text-muted-foreground shrink-0">line {thread.line}</span>
@@ -1234,7 +1235,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
               {/* Development (linked issues) */}
               {pr.closingIssuesReferences && Array.isArray(pr.closingIssuesReferences) && pr.closingIssuesReferences.length > 0 && (
-                <SidebarSection title="Development" icon={<Link2 className="size-3.5" />}>
+                <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
                   <div className="text-[11px] text-muted-foreground mb-1">
                     Successfully merging this pull request may close these issues.
                   </div>
@@ -1248,7 +1249,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                               href={issue.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="flex items-start gap-2 py-1 px-1.5 -mx-1.5 rounded-md hover:bg-muted/50 transition-colors group"
+                              className="flex items-start gap-2 py-1 px-1.5 -mx-1.5 rounded-md hover:bg-muted/50 transition-colors"
                             >
                               <CircleDot className={cn(
                                 "size-3.5 shrink-0 mt-0.5",
@@ -1262,7 +1263,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                   #{issue.number} · {isClosed ? 'Closed' : 'Open'}
                                 </div>
                               </div>
-                              <ExternalLink className="size-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 shrink-0 mt-0.5 transition-opacity" />
                             </a>
                           </TooltipTrigger>
                           <TooltipContent side="left" className="text-xs max-w-[280px]">
