@@ -9,6 +9,7 @@ import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { Images, ArrowRightLeft, FileDiff, Code } from 'lucide-react';
+import { parsePatchFiles } from '@pierre/diffs';
 import { PatchDiff } from '@pierre/diffs/react';
 import { MermaidViewerModal } from './MermaidViewerModal';
 import {
@@ -278,10 +279,19 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   );
 }
 
-function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
-  const [error, setError] = useState(false);
+function isValidSingleFilePatch(patch: string): boolean {
+  try {
+    const parsed = parsePatchFiles(patch);
+    return parsed.length === 1 && parsed[0].files.length === 1;
+  } catch {
+    return false;
+  }
+}
 
-  if (error) {
+function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
+  const isValid = React.useMemo(() => isValidSingleFilePatch(code), [code]);
+
+  if (!isValid) {
     return (
       <pre className="px-3 py-1">
         <code className="text-[13px] leading-relaxed">{code}</code>
@@ -290,39 +300,17 @@ function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
   }
 
   return (
-    <ErrorBoundaryWrapper onError={() => setError(true)}>
-      <PatchDiff
-        patch={code}
-        options={{
-          theme: isDark ? 'pierre-dark' : 'pierre-light',
-          diffStyle: 'unified',
-          overflow: 'wrap',
-          disableLineNumbers: false,
-          disableFileHeader: true,
-        }}
-      />
-    </ErrorBoundaryWrapper>
+    <PatchDiff
+      patch={code}
+      options={{
+        theme: isDark ? 'pierre-dark' : 'pierre-light',
+        diffStyle: 'unified',
+        overflow: 'wrap',
+        disableLineNumbers: false,
+        disableFileHeader: true,
+      }}
+    />
   );
-}
-
-class ErrorBoundaryWrapper extends React.Component<
-  { children: React.ReactNode; onError: () => void },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode; onError: () => void }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch() {
-    this.props.onError();
-  }
-  render() {
-    if (this.state.hasError) return null;
-    return this.props.children;
-  }
 }
 
 export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {

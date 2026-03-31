@@ -27,8 +27,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@workspace/ui';
-import { PatchDiff } from '@pierre/diffs/react';
-import { parsePatchFiles } from '@pierre/diffs';
+import { MultiFileDiff } from '@pierre/diffs/react';
+import type { FileContents } from '@pierre/diffs';
 import { useTheme } from 'next-themes';
 import { useGithubPRDetail, useGithubPRDetailSidebar } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -248,25 +248,49 @@ function PRDetailSkeleton() {
   );
 }
 
-function isValidSingleFilePatch(patch: string): boolean {
-  try {
-    const parsed = parsePatchFiles(patch);
-    return parsed.length === 1 && parsed[0].files.length === 1;
-  } catch {
-    return false;
+function buildDiffFiles(path: string, diffHunk: string): { oldFile: FileContents; newFile: FileContents } | null {
+  const lines = diffHunk.split('\n');
+  const oldLines: string[] = [];
+  const newLines: string[] = [];
+
+  for (const line of lines) {
+    if (!line || line.startsWith('@@')) continue;
+    if (line.startsWith('-')) {
+      oldLines.push(line.slice(1));
+      continue;
+    }
+    if (line.startsWith('+')) {
+      newLines.push(line.slice(1));
+      continue;
+    }
+    if (line.startsWith(' ')) {
+      const content = line.slice(1);
+      oldLines.push(content);
+      newLines.push(content);
+      continue;
+    }
   }
+
+  if (oldLines.length === 0 && newLines.length === 0) {
+    return null;
+  }
+
+  return {
+    oldFile: { name: path.split('/').pop() || path, contents: oldLines.join('\n') },
+    newFile: { name: path.split('/').pop() || path, contents: newLines.join('\n') },
+  };
 }
 
-function SafePatchDiffBlock({ patch, options, isMounted, diffHunk }: {
-  patch: string;
+function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
+  path: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options: any;
   isMounted: boolean;
   diffHunk: string;
 }) {
-  const isValid = useMemo(() => isValidSingleFilePatch(patch), [patch]);
+  const diffFiles = useMemo(() => buildDiffFiles(path, diffHunk), [path, diffHunk]);
 
-  if (!isMounted || !isValid) {
+  if (!isMounted || !diffFiles) {
     return (
       <div className="max-h-[180px] overflow-auto border-b border-border/30">
         <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
@@ -278,7 +302,7 @@ function SafePatchDiffBlock({ patch, options, isMounted, diffHunk }: {
 
   return (
     <div className="max-h-[180px] overflow-auto border-b border-border/30">
-      <PatchDiff patch={patch} options={options} />
+      <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
     </div>
   );
 }
@@ -342,7 +366,7 @@ function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
             className="overflow-hidden"
           >
             {diffPatch && (
-              <SafePatchDiffBlock patch={diffPatch} options={diffOptions} isMounted={isMounted} diffHunk={thread.diffHunk} />
+                  <SafePatchDiffBlock path={thread.path} options={diffOptions} isMounted={isMounted} diffHunk={thread.diffHunk} />
             )}
             <div className="flex flex-col divide-y divide-border/30">
               {thread.comments.map((comment, idx) => (
