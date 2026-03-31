@@ -4,8 +4,27 @@ import { create } from "zustand";
 import { useWebSocketStore } from "./use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/lib/desktop-runtime";
 
-export type AgentHookState = "idle" | "running" | "permission_request";
-export type AgentToolType = "claude-code" | "codex" | "opencode";
+export const AGENT_STATE = {
+  IDLE: "idle",
+  RUNNING: "running",
+  PERMISSION_REQUEST: "permission_request",
+} as const;
+
+export type AgentHookState = (typeof AGENT_STATE)[keyof typeof AGENT_STATE];
+
+export const AGENT_TOOL = {
+  CLAUDE_CODE: "claude-code",
+  CODEX: "codex",
+  OPENCODE: "opencode",
+} as const;
+
+export type AgentToolType = (typeof AGENT_TOOL)[keyof typeof AGENT_TOOL];
+
+export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
+  [AGENT_TOOL.CLAUDE_CODE]: "Claude Code",
+  [AGENT_TOOL.CODEX]: "Codex",
+  [AGENT_TOOL.OPENCODE]: "opencode",
+};
 
 export interface AgentHookSession {
   session_id: string;
@@ -105,10 +124,10 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     let hasRunning = false;
     for (const s of get().sessions.values()) {
       if (s.project_path !== projectPath) continue;
-      if (s.state === "permission_request") return "permission_request";
-      if (s.state === "running") hasRunning = true;
+      if (s.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
+      if (s.state === AGENT_STATE.RUNNING) hasRunning = true;
     }
-    return hasRunning ? "running" : "idle";
+    return hasRunning ? AGENT_STATE.RUNNING : AGENT_STATE.IDLE;
   },
 
   getLatestSession: () => {
@@ -121,22 +140,22 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
 
   hasRunningSession: () => {
     return Array.from(get().sessions.values()).some(
-      (s) => s.state === "running"
+      (s) => s.state === AGENT_STATE.RUNNING
     );
   },
 
   hasPermissionRequest: () => {
     return Array.from(get().sessions.values()).some(
-      (s) => s.state === "permission_request"
+      (s) => s.state === AGENT_STATE.PERMISSION_REQUEST
     );
   },
 
   getGlobalState: () => {
     const sessions = Array.from(get().sessions.values());
-    if (sessions.some((s) => s.state === "permission_request"))
-      return "permission_request";
-    if (sessions.some((s) => s.state === "running")) return "running";
-    return "idle";
+    if (sessions.some((s) => s.state === AGENT_STATE.PERMISSION_REQUEST))
+      return AGENT_STATE.PERMISSION_REQUEST;
+    if (sessions.some((s) => s.state === AGENT_STATE.RUNNING)) return AGENT_STATE.RUNNING;
+    return AGENT_STATE.IDLE;
   },
 
   clearIdleSessions: async () => {
@@ -150,7 +169,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
       set((state) => {
         const sessions = new Map(state.sessions);
         for (const [id, s] of sessions) {
-          if (s.state === "idle") {
+          if (s.state === AGENT_STATE.IDLE) {
             sessions.delete(id);
           }
         }
