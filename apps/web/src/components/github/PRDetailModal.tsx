@@ -247,6 +247,62 @@ function PRDetailSkeleton() {
   );
 }
 
+function SafePatchDiffBlock({ patch, options, isMounted, diffHunk }: {
+  patch: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options: any;
+  isMounted: boolean;
+  diffHunk: string;
+}) {
+  const [error, setError] = React.useState(false);
+
+  if (!isMounted) {
+    return (
+      <div className="max-h-[180px] overflow-auto border-b border-border/30">
+        <div className="px-3 py-2 text-xs text-muted-foreground">Loading diff...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-h-[180px] overflow-auto border-b border-border/30">
+        <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
+          {diffHunk}
+        </pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-h-[180px] overflow-auto border-b border-border/30">
+      <PatchDiffErrorBoundary onError={() => setError(true)}>
+        <PatchDiff patch={patch} options={options} />
+      </PatchDiffErrorBoundary>
+    </div>
+  );
+}
+
+class PatchDiffErrorBoundary extends React.Component<
+  { children: React.ReactNode; onError: () => void },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; onError: () => void }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch() {
+    this.props.onError();
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
 function SidebarSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
@@ -306,13 +362,7 @@ function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
             className="overflow-hidden"
           >
             {diffPatch && (
-              <div className="max-h-[180px] overflow-auto border-b border-border/30">
-                {isMounted ? (
-                  <PatchDiff patch={diffPatch} options={diffOptions} />
-                ) : (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">Loading diff...</div>
-                )}
-              </div>
+              <SafePatchDiffBlock patch={diffPatch} options={diffOptions} isMounted={isMounted} diffHunk={thread.diffHunk} />
             )}
             <div className="flex flex-col divide-y divide-border/30">
               {thread.comments.map((comment, idx) => (
