@@ -38,7 +38,7 @@ import { useGitStore } from "@/hooks/use-git-store";
 import { Plus, BookOpen, RefreshCw, Star, Bot } from "lucide-react";
 import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
-import { useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import { codeAgentCustomApi, type CodeAgentCustomEntry, functionSettingsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
@@ -122,14 +122,14 @@ const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
 function TerminalTabAgentIndicator() {
   const globalState = useAgentHooksStore((s) => {
     for (const session of s.sessions.values()) {
-      if (session.state === "permission_request") return "permission_request" as const;
+      if (session.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
     }
     for (const session of s.sessions.values()) {
-      if (session.state === "running") return "running" as const;
+      if (session.state === AGENT_STATE.RUNNING) return AGENT_STATE.RUNNING;
     }
-    return "idle" as const;
+    return AGENT_STATE.IDLE;
   });
-  if (globalState === "idle") return null;
+  if (globalState === AGENT_STATE.IDLE) return null;
   return (
     <AgentHookStatusIndicator
       state={globalState}

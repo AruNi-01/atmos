@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useWebSocketStore } from "@/hooks/use-websocket";
+import { AGENT_STATE } from "@/hooks/use-agent-hooks-store";
 import { useNotificationSettings } from "@/hooks/use-notification-settings";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
 
@@ -30,7 +31,7 @@ function showBrowserNotification(payload: AgentNotificationPayload) {
     body: payload.body,
     icon: "/icon-192.png",
     tag: `atmos-agent-${payload.session_id}`,
-    requireInteraction: payload.state === "permission_request",
+    requireInteraction: payload.state === AGENT_STATE.PERMISSION_REQUEST,
   });
 }
 

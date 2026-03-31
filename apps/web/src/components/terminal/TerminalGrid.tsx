@@ -26,7 +26,7 @@ import { Terminal, TerminalRef } from "./Terminal";
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
-import { useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 import "react-mosaic-component/react-mosaic-component.css";
@@ -86,7 +86,7 @@ function TerminalPaneAgentStatus({ cwd }: { cwd?: string | null }) {
     s.getAggregateAgentStateForProjectPath(cwd ?? "")
   );
 
-  if (paneState === "idle") return null;
+  if (paneState === AGENT_STATE.IDLE) return null;
 
   return (
     <AgentHookStatusIndicator
