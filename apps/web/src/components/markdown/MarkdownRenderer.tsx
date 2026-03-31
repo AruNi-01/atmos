@@ -356,14 +356,6 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
   const isValidPatch = /^@@\s[+-]/m.test(codeText) && (
     codeText.includes('--- ') || codeText.includes('diff --git ')
   );
-  const isSimpleDiff = isDiffLang && !isValidPatch && /^[+-]\s/m.test(codeText);
-  const shouldUsePatchDiff = isValidPatch || isSimpleDiff;
-
-  const patchContent = React.useMemo(() => {
-    if (!shouldUsePatchDiff) return '';
-    if (isValidPatch) return codeText;
-    return `--- a/file\n+++ b/file\n@@ -1,1 +1,1 @@\n${codeText}`;
-  }, [shouldUsePatchDiff, isValidPatch, codeText]);
 
   const isInline = !className && !String(children).includes('\n');
 
@@ -379,7 +371,7 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return <MermaidBlock code={codeText} isDark={!!isDark} />;
   }
 
-  if (shouldUsePatchDiff) {
+  if (isValidPatch) {
     return (
       <CodeBlock className="my-4">
         <CodeBlockHeader>
@@ -392,7 +384,7 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
           </CodeBlockGroup>
         </CodeBlockHeader>
         <CodeBlockContent ref={contentRef} expanded={expanded} className="!px-0">
-          <SafePatchDiff code={patchContent} isDark={!!isDark} />
+          <SafePatchDiff code={codeText} isDark={!!isDark} />
         </CodeBlockContent>
       </CodeBlock>
     );
