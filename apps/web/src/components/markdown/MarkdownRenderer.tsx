@@ -63,7 +63,7 @@ const LANG_TO_EXT: Record<string, string> = {
 const SUPPORTED_LANGS = new Set([
   'html', 'javascript', 'typescript', 'tsx', 'jsx', 'css', 'json',
   'bash', 'shellscript', 'markdown', 'python', 'rust', 'go', 'java',
-  'yaml', 'toml', 'sql', 'dockerfile', 'c', 'cpp', 'diff',
+  'yaml', 'toml', 'sql', 'dockerfile', 'c', 'cpp', 'diff', 'plaintext', 'text', 'txt',
 ]);
 
 function normalizeLang(lang: string): string {
@@ -121,6 +121,22 @@ function ShikiCode({
   return (
     <pre className={cn("py-1", !language && "px-1")}>
       <code className="text-[13px] leading-relaxed">{code}</code>
+    </pre>
+  );
+}
+
+function PlainTextWithLineNumbers({ code }: { code: string }) {
+  const lines = code.split('\n');
+
+  return (
+    <pre className="py-3">
+      <code>
+        {lines.map((line, idx) => (
+          <span key={idx} className="line block px-5 py-0.5 text-[13px] leading-relaxed">
+            {line || ' '}
+          </span>
+        ))}
+      </code>
     </pre>
   );
 }
@@ -292,11 +308,7 @@ function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
   const isValid = React.useMemo(() => isValidSingleFilePatch(code), [code]);
 
   if (!isValid) {
-    return (
-      <pre className="px-3 py-1">
-        <code className="text-[13px] leading-relaxed">{code}</code>
-      </pre>
-    );
+    return <PlainTextWithLineNumbers code={code} />;
   }
 
   return (
@@ -379,6 +391,7 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
   }
 
   const hasLang = !!language;
+  const shikiLanguage = hasLang ? (normalizedLang || language) : 'plaintext';
 
   return (
     <CodeBlock className="my-4">
@@ -409,7 +422,7 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
         ref={contentRef}
         expanded={expanded}
       >
-        <ShikiCode code={codeText} language={language} />
+        <ShikiCode code={codeText} language={shikiLanguage} />
       </CodeBlockContent>
     </CodeBlock>
   );
