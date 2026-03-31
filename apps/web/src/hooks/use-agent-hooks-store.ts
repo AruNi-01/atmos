@@ -23,7 +23,7 @@ export type AgentToolType = (typeof AGENT_TOOL)[keyof typeof AGENT_TOOL];
 export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
   [AGENT_TOOL.CLAUDE_CODE]: "Claude Code",
   [AGENT_TOOL.CODEX]: "Codex",
-  [AGENT_TOOL.OPENCODE]: "opencode",
+  [AGENT_TOOL.OPENCODE]: "OpenCode",
 };
 
 export interface AgentHookSession {
