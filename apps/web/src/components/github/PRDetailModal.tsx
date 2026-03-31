@@ -28,6 +28,7 @@ import {
   DropdownMenuItem,
 } from '@workspace/ui';
 import { PatchDiff } from '@pierre/diffs/react';
+import { parsePatchFiles } from '@pierre/diffs';
 import { useTheme } from 'next-themes';
 import { useGithubPRDetail, useGithubPRDetailSidebar } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -247,6 +248,15 @@ function PRDetailSkeleton() {
   );
 }
 
+function isValidSingleFilePatch(patch: string): boolean {
+  try {
+    const parsed = parsePatchFiles(patch);
+    return parsed.length === 1 && parsed[0].files.length === 1;
+  } catch {
+    return false;
+  }
+}
+
 function SafePatchDiffBlock({ patch, options, isMounted, diffHunk }: {
   patch: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,17 +264,9 @@ function SafePatchDiffBlock({ patch, options, isMounted, diffHunk }: {
   isMounted: boolean;
   diffHunk: string;
 }) {
-  const [error, setError] = React.useState(false);
+  const isValid = useMemo(() => isValidSingleFilePatch(patch), [patch]);
 
-  if (!isMounted) {
-    return (
-      <div className="max-h-[180px] overflow-auto border-b border-border/30">
-        <div className="px-3 py-2 text-xs text-muted-foreground">Loading diff...</div>
-      </div>
-    );
-  }
-
-  if (error) {
+  if (!isMounted || !isValid) {
     return (
       <div className="max-h-[180px] overflow-auto border-b border-border/30">
         <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
@@ -276,31 +278,9 @@ function SafePatchDiffBlock({ patch, options, isMounted, diffHunk }: {
 
   return (
     <div className="max-h-[180px] overflow-auto border-b border-border/30">
-      <PatchDiffErrorBoundary onError={() => setError(true)}>
-        <PatchDiff patch={patch} options={options} />
-      </PatchDiffErrorBoundary>
+      <PatchDiff patch={patch} options={options} />
     </div>
   );
-}
-
-class PatchDiffErrorBoundary extends React.Component<
-  { children: React.ReactNode; onError: () => void },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode; onError: () => void }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch() {
-    this.props.onError();
-  }
-  render() {
-    if (this.state.hasError) return null;
-    return this.props.children;
-  }
 }
 
 function SidebarSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
