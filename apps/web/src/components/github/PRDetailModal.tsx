@@ -31,7 +31,7 @@ import { PatchDiff } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
 import { useGithubPRDetail } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2, FileCode, Users } from 'lucide-react';
+import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2, FileCode, Users, CircleDot, Link2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -111,6 +111,14 @@ interface Assignee {
   login: string;
   avatar_url?: string;
   avatarUrl?: string;
+}
+
+interface ClosingIssue {
+  number: number;
+  title: string;
+  url: string;
+  state?: string;
+  body?: string;
 }
 
 interface ConversationItem extends TimelineItem {
@@ -1200,13 +1208,16 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 )}
               </SidebarSection>
 
-              {/* Participants (derived from author, comments, reviews, review_comments) */}
+              {/* Participants (PR author + issue-level commenters only, matching GitHub) */}
               <SidebarSection title="Participants" icon={<Users className="size-3.5" />}>
                 {(() => {
                   const seen = new Map<string, string>();
+                  const normalizeLogin = (login: string) => login.replace(/\[bot\]$/i, '');
                   const addUser = (login?: string, avatar?: string) => {
-                    if (login && !seen.has(login)) {
-                      seen.set(login, avatar || `https://github.com/${login.replace('[bot]', '')}.png?size=32`);
+                    if (!login) return;
+                    const key = normalizeLogin(login);
+                    if (!seen.has(key)) {
+                      seen.set(key, avatar || `https://github.com/${key}.png?size=32`);
                     }
                   };
 
@@ -1215,21 +1226,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   if (pr.comments && Array.isArray(pr.comments)) {
                     for (const c of pr.comments as { author?: { login?: string; avatarUrl?: string; avatar_url?: string } }[]) {
                       addUser(c.author?.login, c.author?.avatarUrl || c.author?.avatar_url);
-                    }
-                  }
-                  if (pr.reviews && Array.isArray(pr.reviews)) {
-                    for (const r of pr.reviews as { author?: { login?: string; avatarUrl?: string; avatar_url?: string } }[]) {
-                      addUser(r.author?.login, r.author?.avatarUrl || r.author?.avatar_url);
-                    }
-                  }
-                  if (pr.review_comments && Array.isArray(pr.review_comments)) {
-                    for (const rc of pr.review_comments as ReviewComment[]) {
-                      addUser(rc.user?.login, rc.user?.avatar_url);
-                    }
-                  }
-                  if (pr.assignees && Array.isArray(pr.assignees)) {
-                    for (const a of pr.assignees as Assignee[]) {
-                      addUser(a.login, a.avatar_url || a.avatarUrl);
                     }
                   }
 
@@ -1255,6 +1251,45 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   );
                 })()}
               </SidebarSection>
+
+              {/* Development (linked issues) */}
+              {pr.closingIssuesReferences && Array.isArray(pr.closingIssuesReferences) && pr.closingIssuesReferences.length > 0 && (
+                <SidebarSection title="Development" icon={<Link2 className="size-3.5" />}>
+                  <div className="text-[11px] text-muted-foreground mb-1">
+                    Successfully merging this pull request may close these issues.
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {(pr.closingIssuesReferences as ClosingIssue[]).map((issue) => (
+                      <Tooltip key={issue.number}>
+                        <TooltipTrigger asChild>
+                          <a
+                            href={issue.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 py-1 px-1.5 -mx-1.5 rounded-md hover:bg-muted/50 transition-colors group"
+                          >
+                            <CircleDot className={cn(
+                              "size-3.5 shrink-0",
+                              issue.state === 'CLOSED' ? "text-purple-500" : "text-emerald-500"
+                            )} />
+                            <span className="font-medium text-foreground/90 truncate">
+                              #{issue.number}
+                            </span>
+                            <span className="text-muted-foreground truncate flex-1">
+                              {issue.title}
+                            </span>
+                            <ExternalLink className="size-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
+                          </a>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="text-xs max-w-[280px]">
+                          <div className="font-semibold">{issue.title}</div>
+                          <div className="text-muted-foreground mt-0.5">#{issue.number} · {issue.state === 'CLOSED' ? 'Closed' : 'Open'}</div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </SidebarSection>
+              )}
             </div>
             </div>
             </TooltipProvider>
