@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  Activity,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -14,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useContextParams } from "@/hooks/use-context-params";
 import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
-import { useAgentHooksStore, type AgentHookSession, type AgentHookState } from '@/hooks/use-agent-hooks-store';
+import { useAgentHooksStore, type AgentHookSession } from '@/hooks/use-agent-hooks-store';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
 import { X } from 'lucide-react';
 
