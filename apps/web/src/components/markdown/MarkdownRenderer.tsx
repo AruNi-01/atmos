@@ -351,6 +351,20 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return () => observer.disconnect();
   }, [checkOverflow]);
 
+  const normalizedLang = language ? normalizeLang(language) : '';
+  const isDiffLang = normalizedLang === 'diff';
+  const isValidPatch = /^@@\s[+-]/m.test(codeText) && (
+    codeText.includes('--- ') || codeText.includes('diff --git ')
+  );
+  const isSimpleDiff = isDiffLang && !isValidPatch && /^[+-]\s/m.test(codeText);
+  const shouldUsePatchDiff = isValidPatch || isSimpleDiff;
+
+  const patchContent = React.useMemo(() => {
+    if (!shouldUsePatchDiff) return '';
+    if (isValidPatch) return codeText;
+    return `--- a/file\n+++ b/file\n@@ -1,1 +1,1 @@\n${codeText}`;
+  }, [shouldUsePatchDiff, isValidPatch, codeText]);
+
   const isInline = !className && !String(children).includes('\n');
 
   if (isInline) {
@@ -365,16 +379,12 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return <MermaidBlock code={codeText} isDark={!!isDark} />;
   }
 
-  const isValidPatch = /^@@\s[+-]/m.test(codeText) && (
-    codeText.includes('--- ') || codeText.includes('diff --git ')
-  );
-
-  if (isValidPatch) {
+  if (shouldUsePatchDiff) {
     return (
       <CodeBlock className="my-4">
         <CodeBlockHeader>
           <CodeBlockGroup>
-            <FileDiff className="size-4" />
+            <FileDiff className="size-4 shrink-0" />
             <span className="text-xs uppercase tracking-wider">Diff</span>
           </CodeBlockGroup>
           <CodeBlockGroup>
@@ -382,26 +392,24 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
           </CodeBlockGroup>
         </CodeBlockHeader>
         <CodeBlockContent ref={contentRef} expanded={expanded} className="!px-0">
-          <SafePatchDiff code={codeText} isDark={!!isDark} />
+          <SafePatchDiff code={patchContent} isDark={!!isDark} />
         </CodeBlockContent>
       </CodeBlock>
     );
   }
 
   const hasLang = !!language;
-  const normalizedLang = language ? normalizeLang(language) : '';
-  const isDiffLang = normalizedLang === 'diff';
 
   return (
     <CodeBlock className="my-4">
       <CodeBlockHeader>
         <CodeBlockGroup>
           {isDiffLang ? (
-            <FileDiff className="size-4" />
+            <FileDiff className="size-4 shrink-0" />
           ) : hasLang ? (
             <CodeBlockIcon language={LANG_TO_EXT[normalizedLang] || language || 'txt'} />
           ) : (
-            <Code className="size-4" />
+            <Code className="size-4 shrink-0" />
           )}
           <span className="text-xs uppercase tracking-wider">
             {isDiffLang ? 'Diff' : (language || 'Code Block')}
