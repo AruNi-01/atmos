@@ -1211,50 +1211,25 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 )}
               </SidebarSection>
 
-              {/* Participants (PR author + human commenters only, matching GitHub) */}
+              {/* Participants (from backend, human users only) */}
               <SidebarSection title="Participants" icon={<Users className="size-3.5" />}>
-                {(() => {
-                  const seen = new Map<string, string>();
-                  const isBot = (login: string) =>
-                    login.endsWith('[bot]') ||
-                    ['vercel', 'coderabbitai', 'github-actions', 'dependabot', 'devin-ai-integration', 'cubic-dev-ai', 'copilot'].includes(login.toLowerCase());
-                  const addUser = (login?: string, avatar?: string) => {
-                    if (!login || isBot(login)) return;
-                    if (!seen.has(login)) {
-                      seen.set(login, avatar || `https://github.com/${login}.png?size=32`);
-                    }
-                  };
-
-                  addUser(pr.author?.login, pr.author?.avatarUrl || pr.author?.avatar_url);
-
-                  if (pr.comments && Array.isArray(pr.comments)) {
-                    for (const c of pr.comments as { author?: { login?: string; avatarUrl?: string; avatar_url?: string; is_bot?: boolean } }[]) {
-                      if (c.author?.is_bot) continue;
-                      addUser(c.author?.login, c.author?.avatarUrl || c.author?.avatar_url);
-                    }
-                  }
-
-                  const participants = Array.from(seen.entries());
-                  if (participants.length === 0) {
-                    return <span className="text-muted-foreground/60 italic">No participants</span>;
-                  }
-
-                  return (
-                    <div className="flex flex-wrap gap-1">
-                      {participants.map(([login, avatarUrl]) => (
-                        <Tooltip key={login}>
-                          <TooltipTrigger asChild>
-                            <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
-                              <AvatarImage src={avatarUrl} />
-                              <AvatarFallback className="text-[7px]">{login.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">{login}</TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </div>
-                  );
-                })()}
+                {pr.participants && Array.isArray(pr.participants) && pr.participants.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {(pr.participants as { login: string; avatar_url?: string }[]).map((p) => (
+                      <Tooltip key={p.login}>
+                        <TooltipTrigger asChild>
+                          <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
+                            <AvatarImage src={p.avatar_url || `https://github.com/${p.login}.png?size=32`} />
+                            <AvatarFallback className="text-[7px]">{p.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">{p.login}</TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground/60 italic">No participants</span>
+                )}
               </SidebarSection>
 
               {/* Development (linked issues) */}
