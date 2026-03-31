@@ -213,6 +213,137 @@ function buildBuiltInEntries(
   });
 }
 
+interface AgentHookToolStatus {
+  detected: boolean;
+  installed: boolean;
+  config_path?: string | null;
+  error?: string | null;
+}
+
+interface AgentHookInstallReport {
+  claude_code: AgentHookToolStatus;
+  codex: AgentHookToolStatus;
+  opencode: AgentHookToolStatus;
+}
+
+const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
+  { key: "claude_code", label: "Claude Code" },
+  { key: "codex", label: "Codex CLI" },
+  { key: "opencode", label: "OpenCode" },
+];
+
+function AgentHookStatusCard() {
+  const [report, setReport] = React.useState<AgentHookInstallReport | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [acting, setActing] = React.useState(false);
+
+  const fetchStatus = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
+      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const res = await fetch(`${base}/hooks/status`);
+      if (res.ok) setReport(await res.json());
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => { void fetchStatus(); }, [fetchStatus]);
+
+  const handleInstall = React.useCallback(async () => {
+    setActing(true);
+    try {
+      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
+      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const res = await fetch(`${base}/hooks/install`, { method: "POST" });
+      if (res.ok) setReport(await res.json());
+    } catch { /* ignore */ } finally {
+      setActing(false);
+    }
+  }, []);
+
+  const handleUninstall = React.useCallback(async () => {
+    setActing(true);
+    try {
+      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
+      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const res = await fetch(`${base}/hooks/uninstall`, { method: "POST" });
+      if (res.ok) {
+        setReport(await res.json());
+      }
+    } catch { /* ignore */ } finally {
+      setActing(false);
+    }
+  }, []);
+
+  const anyInstalled = report && HOOK_TOOL_META.some(t => report[t.key].installed);
+  const anyDetected = report && HOOK_TOOL_META.some(t => report[t.key].detected);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border">
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
+        <div>
+          <p className="text-base font-medium text-foreground">Agent Hook Status</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Hooks inject into local Agent tool configs so Atmos can track their running state.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={handleInstall} disabled={acting || loading}>
+            {acting ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Install
+          </Button>
+          {anyInstalled && (
+            <Button variant="outline" size="sm" onClick={handleUninstall} disabled={acting || loading} className="text-destructive hover:text-destructive">
+              Uninstall
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-border divide-y divide-border">
+        {loading && !report ? (
+          <div className="px-6 py-4">
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+        ) : report ? (
+          HOOK_TOOL_META.map(({ key, label }) => {
+            const tool = report[key];
+            return (
+              <div key={key} className="grid grid-cols-[minmax(0,1fr)_200px] gap-8 px-6 py-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-sm font-medium text-foreground">{label}</span>
+                  {tool.config_path && (
+                    <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[200px]" title={tool.config_path}>
+                      {tool.config_path.split(/[\\/]/).slice(-2).join("/")}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  {!tool.detected ? (
+                    <span className="text-xs text-muted-foreground">Not detected</span>
+                  ) : tool.installed ? (
+                    <span className="text-xs font-medium text-emerald-500">Installed</span>
+                  ) : tool.error ? (
+                    <span className="text-xs text-destructive truncate max-w-[180px]" title={tool.error}>Error: {tool.error}</span>
+                  ) : (
+                    <span className="text-xs text-amber-500">Not installed</span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="px-6 py-4 text-sm text-muted-foreground">
+            {!anyDetected && "No supported agent tools detected on this system."}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const PUSH_SERVER_TYPE_OPTIONS: { value: PushServerType; label: string; description: string }[] = [
   { value: 'ntfy', label: 'ntfy', description: 'Self-hosted or ntfy.sh push notifications' },
   { value: 'bark', label: 'Bark', description: 'iOS push notifications via Bark' },
@@ -350,6 +481,8 @@ function NotifySettingsSection({
 
   return (
     <div className="space-y-4">
+      <AgentHookStatusCard />
+
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
           <p className="text-base font-medium text-foreground">Notification Channels</p>
