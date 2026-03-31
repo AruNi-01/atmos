@@ -14,6 +14,7 @@ import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useContextParams } from "@/hooks/use-context-params";
 import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
 import { useAgentHooksStore, type AgentHookSession } from '@/hooks/use-agent-hooks-store';
+import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
 import { X } from 'lucide-react';
 
@@ -62,9 +63,10 @@ function groupSessionsByProjectPath(sessions: AgentHookSession[]): Map<string, A
 }
 
 function AgentStatusPopoverContent() {
-  const sessions = useAgentHooksStore((s) => s.getAllSessions());
+  const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
   const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
 
+  const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
   const grouped = useMemo(() => groupSessionsByProjectPath(sessions), [sessions]);
   const hasIdleSessions = sessions.some(s => s.state === "idle");
 
@@ -141,8 +143,22 @@ const Footer: React.FC = () => {
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const globalState = useAgentHooksStore((s) => s.getGlobalState());
-  const latestSession = useAgentHooksStore((s) => s.getLatestSession());
+  const globalState = useAgentHooksStore((s) => {
+    for (const session of s.sessions.values()) {
+      if (session.state === "permission_request") return "permission_request" as const;
+    }
+    for (const session of s.sessions.values()) {
+      if (session.state === "running") return "running" as const;
+    }
+    return "idle" as const;
+  });
+  const latestSessionTool = useAgentHooksStore((s) => {
+    let latest: AgentHookSession | null = null;
+    for (const session of s.sessions.values()) {
+      if (!latest || session.timestamp > latest.timestamp) latest = session;
+    }
+    return latest?.tool ?? null;
+  });
 
   const fetchConnections = useCallback(async () => {
     if (connectionState !== 'connected') return;
@@ -250,7 +266,7 @@ const Footer: React.FC = () => {
               <AgentHookStatusIndicator
                 state={globalState}
                 variant="full"
-                tool={latestSession?.tool ? (TOOL_LABELS[latestSession.tool] ?? latestSession.tool) : undefined}
+                tool={latestSessionTool ? (TOOL_LABELS[latestSessionTool] ?? latestSessionTool) : undefined}
               />
             </button>
           </PopoverTrigger>

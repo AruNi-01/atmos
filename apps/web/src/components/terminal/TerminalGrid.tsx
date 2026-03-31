@@ -82,13 +82,9 @@ const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
 };
 
 function TerminalPaneAgentStatus({ cwd }: { cwd?: string | null }) {
-  const sessions = useAgentHooksStore((s) => s.getSessionsByProjectPath(cwd ?? ""));
-
-  const paneState = (() => {
-    if (sessions.some((s) => s.state === "permission_request")) return "permission_request" as const;
-    if (sessions.some((s) => s.state === "running")) return "running" as const;
-    return "idle" as const;
-  })();
+  const paneState = useAgentHooksStore((s) =>
+    s.getAggregateAgentStateForProjectPath(cwd ?? "")
+  );
 
   if (paneState === "idle") return null;
 

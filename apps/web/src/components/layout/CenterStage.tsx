@@ -120,7 +120,15 @@ const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-re
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
 
 function TerminalTabAgentIndicator() {
-  const globalState = useAgentHooksStore((s) => s.getGlobalState());
+  const globalState = useAgentHooksStore((s) => {
+    for (const session of s.sessions.values()) {
+      if (session.state === "permission_request") return "permission_request" as const;
+    }
+    for (const session of s.sessions.values()) {
+      if (session.state === "running") return "running" as const;
+    }
+    return "idle" as const;
+  });
   if (globalState === "idle") return null;
   return (
     <AgentHookStatusIndicator
