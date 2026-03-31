@@ -13,7 +13,12 @@ import { cn } from "@/lib/utils";
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useContextParams } from "@/hooks/use-context-params";
 import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
-import { useAgentHooksStore, type AgentHookSession } from '@/hooks/use-agent-hooks-store';
+import {
+  useAgentHooksStore,
+  type AgentHookSession,
+  AGENT_STATE,
+  AGENT_TOOL_LABELS,
+} from '@/hooks/use-agent-hooks-store';
 import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
 import { X } from 'lucide-react';
@@ -31,12 +36,6 @@ const CLIENT_TYPE_STYLES: Record<string, string> = {
   desktop: "bg-purple-500/20 text-purple-400",
   cli: "bg-amber-500/20 text-amber-400",
   mobile: "bg-green-500/20 text-green-400",
-};
-
-const TOOL_LABELS: Record<string, string> = {
-  "claude-code": "Claude Code",
-  "codex": "Codex",
-  "opencode": "opencode",
 };
 
 function formatIdleTime(secs: number): string {
@@ -68,7 +67,7 @@ function AgentStatusPopoverContent() {
 
   const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
   const grouped = useMemo(() => groupSessionsByProjectPath(sessions), [sessions]);
-  const hasIdleSessions = sessions.some(s => s.state === "idle");
+  const hasIdleSessions = sessions.some(s => s.state === AGENT_STATE.IDLE);
 
   if (sessions.length === 0) {
     return (
@@ -116,16 +115,16 @@ function AgentStatusPopoverContent() {
                       variant="compact"
                     />
                     <span className="text-[10px] font-medium truncate">
-                      {TOOL_LABELS[session.tool] ?? session.tool}
+                      {AGENT_TOOL_LABELS[session.tool] ?? session.tool}
                     </span>
                   </div>
                   <span className={cn(
                     "text-[9px] font-mono shrink-0 px-1 py-px rounded",
-                    session.state === "idle" && "text-emerald-500",
-                    session.state === "running" && "text-blue-400 bg-blue-500/10",
-                    session.state === "permission_request" && "text-amber-500 bg-amber-500/10",
+                    session.state === AGENT_STATE.IDLE && "text-emerald-500",
+                    session.state === AGENT_STATE.RUNNING && "text-blue-400 bg-blue-500/10",
+                    session.state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-500 bg-amber-500/10",
                   )}>
-                    {session.state === "permission_request" ? "PERM" : session.state.toUpperCase()}
+                    {session.state === AGENT_STATE.PERMISSION_REQUEST ? "PERM" : session.state.toUpperCase()}
                   </span>
                 </div>
               ))}
@@ -145,12 +144,12 @@ const Footer: React.FC = () => {
 
   const globalState = useAgentHooksStore((s) => {
     for (const session of s.sessions.values()) {
-      if (session.state === "permission_request") return "permission_request" as const;
+      if (session.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
     }
     for (const session of s.sessions.values()) {
-      if (session.state === "running") return "running" as const;
+      if (session.state === AGENT_STATE.RUNNING) return AGENT_STATE.RUNNING;
     }
-    return "idle" as const;
+    return AGENT_STATE.IDLE;
   });
   const latestSessionTool = useAgentHooksStore((s) => {
     let latest: AgentHookSession | null = null;
@@ -266,7 +265,7 @@ const Footer: React.FC = () => {
               <AgentHookStatusIndicator
                 state={globalState}
                 variant="full"
-                tool={latestSessionTool ? (TOOL_LABELS[latestSessionTool] ?? latestSessionTool) : undefined}
+                tool={latestSessionTool ? (AGENT_TOOL_LABELS[latestSessionTool] ?? latestSessionTool) : undefined}
               />
             </button>
           </PopoverTrigger>
