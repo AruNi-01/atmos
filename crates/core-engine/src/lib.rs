@@ -1,3 +1,4 @@
+pub mod agent_hooks;
 pub mod app;
 pub mod error;
 pub mod fs;

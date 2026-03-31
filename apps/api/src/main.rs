@@ -70,6 +70,16 @@ fn spawn_non_critical_startup_tasks(agent_service: Arc<AgentService>) {
         infra::utils::system_skill_sync::sync_system_skills_on_startup();
     });
 
+    tokio::task::spawn_blocking(|| {
+        let report = core_engine::agent_hooks::install_all_hooks();
+        tracing::info!(
+            "Agent hooks auto-install: claude_code={}, codex={}, opencode={}",
+            if report.claude_code.installed { "installed" } else { "skipped" },
+            if report.codex.installed { "installed" } else { "skipped" },
+            if report.opencode.installed { "installed" } else { "skipped" },
+        );
+    });
+
     tokio::spawn(async move {
         if let Err(error) = agent_service.refresh_acp_registry_cache().await {
             warn!(

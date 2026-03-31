@@ -18,6 +18,9 @@ pub fn routes() -> Router<AppState> {
         .route("/notification/settings", get(get_notification_settings))
         .route("/notification/settings", put(update_notification_settings))
         .route("/notification/test", post(test_push_notification))
+        .route("/install", post(install_hooks))
+        .route("/uninstall", post(uninstall_hooks))
+        .route("/status", get(hooks_status))
 }
 
 async fn handle_claude_code_hook(
@@ -121,4 +124,19 @@ async fn test_push_notification(
         Ok(()) => Json(serde_json::json!({ "ok": true })),
         Err(e) => Json(serde_json::json!({ "ok": false, "error": e })),
     }
+}
+
+async fn install_hooks() -> Json<Value> {
+    let report = core_engine::agent_hooks::install_all_hooks();
+    Json(serde_json::to_value(report).unwrap_or_default())
+}
+
+async fn uninstall_hooks() -> Json<Value> {
+    let report = core_engine::agent_hooks::uninstall_all_hooks();
+    Json(serde_json::to_value(report).unwrap_or_default())
+}
+
+async fn hooks_status() -> Json<Value> {
+    let report = core_engine::agent_hooks::check_all_hooks();
+    Json(serde_json::to_value(report).unwrap_or_default())
 }
