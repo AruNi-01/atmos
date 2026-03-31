@@ -312,8 +312,10 @@ pub enum WsAction {
     // ===== GitHub 操作 =====
     /// 获取分支关联的所有 PR 列表
     GithubPrList,
-    /// 获取单个 PR 详情
+    /// 获取单个 PR 详情（核心数据，快速返回）
     GithubPrDetail,
+    /// 获取 PR 详情侧边栏数据（review comments, participants, closing issues）
+    GithubPrDetailSidebar,
     /// 创建 PR
     GithubPrCreate,
     /// 合并 PR

@@ -8,7 +8,9 @@ import rehypeRaw from 'rehype-raw';
 import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
-import { Images, ArrowRightLeft } from 'lucide-react';
+import { Images, ArrowRightLeft, FileDiff, Code } from 'lucide-react';
+import { parsePatchFiles } from '@pierre/diffs';
+import { PatchDiff } from '@pierre/diffs/react';
 import { MermaidViewerModal } from './MermaidViewerModal';
 import {
   CodeBlock,
@@ -61,7 +63,7 @@ const LANG_TO_EXT: Record<string, string> = {
 const SUPPORTED_LANGS = new Set([
   'html', 'javascript', 'typescript', 'tsx', 'jsx', 'css', 'json',
   'bash', 'shellscript', 'markdown', 'python', 'rust', 'go', 'java',
-  'yaml', 'toml', 'sql', 'dockerfile', 'c', 'cpp',
+  'yaml', 'toml', 'sql', 'dockerfile', 'c', 'cpp', 'diff', 'plaintext', 'text', 'txt',
 ]);
 
 function normalizeLang(lang: string): string {
@@ -119,6 +121,22 @@ function ShikiCode({
   return (
     <pre className={cn("py-1", !language && "px-1")}>
       <code className="text-[13px] leading-relaxed">{code}</code>
+    </pre>
+  );
+}
+
+function PlainTextWithLineNumbers({ code }: { code: string }) {
+  const lines = code.split('\n');
+
+  return (
+    <pre className="py-3">
+      <code>
+        {lines.map((line, idx) => (
+          <span key={idx} className="line block px-3 py-0.5 text-[13px] leading-relaxed">
+            {line || ' '}
+          </span>
+        ))}
+      </code>
     </pre>
   );
 }
@@ -277,6 +295,36 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   );
 }
 
+function isValidSingleFilePatch(patch: string): boolean {
+  try {
+    const parsed = parsePatchFiles(patch);
+    return parsed.length === 1 && parsed[0].files.length === 1;
+  } catch {
+    return false;
+  }
+}
+
+function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
+  const isValid = React.useMemo(() => isValidSingleFilePatch(code), [code]);
+
+  if (!isValid) {
+    return <PlainTextWithLineNumbers code={code} />;
+  }
+
+  return (
+    <PatchDiff
+      patch={code}
+      options={{
+        theme: isDark ? 'pierre-dark' : 'pierre-light',
+        diffStyle: 'unified',
+        overflow: 'wrap',
+        disableLineNumbers: false,
+        disableFileHeader: true,
+      }}
+    />
+  );
+}
+
 export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
@@ -303,6 +351,12 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return () => observer.disconnect();
   }, [checkOverflow]);
 
+  const normalizedLang = language ? normalizeLang(language) : '';
+  const isDiffLang = normalizedLang === 'diff';
+  const isValidPatch = /^@@\s[+-]/m.test(codeText) && (
+    codeText.includes('--- ') || codeText.includes('diff --git ')
+  );
+
   const isInline = !className && !String(children).includes('\n');
 
   if (isInline) {
@@ -317,13 +371,42 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return <MermaidBlock code={codeText} isDark={!!isDark} />;
   }
 
+  if (isValidPatch) {
+    return (
+      <CodeBlock className="my-4">
+        <CodeBlockHeader>
+          <CodeBlockGroup>
+            <FileDiff className="size-4 shrink-0" />
+            <span className="text-xs uppercase tracking-wider">Diff</span>
+          </CodeBlockGroup>
+          <CodeBlockGroup>
+            <CopyButton content={codeText} />
+          </CodeBlockGroup>
+        </CodeBlockHeader>
+        <CodeBlockContent ref={contentRef} expanded={expanded} className="!px-0">
+          <SafePatchDiff code={codeText} isDark={!!isDark} />
+        </CodeBlockContent>
+      </CodeBlock>
+    );
+  }
+
+  const hasLang = !!language;
+  const usePlainTextWithLineNumbers = !hasLang || !SUPPORTED_LANGS.has(normalizedLang);
+  const shikiLanguage = hasLang ? (normalizedLang || language) : 'plaintext';
+
   return (
     <CodeBlock className="my-4">
       <CodeBlockHeader>
         <CodeBlockGroup>
-          <CodeBlockIcon language={LANG_TO_EXT[normalizeLang(language)] || language || 'txt'} />
+          {isDiffLang ? (
+            <FileDiff className="size-4 shrink-0" />
+          ) : hasLang ? (
+            <CodeBlockIcon language={LANG_TO_EXT[normalizedLang] || language || 'txt'} />
+          ) : (
+            <Code className="size-4 shrink-0" />
+          )}
           <span className="text-xs uppercase tracking-wider">
-            {language || 'Code Block'}
+            {isDiffLang ? 'Diff' : (language || 'Code Block')}
           </span>
         </CodeBlockGroup>
         <CodeBlockGroup>
@@ -339,9 +422,12 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
       <CodeBlockContent
         ref={contentRef}
         expanded={expanded}
-        className={!language ? "px-1" : undefined}
       >
-        <ShikiCode code={codeText} language={language} />
+        {usePlainTextWithLineNumbers ? (
+          <PlainTextWithLineNumbers code={codeText} />
+        ) : (
+          <ShikiCode code={codeText} language={shikiLanguage} />
+        )}
       </CodeBlockContent>
     </CodeBlock>
   );

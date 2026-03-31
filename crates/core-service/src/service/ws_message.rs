@@ -546,6 +546,10 @@ impl WsMessageService {
                 self.handle_github_pr_detail(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubPrDetailSidebar => {
+                self.handle_github_pr_detail_sidebar(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubPrCreate => {
                 self.handle_github_pr_create(parse_request(request.data)?)
                     .await
@@ -2867,14 +2871,13 @@ set -x
     async fn handle_github_pr_detail(&self, req: GithubPrDetailRequest) -> Result<Value> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels"];
+        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels,reviewRequests,closingIssuesReferences"];
         let mut output = self
             .github_engine
             .run_gh(&args)
             .await
             .map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
 
-        // Fetch timeline for activities
         let timeline_endpoint = format!(
             "repos/{}/{}/issues/{}/timeline?per_page=100",
             req.owner, req.repo, req.pr_number
@@ -2889,6 +2892,104 @@ set -x
         }
 
         Ok(output)
+    }
+
+    async fn handle_github_pr_detail_sidebar(&self, req: GithubPrDetailRequest) -> Result<Value> {
+        let review_comments_endpoint = format!(
+            "repos/{}/{}/pulls/{}/comments?per_page=100",
+            req.owner, req.repo, req.pr_number
+        );
+        let graphql_query = format!(
+            r#"query {{ repository(owner: "{}", name: "{}") {{ pullRequest(number: {}) {{ participants(first: 50) {{ nodes {{ login avatarUrl }} }} }} }} }}"#,
+            req.owner, req.repo, req.pr_number
+        );
+        let graphql_query_arg = format!("query={}", graphql_query);
+
+        // Run all three fetches concurrently
+        let (review_comments_result, participants_result, closing_issues_result) = tokio::join!(
+            async {
+                let args = vec!["api", &review_comments_endpoint];
+                self.github_engine.run_gh(&args).await.ok()
+            },
+            async {
+                let args = vec!["api", "graphql", "-f", &graphql_query_arg];
+                self.github_engine.run_gh(&args).await.ok()
+            },
+            async {
+                self.fetch_enriched_closing_issues(&req).await
+            }
+        );
+
+        let mut result = json!({});
+        let obj = result.as_object_mut().unwrap();
+
+        if let Some(rc) = review_comments_result {
+            obj.insert("review_comments".to_string(), rc);
+        }
+
+        if let Some(gql) = participants_result {
+            if let Some(nodes) = gql
+                .pointer("/data/repository/pullRequest/participants/nodes")
+                .and_then(|v| v.as_array())
+            {
+                let participants: Vec<Value> = nodes
+                    .iter()
+                    .filter_map(|n| {
+                        let login = n.get("login")?.as_str()?;
+                        let avatar = n.get("avatarUrl").and_then(|a| a.as_str()).unwrap_or("");
+                        Some(json!({ "login": login, "avatar_url": avatar }))
+                    })
+                    .collect();
+                obj.insert("participants".to_string(), json!(participants));
+            }
+        }
+
+        if let Some(issues) = closing_issues_result {
+            obj.insert("closingIssuesReferences".to_string(), json!(issues));
+        }
+
+        Ok(result)
+    }
+
+    async fn fetch_enriched_closing_issues(&self, req: &GithubPrDetailRequest) -> Option<Vec<Value>> {
+        let pr_num_str = req.pr_number.to_string();
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "closingIssuesReferences"];
+        let output = self.github_engine.run_gh(&args).await.ok()?;
+        let issues = output.get("closingIssuesReferences")?.as_array()?.clone();
+        if issues.is_empty() {
+            return Some(issues);
+        }
+
+        let mut enriched = Vec::new();
+        for issue in &issues {
+            let number = issue.get("number").and_then(|n| n.as_u64()).unwrap_or(0);
+            let issue_owner = issue
+                .pointer("/repository/owner/login")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&req.owner);
+            let issue_repo = issue
+                .pointer("/repository/name")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&req.repo);
+            let endpoint = format!("repos/{}/{}/issues/{}", issue_owner, issue_repo, number);
+            let api_args = vec!["api", &endpoint];
+            if let Ok(issue_data) = self.github_engine.run_gh(&api_args).await {
+                let mut merged = issue.clone();
+                if let Some(obj) = merged.as_object_mut() {
+                    if let Some(title) = issue_data.get("title") {
+                        obj.insert("title".to_string(), title.clone());
+                    }
+                    if let Some(state) = issue_data.get("state") {
+                        obj.insert("state".to_string(), state.clone());
+                    }
+                }
+                enriched.push(merged);
+            } else {
+                enriched.push(issue.clone());
+            }
+        }
+        Some(enriched)
     }
 
     async fn handle_github_pr_create(&self, req: GithubPrCreateRequest) -> Result<Value> {
