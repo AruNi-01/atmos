@@ -713,6 +713,21 @@ impl TerminalService {
             )));
         }
 
+        // Browser refreshes or hot reloads can race with WebSocket teardown and
+        // leave the previous PTY client alive for the same tmux window. Before
+        // we attach a replacement client, proactively evict any older session
+        // handles targeting this exact window so grouped tmux clients do not
+        // accumulate indefinitely.
+        let replaced = self
+            .evict_conflicting_tmux_window_sessions(&session_id, &tmux_session, final_window_index)
+            .await;
+        if replaced > 0 {
+            info!(
+                "Replaced {} stale terminal session(s) for tmux window {}:{}",
+                replaced, tmux_session, final_window_index
+            );
+        }
+
         // Capture recent history before attaching (match tmux history-limit)
         let history = self
             .tmux_engine
@@ -742,6 +757,38 @@ impl TerminalService {
             .await?;
 
         Ok((rx, history))
+    }
+
+    async fn evict_conflicting_tmux_window_sessions(
+        &self,
+        session_id: &str,
+        tmux_session: &str,
+        window_index: u32,
+    ) -> usize {
+        let socket_path = std::path::PathBuf::from(self.tmux_engine.socket_file_path());
+        let mut sessions = self.sessions.lock().await;
+        let conflicting_ids: Vec<String> = sessions
+            .iter()
+            .filter(|(existing_id, handle)| {
+                existing_id.as_str() != session_id
+                    && handle.tmux_session.as_deref() == Some(tmux_session)
+                    && handle.tmux_window_index == Some(window_index)
+            })
+            .map(|(existing_id, _)| existing_id.clone())
+            .collect();
+
+        let mut evicted = 0;
+        for conflicting_id in conflicting_ids {
+            if let Some(handle) = sessions.remove(&conflicting_id) {
+                let _ = handle.command_tx.send(SessionCommand::Close {
+                    client_session: handle.client_session.clone(),
+                    socket_path: Some(socket_path.clone()),
+                });
+                evicted += 1;
+            }
+        }
+
+        evicted
     }
 
     /// Internal: Attach PTY to a tmux window
@@ -1802,5 +1849,46 @@ mod tests {
         let service = TerminalService::new();
         let available = service.is_tmux_available();
         println!("tmux available: {}", available);
+    }
+
+    #[tokio::test]
+    async fn evict_conflicting_tmux_window_sessions_closes_previous_handle() {
+        let service = TerminalService::new();
+        let (command_tx, mut command_rx) = mpsc::unbounded_channel();
+
+        service.sessions.lock().await.insert(
+            "old-session".to_string(),
+            SessionHandle {
+                command_tx,
+                workspace_id: "workspace-1".to_string(),
+                tmux_session: Some("tmux-workspace".to_string()),
+                tmux_window_index: Some(3),
+                client_session: Some("atmos_client_old_session".to_string()),
+                session_type: SessionType::Tmux,
+                project_name: None,
+                workspace_name: None,
+                terminal_name: Some("3".to_string()),
+                cwd: None,
+                created_at: Instant::now(),
+            },
+        );
+
+        let evicted = service
+            .evict_conflicting_tmux_window_sessions("new-session", "tmux-workspace", 3)
+            .await;
+
+        assert_eq!(evicted, 1);
+        assert!(!service.session_exists("old-session").await);
+
+        match command_rx.recv().await {
+            Some(SessionCommand::Close {
+                client_session,
+                socket_path,
+            }) => {
+                assert_eq!(client_session.as_deref(), Some("atmos_client_old_session"));
+                assert!(socket_path.is_some());
+            }
+            other => panic!("expected close command, got {:?}", other),
+        }
     }
 }
