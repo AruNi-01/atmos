@@ -8,7 +8,8 @@ import rehypeRaw from 'rehype-raw';
 import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
-import { Images, ArrowRightLeft } from 'lucide-react';
+import { Images, ArrowRightLeft, FileDiff, Code } from 'lucide-react';
+import { PatchDiff } from '@pierre/diffs/react';
 import { MermaidViewerModal } from './MermaidViewerModal';
 import {
   CodeBlock,
@@ -317,11 +318,53 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return <MermaidBlock code={codeText} isDark={!!isDark} />;
   }
 
+  const isDiff = language === 'diff' || (
+    !language && (
+      codeText.trimStart().startsWith('--- ') ||
+      codeText.trimStart().startsWith('diff --git ') ||
+      /^@@ /.test(codeText.trimStart())
+    )
+  );
+
+  if (isDiff) {
+    return (
+      <CodeBlock className="my-4">
+        <CodeBlockHeader>
+          <CodeBlockGroup>
+            <FileDiff className="size-4" />
+            <span className="text-xs uppercase tracking-wider">Diff</span>
+          </CodeBlockGroup>
+          <CodeBlockGroup>
+            <CopyButton content={codeText} />
+          </CodeBlockGroup>
+        </CodeBlockHeader>
+        <CodeBlockContent ref={contentRef} expanded={expanded} className="!px-0">
+          <PatchDiff
+            patch={codeText}
+            options={{
+              theme: isDark ? 'pierre-dark' : 'pierre-light',
+              diffStyle: 'unified',
+              overflow: 'wrap',
+              disableLineNumbers: false,
+              disableFileHeader: true,
+            }}
+          />
+        </CodeBlockContent>
+      </CodeBlock>
+    );
+  }
+
+  const hasLang = !!language;
+
   return (
     <CodeBlock className="my-4">
       <CodeBlockHeader>
         <CodeBlockGroup>
-          <CodeBlockIcon language={LANG_TO_EXT[normalizeLang(language)] || language || 'txt'} />
+          {hasLang ? (
+            <CodeBlockIcon language={LANG_TO_EXT[normalizeLang(language)] || language || 'txt'} />
+          ) : (
+            <Code className="size-4" />
+          )}
           <span className="text-xs uppercase tracking-wider">
             {language || 'Code Block'}
           </span>
@@ -339,7 +382,6 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
       <CodeBlockContent
         ref={contentRef}
         expanded={expanded}
-        className={!language ? "px-1" : undefined}
       >
         <ShikiCode code={codeText} language={language} />
       </CodeBlockContent>

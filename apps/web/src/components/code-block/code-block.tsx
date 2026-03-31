@@ -94,7 +94,7 @@ const CodeBlockContent = forwardRef<HTMLDivElement, CodeBlockContentProps>(
         ref={ref}
         className={cn(
           expanded ? "overflow-y-auto" : "max-h-96 overflow-y-auto",
-          "bg-background",
+          "bg-background px-3",
           "rounded-lg font-mono text-sm leading-5 whitespace-pre",
           className,
         )}
