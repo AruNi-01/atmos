@@ -62,7 +62,7 @@ const LANG_TO_EXT: Record<string, string> = {
 const SUPPORTED_LANGS = new Set([
   'html', 'javascript', 'typescript', 'tsx', 'jsx', 'css', 'json',
   'bash', 'shellscript', 'markdown', 'python', 'rust', 'go', 'java',
-  'yaml', 'toml', 'sql', 'dockerfile', 'c', 'cpp',
+  'yaml', 'toml', 'sql', 'dockerfile', 'c', 'cpp', 'diff',
 ]);
 
 function normalizeLang(lang: string): string {
@@ -278,6 +278,53 @@ function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
   );
 }
 
+function SafePatchDiff({ code, isDark }: { code: string; isDark: boolean }) {
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return (
+      <pre className="px-3 py-1">
+        <code className="text-[13px] leading-relaxed">{code}</code>
+      </pre>
+    );
+  }
+
+  return (
+    <ErrorBoundaryWrapper onError={() => setError(true)}>
+      <PatchDiff
+        patch={code}
+        options={{
+          theme: isDark ? 'pierre-dark' : 'pierre-light',
+          diffStyle: 'unified',
+          overflow: 'wrap',
+          disableLineNumbers: false,
+          disableFileHeader: true,
+        }}
+      />
+    </ErrorBoundaryWrapper>
+  );
+}
+
+class ErrorBoundaryWrapper extends React.Component<
+  { children: React.ReactNode; onError: () => void },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; onError: () => void }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch() {
+    this.props.onError();
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
 export function MarkdownCodeBlock({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
@@ -318,15 +365,11 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
     return <MermaidBlock code={codeText} isDark={!!isDark} />;
   }
 
-  const isDiff = language === 'diff' || (
-    !language && (
-      codeText.trimStart().startsWith('--- ') ||
-      codeText.trimStart().startsWith('diff --git ') ||
-      /^@@ /.test(codeText.trimStart())
-    )
+  const isValidPatch = /^@@\s[+-]/m.test(codeText) && (
+    codeText.includes('--- ') || codeText.includes('diff --git ')
   );
 
-  if (isDiff) {
+  if (isValidPatch) {
     return (
       <CodeBlock className="my-4">
         <CodeBlockHeader>
@@ -339,34 +382,29 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
           </CodeBlockGroup>
         </CodeBlockHeader>
         <CodeBlockContent ref={contentRef} expanded={expanded} className="!px-0">
-          <PatchDiff
-            patch={codeText}
-            options={{
-              theme: isDark ? 'pierre-dark' : 'pierre-light',
-              diffStyle: 'unified',
-              overflow: 'wrap',
-              disableLineNumbers: false,
-              disableFileHeader: true,
-            }}
-          />
+          <SafePatchDiff code={codeText} isDark={!!isDark} />
         </CodeBlockContent>
       </CodeBlock>
     );
   }
 
   const hasLang = !!language;
+  const normalizedLang = language ? normalizeLang(language) : '';
+  const isDiffLang = normalizedLang === 'diff';
 
   return (
     <CodeBlock className="my-4">
       <CodeBlockHeader>
         <CodeBlockGroup>
-          {hasLang ? (
-            <CodeBlockIcon language={LANG_TO_EXT[normalizeLang(language)] || language || 'txt'} />
+          {isDiffLang ? (
+            <FileDiff className="size-4" />
+          ) : hasLang ? (
+            <CodeBlockIcon language={LANG_TO_EXT[normalizedLang] || language || 'txt'} />
           ) : (
             <Code className="size-4" />
           )}
           <span className="text-xs uppercase tracking-wider">
-            {language || 'Code Block'}
+            {isDiffLang ? 'Diff' : (language || 'Code Block')}
           </span>
         </CodeBlockGroup>
         <CodeBlockGroup>
