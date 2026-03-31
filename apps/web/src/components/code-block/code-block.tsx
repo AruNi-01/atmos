@@ -72,7 +72,7 @@ const CodeBlockGroup = ({
   return (
     <div
       className={cn(
-        "flex items-center space-x-2",
+        "flex items-center gap-2",
         "text-sm text-neutral-600 dark:text-neutral-400",
         className,
       )}

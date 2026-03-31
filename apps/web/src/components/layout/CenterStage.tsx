@@ -856,8 +856,9 @@ const CenterStage: React.FC = () => {
               modal={false}
             >
               <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   className={cn(
                     "absolute top-1/2 -translate-y-1/2 size-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all",
                     activeValue === FIXED_TERMINAL_TAB_VALUE
@@ -871,7 +872,7 @@ const CenterStage: React.FC = () => {
                   onMouseLeave={handleAgentDropdownLeave}
                 >
                   <Plus className="size-4" />
-                </button>
+                </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
@@ -970,8 +971,9 @@ const CenterStage: React.FC = () => {
                       modal={false}
                     >
                       <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
+                        <div
+                          role="button"
+                          tabIndex={0}
                           className={cn(
                             "absolute left-3 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-all hover:bg-muted-foreground/20 hover:text-foreground",
                             agentDropdownTabId === tab.id
@@ -985,7 +987,7 @@ const CenterStage: React.FC = () => {
                           onMouseLeave={handleAgentDropdownLeave}
                         >
                           <Plus className="size-4" />
-                        </button>
+                        </div>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="start"

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Dialog,
@@ -27,9 +27,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@workspace/ui';
-import { useGithubPRDetail } from '@/hooks/use-github';
+import { MultiFileDiff } from '@pierre/diffs/react';
+import type { FileContents } from '@pierre/diffs';
+import { useTheme } from 'next-themes';
+import { useGithubPRDetail, useGithubPRDetailSidebar } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2 } from 'lucide-react';
+import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2, FileCode, Users, CircleDot, Code } from 'lucide-react';
+import { getFileIconProps } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -70,9 +74,59 @@ interface TimelineItem {
   createdAt?: string;
 }
 
+interface ReviewComment {
+  id?: number;
+  body?: string;
+  path?: string;
+  line?: number | null;
+  original_line?: number | null;
+  side?: string;
+  diff_hunk?: string;
+  user?: { login?: string; avatar_url?: string; is_bot?: boolean };
+  created_at?: string;
+  updated_at?: string;
+  in_reply_to_id?: number;
+  pull_request_review_id?: number;
+  html_url?: string;
+}
+
+interface ReviewCommentThread {
+  path: string;
+  line: number | null;
+  diffHunk: string;
+  comments: ReviewComment[];
+}
+
+interface Reviewer {
+  login: string;
+  avatar_url?: string;
+  state?: string;
+}
+
+interface Label {
+  name: string;
+  color?: string;
+  description?: string;
+}
+
+interface Assignee {
+  login: string;
+  avatar_url?: string;
+  avatarUrl?: string;
+}
+
+interface ClosingIssue {
+  number: number;
+  title: string;
+  url: string;
+  state?: string;
+  body?: string;
+}
+
 interface ConversationItem extends TimelineItem {
   type: string;
   createdAt: string;
+  reviewCommentThreads?: ReviewCommentThread[];
 }
 
 interface PRDetailModalProps {
@@ -194,8 +248,157 @@ function PRDetailSkeleton() {
   );
 }
 
+function buildDiffFiles(path: string, diffHunk: string): { oldFile: FileContents; newFile: FileContents } | null {
+  const lines = diffHunk.split('\n');
+  const oldLines: string[] = [];
+  const newLines: string[] = [];
+
+  for (const line of lines) {
+    if (!line || line.startsWith('@@')) continue;
+    if (line.startsWith('-')) {
+      oldLines.push(line.slice(1));
+      continue;
+    }
+    if (line.startsWith('+')) {
+      newLines.push(line.slice(1));
+      continue;
+    }
+    if (line.startsWith(' ')) {
+      const content = line.slice(1);
+      oldLines.push(content);
+      newLines.push(content);
+      continue;
+    }
+  }
+
+  if (oldLines.length === 0 && newLines.length === 0) {
+    return null;
+  }
+
+  return {
+    oldFile: { name: path.split('/').pop() || path, contents: oldLines.join('\n') },
+    newFile: { name: path.split('/').pop() || path, contents: newLines.join('\n') },
+  };
+}
+
+function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
+  path: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  options: any;
+  isMounted: boolean;
+  diffHunk: string;
+}) {
+  const diffFiles = useMemo(() => buildDiffFiles(path, diffHunk), [path, diffHunk]);
+
+  if (!isMounted || !diffFiles) {
+    return (
+      <div className="max-h-[180px] overflow-auto border-b border-border/30">
+        <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
+          {diffHunk}
+        </pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-h-[180px] overflow-auto border-b border-border/30">
+      <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
+    </div>
+  );
+}
+
+function SidebarSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider">
+        {icon}
+        <span>{title}</span>
+      </div>
+      <div className="flex flex-col gap-1">{children}</div>
+    </div>
+  );
+}
+
+function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
+  const [isExpanded, setIsExpanded] = React.useState(true);
+  const { resolvedTheme } = useTheme();
+  const isMounted = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  const diffPatch = useMemo(() => {
+    if (!thread.diffHunk) return null;
+    return `--- a/${thread.path}\n+++ b/${thread.path}\n${thread.diffHunk}`;
+  }, [thread.diffHunk, thread.path]);
+
+  const diffOptions = useMemo(() => ({
+    theme: (resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
+    diffStyle: 'unified' as const,
+    overflow: 'wrap' as const,
+    disableLineNumbers: false,
+    disableFileHeader: true,
+  }), [resolvedTheme]);
+
+  return (
+    <div className="ml-12 mt-2 border border-border/60 rounded-lg overflow-hidden bg-muted/10 shadow-sm">
+      <button
+        className="flex items-center gap-2 px-3 py-2 w-full text-left bg-muted/30 hover:bg-muted/50 transition-colors border-b border-border/40"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <img {...getFileIconProps({ name: thread.path.split('/').pop() || thread.path, isDir: false })} className="size-4 shrink-0" />
+        <span className="text-[12px] font-mono text-foreground/80 truncate">{thread.path}</span>
+        {thread.line && (
+          <span className="text-[10px] text-muted-foreground shrink-0">line {thread.line}</span>
+        )}
+        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">{thread.comments.length} comment{thread.comments.length > 1 ? 's' : ''}</span>
+        <ChevronRight className={cn("size-3 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            {diffPatch && (
+                  <SafePatchDiffBlock path={thread.path} options={diffOptions} isMounted={isMounted} diffHunk={thread.diffHunk} />
+            )}
+            <div className="flex flex-col divide-y divide-border/30">
+              {thread.comments.map((comment, idx) => (
+                <div key={comment.id || idx} className="px-3 py-2">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Avatar className="size-4 border border-border/50">
+                      <AvatarImage src={comment.user?.avatar_url || `https://github.com/${comment.user?.login?.replace('[bot]', '')}.png?size=32`} />
+                      <AvatarFallback className="text-[6px]">{comment.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[11px] font-semibold text-foreground/90">{comment.user?.login}</span>
+                    {comment.created_at && (
+                      <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                      </span>
+                    )}
+                  </div>
+                  <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed">
+                    {comment.body || ''}
+                  </MarkdownRenderer>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo);
+  const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo);
   const send = useWebSocketStore(s => s.send);
   const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -203,26 +406,56 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [commentTab, setCommentTab] = React.useState<'write' | 'preview'>('write');
   const [mergeStrategy, setMergeStrategy] = React.useState<'merge' | 'squash' | 'rebase'>('merge');
 
+  const reviewComments = sidebarData?.review_comments;
+  const reviewCommentThreadsByReviewId = React.useMemo(() => {
+    if (!reviewComments || !Array.isArray(reviewComments)) return new Map<number, ReviewCommentThread[]>();
+
+    const threadMap = new Map<number, ReviewComment[]>();
+    for (const comment of reviewComments as ReviewComment[]) {
+      const rootId = comment.in_reply_to_id || comment.id || 0;
+      if (!threadMap.has(rootId)) threadMap.set(rootId, []);
+      threadMap.get(rootId)!.push(comment);
+    }
+
+    const reviewGroups = new Map<number, ReviewCommentThread[]>();
+    for (const [, comments] of threadMap) {
+      comments.sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
+      const first = comments[0];
+      const reviewId = first?.pull_request_review_id || 0;
+      const thread: ReviewCommentThread = {
+        path: first?.path || '',
+        line: first?.line ?? first?.original_line ?? null,
+        diffHunk: first?.diff_hunk || '',
+        comments,
+      };
+      if (!reviewGroups.has(reviewId)) reviewGroups.set(reviewId, []);
+      reviewGroups.get(reviewId)!.push(thread);
+    }
+
+    return reviewGroups;
+  }, [reviewComments]);
+
   const conversation = React.useMemo(() => {
     if (!pr) return [];
 
-    // If backend provided timeline, use it to build a rich history
     if (pr.timeline && Array.isArray(pr.timeline)) {
       return pr.timeline
         .map((item: TimelineItem) => {
           let author = item.actor || item.author || (item.user);
-          // For commits in timeline
           if (item.event === 'committed') {
-            author = { login: 'AruNi-01' }; // Fallback or extract from commit info if possible
+            author = { login: 'AruNi-01' };
           }
+
+          const reviewId = (item as Record<string, unknown>).id as number | undefined;
+          const threads = (item.event === 'reviewed' && reviewId) ? reviewCommentThreadsByReviewId.get(reviewId) : undefined;
 
           return {
             ...item,
             type: item.event === 'commented' ? 'comment' : (item.event === 'committed' ? 'commit' : (item.event === 'reviewed' ? 'review' : 'activity')),
             author: author,
             createdAt: item.created_at || item.author?.date || item.submitted_at || item.authoredDate || pr.createdAt,
-            // Normalize body - handle different GitHub API field names
-            body: item.body || item.message || item.messageHeadline || ''
+            body: item.body || item.message || item.messageHeadline || '',
+            reviewCommentThreads: threads,
           };
         })
         .sort((a: ConversationItem, b: ConversationItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -236,7 +469,14 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     }
     if (pr.reviews) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      items.push(...pr.reviews.map((r: any) => ({ ...r, type: 'review' })));
+      items.push(...pr.reviews.map((r: any) => {
+        const reviewId = r.id as number | undefined;
+        return {
+          ...r,
+          type: 'review',
+          reviewCommentThreads: reviewId ? reviewCommentThreadsByReviewId.get(reviewId) : undefined,
+        };
+      }));
     }
     if (pr.commits) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -249,7 +489,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       })));
     }
     return items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [pr]);
+  }, [pr, reviewCommentThreadsByReviewId]);
 
   React.useEffect(() => {
     // If we want to fetch details immediately when opening: handled by hook due to dependency
@@ -362,7 +602,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
         showCloseButton={false}
         className={cn(
           "transition-all duration-200 flex flex-col gap-0 overflow-hidden",
-          isFullscreen ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen px-6 pb-6 pt-0 m-0 border-none rounded-none" : "max-w-5xl sm:max-w-5xl w-full max-h-[90vh] px-6 pb-6 pt-0"
+          isFullscreen ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen px-6 pb-6 pt-0 m-0 border-none rounded-none" : "max-w-6xl sm:max-w-6xl w-full max-h-[90vh] px-6 pb-6 pt-0"
         )}
       >
         <div className="flex-1 overflow-y-auto min-h-[600px] pr-4 -mr-4 pb-16 relative no-scrollbar">
@@ -400,7 +640,9 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
               <PRDetailSkeleton />
             </div>
           ) : pr ? (
-            <div className="flex flex-col text-sm relative">
+            <div className="flex gap-6 text-sm relative">
+            {/* Main content column */}
+            <div className="flex-1 min-w-0 flex flex-col">
               <div className="shrink-0 pb-4 pt-1 border-b border-border/50 sticky top-0 z-30 bg-background/98 backdrop-blur-md">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-semibold text-foreground">{pr.title}</h3>
@@ -440,7 +682,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
               <div className="pt-4 flex flex-col gap-4">
                 {pr.body && (
-                  <div className="bg-sidebar-accent/30 p-4 rounded-md border border-sidebar-border shadow-inner text-[13px] shrink-0">
+                  <div className="p-4 rounded-md border border-border/50 text-[13px] shrink-0">
                     <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
                       {pr.body}
                     </MarkdownRenderer>
@@ -449,60 +691,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
                 {/* PR Status Section */}
                 <div className="flex flex-col gap-3 py-2">
-                  {pr.statusCheckRollup?.length > 0 && (
-                    <div className={cn(
-                      "flex flex-col border rounded-xl transition-all shadow-sm overflow-hidden",
-                      pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                        ? "border-emerald-500/20"
-                        : "border-amber-500/20"
-                    )}>
-                      <div className={cn(
-                        "flex items-start gap-4 p-4",
-                        pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                          ? "bg-emerald-500/5"
-                          : "bg-amber-500/5"
-                      )}>
-                        <div className={cn(
-                          "mt-0.5 rounded-full p-1.5 shadow-sm",
-                          pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                            ? "bg-emerald-500 text-white"
-                            : "bg-amber-500 text-white"
-                        )}>
-                          {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                            ? <CheckCircle2 className="size-4" />
-                            : <AlertCircle className="size-4" />}
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-sm font-bold flex items-center justify-between text-foreground">
-                            {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                              ? 'All checks have passed'
-                              : 'Some checks are still running or failed'}
-                          </h5>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            {pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} successful checks
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col border-t border-border/40 bg-background">
-                        {(() => {
-                          const groups: Record<string, StatusCheck[]> = {};
-                          pr.statusCheckRollup.forEach((c: StatusCheck) => {
-                            let g = c.workflowName;
-                            if (!g) {
-                              g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
-                            }
-                            if (!groups[g]) groups[g] = [];
-                            groups[g].push(c);
-                          });
-                          return Object.entries(groups).map(([groupName, checks]) => (
-                            <CheckGroupItem key={groupName} groupName={groupName} checks={checks} />
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  )}
-
                   {pr.state === 'OPEN' && (
                     <div className={cn(
                       "flex items-start gap-4 p-4 border rounded-xl transition-all shadow-sm",
@@ -573,37 +761,59 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     <TooltipProvider delayDuration={300}>
                       <div className="flex flex-col gap-6 relative z-10">
                         {conversation.map((item: ConversationItem, i: number) => {
-                          const isMainComment = item.type === 'comment' || (item.type === 'review' && item.body);
+                          const hasReviewThreads = item.reviewCommentThreads && item.reviewCommentThreads.length > 0;
+                          const isMainComment = item.type === 'comment' || (item.type === 'review' && (item.body || hasReviewThreads));
                           const isBot = item.author?.is_bot || item.author?.login === 'cursor' || item.author?.login === 'vercel' || item.author?.login?.endsWith('[bot]');
 
                           if (isMainComment) {
                             return (
-                              <div key={i} className="flex gap-4 items-start group">
-                                <div className="relative z-10">
-                                  <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
-                                    <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
-                                    <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                  </Avatar>
-                                </div>
-                                <div className="flex-1 min-w-0 flex flex-col border border-border/60 rounded-xl overflow-hidden bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
-                                  <div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border-b border-border/40 text-xs text-muted-foreground">
-                                    <span className="font-bold text-foreground">{item.author?.login}</span>
-                                    {isBot && (
-                                      <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                                        bot
+                              <div key={i} className="flex flex-col">
+                                <div className="flex gap-4 items-start group">
+                                  <div className="relative z-10">
+                                    <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
+                                      <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
+                                      <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                  </div>
+                                  <div className="flex-1 min-w-0 flex flex-col border border-border/60 rounded-xl overflow-hidden bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
+                                    <div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border-b border-border/40 text-xs text-muted-foreground">
+                                      <span className="font-bold text-foreground">{item.author?.login}</span>
+                                      {isBot && (
+                                        <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
+                                          bot
+                                        </span>
+                                      )}
+                                      <span className="opacity-80">
+                                        {item.type === 'review' ? (item.state === 'APPROVED' ? 'approved' : 'reviewed') : 'commented'}
                                       </span>
+                                      {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
+                                        <span className="flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-px rounded text-[10px] font-medium">
+                                          <FileCode className="size-3" />
+                                          {item.reviewCommentThreads.length} file{item.reviewCommentThreads.length > 1 ? 's' : ''}
+                                        </span>
+                                      )}
+                                      <span className="opacity-60 ml-auto">{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}</span>
+                                    </div>
+                                    {item.body ? (
+                                      <div className="p-4 bg-background">
+                                        <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
+                                          {item.body}
+                                        </MarkdownRenderer>
+                                      </div>
+                                    ) : hasReviewThreads ? null : (
+                                      <div className="p-4 bg-background">
+                                        <span className="text-muted-foreground/60 italic text-[12px]">No comment body</span>
+                                      </div>
                                     )}
-                                    <span className="opacity-80">
-                                      {item.type === 'review' ? (item.state === 'APPROVED' ? 'approved' : 'reviewed') : 'commented'}
-                                    </span>
-                                    <span className="opacity-60 ml-auto">{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}</span>
-                                  </div>
-                                  <div className="p-4 bg-background">
-                                    <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
-                                      {item.body || ''}
-                                    </MarkdownRenderer>
                                   </div>
                                 </div>
+                                {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
+                                  <div className="flex flex-col gap-2 mt-1">
+                                    {item.reviewCommentThreads.map((thread: ReviewCommentThread, threadIdx: number) => (
+                                      <ReviewCommentThreadView key={threadIdx} thread={thread} />
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             );
                           }
@@ -809,6 +1019,14 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                   </span>
                                 </div>
                               )}
+
+                              {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
+                                <div className="flex flex-col gap-2 mt-1">
+                                  {item.reviewCommentThreads.map((thread: ReviewCommentThread, threadIdx: number) => (
+                                    <ReviewCommentThreadView key={threadIdx} thread={thread} />
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -907,6 +1125,226 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Right sidebar - PR metadata (independently scrollable) */}
+            <TooltipProvider delayDuration={300}>
+            <div className={cn(
+              "shrink-0 hidden lg:flex flex-col sticky top-0 self-start overflow-y-auto no-scrollbar",
+              isFullscreen ? "w-[300px] max-h-[calc(100vh-120px)]" : "w-[240px] max-h-[calc(90vh-120px)]"
+            )}>
+              <div className="flex flex-col gap-5 text-xs pl-5 pt-1 pb-4">
+
+              {/* Status Checks */}
+              {pr.statusCheckRollup?.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider">
+                    {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                      ? <CheckCircle2 className="size-3.5 text-emerald-500" />
+                      : <AlertCircle className="size-3.5 text-amber-500" />}
+                    <span>Checks</span>
+                    <span className="ml-auto font-normal normal-case tracking-normal text-[10px]">
+                      {pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length}/{pr.statusCheckRollup.length}
+                    </span>
+                  </div>
+                  <div className="flex flex-col border rounded-lg overflow-hidden border-border/50">
+                    {(() => {
+                      const groups: Record<string, StatusCheck[]> = {};
+                      pr.statusCheckRollup.forEach((c: StatusCheck) => {
+                        let g = c.workflowName;
+                        if (!g) {
+                          g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
+                        }
+                        if (!groups[g]) groups[g] = [];
+                        groups[g].push(c);
+                      });
+                      return Object.entries(groups).map(([groupName, checks]) => (
+                        <CheckGroupItem key={groupName} groupName={groupName} checks={checks} />
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Reviewers */}
+              <SidebarSection title="Reviewers" icon={<Eye className="size-3.5" />}>
+                {(() => {
+                  const reviewers: Reviewer[] = [];
+                  const seen = new Map<string, number>();
+
+                  if (pr.reviews && Array.isArray(pr.reviews)) {
+                    for (const review of pr.reviews as { author?: { login?: string; avatarUrl?: string; avatar_url?: string }; state?: string }[]) {
+                      const login = review.author?.login;
+                      if (!login) continue;
+                      const existingIdx = seen.get(login);
+                      if (existingIdx !== undefined) {
+                        reviewers[existingIdx] = {
+                          login,
+                          avatar_url: review.author?.avatarUrl || review.author?.avatar_url,
+                          state: review.state,
+                        };
+                      } else {
+                        seen.set(login, reviewers.length);
+                        reviewers.push({
+                          login,
+                          avatar_url: review.author?.avatarUrl || review.author?.avatar_url,
+                          state: review.state,
+                        });
+                      }
+                    }
+                  }
+
+                  if (pr.reviewRequests && Array.isArray(pr.reviewRequests)) {
+                    for (const req of pr.reviewRequests as { login?: string; name?: string; avatarUrl?: string; avatar_url?: string }[]) {
+                      const login = req.login || req.name;
+                      if (login && !seen.has(login)) {
+                        seen.set(login, reviewers.length);
+                        reviewers.push({
+                          login,
+                          avatar_url: req.avatarUrl || req.avatar_url,
+                          state: 'PENDING',
+                        });
+                      }
+                    }
+                  }
+
+                  if (reviewers.length === 0) {
+                    return <span className="text-muted-foreground/60 italic">No reviewers</span>;
+                  }
+
+                  return reviewers.map((r) => (
+                    <div key={r.login} className="flex items-center gap-2 py-0.5">
+                      <Avatar className="size-5 border border-border/50">
+                        <AvatarImage src={r.avatar_url || `https://github.com/${r.login.replace('[bot]', '')}.png?size=32`} />
+                        <AvatarFallback className="text-[7px]">{r.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-foreground/90 truncate flex-1">{r.login}</span>
+                      {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
+                      {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
+                      {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
+                      {r.state === 'PENDING' && <Eye className="size-3.5 text-amber-500 shrink-0" />}
+                    </div>
+                  ));
+                })()}
+              </SidebarSection>
+
+              {/* Assignees */}
+              <SidebarSection title="Assignees" icon={<User className="size-3.5" />}>
+                {pr.assignees && Array.isArray(pr.assignees) && pr.assignees.length > 0 ? (
+                  (pr.assignees as Assignee[]).map((a) => (
+                    <div key={a.login} className="flex items-center gap-2 py-0.5">
+                      <Avatar className="size-5 border border-border/50">
+                        <AvatarImage src={a.avatar_url || a.avatarUrl || `https://github.com/${a.login.replace('[bot]', '')}.png?size=32`} />
+                        <AvatarFallback className="text-[7px]">{a.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-foreground/90 truncate">{a.login}</span>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground/60 italic">No assignees</span>
+                )}
+              </SidebarSection>
+
+              {/* Labels */}
+              <SidebarSection title="Labels" icon={<Tag className="size-3.5" />}>
+                {pr.labels && Array.isArray(pr.labels) && pr.labels.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(pr.labels as Label[]).map((l) => (
+                      <span
+                        key={l.name}
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{
+                          backgroundColor: l.color ? `#${l.color}20` : undefined,
+                          color: l.color ? `#${l.color}` : undefined,
+                          border: l.color ? `1px solid #${l.color}40` : '1px solid var(--border)',
+                        }}
+                      >
+                        {l.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground/60 italic">No labels</span>
+                )}
+              </SidebarSection>
+
+              {/* Participants (from backend, human users only) */}
+              <SidebarSection title="Participants" icon={<Users className="size-3.5" />}>
+                {sidebarLoading ? (
+                  <div className="flex gap-1">
+                    <Skeleton className="size-6 rounded-full" />
+                    <Skeleton className="size-6 rounded-full" />
+                  </div>
+                ) : sidebarData?.participants && Array.isArray(sidebarData.participants) && sidebarData.participants.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {(sidebarData.participants as { login: string; avatar_url?: string }[]).map((p) => (
+                      <Tooltip key={p.login}>
+                        <TooltipTrigger asChild>
+                          <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
+                            <AvatarImage src={p.avatar_url || `https://github.com/${p.login}.png?size=32`} />
+                            <AvatarFallback className="text-[7px]">{p.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">{p.login}</TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground/60 italic">No participants</span>
+                )}
+              </SidebarSection>
+
+              {/* Development (linked issues) */}
+              {sidebarLoading && (
+                <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
+                  <Skeleton className="h-3 w-full rounded" />
+                  <Skeleton className="h-8 w-full rounded mt-1" />
+                </SidebarSection>
+              )}
+              {!sidebarLoading && sidebarData?.closingIssuesReferences && Array.isArray(sidebarData.closingIssuesReferences) && sidebarData.closingIssuesReferences.length > 0 && (
+                <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
+                  <div className="text-[11px] text-muted-foreground mb-1">
+                    Successfully merging this pull request may close these issues.
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {(sidebarData.closingIssuesReferences as ClosingIssue[]).map((issue) => {
+                      const isClosed = issue.state === 'closed' || issue.state === 'CLOSED';
+                      return (
+                        <Tooltip key={issue.number}>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={issue.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-start gap-2 py-1 px-1.5 -mx-1.5 rounded-md hover:bg-muted/50 transition-colors"
+                            >
+                              <CircleDot className={cn(
+                                "size-3.5 shrink-0 mt-0.5",
+                                isClosed ? "text-purple-500" : "text-emerald-500"
+                              )} />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-foreground/90 leading-snug line-clamp-2">
+                                  {issue.title || `Issue #${issue.number}`}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  #{issue.number} · {isClosed ? 'Closed' : 'Open'}
+                                </div>
+                              </div>
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="text-xs max-w-[280px]">
+                            <div className="font-semibold">{issue.title || `Issue #${issue.number}`}</div>
+                            <div className="text-muted-foreground mt-0.5">#{issue.number} · {isClosed ? 'Closed' : 'Open'}</div>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                </SidebarSection>
+              )}
+            </div>
+            </div>
+            </TooltipProvider>
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">Detailed info not found...</div>

@@ -63,6 +63,7 @@ export * from "./components/ui/border-beam";
 export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
 export { TextScramble } from "./components/ui/text-scramble";
+export { TextMorph } from "./components/ui/text-morph";
 export {
   Sidebar as MotionSidebar,
   SidebarContent as MotionSidebarContent,
