@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Dialog,
@@ -27,6 +27,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@workspace/ui';
+import { PatchDiff } from '@pierre/diffs/react';
+import { useTheme } from 'next-themes';
 import { useGithubPRDetail } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2, FileCode, Users } from 'lucide-react';
@@ -97,12 +99,6 @@ interface Reviewer {
   login: string;
   avatar_url?: string;
   state?: string;
-}
-
-interface Participant {
-  login: string;
-  avatar_url?: string;
-  avatarUrl?: string;
 }
 
 interface Label {
@@ -256,6 +252,25 @@ function SidebarSection({ title, icon, children }: { title: string; icon: React.
 
 function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
   const [isExpanded, setIsExpanded] = React.useState(true);
+  const { resolvedTheme } = useTheme();
+  const isMounted = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  const diffPatch = useMemo(() => {
+    if (!thread.diffHunk) return null;
+    return `--- a/${thread.path}\n+++ b/${thread.path}\n${thread.diffHunk}`;
+  }, [thread.diffHunk, thread.path]);
+
+  const diffOptions = useMemo(() => ({
+    theme: (resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
+    diffStyle: 'unified' as const,
+    overflow: 'wrap' as const,
+    disableLineNumbers: false,
+    disableFileHeader: true,
+  }), [resolvedTheme]);
 
   return (
     <div className="ml-12 mt-2 border border-border/60 rounded-lg overflow-hidden bg-muted/10 shadow-sm">
@@ -281,10 +296,14 @@ function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            {thread.diffHunk && (
-              <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto border-b border-border/30 font-mono text-muted-foreground leading-relaxed max-h-[120px]">
-                {thread.diffHunk.split('\n').slice(-6).join('\n')}
-              </pre>
+            {diffPatch && (
+              <div className="max-h-[180px] overflow-auto border-b border-border/30">
+                {isMounted ? (
+                  <PatchDiff patch={diffPatch} options={diffOptions} />
+                ) : (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">Loading diff...</div>
+                )}
+              </div>
             )}
             <div className="flex flex-col divide-y divide-border/30">
               {thread.comments.map((comment, idx) => (
@@ -607,60 +626,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
                 {/* PR Status Section */}
                 <div className="flex flex-col gap-3 py-2">
-                  {pr.statusCheckRollup?.length > 0 && (
-                    <div className={cn(
-                      "flex flex-col border rounded-xl transition-all shadow-sm overflow-hidden",
-                      pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                        ? "border-emerald-500/20"
-                        : "border-amber-500/20"
-                    )}>
-                      <div className={cn(
-                        "flex items-start gap-4 p-4",
-                        pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                          ? "bg-emerald-500/5"
-                          : "bg-amber-500/5"
-                      )}>
-                        <div className={cn(
-                          "mt-0.5 rounded-full p-1.5 shadow-sm",
-                          pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                            ? "bg-emerald-500 text-white"
-                            : "bg-amber-500 text-white"
-                        )}>
-                          {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                            ? <CheckCircle2 className="size-4" />
-                            : <AlertCircle className="size-4" />}
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-sm font-bold flex items-center justify-between text-foreground">
-                            {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                              ? 'All checks have passed'
-                              : 'Some checks are still running or failed'}
-                          </h5>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            {pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length} successful checks
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col border-t border-border/40 bg-background">
-                        {(() => {
-                          const groups: Record<string, StatusCheck[]> = {};
-                          pr.statusCheckRollup.forEach((c: StatusCheck) => {
-                            let g = c.workflowName;
-                            if (!g) {
-                              g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
-                            }
-                            if (!groups[g]) groups[g] = [];
-                            groups[g].push(c);
-                          });
-                          return Object.entries(groups).map(([groupName, checks]) => (
-                            <CheckGroupItem key={groupName} groupName={groupName} checks={checks} />
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  )}
-
                   {pr.state === 'OPEN' && (
                     <div className={cn(
                       "flex items-start gap-4 p-4 border rounded-xl transition-all shadow-sm",
@@ -1097,20 +1062,61 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
               </div>
             </div>
 
-            {/* Right sidebar - PR metadata */}
+            {/* Right sidebar - PR metadata (independently scrollable) */}
             <TooltipProvider delayDuration={300}>
-            <div className="w-[240px] shrink-0 pt-1 hidden lg:flex flex-col gap-5 text-xs border-l border-border/50 pl-5">
+            <div className="w-[240px] shrink-0 hidden lg:flex flex-col border-l border-border/50 sticky top-0 self-start max-h-[calc(90vh-120px)] overflow-y-auto no-scrollbar">
+              <div className="flex flex-col gap-5 text-xs pl-5 pt-1 pb-4">
+
+              {/* Status Checks */}
+              {pr.statusCheckRollup?.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider">
+                    {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
+                      ? <CheckCircle2 className="size-3.5 text-emerald-500" />
+                      : <AlertCircle className="size-3.5 text-amber-500" />}
+                    <span>Checks</span>
+                    <span className="ml-auto font-normal normal-case tracking-normal text-[10px]">
+                      {pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length}/{pr.statusCheckRollup.length}
+                    </span>
+                  </div>
+                  <div className="flex flex-col border rounded-lg overflow-hidden border-border/50">
+                    {(() => {
+                      const groups: Record<string, StatusCheck[]> = {};
+                      pr.statusCheckRollup.forEach((c: StatusCheck) => {
+                        let g = c.workflowName;
+                        if (!g) {
+                          g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
+                        }
+                        if (!groups[g]) groups[g] = [];
+                        groups[g].push(c);
+                      });
+                      return Object.entries(groups).map(([groupName, checks]) => (
+                        <CheckGroupItem key={groupName} groupName={groupName} checks={checks} />
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+
               {/* Reviewers */}
               <SidebarSection title="Reviewers" icon={<Eye className="size-3.5" />}>
                 {(() => {
                   const reviewers: Reviewer[] = [];
-                  const seen = new Set<string>();
+                  const seen = new Map<string, number>();
 
                   if (pr.reviews && Array.isArray(pr.reviews)) {
                     for (const review of pr.reviews as { author?: { login?: string; avatarUrl?: string; avatar_url?: string }; state?: string }[]) {
                       const login = review.author?.login;
-                      if (login && !seen.has(login)) {
-                        seen.add(login);
+                      if (!login) continue;
+                      const existingIdx = seen.get(login);
+                      if (existingIdx !== undefined) {
+                        reviewers[existingIdx] = {
+                          login,
+                          avatar_url: review.author?.avatarUrl || review.author?.avatar_url,
+                          state: review.state,
+                        };
+                      } else {
+                        seen.set(login, reviewers.length);
                         reviewers.push({
                           login,
                           avatar_url: review.author?.avatarUrl || review.author?.avatar_url,
@@ -1124,7 +1130,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     for (const req of pr.reviewRequests as { login?: string; name?: string; avatarUrl?: string; avatar_url?: string }[]) {
                       const login = req.login || req.name;
                       if (login && !seen.has(login)) {
-                        seen.add(login);
+                        seen.set(login, reviewers.length);
                         reviewers.push({
                           login,
                           avatar_url: req.avatarUrl || req.avatar_url,
@@ -1249,6 +1255,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   );
                 })()}
               </SidebarSection>
+            </div>
             </div>
             </TooltipProvider>
             </div>
