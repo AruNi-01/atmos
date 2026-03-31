@@ -110,14 +110,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const isDark = theme === 'dark';
   const initialLetter = project.name.charAt(0).toUpperCase();
 
-  const projectSessions = useAgentHooksStore((s) =>
-    s.getSessionsByProjectPath(project.mainFilePath ?? "")
+  const projectAgentState = useAgentHooksStore((s) =>
+    s.getAggregateAgentStateForProjectPath(project.mainFilePath ?? "")
   );
-  const projectAgentState = (() => {
-    if (projectSessions.some((s) => s.state === "permission_request")) return "permission_request" as const;
-    if (projectSessions.some((s) => s.state === "running")) return "running" as const;
-    return "idle" as const;
-  })();
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

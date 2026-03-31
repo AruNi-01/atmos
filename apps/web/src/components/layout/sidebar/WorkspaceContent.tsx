@@ -153,14 +153,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const displayName = workspace.displayName?.trim() || shortName;
   const timeAgo = formatRelativeTime(workspace.createdAt);
 
-  const workspaceSessions = useAgentHooksStore((s) =>
-    s.getSessionsByProjectPath(workspace.localPath ?? "")
+  const workspaceAgentState = useAgentHooksStore((s) =>
+    s.getAggregateAgentStateForProjectPath(workspace.localPath ?? "")
   );
-  const workspaceAgentState = (() => {
-    if (workspaceSessions.some((s) => s.state === "permission_request")) return "permission_request" as const;
-    if (workspaceSessions.some((s) => s.state === "running")) return "running" as const;
-    return "idle" as const;
-  })();
 
   return (
     <>
