@@ -32,6 +32,7 @@ interface AgentHooksStore {
 
   getAllSessions: () => AgentHookSession[];
   getSessionsByProjectPath: (projectPath: string) => AgentHookSession[];
+  getAggregateAgentStateForProjectPath: (projectPath: string) => AgentHookState;
   getLatestSession: () => AgentHookSession | null;
   hasRunningSession: () => boolean;
   hasPermissionRequest: () => boolean;
@@ -72,7 +73,9 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
         set((state) => {
           const sessions = new Map(state.sessions);
           for (const s of initialSessions) {
-            sessions.set(s.session_id, s);
+            if (!sessions.has(s.session_id)) {
+              sessions.set(s.session_id, s);
+            }
           }
           return { sessions };
         });
@@ -96,6 +99,16 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     return Array.from(get().sessions.values()).filter(
       (s) => s.project_path === projectPath
     );
+  },
+
+  getAggregateAgentStateForProjectPath: (projectPath: string) => {
+    let hasRunning = false;
+    for (const s of get().sessions.values()) {
+      if (s.project_path !== projectPath) continue;
+      if (s.state === "permission_request") return "permission_request";
+      if (s.state === "running") hasRunning = true;
+    }
+    return hasRunning ? "running" : "idle";
   },
 
   getLatestSession: () => {
@@ -130,7 +143,10 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     try {
       const config = await getRuntimeApiConfig();
       const base = httpBase(config);
-      await fetch(`${base}/hooks/sessions/clear-idle`, { method: "POST" });
+      const res = await fetch(`${base}/hooks/sessions/clear-idle`, {
+        method: "POST",
+      });
+      if (!res.ok) return;
       set((state) => {
         const sessions = new Map(state.sessions);
         for (const [id, s] of sessions) {
