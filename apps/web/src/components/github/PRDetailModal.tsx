@@ -29,7 +29,7 @@ import {
 } from '@workspace/ui';
 import { PatchDiff } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
-import { useGithubPRDetail } from '@/hooks/use-github';
+import { useGithubPRDetail, useGithubPRDetailSidebar } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2, FileCode, Users, CircleDot, Code } from 'lucide-react';
 import { getFileIconProps } from '@workspace/ui';
@@ -344,6 +344,7 @@ function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
 
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo);
+  const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo);
   const send = useWebSocketStore(s => s.send);
   const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -351,11 +352,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [commentTab, setCommentTab] = React.useState<'write' | 'preview'>('write');
   const [mergeStrategy, setMergeStrategy] = React.useState<'merge' | 'squash' | 'rebase'>('merge');
 
+  const reviewComments = sidebarData?.review_comments;
   const reviewCommentThreadsByReviewId = React.useMemo(() => {
-    if (!pr?.review_comments || !Array.isArray(pr.review_comments)) return new Map<number, ReviewCommentThread[]>();
+    if (!reviewComments || !Array.isArray(reviewComments)) return new Map<number, ReviewCommentThread[]>();
 
     const threadMap = new Map<number, ReviewComment[]>();
-    for (const comment of pr.review_comments as ReviewComment[]) {
+    for (const comment of reviewComments as ReviewComment[]) {
       const rootId = comment.in_reply_to_id || comment.id || 0;
       if (!threadMap.has(rootId)) threadMap.set(rootId, []);
       threadMap.get(rootId)!.push(comment);
@@ -377,7 +379,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     }
 
     return reviewGroups;
-  }, [pr]);
+  }, [reviewComments]);
 
   const conversation = React.useMemo(() => {
     if (!pr) return [];
@@ -1214,9 +1216,14 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
               {/* Participants (from backend, human users only) */}
               <SidebarSection title="Participants" icon={<Users className="size-3.5" />}>
-                {pr.participants && Array.isArray(pr.participants) && pr.participants.length > 0 ? (
+                {sidebarLoading ? (
+                  <div className="flex gap-1">
+                    <Skeleton className="size-6 rounded-full" />
+                    <Skeleton className="size-6 rounded-full" />
+                  </div>
+                ) : sidebarData?.participants && Array.isArray(sidebarData.participants) && sidebarData.participants.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
-                    {(pr.participants as { login: string; avatar_url?: string }[]).map((p) => (
+                    {(sidebarData.participants as { login: string; avatar_url?: string }[]).map((p) => (
                       <Tooltip key={p.login}>
                         <TooltipTrigger asChild>
                           <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
@@ -1234,13 +1241,19 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
               </SidebarSection>
 
               {/* Development (linked issues) */}
-              {pr.closingIssuesReferences && Array.isArray(pr.closingIssuesReferences) && pr.closingIssuesReferences.length > 0 && (
+              {sidebarLoading && (
+                <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
+                  <Skeleton className="h-3 w-full rounded" />
+                  <Skeleton className="h-8 w-full rounded mt-1" />
+                </SidebarSection>
+              )}
+              {!sidebarLoading && sidebarData?.closingIssuesReferences && Array.isArray(sidebarData.closingIssuesReferences) && sidebarData.closingIssuesReferences.length > 0 && (
                 <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
                   <div className="text-[11px] text-muted-foreground mb-1">
                     Successfully merging this pull request may close these issues.
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    {(pr.closingIssuesReferences as ClosingIssue[]).map((issue) => {
+                    {(sidebarData.closingIssuesReferences as ClosingIssue[]).map((issue) => {
                       const isClosed = issue.state === 'closed' || issue.state === 'CLOSED';
                       return (
                         <Tooltip key={issue.number}>

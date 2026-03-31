@@ -97,6 +97,32 @@ export function useGithubPRDetail(prNumber: number, owner?: string, repo?: strin
   return { data, loading, fetch };
 }
 
+export function useGithubPRDetailSidebar(prNumber: number, owner?: string, repo?: string) {
+  const send = useWebSocketStore(s => s.send);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetch = useCallback(async () => {
+    if (!owner || !repo || !prNumber) return;
+    setLoading(true);
+    try {
+      const result = await send('github_pr_detail_sidebar', { owner, repo, pr_number: prNumber });
+      setData(result);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [owner, repo, prNumber, send]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  return { data, loading, fetch };
+}
+
 // Actions List
 export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
   const send = useWebSocketStore(s => s.send);

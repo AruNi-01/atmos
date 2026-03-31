@@ -114,6 +114,7 @@ export type WsAction =
   // GitHub 操作
   | "github_pr_list"
   | "github_pr_detail"
+  | "github_pr_detail_sidebar"
   | "github_pr_create"
   | "github_pr_merge"
   | "github_pr_close"
