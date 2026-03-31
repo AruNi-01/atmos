@@ -534,9 +534,12 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       // 处理通知
       if (message.type === "notification") {
         const { event: eventName, data } = message.payload;
+        console.log("[WebSocket] notification received:", eventName);
         const listeners = get().eventListeners.get(eventName);
         if (listeners) {
           listeners.forEach((cb) => cb(data));
+        } else {
+          console.log("[WebSocket] no listeners for event:", eventName);
         }
         return;
       }

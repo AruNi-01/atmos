@@ -150,12 +150,19 @@ impl AgentHooksService {
         if let Some(ref manager) = *ws {
             let manager = Arc::clone(manager);
             let data = serde_json::to_value(&update).unwrap_or_default();
+            debug!(
+                "Broadcasting agent hook state: session={} tool={} state={}",
+                update.session_id, update.tool, update.state
+            );
             let msg = WsMessage::notification(WsEvent::AgentHookStateChanged, data);
             tokio::spawn(async move {
-                if let Err(e) = manager.broadcast(&msg).await {
-                    warn!("Failed to broadcast agent hook state update: {}", e);
+                match manager.broadcast(&msg).await {
+                    Ok(()) => debug!("Agent hook state broadcast sent successfully"),
+                    Err(e) => warn!("Failed to broadcast agent hook state update: {}", e),
                 }
             });
+        } else {
+            warn!("Agent hook state change not broadcast: WsManager not set");
         }
     }
 
