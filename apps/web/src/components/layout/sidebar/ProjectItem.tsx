@@ -35,7 +35,7 @@ import { PROJECT_COLOR_PRESETS } from "@/types/types";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
 import { WorkspaceItem } from "./WorkspaceItem";
-import { useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 export interface ProjectItemProps {
@@ -206,7 +206,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             <span className="text-[13px] font-medium truncate text-sidebar-foreground group-hover/project:text-sidebar-foreground transition-colors">
               {project.name}
             </span>
-            {projectAgentState !== "idle" && (
+            {projectAgentState !== AGENT_STATE.IDLE && (
               <AgentHookStatusIndicator
                 state={projectAgentState}
                 variant="compact"

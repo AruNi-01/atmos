@@ -27,7 +27,7 @@ import type { Workspace } from "@/types/types";
 import { formatRelativeTime } from "@atmos/shared";
 import { getWorkspaceShortName } from "@/utils/workspace";
 import { gitApi } from "@/api/ws-api";
-import { useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 export interface WorkspaceContentProps {
@@ -209,7 +209,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             ) : (
               <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
             )}
-            {workspaceAgentState !== "idle" && (
+            {workspaceAgentState !== AGENT_STATE.IDLE && (
               <AgentHookStatusIndicator
                 state={workspaceAgentState}
                 variant="compact"

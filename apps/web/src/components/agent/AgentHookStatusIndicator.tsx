@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { TextShimmer, cn } from "@workspace/ui";
+import { AGENT_STATE, type AgentHookState } from "@/hooks/use-agent-hooks-store";
 
 const SPINNER_NAMES = [
   "braille", "helix", "scan", "cascade", "orbit",
@@ -10,8 +11,6 @@ const SPINNER_NAMES = [
 
 const BRAILLE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const BRAILLE_INTERVAL = 80;
-
-type AgentHookState = "idle" | "running" | "permission_request";
 
 function useBrailleSpinner() {
   const [frame, setFrame] = useState(0);
@@ -66,19 +65,19 @@ interface AgentHookStatusIndicatorProps {
 }
 
 const STATE_DOT_COLORS: Record<AgentHookState, string> = {
-  idle: "bg-emerald-500",
-  running: "bg-blue-500",
-  permission_request: "bg-amber-500",
+  [AGENT_STATE.IDLE]: "bg-emerald-500",
+  [AGENT_STATE.RUNNING]: "bg-blue-500",
+  [AGENT_STATE.PERMISSION_REQUEST]: "bg-amber-500",
 };
 
 function CompactIndicator({ state }: { state: AgentHookState }) {
   const spinnerChar = useBrailleSpinner();
 
-  if (state === "idle") {
+  if (state === AGENT_STATE.IDLE) {
     return null;
   }
 
-  if (state === "permission_request") {
+  if (state === AGENT_STATE.PERMISSION_REQUEST) {
     return (
       <span className="inline-flex items-center justify-center size-4 text-amber-500 animate-pulse" title="Permission requested">
         ●
@@ -108,10 +107,10 @@ function RunningFullSpinner({ tool }: { tool?: string }) {
 }
 
 function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }) {
-  if (state === "idle") {
+  if (state === AGENT_STATE.IDLE) {
     return (
       <div className="flex items-center gap-1.5">
-        <div className={cn("size-2 rounded-full", STATE_DOT_COLORS.idle)} />
+        <div className={cn("size-2 rounded-full", STATE_DOT_COLORS[AGENT_STATE.IDLE])} />
         <span className="text-[10px] text-muted-foreground">
           {tool ? `${tool}: ` : "Agent: "}IDLE
         </span>
@@ -119,10 +118,10 @@ function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }
     );
   }
 
-  if (state === "permission_request") {
+  if (state === AGENT_STATE.PERMISSION_REQUEST) {
     return (
       <div className="flex items-center gap-1.5">
-        <div className={cn("size-2 rounded-full animate-pulse", STATE_DOT_COLORS.permission_request)} />
+        <div className={cn("size-2 rounded-full animate-pulse", STATE_DOT_COLORS[AGENT_STATE.PERMISSION_REQUEST])} />
         <span className="text-[10px] text-amber-500">
           {tool ? `${tool}: ` : ""}Waiting for permission
         </span>
