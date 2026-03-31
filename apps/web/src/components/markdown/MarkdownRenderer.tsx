@@ -132,7 +132,7 @@ function PlainTextWithLineNumbers({ code }: { code: string }) {
     <pre className="py-3">
       <code>
         {lines.map((line, idx) => (
-          <span key={idx} className="line block px-5 py-0.5 text-[13px] leading-relaxed">
+          <span key={idx} className="line block px-3 py-0.5 text-[13px] leading-relaxed">
             {line || ' '}
           </span>
         ))}
@@ -391,6 +391,7 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
   }
 
   const hasLang = !!language;
+  const usePlainTextWithLineNumbers = !hasLang || !SUPPORTED_LANGS.has(normalizedLang);
   const shikiLanguage = hasLang ? (normalizedLang || language) : 'plaintext';
 
   return (
@@ -422,7 +423,11 @@ export function MarkdownCodeBlock({ className, children, ...props }: React.Compo
         ref={contentRef}
         expanded={expanded}
       >
-        <ShikiCode code={codeText} language={shikiLanguage} />
+        {usePlainTextWithLineNumbers ? (
+          <PlainTextWithLineNumbers code={codeText} />
+        ) : (
+          <ShikiCode code={codeText} language={shikiLanguage} />
+        )}
       </CodeBlockContent>
     </CodeBlock>
   );
