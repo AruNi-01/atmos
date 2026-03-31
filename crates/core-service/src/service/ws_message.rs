@@ -2902,6 +2902,41 @@ set -x
             tracing::warn!("Failed to fetch review comments for PR #{}", req.pr_number);
         }
 
+        // Enrich closingIssuesReferences with title and state
+        if let Some(issues) = output.get("closingIssuesReferences").and_then(|v| v.as_array()).cloned() {
+            let mut enriched = Vec::new();
+            for issue in &issues {
+                let number = issue.get("number").and_then(|n| n.as_u64()).unwrap_or(0);
+                let issue_owner = issue
+                    .pointer("/repository/owner/login")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&req.owner);
+                let issue_repo = issue
+                    .pointer("/repository/name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&req.repo);
+                let endpoint = format!("repos/{}/{}/issues/{}", issue_owner, issue_repo, number);
+                let api_args = vec!["api", &endpoint];
+                if let Ok(issue_data) = self.github_engine.run_gh(&api_args).await {
+                    let mut merged = issue.clone();
+                    if let Some(obj) = merged.as_object_mut() {
+                        if let Some(title) = issue_data.get("title") {
+                            obj.insert("title".to_string(), title.clone());
+                        }
+                        if let Some(state) = issue_data.get("state") {
+                            obj.insert("state".to_string(), state.clone());
+                        }
+                    }
+                    enriched.push(merged);
+                } else {
+                    enriched.push(issue.clone());
+                }
+            }
+            if let Some(obj) = output.as_object_mut() {
+                obj.insert("closingIssuesReferences".to_string(), json!(enriched));
+            }
+        }
+
         Ok(output)
     }
 

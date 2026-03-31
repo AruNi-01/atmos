@@ -1072,7 +1072,10 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
             {/* Right sidebar - PR metadata (independently scrollable) */}
             <TooltipProvider delayDuration={300}>
-            <div className="w-[240px] shrink-0 hidden lg:flex flex-col border-l border-border/50 sticky top-0 self-start max-h-[calc(90vh-120px)] overflow-y-auto no-scrollbar">
+            <div className={cn(
+              "shrink-0 hidden lg:flex flex-col sticky top-0 self-start overflow-y-auto no-scrollbar",
+              isFullscreen ? "w-[300px] max-h-[calc(100vh-120px)]" : "w-[240px] max-h-[calc(90vh-120px)]"
+            )}>
               <div className="flex flex-col gap-5 text-xs pl-5 pt-1 pb-4">
 
               {/* Status Checks */}
@@ -1208,23 +1211,25 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 )}
               </SidebarSection>
 
-              {/* Participants (PR author + issue-level commenters only, matching GitHub) */}
+              {/* Participants (PR author + human commenters only, matching GitHub) */}
               <SidebarSection title="Participants" icon={<Users className="size-3.5" />}>
                 {(() => {
                   const seen = new Map<string, string>();
-                  const normalizeLogin = (login: string) => login.replace(/\[bot\]$/i, '');
+                  const isBot = (login: string) =>
+                    login.endsWith('[bot]') ||
+                    ['vercel', 'coderabbitai', 'github-actions', 'dependabot', 'devin-ai-integration', 'cubic-dev-ai', 'copilot'].includes(login.toLowerCase());
                   const addUser = (login?: string, avatar?: string) => {
-                    if (!login) return;
-                    const key = normalizeLogin(login);
-                    if (!seen.has(key)) {
-                      seen.set(key, avatar || `https://github.com/${key}.png?size=32`);
+                    if (!login || isBot(login)) return;
+                    if (!seen.has(login)) {
+                      seen.set(login, avatar || `https://github.com/${login}.png?size=32`);
                     }
                   };
 
                   addUser(pr.author?.login, pr.author?.avatarUrl || pr.author?.avatar_url);
 
                   if (pr.comments && Array.isArray(pr.comments)) {
-                    for (const c of pr.comments as { author?: { login?: string; avatarUrl?: string; avatar_url?: string } }[]) {
+                    for (const c of pr.comments as { author?: { login?: string; avatarUrl?: string; avatar_url?: string; is_bot?: boolean } }[]) {
+                      if (c.author?.is_bot) continue;
                       addUser(c.author?.login, c.author?.avatarUrl || c.author?.avatar_url);
                     }
                   }
@@ -1259,34 +1264,39 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     Successfully merging this pull request may close these issues.
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    {(pr.closingIssuesReferences as ClosingIssue[]).map((issue) => (
-                      <Tooltip key={issue.number}>
-                        <TooltipTrigger asChild>
-                          <a
-                            href={issue.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 py-1 px-1.5 -mx-1.5 rounded-md hover:bg-muted/50 transition-colors group"
-                          >
-                            <CircleDot className={cn(
-                              "size-3.5 shrink-0",
-                              issue.state === 'CLOSED' ? "text-purple-500" : "text-emerald-500"
-                            )} />
-                            <span className="font-medium text-foreground/90 truncate">
-                              #{issue.number}
-                            </span>
-                            <span className="text-muted-foreground truncate flex-1">
-                              {issue.title}
-                            </span>
-                            <ExternalLink className="size-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity" />
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="text-xs max-w-[280px]">
-                          <div className="font-semibold">{issue.title}</div>
-                          <div className="text-muted-foreground mt-0.5">#{issue.number} · {issue.state === 'CLOSED' ? 'Closed' : 'Open'}</div>
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
+                    {(pr.closingIssuesReferences as ClosingIssue[]).map((issue) => {
+                      const isClosed = issue.state === 'closed' || issue.state === 'CLOSED';
+                      return (
+                        <Tooltip key={issue.number}>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={issue.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-start gap-2 py-1 px-1.5 -mx-1.5 rounded-md hover:bg-muted/50 transition-colors group"
+                            >
+                              <CircleDot className={cn(
+                                "size-3.5 shrink-0 mt-0.5",
+                                isClosed ? "text-purple-500" : "text-emerald-500"
+                              )} />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-foreground/90 leading-snug line-clamp-2">
+                                  {issue.title || `Issue #${issue.number}`}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  #{issue.number} · {isClosed ? 'Closed' : 'Open'}
+                                </div>
+                              </div>
+                              <ExternalLink className="size-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 shrink-0 mt-0.5 transition-opacity" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="text-xs max-w-[280px]">
+                            <div className="font-semibold">{issue.title || `Issue #${issue.number}`}</div>
+                            <div className="text-muted-foreground mt-0.5">#{issue.number} · {isClosed ? 'Closed' : 'Open'}</div>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
                   </div>
                 </SidebarSection>
               )}
