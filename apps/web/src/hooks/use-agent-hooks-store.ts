@@ -58,6 +58,7 @@ interface AgentHooksStore {
   getAllSessions: () => AgentHookSession[];
   getSessionsByProjectPath: (projectPath: string) => AgentHookSession[];
   getAggregateAgentStateForProjectPath: (projectPath: string) => AgentHookState;
+  getAgentStateForContextId: (contextId: string) => AgentHookState;
   getAgentStateForTool: (tool: AgentToolType | null) => AgentHookState;
   getAgentStateForPaneId: (paneId: string) => AgentHookState;
   getLatestSession: () => AgentHookSession | null;
@@ -135,6 +136,16 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     let hasRunning = false;
     for (const s of get().sessions.values()) {
       if (s.project_path !== projectPath) continue;
+      if (s.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
+      if (s.state === AGENT_STATE.RUNNING) hasRunning = true;
+    }
+    return hasRunning ? AGENT_STATE.RUNNING : AGENT_STATE.IDLE;
+  },
+
+  getAgentStateForContextId: (contextId: string) => {
+    let hasRunning = false;
+    for (const s of get().sessions.values()) {
+      if (s.context_id !== contextId) continue;
       if (s.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
       if (s.state === AGENT_STATE.RUNNING) hasRunning = true;
     }

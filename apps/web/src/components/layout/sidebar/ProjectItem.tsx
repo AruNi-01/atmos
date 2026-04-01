@@ -111,7 +111,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const initialLetter = project.name.charAt(0).toUpperCase();
 
   const projectAgentState = useAgentHooksStore((s) =>
-    s.getAggregateAgentStateForProjectPath(project.mainFilePath ?? "")
+    s.getAgentStateForContextId(project.id)
   );
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);

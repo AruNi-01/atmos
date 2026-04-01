@@ -22,6 +22,7 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
 import { AnimatePresence, motion } from 'motion/react';
+import { useProjectStore } from '@/hooks/use-project-store';
 import { X } from 'lucide-react';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
@@ -51,10 +52,10 @@ function shortId(id: string): string {
   return id.slice(dash + 1, dash + 9);
 }
 
-function groupSessionsByProjectPath(sessions: AgentHookSession[]): Map<string, AgentHookSession[]> {
+function groupSessionsByContext(sessions: AgentHookSession[]): Map<string, AgentHookSession[]> {
   const grouped = new Map<string, AgentHookSession[]>();
   for (const session of sessions) {
-    const key = session.project_path ?? "unknown";
+    const key = session.context_id || session.project_path || "unknown";
     const list = grouped.get(key) ?? [];
     list.push(session);
     grouped.set(key, list);
@@ -133,13 +134,31 @@ function SessionRow({ session }: { session: AgentHookSession }) {
   );
 }
 
+function useContextDisplayNameResolver() {
+  const projects = useProjectStore((s) => s.projects);
+  return useCallback((contextKey: string): string => {
+    if (contextKey === "unknown") return "Unknown project";
+    for (const project of projects) {
+      if (project.id === contextKey) return project.name;
+      for (const ws of project.workspaces) {
+        if (ws.id === contextKey) return `${project.name} / ${ws.branch}`;
+      }
+    }
+    if (contextKey.includes("/") || contextKey.includes("\\")) {
+      return contextKey.split(/[\\/]/).slice(-2).join("/");
+    }
+    return contextKey.slice(0, 8);
+  }, [projects]);
+}
+
 function AgentStatusPopoverContent() {
   const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
   const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
 
   const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
-  const grouped = useMemo(() => groupSessionsByProjectPath(sessions), [sessions]);
+  const grouped = useMemo(() => groupSessionsByContext(sessions), [sessions]);
   const hasIdleSessions = sessions.some(s => s.state === AGENT_STATE.IDLE);
+  const resolveContextDisplayName = useContextDisplayNameResolver();
 
   if (sessions.length === 0) {
     return (
@@ -169,12 +188,12 @@ function AgentStatusPopoverContent() {
       </div>
 
       <div className="space-y-2">
-        {Array.from(grouped.entries()).map(([path, pathSessions]) => {
-          const displayPath = path === "unknown" ? "Unknown project" : path.split(/[\\/]/).slice(-2).join("/");
+        {Array.from(grouped.entries()).map(([contextKey, pathSessions]) => {
+          const displayName = resolveContextDisplayName(contextKey);
           return (
-            <div key={path} className="space-y-0.5">
-              <div className="text-[10px] font-medium text-muted-foreground px-1 truncate" title={path}>
-                {displayPath}
+            <div key={contextKey} className="space-y-0.5">
+              <div className="text-[10px] font-medium text-muted-foreground px-1 truncate" title={contextKey}>
+                {displayName}
               </div>
               {pathSessions.map((session) => (
                 <SessionRow key={session.session_id} session={session} />

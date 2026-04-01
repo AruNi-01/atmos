@@ -154,7 +154,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const timeAgo = formatRelativeTime(workspace.createdAt);
 
   const workspaceAgentState = useAgentHooksStore((s) =>
-    s.getAggregateAgentStateForProjectPath(workspace.localPath ?? "")
+    s.getAgentStateForContextId(workspace.id)
   );
 
   return (
