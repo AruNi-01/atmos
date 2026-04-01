@@ -216,6 +216,19 @@ impl AgentHooksService {
 
         debug!("Claude Code hook event: {} session_id={}", hook_event, session_id);
 
+        // If this session is already tracked as a different tool (e.g. opencode
+        // using Claude as its backend provider), skip — the owning tool's
+        // handler is authoritative for this session.
+        if let Some(existing) = self.sessions.read().get(&session_id) {
+            if existing.tool != AgentToolType::ClaudeCode {
+                debug!(
+                    "Skipping Claude Code event for session {} already owned by {}",
+                    session_id, existing.tool
+                );
+                return;
+            }
+        }
+
         match hook_event {
             "SessionStart" => {
                 self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path, ctx);
@@ -292,27 +305,21 @@ impl AgentHooksService {
             "session.created" | "session.idle" | "session.error" => {
                 self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Idle, project_path, ctx);
             }
-            "message.updated" => {
-                let role = payload
-                    .get("properties")
-                    .and_then(|p| p.get("role"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                if role == "user" {
+            "agent.running" | "message.part.delta" | "message.part.updated"
+            | "message.updated" | "tool.execute.before" | "tool.execute.after" => {
+                let current = self.sessions.read().get(&session_id).map(|s| s.state);
+                if current != Some(AgentHookState::Running) {
                     self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path, ctx);
                 }
             }
-            "tool.execute.before" | "tool.execute.after" => {
-                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path, ctx);
-            }
-            "permission.asked" => {
+            "permission.asked" | "permission.updated" => {
                 self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::PermissionRequest, project_path, ctx);
             }
             "permission.replied" => {
                 self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path, ctx);
             }
             _ => {
-                debug!("Unhandled opencode hook event: {}", event_type);
+                // session.updated, session.status, session.diff, etc. — ignored
             }
         }
     }

@@ -40,9 +40,35 @@ async function post(event: object) {{
 }}
 
 export const AtmosPlugin = async (_ctx: any) => {{
+  let isRunning = false
   return {{
     event: async ({{ event }}) => {{
-      await post(event)
+      const t = event.type
+      if (
+        t === "session.created" ||
+        t === "session.idle" ||
+        t === "session.error" ||
+        t === "permission.asked" ||
+        t === "permission.updated" ||
+        t === "permission.replied"
+      ) {{
+        isRunning = false
+        await post(event)
+        return
+      }}
+      if (
+        t === "message.part.delta" ||
+        t === "message.part.updated" ||
+        t === "message.updated" ||
+        t === "tool.execute.before" ||
+        t === "tool.execute.after"
+      ) {{
+        if (!isRunning) {{
+          isRunning = true
+          await post({{ type: "agent.running", properties: event.properties ?? {{}} }})
+        }}
+        return
+      }}
     }},
   }}
 }}
