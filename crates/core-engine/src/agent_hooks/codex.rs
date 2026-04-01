@@ -201,14 +201,19 @@ fn ensure_hooks_feature_flag() {
         String::new()
     };
 
-    if content.contains("hooks = true") || content.contains("hooks=true") {
+    if content.contains("codex_hooks = true") || content.contains("codex_hooks=true") {
         return;
     }
 
+    // Remove previously-written wrong key if present
+    let content = content
+        .replace("hooks = true\n", "")
+        .replace("hooks=true\n", "");
+
     let new_content = if content.contains("[features]") {
-        content.replace("[features]", "[features]\nhooks = true")
+        content.replace("[features]", "[features]\ncodex_hooks = true")
     } else {
-        format!("{}\n[features]\nhooks = true\n", content.trim_end())
+        format!("{}\n[features]\ncodex_hooks = true\n", content.trim_end())
     };
 
     if let Err(e) = std::fs::write(&path, new_content) {
