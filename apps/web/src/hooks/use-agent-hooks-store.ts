@@ -26,6 +26,19 @@ export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
   [AGENT_TOOL.OPENCODE]: "OpenCode",
 };
 
+const PANE_TITLE_TO_TOOL: [RegExp, AgentToolType][] = [
+  [/\bclaude\b/i, AGENT_TOOL.CLAUDE_CODE],
+  [/\bcodex\b/i, AGENT_TOOL.CODEX],
+  [/\bopencode\b/i, AGENT_TOOL.OPENCODE],
+];
+
+export function toolTypeFromPaneTitle(title: string): AgentToolType | null {
+  for (const [pattern, tool] of PANE_TITLE_TO_TOOL) {
+    if (pattern.test(title)) return tool;
+  }
+  return null;
+}
+
 export interface AgentHookSession {
   session_id: string;
   tool: AgentToolType;
@@ -52,6 +65,7 @@ interface AgentHooksStore {
   getAllSessions: () => AgentHookSession[];
   getSessionsByProjectPath: (projectPath: string) => AgentHookSession[];
   getAggregateAgentStateForProjectPath: (projectPath: string) => AgentHookState;
+  getAgentStateForTool: (tool: AgentToolType | null) => AgentHookState;
   getLatestSession: () => AgentHookSession | null;
   hasRunningSession: () => boolean;
   hasPermissionRequest: () => boolean;
@@ -124,6 +138,17 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     let hasRunning = false;
     for (const s of get().sessions.values()) {
       if (s.project_path !== projectPath) continue;
+      if (s.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
+      if (s.state === AGENT_STATE.RUNNING) hasRunning = true;
+    }
+    return hasRunning ? AGENT_STATE.RUNNING : AGENT_STATE.IDLE;
+  },
+
+  getAgentStateForTool: (tool: AgentToolType | null) => {
+    if (!tool) return AGENT_STATE.IDLE;
+    let hasRunning = false;
+    for (const s of get().sessions.values()) {
+      if (s.tool !== tool) continue;
       if (s.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
       if (s.state === AGENT_STATE.RUNNING) hasRunning = true;
     }

@@ -26,7 +26,7 @@ import { Terminal, TerminalRef } from "./Terminal";
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
-import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore, toolTypeFromPaneTitle } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 import "react-mosaic-component/react-mosaic-component.css";
@@ -81,10 +81,9 @@ const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
   close: true,
 };
 
-function TerminalPaneAgentStatus({ cwd }: { cwd?: string | null }) {
-  const paneState = useAgentHooksStore((s) =>
-    s.getAggregateAgentStateForProjectPath(cwd ?? "")
-  );
+function TerminalPaneAgentStatus({ paneTitle }: { paneTitle: string }) {
+  const tool = toolTypeFromPaneTitle(paneTitle);
+  const paneState = useAgentHooksStore((s) => s.getAgentStateForTool(tool));
 
   if (paneState === AGENT_STATE.IDLE) return null;
 
@@ -367,7 +366,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                 <span className="terminal-mosaic-title flex items-center gap-1.5 ml-1">
                   {displayTitle}
                 </span>
-                <TerminalPaneAgentStatus cwd={workspaceInfo?.localPath} />
+                <TerminalPaneAgentStatus paneTitle={pane.title} />
               </div>
 
               {(actions.split || actions.maximize || actions.close) && (
