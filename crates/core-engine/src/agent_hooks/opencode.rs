@@ -40,22 +40,42 @@ async function post(event: object) {{
 }}
 
 export const AtmosPlugin = async (_ctx: any) => {{
-  let isRunning = false
+  let phase: "idle" | "running" = "idle"
+  let idleAt = 0
   return {{
     event: async ({{ event }}) => {{
       const t = event.type
-      if (
-        t === "session.created" ||
-        t === "session.idle" ||
-        t === "session.error" ||
-        t === "permission.asked" ||
-        t === "permission.updated" ||
-        t === "permission.replied"
-      ) {{
-        isRunning = false
+
+      if (t === "session.created") {{
+        phase = "idle"
+        idleAt = 0
         await post(event)
         return
       }}
+
+      if (t === "session.idle" || t === "session.error") {{
+        if (phase !== "idle") {{
+          phase = "idle"
+          idleAt = Date.now()
+          await post(event)
+        }}
+        return
+      }}
+
+      if (t === "permission.asked" || t === "permission.updated") {{
+        phase = "idle"
+        idleAt = 0
+        await post(event)
+        return
+      }}
+
+      if (t === "permission.replied") {{
+        phase = "idle"
+        idleAt = 0
+        await post(event)
+        return
+      }}
+
       if (
         t === "message.part.delta" ||
         t === "message.part.updated" ||
@@ -63,8 +83,10 @@ export const AtmosPlugin = async (_ctx: any) => {{
         t === "tool.execute.before" ||
         t === "tool.execute.after"
       ) {{
-        if (!isRunning) {{
-          isRunning = true
+        if (phase !== "running") {{
+          if (idleAt > 0 && Date.now() - idleAt < 500) return
+          phase = "running"
+          idleAt = 0
           await post({{ type: "agent.running", properties: event.properties ?? {{}} }})
         }}
         return
