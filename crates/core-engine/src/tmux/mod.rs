@@ -332,10 +332,13 @@ impl TmuxEngine {
 
     /// Keep tmux server environment UTF-8 so new shells inside windows render
     /// Nerd Font / Powerline glyphs instead of falling back to ASCII placeholders.
+    /// Also injects `ATMOS_MANAGED=1` so agent hook scripts can distinguish
+    /// Atmos-managed terminals from external terminals.
     fn sync_utf8_environment(&self) {
         let locale = resolve_utf8_locale();
         let _ = self.run_tmux(&["set-environment", "-g", "LANG", &locale]);
         let _ = self.run_tmux(&["set-environment", "-g", "LC_CTYPE", &locale]);
+        let _ = self.run_tmux(&["set-environment", "-g", "ATMOS_MANAGED", "1"]);
     }
 
     /// Apply the standard tmux configuration options for Atmos sessions.

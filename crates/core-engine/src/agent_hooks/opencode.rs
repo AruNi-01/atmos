@@ -24,6 +24,7 @@ import type {{ Plugin }} from "@opencode-ai/plugin"
 const ATMOS_URL = "http://localhost:{port}/hooks/opencode"
 
 async function post(event: object) {{
+  if (typeof process !== "undefined" && process.env?.ATMOS_MANAGED !== "1") return
   try {{
     await fetch(ATMOS_URL, {{
       method: "POST",

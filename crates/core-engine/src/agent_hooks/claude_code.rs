@@ -16,28 +16,44 @@ fn is_atmos_hook(hook_entry: &Value, port: u16) -> bool {
     hook_entry
         .get("hooks")
         .and_then(|h| h.as_array())
-        .map(|arr| arr.iter().any(|h| h.get("url").and_then(|u| u.as_str()) == Some(&url)))
+        .map(|arr| {
+            arr.iter().any(|h| {
+                // Match HTTP hook by URL
+                if h.get("url").and_then(|u| u.as_str()) == Some(&url) {
+                    return true;
+                }
+                // Match command hook by URL substring in the command string
+                if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
+                    return cmd.contains(&url);
+                }
+                false
+            })
+        })
         .unwrap_or(false)
 }
 
 fn build_hook_entries(port: u16) -> Value {
     let url = hook_url(port);
+    let cmd = format!(
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -d @- '{url}' >/dev/null 2>&1 || true"#,
+        url = url,
+    );
     json!({
         "SessionStart": [{
-            "hooks": [{ "type": "http", "url": &url, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": &cmd, "timeout": 5 }]
         }],
         "UserPromptSubmit": [{
-            "hooks": [{ "type": "http", "url": &url, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": &cmd, "timeout": 5 }]
         }],
         "PreToolUse": [{
-            "hooks": [{ "type": "http", "url": &url, "async": true }]
+            "hooks": [{ "type": "command", "command": &cmd, "async": true }]
         }],
         "Notification": [{
             "matcher": "permissionprompt",
-            "hooks": [{ "type": "http", "url": &url, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": &cmd, "timeout": 5 }]
         }],
         "Stop": [{
-            "hooks": [{ "type": "http", "url": &url, "async": true }]
+            "hooks": [{ "type": "command", "command": &cmd, "async": true }]
         }]
     })
 }
