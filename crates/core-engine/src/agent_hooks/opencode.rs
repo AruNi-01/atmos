@@ -19,8 +19,6 @@ const PLUGIN_MARKER: &str = "// Atmos agent hook plugin";
 fn build_plugin_source(port: u16) -> String {
     format!(
         r#"{PLUGIN_MARKER}
-import type {{ Plugin }} from "@opencode-ai/plugin"
-
 const ATMOS_URL = "http://localhost:{port}/hooks/opencode"
 
 async function post(event: object) {{
@@ -41,24 +39,24 @@ async function post(event: object) {{
   }}
 }}
 
-export const AtmosPlugin: Plugin = async () => {{
+export const AtmosPlugin = async (_ctx: any) => {{
   return {{
     event: async ({{ event }}) => {{
-      const type = event.type
+      const t = event.type
 
       if (
-        type === "session.created" ||
-        type === "session.idle" ||
-        type === "session.error" ||
-        type === "permission.asked" ||
-        type === "permission.replied" ||
-        type === "tool.execute.before" ||
-        type === "tool.execute.after"
+        t === "session.created" ||
+        t === "session.idle" ||
+        t === "session.error" ||
+        t === "permission.asked" ||
+        t === "permission.replied" ||
+        t === "tool.execute.before" ||
+        t === "tool.execute.after"
       ) {{
         await post(event)
       }}
 
-      if (type === "message.updated" && (event as any).properties?.role === "user") {{
+      if (t === "message.updated" && (event as any).properties?.role === "user") {{
         await post(event)
       }}
     }},
