@@ -48,9 +48,11 @@ impl std::fmt::Display for AgentToolType {
 }
 
 /// Context injected by Atmos tmux environment variables, carried via HTTP headers.
+/// `context_id` is the effective context: workspace GUID when inside a workspace,
+/// or project GUID when developing on main/local project.
 #[derive(Debug, Clone, Default)]
 pub struct AtmosContext {
-    pub workspace_id: Option<String>,
+    pub context_id: Option<String>,
     pub pane_id: Option<String>,
 }
 
@@ -62,7 +64,7 @@ pub struct AgentHookSession {
     pub timestamp: String,
     pub project_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub workspace_id: Option<String>,
+    pub context_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pane_id: Option<String>,
 }
@@ -75,7 +77,7 @@ pub struct AgentHookStateUpdate {
     pub timestamp: String,
     pub project_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub workspace_id: Option<String>,
+    pub context_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pane_id: Option<String>,
 }
@@ -163,7 +165,7 @@ impl AgentHooksService {
             state,
             timestamp: timestamp.clone(),
             project_path,
-            workspace_id: ctx.workspace_id.clone(),
+            context_id: ctx.context_id.clone(),
             pane_id: ctx.pane_id.clone(),
         };
 
@@ -178,7 +180,7 @@ impl AgentHooksService {
             state,
             timestamp,
             project_path: session.project_path,
-            workspace_id: ctx.workspace_id.clone(),
+            context_id: ctx.context_id.clone(),
             pane_id: ctx.pane_id.clone(),
         };
 

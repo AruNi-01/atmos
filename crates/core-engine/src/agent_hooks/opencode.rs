@@ -30,7 +30,7 @@ async function post(event: object) {{
       method: "POST",
       headers: {{
         "Content-Type": "application/json",
-        "X-Atmos-Workspace": process.env?.ATMOS_WORKSPACE_ID ?? "",
+        "X-Atmos-Context": process.env?.ATMOS_CONTEXT_ID ?? "",
         "X-Atmos-Pane": process.env?.ATMOS_PANE_ID ?? "",
       }},
       body: JSON.stringify(event),

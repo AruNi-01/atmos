@@ -12,8 +12,8 @@ use crate::app_state::AppState;
 
 fn extract_atmos_context(headers: &HeaderMap) -> AtmosContext {
     AtmosContext {
-        workspace_id: headers
-            .get("x-atmos-workspace")
+        context_id: headers
+            .get("x-atmos-context")
             .and_then(|v| v.to_str().ok())
             .filter(|s| !s.is_empty())
             .map(String::from),

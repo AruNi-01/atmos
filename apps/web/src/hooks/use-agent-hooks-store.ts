@@ -33,7 +33,8 @@ export interface AgentHookSession {
   state: AgentHookState;
   timestamp: string;
   project_path?: string | null;
-  workspace_id?: string | null;
+  /** effectiveContextId: workspace GUID or project GUID */
+  context_id?: string | null;
   pane_id?: string | null;
 }
 
@@ -43,7 +44,7 @@ interface AgentHookStateUpdate {
   state: AgentHookState;
   timestamp: string;
   project_path?: string | null;
-  workspace_id?: string | null;
+  context_id?: string | null;
   pane_id?: string | null;
 }
 
@@ -86,7 +87,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
             state: update.state,
             timestamp: update.timestamp,
             project_path: update.project_path,
-            workspace_id: update.workspace_id,
+            context_id: update.context_id,
             pane_id: update.pane_id,
           });
           return { sessions };

@@ -475,7 +475,7 @@ impl TerminalService {
 
         let atmos_env_vars: Vec<(&str, &str)> = vec![
             ("ATMOS_MANAGED", "1"),
-            ("ATMOS_WORKSPACE_ID", &workspace_id),
+            ("ATMOS_CONTEXT_ID", &workspace_id),
             ("ATMOS_PANE_ID", &session_id),
         ];
         let window_index = self
