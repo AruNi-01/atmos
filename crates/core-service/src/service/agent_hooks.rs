@@ -283,7 +283,10 @@ impl AgentHooksService {
         let session_id = self.resolve_session_id(payload, AgentToolType::Opencode, ctx);
         let project_path = Self::extract_cwd(payload).map(String::from);
 
-        debug!("opencode hook event: {} session_id={}", event_type, session_id);
+        debug!("opencode hook event: type={} session_id={} payload_keys={:?}",
+            event_type, session_id,
+            payload.as_object().map(|o| o.keys().collect::<Vec<_>>()).unwrap_or_default()
+        );
 
         match event_type {
             "session.created" | "session.idle" | "session.error" => {

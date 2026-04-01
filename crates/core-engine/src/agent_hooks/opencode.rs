@@ -42,23 +42,7 @@ async function post(event: object) {{
 export const AtmosPlugin = async (_ctx: any) => {{
   return {{
     event: async ({{ event }}) => {{
-      const t = event.type
-
-      if (
-        t === "session.created" ||
-        t === "session.idle" ||
-        t === "session.error" ||
-        t === "permission.asked" ||
-        t === "permission.replied" ||
-        t === "tool.execute.before" ||
-        t === "tool.execute.after"
-      ) {{
-        await post(event)
-      }}
-
-      if (t === "message.updated" && (event as any).properties?.role === "user") {{
-        await post(event)
-      }}
+      await post(event)
     }},
   }}
 }}
