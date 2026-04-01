@@ -21,6 +21,7 @@ import {
 } from '@/hooks/use-agent-hooks-store';
 import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
+import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
@@ -59,6 +60,77 @@ function groupSessionsByProjectPath(sessions: AgentHookSession[]): Map<string, A
     grouped.set(key, list);
   }
   return grouped;
+}
+
+function SessionStateBadge({ state, showReset, onReset }: {
+  state: string;
+  showReset: boolean;
+  onReset: () => void;
+}) {
+  const isIdle = state === AGENT_STATE.IDLE;
+  const label = state === AGENT_STATE.PERMISSION_REQUEST ? "PERM" : state.toUpperCase();
+
+  return (
+    <div className="relative overflow-hidden shrink-0 h-5 w-[52px]">
+      <AnimatePresence mode="popLayout" initial={false}>
+        {showReset && !isIdle ? (
+          <motion.button
+            key="reset"
+            initial={{ x: -40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -40, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-emerald-500 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onReset(); }}
+          >
+            IDLE
+          </motion.button>
+        ) : (
+          <motion.span
+            key={state}
+            initial={{ x: 40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 40, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className={cn(
+              "absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded",
+              isIdle && "text-emerald-500",
+              state === AGENT_STATE.RUNNING && "text-blue-400 bg-blue-500/10",
+              state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-500 bg-amber-500/10",
+            )}
+          >
+            {label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function SessionRow({ session }: { session: AgentHookSession }) {
+  const [hovered, setHovered] = React.useState(false);
+  const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
+  const isIdle = session.state === AGENT_STATE.IDLE;
+
+  return (
+    <div
+      className="flex items-center justify-between gap-2 px-1 py-0.5 rounded-sm hover:bg-accent/50"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        <AgentHookStatusIndicator state={session.state} variant="compact" />
+        <span className="text-[10px] font-medium truncate">
+          {AGENT_TOOL_LABELS[session.tool] ?? session.tool}
+        </span>
+      </div>
+      <SessionStateBadge
+        state={session.state}
+        showReset={hovered && !isIdle}
+        onReset={() => forceIdle(session.session_id)}
+      />
+    </div>
+  );
 }
 
 function AgentStatusPopoverContent() {
@@ -105,28 +177,7 @@ function AgentStatusPopoverContent() {
                 {displayPath}
               </div>
               {pathSessions.map((session) => (
-                <div
-                  key={session.session_id}
-                  className="flex items-center justify-between gap-2 px-1 py-0.5 rounded-sm hover:bg-accent/50"
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <AgentHookStatusIndicator
-                      state={session.state}
-                      variant="compact"
-                    />
-                    <span className="text-[10px] font-medium truncate">
-                      {AGENT_TOOL_LABELS[session.tool] ?? session.tool}
-                    </span>
-                  </div>
-                  <span className={cn(
-                    "text-[9px] font-mono shrink-0 px-1 py-px rounded",
-                    session.state === AGENT_STATE.IDLE && "text-emerald-500",
-                    session.state === AGENT_STATE.RUNNING && "text-blue-400 bg-blue-500/10",
-                    session.state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-500 bg-amber-500/10",
-                  )}>
-                    {session.state === AGENT_STATE.PERMISSION_REQUEST ? "PERM" : session.state.toUpperCase()}
-                  </span>
-                </div>
+                <SessionRow key={session.session_id} session={session} />
               ))}
             </div>
           );

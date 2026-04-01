@@ -64,6 +64,7 @@ interface AgentHooksStore {
   hasRunningSession: () => boolean;
   hasPermissionRequest: () => boolean;
   getGlobalState: () => AgentHookState;
+  forceSessionIdle: (sessionId: string) => void;
   clearIdleSessions: () => Promise<void>;
 }
 
@@ -182,6 +183,16 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
       return AGENT_STATE.PERMISSION_REQUEST;
     if (sessions.some((s) => s.state === AGENT_STATE.RUNNING)) return AGENT_STATE.RUNNING;
     return AGENT_STATE.IDLE;
+  },
+
+  forceSessionIdle: (sessionId: string) => {
+    set((state) => {
+      const session = state.sessions.get(sessionId);
+      if (!session || session.state === AGENT_STATE.IDLE) return state;
+      const sessions = new Map(state.sessions);
+      sessions.set(sessionId, { ...session, state: AGENT_STATE.IDLE });
+      return { sessions };
+    });
   },
 
   clearIdleSessions: async () => {
