@@ -67,11 +67,9 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     const existing = get()._unsubscribe;
     if (existing) return;
 
-    console.log("[AgentHooks] init: subscribing to agent_hook_state_changed");
     const unsubscribe = useWebSocketStore.getState().onEvent(
       "agent_hook_state_changed",
       (data: unknown) => {
-        console.log("[AgentHooks] received state update:", data);
         const update = data as AgentHookStateUpdate;
         set((state) => {
           const sessions = new Map(state.sessions);

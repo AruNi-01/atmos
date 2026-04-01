@@ -21,6 +21,7 @@ pub fn routes() -> Router<AppState> {
         .route("/install", post(install_hooks))
         .route("/uninstall", post(uninstall_hooks))
         .route("/status", get(hooks_status))
+        .route("/refresh-projects", post(refresh_project_paths))
 }
 
 async fn handle_claude_code_hook(
@@ -139,4 +140,16 @@ async fn uninstall_hooks() -> Json<Value> {
 async fn hooks_status() -> Json<Value> {
     let report = core_engine::agent_hooks::check_all_hooks();
     Json(serde_json::to_value(report).unwrap_or_default())
+}
+
+async fn refresh_project_paths(State(state): State<AppState>) -> Json<Value> {
+    match state.project_service.list_projects().await {
+        Ok(projects) => {
+            let paths: Vec<String> = projects.into_iter().map(|p| p.main_file_path).collect();
+            let count = paths.len();
+            state.agent_hooks_service.set_known_project_paths(paths);
+            Json(serde_json::json!({ "ok": true, "count": count }))
+        }
+        Err(e) => Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+    }
 }

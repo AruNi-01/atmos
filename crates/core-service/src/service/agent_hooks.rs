@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use chrono::Utc;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use infra::{WsEvent, WsManager, WsMessage};
 
@@ -69,6 +69,10 @@ pub struct AgentHooksService {
     sessions: RwLock<HashMap<String, AgentHookSession>>,
     ws_manager: RwLock<Option<Arc<WsManager>>>,
     notification_service: RwLock<Option<Arc<NotificationService>>>,
+    /// Known project root paths — only hook events whose cwd is under one of
+    /// these paths will be accepted. Prevents external (non-Atmos) agent
+    /// sessions from polluting the UI.
+    known_project_paths: RwLock<HashSet<String>>,
 }
 
 impl AgentHooksService {
@@ -77,6 +81,7 @@ impl AgentHooksService {
             sessions: RwLock::new(HashMap::new()),
             ws_manager: RwLock::new(None),
             notification_service: RwLock::new(None),
+            known_project_paths: RwLock::new(HashSet::new()),
         }
     }
 
@@ -86,6 +91,36 @@ impl AgentHooksService {
 
     pub fn set_notification_service(&self, service: Arc<NotificationService>) {
         *self.notification_service.write() = Some(service);
+    }
+
+    /// Replace the set of known project root paths.
+    /// Called on startup and whenever projects change.
+    pub fn set_known_project_paths(&self, paths: Vec<String>) {
+        let mut guard = self.known_project_paths.write();
+        guard.clear();
+        for p in paths {
+            let normalized = normalize_path(&p);
+            if !normalized.is_empty() {
+                guard.insert(normalized);
+            }
+        }
+        info!("Agent hooks: known project paths updated ({} entries)", guard.len());
+    }
+
+    fn is_known_project_cwd(&self, cwd: Option<&str>) -> bool {
+        let cwd = match cwd {
+            Some(c) if !c.is_empty() => normalize_path(c),
+            _ => return false,
+        };
+        let paths = self.known_project_paths.read();
+        if paths.is_empty() {
+            // No project paths registered yet (startup race or no projects).
+            // Accept everything rather than silently dropping events.
+            return true;
+        }
+        paths.iter().any(|project_path| {
+            cwd == *project_path || cwd.starts_with(&format!("{}/", project_path))
+        })
     }
 
     pub fn get_all_sessions(&self) -> Vec<AgentHookSession> {
@@ -150,34 +185,29 @@ impl AgentHooksService {
         if let Some(ref manager) = *ws {
             let manager = Arc::clone(manager);
             let data = serde_json::to_value(&update).unwrap_or_default();
-            debug!(
-                "Broadcasting agent hook state: session={} tool={} state={}",
-                update.session_id, update.tool, update.state
-            );
             let msg = WsMessage::notification(WsEvent::AgentHookStateChanged, data);
             tokio::spawn(async move {
-                match manager.broadcast(&msg).await {
-                    Ok(()) => debug!("Agent hook state broadcast sent successfully"),
-                    Err(e) => warn!("Failed to broadcast agent hook state update: {}", e),
+                if let Err(e) = manager.broadcast(&msg).await {
+                    warn!("Failed to broadcast agent hook state update: {}", e);
                 }
             });
-        } else {
-            warn!("Agent hook state change not broadcast: WsManager not set");
         }
     }
 
     pub fn handle_claude_code_event(&self, payload: &Value) {
+        let cwd = Self::extract_cwd(payload);
+        if !self.is_known_project_cwd(cwd) {
+            debug!("Claude Code hook ignored: cwd {:?} not in known project paths", cwd);
+            return;
+        }
+
         let hook_event = payload
             .get("hook_event_name")
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
         let session_id = self.extract_session_id(payload, AgentToolType::ClaudeCode);
-        let project_path = payload
-            .get("cwd")
-            .or_else(|| payload.get("project_path"))
-            .and_then(|v| v.as_str())
-            .map(String::from);
+        let project_path = cwd.map(String::from);
 
         debug!("Claude Code hook event: {} session_id={}", hook_event, session_id);
 
@@ -210,17 +240,19 @@ impl AgentHooksService {
     }
 
     pub fn handle_codex_event(&self, payload: &Value) {
+        let cwd = Self::extract_cwd(payload);
+        if !self.is_known_project_cwd(cwd) {
+            debug!("Codex hook ignored: cwd {:?} not in known project paths", cwd);
+            return;
+        }
+
         let hook_event = payload
             .get("hook_event_name")
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
         let session_id = self.extract_session_id(payload, AgentToolType::Codex);
-        let project_path = payload
-            .get("cwd")
-            .or_else(|| payload.get("project_path"))
-            .and_then(|v| v.as_str())
-            .map(String::from);
+        let project_path = cwd.map(String::from);
 
         debug!("Codex hook event: {} session_id={}", hook_event, session_id);
 
@@ -244,17 +276,19 @@ impl AgentHooksService {
     }
 
     pub fn handle_opencode_event(&self, payload: &Value) {
+        let cwd = Self::extract_cwd(payload);
+        if !self.is_known_project_cwd(cwd) {
+            debug!("opencode hook ignored: cwd {:?} not in known project paths", cwd);
+            return;
+        }
+
         let event_type = payload
             .get("type")
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
         let session_id = self.extract_session_id(payload, AgentToolType::Opencode);
-        let project_path = payload
-            .get("cwd")
-            .or_else(|| payload.get("project_path"))
-            .and_then(|v| v.as_str())
-            .map(String::from);
+        let project_path = cwd.map(String::from);
 
         debug!("opencode hook event: {} session_id={}", event_type, session_id);
 
@@ -301,4 +335,16 @@ impl AgentHooksService {
                 format!("{}:{}", tool, cwd)
             })
     }
+
+    fn extract_cwd(payload: &Value) -> Option<&str> {
+        payload
+            .get("cwd")
+            .or_else(|| payload.get("project_path"))
+            .and_then(|v| v.as_str())
+    }
+}
+
+fn normalize_path(p: &str) -> String {
+    let p = p.replace('\\', "/");
+    p.trim_end_matches('/').to_string()
 }

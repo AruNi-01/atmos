@@ -65,7 +65,11 @@ fn spawn_ws_forwarder<T: serde::Serialize + Clone + Send + 'static>(
     })
 }
 
-fn spawn_non_critical_startup_tasks(agent_service: Arc<AgentService>) {
+fn spawn_non_critical_startup_tasks(
+    agent_service: Arc<AgentService>,
+    project_service: Arc<ProjectService>,
+    agent_hooks_service: Arc<core_service::AgentHooksService>,
+) {
     tokio::task::spawn_blocking(|| {
         infra::utils::system_skill_sync::sync_system_skills_on_startup();
     });
@@ -88,6 +92,18 @@ fn spawn_non_critical_startup_tasks(agent_service: Arc<AgentService>) {
             );
         } else {
             info!("ACP registry cache refreshed");
+        }
+    });
+
+    tokio::spawn(async move {
+        match project_service.list_projects().await {
+            Ok(projects) => {
+                let paths: Vec<String> = projects.into_iter().map(|p| p.main_file_path).collect();
+                agent_hooks_service.set_known_project_paths(paths);
+            }
+            Err(e) => {
+                warn!("Failed to load project paths for agent hook filtering: {}", e);
+            }
         }
     });
 }
@@ -231,6 +247,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             require_loopback_or_token(ci, headers, req, next, token_for_destructive.clone())
         }));
 
+    let project_service_for_startup = Arc::clone(&app_state.project_service);
+    let agent_hooks_for_startup = Arc::clone(&app_state.agent_hooks_service);
+
     let mut app = Router::new()
         .route("/healthz", get(|| async { StatusCode::OK }))
         .merge(destructive)
@@ -274,7 +293,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let actual_addr = listener.local_addr()?;
     info!("Server listening on http://{}", actual_addr);
     println!("ATMOS_READY port={}", actual_addr.port());
-    spawn_non_critical_startup_tasks(agent_service_for_startup);
+    spawn_non_critical_startup_tasks(
+        agent_service_for_startup,
+        project_service_for_startup,
+        agent_hooks_for_startup,
+    );
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
