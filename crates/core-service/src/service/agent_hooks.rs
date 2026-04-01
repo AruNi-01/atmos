@@ -192,6 +192,10 @@ impl AgentHooksService {
     }
 
     fn broadcast_state_update(&self, update: AgentHookStateUpdate) {
+        debug!(
+            "Broadcasting state: session={} tool={} state={}",
+            update.session_id, update.tool, update.state
+        );
         let ws = self.ws_manager.read();
         if let Some(ref manager) = *ws {
             let manager = Arc::clone(manager);
@@ -202,6 +206,8 @@ impl AgentHooksService {
                     warn!("Failed to broadcast agent hook state update: {}", e);
                 }
             });
+        } else {
+            warn!("Cannot broadcast: WsManager not set");
         }
     }
 
