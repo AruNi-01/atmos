@@ -216,13 +216,16 @@ impl AgentHooksService {
 
         debug!("Claude Code hook event: {} session_id={}", hook_event, session_id);
 
-        // If this session is already tracked as a different tool (e.g. opencode
-        // using Claude as its backend provider), skip — the owning tool's
-        // handler is authoritative for this session.
+        // If this session is actively running/waiting under a different tool
+        // (e.g. opencode using Claude as backend), skip — the owning tool is
+        // authoritative. But if the session is idle, allow takeover (the user
+        // may have quit one agent and started another in the same terminal).
         if let Some(existing) = self.sessions.read().get(&session_id) {
-            if existing.tool != AgentToolType::ClaudeCode {
+            if existing.tool != AgentToolType::ClaudeCode
+                && existing.state != AgentHookState::Idle
+            {
                 debug!(
-                    "Skipping Claude Code event for session {} already owned by {}",
+                    "Skipping Claude Code event for session {} actively owned by {}",
                     session_id, existing.tool
                 );
                 return;
