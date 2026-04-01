@@ -37,7 +37,7 @@ fn is_atmos_hook(hook_entry: &Value, port: u16) -> bool {
 fn build_hook_entries(port: u16) -> Value {
     let url = hook_url(port);
     let cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -d @- '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Workspace: $ATMOS_WORKSPACE_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
         url = url,
     );
     json!({

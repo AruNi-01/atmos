@@ -26,18 +26,6 @@ export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
   [AGENT_TOOL.OPENCODE]: "OpenCode",
 };
 
-const PANE_TITLE_TO_TOOL: [RegExp, AgentToolType][] = [
-  [/\bclaude\b/i, AGENT_TOOL.CLAUDE_CODE],
-  [/\bcodex\b/i, AGENT_TOOL.CODEX],
-  [/\bopencode\b/i, AGENT_TOOL.OPENCODE],
-];
-
-export function toolTypeFromPaneTitle(title: string): AgentToolType | null {
-  for (const [pattern, tool] of PANE_TITLE_TO_TOOL) {
-    if (pattern.test(title)) return tool;
-  }
-  return null;
-}
 
 export interface AgentHookSession {
   session_id: string;
@@ -45,6 +33,8 @@ export interface AgentHookSession {
   state: AgentHookState;
   timestamp: string;
   project_path?: string | null;
+  workspace_id?: string | null;
+  pane_id?: string | null;
 }
 
 interface AgentHookStateUpdate {
@@ -53,6 +43,8 @@ interface AgentHookStateUpdate {
   state: AgentHookState;
   timestamp: string;
   project_path?: string | null;
+  workspace_id?: string | null;
+  pane_id?: string | null;
 }
 
 interface AgentHooksStore {
@@ -66,6 +58,7 @@ interface AgentHooksStore {
   getSessionsByProjectPath: (projectPath: string) => AgentHookSession[];
   getAggregateAgentStateForProjectPath: (projectPath: string) => AgentHookState;
   getAgentStateForTool: (tool: AgentToolType | null) => AgentHookState;
+  getAgentStateForPaneId: (paneId: string) => AgentHookState;
   getLatestSession: () => AgentHookSession | null;
   hasRunningSession: () => boolean;
   hasPermissionRequest: () => boolean;
@@ -93,6 +86,8 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
             state: update.state,
             timestamp: update.timestamp,
             project_path: update.project_path,
+            workspace_id: update.workspace_id,
+            pane_id: update.pane_id,
           });
           return { sessions };
         });
@@ -153,6 +148,11 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
       if (s.state === AGENT_STATE.RUNNING) hasRunning = true;
     }
     return hasRunning ? AGENT_STATE.RUNNING : AGENT_STATE.IDLE;
+  },
+
+  getAgentStateForPaneId: (paneId: string) => {
+    const session = get().sessions.get(paneId);
+    return session?.state ?? AGENT_STATE.IDLE;
   },
 
   getLatestSession: () => {

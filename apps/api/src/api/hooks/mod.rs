@@ -1,12 +1,29 @@
 use axum::{
     extract::State,
+    http::HeaderMap,
     routing::{get, post, put},
     Json, Router,
 };
+use core_service::service::agent_hooks::AtmosContext;
 use core_service::service::notification::NotificationSettings;
 use serde_json::Value;
 
 use crate::app_state::AppState;
+
+fn extract_atmos_context(headers: &HeaderMap) -> AtmosContext {
+    AtmosContext {
+        workspace_id: headers
+            .get("x-atmos-workspace")
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        pane_id: headers
+            .get("x-atmos-pane")
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+    }
+}
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -26,25 +43,31 @@ pub fn routes() -> Router<AppState> {
 
 async fn handle_claude_code_hook(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Json<Value> {
-    state.agent_hooks_service.handle_claude_code_event(&payload);
+    let ctx = extract_atmos_context(&headers);
+    state.agent_hooks_service.handle_claude_code_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
 async fn handle_codex_hook(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Json<Value> {
-    state.agent_hooks_service.handle_codex_event(&payload);
+    let ctx = extract_atmos_context(&headers);
+    state.agent_hooks_service.handle_codex_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
 async fn handle_opencode_hook(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<Value>,
 ) -> Json<Value> {
-    state.agent_hooks_service.handle_opencode_event(&payload);
+    let ctx = extract_atmos_context(&headers);
+    state.agent_hooks_service.handle_opencode_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 

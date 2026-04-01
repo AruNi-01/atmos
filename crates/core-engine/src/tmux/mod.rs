@@ -341,6 +341,7 @@ impl TmuxEngine {
         let _ = self.run_tmux(&["set-environment", "-g", "ATMOS_MANAGED", "1"]);
     }
 
+
     /// Apply the standard tmux configuration options for Atmos sessions.
     ///
     /// Key design decisions:
@@ -531,6 +532,7 @@ impl TmuxEngine {
         window_name: &str,
         cwd: Option<&str>,
         shell_command: Option<&[String]>,
+        env_vars: Option<&[(&str, &str)]>,
     ) -> Result<u32> {
         if !self.session_exists(session_name)? {
             info!("Session {} does not exist, creating it first", session_name);
@@ -576,6 +578,12 @@ impl TmuxEngine {
         if let Some(dir) = cwd {
             args.push("-c".to_string());
             args.push(dir.to_string());
+        }
+        if let Some(vars) = env_vars {
+            for (key, value) in vars {
+                args.push("-e".to_string());
+                args.push(format!("{}={}", key, value));
+            }
         }
         if let Some(cmd) = shell_command {
             for part in cmd {

@@ -28,7 +28,11 @@ async function post(event: object) {{
   try {{
     await fetch(ATMOS_URL, {{
       method: "POST",
-      headers: {{ "Content-Type": "application/json" }},
+      headers: {{
+        "Content-Type": "application/json",
+        "X-Atmos-Workspace": process.env?.ATMOS_WORKSPACE_ID ?? "",
+        "X-Atmos-Pane": process.env?.ATMOS_PANE_ID ?? "",
+      }},
       body: JSON.stringify(event),
       signal: AbortSignal.timeout(3000),
     }})

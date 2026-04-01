@@ -47,6 +47,13 @@ impl std::fmt::Display for AgentToolType {
     }
 }
 
+/// Context injected by Atmos tmux environment variables, carried via HTTP headers.
+#[derive(Debug, Clone, Default)]
+pub struct AtmosContext {
+    pub workspace_id: Option<String>,
+    pub pane_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentHookSession {
     pub session_id: String,
@@ -54,6 +61,10 @@ pub struct AgentHookSession {
     pub state: AgentHookState,
     pub timestamp: String,
     pub project_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pane_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +74,10 @@ pub struct AgentHookStateUpdate {
     pub state: AgentHookState,
     pub timestamp: String,
     pub project_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pane_id: Option<String>,
 }
 
 pub struct AgentHooksService {
@@ -127,7 +142,14 @@ impl AgentHooksService {
         idle_ids
     }
 
-    fn update_state(&self, session_id: &str, tool: AgentToolType, state: AgentHookState, project_path: Option<String>) {
+    fn update_state(
+        &self,
+        session_id: &str,
+        tool: AgentToolType,
+        state: AgentHookState,
+        project_path: Option<String>,
+        ctx: &AtmosContext,
+    ) {
         let timestamp = Utc::now().to_rfc3339();
 
         let previous_state = {
@@ -141,6 +163,8 @@ impl AgentHooksService {
             state,
             timestamp: timestamp.clone(),
             project_path,
+            workspace_id: ctx.workspace_id.clone(),
+            pane_id: ctx.pane_id.clone(),
         };
 
         {
@@ -154,6 +178,8 @@ impl AgentHooksService {
             state,
             timestamp,
             project_path: session.project_path,
+            workspace_id: ctx.workspace_id.clone(),
+            pane_id: ctx.pane_id.clone(),
         };
 
         self.broadcast_state_update(update.clone());
@@ -177,23 +203,23 @@ impl AgentHooksService {
         }
     }
 
-    pub fn handle_claude_code_event(&self, payload: &Value) {
+    pub fn handle_claude_code_event(&self, payload: &Value, ctx: &AtmosContext) {
         let hook_event = payload
             .get("hook_event_name")
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        let session_id = self.extract_session_id(payload, AgentToolType::ClaudeCode);
+        let session_id = self.resolve_session_id(payload, AgentToolType::ClaudeCode, ctx);
         let project_path = Self::extract_cwd(payload).map(String::from);
 
         debug!("Claude Code hook event: {} session_id={}", hook_event, session_id);
 
         match hook_event {
             "SessionStart" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path);
+                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path, ctx);
             }
             "UserPromptSubmit" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Running, project_path);
+                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Running, project_path, ctx);
             }
             "Notification" => {
                 let notification_type = payload
@@ -201,14 +227,14 @@ impl AgentHooksService {
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 if notification_type == "permissionprompt" {
-                    self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::PermissionRequest, project_path);
+                    self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::PermissionRequest, project_path, ctx);
                 }
             }
             "PreToolUse" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Running, project_path);
+                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Running, project_path, ctx);
             }
             "Stop" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path);
+                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path, ctx);
             }
             _ => {
                 debug!("Unhandled Claude Code hook event: {}", hook_event);
@@ -216,29 +242,29 @@ impl AgentHooksService {
         }
     }
 
-    pub fn handle_codex_event(&self, payload: &Value) {
+    pub fn handle_codex_event(&self, payload: &Value, ctx: &AtmosContext) {
         let hook_event = payload
             .get("hook_event_name")
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        let session_id = self.extract_session_id(payload, AgentToolType::Codex);
+        let session_id = self.resolve_session_id(payload, AgentToolType::Codex, ctx);
         let project_path = Self::extract_cwd(payload).map(String::from);
 
         debug!("Codex hook event: {} session_id={}", hook_event, session_id);
 
         match hook_event {
             "SessionStart" => {
-                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Idle, project_path);
+                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Idle, project_path, ctx);
             }
             "UserPromptSubmit" => {
-                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Running, project_path);
+                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Running, project_path, ctx);
             }
             "PreToolUse" | "PostToolUse" => {
-                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Running, project_path);
+                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Running, project_path, ctx);
             }
             "Stop" => {
-                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Idle, project_path);
+                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Idle, project_path, ctx);
             }
             _ => {
                 debug!("Unhandled Codex hook event: {}", hook_event);
@@ -246,20 +272,20 @@ impl AgentHooksService {
         }
     }
 
-    pub fn handle_opencode_event(&self, payload: &Value) {
+    pub fn handle_opencode_event(&self, payload: &Value, ctx: &AtmosContext) {
         let event_type = payload
             .get("type")
             .and_then(|v| v.as_str())
             .unwrap_or("");
 
-        let session_id = self.extract_session_id(payload, AgentToolType::Opencode);
+        let session_id = self.resolve_session_id(payload, AgentToolType::Opencode, ctx);
         let project_path = Self::extract_cwd(payload).map(String::from);
 
         debug!("opencode hook event: {} session_id={}", event_type, session_id);
 
         match event_type {
             "session.created" | "session.idle" | "session.error" => {
-                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Idle, project_path);
+                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Idle, project_path, ctx);
             }
             "message.updated" => {
                 let role = payload
@@ -268,17 +294,17 @@ impl AgentHooksService {
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 if role == "user" {
-                    self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path);
+                    self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path, ctx);
                 }
             }
             "tool.execute.before" | "tool.execute.after" => {
-                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path);
+                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path, ctx);
             }
             "permission.asked" => {
-                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::PermissionRequest, project_path);
+                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::PermissionRequest, project_path, ctx);
             }
             "permission.replied" => {
-                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path);
+                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path, ctx);
             }
             _ => {
                 debug!("Unhandled opencode hook event: {}", event_type);
@@ -286,17 +312,17 @@ impl AgentHooksService {
         }
     }
 
-    fn extract_session_id(&self, payload: &Value, tool: AgentToolType) -> String {
+    /// Prefer Atmos pane_id (stable, per-terminal-pane) > payload session_id > fallback.
+    fn resolve_session_id(&self, payload: &Value, tool: AgentToolType, ctx: &AtmosContext) -> String {
+        if let Some(ref pane_id) = ctx.pane_id {
+            return pane_id.clone();
+        }
         payload
             .get("session_id")
             .and_then(|v| v.as_str())
             .map(String::from)
             .unwrap_or_else(|| {
-                let cwd = payload
-                    .get("cwd")
-                    .or_else(|| payload.get("project_path"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
+                let cwd = Self::extract_cwd(payload).unwrap_or("unknown");
                 format!("{}:{}", tool, cwd)
             })
     }

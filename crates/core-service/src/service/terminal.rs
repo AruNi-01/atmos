@@ -473,7 +473,11 @@ impl TerminalService {
             final_window_name, session_id
         );
 
-        // shell_command already built above (for session creation), reuse for new window
+        let atmos_env_vars: Vec<(&str, &str)> = vec![
+            ("ATMOS_MANAGED", "1"),
+            ("ATMOS_WORKSPACE_ID", &workspace_id),
+            ("ATMOS_PANE_ID", &session_id),
+        ];
         let window_index = self
             .tmux_engine
             .create_window(
@@ -481,6 +485,7 @@ impl TerminalService {
                 &final_window_name,
                 cwd.as_deref(),
                 shell_command.as_deref(),
+                Some(&atmos_env_vars),
             )
             .map_err(|e| {
                 ServiceError::Processing(format!("Failed to create tmux window: {}", e))
