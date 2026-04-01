@@ -584,6 +584,7 @@ impl TmuxEngine {
                 args.push("-e".to_string());
                 args.push(format!("{}={}", key, value));
             }
+            debug!("Tmux new-window with env vars: {:?}", vars.iter().map(|(k,v)| format!("{}={}", k, v)).collect::<Vec<_>>());
         }
         if let Some(cmd) = shell_command {
             for part in cmd {
