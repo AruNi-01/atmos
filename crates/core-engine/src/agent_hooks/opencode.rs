@@ -41,37 +41,36 @@ async function post(event: object) {{
 
 export const AtmosPlugin = async (_ctx: any) => {{
   let phase: "idle" | "running" = "idle"
-  let idleAt = 0
+  let lastStateTs = 0
   return {{
     event: async ({{ event }}) => {{
       const t = event.type
+      const now = Date.now()
 
       if (t === "session.created") {{
         phase = "idle"
-        idleAt = 0
+        lastStateTs = now
         await post(event)
         return
       }}
 
       if (t === "session.idle" || t === "session.error") {{
-        if (phase !== "idle") {{
-          phase = "idle"
-          idleAt = Date.now()
-          await post(event)
-        }}
+        phase = "idle"
+        lastStateTs = now
+        await post(event)
         return
       }}
 
       if (t === "permission.asked" || t === "permission.updated") {{
         phase = "idle"
-        idleAt = 0
+        lastStateTs = now
         await post(event)
         return
       }}
 
       if (t === "permission.replied") {{
         phase = "idle"
-        idleAt = 0
+        lastStateTs = now
         await post(event)
         return
       }}
@@ -84,9 +83,9 @@ export const AtmosPlugin = async (_ctx: any) => {{
         t === "tool.execute.after"
       ) {{
         if (phase !== "running") {{
-          if (idleAt > 0 && Date.now() - idleAt < 500) return
+          if (now - lastStateTs < 500) return
           phase = "running"
-          idleAt = 0
+          lastStateTs = now
           await post({{ type: "agent.running", properties: event.properties ?? {{}} }})
         }}
         return
