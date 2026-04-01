@@ -81,8 +81,12 @@ const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
   close: true,
 };
 
-function TerminalPaneAgentStatus({ paneId }: { paneId: string }) {
-  const paneState = useAgentHooksStore((s) => s.getAgentStateForPaneId(paneId));
+function TerminalPaneAgentStatus({ paneId, contextId }: { paneId: string; contextId: string }) {
+  const paneState = useAgentHooksStore((s) => {
+    const byPane = s.getAgentStateForPaneId(paneId);
+    if (byPane !== AGENT_STATE.IDLE) return byPane;
+    return s.getAgentStateForContextId(contextId);
+  });
 
   if (paneState === AGENT_STATE.IDLE) return null;
 
@@ -365,7 +369,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                 <span className="terminal-mosaic-title flex items-center gap-1.5 ml-1">
                   {displayTitle}
                 </span>
-                <TerminalPaneAgentStatus paneId={pane.sessionId} />
+                <TerminalPaneAgentStatus paneId={pane.sessionId} contextId={workspaceId} />
               </div>
 
               {(actions.split || actions.maximize || actions.close) && (
