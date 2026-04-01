@@ -103,11 +103,9 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
                 let event_arr = hooks_map.entry(event_name).or_insert_with(|| json!([]));
 
                 if let Some(arr) = event_arr.as_array_mut() {
-                    let already = arr.iter().any(|entry| is_atmos_hook(entry, port));
-                    if !already {
-                        if let Some(new_arr) = new_entries.as_array() {
-                            arr.extend(new_arr.iter().cloned());
-                        }
+                    arr.retain(|entry| !is_atmos_hook(entry, port));
+                    if let Some(new_arr) = new_entries.as_array() {
+                        arr.extend(new_arr.iter().cloned());
                     }
                 }
             }
