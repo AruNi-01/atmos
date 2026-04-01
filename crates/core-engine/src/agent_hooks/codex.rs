@@ -36,23 +36,32 @@ fn is_atmos_hook(hook_entry: &Value, port: u16) -> bool {
 
 fn build_hook_entries(port: u16) -> Value {
     let url = hook_url(port);
-    let cmd = format!(
+    let sync_cmd = format!(
         r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+        url = url,
+    );
+    // Async hooks may not provide stdin, so send the hook_event_name as a minimal JSON body
+    let async_stop_cmd = format!(
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"Stop"}}' '{url}' >/dev/null 2>&1 || true"#,
+        url = url,
+    );
+    let async_pre_tool_cmd = format!(
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"PreToolUse"}}' '{url}' >/dev/null 2>&1 || true"#,
         url = url,
     );
     json!({
         "SessionStart": [{
-            "hooks": [{ "type": "command", "command": &cmd, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": &sync_cmd, "timeout": 5 }]
         }],
         "UserPromptSubmit": [{
-            "hooks": [{ "type": "command", "command": &cmd, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": &sync_cmd, "timeout": 5 }]
         }],
         "PreToolUse": [{
             "matcher": "Bash",
-            "hooks": [{ "type": "command", "command": &cmd, "async": true }]
+            "hooks": [{ "type": "command", "command": &async_pre_tool_cmd, "async": true }]
         }],
         "Stop": [{
-            "hooks": [{ "type": "command", "command": &cmd, "async": true }]
+            "hooks": [{ "type": "command", "command": &async_stop_cmd, "async": true }]
         }]
     })
 }
