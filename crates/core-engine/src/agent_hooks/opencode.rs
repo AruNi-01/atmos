@@ -1,4 +1,4 @@
-use tracing::debug;
+use tracing::{debug, info};
 
 use super::{home_dir, AgentHookToolStatus};
 
@@ -81,10 +81,12 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
         None => return AgentHookToolStatus::not_detected(),
     };
 
-    let opencode_dir = plugin_dir.parent().unwrap();
-    let detected = opencode_dir.exists() || which_exists("opencode");
-    if !detected {
-        debug!("opencode not detected, skipping");
+    // Detect by config dir OR binary in PATH
+    let opencode_config_dir = plugin_dir.parent().unwrap();
+    let has_config = opencode_config_dir.exists();
+    let has_binary = which_exists("opencode");
+    if !has_config && !has_binary {
+        debug!("opencode not detected (no config dir, not in PATH), skipping");
         return AgentHookToolStatus::not_detected();
     }
 
@@ -106,8 +108,11 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
         }
     }
 
-    match std::fs::write(&plugin_file, source) {
-        Ok(()) => AgentHookToolStatus::success(&path_str),
+    match std::fs::write(&plugin_file, &source) {
+        Ok(()) => {
+            info!("opencode plugin installed at {} ({} bytes). Restart opencode to activate.", path_str, source.len());
+            AgentHookToolStatus::success(&path_str)
+        }
         Err(e) => AgentHookToolStatus::failed(&path_str, e.to_string()),
     }
 }
@@ -142,9 +147,10 @@ pub(super) fn check() -> AgentHookToolStatus {
         None => return AgentHookToolStatus::not_detected(),
     };
 
-    let opencode_dir = plugin_file.parent().and_then(|d| d.parent());
-    let detected = opencode_dir.map(|d| d.exists()).unwrap_or(false) || which_exists("opencode");
-    if !detected {
+    let opencode_config_dir = plugin_file.parent().and_then(|d| d.parent());
+    let has_config = opencode_config_dir.is_some_and(|d| d.exists());
+    let has_binary = which_exists("opencode");
+    if !has_config && !has_binary {
         return AgentHookToolStatus::not_detected();
     }
 
