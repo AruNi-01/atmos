@@ -479,7 +479,7 @@ const Header: React.FC = () => {
       setCurrentContext(null, null, null);
       setCurrentProjectPath(null);
     }
-  }, [currentProject?.id, currentWorkspaceId, currentWorkspace?.localPath, currentProject?.mainFilePath, isSettingUp, setCurrentContext, setCurrentProjectPath]);
+  }, [currentProject, currentWorkspaceId, currentWorkspace?.localPath, isSettingUp, setCurrentContext, setCurrentProjectPath]);
 
   // Fetch available branches when project/workspace changes
   useEffect(() => {
