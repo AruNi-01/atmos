@@ -1,10 +1,31 @@
 "use client";
-import React, { useState, useCallback } from 'react';
-import { Activity, Tooltip, TooltipTrigger, TooltipContent } from '@workspace/ui';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  Button,
+} from '@workspace/ui';
 import { cn } from "@/lib/utils";
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useContextParams } from "@/hooks/use-context-params";
+import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
+import {
+  useAgentHooksStore,
+  type AgentHookSession,
+  AGENT_STATE,
+  AGENT_TOOL_LABELS,
+} from '@/hooks/use-agent-hooks-store';
+import { useShallow } from 'zustand/react/shallow';
+import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
+import { AnimatePresence, motion } from 'motion/react';
+import { useProjectStore } from '@/hooks/use-project-store';
+import { X } from 'lucide-react';
+import { BotMessageSquareIcon, type BotMessageSquareHandle } from '@workspace/ui';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -33,11 +54,222 @@ function shortId(id: string): string {
   return id.slice(dash + 1, dash + 9);
 }
 
+function groupSessionsByContext(sessions: AgentHookSession[]): Map<string, AgentHookSession[]> {
+  const grouped = new Map<string, AgentHookSession[]>();
+  for (const session of sessions) {
+    const key = session.context_id || session.project_path || "unknown";
+    const list = grouped.get(key) ?? [];
+    list.push(session);
+    grouped.set(key, list);
+  }
+  return grouped;
+}
+
+function SessionStateBadge({ state, hoverAction, onAction }: {
+  state: string;
+  hoverAction: "idle" | "clear" | null;
+  onAction: () => void;
+}) {
+  const label = state === AGENT_STATE.PERMISSION_REQUEST ? "PERM" : state.toUpperCase();
+  const springTransition = { type: "spring" as const, stiffness: 500, damping: 30 };
+
+  return (
+    <div className="relative overflow-hidden shrink-0 h-5 w-[52px]">
+      <AnimatePresence mode="popLayout" initial={false}>
+        {hoverAction === "idle" ? (
+          <motion.button
+            key="reset-idle"
+            initial={{ x: -40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -40, opacity: 0 }}
+            transition={springTransition}
+            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-emerald-500 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onAction(); }}
+          >
+            IDLE
+          </motion.button>
+        ) : hoverAction === "clear" ? (
+          <motion.button
+            key="clear"
+            initial={{ x: -40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -40, opacity: 0 }}
+            transition={springTransition}
+            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-red-400 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onAction(); }}
+          >
+            CLEAR
+          </motion.button>
+        ) : (
+          <motion.span
+            key={state}
+            initial={{ x: 40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 40, opacity: 0 }}
+            transition={springTransition}
+            className={cn(
+              "absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded",
+              state === AGENT_STATE.IDLE && "text-emerald-500",
+              state === AGENT_STATE.RUNNING && "text-blue-400 bg-blue-500/10",
+              state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-500 bg-amber-500/10",
+            )}
+          >
+            {label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function SessionRow({ session }: { session: AgentHookSession }) {
+  const [hovered, setHovered] = React.useState(false);
+  const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
+  const removeSession = useAgentHooksStore((s) => s.removeSession);
+  const isIdle = session.state === AGENT_STATE.IDLE;
+
+  const hoverAction = !hovered ? null : isIdle ? "clear" as const : "idle" as const;
+  const handleAction = () => {
+    if (isIdle) {
+      removeSession(session.session_id);
+    } else {
+      forceIdle(session.session_id);
+    }
+  };
+
+  return (
+    <div
+      className="flex items-center justify-between gap-2 px-1 py-0.5 rounded-sm hover:bg-accent/50"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        <AgentHookStatusIndicator state={session.state} variant="compact" />
+        <span className="text-[10px] font-medium">
+          {AGENT_TOOL_LABELS[session.tool] ?? session.tool}
+        </span>
+      </div>
+      <SessionStateBadge
+        state={session.state}
+        hoverAction={hoverAction}
+        onAction={handleAction}
+      />
+    </div>
+  );
+}
+
+function useContextDisplayNameResolver() {
+  const projects = useProjectStore((s) => s.projects);
+  return useCallback((contextKey: string): string => {
+    if (contextKey === "unknown") return "Unknown project";
+    for (const project of projects) {
+      if (project.id === contextKey) return project.name;
+      for (const ws of project.workspaces) {
+        if (ws.id === contextKey) return `${project.name} / ${ws.branch}`;
+      }
+    }
+    if (contextKey.includes("/") || contextKey.includes("\\")) {
+      return contextKey.split(/[\\/]/).slice(-2).join("/");
+    }
+    return contextKey.slice(0, 8);
+  }, [projects]);
+}
+
+function AgentStatusPopoverContent() {
+  const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
+  const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
+
+  const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
+  const grouped = useMemo(() => groupSessionsByContext(sessions), [sessions]);
+  const hasIdleSessions = sessions.some(s => s.state === AGENT_STATE.IDLE);
+  const resolveContextDisplayName = useContextDisplayNameResolver();
+
+  if (sessions.length === 0) {
+    return (
+      <div className="p-3 text-[11px] text-muted-foreground">
+        No active agent sessions
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-2 max-h-64 overflow-y-auto">
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-[11px] font-semibold text-foreground">
+          Agent Sessions ({sessions.length})
+        </span>
+        {hasIdleSessions && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+            onClick={() => clearIdleSessions()}
+          >
+            <X className="size-3 mr-0.5" />
+            Clear idle
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {Array.from(grouped.entries()).map(([contextKey, pathSessions]) => {
+          const displayName = resolveContextDisplayName(contextKey);
+          return (
+            <div key={contextKey} className="space-y-0.5">
+              <div className="text-[10px] font-medium text-muted-foreground px-1 truncate" title={contextKey}>
+                {displayName}
+              </div>
+              {pathSessions.map((session) => (
+                <SessionRow key={session.session_id} session={session} />
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AcpChatButton({ onClick }: { onClick: () => void }) {
+  const iconRef = useRef<BotMessageSquareHandle>(null);
+  return (
+    <button
+      type="button"
+      aria-label="Open Agent Chat"
+      className="inline-flex h-5 items-center gap-1 rounded-sm bg-transparent px-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+      onClick={onClick}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
+      onMouseLeave={() => iconRef.current?.stopAnimation()}
+    >
+      <BotMessageSquareIcon ref={iconRef} size={12} />
+      <span className="whitespace-nowrap">ACP Chat</span>
+    </button>
+  );
+}
+
 const Footer: React.FC = () => {
   const connectionState = useWebSocketStore(s => s.connectionState);
   const { workspaceId: currentWorkspaceId, projectId: currentProjectId } = useContextParams();
+  const [, setAgentChatOpen] = useAgentChatUrl();
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const globalState = useAgentHooksStore((s) => {
+    for (const session of s.sessions.values()) {
+      if (session.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
+    }
+    for (const session of s.sessions.values()) {
+      if (session.state === AGENT_STATE.RUNNING) return AGENT_STATE.RUNNING;
+    }
+    return AGENT_STATE.IDLE;
+  });
+  const latestSessionTool = useAgentHooksStore((s) => {
+    let latest: AgentHookSession | null = null;
+    for (const session of s.sessions.values()) {
+      if (!latest || session.timestamp > latest.timestamp) latest = session;
+    }
+    return latest?.tool ?? null;
+  });
 
   const fetchConnections = useCallback(async () => {
     if (connectionState !== 'connected') return;
@@ -139,21 +371,37 @@ const Footer: React.FC = () => {
 
       {/* Right Status */}
       <div className="flex items-center space-x-2">
-        <div className="flex items-center space-x-2">
-          <Activity className="size-3 text-emerald-500" />
-          <span className="text-pretty">Agent: IDLE</span>
-        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex items-center space-x-1.5 hover:text-foreground transition-colors cursor-pointer">
+              <AgentHookStatusIndicator
+                state={globalState}
+                variant="full"
+                tool={latestSessionTool ? (AGENT_TOOL_LABELS[latestSessionTool] ?? latestSessionTool) : undefined}
+              />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="top"
+            align="end"
+            className="w-72 p-0"
+          >
+            <AgentStatusPopoverContent />
+          </PopoverContent>
+        </Popover>
+        <div className="h-3 w-px bg-border"></div>
+        <AcpChatButton onClick={() => setAgentChatOpen(true)} />
         <div className="h-3 w-px bg-border"></div>
         {currentWorkspaceId ? (
-          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-emerald-500/10 text-emerald-500 font-medium whitespace-nowrap">
+          <span className="text-[10px] text-emerald-500 font-medium whitespace-nowrap">
             Dev on workspace
           </span>
         ) : currentProjectId ? (
-          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-amber-500/10 text-amber-500 font-medium whitespace-nowrap">
+          <span className="text-[10px] text-amber-500 font-medium whitespace-nowrap">
             Dev on main
           </span>
         ) : (
-          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-neutral-500/10 text-neutral-500 font-medium whitespace-nowrap">
+          <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
             Waiting to build
           </span>
         )}

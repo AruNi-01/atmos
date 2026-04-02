@@ -10,10 +10,6 @@ interface PanelLayout {
   y: number;
   width: number;
   height: number;
-  floatingBall: boolean;
-  ballX: number;
-  ballY: number;
-  opacity: number;
 }
 
 const DEFAULT_LAYOUT: PanelLayout = {
@@ -21,10 +17,6 @@ const DEFAULT_LAYOUT: PanelLayout = {
   y: -1,
   width: 461,
   height: 701,
-  floatingBall: false,
-  ballX: -1,
-  ballY: -1,
-  opacity: 100,
 };
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -62,10 +54,6 @@ export const useAgentChatLayout = create<AgentChatLayoutStore>((set, get) => ({
               y: parsed.y ?? DEFAULT_LAYOUT.y,
               width: parsed.width ?? DEFAULT_LAYOUT.width,
               height: parsed.height ?? DEFAULT_LAYOUT.height,
-              floatingBall: parsed.floatingBall ?? DEFAULT_LAYOUT.floatingBall,
-              ballX: parsed.ballX ?? DEFAULT_LAYOUT.ballX,
-              ballY: parsed.ballY ?? DEFAULT_LAYOUT.ballY,
-              opacity: parsed.opacity ?? DEFAULT_LAYOUT.opacity,
             },
             loaded: true,
           });

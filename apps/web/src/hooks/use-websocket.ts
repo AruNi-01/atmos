@@ -96,6 +96,10 @@ export type WsAction =
   // Code Agent custom settings
   | "code_agent_custom_get"
   | "code_agent_custom_update"
+  // Notification settings
+  | "notification_settings_get"
+  | "notification_settings_update"
+  | "notification_test_push"
   // Agent 操作
   | "agent_list"
   | "agent_install"
@@ -530,6 +534,9 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       // 处理通知
       if (message.type === "notification") {
         const { event: eventName, data } = message.payload;
+        if (eventName === "agent_hook_state_changed") {
+          console.debug("[WS] agent_hook_state_changed:", (data as Record<string, unknown>)?.tool, (data as Record<string, unknown>)?.state, "listeners:", get().eventListeners.get(eventName)?.size ?? 0);
+        }
         const listeners = get().eventListeners.get(eventName);
         if (listeners) {
           listeners.forEach((cb) => cb(data));

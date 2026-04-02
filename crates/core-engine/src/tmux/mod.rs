@@ -332,11 +332,15 @@ impl TmuxEngine {
 
     /// Keep tmux server environment UTF-8 so new shells inside windows render
     /// Nerd Font / Powerline glyphs instead of falling back to ASCII placeholders.
+    /// Also injects `ATMOS_MANAGED=1` so agent hook scripts can distinguish
+    /// Atmos-managed terminals from external terminals.
     fn sync_utf8_environment(&self) {
         let locale = resolve_utf8_locale();
         let _ = self.run_tmux(&["set-environment", "-g", "LANG", &locale]);
         let _ = self.run_tmux(&["set-environment", "-g", "LC_CTYPE", &locale]);
+        let _ = self.run_tmux(&["set-environment", "-g", "ATMOS_MANAGED", "1"]);
     }
+
 
     /// Apply the standard tmux configuration options for Atmos sessions.
     ///
@@ -528,6 +532,7 @@ impl TmuxEngine {
         window_name: &str,
         cwd: Option<&str>,
         shell_command: Option<&[String]>,
+        env_vars: Option<&[(&str, &str)]>,
     ) -> Result<u32> {
         if !self.session_exists(session_name)? {
             info!("Session {} does not exist, creating it first", session_name);
@@ -573,6 +578,13 @@ impl TmuxEngine {
         if let Some(dir) = cwd {
             args.push("-c".to_string());
             args.push(dir.to_string());
+        }
+        if let Some(vars) = env_vars {
+            for (key, value) in vars {
+                args.push("-e".to_string());
+                args.push(format!("{}={}", key, value));
+            }
+            debug!("Tmux new-window with env vars: {:?}", vars.iter().map(|(k,v)| format!("{}={}", k, v)).collect::<Vec<_>>());
         }
         if let Some(cmd) = shell_command {
             for part in cmd {

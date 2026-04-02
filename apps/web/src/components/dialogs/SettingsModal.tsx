@@ -37,7 +37,7 @@ import {
   MotionSidebarMenuItem,
   MotionSidebarProvider,
 } from '@workspace/ui';
-import { Bot, BrainCircuit, Building2, Check, ChevronDown, Download, ExternalLink, Info, Languages, LoaderCircle, Plus, RefreshCw, Route, Save, SlidersHorizontal, SquareTerminal, Trash2 } from 'lucide-react';
+import { Bell, Bot, BrainCircuit, Building2, Check, ChevronDown, Download, ExternalLink, Info, Languages, LoaderCircle, Plus, RefreshCw, Route, Save, SlidersHorizontal, SquareTerminal, Trash2, Webhook } from 'lucide-react';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
@@ -62,6 +62,8 @@ import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { settingsModalParams } from '@/lib/nuqs/searchParams';
+import { useNotificationSettings, type PushServerConfig, type PushServerType } from '@/hooks/use-notification-settings';
+import { ensureBrowserNotificationPermission } from '@/hooks/use-agent-notifications';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -93,6 +95,12 @@ const SETTINGS_SECTIONS = [
     label: 'AI & Provider',
     description: 'Providers and lightweight task routing',
     icon: BrainCircuit,
+  },
+  {
+    id: 'notify',
+    label: 'Notify',
+    description: 'Notification channels and agent event triggers',
+    icon: Bell,
   },
 ] as const;
 
@@ -203,6 +211,551 @@ function buildBuiltInEntries(
       enabled,
     }];
   });
+}
+
+interface AgentHookToolStatus {
+  detected: boolean;
+  installed: boolean;
+  config_path?: string | null;
+  error?: string | null;
+}
+
+interface AgentHookInstallReport {
+  claude_code: AgentHookToolStatus;
+  codex: AgentHookToolStatus;
+  opencode: AgentHookToolStatus;
+}
+
+const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
+  { key: "claude_code", label: "Claude Code" },
+  { key: "codex", label: "Codex CLI" },
+  { key: "opencode", label: "OpenCode" },
+];
+
+function AgentHookStatusCard() {
+  const [report, setReport] = React.useState<AgentHookInstallReport | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [acting, setActing] = React.useState(false);
+
+  const fetchStatus = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
+      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const res = await fetch(`${base}/hooks/status`);
+      if (res.ok) setReport(await res.json());
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => { void fetchStatus(); }, [fetchStatus]);
+
+  const handleInstall = React.useCallback(async () => {
+    setActing(true);
+    try {
+      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
+      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const res = await fetch(`${base}/hooks/install`, { method: "POST" });
+      if (res.ok) setReport(await res.json());
+    } catch { /* ignore */ } finally {
+      setActing(false);
+    }
+  }, []);
+
+  const handleUninstall = React.useCallback(async () => {
+    setActing(true);
+    try {
+      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
+      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const res = await fetch(`${base}/hooks/uninstall`, { method: "POST" });
+      if (res.ok) {
+        setReport(await res.json());
+      }
+    } catch { /* ignore */ } finally {
+      setActing(false);
+    }
+  }, []);
+
+  const anyInstalled = report && HOOK_TOOL_META.some(t => report[t.key].installed);
+  const anyDetected = report && HOOK_TOOL_META.some(t => report[t.key].detected);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border">
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
+        <div>
+          <p className="text-base font-medium text-foreground">Agent Hook Status</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Hooks inject into local Agent tool configs so Atmos can track their running state.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={handleInstall} disabled={acting || loading}>
+            {acting ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
+            Install
+          </Button>
+          {anyInstalled && (
+            <Button variant="outline" size="sm" onClick={handleUninstall} disabled={acting || loading} className="text-destructive hover:text-destructive">
+              Uninstall
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-border divide-y divide-border">
+        {loading && !report ? (
+          <div className="px-6 py-4">
+            <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+        ) : report ? (
+          HOOK_TOOL_META.map(({ key, label }) => {
+            const tool = report[key];
+            return (
+              <div key={key} className="grid grid-cols-[minmax(0,1fr)_200px] gap-8 px-6 py-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-sm font-medium text-foreground">{label}</span>
+                  {tool.config_path && (
+                    <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[200px]" title={tool.config_path}>
+                      {tool.config_path.split(/[\\/]/).slice(-2).join("/")}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  {!tool.detected ? (
+                    <span className="text-xs text-muted-foreground">Not detected</span>
+                  ) : tool.installed ? (
+                    <span className="text-xs font-medium text-emerald-500">Installed</span>
+                  ) : tool.error ? (
+                    <span className="text-xs text-destructive truncate max-w-[180px]" title={tool.error}>Error: {tool.error}</span>
+                  ) : (
+                    <span className="text-xs text-amber-500">Not installed</span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="px-6 py-4 text-sm text-muted-foreground">
+            {!anyDetected && "No supported agent tools detected on this system."}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const PUSH_SERVER_TYPE_OPTIONS: { value: PushServerType; label: string; description: string }[] = [
+  { value: 'ntfy', label: 'ntfy', description: 'Self-hosted or ntfy.sh push notifications' },
+  { value: 'bark', label: 'Bark', description: 'iOS push notifications via Bark' },
+  { value: 'gotify', label: 'Gotify', description: 'Self-hosted push notification server' },
+  { value: 'custom_webhook', label: 'Custom Webhook', description: 'Send to any HTTP endpoint' },
+];
+
+function NotifySettingsSection({
+  settings,
+  isLoading,
+  isSaving,
+  onToggleBrowser,
+  onToggleDesktop,
+  onTogglePermissionRequest,
+  onToggleTaskComplete,
+  onAddPushServer,
+  onRemovePushServer,
+  onUpdatePushServer,
+  onTestPushServer,
+}: {
+  settings: import('@/hooks/use-notification-settings').NotificationSettings;
+  isLoading: boolean;
+  isSaving: boolean;
+  onToggleBrowser: (checked: boolean) => void;
+  onToggleDesktop: (checked: boolean) => void;
+  onTogglePermissionRequest: (checked: boolean) => void;
+  onToggleTaskComplete: (checked: boolean) => void;
+  onAddPushServer: (server: PushServerConfig) => Promise<void>;
+  onRemovePushServer: (id: string) => Promise<void>;
+  onUpdatePushServer: (id: string, updates: Partial<PushServerConfig>) => Promise<void>;
+  onTestPushServer: (index: number) => Promise<{ ok: boolean; error?: string }>;
+}) {
+  const [pushServersExpanded, setPushServersExpanded] = React.useState(false);
+  const [testingServerId, setTestingServerId] = React.useState<string | null>(null);
+  const [pushServerLocalById, setPushServerLocalById] = React.useState<Record<string, PushServerConfig>>({});
+
+  React.useEffect(() => {
+    const ids = new Set(settings.push_servers.map(s => s.id));
+    setPushServerLocalById(prev => {
+      const next = { ...prev };
+      let changed = false;
+      for (const id of Object.keys(next)) {
+        if (!ids.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [settings.push_servers]);
+
+  const displayPushServer = React.useCallback(
+    (server: PushServerConfig) => pushServerLocalById[server.id] ?? server,
+    [pushServerLocalById],
+  );
+
+  const isPushFieldsDirty = React.useCallback(
+    (server: PushServerConfig) => {
+      const local = pushServerLocalById[server.id];
+      if (!local) return false;
+      return (
+        local.url !== server.url ||
+        (local.token ?? null) !== (server.token ?? null) ||
+        (local.topic ?? null) !== (server.topic ?? null) ||
+        (local.device_key ?? null) !== (server.device_key ?? null) ||
+        (local.custom_body_template ?? null) !== (server.custom_body_template ?? null)
+      );
+    },
+    [pushServerLocalById],
+  );
+
+  const setPushFields = React.useCallback((server: PushServerConfig, patch: Partial<PushServerConfig>) => {
+    setPushServerLocalById(prev => ({
+      ...prev,
+      [server.id]: { ...(prev[server.id] ?? server), ...patch },
+    }));
+  }, []);
+
+  const savePushFields = React.useCallback(
+    async (server: PushServerConfig) => {
+      const local = pushServerLocalById[server.id];
+      if (!local || !isPushFieldsDirty(server)) return;
+      await onUpdatePushServer(server.id, {
+        url: local.url,
+        token: local.token,
+        topic: local.topic,
+        device_key: local.device_key,
+        custom_body_template: local.custom_body_template,
+      });
+      setPushServerLocalById(prev => {
+        const next = { ...prev };
+        delete next[server.id];
+        return next;
+      });
+    },
+    [isPushFieldsDirty, onUpdatePushServer, pushServerLocalById],
+  );
+
+  const handleAddServer = React.useCallback((serverType: PushServerType) => {
+    const newServer: PushServerConfig = {
+      id: crypto.randomUUID(),
+      enabled: true,
+      type: serverType,
+      url: serverType === 'ntfy' ? 'https://ntfy.sh' : serverType === 'bark' ? 'https://api.day.app' : '',
+      token: null,
+      topic: serverType === 'ntfy' ? 'atmos' : null,
+      device_key: null,
+      custom_body_template: null,
+    };
+    void onAddPushServer(newServer);
+    setPushServersExpanded(true);
+  }, [onAddPushServer]);
+
+  const handleTestServer = async (serverId: string) => {
+    const index = settings.push_servers.findIndex(s => s.id === serverId);
+    if (index === -1) return;
+    setTestingServerId(serverId);
+    const result = await onTestPushServer(index);
+    setTestingServerId(null);
+    if (result.ok) {
+      toastManager.add({ title: 'Test notification sent', type: 'success' });
+    } else {
+      toastManager.add({ title: 'Test failed', description: result.error ?? 'Unknown error', type: 'error' });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-24 w-full rounded-2xl" />
+        <Skeleton className="h-24 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <AgentHookStatusCard />
+
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="px-6 py-5">
+          <p className="text-base font-medium text-foreground">Notification Channels</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Choose how you want to be notified when agents need attention.
+          </p>
+        </div>
+
+        <div className="border-t border-border divide-y divide-border">
+          <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Browser notifications</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Show native browser notifications when agents need attention.
+              </p>
+            </div>
+            <div className="flex items-center justify-end">
+              <Switch
+                checked={settings.browser_notification}
+                onCheckedChange={onToggleBrowser}
+                disabled={isSaving}
+              />
+            </div>
+          </div>
+
+          {isTauriRuntime() && (
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Desktop notifications</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Show system-level notifications via the desktop app.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch
+                  checked={settings.desktop_notification}
+                  onCheckedChange={onToggleDesktop}
+                  disabled={isSaving}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="px-6 py-5">
+          <p className="text-base font-medium text-foreground">Event Triggers</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Select which agent events should trigger notifications.
+          </p>
+        </div>
+
+        <div className="border-t border-border divide-y divide-border">
+          <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Permission requested</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Notify when an agent is waiting for your approval to proceed.
+              </p>
+            </div>
+            <div className="flex items-center justify-end">
+              <Switch
+                checked={settings.notify_on_permission_request}
+                onCheckedChange={onTogglePermissionRequest}
+                disabled={isSaving}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Task complete</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Notify when an agent finishes running (running → idle).
+              </p>
+            </div>
+            <div className="flex items-center justify-end">
+              <Switch
+                checked={settings.notify_on_task_complete}
+                onCheckedChange={onToggleTaskComplete}
+                disabled={isSaving}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Collapsible
+        open={pushServersExpanded}
+        onOpenChange={setPushServersExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+            <div className="flex items-start gap-3">
+              <span className="relative mt-0.5 size-5 shrink-0">
+                <Webhook className="absolute inset-0 size-5 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
+                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-medium text-foreground">Push Servers</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Forward notifications to self-hosted push services (ntfy, Bark, Gotify) or custom webhooks.
+                </p>
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Plus className="mr-2 size-4" />
+                Add Server
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              {PUSH_SERVER_TYPE_OPTIONS.map(option => (
+                <DropdownMenuItem
+                  key={option.value}
+                  className="cursor-pointer items-start"
+                  onClick={() => handleAddServer(option.value)}
+                >
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{option.label}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{option.description}</p>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <CollapsibleContent>
+          {settings.push_servers.length === 0 ? (
+            <div className="border-t border-border px-6 py-5 text-sm text-muted-foreground">
+              No push servers configured yet. Click &quot;Add Server&quot; to get started.
+            </div>
+          ) : (
+            <div className="border-t border-border px-4">
+              {settings.push_servers.map((server) => {
+                const typeLabel = PUSH_SERVER_TYPE_OPTIONS.find(o => o.value === server.type)?.label ?? server.type;
+                const isTesting = testingServerId === server.id;
+                const display = displayPushServer(server);
+                const pushDirty = isPushFieldsDirty(server);
+
+                return (
+                  <div key={server.id} className="border-b border-border px-2 py-4 last:border-b-0 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {typeLabel}
+                        </span>
+                        <span className="text-sm truncate text-foreground">{display.url}</span>
+                        {pushDirty && (
+                          <span className="text-[10px] font-medium text-amber-600 dark:text-amber-500 shrink-0">
+                            Unsaved
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {pushDirty && (
+                          <SaveActionButton
+                            saving={isSaving}
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => void savePushFields(server)}
+                          />
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() => void handleTestServer(server.id)}
+                          disabled={isTesting || pushDirty}
+                        >
+                          {isTesting ? 'TESTING...' : 'TEST'}
+                        </Button>
+                        <Switch
+                          checked={server.enabled}
+                          onCheckedChange={(checked) => void onUpdatePushServer(server.id, { enabled: !!checked })}
+                        />
+                        <button
+                          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => void onRemovePushServer(server.id)}
+                          title="Remove server"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">URL</label>
+                        <Input
+                          value={display.url}
+                          placeholder="https://..."
+                          onChange={(e) => setPushFields(server, { url: e.target.value })}
+                          className="h-8 text-xs font-mono"
+                          disabled={isSaving}
+                        />
+                      </div>
+                      {(server.type === 'ntfy' || server.type === 'gotify') && (
+                        <div>
+                          <label className="mb-1 block text-xs text-muted-foreground">Token</label>
+                          <Input
+                            value={display.token ?? ''}
+                            placeholder="Optional auth token"
+                            onChange={(e) => setPushFields(server, { token: e.target.value || null })}
+                            className="h-8 text-xs font-mono"
+                            disabled={isSaving}
+                          />
+                        </div>
+                      )}
+                      {server.type === 'ntfy' && (
+                        <div>
+                          <label className="mb-1 block text-xs text-muted-foreground">Topic</label>
+                          <Input
+                            value={display.topic ?? ''}
+                            placeholder="atmos"
+                            onChange={(e) => setPushFields(server, { topic: e.target.value || null })}
+                            className="h-8 text-xs font-mono"
+                            disabled={isSaving}
+                          />
+                        </div>
+                      )}
+                      {server.type === 'bark' && (
+                        <div>
+                          <label className="mb-1 block text-xs text-muted-foreground">Device Key</label>
+                          <Input
+                            value={display.device_key ?? ''}
+                            placeholder="Your Bark device key"
+                            onChange={(e) => setPushFields(server, { device_key: e.target.value || null })}
+                            className="h-8 text-xs font-mono"
+                            disabled={isSaving}
+                          />
+                        </div>
+                      )}
+                      {server.type === 'custom_webhook' && (
+                        <>
+                          <div>
+                            <label className="mb-1 block text-xs text-muted-foreground">Auth Token</label>
+                            <Input
+                              value={display.token ?? ''}
+                              placeholder="Optional Bearer token"
+                              onChange={(e) => setPushFields(server, { token: e.target.value || null })}
+                              className="h-8 text-xs font-mono"
+                              disabled={isSaving}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="mb-1 block text-xs text-muted-foreground">
+                              Body template (optional, use {'{{title}}'}, {'{{body}}'}, {'{{tool}}'}, {'{{state}}'})
+                            </label>
+                            <Input
+                              value={display.custom_body_template ?? ''}
+                              placeholder='{"text": "{{title}}: {{body}}"}'
+                              onChange={(e) => setPushFields(server, { custom_body_template: e.target.value || null })}
+                              className="h-8 text-xs font-mono"
+                              disabled={isSaving}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
 }
 
 function SaveActionButton({
@@ -319,6 +872,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!isOpen) return;
     void loadAgentSettings();
   }, [isOpen, loadAgentSettings]);
+
+  const {
+    settings: notifySettings,
+    isLoading: isNotifyLoading,
+    isSaving: isNotifySaving,
+    loadSettings: loadNotifySettings,
+    updateField: updateNotifyField,
+    addPushServer,
+    removePushServer,
+    updatePushServer,
+    testPushServer,
+  } = useNotificationSettings();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void loadNotifySettings();
+  }, [isOpen, loadNotifySettings]);
 
   useEffect(() => {
     if (!isOpen || !activeSectionOverride) return;
@@ -1350,7 +1920,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
-                ) : (
+                ) : resolvedActiveSection === 'ai' ? (
                   <div className="space-y-4">
                     <Collapsible
                       open={providersExpanded}
@@ -1813,6 +2383,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
+                ) : (
+                  <NotifySettingsSection
+                    settings={notifySettings}
+                    isLoading={isNotifyLoading}
+                    isSaving={isNotifySaving}
+                    onToggleBrowser={async (checked) => {
+                      if (checked) {
+                        const granted = await ensureBrowserNotificationPermission();
+                        if (!granted) {
+                          toastManager.add({
+                            title: 'Browser notification permission denied',
+                            description: 'Please allow notifications in your browser settings.',
+                            type: 'error',
+                          });
+                          return;
+                        }
+                      }
+                      void updateNotifyField('browser_notification', checked);
+                    }}
+                    onToggleDesktop={(checked) => void updateNotifyField('desktop_notification', checked)}
+                    onTogglePermissionRequest={(checked) => void updateNotifyField('notify_on_permission_request', checked)}
+                    onToggleTaskComplete={(checked) => void updateNotifyField('notify_on_task_complete', checked)}
+                    onAddPushServer={addPushServer}
+                    onRemovePushServer={removePushServer}
+                    onUpdatePushServer={updatePushServer}
+                    onTestPushServer={testPushServer}
+                  />
                 )}
                 </div>
               </ScrollArea>

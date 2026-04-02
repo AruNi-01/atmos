@@ -364,6 +364,14 @@ pub enum WsAction {
     CodeAgentCustomGet,
     /// Overwrite ~/.atmos/agent/terminal_code_agent.json
     CodeAgentCustomUpdate,
+
+    // ===== Notification Settings =====
+    /// Read ~/.atmos/notification_settings.json
+    NotificationSettingsGet,
+    /// Overwrite ~/.atmos/notification_settings.json
+    NotificationSettingsUpdate,
+    /// Send a test push notification
+    NotificationTestPush,
 }
 
 /// 服务端主动推送的事件类型
@@ -382,6 +390,10 @@ pub enum WsEvent {
     LlmProviderTestChunk,
     /// 工作区删除进度
     WorkspaceDeleteProgress,
+    /// Agent hook 状态变更
+    AgentHookStateChanged,
+    /// Agent notification (permission request, task complete, etc.)
+    AgentNotification,
 }
 
 // ===== 消息通知数据结构 =====
@@ -1443,4 +1455,14 @@ pub struct CodeAgentCustomUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncSingleSystemSkillRequest {
     pub skill_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationSettingsUpdateRequest {
+    pub settings: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationTestPushRequest {
+    pub server_index: usize,
 }
