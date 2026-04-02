@@ -45,6 +45,8 @@ fn build_hook_entries(port: u16) -> Value {
     let session_start = build_cmd(port, r#"{"hook_event_name":"SessionStart"}"#);
     let user_prompt = build_cmd(port, r#"{"hook_event_name":"UserPromptSubmit"}"#);
     let pre_tool = build_cmd(port, r#"{"hook_event_name":"PreToolUse"}"#);
+    let post_tool = build_cmd(port, r#"{"hook_event_name":"PostToolUse"}"#);
+    let perm_request = build_cmd(port, r#"{"hook_event_name":"PermissionRequest"}"#);
     let notification = build_cmd(port, r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#);
     let stop = build_cmd(port, r#"{"hook_event_name":"Stop"}"#);
     json!({
@@ -57,9 +59,15 @@ fn build_hook_entries(port: u16) -> Value {
         "PreToolUse": [{
             "hooks": [{ "type": "command", "command": pre_tool, "async": true }]
         }],
+        "PostToolUse": [{
+            "hooks": [{ "type": "command", "command": post_tool, "async": true }]
+        }],
+        "PermissionRequest": [{
+            "hooks": [{ "type": "command", "command": perm_request, "async": true }]
+        }],
         "Notification": [{
             "matcher": "permission_prompt",
-            "hooks": [{ "type": "command", "command": notification, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": notification, "async": true }]
         }],
         "Stop": [{
             "hooks": [{ "type": "command", "command": stop, "async": true }]

@@ -242,8 +242,11 @@ impl AgentHooksService {
             "SessionStart" => {
                 self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path, ctx);
             }
-            "UserPromptSubmit" => {
+            "UserPromptSubmit" | "PreToolUse" | "PostToolUse" => {
                 self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Running, project_path, ctx);
+            }
+            "PermissionRequest" => {
+                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::PermissionRequest, project_path, ctx);
             }
             "Notification" => {
                 let notification_type = payload
@@ -253,9 +256,6 @@ impl AgentHooksService {
                 if notification_type == "permission_prompt" || notification_type == "permissionprompt" {
                     self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::PermissionRequest, project_path, ctx);
                 }
-            }
-            "PreToolUse" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Running, project_path, ctx);
             }
             "Stop" => {
                 self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path, ctx);
