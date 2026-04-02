@@ -58,10 +58,10 @@ fn build_hook_entries(port: u16) -> Value {
         }],
         "PreToolUse": [{
             "matcher": "Bash",
-            "hooks": [{ "type": "command", "command": &async_pre_tool_cmd, "async": true }]
+            "hooks": [{ "type": "command", "command": &async_pre_tool_cmd, "timeout": 3 }]
         }],
         "Stop": [{
-            "hooks": [{ "type": "command", "command": &async_stop_cmd, "async": true }]
+            "hooks": [{ "type": "command", "command": &async_stop_cmd, "timeout": 3 }]
         }]
     })
 }
