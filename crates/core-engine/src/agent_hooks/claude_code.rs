@@ -32,36 +32,32 @@ fn is_atmos_hook(hook_entry: &Value, port: u16) -> bool {
         .unwrap_or(false)
 }
 
-fn build_hook_entries(port: u16) -> Value {
+fn build_cmd(port: u16, event_name: &str) -> String {
     let url = hook_url(port);
-    let sync_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+    format!(
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        event_name = event_name,
         url = url,
-    );
-    let async_stop_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"Stop"}}' '{url}' >/dev/null 2>&1 || true"#,
-        url = url,
-    );
-    let async_pre_tool_cmd = format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"PreToolUse"}}' '{url}' >/dev/null 2>&1 || true"#,
-        url = url,
-    );
+    )
+}
+
+fn build_hook_entries(port: u16) -> Value {
     json!({
         "SessionStart": [{
-            "hooks": [{ "type": "command", "command": &sync_cmd, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": build_cmd(port, "SessionStart"), "timeout": 5 }]
         }],
         "UserPromptSubmit": [{
-            "hooks": [{ "type": "command", "command": &sync_cmd, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": build_cmd(port, "UserPromptSubmit"), "timeout": 5 }]
         }],
         "PreToolUse": [{
-            "hooks": [{ "type": "command", "command": &async_pre_tool_cmd, "async": true }]
+            "hooks": [{ "type": "command", "command": build_cmd(port, "PreToolUse"), "async": true }]
         }],
         "Notification": [{
             "matcher": "permissionprompt",
-            "hooks": [{ "type": "command", "command": &sync_cmd, "timeout": 5 }]
+            "hooks": [{ "type": "command", "command": build_cmd(port, "Notification"), "timeout": 5 }]
         }],
         "Stop": [{
-            "hooks": [{ "type": "command", "command": &async_stop_cmd, "async": true }]
+            "hooks": [{ "type": "command", "command": build_cmd(port, "Stop"), "async": true }]
         }]
     })
 }
