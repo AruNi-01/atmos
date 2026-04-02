@@ -63,28 +63,40 @@ function groupSessionsByContext(sessions: AgentHookSession[]): Map<string, Agent
   return grouped;
 }
 
-function SessionStateBadge({ state, showReset, onReset }: {
+function SessionStateBadge({ state, hoverAction, onAction }: {
   state: string;
-  showReset: boolean;
-  onReset: () => void;
+  hoverAction: "idle" | "clear" | null;
+  onAction: () => void;
 }) {
-  const isIdle = state === AGENT_STATE.IDLE;
   const label = state === AGENT_STATE.PERMISSION_REQUEST ? "PERM" : state.toUpperCase();
+  const springTransition = { type: "spring" as const, stiffness: 500, damping: 30 };
 
   return (
     <div className="relative overflow-hidden shrink-0 h-5 w-[52px]">
       <AnimatePresence mode="popLayout" initial={false}>
-        {showReset && !isIdle ? (
+        {hoverAction === "idle" ? (
           <motion.button
-            key="reset"
+            key="reset-idle"
             initial={{ x: -40, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            transition={springTransition}
             className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-emerald-500 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20 transition-colors"
-            onClick={(e) => { e.stopPropagation(); onReset(); }}
+            onClick={(e) => { e.stopPropagation(); onAction(); }}
           >
             IDLE
+          </motion.button>
+        ) : hoverAction === "clear" ? (
+          <motion.button
+            key="clear"
+            initial={{ x: -40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -40, opacity: 0 }}
+            transition={springTransition}
+            className="absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded text-red-400 bg-red-500/10 cursor-pointer hover:bg-red-500/20 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onAction(); }}
+          >
+            CLEAR
           </motion.button>
         ) : (
           <motion.span
@@ -92,10 +104,10 @@ function SessionStateBadge({ state, showReset, onReset }: {
             initial={{ x: 40, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 40, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            transition={springTransition}
             className={cn(
               "absolute inset-0 flex items-center justify-center text-[9px] font-mono px-1 py-px rounded",
-              isIdle && "text-emerald-500",
+              state === AGENT_STATE.IDLE && "text-emerald-500",
               state === AGENT_STATE.RUNNING && "text-blue-400 bg-blue-500/10",
               state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-500 bg-amber-500/10",
             )}
@@ -111,7 +123,17 @@ function SessionStateBadge({ state, showReset, onReset }: {
 function SessionRow({ session }: { session: AgentHookSession }) {
   const [hovered, setHovered] = React.useState(false);
   const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
+  const removeSession = useAgentHooksStore((s) => s.removeSession);
   const isIdle = session.state === AGENT_STATE.IDLE;
+
+  const hoverAction = !hovered ? null : isIdle ? "clear" as const : "idle" as const;
+  const handleAction = () => {
+    if (isIdle) {
+      removeSession(session.session_id);
+    } else {
+      forceIdle(session.session_id);
+    }
+  };
 
   return (
     <div
@@ -127,8 +149,8 @@ function SessionRow({ session }: { session: AgentHookSession }) {
       </div>
       <SessionStateBadge
         state={session.state}
-        showReset={hovered && !isIdle}
-        onReset={() => forceIdle(session.session_id)}
+        hoverAction={hoverAction}
+        onAction={handleAction}
       />
     </div>
   );
