@@ -63,10 +63,135 @@ import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
-import { ArrowBigUp, ChevronLeft, ChevronRight, Command, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SlidersHorizontal, SunMoon } from "lucide-react";
+import { ArrowBigUp, ChevronLeft, ChevronRight, Command, ExternalLink, Globe, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SunMoon } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
+
+type BranchSyncDirection = 'ahead' | 'behind' | 'equal' | 'unknown' | 'diverged';
+
+interface BranchSyncIndicatorState {
+  direction: BranchSyncDirection;
+  tooltip: string;
+}
+
+const arrowHoverTransition = {
+  duration: 0.24,
+  ease: 'easeOut' as const,
+};
+
+const BranchSyncIndicatorIcon: React.FC<{
+  direction: BranchSyncDirection;
+  isHovered: boolean;
+}> = ({ direction, isHovered }) => {
+  if (direction === 'ahead' || direction === 'behind') {
+    const isAhead = direction === 'ahead';
+    const colorClass = isAhead ? 'text-success' : 'text-destructive';
+    const travelY = isAhead ? -6 : 6;
+    const iconClassName = cn("size-3.5", colorClass);
+
+    return (
+      <span className="relative flex size-4 items-center justify-center overflow-hidden">
+        <motion.span
+          className="absolute inset-0 flex items-center justify-center"
+          animate={isHovered ? { y: travelY, opacity: 0 } : { y: 0, opacity: 1 }}
+          transition={arrowHoverTransition}
+        >
+          <ArrowRight
+            className={iconClassName}
+            style={{ transform: `rotate(${isAhead ? '-90deg' : '90deg'})` }}
+          />
+        </motion.span>
+        <motion.span
+          className="absolute inset-0 flex items-center justify-center"
+          animate={isHovered ? { y: 0, opacity: 1 } : { y: -travelY, opacity: 0 }}
+          transition={arrowHoverTransition}
+        >
+          <ArrowRight
+            className={iconClassName}
+            style={{ transform: `rotate(${isAhead ? '-90deg' : '90deg'})` }}
+          />
+        </motion.span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex size-4 items-center justify-center text-muted-foreground">
+      <Minus className="size-3.5" />
+    </span>
+  );
+};
+
+const BranchSyncIndicator: React.FC<{
+  state: BranchSyncIndicatorState;
+}> = ({ state }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          role="status"
+          aria-label={state.tooltip}
+          className="flex size-4 shrink-0 items-center justify-center"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          onFocus={() => setIsHovered(true)}
+          onBlur={() => setIsHovered(false)}
+        >
+          <BranchSyncIndicatorIcon direction={state.direction} isHovered={isHovered} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <span>{state.tooltip}</span>
+      </TooltipContent>
+    </Tooltip>
+  );
+};
+
+function getBranchSyncIndicatorState(params: {
+  defaultBranch: string | null;
+  ahead: number | null;
+  behind: number | null;
+}): BranchSyncIndicatorState {
+  const defaultBranchLabel = params.defaultBranch ?? 'default branch';
+  const aheadCount = params.ahead;
+  const behindCount = params.behind;
+
+  if (aheadCount === null || behindCount === null) {
+    return {
+      direction: 'unknown',
+      tooltip: `Unable to compare with origin/${defaultBranchLabel}`,
+    };
+  }
+
+  if (aheadCount > 0 && behindCount > 0) {
+    return {
+      direction: 'diverged',
+      tooltip: `Diverged from origin/${defaultBranchLabel}: ahead ${aheadCount}, behind ${behindCount}`,
+    };
+  }
+
+  if (aheadCount > 0) {
+    return {
+      direction: 'ahead',
+      tooltip: `Ahead of origin/${defaultBranchLabel} by ${aheadCount} commit${aheadCount === 1 ? '' : 's'}`,
+    };
+  }
+
+  if (behindCount > 0) {
+    return {
+      direction: 'behind',
+      tooltip: `Behind origin/${defaultBranchLabel} by ${behindCount} commit${behindCount === 1 ? '' : 's'}`,
+    };
+  }
+
+  return {
+    direction: 'equal',
+    tooltip: `In sync with origin/${defaultBranchLabel}`,
+  };
+}
 
 const Header: React.FC = () => {
   const pathname = usePathname();
@@ -158,7 +283,9 @@ const Header: React.FC = () => {
     hasUnpushedCommits,
     uncommittedCount,
     unpushedCount,
-    isLoadingStatus,
+    defaultBranch,
+    defaultBranchAhead,
+    defaultBranchBehind,
     setCurrentContext,
     setTargetBranch,
     refreshGitStatus,
@@ -176,8 +303,6 @@ const Header: React.FC = () => {
   );
 
   // Editable state for target branch
-  const [isEditingTargetBranch, setIsEditingTargetBranch] = useState(false);
-  const [editedTargetBranch, setEditedTargetBranch] = useState('');
 
   // Editable state for current branch
   const [isEditingCurrentBranch, setIsEditingCurrentBranch] = useState(false);
@@ -232,7 +357,6 @@ const Header: React.FC = () => {
     onDeleted?: () => void;
   } | null>(null);
 
-  const deleteWorkspace = useProjectStore(s => s.deleteWorkspace);
   const deleteProject = useProjectStore(s => s.deleteProject);
   const fetchProjects = useProjectStore(s => s.fetchProjects);
 
@@ -273,25 +397,27 @@ const Header: React.FC = () => {
   });
 
   // In Tauri (desktop), navigation shortcuts are handled by native menu
-  if (!isTauriRuntime()) {
-    useHotkeys(['mod+[', 'mod+leftbracket'], (e) => {
-      e.preventDefault();
-      window.history.back();
-    }, {
-      enableOnFormTags: false,
-      preventDefault: true,
-      description: 'Go back'
-    });
+  useHotkeys(['mod+[', 'mod+leftbracket'], (e) => {
+    if (isTauriRuntime()) return;
+    e.preventDefault();
+    window.history.back();
+  }, {
+    enabled: !isTauriRuntime(),
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Go back'
+  });
 
-    useHotkeys(['mod+]', 'mod+rightbracket'], (e) => {
-      e.preventDefault();
-      window.history.forward();
-    }, {
-      enableOnFormTags: false,
-      preventDefault: true,
-      description: 'Go forward'
-    });
-  }
+  useHotkeys(['mod+]', 'mod+rightbracket'], (e) => {
+    if (isTauriRuntime()) return;
+    e.preventDefault();
+    window.history.forward();
+  }, {
+    enabled: !isTauriRuntime(),
+    enableOnFormTags: false,
+    preventDefault: true,
+    description: 'Go forward'
+  });
 
   useHotkeys('mod+r', () => window.location.reload(), {
     enableOnFormTags: false,
@@ -349,7 +475,7 @@ const Header: React.FC = () => {
       setCurrentContext(null, null, null);
       setCurrentProjectPath(null);
     }
-  }, [currentProject?.id, currentWorkspaceId, currentWorkspace?.localPath, currentProject?.mainFilePath, isSettingUp, setCurrentContext, setCurrentProjectPath]);
+  }, [currentProject, currentWorkspaceId, currentWorkspace?.localPath, isSettingUp, setCurrentContext, setCurrentProjectPath]);
 
   // Fetch available branches when project/workspace changes
   useEffect(() => {
@@ -384,10 +510,6 @@ const Header: React.FC = () => {
 
   // Initialize edited branches
   useEffect(() => {
-    setEditedTargetBranch(currentProject?.targetBranch || targetBranch || '');
-  }, [currentProject?.targetBranch, targetBranch]);
-
-  useEffect(() => {
     setEditedCurrentBranch(currentWorkspace?.branch || '');
   }, [currentWorkspace?.branch]);
 
@@ -397,21 +519,6 @@ const Header: React.FC = () => {
     ),
     [availableBranches, targetBranchFilter]
   );
-
-  const handleSaveTargetBranch = async () => {
-    if (!currentProject) return;
-    await setTargetBranch(
-      currentProject.id,
-      editedTargetBranch.trim() || null
-    );
-    await refreshChangedFiles();
-    setIsEditingTargetBranch(false);
-  };
-
-  const handleCancelEditTargetBranch = () => {
-    setEditedTargetBranch(currentProject?.targetBranch || targetBranch || '');
-    setIsEditingTargetBranch(false);
-  };
 
   const handleSaveCurrentBranch = async () => {
     if (!currentProject || !currentWorkspace) return;
@@ -466,28 +573,14 @@ const Header: React.FC = () => {
   // Get display values
   const displayCurrentBranch = currentWorkspace?.branch || currentBranch || 'No branch';
   const displayTargetBranch = currentProject?.targetBranch || targetBranch || 'main';
-
-  // Status indicator color
-  const getStatusColor = () => {
-    if (hasUncommittedChanges || hasUnpushedCommits) {
-      return 'bg-warning';
-    }
-    return 'bg-success';
-  };
-
-  const getStatusTooltip = () => {
-    const issues: string[] = [];
-    if (hasUncommittedChanges) {
-      issues.push(`${uncommittedCount} uncommitted change(s)`);
-    }
-    if (hasUnpushedCommits) {
-      issues.push(`${unpushedCount} unpushed commit(s)`);
-    }
-    if (issues.length === 0) {
-      return 'Clean working tree';
-    }
-    return issues.join(', ');
-  };
+  const branchSyncState = useMemo(
+    () => getBranchSyncIndicatorState({
+      defaultBranch,
+      ahead: defaultBranchAhead,
+      behind: defaultBranchBehind,
+    }),
+    [defaultBranch, defaultBranchAhead, defaultBranchBehind]
+  );
 
   const handleOpenDesktopWeb = useCallback(async () => {
     const opened = await openInBrowser();
@@ -672,12 +765,7 @@ const Header: React.FC = () => {
         )}>
           {/* Current Branch (from workspace or project main) */}
           <div className="flex items-center space-x-1 shrink-0">
-            <span
-              role="status"
-              aria-label={getStatusTooltip()}
-              className={cn("size-2 rounded-full transition-colors shrink-0", getStatusColor())}
-              title={getStatusTooltip()}
-            />
+            <BranchSyncIndicator state={branchSyncState} />
             {currentWorkspace && isEditingCurrentBranch ? (
               <div className="flex items-center space-x-1 animate-in fade-in zoom-in-95 duration-200">
                 <Input

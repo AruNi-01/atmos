@@ -703,6 +703,12 @@ pub struct GitStatusResponse {
     pub uncommitted_count: u32,
     /// 未推送提交的数量
     pub unpushed_count: u32,
+    /// 默认远程分支名
+    pub default_branch: Option<String>,
+    /// 当前分支领先 origin/<default_branch> 的提交数
+    pub default_branch_ahead: Option<u32>,
+    /// 当前分支落后 origin/<default_branch> 的提交数
+    pub default_branch_behind: Option<u32>,
     /// 当前分支名
     pub current_branch: Option<String>,
     /// Github owner

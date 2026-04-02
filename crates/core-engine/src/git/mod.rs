@@ -284,6 +284,63 @@ impl GitEngine {
         Ok(None)
     }
 
+    /// Get the remote default branch from locally available origin refs only.
+    pub fn get_remote_default_branch(&self, repo_path: &Path) -> Result<Option<String>> {
+        // 1. Try origin/HEAD symbolic ref (set by git clone)
+        if let Some(stdout) = try_run_git(
+            repo_path,
+            &["symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
+        )? {
+            let branch = stdout
+                .trim()
+                .strip_prefix("origin/")
+                .unwrap_or(stdout.trim());
+            if !branch.is_empty() {
+                return Ok(Some(branch.to_string()));
+            }
+        }
+
+        // 2. Fall back to common remote default branches if we already have them locally.
+        if let Ok(branches) = self.list_remote_branches(repo_path) {
+            for candidate in &["main", "master"] {
+                if branches.iter().any(|b| b == candidate) {
+                    return Ok(Some(candidate.to_string()));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Compare `head_ref` with `base_ref` and return `(ahead, behind)` for the head ref.
+    fn get_branch_divergence(
+        &self,
+        repo_path: &Path,
+        base_ref: &str,
+        head_ref: &str,
+    ) -> Result<Option<(u32, u32)>> {
+        let range = format!("{}...{}", base_ref, head_ref);
+        let Some(stdout) =
+            try_run_git(repo_path, &["rev-list", "--left-right", "--count", &range])?
+        else {
+            return Ok(None);
+        };
+
+        let mut counts = stdout.split_whitespace();
+        let behind = counts
+            .next()
+            .ok_or_else(|| EngineError::Git("Missing behind count".to_string()))?
+            .parse::<u32>()
+            .map_err(|_| EngineError::Git("Invalid behind count".to_string()))?;
+        let ahead = counts
+            .next()
+            .ok_or_else(|| EngineError::Git("Missing ahead count".to_string()))?
+            .parse::<u32>()
+            .map_err(|_| EngineError::Git("Invalid ahead count".to_string()))?;
+
+        Ok(Some((ahead, behind)))
+    }
+
     /// Check the git status of a worktree/repository
     pub fn get_git_status(&self, repo_path: &Path) -> Result<GitStatus> {
         let status_stdout = run_git(repo_path, &["status", "--porcelain", "-uall"])?;
@@ -299,11 +356,26 @@ impl GitEngine {
                 None => (false, 0),
             };
 
+        let default_branch = self.get_remote_default_branch(repo_path)?;
+        let (default_branch_ahead, default_branch_behind) =
+            if let Some(branch) = default_branch.as_deref() {
+                let default_branch_ref = format!("origin/{}", branch);
+                match self.get_branch_divergence(repo_path, &default_branch_ref, "HEAD")? {
+                    Some((ahead, behind)) => (Some(ahead), Some(behind)),
+                    None => (None, None),
+                }
+            } else {
+                (None, None)
+            };
+
         Ok(GitStatus {
             has_uncommitted_changes,
             has_unpushed_commits,
             uncommitted_count,
             unpushed_count,
+            default_branch,
+            default_branch_ahead,
+            default_branch_behind,
         })
     }
 
@@ -1033,6 +1105,9 @@ pub struct GitStatus {
     pub has_unpushed_commits: bool,
     pub uncommitted_count: u32,
     pub unpushed_count: u32,
+    pub default_branch: Option<String>,
+    pub default_branch_ahead: Option<u32>,
+    pub default_branch_behind: Option<u32>,
 }
 
 /// Information about a changed file
@@ -1127,4 +1202,150 @@ fn parse_worktree_list(output: &str) -> Vec<WorktreeInfo> {
     }
 
     worktrees
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GitEngine;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_dir(name: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("atmos-git-engine-{name}-{suffix}"));
+        fs::create_dir_all(&dir).expect("temp dir should be created");
+        dir
+    }
+
+    fn git(current_dir: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .current_dir(current_dir)
+            .args(args)
+            .output()
+            .expect("git command should run");
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn write_file(path: &Path, content: &str) {
+        fs::write(path, content).expect("file should be written");
+    }
+
+    fn commit_file(repo_path: &Path, file_name: &str, content: &str, message: &str) {
+        write_file(&repo_path.join(file_name), content);
+        git(repo_path, &["add", file_name]);
+        git(repo_path, &["commit", "-m", message]);
+    }
+
+    fn configure_repo(repo_path: &Path) {
+        git(repo_path, &["config", "user.name", "Atmos Test"]);
+        git(repo_path, &["config", "user.email", "atmos@example.com"]);
+    }
+
+    fn setup_remote_repo(name: &str) -> (PathBuf, PathBuf) {
+        let root = unique_temp_dir(name);
+        let origin_path = root.join("origin.git");
+        let seed_path = root.join("seed");
+
+        git(&root, &["init", "--bare", origin_path.to_str().expect("valid path")]);
+
+        fs::create_dir_all(&seed_path).expect("seed dir should be created");
+        git(&seed_path, &["init"]);
+        configure_repo(&seed_path);
+        git(&seed_path, &["branch", "-m", "main"]);
+        commit_file(&seed_path, "README.md", "hello\n", "initial");
+        git(
+            &seed_path,
+            &["remote", "add", "origin", origin_path.to_str().expect("valid path")],
+        );
+        git(&seed_path, &["push", "-u", "origin", "main"]);
+        git(
+            &origin_path,
+            &["symbolic-ref", "HEAD", "refs/heads/main"],
+        );
+
+        (root, origin_path)
+    }
+
+    fn clone_repo(root: &Path, origin_path: &Path, name: &str) -> PathBuf {
+        let clone_path = root.join(name);
+        git(
+            root,
+            &[
+                "clone",
+                origin_path.to_str().expect("valid path"),
+                clone_path.to_str().expect("valid path"),
+            ],
+        );
+        configure_repo(&clone_path);
+        clone_path
+    }
+
+    #[test]
+    fn git_status_reports_equal_remote_default_branch() {
+        let (root, origin_path) = setup_remote_repo("equal");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        let status = engine
+            .get_git_status(&repo_path)
+            .expect("git status should be available");
+
+        assert_eq!(status.default_branch.as_deref(), Some("main"));
+        assert_eq!(status.default_branch_ahead, Some(0));
+        assert_eq!(status.default_branch_behind, Some(0));
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn git_status_reports_branch_ahead_of_remote_default_branch() {
+        let (root, origin_path) = setup_remote_repo("ahead");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
+
+        let status = engine
+            .get_git_status(&repo_path)
+            .expect("git status should be available");
+
+        assert_eq!(status.default_branch.as_deref(), Some("main"));
+        assert_eq!(status.default_branch_ahead, Some(1));
+        assert_eq!(status.default_branch_behind, Some(0));
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn git_status_reports_branch_behind_remote_default_branch() {
+        let (root, origin_path) = setup_remote_repo("behind");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let other_clone_path = clone_repo(&root, &origin_path, "other");
+        let engine = GitEngine::new();
+
+        commit_file(&other_clone_path, "remote.txt", "remote\n", "remote update");
+        git(&other_clone_path, &["push", "origin", "main"]);
+        git(&repo_path, &["fetch", "origin"]);
+
+        let status = engine
+            .get_git_status(&repo_path)
+            .expect("git status should be available");
+
+        assert_eq!(status.default_branch.as_deref(), Some("main"));
+        assert_eq!(status.default_branch_ahead, Some(0));
+        assert_eq!(status.default_branch_behind, Some(1));
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
 }
