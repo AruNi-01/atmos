@@ -85,7 +85,7 @@ function PermissionBellCompact() {
   const bellRef = useRef<AnimatedIconHandle>(null);
   useLoopingBell(bellRef);
   return (
-    <span className="inline-flex items-center justify-center size-5 text-amber-500" title="Permission requested">
+    <span className="inline-flex items-center justify-center size-5 text-amber-400/80" title="Permission requested">
       <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
     </span>
   );
@@ -96,10 +96,10 @@ function PermissionBellFull({ tool }: { tool?: string }) {
   useLoopingBell(bellRef);
   return (
     <div className="flex items-center gap-1.5">
-      <span className="inline-flex items-center text-amber-500">
+      <span className="inline-flex items-center text-amber-400/80">
         <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
       </span>
-      <TextShimmer as="span" className="text-[10px] text-amber-500" duration={2}>
+      <TextShimmer as="span" className="text-[10px] text-amber-400/70" duration={2}>
         {tool ? `${tool}: Waiting...` : "Waiting for permission..."}
       </TextShimmer>
     </div>
