@@ -66,12 +66,12 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   }, []);
 
   useEffect(() => {
+    // init() is idempotent — it checks _unsubscribe internally.
+    // We call it once the WS is connected and never cleanup, because
+    // the event listener persists across reconnections (same Map ref).
     if (connectionState === 'connected') {
       useAgentHooksStore.getState().init();
     }
-    return () => {
-      useAgentHooksStore.getState().cleanup();
-    };
   }, [connectionState]);
 
   useAgentNotifications();
