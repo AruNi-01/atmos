@@ -250,7 +250,7 @@ impl AgentHooksService {
                     .get("notification_type")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                if notification_type == "permissionprompt" {
+                if notification_type == "permission_prompt" || notification_type == "permissionprompt" {
                     self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::PermissionRequest, project_path, ctx);
                 }
             }
