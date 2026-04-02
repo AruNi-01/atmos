@@ -278,13 +278,9 @@ impl AgentHooksService {
         debug!("Codex hook event: {} session_id={}", hook_event, session_id);
 
         match hook_event {
-            "SessionStart" => {
-                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Idle, project_path, ctx);
-            }
-            "UserPromptSubmit" => {
-                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Running, project_path, ctx);
-            }
-            "PreToolUse" | "PostToolUse" => {
+            // Codex only reliably fires SessionStart and Stop.
+            // SessionStart means the user has started a session → running.
+            "SessionStart" | "UserPromptSubmit" | "PreToolUse" | "PostToolUse" => {
                 self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Running, project_path, ctx);
             }
             "Stop" => {
