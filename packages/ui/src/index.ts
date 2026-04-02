@@ -93,6 +93,10 @@ export {
   TerminalContent as AcpTerminalContent,
 } from "./components/ai-elements/terminal";
 
+// Icons
+export { FilledBellIcon } from "./components/icons/filled-bell-icon";
+export type { AnimatedIconHandle, AnimatedIconProps } from "./components/icons/filled-bell-icon";
+
 // Utilities
 export { cn } from "./lib/utils";
 export * from "./utils/file-icons";

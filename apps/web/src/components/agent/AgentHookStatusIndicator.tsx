@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { TextShimmer, cn } from "@workspace/ui";
+import React, { useState, useEffect, useRef } from "react";
+import { TextShimmer, FilledBellIcon, cn } from "@workspace/ui";
+import type { AnimatedIconHandle } from "@workspace/ui";
 import { AGENT_STATE, type AgentHookState } from "@/hooks/use-agent-hooks-store";
 
 const SPINNER_NAMES = [
@@ -70,6 +71,41 @@ const STATE_DOT_COLORS: Record<AgentHookState, string> = {
   [AGENT_STATE.PERMISSION_REQUEST]: "bg-amber-500",
 };
 
+function useLoopingBell(ref: React.RefObject<AnimatedIconHandle | null>, intervalMs = 2000) {
+  useEffect(() => {
+    const timer = setInterval(() => {
+      ref.current?.startAnimation();
+    }, intervalMs);
+    ref.current?.startAnimation();
+    return () => clearInterval(timer);
+  }, [ref, intervalMs]);
+}
+
+function PermissionBellCompact() {
+  const bellRef = useRef<AnimatedIconHandle>(null);
+  useLoopingBell(bellRef);
+  return (
+    <span className="inline-flex items-center justify-center size-5 text-amber-500" title="Permission requested">
+      <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
+    </span>
+  );
+}
+
+function PermissionBellFull({ tool }: { tool?: string }) {
+  const bellRef = useRef<AnimatedIconHandle>(null);
+  useLoopingBell(bellRef);
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="inline-flex items-center text-amber-500">
+        <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
+      </span>
+      <TextShimmer as="span" className="text-[10px] text-amber-500" duration={2}>
+        {tool ? `${tool}: Waiting...` : "Waiting for permission..."}
+      </TextShimmer>
+    </div>
+  );
+}
+
 function CompactIndicator({ state }: { state: AgentHookState }) {
   const spinnerChar = useBrailleSpinner();
 
@@ -78,11 +114,7 @@ function CompactIndicator({ state }: { state: AgentHookState }) {
   }
 
   if (state === AGENT_STATE.PERMISSION_REQUEST) {
-    return (
-      <span className="inline-flex items-center justify-center size-5 text-sm text-amber-500 animate-pulse" title="Permission requested">
-        ●
-      </span>
-    );
+    return <PermissionBellCompact />;
   }
 
   return (
@@ -119,14 +151,7 @@ function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }
   }
 
   if (state === AGENT_STATE.PERMISSION_REQUEST) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <div className={cn("size-2 rounded-full animate-pulse", STATE_DOT_COLORS[AGENT_STATE.PERMISSION_REQUEST])} />
-        <span className="text-[10px] text-amber-500">
-          {tool ? `${tool}: ` : ""}Waiting for permission
-        </span>
-      </div>
-    );
+    return <PermissionBellFull tool={tool} />;
   }
 
   return <RunningFullSpinner tool={tool} />;
