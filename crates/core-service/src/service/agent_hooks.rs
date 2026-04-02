@@ -242,7 +242,7 @@ impl AgentHooksService {
             "SessionStart" => {
                 self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path, ctx);
             }
-            "UserPromptSubmit" | "PreToolUse" | "PostToolUse" => {
+            "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => {
                 self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Running, project_path, ctx);
             }
             "PermissionRequest" => {

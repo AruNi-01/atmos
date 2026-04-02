@@ -46,6 +46,7 @@ fn build_hook_entries(port: u16) -> Value {
     let user_prompt = build_cmd(port, r#"{"hook_event_name":"UserPromptSubmit"}"#);
     let pre_tool = build_cmd(port, r#"{"hook_event_name":"PreToolUse"}"#);
     let post_tool = build_cmd(port, r#"{"hook_event_name":"PostToolUse"}"#);
+    let post_tool_fail = build_cmd(port, r#"{"hook_event_name":"PostToolUseFailure"}"#);
     let perm_request = build_cmd(port, r#"{"hook_event_name":"PermissionRequest"}"#);
     let notification = build_cmd(port, r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#);
     let stop = build_cmd(port, r#"{"hook_event_name":"Stop"}"#);
@@ -61,6 +62,9 @@ fn build_hook_entries(port: u16) -> Value {
         }],
         "PostToolUse": [{
             "hooks": [{ "type": "command", "command": post_tool, "async": true }]
+        }],
+        "PostToolUseFailure": [{
+            "hooks": [{ "type": "command", "command": post_tool_fail, "async": true }]
         }],
         "PermissionRequest": [{
             "hooks": [{ "type": "command", "command": perm_request, "async": true }]
