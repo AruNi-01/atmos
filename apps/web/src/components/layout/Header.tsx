@@ -32,7 +32,6 @@ import {
   PopoverContent,
   PopoverTrigger,
   Sun,
-  Switch,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -60,7 +59,6 @@ import { toastManager } from '@workspace/ui';
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
-import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
@@ -83,8 +81,6 @@ const Header: React.FC = () => {
   const setupProgress = useProjectStore(s => s.setupProgress);
   const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
-  const { layout, updateLayout, loadLayout } = useAgentChatLayout();
-  useEffect(() => { loadLayout(); }, [loadLayout]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isTokenUsageOpen, setIsTokenUsageOpen] = useState(false);
@@ -1015,40 +1011,6 @@ const Header: React.FC = () => {
                     }}
                   >
                     Open Agent Chat
-                  </MenuItem>
-
-                  <MenuItem
-                    closeOnClick={false}
-                    onClick={() => updateLayout({ floatingBall: !layout.floatingBall })}
-                  >
-                    <span>Floating Ball</span>
-                    <span className="ml-auto">
-                      <Switch
-                        checked={layout.floatingBall}
-                        onCheckedChange={(checked) => updateLayout({ floatingBall: !!checked })}
-                        onClick={(event) => event.stopPropagation()}
-                      />
-                    </span>
-                  </MenuItem>
-
-                  <MenuItem closeOnClick={false}>
-                    <div className="flex w-full items-center gap-2">
-                      <span className="min-w-14 text-sm text-foreground">Opacity</span>
-                      <input
-                        type="range"
-                        min={20}
-                        max={100}
-                        value={layout.opacity}
-                        onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
-                        aria-label="Agent floating ball opacity"
-                        onClick={(event) => event.stopPropagation()}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/18 accent-foreground/35"
-                      />
-                      <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
-                        {layout.opacity}%
-                      </span>
-                    </div>
                   </MenuItem>
                 </MenuSubmenuPanel>
               </MenuSubmenu>

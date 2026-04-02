@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   Tooltip,
   TooltipTrigger,
@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useContextParams } from "@/hooks/use-context-params";
+import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
 import {
   useAgentHooksStore,
@@ -24,6 +25,7 @@ import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndi
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { X } from 'lucide-react';
+import { BotMessageSquareIcon, type BotMessageSquareHandle } from '@workspace/ui';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -143,7 +145,7 @@ function SessionRow({ session }: { session: AgentHookSession }) {
     >
       <div className="flex items-center gap-1.5 min-w-0">
         <AgentHookStatusIndicator state={session.state} variant="compact" />
-        <span className="text-[10px] font-medium truncate">
+        <span className="text-[10px] font-medium">
           {AGENT_TOOL_LABELS[session.tool] ?? session.tool}
         </span>
       </div>
@@ -228,9 +230,27 @@ function AgentStatusPopoverContent() {
   );
 }
 
+function AcpChatButton({ onClick }: { onClick: () => void }) {
+  const iconRef = useRef<BotMessageSquareHandle>(null);
+  return (
+    <button
+      type="button"
+      aria-label="Open Agent Chat"
+      className="inline-flex h-5 items-center gap-1 rounded-sm bg-transparent px-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+      onClick={onClick}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
+      onMouseLeave={() => iconRef.current?.stopAnimation()}
+    >
+      <BotMessageSquareIcon ref={iconRef} size={12} />
+      <span className="whitespace-nowrap">ACP Chat</span>
+    </button>
+  );
+}
+
 const Footer: React.FC = () => {
   const connectionState = useWebSocketStore(s => s.connectionState);
   const { workspaceId: currentWorkspaceId, projectId: currentProjectId } = useContextParams();
+  const [, setAgentChatOpen] = useAgentChatUrl();
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -370,16 +390,18 @@ const Footer: React.FC = () => {
           </PopoverContent>
         </Popover>
         <div className="h-3 w-px bg-border"></div>
+        <AcpChatButton onClick={() => setAgentChatOpen(true)} />
+        <div className="h-3 w-px bg-border"></div>
         {currentWorkspaceId ? (
-          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-emerald-500/10 text-emerald-500 font-medium whitespace-nowrap">
+          <span className="text-[10px] text-emerald-500 font-medium whitespace-nowrap">
             Dev on workspace
           </span>
         ) : currentProjectId ? (
-          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-amber-500/10 text-amber-500 font-medium whitespace-nowrap">
+          <span className="text-[10px] text-amber-500 font-medium whitespace-nowrap">
             Dev on main
           </span>
         ) : (
-          <span className="px-1.5 py-0.5 rounded-sm text-[10px] bg-neutral-500/10 text-neutral-500 font-medium whitespace-nowrap">
+          <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
             Waiting to build
           </span>
         )}

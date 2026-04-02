@@ -1,3 +1,7 @@
+mod claude_code;
+mod codex;
+mod opencode;
+
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -212,121 +216,15 @@ impl AgentHooksService {
     }
 
     pub fn handle_claude_code_event(&self, payload: &Value, ctx: &AtmosContext) {
-        let hook_event = payload
-            .get("hook_event_name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-
-        let session_id = self.resolve_session_id(payload, AgentToolType::ClaudeCode, ctx);
-        let project_path = Self::extract_cwd(payload).map(String::from);
-
-        debug!("Claude Code hook event: {} session_id={}", hook_event, session_id);
-
-        // If this session is actively running/waiting under a different tool
-        // (e.g. opencode using Claude as backend), skip — the owning tool is
-        // authoritative. But if the session is idle, allow takeover (the user
-        // may have quit one agent and started another in the same terminal).
-        if let Some(existing) = self.sessions.read().get(&session_id) {
-            if existing.tool != AgentToolType::ClaudeCode
-                && existing.state != AgentHookState::Idle
-            {
-                debug!(
-                    "Skipping Claude Code event for session {} actively owned by {}",
-                    session_id, existing.tool
-                );
-                return;
-            }
-        }
-
-        match hook_event {
-            "SessionStart" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path, ctx);
-            }
-            "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Running, project_path, ctx);
-            }
-            "PermissionRequest" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::PermissionRequest, project_path, ctx);
-            }
-            "Notification" => {
-                let notification_type = payload
-                    .get("notification_type")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                if notification_type == "permission_prompt" || notification_type == "permissionprompt" {
-                    self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::PermissionRequest, project_path, ctx);
-                }
-            }
-            "Stop" => {
-                self.update_state(&session_id, AgentToolType::ClaudeCode, AgentHookState::Idle, project_path, ctx);
-            }
-            _ => {
-                debug!("Unhandled Claude Code hook event: {}", hook_event);
-            }
-        }
+        claude_code::handle_event(self, payload, ctx);
     }
 
     pub fn handle_codex_event(&self, payload: &Value, ctx: &AtmosContext) {
-        let hook_event = payload
-            .get("hook_event_name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-
-        let session_id = self.resolve_session_id(payload, AgentToolType::Codex, ctx);
-        let project_path = Self::extract_cwd(payload).map(String::from);
-
-        debug!("Codex hook event: {} session_id={}", hook_event, session_id);
-
-        match hook_event {
-            // Codex only reliably fires SessionStart and Stop.
-            // SessionStart means the user has started a session → running.
-            "SessionStart" | "UserPromptSubmit" | "PreToolUse" | "PostToolUse" => {
-                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Running, project_path, ctx);
-            }
-            "Stop" => {
-                self.update_state(&session_id, AgentToolType::Codex, AgentHookState::Idle, project_path, ctx);
-            }
-            _ => {
-                debug!("Unhandled Codex hook event: {}", hook_event);
-            }
-        }
+        codex::handle_event(self, payload, ctx);
     }
 
     pub fn handle_opencode_event(&self, payload: &Value, ctx: &AtmosContext) {
-        let event_type = payload
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-
-        let session_id = self.resolve_session_id(payload, AgentToolType::Opencode, ctx);
-        let project_path = Self::extract_cwd(payload).map(String::from);
-
-        debug!("opencode hook event: type={} session_id={} payload_keys={:?}",
-            event_type, session_id,
-            payload.as_object().map(|o| o.keys().collect::<Vec<_>>()).unwrap_or_default()
-        );
-
-        match event_type {
-            "session.created" | "session.idle" | "session.error" => {
-                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Idle, project_path, ctx);
-            }
-            "agent.running" | "message.part.delta" | "message.part.updated"
-            | "message.updated" | "tool.execute.before" | "tool.execute.after" => {
-                let current = self.sessions.read().get(&session_id).map(|s| s.state);
-                if current != Some(AgentHookState::Running) {
-                    self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path, ctx);
-                }
-            }
-            "permission.asked" | "permission.updated" => {
-                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::PermissionRequest, project_path, ctx);
-            }
-            "permission.replied" => {
-                self.update_state(&session_id, AgentToolType::Opencode, AgentHookState::Running, project_path, ctx);
-            }
-            _ => {
-                // session.updated, session.status, session.diff, etc. — ignored
-            }
-        }
+        opencode::handle_event(self, payload, ctx);
     }
 
     /// Prefer Atmos pane_id (stable, per-terminal-pane) > payload session_id > fallback.

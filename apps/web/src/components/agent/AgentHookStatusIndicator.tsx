@@ -66,7 +66,7 @@ interface AgentHookStatusIndicatorProps {
 }
 
 const STATE_DOT_COLORS: Record<AgentHookState, string> = {
-  [AGENT_STATE.IDLE]: "bg-emerald-500",
+  [AGENT_STATE.IDLE]: "bg-emerald-500/70",
   [AGENT_STATE.RUNNING]: "bg-blue-500",
   [AGENT_STATE.PERMISSION_REQUEST]: "bg-amber-500",
 };
@@ -85,7 +85,7 @@ function PermissionBellCompact() {
   const bellRef = useRef<AnimatedIconHandle>(null);
   useLoopingBell(bellRef);
   return (
-    <span className="inline-flex items-center justify-center size-5 text-amber-400/80" title="Permission requested">
+    <span className="inline-flex items-center justify-center size-5 text-amber-400/70" title="Permission requested">
       <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
     </span>
   );
@@ -95,12 +95,12 @@ function PermissionBellFull({ tool }: { tool?: string }) {
   const bellRef = useRef<AnimatedIconHandle>(null);
   useLoopingBell(bellRef);
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="inline-flex items-center text-amber-400/80">
+    <div className="flex items-center gap-1.5 whitespace-nowrap">
+      <span className="inline-flex items-center text-amber-400/70">
         <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
       </span>
-      <TextShimmer as="span" className="text-[10px] text-amber-400/70" duration={2}>
-        {tool ? `${tool}: Waiting...` : "Waiting for permission..."}
+      <TextShimmer as="span" className="text-[10px] whitespace-nowrap text-amber-400/60" duration={2}>
+        {tool ? `${tool}: Waiting for permission` : "Waiting for permission"}
       </TextShimmer>
     </div>
   );
@@ -127,12 +127,12 @@ function CompactIndicator({ state }: { state: AgentHookState }) {
 function RunningFullSpinner({ tool }: { tool?: string }) {
   const spinnerChar = useFullSpinner();
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5 whitespace-nowrap">
       <span className="inline-flex items-center font-mono text-[11px] leading-none text-muted-foreground/80 dark:text-muted-foreground">
         {spinnerChar}
       </span>
-      <TextShimmer as="span" className="text-[10px]" duration={1.5}>
-        {tool ? `${tool}: Running...` : "Agent running..."}
+      <TextShimmer as="span" className="text-[10px] whitespace-nowrap" duration={1.5}>
+        {tool ? `${tool}: Running` : "Agent running"}
       </TextShimmer>
     </div>
   );
@@ -164,7 +164,7 @@ export function AgentHookStatusIndicator({
   tool,
 }: AgentHookStatusIndicatorProps) {
   return (
-    <div className={cn("flex items-center", className)}>
+    <div className={cn("flex items-center whitespace-nowrap", className)}>
       {variant === "compact" ? (
         <CompactIndicator state={state} />
       ) : (
