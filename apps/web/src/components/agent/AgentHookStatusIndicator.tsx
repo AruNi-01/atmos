@@ -79,14 +79,14 @@ function CompactIndicator({ state }: { state: AgentHookState }) {
 
   if (state === AGENT_STATE.PERMISSION_REQUEST) {
     return (
-      <span className="inline-flex items-center justify-center size-4 text-amber-500 animate-pulse" title="Permission requested">
+      <span className="inline-flex items-center justify-center size-5 text-sm text-amber-500 animate-pulse" title="Permission requested">
         ●
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center justify-center size-4 font-mono text-[11px] text-blue-400" title="Agent running">
+    <span className="inline-flex items-center justify-center size-5 font-mono text-sm text-blue-400" title="Agent running">
       {spinnerChar}
     </span>
   );
