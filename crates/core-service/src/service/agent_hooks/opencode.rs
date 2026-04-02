@@ -3,6 +3,29 @@ use tracing::debug;
 
 use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext};
 
+fn permission_replied_state(payload: &Value) -> Option<AgentHookState> {
+    let response = payload
+        .get("properties")
+        .and_then(|v| v.as_object())
+        .and_then(|properties| {
+            properties
+                .get("response")
+                .or_else(|| properties.get("decision"))
+                .or_else(|| properties.get("outcome"))
+        })
+        .and_then(|v| v.as_str())?;
+
+    match response {
+        "once" | "always" | "allow_once" | "allow_always" | "granted" | "grant" => {
+            Some(AgentHookState::Running)
+        }
+        "reject" | "reject_once" | "reject_always" | "denied" | "deny" => {
+            Some(AgentHookState::Idle)
+        }
+        _ => None,
+    }
+}
+
 pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
     let event_type = payload.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
@@ -56,13 +79,15 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             );
         }
         "permission.replied" => {
-            service.update_state(
-                &session_id,
-                AgentToolType::Opencode,
-                AgentHookState::Running,
-                project_path,
-                ctx,
-            );
+            if let Some(next_state) = permission_replied_state(payload) {
+                service.update_state(
+                    &session_id,
+                    AgentToolType::Opencode,
+                    next_state,
+                    project_path,
+                    ctx,
+                );
+            }
         }
         _ => {
             // session.updated, session.status, session.diff, etc. — ignored
@@ -107,6 +132,56 @@ mod tests {
 
         handle_event(&service, &running, &AtmosContext::default());
         handle_event(&service, &idle, &AtmosContext::default());
+
+        let sessions = service.get_all_sessions();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].state, AgentHookState::Idle);
+    }
+
+    #[test]
+    fn opencode_permission_replied_with_grant_sets_running() {
+        let service = AgentHooksService::new();
+        let asked = serde_json::json!({
+            "type": "permission.asked",
+            "session_id": "opencode-session",
+            "cwd": "/tmp/project",
+        });
+        let replied = serde_json::json!({
+            "type": "permission.replied",
+            "session_id": "opencode-session",
+            "cwd": "/tmp/project",
+            "properties": {
+                "response": "once",
+            }
+        });
+
+        handle_event(&service, &asked, &AtmosContext::default());
+        handle_event(&service, &replied, &AtmosContext::default());
+
+        let sessions = service.get_all_sessions();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].state, AgentHookState::Running);
+    }
+
+    #[test]
+    fn opencode_permission_replied_with_reject_sets_idle() {
+        let service = AgentHooksService::new();
+        let asked = serde_json::json!({
+            "type": "permission.asked",
+            "session_id": "opencode-session",
+            "cwd": "/tmp/project",
+        });
+        let replied = serde_json::json!({
+            "type": "permission.replied",
+            "session_id": "opencode-session",
+            "cwd": "/tmp/project",
+            "properties": {
+                "response": "reject",
+            }
+        });
+
+        handle_event(&service, &asked, &AtmosContext::default());
+        handle_event(&service, &replied, &AtmosContext::default());
 
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
