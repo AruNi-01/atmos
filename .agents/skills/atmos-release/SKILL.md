@@ -26,8 +26,12 @@ This skill handles the Atmos desktop release sequence:
 2. bump desktop version files together
 3. validate version consistency
 4. create and push the `desktop-v<version>` tag
-5. rely on GitHub Actions to publish the desktop release
-6. verify the Homebrew tap sync path
+5. collect release context from GitHub using `gh`
+6. generate the final release body with the model using that context
+7. write the generated markdown to `releasenotes/<release title>.md`
+8. commit that file as part of the release-prep change
+9. let the publish workflow read that file and apply it to the GitHub Release
+10. verify the Homebrew tap sync path
 
 The repository-specific implementation lives in the bundled script:
 
@@ -67,6 +71,29 @@ This script encapsulates the operational workflow:
 - release guidance
 - dry-run behavior
 
+Release-note context collection is handled by the repository helper:
+
+- `scripts/release/collect-desktop-release-context.mjs`
+
+That helper is not responsible for writing the final release prose. Its job is to collect the model inputs needed for release-note generation, including:
+
+- commit subjects and hashes in the release range
+- merged PR metadata associated with those commits
+- closing issue metadata associated with those PRs
+- the previous desktop tag, current tag, and commit range
+
+The final GitHub Release body must be written by the model at skill execution time, not by a rule-based script.
+
+Release-note file resolution is handled by:
+
+- `scripts/release/desktop-release-notes.mjs`
+
+That helper defines the canonical release-notes filename for a desktop release:
+
+- `releasenotes/Atmos Desktop <version>.md`
+
+The release workflow reads that file from the tagged commit and publishes its contents as the GitHub Release body.
+
 Read the script if you need exact command behavior or supported flags.
 
 ### Reference checklist
@@ -93,6 +120,27 @@ Use it for:
 - confirming release and tap alignment
 - verifying Homebrew install or upgrade behavior
 - investigating whether a release is fully healthy end-to-end
+
+### Release-notes drafting reference
+Load this when you want a lightweight writing template for the model-generated release body:
+
+- `references/release-notes-template.md`
+
+Use it for:
+- keeping the release body product-facing
+- merging similar commits into fewer highlights
+- avoiding raw commit-dump style notes
+
+Do not treat it as a hard rule engine. The collected GitHub context remains the primary input.
+
+Load this reference only when you are actively drafting or revising release-note prose.
+
+Do not load it for:
+- version bump only
+- tag creation only
+- workflow monitoring only
+- post-release verification only
+- Homebrew tap investigation only
 
 ## Inputs
 
@@ -134,9 +182,35 @@ When asked to perform an Atmos desktop release:
 
 1. normalize the requested inputs
 2. construct the desktop tag as `desktop-v<version>`
-3. run the bundled script
-4. review the script output
-5. surface any follow-up verification steps
+3. run the bundled release script
+4. wait for the GitHub Release to exist for that tag
+5. collect release context with `gh`
+6. generate a polished release body with the model
+7. write the release body to `releasenotes/Atmos Desktop <version>.md`
+8. run the bundled release script so the release-prep commit includes that file
+9. confirm the publish workflow used that file as the GitHub Release body
+10. review the result and surface follow-up verification steps
+
+Recommended command sequence for the note-generation portion:
+
+```bash
+node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v<version> --output /tmp/atmos-release-context.json
+node ./scripts/release/desktop-release-notes.mjs --version <version> --print abs-path
+# write the model-generated markdown into the resolved path
+```
+
+Expected model behavior for this step:
+
+- read the collected JSON context
+- synthesize similar commits into a smaller number of user-facing highlights
+- write release notes in the sections:
+  - `New Features`
+  - `Bug Fixes`
+  - `Improvements`
+  - `Other Changes`
+- mention related PRs and closed issues inline where helpful
+- produce polished product-facing prose rather than commit-title dumps
+- save the final markdown at `releasenotes/Atmos Desktop <version>.md`
 
 ### Dry run
 If the user wants a preview, run:
@@ -175,6 +249,25 @@ If you need the detailed checklist, manual verification flow, or rollback guidan
 
 - `references/release-checklist.md`
 
+Read `scripts/release/collect-desktop-release-context.mjs` if you need to change:
+
+- which GitHub metadata is collected for the model
+- how PRs are associated with commits
+- how closing issues are resolved
+- how the previous desktop tag is selected
+
+Read `scripts/release/desktop-release-notes.mjs` if you need to change:
+
+- the canonical release title
+- the canonical release-notes filename
+- how release-note file existence is validated
+
+Read `references/release-notes-template.md` if you need to change:
+
+- release-note tone and style guidance
+- the suggested markdown structure
+- examples of what to include or omit
+
 If and only if the user is asking to verify a release after it has been created or published, read:
 
 - `references/post-release-verification.md`
@@ -186,6 +279,8 @@ When using this skill:
 - prefer the bundled script over manually reconstructing the flow
 - preserve the Atmos desktop tag format
 - preserve the repository's version consistency checks
+- preserve the model-generated release-note flow instead of using GitHub auto-generated notes
+- preserve the repository convention that release notes live under `releasenotes/` and are named after the release title
 - rely on `release-desktop.yml` for release publication
 - rely on `sync-homebrew-tap.yml` for tap updates
 
@@ -215,6 +310,13 @@ After a non-dry-run release, verify:
 
 - the desktop release workflow ran
 - the GitHub Release exists for `desktop-v<version>`
+- the tagged commit contains `releasenotes/Atmos Desktop <version>.md`
+- the published GitHub Release body matches the custom grouped sections:
+  - `New Features`
+  - `Bug Fixes`
+  - `Improvements`
+  - `Other Changes`
+- the release body was read from `releasenotes/Atmos Desktop <version>.md`, not from GitHub auto-generated notes
 - the expected macOS artifacts were produced:
   - `Atmos_<version>_aarch64.dmg`
   - `Atmos_<version>_x64.dmg`
@@ -266,6 +368,16 @@ node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version> 
 ### Prerelease
 ```bash
 node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version> --prerelease
+```
+
+### Collect release-note context
+```bash
+node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v<version> --to-ref HEAD --output /tmp/atmos-release-context.json
+```
+
+### Resolve release-note path
+```bash
+node ./scripts/release/desktop-release-notes.mjs --version <version> --print path
 ```
 
 ## Summary

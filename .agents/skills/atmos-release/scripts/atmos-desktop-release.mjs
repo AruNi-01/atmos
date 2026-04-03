@@ -157,6 +157,10 @@ function buildDesktopTag(version) {
   return `desktop-v${version}`;
 }
 
+function buildReleaseNotesPath(version) {
+  return sh("node", ["./scripts/release/desktop-release-notes.mjs", "--version", version]).stdout;
+}
+
 function sh(command, args = [], options = {}) {
   const { allowFailure = false, capture = true, extraEnv = {} } = options;
 
@@ -362,18 +366,42 @@ function validateDesktopVersionFiles(expectedVersion, tag, options = {}) {
   }
 }
 
+function ensureReleaseNotesFile(version, dryRun) {
+  const notesPath = buildReleaseNotesPath(version);
+
+  if (dryRun) {
+    info(`Dry run expects release notes at ${notesPath}.`);
+    return notesPath;
+  }
+
+  runOrPrint(
+    "node",
+    ["./scripts/release/desktop-release-notes.mjs", "--version", version, "--verify"],
+    {
+      dryRun: false,
+      description: "Verify release notes file exists for this desktop version.",
+    },
+  );
+
+  success(`Release notes file resolved: ${notesPath}`);
+  return notesPath;
+}
+
 function maybeCommitVersionBump(version, dryRun) {
   const versionFiles = [
     "apps/desktop/src-tauri/Cargo.toml",
     "apps/desktop/src-tauri/tauri.conf.json",
     "apps/desktop/package.json",
   ];
+  const releaseNotesPath = buildReleaseNotesPath(version);
+  const trackedFiles = [...versionFiles, releaseNotesPath];
 
-  const diff = sh("git", ["diff", "--name-only", "--", ...versionFiles]);
-  const staged = sh("git", ["diff", "--cached", "--name-only", "--", ...versionFiles]);
+  const diff = sh("git", ["diff", "--name-only", "--", ...trackedFiles]);
+  const staged = sh("git", ["diff", "--cached", "--name-only", "--", ...trackedFiles]);
+  const untracked = sh("git", ["ls-files", "--others", "--exclude-standard", "--", ...trackedFiles]);
 
   const changed = new Set(
-    [...diff.stdout.split("\n"), ...staged.stdout.split("\n")]
+    [...diff.stdout.split("\n"), ...staged.stdout.split("\n"), ...untracked.stdout.split("\n")]
       .map((item) => item.trim())
       .filter(Boolean),
   );
@@ -383,9 +411,9 @@ function maybeCommitVersionBump(version, dryRun) {
     return;
   }
 
-  runOrPrint("git", ["add", ...versionFiles], {
+  runOrPrint("git", ["add", ...trackedFiles], {
     dryRun,
-    description: "Stage desktop version files.",
+    description: "Stage desktop version files and release notes.",
   });
 
   const message = `chore(desktop): release ${version}`;
@@ -465,6 +493,7 @@ function main() {
       `Dry run skips validating current files against ${tag} because the version bump has not been applied yet.`,
     );
     info(`Planned post-bump validation target: ${tag}`);
+    ensureReleaseNotesFile(version, true);
   } else {
     runOrPrint("node", ["./scripts/release/bump-desktop-version.mjs", version], {
       dryRun: false,
@@ -472,6 +501,7 @@ function main() {
     });
 
     validateDesktopVersionFiles(version, tag);
+    ensureReleaseNotesFile(version, false);
   }
 
   runOrPrint(
@@ -483,10 +513,11 @@ function main() {
       "apps/desktop/src-tauri/Cargo.toml",
       "apps/desktop/src-tauri/tauri.conf.json",
       "apps/desktop/package.json",
+      buildReleaseNotesPath(version),
     ],
     {
       dryRun: false,
-      description: "Review desktop version diff.",
+      description: "Review desktop version and release notes diff.",
     },
   );
 
