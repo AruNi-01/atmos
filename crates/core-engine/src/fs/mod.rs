@@ -298,6 +298,101 @@ impl FsEngine {
         Ok(())
     }
 
+    pub fn create_dir(&self, path: &Path) -> Result<()> {
+        fs::create_dir_all(path).map_err(|e| {
+            EngineError::FileSystem(format!(
+                "Failed to create directory {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+        Ok(())
+    }
+
+    pub fn rename_path(&self, from: &Path, to: &Path) -> Result<()> {
+        if let Some(parent) = to.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    EngineError::FileSystem(format!(
+                        "Failed to create parent directory {}: {}",
+                        parent.display(),
+                        e
+                    ))
+                })?;
+            }
+        }
+
+        fs::rename(from, to).map_err(|e| {
+            EngineError::FileSystem(format!(
+                "Failed to rename {} to {}: {}",
+                from.display(),
+                to.display(),
+                e
+            ))
+        })?;
+
+        Ok(())
+    }
+
+    pub fn delete_path(&self, path: &Path) -> Result<()> {
+        let metadata = fs::symlink_metadata(path).map_err(|e| {
+            EngineError::FileSystem(format!(
+                "Failed to read metadata for {}: {}",
+                path.display(),
+                e
+            ))
+        })?;
+
+        if metadata.is_dir() {
+            fs::remove_dir_all(path).map_err(|e| {
+                EngineError::FileSystem(format!(
+                    "Failed to delete directory {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?;
+        } else {
+            fs::remove_file(path).map_err(|e| {
+                EngineError::FileSystem(format!(
+                    "Failed to delete file {}: {}",
+                    path.display(),
+                    e
+                ))
+            })?;
+        }
+
+        Ok(())
+    }
+
+    pub fn duplicate_path(&self, from: &Path, to: &Path) -> Result<()> {
+        if from.is_dir() {
+            self.copy_dir_recursive(from, to)?;
+        } else {
+            if let Some(parent) = to.parent() {
+                if !parent.exists() {
+                    fs::create_dir_all(parent).map_err(|e| {
+                        EngineError::FileSystem(format!(
+                            "Failed to create parent directory {}: {}",
+                            parent.display(),
+                            e
+                        ))
+                    })?;
+                }
+            }
+
+            fs::copy(from, to).map_err(|e| {
+                EngineError::FileSystem(format!(
+                    "Failed to duplicate file {} to {}: {}",
+                    from.display(),
+                    to.display(),
+                    e
+                ))
+            })?;
+        }
+
+        Ok(())
+    }
+
     /// List project files recursively as a tree structure
     pub fn list_project_files(
         &self,
@@ -445,6 +540,56 @@ impl FsEngine {
             }
         }
         false
+    }
+
+    fn copy_dir_recursive(&self, from: &Path, to: &Path) -> Result<()> {
+        fs::create_dir_all(to).map_err(|e| {
+            EngineError::FileSystem(format!(
+                "Failed to create directory {}: {}",
+                to.display(),
+                e
+            ))
+        })?;
+
+        for entry in fs::read_dir(from).map_err(|e| {
+            EngineError::FileSystem(format!(
+                "Failed to read directory {}: {}",
+                from.display(),
+                e
+            ))
+        })? {
+            let entry = entry.map_err(|e| {
+                EngineError::FileSystem(format!(
+                    "Failed to read directory entry in {}: {}",
+                    from.display(),
+                    e
+                ))
+            })?;
+            let source = entry.path();
+            let target = to.join(entry.file_name());
+            let metadata = fs::symlink_metadata(&source).map_err(|e| {
+                EngineError::FileSystem(format!(
+                    "Failed to read metadata for {}: {}",
+                    source.display(),
+                    e
+                ))
+            })?;
+
+            if metadata.is_dir() {
+                self.copy_dir_recursive(&source, &target)?;
+            } else {
+                fs::copy(&source, &target).map_err(|e| {
+                    EngineError::FileSystem(format!(
+                        "Failed to copy {} to {}: {}",
+                        source.display(),
+                        target.display(),
+                        e
+                    ))
+                })?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Recursively search for directories by name pattern using the `ignore` crate

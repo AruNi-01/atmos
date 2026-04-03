@@ -2,10 +2,14 @@
 
 import React, { useState } from "react";
 import {
+  Button,
   ChevronRight,
   Plus,
   Minus,
-  Undo2,
+  Loader2,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   getFileIconProps,
   Collapsible,
   CollapsibleContent,
@@ -20,7 +24,17 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
   return <img {...iconProps} />;
 }
 
+function stopActionEvent(
+  event:
+    | React.MouseEvent<HTMLElement>
+    | React.PointerEvent<HTMLElement>,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+}
+
 export interface ChangeSectionProps {
+  kind: "staged" | "unstaged" | "untracked";
   title: string;
   files: GitChangedFile[];
   defaultOpen?: boolean;
@@ -34,6 +48,7 @@ export interface ChangeSectionProps {
 }
 
 export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSection({
+  kind,
   title,
   files,
   defaultOpen = true,
@@ -46,6 +61,8 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   workspaceId,
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [confirmingActionKey, setConfirmingActionKey] = useState<string | null>(null);
+  const [runningActionKey, setRunningActionKey] = useState<string | null>(null);
   const activeFilePath = useEditorStore((s) =>
     s.getActiveFilePath(workspaceId || undefined),
   );
@@ -54,10 +71,118 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
 
   if (files.length === 0) return null;
 
+  const isDestructiveSection = kind === "unstaged" || kind === "untracked";
+
+  const stageLabel = kind === "untracked" ? "Stage Files" : "Stage Changes";
+  const hasActiveSectionAction =
+    confirmingActionKey !== null || runningActionKey !== null;
+  const runAction = async (
+    actionKey: string,
+    action?: () => void | Promise<void>,
+  ) => {
+    if (!action) return;
+    try {
+      setRunningActionKey(actionKey);
+      await action();
+    } catch (error) {
+      throw error;
+    } finally {
+      setRunningActionKey((current) => (current === actionKey ? null : current));
+      setConfirmingActionKey((current) => (current === actionKey ? null : current));
+    }
+  };
+
+  const renderConfirmableMinusAction = ({
+    actionKey,
+    onConfirm,
+    title,
+    description,
+  }: {
+    actionKey: string;
+    onConfirm?: () => void | Promise<void>;
+    title: string;
+    description: string;
+  }) => {
+    if (!onConfirm) return null;
+
+    const isOpen = confirmingActionKey === actionKey;
+    const isRunning = runningActionKey === actionKey;
+
+    return (
+      <Popover
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (isRunning) return;
+          setConfirmingActionKey(open ? actionKey : null);
+        }}
+      >
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            onPointerDown={stopActionEvent}
+            onMouseDown={stopActionEvent}
+            onDoubleClick={stopActionEvent}
+            onClick={(e) => {
+              stopActionEvent(e);
+              setConfirmingActionKey((current) =>
+                current === actionKey ? null : actionKey,
+              );
+            }}
+            title={title}
+            className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Minus className="size-3.5" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-72 border-border bg-popover p-3 shadow-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">{title}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {description}
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isRunning}
+                onPointerDown={stopActionEvent}
+                onClick={(e) => {
+                  stopActionEvent(e);
+                  setConfirmingActionKey(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={isRunning}
+                onPointerDown={stopActionEvent}
+                onClick={(e) => {
+                  stopActionEvent(e);
+                  void runAction(actionKey, onConfirm);
+                }}
+              >
+                {isRunning ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
-      <div className="flex items-center justify-between px-2 py-1 hover:bg-sidebar-accent/50 group/header rounded-sm mb-1">
-        <CollapsibleTrigger className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors w-full">
+      <div className="group/header relative mb-1 rounded-sm px-2 py-1 hover:bg-sidebar-accent/50">
+        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
           <ChevronRight
             className={cn(
               "size-3.5 transition-transform duration-200",
@@ -70,12 +195,23 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           </span>
         </CollapsibleTrigger>
 
-        <div className="flex items-center gap-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
+        <div
+          className={cn(
+            "absolute top-1/2 right-2 z-10 flex -translate-y-1/2 items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
+            hasActiveSectionAction
+              ? "opacity-100 pointer-events-auto"
+              : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
+          )}
+        >
           {onStageAll && (
             <button
+              type="button"
+              onPointerDown={stopActionEvent}
+              onMouseDown={stopActionEvent}
+              onDoubleClick={stopActionEvent}
               onClick={(e) => {
-                e.stopPropagation();
-                onStageAll();
+                stopActionEvent(e);
+                void runAction(`${kind}-bulk-stage`, onStageAll);
               }}
               title="Stage All"
               className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
@@ -83,11 +219,15 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               <Plus className="size-3.5" />
             </button>
           )}
-          {onUnstageAll && (
+          {kind === "staged" && onUnstageAll && (
             <button
+              type="button"
+              onPointerDown={stopActionEvent}
+              onMouseDown={stopActionEvent}
+              onDoubleClick={stopActionEvent}
               onClick={(e) => {
-                e.stopPropagation();
-                onUnstageAll();
+                stopActionEvent(e);
+                void runAction(`${kind}-bulk-unstage`, onUnstageAll);
               }}
               title="Unstage All"
               className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
@@ -95,18 +235,17 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               <Minus className="size-3.5" />
             </button>
           )}
-          {onDiscardAll && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDiscardAll();
-              }}
-              title="Discard All"
-              className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
-            >
-              <Undo2 className="size-3.5" />
-            </button>
-          )}
+          {isDestructiveSection
+            ? renderConfirmableMinusAction({
+                actionKey: `${kind}-bulk-discard`,
+                onConfirm: onDiscardAll,
+                title: kind === "untracked" ? "Delete all untracked files?" : "Discard all unstaged changes?",
+                description:
+                  kind === "untracked"
+                    ? "This will permanently delete every untracked file in this section."
+                    : "This will discard every unstaged change in this section.",
+              })
+            : null}
         </div>
       </div>
 
@@ -117,6 +256,9 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
             const parts = file.path.split("/");
             parts.pop();
             const dirPath = parts.join("/");
+            const hasActiveRowAction =
+              confirmingActionKey?.includes(`:${file.path}:`) ||
+              runningActionKey?.includes(`:${file.path}:`);
 
             return (
               <div
@@ -152,7 +294,8 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 <div className="flex items-center h-4 shrink min-w-0 overflow-hidden">
                   <div
                     className={cn(
-                      "flex items-center gap-2 text-[11px] font-mono tabular-nums group-hover:hidden min-w-[30px] justify-end",
+                      "flex items-center gap-2 text-[11px] font-mono tabular-nums min-w-[30px] justify-end",
+                      hasActiveRowAction ? "invisible" : "group-hover:invisible",
                     )}
                   >
                     {file.status !== "?" && (
@@ -185,24 +328,43 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                     </span>
                   </div>
 
-                  <div className="hidden group-hover:flex items-center gap-1">
+                  <div
+                    className={cn(
+                      "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
+                      hasActiveRowAction
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
+                    )}
+                  >
                     {onStage && (
                       <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
                         onClick={(e) => {
-                          e.stopPropagation();
-                          onStage([file.path]);
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${file.path}:stage`, () =>
+                            onStage([file.path]),
+                          );
                         }}
-                        title="Stage Changes"
+                        title={stageLabel}
                         className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Plus className="size-3.5" />
                       </button>
                     )}
-                    {onUnstage && (
+                    {kind === "staged" && onUnstage && (
                       <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
                         onClick={(e) => {
-                          e.stopPropagation();
-                          onUnstage([file.path]);
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${file.path}:unstage`, () =>
+                            onUnstage([file.path]),
+                          );
                         }}
                         title="Unstage Changes"
                         className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
@@ -210,18 +372,20 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                         <Minus className="size-3.5" />
                       </button>
                     )}
-                    {onDiscard && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDiscard([file.path]);
-                        }}
-                        title="Discard Changes"
-                        className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Undo2 className="size-3.5" />
-                      </button>
-                    )}
+                    {isDestructiveSection
+                      ? renderConfirmableMinusAction({
+                          actionKey: `${kind}:${file.path}:discard`,
+                          onConfirm: () => onDiscard?.([file.path]),
+                          title:
+                            kind === "untracked"
+                              ? `Delete "${fileName}"?`
+                              : `Discard changes in "${fileName}"?`,
+                          description:
+                            kind === "untracked"
+                              ? "This removes the untracked file from disk."
+                              : "This restores the file to its last committed state.",
+                        })
+                      : null}
                   </div>
                 </div>
               </div>

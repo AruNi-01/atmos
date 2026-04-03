@@ -139,6 +139,14 @@ pub enum WsAction {
     FsReadFile,
     /// 写入文件内容
     FsWriteFile,
+    /// 创建目录
+    FsCreateDir,
+    /// 重命名文件或目录
+    FsRenamePath,
+    /// 删除文件或目录
+    FsDeletePath,
+    /// 复制文件或目录
+    FsDuplicatePath,
     /// 列出项目文件树
     FsListProjectFiles,
     /// 搜索文件内容（使用 ripgrep）
@@ -517,6 +525,28 @@ pub struct FsWriteFileRequest {
 pub struct FsWriteFileResponse {
     pub path: String,
     pub success: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsCreateDirRequest {
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsRenamePathRequest {
+    pub from: String,
+    pub to: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsDeletePathRequest {
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsDuplicatePathRequest {
+    pub from: String,
+    pub to: String,
 }
 
 /// 列出项目文件树请求

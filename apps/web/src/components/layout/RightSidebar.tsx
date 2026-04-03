@@ -1,9 +1,9 @@
 "use client";
 
 import React, {
-  useState,
   useEffect,
   useMemo,
+  useState,
 } from "react";
 import { useGitStore } from "@/hooks/use-git-store";
 import { useEditorStore } from "@/hooks/use-editor-store";
@@ -44,7 +44,7 @@ import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
 import { ChangeSection } from '@/components/layout/sidebar/ChangeSection';
 import { ChangesViewSwitcher } from '@/components/layout/sidebar/ChangesViewSwitcher';
 import { CommitActions } from '@/components/layout/sidebar/CommitActions';
-import { RightSidebarDialogs, type ConfirmDialogState } from '@/components/layout/sidebar/RightSidebarDialogs';
+import { RightSidebarDialogs } from '@/components/layout/sidebar/RightSidebarDialogs';
 
 const AgentChatPanel = dynamic(
   () => import("@/components/agent/AgentChatPanel").then((m) => m.AgentChatPanel),
@@ -122,8 +122,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     gitStatus,
   } = useGitStore();
 
-  const [isGlobalActionLoading, setIsGlobalActionLoading] = useState(false);
-
   const [{ rsTab: activeTab, rsView: changesView }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
   const [activeCenterTab] = useQueryState("tab", centerStageParams.tab);
@@ -140,86 +138,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [actionsRefreshKey, setActionsRefreshKey] = useState(0);
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
-
-  const [confirmDialog, setConfirmDialog] = useState<
-    ConfirmDialogState & { action: () => Promise<void> }
-  >({
-    isOpen: false,
-    title: "",
-    description: "",
-    action: async () => {},
-    confirmLabel: "Confirm",
-    isDestructive: false,
-  });
-
-  const confirmAction = (
-    title: string,
-    description: React.ReactNode,
-    action: () => Promise<void>,
-    confirmLabel = "Confirm",
-    isDestructive = false,
-  ) => {
-    setConfirmDialog({
-      isOpen: true,
-      title,
-      description,
-      action,
-      confirmLabel,
-      isDestructive,
-    });
-  };
-
-  const handleConfirm = async () => {
-    setIsGlobalActionLoading(true);
-    try {
-      await confirmDialog.action();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsGlobalActionLoading(false);
-      setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
-    }
-  };
-
-  const handleDiscardUnstaged = (files: string[]) => {
-    confirmAction(
-      "Discard Changes?",
-      `Are you sure you want to discard changes in ${files.length} file(s)? This action cannot be undone.`,
-      async () => await discardUnstagedChanges(files),
-      "Discard Changes",
-      true,
-    );
-  };
-
-  const handleDiscardUntracked = (files: string[]) => {
-    confirmAction(
-      "Delete Files?",
-      `Are you sure you want to delete ${files.length} untracked file(s)? This action cannot be undone.`,
-      async () => await discardUntrackedFiles(files),
-      "Delete Files",
-      true,
-    );
-  };
-
-  const handleDiscardAllUnstaged = () => {
-    confirmAction(
-      "Discard All Changes?",
-      "Are you sure you want to discard all unstaged changes? This action cannot be undone.",
-      async () => await discardAllUnstaged(),
-      "Discard All",
-      true,
-    );
-  };
-
-  const handleDiscardAllUntracked = () => {
-    confirmAction(
-      "Delete All Untracked?",
-      "Are you sure you want to delete all untracked files? This action cannot be undone.",
-      async () => await discardAllUntracked(),
-      "Delete All",
-      true,
-    );
-  };
 
   useEffect(() => {
     if (isSettingUp) {
@@ -415,6 +333,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       ) : (
                         <>
                           <ChangeSection
+                            kind="staged"
                             title="Staged Changes"
                             files={stagedFiles}
                             workspaceId={workspaceId}
@@ -422,22 +341,24 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                             onUnstageAll={unstageAll}
                           />
                           <ChangeSection
+                            kind="unstaged"
                             title="Unstaged Changes"
                             files={unstagedFiles}
                             workspaceId={workspaceId}
                             onStage={stageFiles}
-                            onDiscard={handleDiscardUnstaged}
+                            onDiscard={discardUnstagedChanges}
                             onStageAll={stageAllUnstaged}
-                            onDiscardAll={handleDiscardAllUnstaged}
+                            onDiscardAll={discardAllUnstaged}
                           />
                           <ChangeSection
+                            kind="untracked"
                             title="Untracked Changes"
                             files={untrackedFiles}
                             workspaceId={workspaceId}
                             onStage={stageFiles}
-                            onDiscard={handleDiscardUntracked}
+                            onDiscard={discardUntrackedFiles}
                             onStageAll={stageAllUntracked}
-                            onDiscardAll={handleDiscardAllUntracked}
+                            onDiscardAll={discardAllUntracked}
                           />
                         </>
                       )}
@@ -503,10 +424,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       </Tabs>
 
       <RightSidebarDialogs
-        confirmDialog={confirmDialog}
-        onConfirm={handleConfirm}
-        onCloseConfirm={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
-        isGlobalActionLoading={isGlobalActionLoading}
         githubOwner={githubOwner}
         githubRepo={githubRepo}
         currentBranch={currentBranch}

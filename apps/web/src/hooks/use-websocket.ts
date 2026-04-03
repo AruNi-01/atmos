@@ -16,6 +16,10 @@ export type WsAction =
   | "fs_validate_git_path"
   | "fs_read_file"
   | "fs_write_file"
+  | "fs_create_dir"
+  | "fs_rename_path"
+  | "fs_delete_path"
+  | "fs_duplicate_path"
   | "fs_list_project_files"
   | "fs_search_content"
   // App 操作

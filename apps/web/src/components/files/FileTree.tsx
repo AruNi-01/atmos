@@ -13,13 +13,40 @@ import {
   CornerUpRight,
   Tooltip,
   TooltipContent,
-  TooltipTrigger
+  TooltipTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Button,
+  Input,
+  toastManager,
 } from '@workspace/ui';
-import { FileTreeNode, fsApi } from '@/api/ws-api';
+import {
+  FilePlus2,
+  FolderPlus,
+  Pencil,
+  Trash2,
+  Copy,
+  ExternalLink,
+  Files,
+} from 'lucide-react';
+import { FileTreeNode, appApi, fsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useContextParams } from "@/hooks/use-context-params";
+import {
+  QUICK_OPEN_APP_MAP,
+  type QuickOpenAppName,
+} from '@/components/layout/quick-open-apps';
 
-// ===== Types =====
+const QUICK_OPEN_STORAGE_KEY = 'atmos_quick_open_last_used';
 
 interface FileTreeItem {
   id: string;
@@ -34,17 +61,29 @@ interface FileTreeItem {
 
 interface FileTreeProps {
   data: FileTreeNode[];
+  rootPath: string | null;
   isLoading?: boolean;
+  onRefresh?: () => Promise<void> | void;
 }
 
-// ===== Helper Functions =====
+type PendingPanelState =
+  | null
+  | {
+      mode: 'create-file' | 'create-folder' | 'rename';
+      targetPath: string;
+      parentPath: string;
+      initialName: string;
+      title: string;
+      description: string;
+      confirmLabel: string;
+    };
 
 function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
   const map = new Map<string, FileTreeItem>();
 
-  function traverse(nodes: FileTreeNode[]) {
-    for (const node of nodes) {
-      const item: FileTreeItem = {
+  function traverse(entries: FileTreeNode[]) {
+    for (const node of entries) {
+      map.set(node.path, {
         id: node.path,
         name: node.name,
         path: node.path,
@@ -52,9 +91,8 @@ function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
         isSymlink: node.is_symlink,
         isIgnored: node.is_ignored,
         symlinkTarget: node.symlink_target,
-        children: node.children?.map(c => c.path),
-      };
-      map.set(node.path, item);
+        children: node.children?.map((child) => child.path),
+      });
       if (node.children) {
         traverse(node.children);
       }
@@ -65,37 +103,114 @@ function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
   return map;
 }
 
-function FileIcon({ name, isDir, isOpen, className }: { name: string; isDir: boolean; isOpen?: boolean; className?: string }) {
+function FileIcon({
+  name,
+  isDir,
+  isOpen,
+  className,
+}: {
+  name: string;
+  isDir: boolean;
+  isOpen?: boolean;
+  className?: string;
+}) {
   const iconProps = getFileIconProps({ name, isDir, isOpen, className });
   return <img {...iconProps} />;
 }
 
-// ===== FileTree Component =====
+function getParentPath(path: string): string {
+  const parts = path.split('/');
+  parts.pop();
+  return parts.join('/') || '/';
+}
 
-export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
-  const { workspaceId, effectiveContextId } = useContextParams();
-  const openFile = useEditorStore(s => s.openFile);
-  const pinFile = useEditorStore(s => s.pinFile);
-  const activeFilePath = useEditorStore((s) => s.getActiveFilePath(effectiveContextId || undefined));
+function getBaseName(path: string): string {
+  return path.split('/').pop() || path;
+}
+
+function joinPath(parentPath: string, name: string): string {
+  return parentPath === '/' ? `/${name}` : `${parentPath}/${name}`;
+}
+
+function buildDuplicateName(name: string, isDir: boolean): string {
+  if (isDir) {
+    return `${name} copy`;
+  }
+
+  const lastDot = name.lastIndexOf('.');
+  if (lastDot <= 0) {
+    return `${name} copy`;
+  }
+
+  const stem = name.slice(0, lastDot);
+  const ext = name.slice(lastDot);
+  return `${stem} copy${ext}`;
+}
+
+function getRenameSelectionEnd(name: string, isDir: boolean): number {
+  if (isDir || !name.includes('.')) {
+    return name.length;
+  }
+
+  return (name.split('.')[0] ?? name).length;
+}
+
+async function copyToClipboard(value: string, successMessage: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    toastManager.add({
+      title: 'Copied',
+      description: successMessage,
+      type: 'success',
+    });
+  } catch (error) {
+    console.error('Failed to copy to clipboard:', error);
+    toastManager.add({
+      title: 'Copy failed',
+      description: 'Could not copy to clipboard.',
+      type: 'error',
+    });
+  }
+}
+
+export const FileTree: React.FC<FileTreeProps> = ({
+  data,
+  rootPath,
+  isLoading,
+  onRefresh,
+}) => {
+  const { effectiveContextId } = useContextParams();
+  const openFile = useEditorStore((s) => s.openFile);
+  const pinFile = useEditorStore((s) => s.pinFile);
+  const activeFilePath = useEditorStore((s) =>
+    s.getActiveFilePath(effectiveContextId || undefined),
+  );
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
   const clearFileTreeRevealTarget = useEditorStore((s) => s.clearFileTreeRevealTarget);
+  const replaceOpenFilePath = useEditorStore((s) => s.replaceOpenFilePath);
+  const closeFilesByPrefix = useEditorStore((s) => s.closeFilesByPrefix);
+
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null);
   const [isTreeHighlighted, setIsTreeHighlighted] = useState(false);
+  const [menuState, setMenuState] = useState<{ x: number; y: number; itemPath: string } | null>(null);
+  const [panelState, setPanelState] = useState<PendingPanelState>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [panelName, setPanelName] = useState('');
+  const [isMutating, setIsMutating] = useState(false);
+  const panelInputRef = React.useRef<HTMLInputElement | null>(null);
+  const renameSelectionAppliedRef = React.useRef(false);
+
   const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealRequestIdRef = React.useRef(0);
 
-  // Calculate initial items map from props.data to avoid render-cycle lag
   const initialItemsMap = useMemo(() => buildItemsMap(data), [data]);
-  // Maintain a dynamic map for items loaded on-demand
   const [lazyItemsMap, setLazyItemsMap] = useState<Map<string, FileTreeItem>>(new Map());
+  const rootItemIds = useMemo(() => data.map((node) => node.path), [data]);
 
-  // Clear lazy items when project/workspace context changes to avoid pollution
   useEffect(() => {
     setLazyItemsMap(new Map());
   }, [data]);
-
-  const rootItemIds = useMemo(() => data.map(node => node.path), [data]);
 
   const loadDirectoryChildren = useCallback(async (itemPath: string): Promise<string[]> => {
     const existingItem = initialItemsMap.get(itemPath) || lazyItemsMap.get(itemPath);
@@ -106,7 +221,6 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
     }
 
     const response = await fsApi.listDir(itemPath, { showHidden: true, dirsOnly: false });
-
     const newChildren = response.entries.map((entry) => entry.path);
     const newEntriesMap = new Map<string, FileTreeItem>();
 
@@ -122,9 +236,9 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
       });
     });
 
-    setLazyItemsMap((prev: Map<string, FileTreeItem>) => {
+    setLazyItemsMap((prev) => {
       const next = new Map(prev);
-      newEntriesMap.forEach((val, key) => next.set(key, val));
+      newEntriesMap.forEach((value, key) => next.set(key, value));
 
       const parent = initialItemsMap.get(itemPath) || next.get(itemPath);
       if (parent) {
@@ -156,52 +270,263 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
           };
         }
         const item = initialItemsMap.get(itemId) || lazyItemsMap.get(itemId);
-        return item || { id: itemId, name: itemId, path: itemId, isDir: false, isSymlink: false, isIgnored: false };
+        return item || {
+          id: itemId,
+          name: itemId,
+          path: itemId,
+          isDir: false,
+          isSymlink: false,
+          isIgnored: false,
+        };
       },
       getChildren: async (itemId: string): Promise<string[]> => {
-        if (itemId === 'root') {
-          return rootItemIds;
-        }
+        if (itemId === 'root') return rootItemIds;
 
         const item = initialItemsMap.get(itemId) || lazyItemsMap.get(itemId);
         if (!item) return [];
-
-        // If we already have children string IDs, return them
-        if (item.children && item.children.length > 0) {
-          return item.children;
-        }
-
-        // If it's a directory but we don't have children yet, fetch them (on-demand loading)
+        if (item.children && item.children.length > 0) return item.children;
         if (item.isDir) {
           try {
             return await loadDirectoryChildren(item.path);
-          } catch (e) {
-            console.error('Failed to load children for', itemId, e);
+          } catch (error) {
+            console.error('Failed to load children for', itemId, error);
             return [];
           }
         }
-
         return [];
       },
     },
     features: [asyncDataLoaderFeature],
   });
 
+  const handleRefresh = useCallback(async () => {
+    await onRefresh?.();
+  }, [onRefresh]);
+
+  const closePanel = useCallback(() => {
+    setPanelState(null);
+    setPanelName('');
+  }, []);
+
+  const closeOverlays = useCallback(() => {
+    setMenuState(null);
+    setDeleteConfirmOpen(false);
+    closePanel();
+  }, [closePanel]);
+
   const handleItemClick = useCallback((item: FileTreeItem, isFolder: boolean, toggle: () => void) => {
     if (isFolder) {
       toggle();
     } else {
-      // Single click opens in preview mode
       openFile(item.path, effectiveContextId || undefined, { preview: true });
     }
   }, [effectiveContextId, openFile]);
 
   const handleItemDoubleClick = useCallback((item: FileTreeItem, isFolder: boolean) => {
     if (!isFolder) {
-      // Double click pins the file (removes preview mode)
       pinFile(item.path, effectiveContextId || undefined);
     }
   }, [effectiveContextId, pinFile]);
+
+  const selectedItem = menuState
+    ? initialItemsMap.get(menuState.itemPath) || lazyItemsMap.get(menuState.itemPath) || null
+    : null;
+
+  const relativePath = selectedItem && rootPath
+    ? selectedItem.path === rootPath
+      ? '.'
+      : selectedItem.path.startsWith(`${rootPath}/`)
+        ? selectedItem.path.slice(rootPath.length + 1)
+        : selectedItem.path
+    : null;
+
+  const openCreatePanel = (mode: 'create-file' | 'create-folder') => {
+    if (!selectedItem) return;
+    const parentPath = selectedItem.isDir ? selectedItem.path : getParentPath(selectedItem.path);
+    setPanelState({
+      mode,
+      targetPath: parentPath,
+      parentPath,
+      initialName: '',
+      title: mode === 'create-file' ? 'New File' : 'New Folder',
+      description:
+        mode === 'create-file'
+          ? `Create a new file in ${getBaseName(parentPath)}.`
+          : `Create a new folder in ${getBaseName(parentPath)}.`,
+      confirmLabel: mode === 'create-file' ? 'Create File' : 'Create Folder',
+    });
+    setPanelName('');
+  };
+
+  const openRenamePanel = () => {
+    if (!selectedItem) return;
+    setPanelState({
+      mode: 'rename',
+      targetPath: selectedItem.path,
+      parentPath: getParentPath(selectedItem.path),
+      initialName: selectedItem.name,
+      title: 'Rename',
+      description: `Rename ${selectedItem.name}.`,
+      confirmLabel: 'Rename',
+    });
+    setPanelName(selectedItem.name);
+  };
+
+  const handleDuplicate = useCallback(async () => {
+    if (!selectedItem) return;
+    const duplicateName = buildDuplicateName(selectedItem.name, selectedItem.isDir);
+    const destination = joinPath(getParentPath(selectedItem.path), duplicateName);
+
+    try {
+      setIsMutating(true);
+      await fsApi.duplicatePath(selectedItem.path, destination);
+      await handleRefresh();
+      toastManager.add({
+        title: 'Duplicated',
+        description: `${selectedItem.name} duplicated.`,
+        type: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to duplicate path:', error);
+      toastManager.add({
+        title: 'Duplicate failed',
+        description: `Could not duplicate ${selectedItem.name}.`,
+        type: 'error',
+      });
+    } finally {
+      setIsMutating(false);
+      setMenuState(null);
+    }
+  }, [handleRefresh, selectedItem]);
+
+  const handleDelete = useCallback(async () => {
+    if (!selectedItem) return;
+
+    try {
+      setIsMutating(true);
+      await fsApi.deletePath(selectedItem.path);
+      closeFilesByPrefix(selectedItem.path, effectiveContextId || undefined);
+      await handleRefresh();
+      toastManager.add({
+        title: 'Success',
+        description: 'Deleted successfully.',
+        type: 'success',
+      });
+      closeOverlays();
+    } catch (error) {
+      console.error('Failed to delete path:', error);
+      toastManager.add({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : `Could not delete ${selectedItem.name}.`,
+        type: 'error',
+      });
+    } finally {
+      setIsMutating(false);
+    }
+  }, [closeFilesByPrefix, closeOverlays, effectiveContextId, handleRefresh, selectedItem]);
+
+  const submitPanel = useCallback(async () => {
+    if (!panelState) return;
+
+    const trimmedName = panelName.trim();
+    if (!trimmedName) {
+      toastManager.add({
+        title: 'Name required',
+        description: 'Please enter a name.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    try {
+      setIsMutating(true);
+
+      if (panelState.mode === 'create-file') {
+        const nextPath = joinPath(panelState.parentPath, trimmedName);
+        await fsApi.writeFile(nextPath, '');
+        await handleRefresh();
+        await openFile(nextPath, effectiveContextId || undefined, { preview: false });
+      } else if (panelState.mode === 'create-folder') {
+        await fsApi.createDir(joinPath(panelState.parentPath, trimmedName));
+        await handleRefresh();
+      } else if (panelState.mode === 'rename') {
+        const nextPath = joinPath(panelState.parentPath, trimmedName);
+        await fsApi.renamePath(panelState.targetPath, nextPath);
+        replaceOpenFilePath(panelState.targetPath, nextPath, effectiveContextId || undefined);
+        await handleRefresh();
+      }
+
+      toastManager.add({
+        title: 'Success',
+        description:
+          panelState.mode === 'create-file'
+            ? 'File created.'
+            : panelState.mode === 'create-folder'
+              ? 'Folder created.'
+              : 'Renamed successfully.',
+        type: 'success',
+      });
+      closePanel();
+      setMenuState(null);
+    } catch (error) {
+      console.error('File tree action failed:', error);
+      toastManager.add({
+        title: 'Action failed',
+        description: error instanceof Error ? error.message : 'Operation failed.',
+        type: 'error',
+      });
+    } finally {
+      setIsMutating(false);
+    }
+  }, [
+    closePanel,
+    effectiveContextId,
+    handleRefresh,
+    openFile,
+    panelName,
+    panelState,
+    replaceOpenFilePath,
+  ]);
+
+  const applyRenameSelection = React.useCallback((input: HTMLInputElement | null) => {
+    if (!input || !panelState || panelState.mode !== 'rename') return;
+
+    const originalName = panelState.initialName;
+    if (!originalName) {
+      input.select();
+      return;
+    }
+
+    input.setSelectionRange(
+      0,
+      getRenameSelectionEnd(originalName, Boolean(selectedItem?.isDir)),
+    );
+  }, [panelState, selectedItem]);
+
+  const handlePanelInputKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void submitPanel();
+    }
+  }, [submitPanel]);
+
+  useEffect(() => {
+    renameSelectionAppliedRef.current = false;
+    if (!panelState) return;
+    requestAnimationFrame(() => {
+      const input = panelInputRef.current;
+      input?.focus({ preventScroll: true });
+      if (panelState.mode === 'rename' && input) {
+        const selectionEnd = getRenameSelectionEnd(
+          panelState.initialName,
+          Boolean(selectedItem?.isDir),
+        );
+        input.setSelectionRange(0, selectionEnd);
+        renameSelectionAppliedRef.current = true;
+      }
+    });
+  }, [panelState, selectedItem]);
 
   useEffect(() => {
     if (!fileTreeRevealTarget || !currentProjectPath) return;
@@ -235,20 +560,17 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
           return;
         }
 
-        const relativePath = fileTreeRevealTarget.path.slice(currentProjectPath.length + 1);
-        const segments = relativePath.split('/').filter(Boolean);
+        const relative = fileTreeRevealTarget.path.slice(currentProjectPath.length + 1);
+        const segments = relative.split('/').filter(Boolean);
         let currentPath = currentProjectPath;
         const revealRequestId = ++revealRequestIdRef.current;
 
         for (const segment of segments) {
           currentPath = `${currentPath}/${segment}`;
           await loadDirectoryChildren(currentPath);
-          if (cancelled || revealRequestIdRef.current !== revealRequestId) {
-            return;
-          }
+          if (cancelled || revealRequestIdRef.current !== revealRequestId) return;
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           const item = tree.getItemInstance(currentPath);
-
           if (item.isFolder() && !item.isExpanded()) {
             item.expand();
             await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -263,7 +585,7 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
           setHighlightedPath(fileTreeRevealTarget.path);
           highlightTimeoutRef.current = setTimeout(() => {
             setHighlightedPath((value) =>
-              value === fileTreeRevealTarget.path ? null : value
+              value === fileTreeRevealTarget.path ? null : value,
             );
             highlightTimeoutRef.current = null;
           }, 1800);
@@ -280,7 +602,14 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
     return () => {
       cancelled = true;
     };
-  }, [clearFileTreeRevealTarget, currentProjectPath, effectiveContextId, fileTreeRevealTarget, loadDirectoryChildren, tree]);
+  }, [
+    clearFileTreeRevealTarget,
+    currentProjectPath,
+    effectiveContextId,
+    fileTreeRevealTarget,
+    loadDirectoryChildren,
+    tree,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -312,94 +641,390 @@ export const FileTree: React.FC<FileTreeProps> = ({ data, isLoading }) => {
   const items = tree.getItems();
 
   return (
-    <div
-      // eslint-disable-next-line react-hooks/refs
-      ref={tree.registerElement}
-      // eslint-disable-next-line react-hooks/refs
-      {...tree.getContainerProps('File tree')}
-      className={cn(
-        "text-sm rounded-md transition-colors",
-        isTreeHighlighted && "bg-sidebar-accent/35"
-      )}
-    >
-      {items.map((item) => {
-        const itemData = item.getItemData();
-        if (!itemData) return null;
+    <>
+      <div
+        ref={tree.registerElement}
+        {...tree.getContainerProps('File tree')}
+        className={cn(
+          'text-sm rounded-md transition-colors',
+          isTreeHighlighted && 'bg-sidebar-accent/35',
+        )}
+      >
+        {items.map((item) => {
+          const itemData = item.getItemData();
+          if (!itemData) return null;
 
-        const isFolder = item.isFolder();
-        const isExpanded = item.isExpanded();
-        const isActive = activeFilePath === itemData.path;
-        const isHighlighted = highlightedPath === itemData.path;
-        const depth = item.getItemMeta().level;
+          const isFolder = item.isFolder();
+          const isExpanded = item.isExpanded();
+          const isActive = activeFilePath === itemData.path;
+          const isContextTarget = menuState?.itemPath === itemData.path;
+          const isHighlighted = highlightedPath === itemData.path;
+          const depth = item.getItemMeta().level;
 
-        const toggle = async () => {
-          if (isExpanded) {
-            item.collapse();
-          } else {
-            // Ensure children are loaded before expanding if we're doing on-demand
-            if (!itemData.children && itemData.isDir) {
-              // Headless tree handles the loading state via asyncDataLoaderFeature
+          const toggle = async () => {
+            if (isExpanded) {
+              item.collapse();
+            } else {
+              item.expand();
             }
-            item.expand();
-          }
-        };
+          };
 
-        return (
-          <div
-            key={item.getId()}
-            ref={item.registerElement}
-            {...item.getProps()}
-            onClick={() => handleItemClick(itemData, isFolder, toggle)}
-            onDoubleClick={() => handleItemDoubleClick(itemData, isFolder)}
-            className={cn(
-              'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors outline-none',
-              'hover:bg-sidebar-accent/50',
-              isActive && 'bg-sidebar-accent text-sidebar-foreground',
-              isHighlighted && !isActive && 'bg-sidebar-accent/70 text-sidebar-foreground',
-              itemData.isIgnored && !isActive && 'opacity-40 grayscale-[0.5]',
-              'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1'
-            )}
-            style={{ paddingLeft: `${depth * 12 + 8}px` }}
-          >
-            {isFolder && (
-              <ChevronRight
+          return (
+            <div
+              key={item.getId()}
+              ref={item.registerElement}
+              {...item.getProps()}
+              onClick={() => handleItemClick(itemData, isFolder, toggle)}
+              onDoubleClick={() => handleItemDoubleClick(itemData, isFolder)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setMenuState({ x: event.clientX, y: event.clientY, itemPath: itemData.path });
+              }}
                 className={cn(
-                  'size-3.5 mr-1 transition-transform duration-200 text-muted-foreground',
-                  isExpanded && 'rotate-90'
-                )}
-              />
-            )}
-            {!isFolder && <span className="w-[18px]" />}
-            <span className="mr-2 shrink-0">
-              <FileIcon
-                name={itemData.name}
-                isDir={isFolder}
-                isOpen={isExpanded}
-                className="size-4"
-              />
-            </span>
-            <span className="text-[13px] truncate flex-1">
-              {itemData.name}
-            </span>
-            {itemData.isSymlink && (
-              <span className="ml-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <CornerUpRight className="size-3 text-muted-foreground/60" />
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-[300px] break-all">
-                    <p className="text-[11px] leading-tight">
-                      <span className="mr-1">Points to:</span>
-                      {itemData.symlinkTarget || 'Unknown'}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
+                  'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors outline-none',
+                  'hover:bg-sidebar-accent/50',
+                  (isActive || isContextTarget) && 'bg-sidebar-accent text-sidebar-foreground',
+                  isHighlighted && !isActive && 'bg-sidebar-accent/70 text-sidebar-foreground',
+                  itemData.isIgnored && !isActive && 'opacity-40 grayscale-[0.5]',
+                  'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
+              )}
+              style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            >
+              {isFolder ? (
+                <ChevronRight
+                  className={cn(
+                    'size-3.5 mr-1 transition-transform duration-200 text-muted-foreground',
+                    isExpanded && 'rotate-90',
+                  )}
+                />
+              ) : (
+                <span className="w-[18px]" />
+              )}
+              <span className="mr-2 shrink-0">
+                <FileIcon
+                  name={itemData.name}
+                  isDir={isFolder}
+                  isOpen={isExpanded}
+                  className="size-4"
+                />
               </span>
-            )}
-          </div>
-        );
-      })}
-    </div>
+              <span className="text-[13px] truncate flex-1">{itemData.name}</span>
+              {itemData.isSymlink && (
+                <span className="ml-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <CornerUpRight className="size-3 text-muted-foreground/60" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[300px] break-all">
+                      <p className="text-[11px] leading-tight">
+                        <span className="mr-1">Points to:</span>
+                        {itemData.symlinkTarget || 'Unknown'}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <DropdownMenu
+        open={!!menuState}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeOverlays();
+          }
+        }}
+      >
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-hidden
+            className="fixed size-0 pointer-events-none"
+            style={{
+              left: menuState?.x ?? -9999,
+              top: menuState?.y ?? -9999,
+            }}
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={4} className="w-64">
+          {selectedItem ? (
+            <>
+              <DropdownMenuSub
+                open={panelState?.mode === 'create-file'}
+                onOpenChange={(open) => {
+                  if (open) {
+                    openCreatePanel('create-file');
+                  } else if (panelState?.mode === 'create-file') {
+                    closePanel();
+                  }
+                }}
+              >
+                <DropdownMenuSubTrigger>
+                  <FilePlus2 />
+                  New File
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-80 p-3">
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">{panelState?.title ?? 'New File'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {panelState?.description ?? `Create a new file in ${getBaseName(selectedItem.path)}.`}
+                      </p>
+                    </div>
+                    <Input
+                      ref={panelInputRef}
+                      value={panelName}
+                      onChange={(event) => setPanelName(event.target.value)}
+                      placeholder="Enter file name"
+                      onKeyDown={handlePanelInputKeyDown}
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isMutating}
+                        onClick={closePanel}
+                      >
+                        Cancel
+                      </Button>
+                      <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
+                        {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                        Create
+                      </Button>
+                    </div>
+                  </div>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSub
+                open={panelState?.mode === 'create-folder'}
+                onOpenChange={(open) => {
+                  if (open) {
+                    openCreatePanel('create-folder');
+                  } else if (panelState?.mode === 'create-folder') {
+                    closePanel();
+                  }
+                }}
+              >
+                <DropdownMenuSubTrigger>
+                  <FolderPlus />
+                  New Folder
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-80 p-3">
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">{panelState?.title ?? 'New Folder'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {panelState?.description ?? `Create a new folder in ${getBaseName(selectedItem.path)}.`}
+                      </p>
+                    </div>
+                    <Input
+                      ref={panelInputRef}
+                      value={panelName}
+                      onChange={(event) => setPanelName(event.target.value)}
+                      placeholder="Enter folder name"
+                      onKeyDown={handlePanelInputKeyDown}
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isMutating}
+                        onClick={closePanel}
+                      >
+                        Cancel
+                      </Button>
+                      <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
+                        {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                        Create
+                      </Button>
+                    </div>
+                  </div>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={async () => {
+                  try {
+                    const saved = localStorage.getItem(QUICK_OPEN_STORAGE_KEY);
+                    const appName =
+                      saved && Object.prototype.hasOwnProperty.call(QUICK_OPEN_APP_MAP, saved)
+                        ? (saved as QuickOpenAppName)
+                        : 'Finder';
+                    await appApi.openWith(appName, selectedItem.path);
+                  } catch (error) {
+                    console.error('Failed to open in default app:', error);
+                    toastManager.add({
+                      title: 'Open failed',
+                      description: 'Could not open in default app.',
+                      type: 'error',
+                    });
+                  } finally {
+                    setMenuState(null);
+                  }
+                }}
+              >
+                <ExternalLink />
+                Open in Default App
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleDuplicate} disabled={isMutating}>
+                <Files />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={async () => {
+                  await copyToClipboard(selectedItem.path, 'Path copied');
+                  setMenuState(null);
+                }}
+              >
+                <Copy />
+                Copy Path
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={async () => {
+                  await copyToClipboard(relativePath || selectedItem.path, 'Relative path copied');
+                  setMenuState(null);
+                }}
+              >
+                <Copy />
+                Copy Relative Path
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub
+                open={panelState?.mode === 'rename'}
+                onOpenChange={(open) => {
+                  if (open) {
+                    openRenamePanel();
+                  } else if (panelState?.mode === 'rename') {
+                    closePanel();
+                  }
+                }}
+              >
+                <DropdownMenuSubTrigger>
+                  <Pencil />
+                  Rename
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-80 p-3">
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">{panelState?.title ?? 'Rename'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {panelState?.description ?? `Rename ${selectedItem.name}.`}
+                      </p>
+                    </div>
+                    <Input
+                      ref={panelInputRef}
+                      value={panelName}
+                      onChange={(event) => setPanelName(event.target.value)}
+                      placeholder="Enter name"
+                      onFocus={(event) => {
+                        if (panelState?.mode !== 'rename') return;
+                        if (!renameSelectionAppliedRef.current) {
+                          applyRenameSelection(event.currentTarget);
+                          renameSelectionAppliedRef.current = true;
+                        }
+                      }}
+                      onKeyDown={handlePanelInputKeyDown}
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isMutating}
+                        onClick={closePanel}
+                      >
+                        Cancel
+                      </Button>
+                      <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
+                        {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                        Rename
+                      </Button>
+                    </div>
+                  </div>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <Popover open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={isMutating}
+                    className={cn(
+                      'relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none',
+                      'text-destructive hover:bg-accent/60 focus:bg-accent focus:text-destructive data-[state=open]:bg-accent data-[state=open]:text-destructive disabled:pointer-events-none disabled:opacity-50',
+                    )}
+                    onPointerMove={() => {
+                      if (panelState?.mode === 'rename') {
+                        closePanel();
+                      }
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      closePanel();
+                      setDeleteConfirmOpen((current) => !current);
+                    }}
+                  >
+                    <Trash2 className="size-4 shrink-0" />
+                    Delete
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="right"
+                  align="start"
+                  sideOffset={8}
+                  className="w-72 border-border bg-popover p-3 shadow-lg"
+                  onOpenAutoFocus={(event) => event.preventDefault()}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {selectedItem?.isDir ? 'Delete Folder?' : 'Delete File?'}
+                      </p>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {selectedItem?.isDir
+                          ? `Delete "${selectedItem.name}" and everything inside it. This cannot be undone.`
+                          : `Delete "${selectedItem?.name}". This cannot be undone.`}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isMutating}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          closeOverlays();
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={isMutating}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          void handleDelete();
+                        }}
+                      >
+                        {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 };
 

@@ -42,6 +42,28 @@ export interface FsWriteFileResponse {
   success: boolean;
 }
 
+export interface FsCreateDirResponse {
+  path: string;
+  success: boolean;
+}
+
+export interface FsRenamePathResponse {
+  from: string;
+  to: string;
+  success: boolean;
+}
+
+export interface FsDeletePathResponse {
+  path: string;
+  success: boolean;
+}
+
+export interface FsDuplicatePathResponse {
+  from: string;
+  to: string;
+  success: boolean;
+}
+
 // 文件树类型
 export interface FileTreeNode {
   name: string;
@@ -403,6 +425,25 @@ export const fsApi = {
     content: string,
   ): Promise<FsWriteFileResponse> => {
     return wsRequest<FsWriteFileResponse>("fs_write_file", { path, content });
+  },
+
+  createDir: async (path: string): Promise<FsCreateDirResponse> => {
+    return wsRequest<FsCreateDirResponse>("fs_create_dir", { path });
+  },
+
+  renamePath: async (from: string, to: string): Promise<FsRenamePathResponse> => {
+    return wsRequest<FsRenamePathResponse>("fs_rename_path", { from, to });
+  },
+
+  deletePath: async (path: string): Promise<FsDeletePathResponse> => {
+    return wsRequest<FsDeletePathResponse>("fs_delete_path", { path });
+  },
+
+  duplicatePath: async (
+    from: string,
+    to: string,
+  ): Promise<FsDuplicatePathResponse> => {
+    return wsRequest<FsDuplicatePathResponse>("fs_duplicate_path", { from, to });
   },
 
   /**

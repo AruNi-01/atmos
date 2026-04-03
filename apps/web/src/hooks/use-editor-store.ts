@@ -70,6 +70,8 @@ interface EditorStore {
   clearNavigationTarget: (path: string, workspaceId?: string) => void;
   requestFileTreeReveal: (path: string, workspaceId?: string) => void;
   clearFileTreeRevealTarget: (requestId?: number) => void;
+  replaceOpenFilePath: (from: string, to: string, workspaceId?: string) => void;
+  closeFilesByPrefix: (prefix: string, workspaceId?: string) => void;
   
   // 辅助方法
   getOpenFiles: (workspaceId?: string) => OpenFile[];
@@ -183,6 +185,86 @@ export const useEditorStore = create<EditorStore>()(
           }
           return { fileTreeRevealTarget: null };
         }),
+
+      replaceOpenFilePath: (from, to, workspaceId) => {
+        const id = workspaceId || get().currentWorkspaceId;
+        if (!id) return;
+
+        set((state) => {
+          const ws = state.workspaceStates[id];
+          if (!ws) return state;
+
+          const nextOpenFiles = ws.openFiles.map((file) => {
+            if (file.path === from) {
+              return {
+                ...file,
+                path: to,
+                name: getFileNameFromPath(to),
+                language: getLanguageFromPath(to),
+              };
+            }
+
+            const filePrefix = `${from}/`;
+            if (file.path.startsWith(filePrefix)) {
+              const nextPath = `${to}${file.path.slice(from.length)}`;
+              return {
+                ...file,
+                path: nextPath,
+                name: getFileNameFromPath(nextPath),
+                language: getLanguageFromPath(nextPath),
+              };
+            }
+
+            return file;
+          });
+
+          const nextActiveFilePath =
+            ws.activeFilePath === from
+              ? to
+              : ws.activeFilePath?.startsWith(`${from}/`)
+                ? `${to}${ws.activeFilePath.slice(from.length)}`
+                : ws.activeFilePath;
+
+          return {
+            workspaceStates: {
+              ...state.workspaceStates,
+              [id]: {
+                ...ws,
+                openFiles: nextOpenFiles,
+                activeFilePath: nextActiveFilePath,
+              },
+            },
+          };
+        });
+      },
+
+      closeFilesByPrefix: (prefix, workspaceId) => {
+        const id = workspaceId || get().currentWorkspaceId;
+        if (!id) return;
+
+        set((state) => {
+          const ws = state.workspaceStates[id];
+          if (!ws) return state;
+
+          const exactOrChild = (path: string) =>
+            path === prefix || path.startsWith(`${prefix}/`);
+          const nextOpenFiles = ws.openFiles.filter((file) => !exactOrChild(file.path));
+          const nextActiveFilePath = ws.activeFilePath && exactOrChild(ws.activeFilePath)
+            ? (nextOpenFiles.at(-1)?.path ?? null)
+            : ws.activeFilePath;
+
+          return {
+            workspaceStates: {
+              ...state.workspaceStates,
+              [id]: {
+                ...ws,
+                openFiles: nextOpenFiles,
+                activeFilePath: nextActiveFilePath,
+              },
+            },
+          };
+        });
+      },
 
       clearNavigationTarget: (path, workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;

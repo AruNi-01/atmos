@@ -17,9 +17,10 @@ use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
     AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CodeAgentCustomUpdateRequest,
     CustomAgentAddRequest,
-    CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsListDirRequest,
-    FsListProjectFilesRequest, FsReadFileRequest, FsSearchContentRequest, FsSearchDirsRequest,
-    FsValidateGitPathRequest, FsWriteFileRequest, FunctionSettingsUpdateRequest,
+    CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest,
+    FsDuplicatePathRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest,
+    FsRenamePathRequest, FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest,
+    FsWriteFileRequest, FunctionSettingsUpdateRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
     GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
     GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
@@ -300,6 +301,12 @@ impl WsMessageService {
             }
             WsAction::FsReadFile => self.handle_fs_read_file(parse_request(request.data)?),
             WsAction::FsWriteFile => self.handle_fs_write_file(parse_request(request.data)?),
+            WsAction::FsCreateDir => self.handle_fs_create_dir(parse_request(request.data)?),
+            WsAction::FsRenamePath => self.handle_fs_rename_path(parse_request(request.data)?),
+            WsAction::FsDeletePath => self.handle_fs_delete_path(parse_request(request.data)?),
+            WsAction::FsDuplicatePath => {
+                self.handle_fs_duplicate_path(parse_request(request.data)?)
+            }
             WsAction::FsListProjectFiles => {
                 self.handle_fs_list_project_files(parse_request(request.data)?)
             }
@@ -729,6 +736,50 @@ impl WsMessageService {
 
         Ok(json!({
             "path": path.to_string_lossy(),
+            "success": true,
+        }))
+    }
+
+    fn handle_fs_create_dir(&self, req: FsCreateDirRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.fs_engine.create_dir(&path)?;
+
+        Ok(json!({
+            "path": path.to_string_lossy(),
+            "success": true,
+        }))
+    }
+
+    fn handle_fs_rename_path(&self, req: FsRenamePathRequest) -> Result<Value> {
+        let from = self.fs_engine.expand_path(&req.from)?;
+        let to = self.fs_engine.expand_path(&req.to)?;
+        self.fs_engine.rename_path(&from, &to)?;
+
+        Ok(json!({
+            "from": from.to_string_lossy(),
+            "to": to.to_string_lossy(),
+            "success": true,
+        }))
+    }
+
+    fn handle_fs_delete_path(&self, req: FsDeletePathRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.fs_engine.delete_path(&path)?;
+
+        Ok(json!({
+            "path": path.to_string_lossy(),
+            "success": true,
+        }))
+    }
+
+    fn handle_fs_duplicate_path(&self, req: FsDuplicatePathRequest) -> Result<Value> {
+        let from = self.fs_engine.expand_path(&req.from)?;
+        let to = self.fs_engine.expand_path(&req.to)?;
+        self.fs_engine.duplicate_path(&from, &to)?;
+
+        Ok(json!({
+            "from": from.to_string_lossy(),
+            "to": to.to_string_lossy(),
             "success": true,
         }))
     }

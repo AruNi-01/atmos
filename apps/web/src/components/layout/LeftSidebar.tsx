@@ -671,6 +671,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                                     <FileTree
                                         key={`${currentProjectId}-${currentWorkspaceId}`}
                                         data={fileTreeData}
+                                        rootPath={currentEffectivePath}
+                                        onRefresh={handleRefreshFiles}
                                     />
                                 )}
                             </div>

@@ -302,40 +302,42 @@ function AgentHookStatusCard() {
         </div>
       </div>
 
-      <div className="border-t border-border divide-y divide-border">
+      <div className="border-t border-border px-4">
         {loading && !report ? (
-          <div className="px-6 py-4">
+          <div className="px-2 py-4">
             <Skeleton className="h-10 w-full rounded-xl" />
           </div>
         ) : report ? (
           HOOK_TOOL_META.map(({ key, label }) => {
             const tool = report[key];
             return (
-              <div key={key} className="grid grid-cols-[minmax(0,1fr)_200px] gap-8 px-6 py-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-sm font-medium text-foreground">{label}</span>
-                  {tool.config_path && (
-                    <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[200px]" title={tool.config_path}>
-                      {tool.config_path.split(/[\\/]/).slice(-2).join("/")}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  {!tool.detected ? (
-                    <span className="text-xs text-muted-foreground">Not detected</span>
-                  ) : tool.installed ? (
-                    <span className="text-xs font-medium text-emerald-500">Installed</span>
-                  ) : tool.error ? (
-                    <span className="text-xs text-destructive truncate max-w-[180px]" title={tool.error}>Error: {tool.error}</span>
-                  ) : (
-                    <span className="text-xs text-amber-500">Not installed</span>
-                  )}
+              <div key={key} className="border-b border-border px-2 py-3 last:border-b-0">
+                <div className="grid grid-cols-[minmax(0,1fr)_200px] gap-8">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-sm font-medium text-foreground">{label}</span>
+                    {tool.config_path && (
+                      <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[200px]" title={tool.config_path}>
+                        {tool.config_path.split(/[\\/]/).slice(-2).join("/")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    {!tool.detected ? (
+                      <span className="text-xs text-muted-foreground">Not detected</span>
+                    ) : tool.installed ? (
+                      <span className="text-xs font-medium text-emerald-500">Installed</span>
+                    ) : tool.error ? (
+                      <span className="text-xs text-destructive truncate max-w-[180px]" title={tool.error}>Error: {tool.error}</span>
+                    ) : (
+                      <span className="text-xs text-amber-500">Not installed</span>
+                    )}
+                  </div>
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="px-6 py-4 text-sm text-muted-foreground">
+          <div className="px-2 py-4 text-sm text-muted-foreground">
             {!anyDetected && "No supported agent tools detected on this system."}
           </div>
         )}
@@ -491,37 +493,41 @@ function NotifySettingsSection({
           </p>
         </div>
 
-        <div className="border-t border-border divide-y divide-border">
-          <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">Browser notifications</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Show native browser notifications when agents need attention.
-              </p>
-            </div>
-            <div className="flex items-center justify-end">
-              <Switch
-                checked={settings.browser_notification}
-                onCheckedChange={onToggleBrowser}
-                disabled={isSaving}
-              />
-            </div>
-          </div>
-
-          {isTauriRuntime() && (
-            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
+        <div className="border-t border-border px-4">
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">Desktop notifications</p>
+                <p className="text-sm font-medium text-foreground">Browser notifications</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Show system-level notifications via the desktop app.
+                  Show native browser notifications when agents need attention.
                 </p>
               </div>
               <div className="flex items-center justify-end">
                 <Switch
-                  checked={settings.desktop_notification}
-                  onCheckedChange={onToggleDesktop}
+                  checked={settings.browser_notification}
+                  onCheckedChange={onToggleBrowser}
                   disabled={isSaving}
                 />
+              </div>
+            </div>
+          </div>
+
+          {isTauriRuntime() && (
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Desktop notifications</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Show system-level notifications via the desktop app.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={settings.desktop_notification}
+                    onCheckedChange={onToggleDesktop}
+                    disabled={isSaving}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -536,36 +542,40 @@ function NotifySettingsSection({
           </p>
         </div>
 
-        <div className="border-t border-border divide-y divide-border">
-          <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">Permission requested</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Notify when an agent is waiting for your approval to proceed.
-              </p>
-            </div>
-            <div className="flex items-center justify-end">
-              <Switch
-                checked={settings.notify_on_permission_request}
-                onCheckedChange={onTogglePermissionRequest}
-                disabled={isSaving}
-              />
+        <div className="border-t border-border px-4">
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm font-medium text-foreground">Permission requested</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Notify when an agent is waiting for your approval to proceed.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch
+                  checked={settings.notify_on_permission_request}
+                  onCheckedChange={onTogglePermissionRequest}
+                  disabled={isSaving}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">Task complete</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Notify when an agent finishes running (running → idle).
-              </p>
-            </div>
-            <div className="flex items-center justify-end">
-              <Switch
-                checked={settings.notify_on_task_complete}
-                onCheckedChange={onToggleTaskComplete}
-                disabled={isSaving}
-              />
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm font-medium text-foreground">Task complete</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Notify when an agent finishes running (running → idle).
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch
+                  checked={settings.notify_on_task_complete}
+                  onCheckedChange={onToggleTaskComplete}
+                  disabled={isSaving}
+                />
+              </div>
             </div>
           </div>
         </div>

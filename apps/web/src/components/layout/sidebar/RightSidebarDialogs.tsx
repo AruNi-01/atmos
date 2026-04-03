@@ -1,17 +1,6 @@
 "use client";
 
 import React from "react";
-import { Loader2 } from "@workspace/ui";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-  Button,
-} from "@workspace/ui";
 import dynamic from "next/dynamic";
 import type { ActionRun } from "@/components/github/ActionsPanel";
 
@@ -28,20 +17,7 @@ const ActionsDetailModal = dynamic(
   { ssr: false },
 );
 
-export interface ConfirmDialogState {
-  isOpen: boolean;
-  title: string;
-  description: React.ReactNode;
-  confirmLabel: string;
-  isDestructive?: boolean;
-}
-
 export interface RightSidebarDialogsProps {
-  confirmDialog: ConfirmDialogState;
-  onConfirm: () => Promise<void>;
-  onCloseConfirm: () => void;
-  isGlobalActionLoading: boolean;
-
   githubOwner: string | null;
   githubRepo: string | null;
   currentBranch: string | null;
@@ -60,10 +36,6 @@ export interface RightSidebarDialogsProps {
 }
 
 export const RightSidebarDialogs: React.FC<RightSidebarDialogsProps> = ({
-  confirmDialog,
-  onConfirm,
-  onCloseConfirm,
-  isGlobalActionLoading,
   githubOwner,
   githubRepo,
   currentBranch,
@@ -79,38 +51,6 @@ export const RightSidebarDialogs: React.FC<RightSidebarDialogsProps> = ({
 }) => {
   return (
     <>
-      <Dialog
-        open={confirmDialog.isOpen}
-        onOpenChange={(open) => {
-          if (!open) onCloseConfirm();
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{confirmDialog.title}</DialogTitle>
-            <DialogDescription>{confirmDialog.description}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" size="sm">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button
-              variant={confirmDialog.isDestructive ? "destructive" : "default"}
-              size="sm"
-              onClick={onConfirm}
-              disabled={isGlobalActionLoading}
-            >
-              {isGlobalActionLoading ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : null}
-              {confirmDialog.confirmLabel}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {githubOwner && githubRepo && currentBranch && (
         <PRDetailModal
           isOpen={activePrNumber !== null}

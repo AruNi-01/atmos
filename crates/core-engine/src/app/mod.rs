@@ -45,6 +45,7 @@ impl AppEngine {
     fn open_with_app_macos(&self, app_name: &str, path: &str) -> Result<(), EngineError> {
         // Map app names to their bundle identifiers or commands
         let result = match app_name {
+            "Default" => Command::new("open").arg(path).status(),
             // File Managers
             "Finder" => {
                 Command::new("open")
@@ -212,6 +213,12 @@ impl AppEngine {
     #[cfg(target_os = "windows")]
     fn open_with_app_windows(&self, app_name: &str, path: &str) -> Result<(), EngineError> {
         let result = match app_name {
+            "Default" => Command::new("cmd")
+                .arg("/c")
+                .arg("start")
+                .arg("")
+                .arg(path)
+                .status(),
             // File Managers
             "Finder" | "Explorer" => {
                 // Windows Explorer
@@ -298,6 +305,7 @@ impl AppEngine {
     #[cfg(target_os = "linux")]
     fn open_with_app_linux(&self, app_name: &str, path: &str) -> Result<(), EngineError> {
         let result = match app_name {
+            "Default" => Command::new("xdg-open").arg(path).status(),
             // File Managers
             "Finder" | "Files" | "Nautilus" => {
                 // Try common Linux file managers

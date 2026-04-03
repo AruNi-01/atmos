@@ -134,7 +134,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
       set({ isLoading: true });
       const response: GitChangedFilesResponse = await gitApi.getChangedFiles(
         currentRepoPath,
-        useGitInfoStore.getState().targetBranch,
+        null,
       );
       set({
         stagedFiles: response.staged_files,
