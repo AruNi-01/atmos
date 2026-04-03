@@ -7,10 +7,13 @@ import "@/lib/suppress-react19-ref-warning";
 import React, { useCallback, useEffect } from "react";
 import {
   Mosaic,
+  MosaicWithoutDragDropContext,
   MosaicWindow,
   MosaicNode,
   MosaicPath,
 } from "react-mosaic-component";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 import {
   X,
   Columns,
@@ -28,6 +31,7 @@ import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
+import { isTauriRuntime } from "@/lib/desktop-runtime";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
@@ -105,6 +109,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
   const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
   const [splitMenuKey, setSplitMenuKey] = React.useState<string | null>(null);
+  const [isPaneDragging, setIsPaneDragging] = React.useState(false);
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isProjectWiki = scope === "project-wiki";
@@ -357,6 +362,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         path={path}
         title={displayTitle}
         className={maximizedId === id ? "is-maximized" : ""}
+        onDragStart={() => setIsPaneDragging(true)}
+        onDragEnd={() => setIsPaneDragging(false)}
         renderToolbar={() => {
           const isClaude = pane.title.toLowerCase().includes("claude");
           const statusColor = isClaude ? "bg-yellow-500" : "bg-emerald-500";
@@ -527,7 +534,26 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         </div>
       </MosaicWindow>
     );
-  }, [panes, splitTerminal, removeTerminal, workspaceInfo, maximizedId, workspaceId, onToggleMaximize, setDynamicTitleForScope, actions, projects, isCodeReview, isProjectWiki, terminalTabId]);
+  }, [
+    panes,
+    splitTerminal,
+    splitAndRunAgent,
+    removeTerminal,
+    workspaceInfo,
+    maximizedId,
+    workspaceId,
+    onToggleMaximize,
+    setDynamicTitleForScope,
+    actions,
+    projects,
+    isCodeReview,
+    isProjectWiki,
+    terminalTabId,
+    splitMenuKey,
+    quickOpenAgents,
+    handleSplitMenuEnter,
+    handleSplitMenuLeave,
+  ]);
 
   // Wait for workspace to be ready before rendering any Terminal components
   // This prevents duplicate tmux window creation during initialization
@@ -575,13 +601,25 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     <div
       className={cn("terminal-mosaic-container", className)}
       data-maximized-id={maximizedId || undefined}
+      data-pane-dragging={isPaneDragging ? "true" : undefined}
     >
-      <Mosaic<string>
-        renderTile={renderTile}
-        value={layout}
-        onChange={onChange}
-        className="atmos-mosaic-theme"
-      />
+      {isTauriRuntime() ? (
+        <DndProvider backend={HTML5Backend}>
+          <MosaicWithoutDragDropContext<string>
+            renderTile={renderTile}
+            value={layout}
+            onChange={onChange}
+            className="atmos-mosaic-theme"
+          />
+        </DndProvider>
+      ) : (
+        <Mosaic<string>
+          renderTile={renderTile}
+          value={layout}
+          onChange={onChange}
+          className="atmos-mosaic-theme"
+        />
+      )}
     </div>
   );
 });

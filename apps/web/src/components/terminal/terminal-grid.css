@@ -20,6 +20,11 @@
   background: var(--background) !important;
   border-radius: 8px !important;
   overflow: hidden !important;
+  isolation: isolate;
+}
+
+.atmos-mosaic-theme .mosaic-preview {
+  isolation: isolate;
 }
 
 .atmos-mosaic-theme .mosaic-tile {
@@ -64,6 +69,20 @@
   background: var(--background) !important;
   color: var(--foreground);
   border: none !important; /* Content is contained by parent window */
+}
+
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container {
+  z-index: 80;
+  pointer-events: none;
+  transform: translateZ(0);
+}
+
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target {
+  z-index: 81;
+  pointer-events: auto;
+  transform: translateZ(0);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 /* Custom Toolbar */
@@ -541,6 +560,13 @@
 .terminal-mosaic-container[data-maximized-id] .mosaic-window:not(.is-maximized) {
   opacity: 0 !important;
   visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.terminal-mosaic-container[data-pane-dragging="true"] .mosaic-window-body,
+.terminal-mosaic-container[data-pane-dragging="true"] .terminal-mosaic-content,
+.terminal-mosaic-container[data-pane-dragging="true"] .terminal-padding-wrapper,
+.terminal-mosaic-container[data-pane-dragging="true"] .atmos-terminal {
   pointer-events: none !important;
 }
 

@@ -73,6 +73,8 @@
     "nuqs": "^2.8.8",
     "react": "19.2.3",
     "react-color": "^2.19.3",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "19.2.3",
     "react-hotkeys-hook": "^5.2.3",
     "react-markdown": "^10.1.0",
