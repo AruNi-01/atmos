@@ -9,6 +9,8 @@ import { useContextParams } from "@/hooks/use-context-params";
 import { llmProvidersModalParams, settingsModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
 import {
   ArrowRight,
+  ArrowNarrowDownDashedIcon,
+  ArrowNarrowUpDashedIcon,
   Search,
   Edit2,
   Check,
@@ -31,6 +33,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  SimpleCheckedIcon,
   Sun,
   Tooltip,
   TooltipContent,
@@ -59,11 +62,12 @@ import { toastManager } from '@workspace/ui';
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
+import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
-import { ArrowBigUp, ChevronLeft, ChevronRight, Command, ExternalLink, Globe, Minus, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SunMoon } from "lucide-react";
+import { ArrowBigUp, ChevronLeft, ChevronRight, Command, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SunMoon } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
@@ -75,50 +79,27 @@ interface BranchSyncIndicatorState {
   tooltip: string;
 }
 
-const arrowHoverTransition = {
-  duration: 0.24,
-  ease: 'easeOut' as const,
-};
-
 const BranchSyncIndicatorIcon: React.FC<{
   direction: BranchSyncDirection;
-  isHovered: boolean;
-}> = ({ direction, isHovered }) => {
+}> = ({ direction }) => {
   if (direction === 'ahead' || direction === 'behind') {
     const isAhead = direction === 'ahead';
     const colorClass = isAhead ? 'text-success' : 'text-destructive';
-    const travelY = isAhead ? -6 : 6;
-    const iconClassName = cn("size-3.5", colorClass);
 
     return (
-      <span className="relative flex size-4 items-center justify-center overflow-hidden">
-        <motion.span
-          className="absolute inset-0 flex items-center justify-center"
-          animate={isHovered ? { y: travelY, opacity: 0 } : { y: 0, opacity: 1 }}
-          transition={arrowHoverTransition}
-        >
-          <ArrowRight
-            className={iconClassName}
-            style={{ transform: `rotate(${isAhead ? '-90deg' : '90deg'})` }}
-          />
-        </motion.span>
-        <motion.span
-          className="absolute inset-0 flex items-center justify-center"
-          animate={isHovered ? { y: 0, opacity: 1 } : { y: -travelY, opacity: 0 }}
-          transition={arrowHoverTransition}
-        >
-          <ArrowRight
-            className={iconClassName}
-            style={{ transform: `rotate(${isAhead ? '-90deg' : '90deg'})` }}
-          />
-        </motion.span>
+      <span className={cn("flex size-4 items-center justify-center", colorClass)}>
+        {isAhead ? (
+          <ArrowNarrowUpDashedIcon size={14} strokeWidth={2.25} />
+        ) : (
+          <ArrowNarrowDownDashedIcon size={14} strokeWidth={2.25} />
+        )}
       </span>
     );
   }
 
   return (
     <span className="flex size-4 items-center justify-center text-muted-foreground">
-      <Minus className="size-3.5" />
+      <SimpleCheckedIcon size={14} strokeWidth={2.25} />
     </span>
   );
 };
@@ -126,8 +107,6 @@ const BranchSyncIndicatorIcon: React.FC<{
 const BranchSyncIndicator: React.FC<{
   state: BranchSyncIndicatorState;
 }> = ({ state }) => {
-  const [isHovered, setIsHovered] = useState(false);
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -135,12 +114,8 @@ const BranchSyncIndicator: React.FC<{
           role="status"
           aria-label={state.tooltip}
           className="flex size-4 shrink-0 items-center justify-center"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          onFocus={() => setIsHovered(true)}
-          onBlur={() => setIsHovered(false)}
         >
-          <BranchSyncIndicatorIcon direction={state.direction} isHovered={isHovered} />
+          <BranchSyncIndicatorIcon direction={state.direction} />
         </span>
       </TooltipTrigger>
       <TooltipContent>
@@ -206,6 +181,8 @@ const Header: React.FC = () => {
   const setupProgress = useProjectStore(s => s.setupProgress);
   const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
+  const { layout, updateLayout, loadLayout } = useAgentChatLayout();
+  useEffect(() => { loadLayout(); }, [loadLayout]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isTokenUsageOpen, setIsTokenUsageOpen] = useState(false);
@@ -1099,6 +1076,26 @@ const Header: React.FC = () => {
                     }}
                   >
                     Open Agent Chat
+                  </MenuItem>
+
+                  <MenuItem closeOnClick={false}>
+                    <div className="flex w-full items-center gap-2">
+                      <span className="min-w-14 text-sm text-foreground">Opacity</span>
+                      <input
+                        type="range"
+                        min={20}
+                        max={100}
+                        value={layout.opacity}
+                        onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
+                        aria-label="Agent chat panel opacity"
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/18 accent-foreground/35"
+                      />
+                      <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
+                        {layout.opacity}%
+                      </span>
+                    </div>
                   </MenuItem>
                 </MenuSubmenuPanel>
               </MenuSubmenu>

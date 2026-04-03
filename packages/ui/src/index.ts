@@ -98,6 +98,9 @@ export { FilledBellIcon } from "./components/icons/filled-bell-icon";
 export type { AnimatedIconHandle, AnimatedIconProps } from "./components/icons/filled-bell-icon";
 export { BotMessageSquareIcon } from "./components/icons/bot-message-square";
 export type { BotMessageSquareHandle } from "./components/icons/bot-message-square";
+export { default as ArrowNarrowUpDashedIcon } from "./components/icons/arrow-narrow-up-dashed-icon";
+export { default as ArrowNarrowDownDashedIcon } from "./components/icons/arrow-narrow-down-dashed-icon";
+export { default as SimpleCheckedIcon } from "./components/icons/simple-checked-icon";
 
 // Utilities
 export { cn } from "./lib/utils";

@@ -10,6 +10,7 @@ interface PanelLayout {
   y: number;
   width: number;
   height: number;
+  opacity: number;
 }
 
 const DEFAULT_LAYOUT: PanelLayout = {
@@ -17,6 +18,7 @@ const DEFAULT_LAYOUT: PanelLayout = {
   y: -1,
   width: 461,
   height: 701,
+  opacity: 100,
 };
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -54,6 +56,7 @@ export const useAgentChatLayout = create<AgentChatLayoutStore>((set, get) => ({
               y: parsed.y ?? DEFAULT_LAYOUT.y,
               width: parsed.width ?? DEFAULT_LAYOUT.width,
               height: parsed.height ?? DEFAULT_LAYOUT.height,
+              opacity: parsed.opacity ?? DEFAULT_LAYOUT.opacity,
             },
             loaded: true,
           });

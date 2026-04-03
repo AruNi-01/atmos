@@ -279,7 +279,7 @@ export function AgentChatPanel({
         variant === "sidebar" && "h-full min-h-0"
       )}
       style={variant === "modal" && pos
-        ? { left: pos.x, top: pos.y, width: layout.width, height: layout.height }
+        ? { left: pos.x, top: pos.y, width: layout.width, height: layout.height, opacity: layout.opacity / 100 }
         : undefined}
     >
       {variant === "modal" && (

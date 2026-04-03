@@ -6,8 +6,8 @@
 
 ## Build And Test
 
-- **Typecheck**: `bun run --filter ui typecheck`
-- **Add Component**: `bun run --filter ui ui:add` (shadcn CLI)
+- **Typecheck**: `cd packages/ui && bun run typecheck`
+- **Add Component**: `cd packages/ui && bun run ui:add` (shadcn CLI)
 - No build step — this is a library package
 
 ---
@@ -19,6 +19,7 @@ packages/ui/
 ├── src/
 │   ├── components/
 │   │   ├── ui/              # Atomic shadcn components
+│   │   ├── icons/           # Shared icons, including animated icons
 │   │   ├── animate/         # Animation components
 │   │   ├── websocket/       # WebSocket-related components
 │   │   └── ai-elements/     # AI/AI chat elements
@@ -42,6 +43,11 @@ packages/ui/
 ### Pure Components
 - UI components should not have side effects or direct API calls
 
+### Icons
+- Put reusable icons in `src/components/icons/`
+- Put animated icons in `src/components/icons/`, not `src/components/ui/`
+- `src/components/ui/` is for composable UI primitives/components, not icon assets
+
 ---
 
 ## Safety Rails
@@ -54,6 +60,7 @@ packages/ui/
 ### ALWAYS
 - Keep components atomic and reusable
 - Use semantic CSS variables for theming
+- Keep icon placement consistent: reusable icon files live under `src/components/icons/`
 
 ---
 
@@ -63,3 +70,4 @@ Preserve when compressing:
 1. Components must remain pure (no API calls)
 2. Theme tokens location (`src/styles/globals.css`)
 3. Atomic component pattern
+4. Animated and reusable icons belong in `src/components/icons/`
