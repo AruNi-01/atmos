@@ -7,13 +7,10 @@ import "@/lib/suppress-react19-ref-warning";
 import React, { useCallback, useEffect } from "react";
 import {
   Mosaic,
-  MosaicWithoutDragDropContext,
   MosaicWindow,
   MosaicNode,
   MosaicPath,
 } from "react-mosaic-component";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
 import {
   X,
   Columns,
@@ -31,7 +28,6 @@ import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
-import { isTauriRuntime } from "@/lib/desktop-runtime";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
@@ -169,7 +165,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     ? isCodeReviewReady(workspaceId)
     : isProjectWiki
     ? isProjectWikiReady(workspaceId)
-    : isWorkspaceReady(workspaceId);
+    : isWorkspaceReady(workspaceId, terminalTabId);
   const maximizedId = isCodeReview
     ? codeReviewMaximizedIds[workspaceId]
     : isProjectWiki
@@ -210,10 +206,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       } else if (isProjectWiki) {
         initProjectWikiWorkspace(workspaceId);
       } else {
-        initWorkspace(workspaceId, isProjectContext);
+        initWorkspace(workspaceId, isProjectContext, terminalTabId);
       }
     }
-  }, [workspaceId, workspaceExists, initWorkspace, initProjectWikiWorkspace, initCodeReviewWorkspace, isProjectWiki, isCodeReview, isProjectContext]);
+  }, [workspaceId, workspaceExists, initWorkspace, initProjectWikiWorkspace, initCodeReviewWorkspace, isProjectWiki, isCodeReview, isProjectContext, terminalTabId]);
 
   const hasPanes = Object.keys(panes).length > 0;
 
@@ -603,23 +599,12 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       data-maximized-id={maximizedId || undefined}
       data-pane-dragging={isPaneDragging ? "true" : undefined}
     >
-      {isTauriRuntime() ? (
-        <DndProvider backend={HTML5Backend}>
-          <MosaicWithoutDragDropContext<string>
-            renderTile={renderTile}
-            value={layout}
-            onChange={onChange}
-            className="atmos-mosaic-theme"
-          />
-        </DndProvider>
-      ) : (
-        <Mosaic<string>
-          renderTile={renderTile}
-          value={layout}
-          onChange={onChange}
-          className="atmos-mosaic-theme"
-        />
-      )}
+      <Mosaic<string>
+        renderTile={renderTile}
+        value={layout}
+        onChange={onChange}
+        className="atmos-mosaic-theme"
+      />
     </div>
   );
 });

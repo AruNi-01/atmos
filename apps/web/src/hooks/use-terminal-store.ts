@@ -9,6 +9,7 @@ import type { TerminalPaneProps } from "@/components/terminal/types";
 const SAVE_DEBOUNCE_MS = 500;
 export const FIXED_TERMINAL_TAB_VALUE = "terminal";
 export const TERMINAL_TAB_VALUE_PREFIX = "terminal-tab:";
+const TERMINAL_LAYOUT_SCHEMA = "terminal-layout.v1";
 
 export interface TerminalCenterTab {
   id: string;
@@ -16,17 +17,36 @@ export interface TerminalCenterTab {
   closable: boolean;
 }
 
-interface PersistedTerminalTabState {
+interface PersistedTerminalPane {
+  panes: Record<string, Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">>;
+}
+
+interface PersistedTerminalTab {
+  id: string;
+  title: string;
+  closable: boolean;
+  layout: MosaicNode<string> | null;
+  maximizedTerminalId?: string | null;
+  panes: Record<string, Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">>;
+}
+
+interface PersistedTerminalWorkspaceLayout {
+  schema: typeof TERMINAL_LAYOUT_SCHEMA;
+  activeTabId?: string | null;
+  tabs: PersistedTerminalTab[];
+}
+
+interface LegacyPersistedTerminalTabState {
   panes: Record<string, Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">>;
   layout: MosaicNode<string> | null;
   maximizedTerminalId?: string | null;
 }
 
-interface PersistedTerminalWorkspaceLayout {
+interface LegacyPersistedTerminalWorkspaceLayout {
   version: 2;
   tabs: TerminalCenterTab[];
   activeTabId?: string | null;
-  tabStates: Record<string, PersistedTerminalTabState>;
+  tabStates: Record<string, LegacyPersistedTerminalTabState>;
 }
 
 interface TerminalStore {
@@ -35,16 +55,22 @@ interface TerminalStore {
   workspacePanes: Record<string, Record<string, TerminalPaneProps>>;
   workspaceLayouts: Record<string, MosaicNode<string> | null>;
   workspaceMaximizedIds: Record<string, string | null>;
-  /** Track which workspaces have been loaded from backend */
+  /** Track which workspaces have terminal metadata loaded from backend */
   loadedWorkspaces: Set<string>;
+  /** Track which terminal scopes (workspace + tab) have pane/layout state hydrated */
+  hydratedTerminalScopes: Set<string>;
   /** Track which workspaces are currently being initialized (loading from backend) */
   initializingWorkspaces: Set<string>;
+  /** Track which specific terminal scopes are currently being hydrated */
+  initializingTerminalScopes: Set<string>;
   /** Track pending save operations */
   saveTimeouts: Record<string, NodeJS.Timeout>;
   /** Track if store is hydrated (client-side only) */
   isHydrated: boolean;
   /** Cache of existing tmux windows per workspace */
   tmuxWindowsCache: Record<string, TmuxWindow[]>;
+  /** Canonical persisted terminal layout document cache by workspace/project context */
+  persistedTerminalLayouts: Record<string, PersistedTerminalWorkspaceLayout | null>;
   /** Track whether each workspaceId is actually a project context (used for API selection) */
   workspaceContexts: Record<string, boolean>;
 
@@ -66,7 +92,7 @@ interface TerminalStore {
   getPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string, terminalTabId?: string) => string | null;
   getMaximizedTerminalId: (workspaceId: string, terminalTabId?: string) => string | null;
   /** Check if workspace has been fully loaded and is ready for rendering */
-  isWorkspaceReady: (workspaceId: string) => boolean;
+  isWorkspaceReady: (workspaceId: string, terminalTabId?: string) => boolean;
   setLayout: (workspaceId: string, layout: MosaicNode<string> | null, terminalTabId?: string) => void;
   addTerminal: (workspaceId: string, title?: string, terminalTabId?: string) => string;
   removeTerminal: (workspaceId: string, id: string, terminalTabId?: string) => void;
@@ -74,10 +100,12 @@ interface TerminalStore {
   toggleMaximize: (workspaceId: string, id: string, terminalTabId?: string) => void;
   
   // Initialization
-  initWorkspace: (workspaceId: string, isProjectContext?: boolean) => void;
+  primeWorkspace: (workspaceId: string, isProjectContext?: boolean) => void;
+  initWorkspace: (workspaceId: string, isProjectContext?: boolean, terminalTabId?: string) => void;
+  evictWorkspaceRuntime: (workspaceId: string) => void;
 
   // Backend sync
-  loadFromBackend: (workspaceId: string, isProjectContext?: boolean) => Promise<void>;
+  loadFromBackend: (workspaceId: string, isProjectContext?: boolean, terminalTabId?: string | null) => Promise<void>;
   saveToBackend: (workspaceId: string, isProjectContext?: boolean) => void;
   fetchTmuxWindows: (workspaceId: string) => Promise<TmuxWindow[]>;
   
@@ -187,12 +215,33 @@ function getWorkspaceTerminalTabs(state: Pick<TerminalStore, "workspaceTerminalT
 }
 
 function getAllDefaultPanesForWorkspace(
-  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes">,
+  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes" | "persistedTerminalLayouts">,
   workspaceId: string,
 ): Record<string, TerminalPaneProps> {
   const tabs = getWorkspaceTerminalTabs(state, workspaceId);
+  const persistedTabs = state.persistedTerminalLayouts[workspaceId]?.tabs ?? [];
   return tabs.reduce<Record<string, TerminalPaneProps>>((acc, tab) => {
-    Object.assign(acc, state.workspacePanes[getScopeKey(workspaceId, tab.id)] || {});
+    const scopeKey = getScopeKey(workspaceId, tab.id);
+    const hydratedPanes = state.workspacePanes[scopeKey];
+
+    if (hydratedPanes && Object.keys(hydratedPanes).length > 0) {
+      Object.assign(acc, hydratedPanes);
+      return acc;
+    }
+
+    const persistedTab = persistedTabs.find((persisted) => persisted.id === tab.id);
+    if (!persistedTab?.panes) {
+      return acc;
+    }
+
+    for (const [id, pane] of Object.entries(persistedTab.panes)) {
+      acc[id] = {
+        ...pane,
+        workspaceId,
+        sessionId: "",
+      } as TerminalPaneProps;
+    }
+
     return acc;
   }, {});
 }
@@ -207,7 +256,125 @@ function getNextTerminalTabTitle(existingTabs: TerminalCenterTab[]): string {
 }
 
 function isPersistedTerminalWorkspaceLayout(value: unknown): value is PersistedTerminalWorkspaceLayout {
-  return !!value && typeof value === "object" && (value as PersistedTerminalWorkspaceLayout).version === 2;
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as PersistedTerminalWorkspaceLayout).schema === TERMINAL_LAYOUT_SCHEMA &&
+    Array.isArray((value as PersistedTerminalWorkspaceLayout).tabs)
+  );
+}
+
+function isLegacyPersistedTerminalWorkspaceLayout(value: unknown): value is LegacyPersistedTerminalWorkspaceLayout {
+  return !!value && typeof value === "object" && (value as LegacyPersistedTerminalWorkspaceLayout).version === 2;
+}
+
+function normalizePersistedTerminalTabs(tabs: PersistedTerminalTab[] | TerminalCenterTab[]): PersistedTerminalTab[] {
+  return tabs.map((tab) => ({
+    ...tab,
+    title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
+    closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
+    panes: "panes" in tab ? tab.panes : {},
+    layout: "layout" in tab ? tab.layout : null,
+    maximizedTerminalId: "maximizedTerminalId" in tab ? tab.maximizedTerminalId ?? null : null,
+  }));
+}
+
+function migrateTerminalLayoutDocument(
+  value: unknown,
+): { layout: PersistedTerminalWorkspaceLayout; migrated: boolean } | null {
+  if (isPersistedTerminalWorkspaceLayout(value)) {
+    return {
+      layout: {
+        schema: TERMINAL_LAYOUT_SCHEMA,
+        activeTabId: value.activeTabId ?? null,
+        tabs: normalizePersistedTerminalTabs(value.tabs),
+      },
+      migrated: false,
+    };
+  }
+
+  if (isLegacyPersistedTerminalWorkspaceLayout(value)) {
+    const tabs = normalizePersistedTerminalTabs(value.tabs).map((tab) => {
+      const tabState = value.tabStates[tab.id];
+      return {
+        ...tab,
+        panes: tabState?.panes ?? {},
+        layout: tabState?.layout ?? null,
+        maximizedTerminalId: tabState?.maximizedTerminalId ?? null,
+      };
+    });
+
+    return {
+      layout: {
+        schema: TERMINAL_LAYOUT_SCHEMA,
+        activeTabId: value.activeTabId ?? null,
+        tabs,
+      },
+      migrated: true,
+    };
+  }
+
+  const legacyValue = value as {
+    panes?: Record<string, TerminalPaneProps>;
+    layout?: MosaicNode<string> | null;
+  } | null;
+
+  if (legacyValue?.panes && legacyValue.layout) {
+    return {
+      layout: {
+        schema: TERMINAL_LAYOUT_SCHEMA,
+        activeTabId: FIXED_TERMINAL_TAB_VALUE,
+        tabs: [
+          {
+            id: FIXED_TERMINAL_TAB_VALUE,
+            title: "Term",
+            closable: false,
+            panes: legacyValue.panes,
+            layout: legacyValue.layout,
+            maximizedTerminalId: null,
+          },
+        ],
+      },
+      migrated: true,
+    };
+  }
+
+  return null;
+}
+
+function hydratePersistedTab(
+  workspaceId: string,
+  tab: PersistedTerminalTab,
+  existingWindowNames: Set<string>,
+): {
+  panes: Record<string, TerminalPaneProps>;
+  layout: MosaicNode<string> | null;
+  maximizedTerminalId: string | null;
+} | null {
+  if (!tab.layout || !tab.panes || Object.keys(tab.panes).length === 0) {
+    return null;
+  }
+
+  const validatedPanes: Record<string, TerminalPaneProps> = {};
+  for (const [id, pane] of Object.entries(tab.panes)) {
+    const windowName = pane.tmuxWindowName || pane.title || getNextWindowName(validatedPanes);
+    const windowExists = existingWindowNames.has(windowName);
+
+    validatedPanes[id] = {
+      ...pane,
+      workspaceId,
+      title: windowName,
+      tmuxWindowName: windowName,
+      sessionId: uuidv4(),
+      isNewPane: !windowExists,
+    };
+  }
+
+  return {
+    panes: validatedPanes,
+    layout: tab.layout,
+    maximizedTerminalId: tab.maximizedTerminalId || null,
+  };
 }
 
 function createInitialLayout(
@@ -242,10 +409,13 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   workspaceLayouts: {},
   workspaceMaximizedIds: {},
   loadedWorkspaces: new Set(),
+  hydratedTerminalScopes: new Set(),
   initializingWorkspaces: new Set(),
+  initializingTerminalScopes: new Set(),
   saveTimeouts: {},
   isHydrated: false,
   tmuxWindowsCache: {},
+  persistedTerminalLayouts: {},
   // Track whether each workspaceId is actually a project context
   // (when on /project?id=xxx, workspaceId holds the project ID)
   workspaceContexts: {},
@@ -313,6 +483,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         ...currentState.workspaceMaximizedIds,
         [scopeKey]: null,
       },
+      hydratedTerminalScopes: new Set([...currentState.hydratedTerminalScopes, scopeKey]),
     }));
 
     get().saveToBackend(workspaceId);
@@ -328,9 +499,13 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       const restPanes = { ...state.workspacePanes };
       const restLayouts = { ...state.workspaceLayouts };
       const restMaximized = { ...state.workspaceMaximizedIds };
+      const nextHydratedScopes = new Set(state.hydratedTerminalScopes);
+      const nextInitializingScopes = new Set(state.initializingTerminalScopes);
       delete restPanes[scopeKey];
       delete restLayouts[scopeKey];
       delete restMaximized[scopeKey];
+      nextHydratedScopes.delete(scopeKey);
+      nextInitializingScopes.delete(scopeKey);
 
       return {
         workspaceTerminalTabs: {
@@ -347,6 +522,8 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         workspacePanes: restPanes,
         workspaceLayouts: restLayouts,
         workspaceMaximizedIds: restMaximized,
+        hydratedTerminalScopes: nextHydratedScopes,
+        initializingTerminalScopes: nextInitializingScopes,
       };
     });
 
@@ -375,10 +552,15 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     return state.workspaceMaximizedIds[getScopeKey(workspaceId, terminalTabId)] || null;
   },
 
-  isWorkspaceReady: (workspaceId) => {
+  isWorkspaceReady: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
     const state = get();
-    // Workspace is ready if it has been loaded and is not currently initializing
-    return state.loadedWorkspaces.has(workspaceId) && !state.initializingWorkspaces.has(workspaceId);
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    return (
+      state.loadedWorkspaces.has(workspaceId) &&
+      state.hydratedTerminalScopes.has(scopeKey) &&
+      !state.initializingWorkspaces.has(workspaceId) &&
+      !state.initializingTerminalScopes.has(scopeKey)
+    );
   },
 
   setLayout: (workspaceId, layout, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
@@ -419,64 +601,164 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     get().saveToBackend(workspaceId);
   },
 
-  initWorkspace: (workspaceId, isProjectContext = false) => {
+  primeWorkspace: (workspaceId, isProjectContext = false) => {
     const state = get();
 
-    // Store the context type for this workspace (used in saveToBackend/loadFromBackend)
     if (state.workspaceContexts[workspaceId] !== isProjectContext) {
       set((state) => ({
         workspaceContexts: { ...state.workspaceContexts, [workspaceId]: isProjectContext },
       }));
     }
 
-    // Skip if currently initializing (prevents React Strict Mode double-mount issues)
+    if (state.loadedWorkspaces.has(workspaceId)) {
+      return;
+    }
+
     if (state.initializingWorkspaces.has(workspaceId)) {
       return;
     }
-    
-    // If workspace was already loaded (user switching back to it), regenerate
-    // sessionIds for all panes. This is critical to prevent a race condition:
-    // when the user switches away, the old PTY threads asynchronously detach and
-    // kill the old tmux client sessions (atmos_client_{sessionId}). If the user
-    // switches back before that cleanup completes, reusing the same sessionId
-    // causes the old cleanup to kill the newly created session, producing
-    // "can't find session: atmos_client_xxx" errors in the terminal.
-    // Fresh UUIDs guarantee no naming collision with ongoing cleanup.
-    if (state.loadedWorkspaces.has(workspaceId)) {
-      const tabs = getWorkspaceTerminalTabs(state, workspaceId);
-      const refreshedEntries = tabs.map((tab) => {
-        const scopeKey = getScopeKey(workspaceId, tab.id);
-        const panes = state.workspacePanes[scopeKey];
-        if (!panes || Object.keys(panes).length === 0) return [scopeKey, panes] as const;
 
-        const refreshedPanes: Record<string, TerminalPaneProps> = {};
-        for (const [id, pane] of Object.entries(panes)) {
-          refreshedPanes[id] = {
-            ...pane,
-            sessionId: uuidv4(),
-          };
-        }
-
-        return [scopeKey, refreshedPanes] as const;
-      });
-
-      set((currentState) => ({
-        workspacePanes: {
-          ...currentState.workspacePanes,
-          ...Object.fromEntries(refreshedEntries.filter(([, panes]) => panes)),
-        },
-      }));
-      return;
-    }
-    
-    // Mark as initializing to prevent duplicate calls
     set((state) => ({
       initializingWorkspaces: new Set([...state.initializingWorkspaces, workspaceId]),
     }));
-    
-    // Load from backend first, then create initial layout if nothing found
-    // This prevents creating duplicate panes during async loading
-    get().loadFromBackend(workspaceId, isProjectContext);
+
+    void get().loadFromBackend(workspaceId, isProjectContext, null);
+  },
+
+  initWorkspace: (workspaceId, isProjectContext = false, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    const state = get();
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+
+    if (state.workspaceContexts[workspaceId] !== isProjectContext) {
+      set((currentState) => ({
+        workspaceContexts: { ...currentState.workspaceContexts, [workspaceId]: isProjectContext },
+      }));
+    }
+
+    if (state.hydratedTerminalScopes.has(scopeKey) || state.initializingTerminalScopes.has(scopeKey)) {
+      return;
+    }
+
+    if (!state.loadedWorkspaces.has(workspaceId) && !state.initializingWorkspaces.has(workspaceId)) {
+      set((currentState) => ({
+        initializingWorkspaces: new Set([...currentState.initializingWorkspaces, workspaceId]),
+        initializingTerminalScopes: new Set([...currentState.initializingTerminalScopes, scopeKey]),
+      }));
+      void get().loadFromBackend(workspaceId, isProjectContext, terminalTabId);
+      return;
+    }
+
+    set((currentState) => ({
+      initializingTerminalScopes: new Set([...currentState.initializingTerminalScopes, scopeKey]),
+    }));
+    void get().loadFromBackend(workspaceId, isProjectContext, terminalTabId);
+  },
+
+  evictWorkspaceRuntime: (workspaceId) => {
+    const state = get();
+    const timeout = state.saveTimeouts[workspaceId];
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+
+    set((currentState) => {
+      const nextWorkspaceTerminalTabs = { ...currentState.workspaceTerminalTabs };
+      const nextWorkspaceActiveTerminalTabIds = { ...currentState.workspaceActiveTerminalTabIds };
+      const nextWorkspacePanes = { ...currentState.workspacePanes };
+      const nextWorkspaceLayouts = { ...currentState.workspaceLayouts };
+      const nextWorkspaceMaximizedIds = { ...currentState.workspaceMaximizedIds };
+      const nextSaveTimeouts = { ...currentState.saveTimeouts };
+      const nextTmuxWindowsCache = { ...currentState.tmuxWindowsCache };
+      const nextPersistedTerminalLayouts = { ...currentState.persistedTerminalLayouts };
+      const nextWorkspaceContexts = { ...currentState.workspaceContexts };
+      const nextProjectWikiPanes = { ...currentState.projectWikiPanes };
+      const nextProjectWikiLayouts = { ...currentState.projectWikiLayouts };
+      const nextProjectWikiMaximizedIds = { ...currentState.projectWikiMaximizedIds };
+      const nextCodeReviewPanes = { ...currentState.codeReviewPanes };
+      const nextCodeReviewLayouts = { ...currentState.codeReviewLayouts };
+      const nextCodeReviewMaximizedIds = { ...currentState.codeReviewMaximizedIds };
+      const nextLoadedWorkspaces = new Set(currentState.loadedWorkspaces);
+      const nextHydratedTerminalScopes = new Set(currentState.hydratedTerminalScopes);
+      const nextInitializingWorkspaces = new Set(currentState.initializingWorkspaces);
+      const nextInitializingTerminalScopes = new Set(currentState.initializingTerminalScopes);
+      const nextProjectWikiLoadedWorkspaces = new Set(currentState.projectWikiLoadedWorkspaces);
+      const nextProjectWikiInitializingWorkspaces = new Set(currentState.projectWikiInitializingWorkspaces);
+      const nextCodeReviewLoadedWorkspaces = new Set(currentState.codeReviewLoadedWorkspaces);
+      const nextCodeReviewInitializingWorkspaces = new Set(currentState.codeReviewInitializingWorkspaces);
+
+      delete nextWorkspaceTerminalTabs[workspaceId];
+      delete nextWorkspaceActiveTerminalTabIds[workspaceId];
+      delete nextSaveTimeouts[workspaceId];
+      delete nextTmuxWindowsCache[workspaceId];
+      delete nextPersistedTerminalLayouts[workspaceId];
+      delete nextWorkspaceContexts[workspaceId];
+      delete nextProjectWikiPanes[workspaceId];
+      delete nextProjectWikiLayouts[workspaceId];
+      delete nextProjectWikiMaximizedIds[workspaceId];
+      delete nextCodeReviewPanes[workspaceId];
+      delete nextCodeReviewLayouts[workspaceId];
+      delete nextCodeReviewMaximizedIds[workspaceId];
+
+      for (const key of Object.keys(nextWorkspacePanes)) {
+        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+          delete nextWorkspacePanes[key];
+        }
+      }
+      for (const key of Object.keys(nextWorkspaceLayouts)) {
+        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+          delete nextWorkspaceLayouts[key];
+        }
+      }
+      for (const key of Object.keys(nextWorkspaceMaximizedIds)) {
+        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+          delete nextWorkspaceMaximizedIds[key];
+        }
+      }
+
+      nextLoadedWorkspaces.delete(workspaceId);
+      nextInitializingWorkspaces.delete(workspaceId);
+      nextProjectWikiLoadedWorkspaces.delete(workspaceId);
+      nextProjectWikiInitializingWorkspaces.delete(workspaceId);
+      nextCodeReviewLoadedWorkspaces.delete(workspaceId);
+      nextCodeReviewInitializingWorkspaces.delete(workspaceId);
+
+      for (const key of Array.from(nextHydratedTerminalScopes)) {
+        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+          nextHydratedTerminalScopes.delete(key);
+        }
+      }
+      for (const key of Array.from(nextInitializingTerminalScopes)) {
+        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+          nextInitializingTerminalScopes.delete(key);
+        }
+      }
+
+      return {
+        workspaceTerminalTabs: nextWorkspaceTerminalTabs,
+        workspaceActiveTerminalTabIds: nextWorkspaceActiveTerminalTabIds,
+        workspacePanes: nextWorkspacePanes,
+        workspaceLayouts: nextWorkspaceLayouts,
+        workspaceMaximizedIds: nextWorkspaceMaximizedIds,
+        loadedWorkspaces: nextLoadedWorkspaces,
+        hydratedTerminalScopes: nextHydratedTerminalScopes,
+        initializingWorkspaces: nextInitializingWorkspaces,
+        initializingTerminalScopes: nextInitializingTerminalScopes,
+        saveTimeouts: nextSaveTimeouts,
+        tmuxWindowsCache: nextTmuxWindowsCache,
+        persistedTerminalLayouts: nextPersistedTerminalLayouts,
+        workspaceContexts: nextWorkspaceContexts,
+        projectWikiPanes: nextProjectWikiPanes,
+        projectWikiLayouts: nextProjectWikiLayouts,
+        projectWikiMaximizedIds: nextProjectWikiMaximizedIds,
+        projectWikiLoadedWorkspaces: nextProjectWikiLoadedWorkspaces,
+        projectWikiInitializingWorkspaces: nextProjectWikiInitializingWorkspaces,
+        codeReviewPanes: nextCodeReviewPanes,
+        codeReviewLayouts: nextCodeReviewLayouts,
+        codeReviewMaximizedIds: nextCodeReviewMaximizedIds,
+        codeReviewLoadedWorkspaces: nextCodeReviewLoadedWorkspaces,
+        codeReviewInitializingWorkspaces: nextCodeReviewInitializingWorkspaces,
+      };
+    });
   },
 
   addTerminal: (workspaceId, title, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
@@ -667,176 +949,191 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     }
   },
 
-  loadFromBackend: async (workspaceId, isProjectContext = false) => {
-    // Skip in SSR
-    if (typeof window === 'undefined') return;
+  loadFromBackend: async (workspaceId, isProjectContext = false, terminalTabId = null) => {
+    if (typeof window === "undefined") return;
 
-    const state = get();
-
-    // Skip if already loaded
-    if (state.loadedWorkspaces.has(workspaceId)) {
-      // Remove from initializing if present
-      if (state.initializingWorkspaces.has(workspaceId)) {
-        set((state) => ({
-          initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
-        }));
-      }
-      return;
-    }
-
-    // Choose the correct API based on context
+    const targetTabId = terminalTabId ?? null;
+    const targetScopeKey = targetTabId ? getScopeKey(workspaceId, targetTabId) : null;
     const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
 
+    const clearWorkspaceInitializing = () => {
+      set((state) => ({
+        initializingWorkspaces: new Set(
+          [...state.initializingWorkspaces].filter((id) => id !== workspaceId),
+        ),
+      }));
+    };
+
+    const clearScopeInitializing = () => {
+      if (!targetScopeKey) return;
+      set((state) => ({
+        initializingTerminalScopes: new Set(
+          [...state.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
+        ),
+      }));
+    };
+
     try {
-      // Fetch layout and existing tmux windows independently —
-      // layout API may 404 (workspace not yet persisted) but tmux windows
-      // can still exist from a previous session.
-      const [layoutResult, existingWindows] = await Promise.all([
-        layoutApi.getLayout(workspaceId).catch(() => null),
-        get().fetchTmuxWindows(workspaceId),
-      ]);
+      let state = get();
 
-      // Create a set of existing window names for quick lookup
-      const existingWindowNames = new Set(existingWindows.map(w => w.name));
+      let persistedLayout = state.persistedTerminalLayouts[workspaceId] ?? null;
+      let existingWindows = state.tmuxWindowsCache[workspaceId] ?? [];
+      let loadedMetadataThisCall = false;
 
-      const layoutResponse = layoutResult;
+      if (!state.loadedWorkspaces.has(workspaceId)) {
+        const [layoutResult, fetchedWindows] = await Promise.all([
+          layoutApi.getLayout(workspaceId).catch(() => null),
+          get().fetchTmuxWindows(workspaceId),
+        ]);
 
-      if (layoutResponse?.layout) {
-        const data = JSON.parse(layoutResponse.layout) as PersistedTerminalWorkspaceLayout | { panes?: Record<string, TerminalPaneProps>; layout?: MosaicNode<string> | null };
+        existingWindows = fetchedWindows;
 
-        if (isPersistedTerminalWorkspaceLayout(data)) {
-          const tabs =
-            data.tabs && data.tabs.length > 0
-              ? data.tabs.map((tab) => ({
-                  ...tab,
-                  title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-                  closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
-                }))
-              : [createFixedTerminalTab()];
+        if (layoutResult?.layout) {
+          const parsed = JSON.parse(layoutResult.layout) as unknown;
+          const migrated = migrateTerminalLayoutDocument(parsed);
+          if (migrated) {
+            persistedLayout = migrated.layout;
+            const availableTabs = migrated.layout.tabs.map((tab) => ({
+              id: tab.id,
+              title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
+              closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
+            }));
+            const activeTabId =
+              migrated.layout.activeTabId && availableTabs.some((tab) => tab.id === migrated.layout.activeTabId)
+                ? migrated.layout.activeTabId
+                : availableTabs[0]?.id || FIXED_TERMINAL_TAB_VALUE;
 
-          const nextPanes: Record<string, Record<string, TerminalPaneProps>> = {};
-          const nextLayouts: Record<string, MosaicNode<string> | null> = {};
-          const nextMaximizedIds: Record<string, string | null> = {};
+            set((currentState) => ({
+              workspaceTerminalTabs: {
+                ...currentState.workspaceTerminalTabs,
+                [workspaceId]: availableTabs.length > 0 ? availableTabs : [createFixedTerminalTab()],
+              },
+              workspaceActiveTerminalTabIds: {
+                ...currentState.workspaceActiveTerminalTabIds,
+                [workspaceId]: activeTabId,
+              },
+              persistedTerminalLayouts: {
+                ...currentState.persistedTerminalLayouts,
+                [workspaceId]: migrated.layout,
+              },
+              loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceId]),
+              initializingWorkspaces: new Set(
+                [...currentState.initializingWorkspaces].filter((id) => id !== workspaceId),
+              ),
+              isHydrated: true,
+            }));
+            loadedMetadataThisCall = true;
 
-          for (const tab of tabs) {
-            const tabState = data.tabStates[tab.id];
-            if (!tabState?.layout || !tabState.panes || Object.keys(tabState.panes).length === 0) continue;
-
-            const scopeKey = getScopeKey(workspaceId, tab.id);
-            const validatedPanes: Record<string, TerminalPaneProps> = {};
-            for (const [id, pane] of Object.entries(tabState.panes)) {
-              const windowName = pane.tmuxWindowName || pane.title || getNextWindowName(validatedPanes);
-              const windowExists = existingWindowNames.has(windowName);
-
-              validatedPanes[id] = {
-                ...pane,
-                workspaceId,
-                title: windowName,
-                tmuxWindowName: windowName,
-                sessionId: uuidv4(),
-                isNewPane: !windowExists,
-              };
+            if (migrated.migrated) {
+              void layoutApi.updateLayout(workspaceId, JSON.stringify(migrated.layout)).catch((error) => {
+                console.debug("Failed to rewrite terminal layout to canonical schema:", error);
+              });
             }
-
-            nextPanes[scopeKey] = validatedPanes;
-            nextLayouts[scopeKey] = tabState.layout;
-            nextMaximizedIds[scopeKey] = tabState.maximizedTerminalId || null;
-          }
-
-          set((state) => ({
-            workspaceTerminalTabs: {
-              ...state.workspaceTerminalTabs,
-              [workspaceId]: tabs,
-            },
-            workspaceActiveTerminalTabIds: {
-              ...state.workspaceActiveTerminalTabIds,
-              [workspaceId]:
-                data.activeTabId && tabs.some((tab) => tab.id === data.activeTabId)
-                  ? data.activeTabId
-                  : FIXED_TERMINAL_TAB_VALUE,
-            },
-            workspacePanes: {
-              ...state.workspacePanes,
-              ...nextPanes,
-            },
-            workspaceLayouts: {
-              ...state.workspaceLayouts,
-              ...nextLayouts,
-            },
-            workspaceMaximizedIds: {
-              ...state.workspaceMaximizedIds,
-              ...nextMaximizedIds,
-            },
-            loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
-            initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
-            isHydrated: true,
-          }));
-          return;
-        }
-
-        let panes = data.panes as Record<string, TerminalPaneProps> | undefined;
-        let layout = data.layout as MosaicNode<string> | null | undefined;
-
-        if (!layout && data) {
-          const possiblePanes = data as Record<string, unknown>;
-          if ((Object.values(possiblePanes)[0] as { grid?: unknown } | undefined)?.grid) {
-            console.debug("Old grid layout detected, resetting to initial Mosaic layout");
-            panes = {};
-            layout = null;
+          } else {
+            console.debug("Persisted terminal layout contained no valid tab states, falling back");
           }
         }
 
-        if (panes && layout && Object.keys(panes).length > 0) {
-          const validatedPanes: Record<string, TerminalPaneProps> = {};
-          for (const [id, pane] of Object.entries(panes)) {
-            const windowName = pane.tmuxWindowName || pane.title || getNextWindowName(validatedPanes);
-            const windowExists = existingWindowNames.has(windowName);
-
-            validatedPanes[id] = {
-              ...pane,
-              workspaceId,
-              title: windowName,
-              tmuxWindowName: windowName,
-              sessionId: uuidv4(),
-              isNewPane: !windowExists,
-            };
-          }
-
-          set((state) => ({
+        if (!persistedLayout) {
+          set((currentState) => ({
             workspaceTerminalTabs: {
-              ...state.workspaceTerminalTabs,
+              ...currentState.workspaceTerminalTabs,
               [workspaceId]: [createFixedTerminalTab()],
             },
             workspaceActiveTerminalTabIds: {
-              ...state.workspaceActiveTerminalTabIds,
+              ...currentState.workspaceActiveTerminalTabIds,
               [workspaceId]: FIXED_TERMINAL_TAB_VALUE,
             },
+            persistedTerminalLayouts: {
+              ...currentState.persistedTerminalLayouts,
+              [workspaceId]: null,
+            },
+            loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceId]),
+            initializingWorkspaces: new Set(
+              [...currentState.initializingWorkspaces].filter((id) => id !== workspaceId),
+            ),
+            isHydrated: true,
+          }));
+          loadedMetadataThisCall = true;
+        }
+      } else if (existingWindows.length === 0) {
+        existingWindows = await get().fetchTmuxWindows(workspaceId);
+      }
+
+      state = get();
+      persistedLayout = state.persistedTerminalLayouts[workspaceId] ?? persistedLayout;
+
+      if (loadedMetadataThisCall && persistedLayout?.tabs.length) {
+        setTimeout(() => {
+          const currentState = get();
+          for (const tab of persistedLayout?.tabs ?? []) {
+            const scopeKey = getScopeKey(workspaceId, tab.id);
+            if (
+              currentState.hydratedTerminalScopes.has(scopeKey) ||
+              currentState.initializingTerminalScopes.has(scopeKey)
+            ) {
+              continue;
+            }
+
+            set((nextState) => ({
+              initializingTerminalScopes: new Set([
+                ...nextState.initializingTerminalScopes,
+                scopeKey,
+              ]),
+            }));
+            void get().loadFromBackend(workspaceId, isProjectContext, tab.id);
+          }
+        }, 0);
+      }
+
+      if (!targetTabId) {
+        clearWorkspaceInitializing();
+        return;
+      }
+
+      if (state.hydratedTerminalScopes.has(targetScopeKey!)) {
+        clearScopeInitializing();
+        return;
+      }
+
+      const existingWindowNames = new Set(existingWindows.map((window) => window.name));
+
+      if (persistedLayout) {
+        const persistedTab = persistedLayout.tabs.find((tab) => tab.id === targetTabId);
+        const hydratedTab = persistedTab
+          ? hydratePersistedTab(workspaceId, persistedTab, existingWindowNames)
+          : null;
+
+        if (hydratedTab) {
+          set((currentState) => ({
             workspacePanes: {
-              ...state.workspacePanes,
-              [getScopeKey(workspaceId)]: validatedPanes,
+              ...currentState.workspacePanes,
+              [targetScopeKey!]: hydratedTab.panes,
             },
             workspaceLayouts: {
-              ...state.workspaceLayouts,
-              [getScopeKey(workspaceId)]: layout,
+              ...currentState.workspaceLayouts,
+              [targetScopeKey!]: hydratedTab.layout,
             },
             workspaceMaximizedIds: {
-              ...state.workspaceMaximizedIds,
-              [getScopeKey(workspaceId)]: layoutResponse.maximized_terminal_id || null,
+              ...currentState.workspaceMaximizedIds,
+              [targetScopeKey!]: hydratedTab.maximizedTerminalId,
             },
-            loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
-            initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
-            isHydrated: true,
+            hydratedTerminalScopes: new Set([
+              ...currentState.hydratedTerminalScopes,
+              targetScopeKey!,
+            ]),
+            initializingTerminalScopes: new Set(
+              [...currentState.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
+            ),
           }));
           return;
         }
       }
 
-      // No saved layout, but tmux windows exist — attach to them
-      // so scrollback history is preserved across page refreshes.
-      if (existingWindows.length > 0) {
-        console.debug('No saved layout, but found existing tmux windows:', existingWindows.map(w => w.name));
+      if (targetTabId === FIXED_TERMINAL_TAB_VALUE && existingWindows.length > 0) {
         const panes: Record<string, TerminalPaneProps> = {};
         const paneIds: string[] = [];
+
         for (const win of existingWindows) {
           const id = uuidv4();
           paneIds.push(id);
@@ -846,76 +1143,82 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
             sessionId: uuidv4(),
             workspaceId,
             tmuxWindowName: win.name,
-            isNewPane: false, // Attach to existing tmux window
-          };
-        }
-        // Build a simple mosaic layout from the pane IDs
-        let layout: MosaicNode<string> = paneIds[0];
-        for (let i = 1; i < paneIds.length; i++) {
-          layout = {
-            direction: 'row',
-            first: layout,
-            second: paneIds[i],
-            splitPercentage: Math.round(100 * i / (i + 1)),
+            isNewPane: false,
           };
         }
 
-        set((state) => ({
-          workspaceTerminalTabs: {
-            ...state.workspaceTerminalTabs,
-            [workspaceId]: [createFixedTerminalTab()],
+        let layout: MosaicNode<string> = paneIds[0];
+        for (let index = 1; index < paneIds.length; index++) {
+          layout = {
+            direction: "row",
+            first: layout,
+            second: paneIds[index],
+            splitPercentage: Math.round((100 * index) / (index + 1)),
+          };
+        }
+
+        set((currentState) => ({
+          workspacePanes: {
+            ...currentState.workspacePanes,
+            [targetScopeKey!]: panes,
           },
-          workspaceActiveTerminalTabIds: {
-            ...state.workspaceActiveTerminalTabIds,
-            [workspaceId]: FIXED_TERMINAL_TAB_VALUE,
+          workspaceLayouts: {
+            ...currentState.workspaceLayouts,
+            [targetScopeKey!]: layout,
           },
-          workspacePanes: { ...state.workspacePanes, [getScopeKey(workspaceId)]: panes },
-          workspaceLayouts: { ...state.workspaceLayouts, [getScopeKey(workspaceId)]: layout },
-          workspaceMaximizedIds: { ...state.workspaceMaximizedIds, [getScopeKey(workspaceId)]: null },
-          loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
-          initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
-          isHydrated: true,
+          workspaceMaximizedIds: {
+            ...currentState.workspaceMaximizedIds,
+            [targetScopeKey!]: null,
+          },
+          hydratedTerminalScopes: new Set([
+            ...currentState.hydratedTerminalScopes,
+            targetScopeKey!,
+          ]),
+          initializingTerminalScopes: new Set(
+            [...currentState.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
+          ),
         }));
         return;
       }
-    } catch (error) {
-      console.debug('Failed to load terminal layout from backend:', error);
-    }
 
-    // No saved layout found, create initial layout
-    const { panes: initialPanes, layout: initialLayout } = createInitialLayout(workspaceId);
-    
-    set((state) => ({
-      workspaceTerminalTabs: {
-        ...state.workspaceTerminalTabs,
-        [workspaceId]: [createFixedTerminalTab()],
-      },
-      workspaceActiveTerminalTabIds: {
-        ...state.workspaceActiveTerminalTabIds,
-        [workspaceId]: FIXED_TERMINAL_TAB_VALUE,
-      },
-      workspacePanes: {
-        ...state.workspacePanes,
-        [getScopeKey(workspaceId)]: initialPanes,
-      },
-      workspaceLayouts: {
-        ...state.workspaceLayouts,
-        [getScopeKey(workspaceId)]: initialLayout,
-      },
-      workspaceMaximizedIds: {
-        ...state.workspaceMaximizedIds,
-        [getScopeKey(workspaceId)]: null,
-      },
-      loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
-      initializingWorkspaces: new Set([...state.initializingWorkspaces].filter(id => id !== workspaceId)),
-      isHydrated: true,
-    }));
+      const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+      const { panes: initialPanes, layout: initialLayout } = createInitialLayout(workspaceId, allPanes);
+
+      set((currentState) => ({
+        workspacePanes: {
+          ...currentState.workspacePanes,
+          [targetScopeKey!]: initialPanes,
+        },
+        workspaceLayouts: {
+          ...currentState.workspaceLayouts,
+          [targetScopeKey!]: initialLayout,
+        },
+        workspaceMaximizedIds: {
+          ...currentState.workspaceMaximizedIds,
+          [targetScopeKey!]: null,
+        },
+        hydratedTerminalScopes: new Set([
+          ...currentState.hydratedTerminalScopes,
+          targetScopeKey!,
+        ]),
+        initializingTerminalScopes: new Set(
+          [...currentState.initializingTerminalScopes].filter((id) => id !== targetScopeKey),
+        ),
+      }));
+    } catch (error) {
+      console.debug("Failed to load terminal layout from backend:", error);
+      clearScopeInitializing();
+      clearWorkspaceInitializing();
+    }
   },
 
   saveToBackend: (workspaceId) => {
     if (typeof window === 'undefined') return;
 
     const state = get();
+    if (!state.loadedWorkspaces.has(workspaceId) || state.initializingWorkspaces.has(workspaceId)) {
+      return;
+    }
     if (state.saveTimeouts[workspaceId]) {
       clearTimeout(state.saveTimeouts[workspaceId]);
     }
@@ -926,13 +1229,24 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
 
       try {
         const tabs = getWorkspaceTerminalTabs(currentState, workspaceId);
-        const tabStates: Record<string, PersistedTerminalTabState> = {};
+        const persistedCache = currentState.persistedTerminalLayouts[workspaceId];
+        const persistedTabs: PersistedTerminalTab[] = [];
 
         for (const tab of tabs) {
           const scopeKey = getScopeKey(workspaceId, tab.id);
           const panes = currentState.workspacePanes[scopeKey];
           const layout = currentState.workspaceLayouts[scopeKey];
-          if (!panes || !layout) continue;
+          if (!panes || !layout) {
+            const cachedTab = persistedCache?.tabs.find((persistedTab) => persistedTab.id === tab.id);
+            if (cachedTab) {
+              persistedTabs.push({
+                ...cachedTab,
+                title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
+                closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
+              });
+            }
+            continue;
+          }
 
           const cleanPanes: Record<string, Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">> = {};
           for (const [id, pane] of Object.entries(panes)) {
@@ -947,20 +1261,41 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
             };
           }
 
-          tabStates[tab.id] = {
-            panes: cleanPanes,
+          persistedTabs.push({
+            id: tab.id,
+            title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
+            closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
             layout,
+            panes: cleanPanes,
             maximizedTerminalId: currentState.workspaceMaximizedIds[scopeKey] || null,
-          };
+          });
         }
 
         const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
         const payload: PersistedTerminalWorkspaceLayout = {
-          version: 2,
-          tabs,
-          activeTabId: currentState.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE,
-          tabStates,
+          schema: TERMINAL_LAYOUT_SCHEMA,
+          activeTabId:
+            persistedTabs.some((tab) => tab.id === (currentState.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE))
+              ? currentState.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE
+              : persistedTabs[0]?.id || FIXED_TERMINAL_TAB_VALUE,
+          tabs: persistedTabs,
         };
+
+        // Never overwrite a persisted workspace/project layout with an empty shell.
+        // This can happen during early mount when tab UI state is ready before the
+        // actual pane/layout state has hydrated from backend.
+        if (persistedTabs.length === 0) {
+          console.debug('Skipping terminal layout save because no valid tab states are available yet');
+          return;
+        }
+
+        set((state) => ({
+          persistedTerminalLayouts: {
+            ...state.persistedTerminalLayouts,
+            [workspaceId]: payload,
+          },
+        }));
+
         await layoutApi.updateLayout(workspaceId, JSON.stringify(payload));
       } catch (error) {
         console.debug('Failed to save terminal layout to backend:', error);

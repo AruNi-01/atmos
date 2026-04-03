@@ -71,18 +71,77 @@
   border: none !important; /* Content is contained by parent window */
 }
 
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container,
 .atmos-mosaic-theme .mosaic-drop-target .drop-target-container {
   z-index: 80;
   pointer-events: none;
   transform: translateZ(0);
 }
 
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target,
 .atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target {
   z-index: 81;
   pointer-events: auto;
   transform: translateZ(0);
+  background: color-mix(in srgb, var(--primary) 10%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border)) !important;
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+  transition:
+    opacity 0.16s ease,
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.left,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.left {
+  right: calc(100% - 38%);
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.right,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.right {
+  left: calc(100% - 38%);
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.bottom,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.bottom {
+  top: calc(100% - 38%);
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.top,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.top {
+  bottom: calc(100% - 38%);
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover {
+  background: color-mix(in srgb, var(--primary) 18%, transparent) !important;
+  border-color: color-mix(in srgb, var(--primary) 68%, var(--border)) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 44%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover.left,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.left {
+  right: calc(100% - 56%);
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover.right,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.right {
+  left: calc(100% - 56%);
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover.bottom,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.bottom {
+  top: calc(100% - 56%);
+}
+
+.atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover.top,
+.atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover.top {
+  bottom: calc(100% - 56%);
 }
 
 /* Custom Toolbar */
@@ -528,16 +587,27 @@
 
 /* Drag & Drop Styling for Dark Mode */
 .dark .atmos-mosaic-theme .mosaic-preview {
-  background: rgba(30, 35, 42, 0.9) !important;
-  border: 1px solid rgba(55, 65, 81, 0.5) !important;
+  background: color-mix(in srgb, var(--background) 84%, var(--primary) 16%) !important;
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border)) !important;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent) !important;
 }
 
+.dark .atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target,
 .dark .atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target {
-  background: rgba(30, 35, 42, 0.6) !important;
+  background: color-mix(in srgb, var(--primary) 16%, var(--background)) !important;
+  border-color: color-mix(in srgb, var(--primary) 54%, var(--border)) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent);
 }
 
+.dark .atmos-mosaic-theme.mosaic-drop-target > .drop-target-container .drop-target.drop-target-hover,
 .dark .atmos-mosaic-theme .mosaic-drop-target .drop-target-container .drop-target.drop-target-hover {
-  background: rgba(30, 35, 42, 0.8) !important;
+  background: color-mix(in srgb, var(--primary) 24%, var(--background)) !important;
+  border-color: color-mix(in srgb, var(--primary) 76%, var(--border)) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent),
+    0 0 24px color-mix(in srgb, var(--primary) 16%, transparent);
 }
 
 /* Zero State */
