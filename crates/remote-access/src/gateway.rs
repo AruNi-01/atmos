@@ -267,7 +267,7 @@ fn parse_session_cookie(headers: &HeaderMap) -> Option<String> {
 }
 
 fn build_session_cookie(session_id: &str) -> String {
-    format!("atmos_tunnel_session={session_id}; HttpOnly; Path=/; SameSite=Lax")
+    format!("atmos_tunnel_session={session_id}; HttpOnly; Secure; Path=/; SameSite=Lax")
 }
 
 fn build_ws_target(target_base_url: &str, path: &str) -> String {
