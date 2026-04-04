@@ -61,7 +61,7 @@ pub async fn require_loopback_or_token(
     let query = request.uri().query().map(|s| s.to_string());
     let remote_ip = connect_info.0.ip();
 
-    if remote_ip.is_loopback() {
+    if is_loopback_ip(&remote_ip) {
         return Ok(next.run(request).await);
     }
 
@@ -85,13 +85,22 @@ fn is_trusted_local_source(ip: &std::net::IpAddr, allow_lan_without_token: bool)
             allow_lan_without_token && (v4.is_private() || v4.is_link_local())
         }
         std::net::IpAddr::V6(v6) => {
-            if v6.is_loopback() {
+            if v6.is_loopback() || v6.to_ipv4_mapped().is_some_and(|v4| v4.is_loopback()) {
                 return true;
             }
             allow_lan_without_token
                 && v6
                     .to_ipv4_mapped()
                     .is_some_and(|v4| v4.is_private() || v4.is_link_local())
+        }
+    }
+}
+
+fn is_loopback_ip(ip: &std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => v4.is_loopback(),
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback() || v6.to_ipv4_mapped().is_some_and(|v4| v4.is_loopback())
         }
     }
 }

@@ -81,11 +81,25 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
             }
         }
 
+        let Some(public_url) = public_url else {
+            let message = "cloudflare quick tunnel did not report a public URL".to_string();
+            *self.last_error.write().await = Some(message.clone());
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+            *self.status.write().await = ProviderStatus {
+                state: ProviderStatusState::Error,
+                public_url: None,
+                message: Some(message.clone()),
+                started_at: None,
+            };
+            anyhow::bail!(message);
+        };
+
         *self.child.lock().await = Some(child);
 
         let status = ProviderStatus {
             state: ProviderStatusState::Running,
-            public_url,
+            public_url: Some(public_url),
             message: Some("cloudflare quick tunnel started".to_string()),
             started_at: Some(Utc::now()),
         };

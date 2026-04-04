@@ -55,7 +55,10 @@ impl SessionStore {
             public_url: None,
         };
 
-        self.inner.write().await.insert(session_id, session.clone());
+        let now = Utc::now();
+        let mut guard = self.inner.write().await;
+        prune_stale_sessions(&mut guard, now);
+        guard.insert(session_id, session.clone());
         session
     }
 
@@ -66,10 +69,10 @@ impl SessionStore {
     }
 
     pub async fn restore_session(&self, session: TunnelSession) {
-        self.inner
-            .write()
-            .await
-            .insert(session.session_id.clone(), session);
+        let now = Utc::now();
+        let mut guard = self.inner.write().await;
+        prune_stale_sessions(&mut guard, now);
+        guard.insert(session.session_id.clone(), session);
     }
 
     pub async fn revoke_session(&self, session_id: &str) -> Result<(), RemoteAccessError> {
@@ -77,12 +80,17 @@ impl SessionStore {
         let session = guard
             .get_mut(session_id)
             .ok_or(RemoteAccessError::SessionNotFound)?;
-        session.revoked_at = Some(Utc::now());
+        let now = Utc::now();
+        session.revoked_at = Some(now);
+        prune_stale_sessions(&mut guard, now);
         Ok(())
     }
 
     pub async fn get_session(&self, session_id: &str) -> Option<TunnelSession> {
-        self.inner.read().await.get(session_id).cloned()
+        let now = Utc::now();
+        let mut guard = self.inner.write().await;
+        prune_stale_sessions(&mut guard, now);
+        guard.get(session_id).cloned()
     }
 
     pub async fn validate(
@@ -91,7 +99,8 @@ impl SessionStore {
         entry_token: Option<&str>,
     ) -> SessionValidation {
         let now = Utc::now();
-        let sessions = self.inner.read().await;
+        let mut sessions = self.inner.write().await;
+        prune_stale_sessions(&mut sessions, now);
 
         if let Some(cookie_id) = session_cookie {
             if let Some(session) = sessions.get(cookie_id) {
@@ -120,4 +129,8 @@ impl SessionStore {
 
         SessionValidation::Unauthorized
     }
+}
+
+fn prune_stale_sessions(sessions: &mut HashMap<String, TunnelSession>, now: DateTime<Utc>) {
+    sessions.retain(|_, session| !session.is_revoked() && !session.is_expired(now));
 }

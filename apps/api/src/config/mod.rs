@@ -52,7 +52,12 @@ impl ServerConfig {
         let local_api_token = env::var("ATMOS_LOCAL_TOKEN").ok();
 
         let allow_lan_without_token = env::var("ATMOS_ALLOW_LAN_TRUST")
-            .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "on"))
+            .map(|v| {
+                matches!(
+                    v.trim().to_ascii_lowercase().as_str(),
+                    "1" | "true" | "yes" | "on"
+                )
+            })
             .unwrap_or(false);
 
         let config = Self {

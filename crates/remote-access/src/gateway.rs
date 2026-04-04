@@ -15,10 +15,13 @@ use tokio_tungstenite::connect_async;
 use crate::session::SessionStore;
 use crate::types::SessionValidation;
 
+const MAX_PROXY_BODY_BYTES: usize = 10 * 1024 * 1024;
+
 #[derive(Clone)]
 struct GatewayState {
     target_base_url: String,
     session_store: SessionStore,
+    client: reqwest::Client,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +55,7 @@ impl GatewayRuntime {
         let state = GatewayState {
             target_base_url: config.target_base_url,
             session_store: config.session_store,
+            client: reqwest::Client::new(),
         };
 
         let app = Router::new()
@@ -102,18 +106,23 @@ async fn proxy_http(
     };
 
     let target_url = format!("{}{}", state.target_base_url, uri);
-    let client = reqwest::Client::new();
-
-    let mut builder = client.request(method, &target_url);
+    let mut builder = state.client.request(method, &target_url);
     for (key, value) in &headers {
         if key != header::HOST && key != header::COOKIE {
             builder = builder.header(key, value);
         }
     }
 
-    let bytes = axum::body::to_bytes(request.into_body(), usize::MAX)
-        .await
-        .unwrap_or_default();
+    let bytes = match axum::body::to_bytes(request.into_body(), MAX_PROXY_BODY_BYTES).await {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                format!("request body exceeds {MAX_PROXY_BODY_BYTES} bytes"),
+            )
+                .into_response()
+        }
+    };
 
     let upstream = match builder.body(bytes).send().await {
         Ok(resp) => resp,
@@ -125,12 +134,12 @@ async fn proxy_http(
     let status = upstream.status();
     let mut resp_headers = HeaderMap::new();
     for (key, value) in upstream.headers() {
-        resp_headers.insert(key, value.clone());
+        resp_headers.append(key, value.clone());
     }
 
     let set_cookie = build_session_cookie(&session_id);
     if let Ok(value) = HeaderValue::from_str(&set_cookie) {
-        resp_headers.insert(header::SET_COOKIE, value);
+        resp_headers.append(header::SET_COOKIE, value);
     }
 
     let body = upstream.bytes().await.unwrap_or_default();
@@ -143,7 +152,7 @@ async fn proxy_ws_root(
     headers: HeaderMap,
     Query(query): Query<EntryQuery>,
 ) -> impl IntoResponse {
-    proxy_ws_impl(ws, state, headers, query, String::new())
+    proxy_ws_impl(ws, state, headers, query, String::new()).await
 }
 
 async fn proxy_ws(
@@ -153,10 +162,10 @@ async fn proxy_ws(
     Query(query): Query<EntryQuery>,
     axum::extract::Path(path): axum::extract::Path<String>,
 ) -> impl IntoResponse {
-    proxy_ws_impl(ws, state, headers, query, path)
+    proxy_ws_impl(ws, state, headers, query, path).await
 }
 
-fn proxy_ws_impl(
+async fn proxy_ws_impl(
     ws: WebSocketUpgrade,
     state: GatewayState,
     headers: HeaderMap,
@@ -164,28 +173,16 @@ fn proxy_ws_impl(
     path: String,
 ) -> Response<Body> {
     let session_cookie = parse_session_cookie(&headers);
-    let store = state.session_store.clone();
-    let token = query.entry_token;
+    let validation = state
+        .session_store
+        .validate(session_cookie.as_deref(), query.entry_token.as_deref())
+        .await;
+    if matches!(validation, SessionValidation::Unauthorized) {
+        return (StatusCode::UNAUTHORIZED, "remote access session required").into_response();
+    }
 
+    let target = build_ws_target(&state.target_base_url, &path);
     ws.on_upgrade(move |socket| async move {
-        let validation = store
-            .validate(session_cookie.as_deref(), token.as_deref())
-            .await;
-        if matches!(validation, SessionValidation::Unauthorized) {
-            return;
-        }
-
-        let tail = if path.is_empty() {
-            String::new()
-        } else {
-            format!("/{path}")
-        };
-        let ws_target = state
-            .target_base_url
-            .replace("http://", "ws://")
-            .replace("https://", "wss://");
-        let target = format!("{ws_target}/ws{tail}");
-
         if let Ok((upstream, _)) = connect_async(target).await {
             bridge_websocket(socket, upstream).await;
         }
@@ -271,4 +268,16 @@ fn parse_session_cookie(headers: &HeaderMap) -> Option<String> {
 
 fn build_session_cookie(session_id: &str) -> String {
     format!("atmos_tunnel_session={session_id}; HttpOnly; Path=/; SameSite=Lax")
+}
+
+fn build_ws_target(target_base_url: &str, path: &str) -> String {
+    let tail = if path.is_empty() {
+        String::new()
+    } else {
+        format!("/{path}")
+    };
+    let ws_target = target_base_url
+        .replace("http://", "ws://")
+        .replace("https://", "wss://");
+    format!("{ws_target}/ws{tail}")
 }

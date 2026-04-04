@@ -61,17 +61,42 @@ impl TunnelProvider for NgrokProvider {
         let (stop_tx, stop_rx) = oneshot::channel();
 
         let logs = Arc::clone(&self.logs);
+        let status = Arc::clone(&self.status);
+        let last_error = Arc::clone(&self.last_error);
         let task = tokio::spawn(async move {
-            tokio::select! {
+            let stopped_by_request = tokio::select! {
                 _ = stop_rx => {
                     let _ = forwarder.close().await;
+                    true
                 }
-                _ = forwarder.join() => {}
-            }
+                _ = forwarder.join() => false
+            };
+
+            let next_status = if stopped_by_request {
+                ProviderStatus::default()
+            } else {
+                let message = "ngrok forwarder exited unexpectedly".to_string();
+                *last_error.write().await = Some(message.clone());
+                ProviderStatus {
+                    state: ProviderStatusState::Error,
+                    public_url: None,
+                    message: Some(message.clone()),
+                    started_at: None,
+                }
+            };
+            *status.write().await = next_status;
             logs.write().await.push(ProviderLogEntry {
                 at: Utc::now(),
-                level: "info".to_string(),
-                message: "ngrok forwarder finished".to_string(),
+                level: if stopped_by_request {
+                    "info".to_string()
+                } else {
+                    "error".to_string()
+                },
+                message: if stopped_by_request {
+                    "ngrok forwarder finished".to_string()
+                } else {
+                    "ngrok forwarder exited unexpectedly".to_string()
+                },
             });
         });
 

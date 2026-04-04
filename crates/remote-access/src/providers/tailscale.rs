@@ -14,6 +14,7 @@ use super::{
 #[derive(Default)]
 pub struct TailscaleProvider {
     status: Arc<RwLock<ProviderStatus>>,
+    last_mode: Arc<RwLock<Option<ProviderAccessMode>>>,
     logs: Arc<RwLock<Vec<ProviderLogEntry>>>,
     last_error: Arc<RwLock<Option<String>>>,
 }
@@ -31,11 +32,21 @@ impl TunnelProvider for TailscaleProvider {
             .await
             .map(|o| o.status.success())
             .unwrap_or(false);
+        let logged_in = self
+            .status_json()
+            .await
+            .and_then(|value| {
+                value
+                    .get("BackendState")
+                    .and_then(Value::as_str)
+                    .map(|state| !matches!(state, "NeedsLogin" | "NoState"))
+            })
+            .unwrap_or(false);
 
         ProviderDiagnostics {
             provider: ProviderKind::Tailscale,
             binary_found,
-            logged_in: binary_found,
+            logged_in,
             warnings: vec!["tailscale funnel 需要显式开启公网暴露".to_string()],
             last_error: self.last_error.read().await.clone(),
             logs: self.logs.read().await.clone(),
@@ -47,6 +58,7 @@ impl TunnelProvider for TailscaleProvider {
         if req.mode == ProviderAccessMode::Public {
             args = vec!["funnel", "--bg"];
         }
+        *self.last_mode.write().await = Some(req.mode);
 
         let output = Command::new("tailscale")
             .args(args)
@@ -56,6 +68,7 @@ impl TunnelProvider for TailscaleProvider {
 
         if !output.status.success() {
             let err = String::from_utf8_lossy(&output.stderr).to_string();
+            *self.last_mode.write().await = None;
             *self.last_error.write().await = Some(err.clone());
             anyhow::bail!(err);
         }
@@ -92,16 +105,47 @@ impl TunnelProvider for TailscaleProvider {
     }
 
     async fn stop(&self) -> anyhow::Result<()> {
-        let _ = Command::new("tailscale")
-            .args(["serve", "reset"])
-            .output()
-            .await?;
-        let _ = Command::new("tailscale")
-            .args(["funnel", "reset"])
-            .output()
-            .await;
+        let mode = *self.last_mode.read().await;
+        let reset_args = match mode.unwrap_or(ProviderAccessMode::Private) {
+            ProviderAccessMode::Private => ["serve", "reset"],
+            ProviderAccessMode::Public => ["funnel", "reset"],
+        };
+
+        let output = match Self::run_command(reset_args).await {
+            Ok(output) => output,
+            Err(err) => {
+                let error = format!("tailscale {} failed: {err}", reset_args.join(" "));
+                let current_status = self.status.read().await.clone();
+                *self.last_error.write().await = Some(error.clone());
+                *self.status.write().await = ProviderStatus {
+                    state: ProviderStatusState::Error,
+                    public_url: current_status.public_url,
+                    message: Some(error.clone()),
+                    started_at: current_status.started_at,
+                };
+                anyhow::bail!(error);
+            }
+        };
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let error = if stderr.is_empty() {
+                format!("tailscale {} failed", reset_args.join(" "))
+            } else {
+                stderr
+            };
+            let current_status = self.status.read().await.clone();
+            *self.last_error.write().await = Some(error.clone());
+            *self.status.write().await = ProviderStatus {
+                state: ProviderStatusState::Error,
+                public_url: current_status.public_url,
+                message: Some(error.clone()),
+                started_at: current_status.started_at,
+            };
+            anyhow::bail!(error);
+        }
 
         *self.status.write().await = ProviderStatus::default();
+        *self.last_mode.write().await = None;
         self.logs.write().await.push(ProviderLogEntry {
             at: Utc::now(),
             level: "info".to_string(),
@@ -128,16 +172,7 @@ impl TunnelProvider for TailscaleProvider {
 
 impl TailscaleProvider {
     async fn public_url(&self) -> Option<String> {
-        let output = Command::new("tailscale")
-            .args(["status", "--json"])
-            .output()
-            .await
-            .ok()?;
-        if !output.status.success() {
-            return None;
-        }
-
-        let value = serde_json::from_slice::<Value>(&output.stdout).ok()?;
+        let value = self.status_json().await?;
         let dns_name = value
             .get("Self")
             .and_then(|self_value| self_value.get("DNSName"))
@@ -145,5 +180,18 @@ impl TailscaleProvider {
             .trim_end_matches('.');
 
         Some(format!("https://{dns_name}"))
+    }
+
+    async fn status_json(&self) -> Option<Value> {
+        let output = Self::run_command(["status", "--json"]).await.ok()?;
+        if !output.status.success() {
+            return None;
+        }
+
+        serde_json::from_slice::<Value>(&output.stdout).ok()
+    }
+
+    async fn run_command(args: [&str; 2]) -> std::io::Result<std::process::Output> {
+        Command::new("tailscale").args(args).output().await
     }
 }
