@@ -1,6 +1,7 @@
 mod commands;
 mod logging;
 mod preview_bridge;
+mod remote_access;
 mod state;
 
 use std::collections::VecDeque;
@@ -100,6 +101,10 @@ fn main() {
                         .join("desktop")
                 })
                 .join(WINDOW_STATE_FILE);
+            let remote_access_state_path = window_state_path
+                .parent()
+                .map(|p| p.join("remote-access-state.json"))
+                .unwrap_or_else(|| std::env::temp_dir().join("remote-access-state.json"));
             app.manage(AppState {
                 api_port: Mutex::new(None),
                 api_token: api_token.clone(),
@@ -111,6 +116,9 @@ fn main() {
                 startup_failed: AtomicBool::new(false),
                 theme_ready: AtomicBool::new(false),
                 theme_ready_notify: Notify::new(),
+                remote_access_manager: remote_access::manager::RemoteAccessManager::new(
+                    remote_access_state_path,
+                ),
             });
 
             let app_handle = app.handle().clone();
@@ -163,8 +171,10 @@ fn main() {
                                 state.theme_ready.store(false, Ordering::SeqCst);
                             }
                             let app_version = app_handle.package_info().version.to_string();
-                            let url =
-                                format!("http://127.0.0.1:{}?desktop_app_version={}", p, app_version);
+                            let url = format!(
+                                "http://127.0.0.1:{}?desktop_app_version={}",
+                                p, app_version
+                            );
                             let _ = main.navigate(url.parse().expect("valid url"));
                         }
                     }
@@ -372,6 +382,14 @@ fn main() {
             commands::preview_bridge_hide,
             commands::preview_bridge_event,
             commands::preview_bridge_probe_url,
+            remote_access::commands::remote_access_detect,
+            remote_access::commands::remote_access_start,
+            remote_access::commands::remote_access_stop,
+            remote_access::commands::remote_access_status,
+            remote_access::commands::remote_access_recover,
+            remote_access::commands::remote_access_provider_guide,
+            remote_access::commands::remote_access_save_credential,
+            remote_access::commands::remote_access_clear_credential,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
@@ -682,13 +700,10 @@ async fn spawn_and_wait_sidecar(
 
     {
         let app_state = app_handle.state::<AppState>();
-        let mut guard = app_state
-            .sidecar_child
-            .lock()
-            .map_err(|_| StartupFailure {
-                root_cause: "State lock poisoned".to_string(),
-                log_path: sidecar_log_path.clone(),
-            })?;
+        let mut guard = app_state.sidecar_child.lock().map_err(|_| StartupFailure {
+            root_cause: "State lock poisoned".to_string(),
+            log_path: sidecar_log_path.clone(),
+        })?;
         *guard = Some(child);
     }
 
@@ -721,10 +736,8 @@ async fn spawn_and_wait_sidecar(
                     if let Some(port) = parse_ready_port(&text) {
                         {
                             let app_state = app_handle.state::<AppState>();
-                            let mut guard = app_state
-                                .api_port
-                                .lock()
-                                .map_err(|_| StartupFailure {
+                            let mut guard =
+                                app_state.api_port.lock().map_err(|_| StartupFailure {
                                     root_cause: "State lock poisoned".to_string(),
                                     log_path: sidecar_log_path.clone(),
                                 })?;

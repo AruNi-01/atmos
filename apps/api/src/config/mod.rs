@@ -10,6 +10,7 @@ pub struct ServerConfig {
     pub port: u16,
     pub cors_origins: CorsOriginConfig,
     pub local_api_token: Option<String>,
+    pub allow_lan_without_token: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -20,7 +21,7 @@ pub enum CorsOriginConfig {
 
 impl ServerConfig {
     pub fn from_env() -> Self {
-        let host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+        let host = env::var("SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
         let port = env::var("ATMOS_PORT")
             .ok()
             .or_else(|| env::var("SERVER_PORT").ok())
@@ -50,11 +51,16 @@ impl ServerConfig {
 
         let local_api_token = env::var("ATMOS_LOCAL_TOKEN").ok();
 
+        let allow_lan_without_token = env::var("ATMOS_ALLOW_LAN_TRUST")
+            .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "yes" | "on"))
+            .unwrap_or(false);
+
         let config = Self {
             host,
             port,
             cors_origins,
             local_api_token,
+            allow_lan_without_token,
         };
 
         info!("Server config: {}:{}", config.host, config.port);
@@ -66,6 +72,10 @@ impl ServerConfig {
             } else {
                 "disabled"
             }
+        );
+        info!(
+            "LAN trust without token: {}",
+            config.allow_lan_without_token
         );
 
         config

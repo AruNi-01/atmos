@@ -1,0 +1,115 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use chrono::{DateTime, Duration, Utc};
+use rand::distributions::{Alphanumeric, DistString};
+use tokio::sync::RwLock;
+use uuid::Uuid;
+
+use crate::error::RemoteAccessError;
+use crate::providers::ProviderKind;
+use crate::types::{CreateSessionRequest, SessionMode, SessionPermission, SessionValidation};
+
+#[derive(Debug, Clone)]
+pub struct TunnelSession {
+    pub session_id: String,
+    pub provider: ProviderKind,
+    pub mode: SessionMode,
+    pub permission: SessionPermission,
+    pub entry_token: String,
+    pub expires_at: DateTime<Utc>,
+    pub revoked_at: Option<DateTime<Utc>>,
+    pub public_url: Option<String>,
+}
+
+impl TunnelSession {
+    pub fn is_expired(&self, now: DateTime<Utc>) -> bool {
+        now >= self.expires_at
+    }
+
+    pub fn is_revoked(&self) -> bool {
+        self.revoked_at.is_some()
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SessionStore {
+    inner: Arc<RwLock<HashMap<String, TunnelSession>>>,
+}
+
+impl SessionStore {
+    pub async fn create_session(&self, req: CreateSessionRequest) -> TunnelSession {
+        let session_id = Uuid::new_v4().to_string();
+        let entry_token = Alphanumeric.sample_string(&mut rand::thread_rng(), 48);
+        let expires_at = Utc::now() + Duration::seconds(req.ttl_secs.max(60));
+
+        let session = TunnelSession {
+            session_id: session_id.clone(),
+            provider: req.provider,
+            mode: req.mode,
+            permission: req.permission,
+            entry_token,
+            expires_at,
+            revoked_at: None,
+            public_url: None,
+        };
+
+        self.inner.write().await.insert(session_id, session.clone());
+        session
+    }
+
+    pub async fn set_public_url(&self, session_id: &str, public_url: String) {
+        if let Some(session) = self.inner.write().await.get_mut(session_id) {
+            session.public_url = Some(public_url);
+        }
+    }
+
+    pub async fn revoke_session(&self, session_id: &str) -> Result<(), RemoteAccessError> {
+        let mut guard = self.inner.write().await;
+        let session = guard
+            .get_mut(session_id)
+            .ok_or(RemoteAccessError::SessionNotFound)?;
+        session.revoked_at = Some(Utc::now());
+        Ok(())
+    }
+
+    pub async fn get_session(&self, session_id: &str) -> Option<TunnelSession> {
+        self.inner.read().await.get(session_id).cloned()
+    }
+
+    pub async fn validate(
+        &self,
+        session_cookie: Option<&str>,
+        entry_token: Option<&str>,
+    ) -> SessionValidation {
+        let now = Utc::now();
+        let sessions = self.inner.read().await;
+
+        if let Some(cookie_id) = session_cookie {
+            if let Some(session) = sessions.get(cookie_id) {
+                if !session.is_revoked() && !session.is_expired(now) {
+                    return SessionValidation::Authorized {
+                        session_id: session.session_id.clone(),
+                    };
+                }
+            }
+        }
+
+        let Some(entry_token) = entry_token else {
+            return SessionValidation::Unauthorized;
+        };
+
+        for session in sessions.values() {
+            if session.entry_token == entry_token
+                && !session.is_revoked()
+                && !session.is_expired(now)
+            {
+                return SessionValidation::Authorized {
+                    session_id: session.session_id.clone(),
+                };
+            }
+        }
+
+        SessionValidation::Unauthorized
+    }
+}

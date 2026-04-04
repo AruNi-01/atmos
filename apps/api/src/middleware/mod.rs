@@ -17,21 +17,22 @@ fn constant_time_eq(a: &str, b: &str) -> bool {
         == 0
 }
 
-/// General middleware: trusts loopback and LAN without token.
-/// Non-local/non-LAN requests must present a valid bearer token.
+/// General middleware: trusts loopback by default.
+/// LAN trust can be opt-in via configuration.
 pub async fn require_local_token(
     connect_info: ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     request: Request<axum::body::Body>,
     next: Next,
     expected_token: Option<String>,
+    allow_lan_without_token: bool,
 ) -> Result<Response, StatusCode> {
     let path = request.uri().path().to_string();
     let query = request.uri().query().map(|s| s.to_string());
 
     let remote_ip = connect_info.0.ip();
 
-    if is_local_or_lan(&remote_ip) {
+    if is_trusted_local_source(&remote_ip, allow_lan_without_token) {
         return Ok(next.run(request).await);
     }
 
@@ -75,18 +76,22 @@ pub async fn require_loopback_or_token(
     Ok(next.run(request).await)
 }
 
-fn is_local_or_lan(ip: &std::net::IpAddr) -> bool {
+fn is_trusted_local_source(ip: &std::net::IpAddr, allow_lan_without_token: bool) -> bool {
     match ip {
         std::net::IpAddr::V4(v4) => {
-            v4.is_loopback()          // 127.0.0.0/8
-            || v4.is_private()        // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-            || v4.is_link_local() // 169.254.0.0/16
+            if v4.is_loopback() {
+                return true;
+            }
+            allow_lan_without_token && (v4.is_private() || v4.is_link_local())
         }
         std::net::IpAddr::V6(v6) => {
-            v6.is_loopback()          // ::1
-            || v6.to_ipv4_mapped().is_some_and(|v4| {
-                v4.is_loopback() || v4.is_private() || v4.is_link_local()
-            })
+            if v6.is_loopback() {
+                return true;
+            }
+            allow_lan_without_token
+                && v6
+                    .to_ipv4_mapped()
+                    .is_some_and(|v4| v4.is_private() || v4.is_link_local())
         }
     }
 }

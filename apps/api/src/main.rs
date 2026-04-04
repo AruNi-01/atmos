@@ -78,9 +78,21 @@ fn spawn_non_critical_startup_tasks(
         let report = core_engine::agent_hooks::install_all_hooks();
         tracing::info!(
             "Agent hooks auto-install: claude_code={}, codex={}, opencode={}",
-            if report.claude_code.installed { "installed" } else { "skipped" },
-            if report.codex.installed { "installed" } else { "skipped" },
-            if report.opencode.installed { "installed" } else { "skipped" },
+            if report.claude_code.installed {
+                "installed"
+            } else {
+                "skipped"
+            },
+            if report.codex.installed {
+                "installed"
+            } else {
+                "skipped"
+            },
+            if report.opencode.installed {
+                "installed"
+            } else {
+                "skipped"
+            },
         );
     });
 
@@ -102,7 +114,10 @@ fn spawn_non_critical_startup_tasks(
                 agent_hooks_service.set_known_project_paths(paths);
             }
             Err(e) => {
-                warn!("Failed to load project paths for agent hook filtering: {}", e);
+                warn!(
+                    "Failed to load project paths for agent hook filtering: {}",
+                    e
+                );
             }
         }
     });
@@ -237,9 +252,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let token = server_config.local_api_token.clone();
     let token_for_destructive = server_config.local_api_token.clone();
+    let allow_lan_without_token = server_config.allow_lan_without_token;
 
     let protected = api::routes().route_layer(from_fn(move |ci, headers, req, next| {
-        require_local_token(ci, headers, req, next, token.clone())
+        require_local_token(
+            ci,
+            headers,
+            req,
+            next,
+            token.clone(),
+            allow_lan_without_token,
+        )
     }));
 
     let destructive =
