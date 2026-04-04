@@ -11,6 +11,13 @@ use super::{
     ProviderStatus, ProviderStatusState, TunnelProvider,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TailscaleLoginState {
+    LoggedIn,
+    LoggedOut,
+    Unknown,
+}
+
 #[derive(Default)]
 pub struct TailscaleProvider {
     status: Arc<RwLock<ProviderStatus>>,
@@ -35,12 +42,7 @@ impl TunnelProvider for TailscaleProvider {
         let logged_in = self
             .status_json()
             .await
-            .and_then(|value| {
-                value
-                    .get("BackendState")
-                    .and_then(Value::as_str)
-                    .map(|state| !matches!(state, "NeedsLogin" | "NoState"))
-            })
+            .map(|value| matches!(Self::login_state(&value), TailscaleLoginState::LoggedIn))
             .unwrap_or(false);
 
         ProviderDiagnostics {
@@ -183,35 +185,28 @@ impl TailscaleProvider {
             return current_status;
         }
 
-        let logged_in = self
-            .status_json()
-            .await
-            .and_then(|value| {
-                value
-                    .get("BackendState")
-                    .and_then(Value::as_str)
-                    .map(|state| !matches!(state, "NeedsLogin" | "NoState"))
-            })
-            .unwrap_or(false);
-        let refreshed = if !logged_in {
-            ProviderStatus {
+        let Some(value) = self.status_json().await else {
+            return current_status;
+        };
+
+        let refreshed = match Self::login_state(&value) {
+            TailscaleLoginState::LoggedOut => ProviderStatus {
                 state: ProviderStatusState::Error,
                 public_url: None,
                 message: Some("tailscale is not logged in".to_string()),
                 started_at: current_status.started_at,
+            },
+            TailscaleLoginState::LoggedIn => {
+                if let Some(public_url) = Self::public_url_from_status_json(&value) {
+                    ProviderStatus {
+                        public_url: Some(public_url),
+                        ..current_status.clone()
+                    }
+                } else {
+                    current_status
+                }
             }
-        } else if let Some(public_url) = self.public_url().await {
-            ProviderStatus {
-                public_url: Some(public_url),
-                ..current_status.clone()
-            }
-        } else {
-            ProviderStatus {
-                state: ProviderStatusState::Error,
-                public_url: None,
-                message: Some("tailscale did not report a DNS name".to_string()),
-                started_at: current_status.started_at,
-            }
+            TailscaleLoginState::Unknown => current_status,
         };
         *self.status.write().await = refreshed.clone();
         refreshed
@@ -219,13 +214,7 @@ impl TailscaleProvider {
 
     async fn public_url(&self) -> Option<String> {
         let value = self.status_json().await?;
-        let dns_name = value
-            .get("Self")
-            .and_then(|self_value| self_value.get("DNSName"))
-            .and_then(Value::as_str)?
-            .trim_end_matches('.');
-
-        Some(format!("https://{dns_name}"))
+        Self::public_url_from_status_json(&value)
     }
 
     async fn status_json(&self) -> Option<Value> {
@@ -235,6 +224,24 @@ impl TailscaleProvider {
         }
 
         serde_json::from_slice::<Value>(&output.stdout).ok()
+    }
+
+    fn login_state(value: &Value) -> TailscaleLoginState {
+        match value.get("BackendState").and_then(Value::as_str) {
+            Some("NeedsLogin" | "NoState") => TailscaleLoginState::LoggedOut,
+            Some(_) => TailscaleLoginState::LoggedIn,
+            None => TailscaleLoginState::Unknown,
+        }
+    }
+
+    fn public_url_from_status_json(value: &Value) -> Option<String> {
+        let dns_name = value
+            .get("Self")
+            .and_then(|self_value| self_value.get("DNSName"))
+            .and_then(Value::as_str)?
+            .trim_end_matches('.');
+
+        Some(format!("https://{dns_name}"))
     }
 
     async fn run_command(args: [&str; 2]) -> std::io::Result<std::process::Output> {
@@ -253,5 +260,53 @@ impl TailscaleProvider {
         }
 
         format!("exit status {}", output.status)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TailscaleLoginState, TailscaleProvider};
+    use serde_json::json;
+
+    #[test]
+    fn login_state_is_explicit_about_logged_out_backend_states() {
+        assert_eq!(
+            TailscaleProvider::login_state(&json!({ "BackendState": "NeedsLogin" })),
+            TailscaleLoginState::LoggedOut
+        );
+        assert_eq!(
+            TailscaleProvider::login_state(&json!({ "BackendState": "NoState" })),
+            TailscaleLoginState::LoggedOut
+        );
+    }
+
+    #[test]
+    fn login_state_treats_other_or_missing_backend_states_as_not_logged_out() {
+        assert_eq!(
+            TailscaleProvider::login_state(&json!({ "BackendState": "Running" })),
+            TailscaleLoginState::LoggedIn
+        );
+        assert_eq!(
+            TailscaleProvider::login_state(&json!({ "BackendState": "Stopped" })),
+            TailscaleLoginState::LoggedIn
+        );
+        assert_eq!(
+            TailscaleProvider::login_state(&json!({})),
+            TailscaleLoginState::Unknown
+        );
+    }
+
+    #[test]
+    fn public_url_parsing_trims_trailing_dot() {
+        let value = json!({
+            "Self": {
+                "DNSName": "example.ts.net."
+            }
+        });
+
+        assert_eq!(
+            TailscaleProvider::public_url_from_status_json(&value),
+            Some("https://example.ts.net".to_string())
+        );
     }
 }

@@ -148,6 +148,18 @@
   }
 }
 
+@layer utilities {
+  /* Keep spinning SVG icons anchored to their visual center in desktop webviews. */
+  svg.animate-spin,
+  svg[class*="animate-spin"],
+  .animate-spin > svg,
+  [class*="animate-spin"] > svg {
+    transform-box: fill-box;
+    transform-origin: center;
+    will-change: transform;
+  }
+}
+
 @keyframes collapsible-down {
   from {
     height: 0;

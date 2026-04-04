@@ -140,29 +140,22 @@ impl RemoteAccessManager {
             session.public_url = Some(url);
         }
 
-        let mut state = self.inner.write().await;
-        state.active_session_id = Some(session.session_id.clone());
-        state.public_url = public_url;
-        state.gateway = Some(gateway);
-
-        if let Err(err) = self
-            .persist_state(PersistedRemoteAccessState {
-                provider: provider_kind,
-                mode,
-                target_base_url,
-                ttl_secs,
-                last_started_at: Utc::now().to_rfc3339(),
-                session: session.clone(),
-            })
-            .await
         {
-            let cleanup_err = self.stop().await.err();
-            let message = match cleanup_err {
-                Some(cleanup_err) => format!("{err}; cleanup failed: {cleanup_err}"),
-                None => err,
-            };
-            return Err(message);
+            let mut state = self.inner.write().await;
+            state.active_session_id = Some(session.session_id.clone());
+            state.public_url = public_url;
+            state.gateway = Some(gateway);
         }
+
+        self.persist_started_state(PersistedRemoteAccessState {
+            provider: provider_kind,
+            mode,
+            target_base_url,
+            ttl_secs,
+            last_started_at: Utc::now().to_rfc3339(),
+            session: session.clone(),
+        })
+        .await?;
 
         Ok(Self::build_status(
             Some(provider_kind),
@@ -243,29 +236,22 @@ impl RemoteAccessManager {
             session.public_url = Some(url);
         }
 
-        let mut state = self.inner.write().await;
-        state.gateway = Some(gateway);
-        state.active_session_id = Some(session.session_id.clone());
-        state.public_url = public_url;
-
-        if let Err(err) = self
-            .persist_state(PersistedRemoteAccessState {
-                provider: persisted.provider,
-                mode: persisted.mode,
-                target_base_url: persisted.target_base_url,
-                ttl_secs: persisted.ttl_secs,
-                last_started_at: Utc::now().to_rfc3339(),
-                session: session.clone(),
-            })
-            .await
         {
-            let cleanup_err = self.stop().await.err();
-            let message = match cleanup_err {
-                Some(cleanup_err) => format!("{err}; cleanup failed: {cleanup_err}"),
-                None => err,
-            };
-            return Err(message);
+            let mut state = self.inner.write().await;
+            state.gateway = Some(gateway);
+            state.active_session_id = Some(session.session_id.clone());
+            state.public_url = public_url;
         }
+
+        self.persist_started_state(PersistedRemoteAccessState {
+            provider: persisted.provider,
+            mode: persisted.mode,
+            target_base_url: persisted.target_base_url,
+            ttl_secs: persisted.ttl_secs,
+            last_started_at: Utc::now().to_rfc3339(),
+            session: session.clone(),
+        })
+        .await?;
 
         Ok(Some(Self::build_status(
             Some(persisted.provider),
@@ -394,6 +380,21 @@ impl RemoteAccessManager {
             })
     }
 
+    async fn persist_started_state(
+        &self,
+        persisted: PersistedRemoteAccessState,
+    ) -> Result<(), String> {
+        if let Err(err) = self.persist_state(persisted).await {
+            let cleanup_err = self.stop().await.err();
+            return Err(match cleanup_err {
+                Some(cleanup_err) => format!("{err}; cleanup failed: {cleanup_err}"),
+                None => err,
+            });
+        }
+
+        Ok(())
+    }
+
     async fn load_state(&self) -> Result<Option<PersistedRemoteAccessState>, String> {
         let raw = match tokio::fs::read(&self.state_file).await {
             Ok(raw) => raw,
@@ -459,5 +460,73 @@ impl RemoteAccessManager {
                 self.state_file.display()
             )),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::path::PathBuf;
+
+    use chrono::Utc;
+    use tokio::time::{timeout, Duration};
+
+    #[tokio::test]
+    async fn persist_failure_cleans_up_without_deadlocking() {
+        let state_dir = std::env::temp_dir().join(format!(
+            "atmos-remote-access-manager-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        tokio::fs::create_dir_all(&state_dir)
+            .await
+            .expect("create temp directory");
+
+        let manager = RemoteAccessManager::new(PathBuf::from(&state_dir));
+        let provider = build_provider(ProviderKind::Tailscale);
+
+        {
+            let mut state = manager.inner.write().await;
+            state.provider = Some(provider);
+            state.provider_kind = Some(ProviderKind::Tailscale);
+        }
+
+        let session = TunnelSession {
+            session_id: "session-test".to_string(),
+            provider: ProviderKind::Tailscale,
+            mode: SessionMode::Private,
+            permission: SessionPermission::Control,
+            entry_token: "entry-token".to_string(),
+            expires_at: Utc::now() + chrono::Duration::minutes(5),
+            revoked_at: None,
+            public_url: None,
+        };
+
+        let result = timeout(
+            Duration::from_secs(1),
+            manager.persist_started_state(PersistedRemoteAccessState {
+                provider: ProviderKind::Tailscale,
+                mode: ProviderAccessMode::Private,
+                target_base_url: "http://127.0.0.1:3000".to_string(),
+                ttl_secs: 60,
+                last_started_at: Utc::now().to_rfc3339(),
+                session,
+            }),
+        )
+        .await
+        .expect("cleanup path should not hang");
+
+        assert!(
+            result.is_err(),
+            "persist failure should surface as an error"
+        );
+
+        let state = manager.inner.read().await;
+        assert!(
+            state.provider.is_none(),
+            "manager should clear provider state"
+        );
+
+        let _ = tokio::fs::remove_dir_all(&state_dir).await;
     }
 }

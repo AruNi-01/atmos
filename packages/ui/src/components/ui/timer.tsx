@@ -41,7 +41,9 @@ const timerVariants = cva(
   }
 )
 
-const timerIconVariants = cva("transition-transform duration-[2000ms]", {
+const timerIconVariants = cva(
+  "inline-flex shrink-0 items-center justify-center transition-transform duration-[2000ms] transform-gpu will-change-transform [transform-box:fill-box] [transform-origin:center]",
+  {
   variants: {
     size: {
       sm: "w-3 h-3",
@@ -156,7 +158,7 @@ export const TimerIcon = React.forwardRef<HTMLDivElement, TimerIconProps>(
         className={cn(timerIconVariants({ size, loading }), className)}
         {...props}
       >
-        <Icon className="w-full h-full" />
+        <Icon className="block h-full w-full shrink-0 [transform-box:fill-box] [transform-origin:center]" />
       </div>
     )
   }
