@@ -99,8 +99,7 @@ impl SessionStore {
         entry_token: Option<&str>,
     ) -> SessionValidation {
         let now = Utc::now();
-        let mut sessions = self.inner.write().await;
-        prune_stale_sessions(&mut sessions, now);
+        let sessions = self.inner.read().await;
 
         if let Some(cookie_id) = session_cookie {
             if let Some(session) = sessions.get(cookie_id) {

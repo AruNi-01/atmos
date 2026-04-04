@@ -145,15 +145,24 @@ impl RemoteAccessManager {
         state.public_url = public_url;
         state.gateway = Some(gateway);
 
-        self.persist_state(PersistedRemoteAccessState {
-            provider: provider_kind,
-            mode,
-            target_base_url,
-            ttl_secs,
-            last_started_at: Utc::now().to_rfc3339(),
-            session: session.clone(),
-        })
-        .await;
+        if let Err(err) = self
+            .persist_state(PersistedRemoteAccessState {
+                provider: provider_kind,
+                mode,
+                target_base_url,
+                ttl_secs,
+                last_started_at: Utc::now().to_rfc3339(),
+                session: session.clone(),
+            })
+            .await
+        {
+            let cleanup_err = self.stop().await.err();
+            let message = match cleanup_err {
+                Some(cleanup_err) => format!("{err}; cleanup failed: {cleanup_err}"),
+                None => err,
+            };
+            return Err(message);
+        }
 
         Ok(Self::build_status(
             Some(provider_kind),
@@ -171,6 +180,11 @@ impl RemoteAccessManager {
         let Some(persisted) = persisted else {
             return Ok(None);
         };
+        let now = Utc::now();
+        if persisted.session.is_revoked() || persisted.session.is_expired(now) {
+            self.remove_state_file().await?;
+            return Ok(None);
+        }
 
         {
             let state = self.inner.read().await;
@@ -234,15 +248,24 @@ impl RemoteAccessManager {
         state.active_session_id = Some(session.session_id.clone());
         state.public_url = public_url;
 
-        self.persist_state(PersistedRemoteAccessState {
-            provider: persisted.provider,
-            mode: persisted.mode,
-            target_base_url: persisted.target_base_url,
-            ttl_secs: persisted.ttl_secs,
-            last_started_at: Utc::now().to_rfc3339(),
-            session: session.clone(),
-        })
-        .await;
+        if let Err(err) = self
+            .persist_state(PersistedRemoteAccessState {
+                provider: persisted.provider,
+                mode: persisted.mode,
+                target_base_url: persisted.target_base_url,
+                ttl_secs: persisted.ttl_secs,
+                last_started_at: Utc::now().to_rfc3339(),
+                session: session.clone(),
+            })
+            .await
+        {
+            let cleanup_err = self.stop().await.err();
+            let message = match cleanup_err {
+                Some(cleanup_err) => format!("{err}; cleanup failed: {cleanup_err}"),
+                None => err,
+            };
+            return Err(message);
+        }
 
         Ok(Some(Self::build_status(
             Some(persisted.provider),
@@ -263,12 +286,18 @@ impl RemoteAccessManager {
             )
         };
 
+        let mut errors = Vec::new();
+
         if let Some(provider) = provider {
-            provider.stop().await.map_err(|e| e.to_string())?;
+            if let Err(err) = provider.stop().await {
+                errors.push(format!("failed to stop provider: {err}"));
+            }
         }
 
         if let Some(session_id) = active_session_id {
-            let _ = session_store.revoke_session(&session_id).await;
+            if let Err(err) = session_store.revoke_session(&session_id).await {
+                errors.push(format!("failed to revoke remote access session: {err}"));
+            }
         }
 
         if let Some(gateway) = gateway {
@@ -279,8 +308,15 @@ impl RemoteAccessManager {
         state.provider_kind = None;
         state.public_url = None;
 
-        let _ = tokio::fs::remove_file(&self.state_file).await;
-        Ok(())
+        if let Err(err) = self.remove_state_file().await {
+            errors.push(err);
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.join("; "))
+        }
     }
 
     pub async fn status(&self) -> RemoteAccessStatus {
@@ -333,13 +369,29 @@ impl RemoteAccessManager {
         }
     }
 
-    async fn persist_state(&self, persisted: PersistedRemoteAccessState) {
+    async fn persist_state(&self, persisted: PersistedRemoteAccessState) -> Result<(), String> {
         if let Some(parent) = self.state_file.parent() {
-            let _ = tokio::fs::create_dir_all(parent).await;
+            tokio::fs::create_dir_all(parent).await.map_err(|err| {
+                format!(
+                    "failed to create remote access state directory {}: {err}",
+                    parent.display()
+                )
+            })?;
         }
-        if let Ok(raw) = serde_json::to_vec_pretty(&persisted) {
-            let _ = tokio::fs::write(&self.state_file, raw).await;
-        }
+        let raw = serde_json::to_vec_pretty(&persisted).map_err(|err| {
+            format!(
+                "failed to serialize remote access state {}: {err}",
+                self.state_file.display()
+            )
+        })?;
+        tokio::fs::write(&self.state_file, raw)
+            .await
+            .map_err(|err| {
+                format!(
+                    "failed to write remote access state {}: {err}",
+                    self.state_file.display()
+                )
+            })
     }
 
     async fn load_state(&self) -> Result<Option<PersistedRemoteAccessState>, String> {
@@ -395,6 +447,17 @@ impl RemoteAccessManager {
             public_url: None,
             message: Some("not running".to_string()),
             started_at: None,
+        }
+    }
+
+    async fn remove_state_file(&self) -> Result<(), String> {
+        match tokio::fs::remove_file(&self.state_file).await {
+            Ok(()) => Ok(()),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(err) => Err(format!(
+                "failed to remove remote access state {}: {err}",
+                self.state_file.display()
+            )),
         }
     }
 }
