@@ -54,6 +54,7 @@ pub struct ProviderLogEntry {
 pub struct ProviderDiagnostics {
     pub provider: ProviderKind,
     pub binary_found: bool,
+    pub daemon_running: Option<bool>,
     pub logged_in: bool,
     pub warnings: Vec<String>,
     pub last_error: Option<String>,
@@ -76,6 +77,70 @@ pub trait TunnelProvider: Send + Sync {
     async fn status(&self) -> ProviderStatus;
     async fn diagnostics(&self) -> ProviderDiagnostics;
     async fn recover(&self, req: ProviderStartRequest) -> anyhow::Result<ProviderStatus>;
+}
+
+/// Create a `tokio::process::Command` whose PATH matches what the user sees
+/// in their normal terminal.  macOS .app bundles launched from Finder don't
+/// inherit the shell's PATH, so we start a login shell once, capture its
+/// `$PATH`, cache it, and inject it into every provider sub-process.
+pub fn provider_command(program: &str) -> tokio::process::Command {
+    static SHELL_PATH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+    let path = SHELL_PATH.get_or_init(|| {
+        resolve_login_shell_path().unwrap_or_else(|| {
+            // Fallback: current PATH + common Homebrew dirs
+            let current = std::env::var("PATH").unwrap_or_default();
+            let extra = [
+                "/opt/homebrew/bin",
+                "/opt/homebrew/sbin",
+                "/usr/local/bin",
+                "/usr/local/sbin",
+            ];
+            let mut parts: Vec<&str> = extra.to_vec();
+            for p in current.split(':') {
+                if !parts.contains(&p) {
+                    parts.push(p);
+                }
+            }
+            parts.join(":")
+        })
+    });
+
+    let mut cmd = tokio::process::Command::new(program);
+    cmd.env("PATH", path);
+    cmd
+}
+
+/// Run the user's login shell to extract the full PATH.
+/// e.g.  `/bin/zsh -l -c 'echo $PATH'`
+fn resolve_login_shell_path() -> Option<String> {
+    let shell = std::env::var("SHELL")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| {
+            // Fallback: try common shells
+            for candidate in ["/bin/zsh", "/bin/bash", "/bin/sh"] {
+                if std::path::Path::new(candidate).exists() {
+                    return Some(candidate.to_string());
+                }
+            }
+            None
+        })?;
+
+    let output = std::process::Command::new(&shell)
+        .args(["-l", "-c", "echo $PATH"])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if path.is_empty() { None } else { Some(path) }
 }
 
 pub fn build_provider(kind: ProviderKind) -> Arc<dyn TunnelProvider> {

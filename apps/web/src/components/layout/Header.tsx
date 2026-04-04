@@ -64,10 +64,11 @@ import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
+import { useRemoteAccess } from '@/hooks/use-remote-access';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
-import { ArrowBigUp, ChevronLeft, ChevronRight, Command, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SunMoon } from "lucide-react";
+import { ArrowBigUp, ChevronLeft, ChevronRight, Command, Copy, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SunMoon } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
@@ -319,6 +320,12 @@ const Header: React.FC = () => {
     refreshStatus: refreshDesktopWebStatus,
     status: desktopWebStatus,
   } = useDesktopWebLauncher(pathname, desktopWebSearch);
+
+  const {
+    status: remoteAccessStatus,
+    refreshStatus: refreshRemoteAccessStatus,
+  } = useRemoteAccess();
+  const isRemoteAccessRunning = remoteAccessStatus?.provider_status.state === 'Running';
 
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
     isOpen: boolean;
@@ -888,16 +895,20 @@ const Header: React.FC = () => {
                 setDesktopWebPopoverOpen(open);
                 if (open) {
                   void refreshDesktopWebStatus();
+                  void refreshRemoteAccessStatus();
                 }
               }}
             >
               <PopoverTrigger asChild>
                 <button
                   aria-label="Open in Web"
-                  className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                  title={desktopWebStatus === 'ready' ? 'Open in Web' : 'Start Web'}
+                  className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                  title={isRemoteAccessRunning ? 'Tunnel active' : desktopWebStatus === 'ready' ? 'Open in Web' : 'Start Web'}
                 >
                   <Globe className="size-4" />
+                  {isRemoteAccessRunning && (
+                    <span className="absolute right-1 top-1 size-2 rounded-full bg-emerald-500 ring-1 ring-background" />
+                  )}
                 </button>
               </PopoverTrigger>
               <PopoverContent align="end" sideOffset={8} className="w-80 p-3 bg-popover border border-border shadow-md">
@@ -941,6 +952,54 @@ const Header: React.FC = () => {
                         : 'Start Web'}
                     <ExternalLink className="size-4" />
                   </Button>
+
+                  {isRemoteAccessRunning && remoteAccessStatus && (
+                    <>
+                      <div className="border-t border-border" />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-emerald-500" />
+                          <p className="text-sm font-medium text-popover-foreground">
+                            Tunnel active
+                          </p>
+                          <span className="ml-auto text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {remoteAccessStatus.provider}
+                          </span>
+                        </div>
+                        {remoteAccessStatus.share_url && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="min-w-0 flex-1 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground break-all">
+                              {remoteAccessStatus.share_url}
+                            </div>
+                            <button
+                              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(remoteAccessStatus.share_url!);
+                                toastManager.add({ title: 'Share URL copied', type: 'success' });
+                              }}
+                              title="Copy share URL"
+                            >
+                              <Copy className="size-3.5" />
+                            </button>
+                            <a
+                              href={remoteAccessStatus.share_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                              title="Open share URL"
+                            >
+                              <ExternalLink className="size-3.5" />
+                            </a>
+                          </div>
+                        )}
+                        {!remoteAccessStatus.share_url && remoteAccessStatus.public_url && (
+                          <div className="rounded-md border border-border bg-muted/30 px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground break-all">
+                            {remoteAccessStatus.public_url}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </PopoverContent>
             </Popover>

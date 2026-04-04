@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 use remote_access::{ProviderAccessMode, ProviderKind, RemoteAccessStatus};
 use serde::{Deserialize, Serialize};
+use crate::logging;
 
 use crate::remote_access::manager::RemoteAccessManager;
 use crate::state::AppState;
-
-const REMOTE_ACCESS_SERVICE: &str = "atmos-remote-access";
 
 #[derive(Debug, Deserialize)]
 pub struct StartRemoteAccessReq {
@@ -12,7 +14,6 @@ pub struct StartRemoteAccessReq {
     pub mode: Option<ProviderAccessMode>,
     pub target_base_url: String,
     pub ttl_secs: Option<i64>,
-    pub use_saved_credential: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -30,22 +31,43 @@ pub struct DetectRemoteAccessResp {
 pub async fn remote_access_detect(
     state: tauri::State<'_, AppState>,
 ) -> Result<DetectRemoteAccessResp, String> {
-    let providers = state.remote_access_manager.detect_all().await;
+    let mut providers = state.remote_access_manager.detect_all().await;
+
+    // If ngrok has no env-var authtoken but a saved credential exists in
+    // keyring, mark it as ready so the user doesn't see a false negative.
+    for diag in &mut providers {
+        if diag.provider == ProviderKind::Ngrok && !diag.logged_in {
+            if let Ok(Some(_)) = load_provider_credential(ProviderKind::Ngrok) {
+                diag.binary_found = true;
+                diag.logged_in = true;
+                diag.warnings.clear();
+            }
+        }
+    }
+
     Ok(DetectRemoteAccessResp { providers })
 }
 
 #[tauri::command]
 pub async fn remote_access_start(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     req: StartRemoteAccessReq,
 ) -> Result<RemoteAccessStatus, String> {
-    let credential = if req.use_saved_credential.unwrap_or(false) {
-        load_provider_credential(req.provider)?
-    } else {
-        None
-    };
+    let log_path = logging::app_log_path(&app, "desktop.log");
+    // Always try saved credentials — the user configured them for a reason.
+    let credential = load_provider_credential(req.provider).unwrap_or(None);
+    logging::append_log(
+        &log_path,
+        &format!(
+            "[remote-access] command start provider={:?} mode={:?} ttl_secs={:?} target={}",
+            req.provider, req.mode, req.ttl_secs, req.target_base_url
+        ),
+    );
 
-    state
+    let result = tokio::time::timeout(
+        tokio::time::Duration::from_secs(28),
+        state
         .remote_access_manager
         .start(
             req.provider,
@@ -53,8 +75,37 @@ pub async fn remote_access_start(
             req.target_base_url,
             req.ttl_secs.unwrap_or(3600),
             credential,
-        )
-        .await
+        ),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(status)) => {
+            logging::append_log(
+                &log_path,
+                &format!(
+                    "[remote-access] command success provider={:?} public_url={:?}",
+                    status.provider, status.public_url
+                ),
+            );
+            Ok(status)
+        }
+        Ok(Err(err)) => {
+            logging::append_log(
+                &log_path,
+                &format!("[remote-access] command failed err={err}"),
+            );
+            Err(err)
+        }
+        Err(_) => {
+            let err = "remote access command timed out after 28s".to_string();
+            logging::append_log(
+                &log_path,
+                &format!("[remote-access] command timeout err={err}"),
+            );
+            Err(err)
+        }
+    }
 }
 
 #[tauri::command]
@@ -91,36 +142,54 @@ pub fn remote_access_provider_guide(provider: ProviderKind) -> Vec<String> {
 
 #[tauri::command]
 pub fn remote_access_save_credential(req: SaveCredentialReq) -> Result<(), String> {
-    let entry = keyring::Entry::new(REMOTE_ACCESS_SERVICE, &credential_account(req.provider))
-        .map_err(|err| err.to_string())?;
-    entry
-        .set_password(&req.credential)
-        .map_err(|err| err.to_string())
+    let mut creds = load_all_credentials()?;
+    creds.insert(credential_key(req.provider), req.credential);
+    save_all_credentials(&creds)
 }
 
 #[tauri::command]
 pub fn remote_access_clear_credential(provider: ProviderKind) -> Result<(), String> {
-    let entry = keyring::Entry::new(REMOTE_ACCESS_SERVICE, &credential_account(provider))
-        .map_err(|err| err.to_string())?;
+    let mut creds = load_all_credentials()?;
+    creds.remove(&credential_key(provider));
+    save_all_credentials(&creds)
+}
 
-    match entry.delete_credential() {
-        Ok(_) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()),
-        Err(err) => Err(err.to_string()),
+// ---------------------------------------------------------------------------
+// File-based credential storage (~/.atmos/remote-access/credentials.json)
+// ---------------------------------------------------------------------------
+
+fn credentials_file_path() -> Result<PathBuf, String> {
+    let home = dirs::home_dir()
+        .ok_or_else(|| "could not determine home directory".to_string())?;
+    Ok(home
+        .join(".atmos")
+        .join("remote-access")
+        .join("credentials.json"))
+}
+
+fn load_all_credentials() -> Result<HashMap<String, String>, String> {
+    let path = credentials_file_path()?;
+    match std::fs::read(&path) {
+        Ok(data) => serde_json::from_slice(&data).map_err(|e| e.to_string()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(HashMap::new()),
+        Err(e) => Err(e.to_string()),
     }
+}
+
+fn save_all_credentials(creds: &HashMap<String, String>) -> Result<(), String> {
+    let path = credentials_file_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let data = serde_json::to_vec_pretty(creds).map_err(|e| e.to_string())?;
+    std::fs::write(&path, data).map_err(|e| e.to_string())
+}
+
+fn credential_key(provider: ProviderKind) -> String {
+    format!("{provider:?}").to_lowercase()
 }
 
 fn load_provider_credential(provider: ProviderKind) -> Result<Option<String>, String> {
-    let entry = keyring::Entry::new(REMOTE_ACCESS_SERVICE, &credential_account(provider))
-        .map_err(|err| err.to_string())?;
-
-    match entry.get_password() {
-        Ok(value) => Ok(Some(value)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(err) => Err(err.to_string()),
-    }
-}
-
-fn credential_account(provider: ProviderKind) -> String {
-    format!("provider::{provider:?}")
+    let creds = load_all_credentials()?;
+    Ok(creds.get(&credential_key(provider)).cloned())
 }

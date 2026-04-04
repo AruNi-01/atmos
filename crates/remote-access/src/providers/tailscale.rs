@@ -3,7 +3,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::Value;
-use tokio::process::Command;
 use tokio::sync::RwLock;
 
 use super::{
@@ -33,23 +32,54 @@ impl TunnelProvider for TailscaleProvider {
     }
 
     async fn detect(&self) -> ProviderDiagnostics {
-        let binary_found = Command::new("tailscale")
+        let binary_found = super::provider_command("tailscale")
             .arg("version")
             .output()
             .await
             .map(|o| o.status.success())
             .unwrap_or(false);
-        let logged_in = self
-            .status_json()
-            .await
-            .map(|value| matches!(Self::login_state(&value), TailscaleLoginState::LoggedIn))
-            .unwrap_or(false);
+
+        let (logged_in, daemon_running) = if binary_found {
+            match super::provider_command("tailscale")
+                .args(["status", "--json"])
+                .output()
+                .await
+            {
+                Ok(output) if output.status.success() => {
+                    let json: Option<serde_json::Value> =
+                        serde_json::from_slice(&output.stdout).ok();
+                    let logged_in = json
+                        .map(|v| matches!(Self::login_state(&v), TailscaleLoginState::LoggedIn))
+                        .unwrap_or(false);
+                    (logged_in, true)
+                }
+                Ok(output) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let no_daemon = stderr.contains("failed to connect")
+                        || stderr.contains("is Tailscale running");
+                    (false, !no_daemon)
+                }
+                Err(_) => (false, false),
+            }
+        } else {
+            (false, false)
+        };
+
+        let mut warnings = Vec::new();
+        if !binary_found {
+            warnings.push("Install Tailscale: `brew install tailscale` or visit https://tailscale.com/download".to_string());
+        } else if !daemon_running {
+            warnings.push("Tailscale service is not running. Install the Tailscale macOS app or start the daemon with `sudo tailscaled &`".to_string());
+        } else if !logged_in {
+            warnings.push("Run `tailscale login` to authenticate".to_string());
+        }
 
         ProviderDiagnostics {
             provider: ProviderKind::Tailscale,
             binary_found,
+            daemon_running: Some(daemon_running),
             logged_in,
-            warnings: vec!["tailscale funnel 需要显式开启公网暴露".to_string()],
+            warnings,
             last_error: self.last_error.read().await.clone(),
             logs: self.logs.read().await.clone(),
         }
@@ -61,7 +91,7 @@ impl TunnelProvider for TailscaleProvider {
             args = vec!["funnel", "--bg"];
         }
 
-        let output = Command::new("tailscale")
+        let output = super::provider_command("tailscale")
             .args(args)
             .arg(req.target_url)
             .output()
@@ -223,7 +253,11 @@ impl TailscaleProvider {
     }
 
     async fn status_json(&self) -> Option<Value> {
-        let output = Self::run_command(["status", "--json"]).await.ok()?;
+        let output = super::provider_command("tailscale")
+            .args(["status", "--json"])
+            .output()
+            .await
+            .ok()?;
         if !output.status.success() {
             return None;
         }
@@ -250,7 +284,10 @@ impl TailscaleProvider {
     }
 
     async fn run_command(args: [&str; 2]) -> std::io::Result<std::process::Output> {
-        Command::new("tailscale").args(args).output().await
+        super::provider_command("tailscale")
+            .args(args)
+            .output()
+            .await
     }
 
     fn command_output_details(output: &std::process::Output) -> String {

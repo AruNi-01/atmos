@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::Utc;
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::Child;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
 
@@ -27,18 +27,25 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
     }
 
     async fn detect(&self) -> ProviderDiagnostics {
-        let binary_found = Command::new("cloudflared")
+        let binary_found = super::provider_command("cloudflared")
             .arg("--version")
             .output()
             .await
             .map(|o| o.status.success())
             .unwrap_or(false);
 
+        let warnings = if !binary_found {
+            vec!["Install cloudflared: `brew install cloudflared` or visit https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/".to_string()]
+        } else {
+            vec![]
+        };
+
         ProviderDiagnostics {
             provider: ProviderKind::Cloudflare,
             binary_found,
-            logged_in: true,
-            warnings: vec!["quick tunnel 默认临时域名，不保证长期稳定".to_string()],
+            daemon_running: None,
+            logged_in: binary_found,
+            warnings,
             last_error: self.last_error.read().await.clone(),
             logs: self.logs.read().await.clone(),
         }
@@ -53,7 +60,7 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
             });
         }
 
-        let mut child = Command::new("cloudflared")
+        let mut child = super::provider_command("cloudflared")
             .args(["tunnel", "--url", &req.target_url, "--no-autoupdate"])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

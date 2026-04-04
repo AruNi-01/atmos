@@ -64,6 +64,7 @@ import { useWebSocketStore } from '@/hooks/use-websocket';
 import { settingsModalParams } from '@/lib/nuqs/searchParams';
 import { useNotificationSettings, type PushServerConfig, type PushServerType } from '@/hooks/use-notification-settings';
 import { ensureBrowserNotificationPermission } from '@/hooks/use-agent-notifications';
+import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -101,6 +102,12 @@ const SETTINGS_SECTIONS = [
     label: 'Notify',
     description: 'Notification channels and agent event triggers',
     icon: Bell,
+  },
+  {
+    id: 'remote-access',
+    label: 'Remote Access',
+    description: 'Tunnel gateway and remote browser access',
+    icon: Route,
   },
 ] as const;
 
@@ -2393,7 +2400,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
-                ) : (
+                ) : resolvedActiveSection === 'notify' ? (
                   <NotifySettingsSection
                     settings={notifySettings}
                     isLoading={isNotifyLoading}
@@ -2420,7 +2427,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onUpdatePushServer={updatePushServer}
                     onTestPushServer={testPushServer}
                   />
-                )}
+                ) : resolvedActiveSection === 'remote-access' ? (
+                  <RemoteAccessSection />
+                ) : null}
                 </div>
               </ScrollArea>
             </div>

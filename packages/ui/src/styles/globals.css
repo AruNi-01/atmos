@@ -156,7 +156,6 @@
   [class*="animate-spin"] > svg {
     transform-box: fill-box;
     transform-origin: center;
-    will-change: transform;
   }
 }
 

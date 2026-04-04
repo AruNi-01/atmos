@@ -53,19 +53,13 @@ impl RemoteAccessManager {
     }
 
     pub async fn detect_all(&self) -> Vec<ProviderDiagnostics> {
-        let providers = [
-            ProviderKind::Tailscale,
-            ProviderKind::Cloudflare,
-            ProviderKind::Ngrok,
-        ];
-        let mut diagnostics = Vec::with_capacity(providers.len());
+        let ts = build_provider(ProviderKind::Tailscale);
+        let cf = build_provider(ProviderKind::Cloudflare);
+        let ng = build_provider(ProviderKind::Ngrok);
 
-        for kind in providers {
-            let provider = build_provider(kind);
-            diagnostics.push(provider.detect().await);
-        }
+        let (ts_diag, cf_diag, ng_diag) = tokio::join!(ts.detect(), cf.detect(), ng.detect());
 
-        diagnostics
+        vec![ts_diag, cf_diag, ng_diag]
     }
 
     pub async fn start(
@@ -93,41 +87,57 @@ impl RemoteAccessManager {
             SessionMode::Private
         };
 
-        let session = session_store
-            .create_session(CreateSessionRequest {
+        let session = tokio::time::timeout(
+            tokio::time::Duration::from_secs(2),
+            session_store.create_session(CreateSessionRequest {
                 provider: provider_kind,
                 mode: session_mode,
                 permission: SessionPermission::Control,
                 ttl_secs,
-            })
-            .await;
-
-        let gateway = GatewayRuntime::start(GatewayRuntimeConfig {
-            bind_addr: "127.0.0.1:0"
-                .parse::<SocketAddr>()
-                .map_err(|e| e.to_string())?,
-            target_base_url: target_base_url.clone(),
-            session_store: session_store.clone(),
-        })
+            }),
+        )
         .await
+        .map_err(|_| "create remote access session timed out after 2s".to_string())?;
+
+        let gateway = tokio::time::timeout(
+            tokio::time::Duration::from_secs(2),
+            GatewayRuntime::start(GatewayRuntimeConfig {
+                bind_addr: "127.0.0.1:0"
+                    .parse::<SocketAddr>()
+                    .map_err(|e| e.to_string())?,
+                target_base_url: target_base_url.clone(),
+                session_store: session_store.clone(),
+            }),
+        )
+        .await
+        .map_err(|_| "start remote access gateway timed out after 2s".to_string())?
         .map_err(|e| e.to_string())?;
         let gateway_url = gateway.local_url.clone();
 
-        let status = provider
-            .start(ProviderStartRequest {
+        let start_result = tokio::time::timeout(
+            tokio::time::Duration::from_secs(20),
+            provider.start(ProviderStartRequest {
                 target_url: gateway_url.clone(),
                 mode,
                 credential,
-            })
-            .await;
-        let status = match status {
-            Ok(status) => status,
-            Err(err) => {
+            }),
+        )
+        .await;
+        let status = match start_result {
+            Ok(Ok(status)) => status,
+            Ok(Err(err)) => {
                 gateway.shutdown().await;
                 let mut state = self.inner.write().await;
                 state.provider = None;
                 state.provider_kind = None;
                 return Err(err.to_string());
+            }
+            Err(_elapsed) => {
+                gateway.shutdown().await;
+                let mut state = self.inner.write().await;
+                state.provider = None;
+                state.provider_kind = None;
+                return Err("provider start timed out after 20s".to_string());
             }
         };
 
@@ -147,15 +157,19 @@ impl RemoteAccessManager {
             state.gateway = Some(gateway);
         }
 
-        self.persist_started_state(PersistedRemoteAccessState {
-            provider: provider_kind,
-            mode,
-            target_base_url,
-            ttl_secs,
-            last_started_at: Utc::now().to_rfc3339(),
-            session: session.clone(),
-        })
-        .await?;
+        tokio::time::timeout(
+            tokio::time::Duration::from_secs(2),
+            self.persist_started_state(PersistedRemoteAccessState {
+                provider: provider_kind,
+                mode,
+                target_base_url,
+                ttl_secs,
+                last_started_at: Utc::now().to_rfc3339(),
+                session: session.clone(),
+            }),
+        )
+        .await
+        .map_err(|_| "persist remote access state timed out after 2s".to_string())??;
 
         Ok(Self::build_status(
             Some(provider_kind),

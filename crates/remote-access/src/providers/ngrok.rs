@@ -27,11 +27,17 @@ impl TunnelProvider for NgrokProvider {
     }
 
     async fn detect(&self) -> ProviderDiagnostics {
+        let has_authtoken = std::env::var("NGROK_AUTHTOKEN").is_ok();
         ProviderDiagnostics {
             provider: ProviderKind::Ngrok,
-            binary_found: true,
-            logged_in: std::env::var("NGROK_AUTHTOKEN").is_ok(),
-            warnings: vec!["ngrok 需要配置 authtoken".to_string()],
+            binary_found: has_authtoken,
+            daemon_running: None,
+            logged_in: has_authtoken,
+            warnings: if has_authtoken {
+                vec![]
+            } else {
+                vec!["Uses embedded SDK (no external binary needed). Set NGROK_AUTHTOKEN or save your token in Settings".to_string()]
+            },
             last_error: self.last_error.read().await.clone(),
             logs: self.logs.read().await.clone(),
         }
