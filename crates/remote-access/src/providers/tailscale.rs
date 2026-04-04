@@ -203,7 +203,12 @@ impl TailscaleProvider {
                         ..current_status.clone()
                     }
                 } else {
-                    current_status
+                    ProviderStatus {
+                        state: ProviderStatusState::Error,
+                        public_url: None,
+                        message: Some("tailscale did not report a DNS name".to_string()),
+                        started_at: current_status.started_at,
+                    }
                 }
             }
             TailscaleLoginState::Unknown => current_status,
