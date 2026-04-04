@@ -42,7 +42,7 @@ const timerVariants = cva(
 )
 
 const timerIconVariants = cva(
-  "inline-flex shrink-0 items-center justify-center transition-transform duration-[2000ms] transform-gpu will-change-transform [transform-box:fill-box] [transform-origin:center]",
+  "inline-flex shrink-0 items-center justify-center",
   {
   variants: {
     size: {
@@ -50,14 +50,9 @@ const timerIconVariants = cva(
       md: "w-3.5 h-3.5",
       lg: "w-4 h-4",
     },
-    loading: {
-      true: "animate-spin",
-      false: "",
-    },
   },
   defaultVariants: {
     size: "md",
-    loading: false,
   },
 })
 
@@ -83,6 +78,8 @@ export type TimerRootProps = {
 export type TimerIconProps = {
   /** Custom icon to display instead of default Clock */
   icon?: React.ComponentType<{ className?: string }>
+  /** Whether the icon should spin */
+  loading?: boolean
 } & VariantProps<typeof timerIconVariants> &
   React.HTMLAttributes<HTMLDivElement>
 
@@ -155,10 +152,15 @@ export const TimerIcon = React.forwardRef<HTMLDivElement, TimerIconProps>(
     return (
       <div
         ref={ref}
-        className={cn(timerIconVariants({ size, loading }), className)}
+        className={cn(timerIconVariants({ size }), className)}
         {...props}
       >
-        <Icon className="block h-full w-full shrink-0 [transform-box:fill-box] [transform-origin:center]" />
+        <Icon
+          className={cn(
+            "block h-full w-full shrink-0 [transform-box:fill-box] [transform-origin:center]",
+            loading && "animate-spin"
+          )}
+        />
       </div>
     )
   }

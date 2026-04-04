@@ -1838,14 +1838,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                           disabled={isRefreshing}
                           aria-label="Refresh usage"
                         >
-                          <span
+                          <RefreshCcw
                             className={cn(
-                              "inline-flex size-3 shrink-0 items-center justify-center transform-gpu will-change-transform [transform-box:fill-box] [transform-origin:center]",
+                              "block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center]",
                               isRefreshing && "animate-spin"
                             )}
-                          >
-                            <RefreshCcw className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center]" />
-                          </span>
+                          />
                           <span className="text-[10px] font-medium">Refresh</span>
                         </button>
                       </motion.div>
