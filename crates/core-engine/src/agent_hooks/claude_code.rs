@@ -4,7 +4,9 @@ use tracing::debug;
 use super::{home_dir, AgentHookToolStatus};
 
 fn settings_path() -> Option<std::path::PathBuf> {
-    home_dir().ok().map(|h| h.join(".claude").join("settings.json"))
+    home_dir()
+        .ok()
+        .map(|h| h.join(".claude").join("settings.json"))
 }
 
 fn hook_url(port: u16) -> String {
@@ -48,7 +50,10 @@ fn build_hook_entries(port: u16) -> Value {
     let post_tool = build_cmd(port, r#"{"hook_event_name":"PostToolUse"}"#);
     let post_tool_fail = build_cmd(port, r#"{"hook_event_name":"PostToolUseFailure"}"#);
     let perm_request = build_cmd(port, r#"{"hook_event_name":"PermissionRequest"}"#);
-    let notification = build_cmd(port, r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#);
+    let notification = build_cmd(
+        port,
+        r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#,
+    );
     let stop = build_cmd(port, r#"{"hook_event_name":"Stop"}"#);
     json!({
         "SessionStart": [{
@@ -112,9 +117,7 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
     if let Some(hooks_map) = hooks_obj.as_object_mut() {
         if let Some(new_map) = new_hooks.as_object() {
             for (event_name, new_entries) in new_map {
-                let event_arr = hooks_map
-                    .entry(event_name)
-                    .or_insert_with(|| json!([]));
+                let event_arr = hooks_map.entry(event_name).or_insert_with(|| json!([]));
 
                 if let Some(arr) = event_arr.as_array_mut() {
                     // Remove any existing atmos hooks (old format or current)
@@ -150,7 +153,10 @@ pub(super) fn uninstall(port: u16) -> AgentHookToolStatus {
     if let Some(hooks_map) = settings.get_mut("hooks").and_then(|h| h.as_object_mut()) {
         let event_names: Vec<String> = hooks_map.keys().cloned().collect();
         for event_name in event_names {
-            if let Some(arr) = hooks_map.get_mut(&event_name).and_then(|v| v.as_array_mut()) {
+            if let Some(arr) = hooks_map
+                .get_mut(&event_name)
+                .and_then(|v| v.as_array_mut())
+            {
                 arr.retain(|entry| !is_atmos_hook(entry, port));
                 if arr.is_empty() {
                     hooks_map.remove(&event_name);
@@ -186,7 +192,12 @@ pub(super) fn check(port: u16) -> AgentHookToolStatus {
     let path_str = path.display().to_string();
 
     if !path.exists() {
-        return AgentHookToolStatus { detected: true, installed: false, config_path: Some(path_str), error: None };
+        return AgentHookToolStatus {
+            detected: true,
+            installed: false,
+            config_path: Some(path_str),
+            error: None,
+        };
     }
 
     let settings: Value = match std::fs::read_to_string(&path) {
@@ -201,7 +212,12 @@ pub(super) fn check(port: u16) -> AgentHookToolStatus {
         .map(|arr| arr.iter().any(|entry| is_atmos_hook(entry, port)))
         .unwrap_or(false);
 
-    AgentHookToolStatus { detected: true, installed, config_path: Some(path_str), error: None }
+    AgentHookToolStatus {
+        detected: true,
+        installed,
+        config_path: Some(path_str),
+        error: None,
+    }
 }
 
 fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), String> {

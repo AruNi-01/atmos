@@ -8,7 +8,9 @@ fn hooks_json_path() -> Option<std::path::PathBuf> {
 }
 
 fn config_toml_path() -> Option<std::path::PathBuf> {
-    home_dir().ok().map(|h| h.join(".codex").join("config.toml"))
+    home_dir()
+        .ok()
+        .map(|h| h.join(".codex").join("config.toml"))
 }
 
 fn hook_url(port: u16) -> String {
@@ -69,8 +71,7 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
 
     let codex_dir = hooks_path.parent().unwrap();
 
-    let detected = codex_dir.exists()
-        || which_exists("codex");
+    let detected = codex_dir.exists() || which_exists("codex");
 
     if !detected {
         debug!("Codex CLI not detected, skipping");
@@ -141,7 +142,10 @@ pub(super) fn uninstall(port: u16) -> AgentHookToolStatus {
     if let Some(hooks_map) = settings.get_mut("hooks").and_then(|h| h.as_object_mut()) {
         let event_names: Vec<String> = hooks_map.keys().cloned().collect();
         for event_name in event_names {
-            if let Some(arr) = hooks_map.get_mut(&event_name).and_then(|v| v.as_array_mut()) {
+            if let Some(arr) = hooks_map
+                .get_mut(&event_name)
+                .and_then(|v| v.as_array_mut())
+            {
                 arr.retain(|entry| !is_atmos_hook(entry, port));
                 if arr.is_empty() {
                     hooks_map.remove(&event_name);
@@ -175,7 +179,12 @@ pub(super) fn check(port: u16) -> AgentHookToolStatus {
     let path_str = hooks_path.display().to_string();
 
     if !hooks_path.exists() {
-        return AgentHookToolStatus { detected: true, installed: false, config_path: Some(path_str), error: None };
+        return AgentHookToolStatus {
+            detected: true,
+            installed: false,
+            config_path: Some(path_str),
+            error: None,
+        };
     }
 
     let settings: Value = match std::fs::read_to_string(&hooks_path) {
@@ -190,7 +199,12 @@ pub(super) fn check(port: u16) -> AgentHookToolStatus {
         .map(|arr| arr.iter().any(|entry| is_atmos_hook(entry, port)))
         .unwrap_or(false);
 
-    AgentHookToolStatus { detected: true, installed, config_path: Some(path_str), error: None }
+    AgentHookToolStatus {
+        detected: true,
+        installed,
+        config_path: Some(path_str),
+        error: None,
+    }
 }
 
 fn ensure_hooks_feature_flag() {
@@ -221,7 +235,10 @@ fn ensure_hooks_feature_flag() {
     };
 
     if let Err(e) = std::fs::write(&path, new_content) {
-        warn!("Failed to enable Codex hooks feature flag at {:?}: {}", path, e);
+        warn!(
+            "Failed to enable Codex hooks feature flag at {:?}: {}",
+            path, e
+        );
     }
 }
 

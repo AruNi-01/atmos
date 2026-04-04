@@ -47,7 +47,9 @@ async fn handle_claude_code_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
-    state.agent_hooks_service.handle_claude_code_event(&payload, &ctx);
+    state
+        .agent_hooks_service
+        .handle_claude_code_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
@@ -67,27 +69,23 @@ async fn handle_opencode_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
-    state.agent_hooks_service.handle_opencode_event(&payload, &ctx);
+    state
+        .agent_hooks_service
+        .handle_opencode_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
-async fn list_hook_sessions(
-    State(state): State<AppState>,
-) -> Json<Value> {
+async fn list_hook_sessions(State(state): State<AppState>) -> Json<Value> {
     let sessions = state.agent_hooks_service.get_all_sessions();
     Json(serde_json::json!({ "sessions": sessions }))
 }
 
-async fn clear_idle_sessions(
-    State(state): State<AppState>,
-) -> Json<Value> {
+async fn clear_idle_sessions(State(state): State<AppState>) -> Json<Value> {
     let cleared = state.agent_hooks_service.clear_idle_sessions();
     Json(serde_json::json!({ "cleared": cleared }))
 }
 
-async fn get_notification_settings(
-    State(state): State<AppState>,
-) -> Json<Value> {
+async fn get_notification_settings(State(state): State<AppState>) -> Json<Value> {
     let settings = state.notification_service.get_settings();
     Json(serde_json::to_value(settings).unwrap_or_default())
 }

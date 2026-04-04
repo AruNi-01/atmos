@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use core_service::{
-    AgentHooksService, AgentService, AgentSessionService, MessagePushService,
-    NotificationService, ProjectService, TerminalService, TestService, WorkspaceService,
-    WsMessageService,
+    AgentHooksService, AgentService, AgentSessionService, MessagePushService, NotificationService,
+    ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService,
 };
 use infra::{WsService, WsServiceConfig};
 use token_usage::TokenUsageService;

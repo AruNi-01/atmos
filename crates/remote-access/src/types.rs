@@ -33,9 +33,11 @@ pub enum SessionValidation {
 pub struct RemoteAccessStatus {
     pub gateway_url: Option<String>,
     pub public_url: Option<String>,
-    pub provider: ProviderKind,
+    pub share_url: Option<String>,
+    pub provider: Option<ProviderKind>,
     pub provider_status: ProviderStatus,
     pub active_session_id: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

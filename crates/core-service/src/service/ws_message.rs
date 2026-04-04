@@ -15,14 +15,13 @@ use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
-    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CodeAgentCustomUpdateRequest,
-    CustomAgentAddRequest,
-    CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest,
-    FsDuplicatePathRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest,
-    FsRenamePathRequest, FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest,
-    FsWriteFileRequest, FunctionSettingsUpdateRequest,
-    GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
-    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
+    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest,
+    CodeAgentCustomUpdateRequest, CustomAgentAddRequest, CustomAgentRemoveRequest,
+    CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest, FsDuplicatePathRequest,
+    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsRenamePathRequest,
+    FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest, FsWriteFileRequest,
+    FunctionSettingsUpdateRequest, GitChangedFilesRequest, GitCommitRequest,
+    GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
     GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
     GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest,
     GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
@@ -644,12 +643,9 @@ impl WsMessageService {
             // Notification settings are managed via REST endpoints (/hooks/notification/*)
             WsAction::NotificationSettingsGet
             | WsAction::NotificationSettingsUpdate
-            | WsAction::NotificationTestPush => {
-                Err(ServiceError::Processing(
-                    "Notification settings are managed via REST API at /hooks/notification/*"
-                        .into(),
-                ))
-            }
+            | WsAction::NotificationTestPush => Err(ServiceError::Processing(
+                "Notification settings are managed via REST API at /hooks/notification/*".into(),
+            )),
         }
     }
 
@@ -2979,9 +2975,7 @@ set -x
                 let args = vec!["api", "graphql", "-f", &graphql_query_arg];
                 self.github_engine.run_gh(&args).await.ok()
             },
-            async {
-                self.fetch_enriched_closing_issues(&req).await
-            }
+            async { self.fetch_enriched_closing_issues(&req).await }
         );
 
         let mut result = json!({});
@@ -3015,10 +3009,21 @@ set -x
         Ok(result)
     }
 
-    async fn fetch_enriched_closing_issues(&self, req: &GithubPrDetailRequest) -> Option<Vec<Value>> {
+    async fn fetch_enriched_closing_issues(
+        &self,
+        req: &GithubPrDetailRequest,
+    ) -> Option<Vec<Value>> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "closingIssuesReferences"];
+        let args = vec![
+            "pr",
+            "view",
+            &pr_num_str,
+            "--repo",
+            &repo_arg,
+            "--json",
+            "closingIssuesReferences",
+        ];
         let output = self.github_engine.run_gh(&args).await.ok()?;
         let issues = output.get("closingIssuesReferences")?.as_array()?.clone();
         if issues.is_empty() {
@@ -3411,10 +3416,7 @@ set -x
         let path = terminal_code_agent_path();
         if path.exists() {
             let content = std::fs::read_to_string(&path).map_err(|e| {
-                ServiceError::Validation(format!(
-                    "Failed to read terminal_code_agent.json: {}",
-                    e
-                ))
+                ServiceError::Validation(format!("Failed to read terminal_code_agent.json: {}", e))
             })?;
             let val: Value = serde_json::from_str(&content).unwrap_or(json!({ "agents": [] }));
             Ok(val)

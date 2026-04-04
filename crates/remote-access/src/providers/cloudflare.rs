@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Utc;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::process::{Child, Command};
+use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
 
 use super::{
@@ -58,30 +59,25 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
             .stderr(std::process::Stdio::piped())
             .spawn()?;
 
-        let mut public_url = None;
+        let (url_tx, mut url_rx) = mpsc::unbounded_channel();
         if let Some(stdout) = child.stdout.take() {
-            let mut lines = BufReader::new(stdout).lines();
-            let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(8);
-            while tokio::time::Instant::now() < deadline {
-                if let Ok(Ok(Some(line))) =
-                    tokio::time::timeout(tokio::time::Duration::from_millis(500), lines.next_line())
-                        .await
-                {
-                    if let Some(url) = line
-                        .split_whitespace()
-                        .find(|x| x.starts_with("https://") && x.contains("trycloudflare.com"))
-                    {
-                        public_url = Some(url.to_string());
-                    }
-                    self.logs.write().await.push(ProviderLogEntry {
-                        at: Utc::now(),
-                        level: "info".to_string(),
-                        message: line,
-                    });
-                    if public_url.is_some() {
-                        break;
-                    }
+            Self::spawn_log_drain(stdout, "info", Arc::clone(&self.logs), Some(url_tx.clone()));
+        }
+        if let Some(stderr) = child.stderr.take() {
+            Self::spawn_log_drain(stderr, "warn", Arc::clone(&self.logs), Some(url_tx.clone()));
+        }
+        drop(url_tx);
+
+        let mut public_url = None;
+        let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(8);
+        while tokio::time::Instant::now() < deadline {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            match tokio::time::timeout(remaining, url_rx.recv()).await {
+                Ok(Some(url)) => {
+                    public_url = Some(url);
+                    break;
                 }
+                Ok(None) | Err(_) => break,
             }
         }
 
@@ -100,6 +96,7 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
     async fn stop(&self) -> anyhow::Result<()> {
         if let Some(mut child) = self.child.lock().await.take() {
             let _ = child.kill().await;
+            let _ = child.wait().await;
         }
         *self.status.write().await = ProviderStatus::default();
         self.logs.write().await.push(ProviderLogEntry {
@@ -111,6 +108,7 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
     }
 
     async fn status(&self) -> ProviderStatus {
+        self.refresh_child_state().await;
         self.status.read().await.clone()
     }
 
@@ -124,4 +122,106 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
         }
         self.start(req).await
     }
+}
+
+impl CloudflareQuickTunnelProvider {
+    fn spawn_log_drain<R>(
+        reader: R,
+        level: &'static str,
+        logs: Arc<RwLock<Vec<ProviderLogEntry>>>,
+        url_tx: Option<mpsc::UnboundedSender<String>>,
+    ) where
+        R: AsyncRead + Unpin + Send + 'static,
+    {
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(reader).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if let Some(url) = extract_trycloudflare_url(&line) {
+                    if let Some(url_tx) = &url_tx {
+                        let _ = url_tx.send(url);
+                    }
+                }
+                logs.write().await.push(ProviderLogEntry {
+                    at: Utc::now(),
+                    level: level.to_string(),
+                    message: line,
+                });
+            }
+        });
+    }
+
+    async fn refresh_child_state(&self) {
+        let exit = {
+            let mut child_guard = self.child.lock().await;
+            let Some(child) = child_guard.as_mut() else {
+                return;
+            };
+
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    *child_guard = None;
+                    Ok(Some(status))
+                }
+                Ok(None) => Ok(None),
+                Err(err) => {
+                    *child_guard = None;
+                    Err(err.to_string())
+                }
+            }
+        };
+
+        let exit = match exit {
+            Ok(Some(exit)) => exit,
+            Ok(None) => return,
+            Err(err) => {
+                *self.last_error.write().await = Some(err.clone());
+                *self.status.write().await = ProviderStatus {
+                    state: ProviderStatusState::Error,
+                    public_url: None,
+                    message: Some(err.clone()),
+                    started_at: None,
+                };
+                self.logs.write().await.push(ProviderLogEntry {
+                    at: Utc::now(),
+                    level: "error".to_string(),
+                    message: err,
+                });
+                return;
+            }
+        };
+
+        let message = if exit.success() {
+            "cloudflare quick tunnel exited".to_string()
+        } else {
+            let message = format!("cloudflare quick tunnel exited with status {exit}");
+            *self.last_error.write().await = Some(message.clone());
+            message
+        };
+
+        *self.status.write().await = ProviderStatus {
+            state: if exit.success() {
+                ProviderStatusState::Idle
+            } else {
+                ProviderStatusState::Error
+            },
+            public_url: None,
+            message: Some(message.clone()),
+            started_at: None,
+        };
+        self.logs.write().await.push(ProviderLogEntry {
+            at: Utc::now(),
+            level: if exit.success() {
+                "info".to_string()
+            } else {
+                "error".to_string()
+            },
+            message,
+        });
+    }
+}
+
+fn extract_trycloudflare_url(line: &str) -> Option<String> {
+    line.split_whitespace()
+        .find(|token| token.starts_with("https://") && token.contains("trycloudflare.com"))
+        .map(ToString::to_string)
 }

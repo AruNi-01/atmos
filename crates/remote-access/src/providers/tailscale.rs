@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Utc;
+use serde_json::Value;
 use tokio::process::Command;
 use tokio::sync::RwLock;
 
@@ -72,16 +73,17 @@ impl TunnelProvider for TailscaleProvider {
             ),
         });
 
+        let public_url = self.public_url().await.unwrap_or_else(|| {
+            if req.mode == ProviderAccessMode::Public {
+                "tailscale://funnel".to_string()
+            } else {
+                "tailscale://serve".to_string()
+            }
+        });
+
         let status = ProviderStatus {
             state: ProviderStatusState::Running,
-            public_url: Some(
-                if req.mode == ProviderAccessMode::Public {
-                    "tailscale://funnel"
-                } else {
-                    "tailscale://serve"
-                }
-                .to_string(),
-            ),
+            public_url: Some(public_url),
             message: Some("tailscale tunnel started".to_string()),
             started_at: Some(Utc::now()),
         };
@@ -121,5 +123,27 @@ impl TunnelProvider for TailscaleProvider {
             return Ok(self.status.read().await.clone());
         }
         self.start(req).await
+    }
+}
+
+impl TailscaleProvider {
+    async fn public_url(&self) -> Option<String> {
+        let output = Command::new("tailscale")
+            .args(["status", "--json"])
+            .output()
+            .await
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+
+        let value = serde_json::from_slice::<Value>(&output.stdout).ok()?;
+        let dns_name = value
+            .get("Self")
+            .and_then(|self_value| self_value.get("DNSName"))
+            .and_then(Value::as_str)?
+            .trim_end_matches('.');
+
+        Some(format!("https://{dns_name}"))
     }
 }

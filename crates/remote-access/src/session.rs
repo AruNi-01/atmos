@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Duration, Utc};
 use rand::distributions::{Alphanumeric, DistString};
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -10,7 +11,7 @@ use crate::error::RemoteAccessError;
 use crate::providers::ProviderKind;
 use crate::types::{CreateSessionRequest, SessionMode, SessionPermission, SessionValidation};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TunnelSession {
     pub session_id: String,
     pub provider: ProviderKind,
@@ -62,6 +63,13 @@ impl SessionStore {
         if let Some(session) = self.inner.write().await.get_mut(session_id) {
             session.public_url = Some(public_url);
         }
+    }
+
+    pub async fn restore_session(&self, session: TunnelSession) {
+        self.inner
+            .write()
+            .await
+            .insert(session.session_id.clone(), session);
     }
 
     pub async fn revoke_session(&self, session_id: &str) -> Result<(), RemoteAccessError> {

@@ -1,4 +1,4 @@
-use remote_access::{ProviderAccessMode, ProviderKind, ProviderStatus};
+use remote_access::{ProviderAccessMode, ProviderKind, RemoteAccessStatus};
 use serde::{Deserialize, Serialize};
 
 use crate::remote_access::manager::RemoteAccessManager;
@@ -38,7 +38,7 @@ pub async fn remote_access_detect(
 pub async fn remote_access_start(
     state: tauri::State<'_, AppState>,
     req: StartRemoteAccessReq,
-) -> Result<ProviderStatus, String> {
+) -> Result<RemoteAccessStatus, String> {
     let credential = if req.use_saved_credential.unwrap_or(false) {
         load_provider_credential(req.provider)?
     } else {
@@ -60,9 +60,15 @@ pub async fn remote_access_start(
 #[tauri::command]
 pub async fn remote_access_recover(
     state: tauri::State<'_, AppState>,
-    provider: ProviderKind,
-) -> Result<Option<ProviderStatus>, String> {
-    let credential = load_provider_credential(provider)?;
+) -> Result<Option<RemoteAccessStatus>, String> {
+    let provider = state
+        .remote_access_manager
+        .persisted_provider_kind()
+        .await?;
+    let credential = match provider {
+        Some(provider) => load_provider_credential(provider)?,
+        None => None,
+    };
     state.remote_access_manager.recover(credential).await
 }
 
@@ -74,7 +80,7 @@ pub async fn remote_access_stop(state: tauri::State<'_, AppState>) -> Result<(),
 #[tauri::command]
 pub async fn remote_access_status(
     state: tauri::State<'_, AppState>,
-) -> Result<ProviderStatus, String> {
+) -> Result<RemoteAccessStatus, String> {
     Ok(state.remote_access_manager.status().await)
 }
 

@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -5,7 +6,8 @@ use chrono::Utc;
 use remote_access::{
     build_provider, CreateSessionRequest, GatewayHandle, GatewayRuntime, GatewayRuntimeConfig,
     ProviderAccessMode, ProviderDiagnostics, ProviderKind, ProviderStartRequest, ProviderStatus,
-    ProviderStatusState, SessionMode, SessionPermission, SessionStore,
+    ProviderStatusState, RemoteAccessStatus, SessionMode, SessionPermission, SessionStore,
+    TunnelSession,
 };
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -32,6 +34,7 @@ struct PersistedRemoteAccessState {
     target_base_url: String,
     ttl_secs: i64,
     last_started_at: String,
+    session: TunnelSession,
 }
 
 impl RemoteAccessManager {
@@ -72,7 +75,7 @@ impl RemoteAccessManager {
         target_base_url: String,
         ttl_secs: i64,
         credential: Option<String>,
-    ) -> Result<ProviderStatus, String> {
+    ) -> Result<RemoteAccessStatus, String> {
         let provider = build_provider(provider_kind);
         let session_store = {
             let mut state = self.inner.write().await;
@@ -100,29 +103,45 @@ impl RemoteAccessManager {
             .await;
 
         let gateway = GatewayRuntime::start(GatewayRuntimeConfig {
-            bind_addr: "127.0.0.1:0".parse().map_err(|e| e.to_string())?,
+            bind_addr: "127.0.0.1:0"
+                .parse::<SocketAddr>()
+                .map_err(|e| e.to_string())?,
             target_base_url: target_base_url.clone(),
             session_store: session_store.clone(),
         })
         .await
         .map_err(|e| e.to_string())?;
+        let gateway_url = gateway.local_url.clone();
 
         let status = provider
             .start(ProviderStartRequest {
-                target_url: gateway.local_url.clone(),
+                target_url: gateway_url.clone(),
                 mode,
                 credential,
             })
-            .await
-            .map_err(|e| e.to_string())?;
+            .await;
+        let status = match status {
+            Ok(status) => status,
+            Err(err) => {
+                gateway.shutdown().await;
+                let mut state = self.inner.write().await;
+                state.provider = None;
+                state.provider_kind = None;
+                return Err(err.to_string());
+            }
+        };
 
         let public_url = status.public_url.clone();
+        let mut session = session;
         if let Some(url) = public_url.clone() {
-            session_store.set_public_url(&session.session_id, url).await;
+            session_store
+                .set_public_url(&session.session_id, url.clone())
+                .await;
+            session.public_url = Some(url);
         }
 
         let mut state = self.inner.write().await;
-        state.active_session_id = Some(session.session_id);
+        state.active_session_id = Some(session.session_id.clone());
         state.public_url = public_url;
         state.gateway = Some(gateway);
 
@@ -132,60 +151,112 @@ impl RemoteAccessManager {
             target_base_url,
             ttl_secs,
             last_started_at: Utc::now().to_rfc3339(),
+            session: session.clone(),
         })
         .await;
 
-        Ok(status)
+        Ok(Self::build_status(
+            Some(provider_kind),
+            Some(gateway_url),
+            status,
+            Some(session),
+        ))
     }
 
     pub async fn recover(
         &self,
         credential: Option<String>,
-    ) -> Result<Option<ProviderStatus>, String> {
+    ) -> Result<Option<RemoteAccessStatus>, String> {
         let persisted = self.load_state().await?;
         let Some(persisted) = persisted else {
             return Ok(None);
         };
 
+        {
+            let state = self.inner.read().await;
+            if state.gateway.is_some() {
+                drop(state);
+                return Ok(Some(self.status().await));
+            }
+        }
+
         let provider = build_provider(persisted.provider);
         let session_store = {
             let mut state = self.inner.write().await;
-            if state.gateway.is_some() {
-                return Ok(Some(state.provider.as_ref().unwrap().status().await));
-            }
             state.provider = Some(Arc::clone(&provider));
             state.provider_kind = Some(persisted.provider);
             state.session_store.clone()
         };
+        session_store
+            .restore_session(persisted.session.clone())
+            .await;
 
         let gateway = GatewayRuntime::start(GatewayRuntimeConfig {
-            bind_addr: "127.0.0.1:0".parse().map_err(|e| e.to_string())?,
-            target_base_url: persisted.target_base_url,
-            session_store,
+            bind_addr: "127.0.0.1:0"
+                .parse::<SocketAddr>()
+                .map_err(|e| e.to_string())?,
+            target_base_url: persisted.target_base_url.clone(),
+            session_store: session_store.clone(),
         })
         .await
         .map_err(|e| e.to_string())?;
+        let gateway_url = gateway.local_url.clone();
 
         let status = provider
             .recover(ProviderStartRequest {
-                target_url: gateway.local_url.clone(),
+                target_url: gateway_url.clone(),
                 mode: persisted.mode,
                 credential,
             })
-            .await
-            .map_err(|e| e.to_string())?;
+            .await;
+        let status = match status {
+            Ok(status) => status,
+            Err(err) => {
+                gateway.shutdown().await;
+                let mut state = self.inner.write().await;
+                state.provider = None;
+                state.provider_kind = None;
+                return Err(err.to_string());
+            }
+        };
+
+        let public_url = status.public_url.clone();
+        let mut session = persisted.session;
+        if let Some(url) = public_url.clone() {
+            session_store
+                .set_public_url(&session.session_id, url.clone())
+                .await;
+            session.public_url = Some(url);
+        }
 
         let mut state = self.inner.write().await;
         state.gateway = Some(gateway);
-        state.public_url = status.public_url.clone();
-        Ok(Some(status))
+        state.active_session_id = Some(session.session_id.clone());
+        state.public_url = public_url;
+
+        self.persist_state(PersistedRemoteAccessState {
+            provider: persisted.provider,
+            mode: persisted.mode,
+            target_base_url: persisted.target_base_url,
+            ttl_secs: persisted.ttl_secs,
+            last_started_at: Utc::now().to_rfc3339(),
+            session: session.clone(),
+        })
+        .await;
+
+        Ok(Some(Self::build_status(
+            Some(persisted.provider),
+            Some(gateway_url),
+            status,
+            Some(session),
+        )))
     }
 
     pub async fn stop(&self) -> Result<(), String> {
         let (provider, gateway, active_session_id, session_store) = {
             let mut state = self.inner.write().await;
             (
-                state.provider.clone(),
+                state.provider.take(),
                 state.gateway.take(),
                 state.active_session_id.take(),
                 state.session_store.clone(),
@@ -204,22 +275,45 @@ impl RemoteAccessManager {
             gateway.shutdown().await;
         }
 
+        let mut state = self.inner.write().await;
+        state.provider_kind = None;
+        state.public_url = None;
+
         let _ = tokio::fs::remove_file(&self.state_file).await;
         Ok(())
     }
 
-    pub async fn status(&self) -> ProviderStatus {
-        let state = self.inner.read().await;
-        if let Some(provider) = &state.provider {
-            return provider.status().await;
-        }
+    pub async fn status(&self) -> RemoteAccessStatus {
+        let (provider, provider_kind, gateway_url, active_session_id, session_store) = {
+            let state = self.inner.read().await;
+            (
+                state.provider.clone(),
+                state.provider_kind,
+                state
+                    .gateway
+                    .as_ref()
+                    .map(|gateway| gateway.local_url.clone()),
+                state.active_session_id.clone(),
+                state.session_store.clone(),
+            )
+        };
 
-        ProviderStatus {
-            state: ProviderStatusState::Idle,
-            public_url: None,
-            message: Some("not running".to_string()),
-            started_at: None,
-        }
+        let provider_status = if let Some(provider) = provider {
+            provider.status().await
+        } else {
+            Self::idle_status()
+        };
+
+        let session = match active_session_id.as_deref() {
+            Some(session_id) => session_store.get_session(session_id).await,
+            None => None,
+        };
+
+        Self::build_status(provider_kind, gateway_url, provider_status, session)
+    }
+
+    pub async fn persisted_provider_kind(&self) -> Result<Option<ProviderKind>, String> {
+        Ok(self.load_state().await?.map(|persisted| persisted.provider))
     }
 
     pub fn provider_guide(provider: ProviderKind) -> Vec<String> {
@@ -258,5 +352,49 @@ impl RemoteAccessManager {
         let persisted = serde_json::from_slice::<PersistedRemoteAccessState>(&raw)
             .map_err(|err| err.to_string())?;
         Ok(Some(persisted))
+    }
+
+    fn build_status(
+        provider: Option<ProviderKind>,
+        gateway_url: Option<String>,
+        provider_status: ProviderStatus,
+        session: Option<TunnelSession>,
+    ) -> RemoteAccessStatus {
+        let public_url = provider_status.public_url.clone().or_else(|| {
+            session
+                .as_ref()
+                .and_then(|session| session.public_url.clone())
+        });
+        let share_url = session.as_ref().and_then(|session| {
+            public_url
+                .as_ref()
+                .map(|public_url| Self::share_url(public_url, &session.entry_token))
+        });
+        let active_session_id = session.as_ref().map(|session| session.session_id.clone());
+        let expires_at = session.as_ref().map(|session| session.expires_at);
+
+        RemoteAccessStatus {
+            gateway_url,
+            public_url,
+            share_url,
+            provider,
+            provider_status,
+            active_session_id,
+            expires_at,
+        }
+    }
+
+    fn share_url(public_url: &str, entry_token: &str) -> String {
+        let separator = if public_url.contains('?') { '&' } else { '?' };
+        format!("{public_url}{separator}entry_token={entry_token}")
+    }
+
+    fn idle_status() -> ProviderStatus {
+        ProviderStatus {
+            state: ProviderStatusState::Idle,
+            public_url: None,
+            message: Some("not running".to_string()),
+            started_at: None,
+        }
     }
 }

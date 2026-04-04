@@ -123,9 +123,11 @@ impl AgentHooksService {
                 guard.insert(p);
             }
         }
-        info!("Agent hooks: known project paths updated ({} entries)", guard.len());
+        info!(
+            "Agent hooks: known project paths updated ({} entries)",
+            guard.len()
+        );
     }
-
 
     pub fn get_all_sessions(&self) -> Vec<AgentHookSession> {
         self.sessions.read().values().cloned().collect()
@@ -228,7 +230,12 @@ impl AgentHooksService {
     }
 
     /// Prefer Atmos pane_id (stable, per-terminal-pane) > payload session_id > fallback.
-    fn resolve_session_id(&self, payload: &Value, tool: AgentToolType, ctx: &AtmosContext) -> String {
+    fn resolve_session_id(
+        &self,
+        payload: &Value,
+        tool: AgentToolType,
+        ctx: &AtmosContext,
+    ) -> String {
         if let Some(ref pane_id) = ctx.pane_id {
             return pane_id.clone();
         }
@@ -249,4 +256,3 @@ impl AgentHooksService {
             .and_then(|v| v.as_str())
     }
 }
-

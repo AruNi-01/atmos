@@ -1256,7 +1256,10 @@ mod tests {
         let origin_path = root.join("origin.git");
         let seed_path = root.join("seed");
 
-        git(&root, &["init", "--bare", origin_path.to_str().expect("valid path")]);
+        git(
+            &root,
+            &["init", "--bare", origin_path.to_str().expect("valid path")],
+        );
 
         fs::create_dir_all(&seed_path).expect("seed dir should be created");
         git(&seed_path, &["init"]);
@@ -1265,13 +1268,15 @@ mod tests {
         commit_file(&seed_path, "README.md", "hello\n", "initial");
         git(
             &seed_path,
-            &["remote", "add", "origin", origin_path.to_str().expect("valid path")],
+            &[
+                "remote",
+                "add",
+                "origin",
+                origin_path.to_str().expect("valid path"),
+            ],
         );
         git(&seed_path, &["push", "-u", "origin", "main"]);
-        git(
-            &origin_path,
-            &["symbolic-ref", "HEAD", "refs/heads/main"],
-        );
+        git(&origin_path, &["symbolic-ref", "HEAD", "refs/heads/main"]);
 
         (root, origin_path)
     }
