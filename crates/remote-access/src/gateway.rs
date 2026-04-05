@@ -7,6 +7,7 @@ use axum::response::IntoResponse;
 use axum::routing::any;
 use axum::{serve, Router};
 use futures_util::{SinkExt, StreamExt};
+use reqwest::redirect::Policy;
 use serde::Deserialize;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
@@ -62,7 +63,9 @@ impl GatewayRuntime {
         let state = GatewayState {
             target_base_url: config.target_base_url,
             session_store: config.session_store,
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .redirect(Policy::none())
+                .build()?,
         };
 
         let app = Router::new()

@@ -234,15 +234,27 @@ export function useRemoteAccess() {
   // Listen for the startup recovery event emitted by Rust after sidecar is ready.
   useEffect(() => {
     if (!isDesktop) return;
+    let cancelled = false;
     let unlisten: (() => void) | undefined;
+
     import('@tauri-apps/api/event').then(({ listen }) => {
+      if (cancelled) return;
       listen<Record<string, RemoteAccessStatus>>('remote-access-recovered', (event) => {
         if (event.payload && Object.keys(event.payload).length > 0) {
           setStatusMap(event.payload as RemoteAccessStatusMap);
         }
-      }).then((fn) => { unlisten = fn; });
+      }).then((fn) => {
+        if (cancelled) {
+          fn();
+          return;
+        }
+        unlisten = fn;
+      });
     });
-    return () => { unlisten?.(); };
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [isDesktop]);
 
   return {

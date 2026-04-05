@@ -98,9 +98,9 @@ impl TunnelProvider for TailscaleProvider {
         // just the CLI parent to exit via child.wait() (uses SIGCHLD, not
         // the tokio timer driver).
         //
-        // An OS-thread watchdog sends SIGKILL after 10 s if the CLI parent
-        // doesn't exit on its own (e.g. "Serve is not enabled on tailnet"
-        // causes it to hang waiting for the user).
+        // An OS-thread watchdog notifies the async task after 10 s if the CLI
+        // parent hasn't exited on its own (e.g. "Serve is not enabled on
+        // tailnet" causes it to hang waiting for the user).
         let mut child = super::provider_command("tailscale")
             .args(&args)
             .arg(&req.target_url)
@@ -108,19 +108,22 @@ impl TunnelProvider for TailscaleProvider {
             .stderr(std::process::Stdio::null())
             .spawn()?;
 
-        // Watchdog: SIGKILL the CLI parent after 10 s.
-        let child_id = child.id();
+        let (watchdog_tx, watchdog_rx) = tokio::sync::oneshot::channel();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(10));
-            if let Some(pid) = child_id {
-                #[cfg(unix)]
-                unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL); }
-            }
+            let _ = watchdog_tx.send(());
         });
 
         // Wait for the CLI parent to exit (tokio's SIGCHLD-based wait,
-        // not timer-based).  Returns as soon as the CLI exits or is killed.
-        let exit_status = child.wait().await;
+        // not timer-based).  Returns as soon as the CLI exits or the watchdog
+        // asks us to kill the same child handle.
+        let exit_status = tokio::select! {
+            status = child.wait() => status,
+            _ = watchdog_rx => {
+                let _ = child.start_kill();
+                child.wait().await
+            }
+        };
         let exit_ok = exit_status.map(|s| s.success()).unwrap_or(false);
 
         if !exit_ok {

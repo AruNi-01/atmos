@@ -46,7 +46,7 @@ function getActionCommand(provider: ProviderKind, action: 'install' | 'start' | 
 }
 
 export function formatExpiry(expiresAt: string | null): string {
-  if (!expiresAt) return 'Unknown';
+  if (!expiresAt) return 'No Expiry';
   const diff = new Date(expiresAt).getTime() - Date.now();
   if (diff <= 0) return 'Expired';
   const minutes = Math.floor(diff / 60_000);
@@ -334,7 +334,15 @@ function ProviderActions({ p, onRedetect }: { p: ProviderDiagnostics; onRedetect
   const hasStructuredAction = showDownload || showAuthHint || showTailscaleStart || showTailscaleLogin;
   const fallbackWarnings = hasStructuredAction ? [] : p.warnings;
 
-  if (!showDownload && !showAuthHint && fallbackWarnings.length === 0) return null;
+  if (
+    !showDownload &&
+    !showAuthHint &&
+    !showTailscaleStart &&
+    !showTailscaleLogin &&
+    fallbackWarnings.length === 0
+  ) {
+    return null;
+  }
 
   return (
     <div className="mt-2 space-y-1.5">
@@ -1176,5 +1184,3 @@ function RemoteAccessContent() {
     </div>
   );
 }
-
-

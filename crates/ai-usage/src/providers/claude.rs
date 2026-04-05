@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde::Deserialize;
 use std::env;
+use std::sync::OnceLock;
 
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
@@ -264,18 +265,24 @@ async fn delegate_claude_refresh() -> Result<(), ProviderError> {
         })
 }
 
-fn detect_claude_version() -> String {
-    run_command("claude", &["--version"])
-        .ok()
-        .and_then(|output| {
-            output
-                .trim()
-                .split_whitespace()
-                .next()
-                .filter(|v| v.contains('.'))
-                .map(str::to_string)
+fn detect_claude_version() -> &'static str {
+    static CLAUDE_VERSION: OnceLock<String> = OnceLock::new();
+
+    CLAUDE_VERSION
+        .get_or_init(|| {
+            run_command("claude", &["--version"])
+                .ok()
+                .and_then(|output| {
+                    output
+                        .trim()
+                        .split_whitespace()
+                        .next()
+                        .filter(|v| v.contains('.'))
+                        .map(str::to_string)
+                })
+                .unwrap_or_else(|| "2.1.0".to_string())
         })
-        .unwrap_or_else(|| "2.1.0".to_string())
+        .as_str()
 }
 
 async fn request_claude_usage(

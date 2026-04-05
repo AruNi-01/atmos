@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useQueryState } from "nuqs";
+import { useQueryState, useQueryStates } from "nuqs";
 import { useTheme } from "next-themes";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useContextParams } from "@/hooks/use-context-params";
-import { llmProvidersModalParams, settingsModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
+import { llmProvidersModalParams, rightSidebarModalParams, settingsModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
 import {
   ArrowRight,
   ArrowNarrowDownDashedIcon,
@@ -39,6 +39,8 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  GitPullRequestCreateIcon,
+  GitPullRequestClosedIcon,
 } from '@workspace/ui';
 import {
   Menu,
@@ -53,6 +55,7 @@ import {
 } from '@workspace/ui/components/animate-ui/components/base/menu';
 import { QuickOpen } from './QuickOpen';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
+import { useGithubPRList } from '@/hooks/use-github';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
@@ -361,7 +364,27 @@ const Header: React.FC = () => {
     setCurrentContext,
     setTargetBranch,
     refreshGitStatus,
+    githubOwner,
+    githubRepo,
   } = useGitInfoStore();
+
+  const [, setModalParams] = useQueryStates(rightSidebarModalParams);
+
+  const { data: prListData } = useGithubPRList({
+    owner: githubOwner ?? undefined,
+    repo: githubRepo ?? undefined,
+    branch: currentBranch ?? undefined,
+    state: 'all',
+  });
+  // Find the most recent PR (highest number) whose head branch matches current branch
+  const currentBranchPR = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const matches = (prListData as any[] | null)?.filter((pr: any) => pr.headRefName === currentBranch) ?? [];
+    if (matches.length === 0) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return matches.reduce((latest: any, pr: any) => pr.number > latest.number ? pr : latest, matches[0]);
+  }, [prListData, currentBranch]);
+  const prIconRef = useRef<{ startAnimation: () => void; stopAnimation: () => void } | null>(null);
 
   const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
 
@@ -851,11 +874,39 @@ const Header: React.FC = () => {
         {/* Center: Git Context Flow */}
         {(currentWorkspace || currentProject) && (
           <div className={cn(
-            "relative z-10 desktop-no-drag flex items-center space-x-2 bg-muted/40 px-3 py-1.5 rounded-md border border-transparent transition-all duration-300 ease-out h-8",
+            "relative z-10 desktop-no-drag flex items-center space-x-1.5 bg-muted/40 px-2 py-1.5 rounded-md border border-transparent transition-all duration-300 ease-out h-8",
             currentWorkspace && isEditingCurrentBranch
               ? "border-sidebar-border bg-background shadow-xs w-fit"
               : "hover:bg-muted/60 hover:border-border w-fit max-w-[500px]"
           )}>
+            {/* PR button for current branch */}
+            {currentBranchPR && (
+              <>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setModalParams({ rsPr: currentBranchPR.number })}
+                        onMouseEnter={() => prIconRef.current?.startAnimation()}
+                        onMouseLeave={() => prIconRef.current?.stopAnimation()}
+                        className="flex items-center space-x-1 py-0.5 px-1.5 rounded text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                        aria-label={`Open PR #${currentBranchPR.number}`}
+                      >
+                        {currentBranchPR.state === 'CLOSED' || currentBranchPR.state === 'MERGED'
+                          ? <GitPullRequestClosedIcon ref={prIconRef} size={14} className="shrink-0 pointer-events-none" />
+                          : <GitPullRequestCreateIcon ref={prIconRef} size={14} className="shrink-0 pointer-events-none" />
+                        }
+                        <span>#{currentBranchPR.number}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {currentBranchPR.title}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <div className="h-4 w-px bg-border/60 shrink-0 mx-0.5" />
+              </>
+            )}
             {/* Current Branch (from workspace or project main) */}
             <div className="flex items-center space-x-1 shrink-0">
               <BranchSyncIndicator state={branchSyncState} />

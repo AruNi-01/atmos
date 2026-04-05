@@ -84,32 +84,47 @@ pub trait TunnelProvider: Send + Sync {
 /// inherit the shell's PATH, so we start a login shell once, capture its
 /// `$PATH`, cache it, and inject it into every provider sub-process.
 pub fn provider_command(program: &str) -> tokio::process::Command {
-    static SHELL_PATH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-
-    let path = SHELL_PATH.get_or_init(|| {
-        resolve_login_shell_path().unwrap_or_else(|| {
-            // Fallback: current PATH + common Homebrew dirs
-            let current = std::env::var("PATH").unwrap_or_default();
-            let extra = [
-                "/opt/homebrew/bin",
-                "/opt/homebrew/sbin",
-                "/usr/local/bin",
-                "/usr/local/sbin",
-            ];
-            let mut parts: Vec<&str> = extra.to_vec();
-            for p in current.split(':') {
-                if !parts.contains(&p) {
-                    parts.push(p);
-                }
-            }
-            parts.join(":")
-        })
-    });
+    let path = provider_shell_path();
 
     let mut cmd = tokio::process::Command::new(program);
     cmd.env("PATH", path);
     cmd.stdin(std::process::Stdio::null());
     cmd
+}
+
+pub fn blocking_provider_command(program: &str) -> std::process::Command {
+    let path = provider_shell_path();
+
+    let mut cmd = std::process::Command::new(program);
+    cmd.env("PATH", path);
+    cmd.stdin(std::process::Stdio::null());
+    cmd
+}
+
+fn provider_shell_path() -> &'static str {
+    static SHELL_PATH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+    SHELL_PATH
+        .get_or_init(|| {
+            resolve_login_shell_path().unwrap_or_else(|| {
+                // Fallback: current PATH + common Homebrew dirs
+                let current = std::env::var("PATH").unwrap_or_default();
+                let extra = [
+                    "/opt/homebrew/bin",
+                    "/opt/homebrew/sbin",
+                    "/usr/local/bin",
+                    "/usr/local/sbin",
+                ];
+                let mut parts: Vec<&str> = extra.to_vec();
+                for p in current.split(':') {
+                    if !parts.contains(&p) {
+                        parts.push(p);
+                    }
+                }
+                parts.join(":")
+            })
+        })
+        .as_str()
 }
 
 /// Run the user's login shell to extract the full PATH.

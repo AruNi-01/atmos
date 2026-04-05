@@ -35,7 +35,7 @@ pub use message::{
     GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
-    GithubPrReopenRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest, MessagePayload,
+    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest, MessagePayload,
     ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
     ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
     ScriptGetRequest, ScriptSaveRequest, SkillFile, SkillInfo, SkillPlacement, SkillsDeleteRequest,

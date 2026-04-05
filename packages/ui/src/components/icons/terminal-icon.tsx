@@ -4,7 +4,13 @@ import { motion, useAnimate } from "motion/react";
 
 const TerminalIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
   (
-    { size = 24, color = "currentColor", strokeWidth = 2, className = "" },
+    {
+      size = 24,
+      color = "currentColor",
+      strokeWidth = 2,
+      className = "",
+      ...props
+    },
     ref,
   ) => {
     const [scope, animate] = useAnimate();
@@ -55,6 +61,7 @@ const TerminalIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         strokeLinecap="round"
         strokeLinejoin="round"
         className={`cursor-pointer ${className}`}
+        {...props}
       >
         <path stroke="none" d="M0 0h24v24H0z" fill="none" />
         <motion.path className="terminal-chevron" d="M5 7l5 5l-5 5" />

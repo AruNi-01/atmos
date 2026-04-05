@@ -2,8 +2,12 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use remote_access::{ProviderAccessMode, ProviderKind, RemoteAccessStatus};
-use tauri::Emitter;
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 use crate::logging;
 
 use crate::remote_access::manager::RemoteAccessManager;
@@ -206,9 +210,16 @@ fn save_all_credentials(creds: &HashMap<String, String>) -> Result<(), String> {
     let path = credentials_file_path()?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))
+            .map_err(|e| e.to_string())?;
     }
     let data = serde_json::to_vec_pretty(creds).map_err(|e| e.to_string())?;
-    std::fs::write(&path, data).map_err(|e| e.to_string())
+    std::fs::write(&path, data).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn credential_key(provider: ProviderKind) -> String {

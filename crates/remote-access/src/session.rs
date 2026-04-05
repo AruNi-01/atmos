@@ -18,14 +18,14 @@ pub struct TunnelSession {
     pub mode: SessionMode,
     pub permission: SessionPermission,
     pub entry_token: String,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
     pub revoked_at: Option<DateTime<Utc>>,
     pub public_url: Option<String>,
 }
 
 impl TunnelSession {
     pub fn is_expired(&self, now: DateTime<Utc>) -> bool {
-        now >= self.expires_at
+        self.expires_at.is_some_and(|expires_at| now >= expires_at)
     }
 
     pub fn is_revoked(&self) -> bool {
@@ -42,7 +42,7 @@ impl SessionStore {
     pub async fn create_session(&self, req: CreateSessionRequest) -> TunnelSession {
         let session_id = Uuid::new_v4().to_string();
         let entry_token = Alphanumeric.sample_string(&mut rand::thread_rng(), 48);
-        let expires_at = Utc::now() + Duration::seconds(req.ttl_secs.max(60));
+        let expires_at = resolve_expiry(Utc::now(), req.ttl_secs);
 
         let session = TunnelSession {
             session_id: session_id.clone(),
@@ -90,7 +90,7 @@ impl SessionStore {
             .get_mut(session_id)
             .ok_or(RemoteAccessError::SessionNotFound)?;
 
-        session.expires_at = now + Duration::seconds(ttl_secs.max(60));
+        session.expires_at = resolve_expiry(now, ttl_secs);
         session.revoked_at = None;
         if !reuse_token {
             session.entry_token = Alphanumeric.sample_string(&mut rand::thread_rng(), 48);
@@ -100,12 +100,9 @@ impl SessionStore {
 
     pub async fn revoke_session(&self, session_id: &str) -> Result<(), RemoteAccessError> {
         let mut guard = self.inner.write().await;
-        let session = guard
-            .get_mut(session_id)
-            .ok_or(RemoteAccessError::SessionNotFound)?;
-        let now = Utc::now();
-        session.revoked_at = Some(now);
-        prune_stale_sessions(&mut guard, now);
+        if guard.remove(session_id).is_none() {
+            return Err(RemoteAccessError::SessionNotFound);
+        }
         Ok(())
     }
 
@@ -155,4 +152,30 @@ impl SessionStore {
 
 fn prune_stale_sessions(sessions: &mut HashMap<String, TunnelSession>, now: DateTime<Utc>) {
     sessions.retain(|_, session| !session.is_revoked() && !session.is_expired(now));
+}
+
+fn resolve_expiry(now: DateTime<Utc>, ttl_secs: i64) -> Option<DateTime<Utc>> {
+    if ttl_secs <= 0 {
+        None
+    } else {
+        Some(now + Duration::seconds(ttl_secs.max(60)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn non_positive_ttl_creates_non_expiring_session() {
+        assert_eq!(resolve_expiry(Utc::now(), 0), None);
+        assert_eq!(resolve_expiry(Utc::now(), -1), None);
+    }
+
+    #[test]
+    fn short_positive_ttl_is_still_clamped_to_one_minute() {
+        let now = Utc::now();
+        let expiry = resolve_expiry(now, 1).expect("expiry should be present");
+        assert_eq!(expiry, now + Duration::seconds(60));
+    }
 }

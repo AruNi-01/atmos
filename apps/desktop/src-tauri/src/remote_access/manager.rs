@@ -188,18 +188,6 @@ impl RemoteAccessManager {
             session.public_url = Some(url.clone());
         }
 
-        {
-            let mut state = self.inner.write().await;
-            state.active.insert(
-                provider_kind,
-                ActiveProvider {
-                    provider: Arc::clone(&provider),
-                    session_id: session.session_id.clone(),
-                    public_url: public_url.clone(),
-                },
-            );
-        }
-
         if let Err(err) = self
             .persist_provider(
                 provider_kind,
@@ -212,15 +200,34 @@ impl RemoteAccessManager {
             )
             .await
         {
-            // Persist failed — roll back the active entry so the user can retry.
-            let mut state = self.inner.write().await;
-            state.active.remove(&provider_kind);
-            if state.active.is_empty() {
+            // Persist failed after the provider was already started, so stop the
+            // live tunnel before surfacing the error back to the UI.
+            let _ = provider.stop().await;
+            let _ = session_store.revoke_session(&session.session_id).await;
+
+            let should_shutdown_gateway = {
+                let state = self.inner.read().await;
+                state.active.is_empty()
+            };
+            if should_shutdown_gateway {
+                let mut state = self.inner.write().await;
                 if let Some(gw) = state.gateway.take() {
                     gw.shutdown().await;
                 }
             }
             return Err(err);
+        }
+
+        {
+            let mut state = self.inner.write().await;
+            state.active.insert(
+                provider_kind,
+                ActiveProvider {
+                    provider: Arc::clone(&provider),
+                    session_id: session.session_id.clone(),
+                    public_url: public_url.clone(),
+                },
+            );
         }
 
         Ok(Self::build_status(provider_kind, status, Some(session)))
@@ -229,9 +236,13 @@ impl RemoteAccessManager {
     /// Stop the tunnel for a specific provider.
     pub async fn stop(&self, provider_kind: ProviderKind) -> Result<(), String> {
         let (provider, session_id, session_store) = {
-            let mut state = self.inner.write().await;
-            match state.active.remove(&provider_kind) {
-                Some(ap) => (ap.provider, ap.session_id, state.session_store.clone()),
+            let state = self.inner.read().await;
+            match state.active.get(&provider_kind) {
+                Some(ap) => (
+                    Arc::clone(&ap.provider),
+                    ap.session_id.clone(),
+                    state.session_store.clone(),
+                ),
                 None => return Err(format!("{provider_kind:?} is not running")),
             }
         };
@@ -242,17 +253,25 @@ impl RemoteAccessManager {
             errors.push(format!("provider stop failed: {err}"));
         }
 
+        if !errors.is_empty() {
+            return Err(errors.join("; "));
+        }
+
         if let Err(err) = session_store.revoke_session(&session_id).await {
             errors.push(format!("session revoke failed: {err}"));
         }
 
-        // Shut down gateway if no more active providers.
-        {
+        let should_shutdown_gateway = {
             let mut state = self.inner.write().await;
-            if state.active.is_empty() {
-                if let Some(gw) = state.gateway.take() {
-                    gw.shutdown().await;
-                }
+            state.active.remove(&provider_kind);
+            state.active.is_empty()
+        };
+
+        // Shut down gateway if no more active providers.
+        if should_shutdown_gateway {
+            let mut state = self.inner.write().await;
+            if let Some(gw) = state.gateway.take() {
+                gw.shutdown().await;
             }
         }
 
@@ -417,6 +436,9 @@ impl RemoteAccessManager {
                 }
                 Err(err) => {
                     Self::debug_log(format!("[manager] recover: {provider_kind:?} failed: {err}"));
+                    let _ = session_store
+                        .revoke_session(&pstate.session.session_id)
+                        .await;
                     let _ = self.remove_persisted_provider(provider_kind).await;
                     let mut state = self.inner.write().await;
                     if state.active.is_empty() {
@@ -569,7 +591,7 @@ impl RemoteAccessManager {
             public_url.as_ref().map(|u| Self::share_url(u, &s.entry_token))
         });
         let entry_token = session.as_ref().map(|s| s.entry_token.clone());
-        let expires_at = session.as_ref().map(|s| s.expires_at);
+        let expires_at = session.as_ref().and_then(|s| s.expires_at);
 
         RemoteAccessStatus {
             gateway_url,
