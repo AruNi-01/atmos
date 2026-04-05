@@ -64,6 +64,7 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
             .args(["tunnel", "--url", &req.target_url, "--no-autoupdate"])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true)
             .spawn()?;
 
         let (url_tx, mut url_rx) = mpsc::unbounded_channel();
@@ -75,17 +76,31 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
         }
         drop(url_tx);
 
-        let mut public_url = None;
-        let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(8);
-        while tokio::time::Instant::now() < deadline {
-            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-            match tokio::time::timeout(remaining, url_rx.recv()).await {
-                Ok(Some(url)) => {
-                    public_url = Some(url);
-                    break;
+        // Use a separate OS-thread timer to kill the child after the deadline.
+        // This avoids relying on tokio::time (which can be unreliable in the
+        // Tauri runtime context).  Killing the child closes its pipes, which
+        // causes the log drain tasks to EOF and drop the url_tx senders, which
+        // causes url_rx.recv() below to return None and unblock.
+        let child_id = child.id();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(15));
+            if let Some(pid) = child_id {
+                // SIGTERM the child so cloudflared can clean up; if it doesn't
+                // die in time kill_on_drop (when Child is dropped) finishes it.
+                #[cfg(unix)]
+                unsafe {
+                    libc::kill(pid as libc::pid_t, libc::SIGTERM);
                 }
-                Ok(None) | Err(_) => break,
+                #[cfg(not(unix))]
+                let _ = pid;
             }
+        });
+
+        let mut public_url = None;
+        // url_rx.recv() completes when a URL is sent OR all senders are dropped
+        // (which happens when the log drain tasks hit EOF after the child is killed).
+        if let Some(url) = url_rx.recv().await {
+            public_url = Some(url);
         }
 
         let Some(public_url) = public_url else {

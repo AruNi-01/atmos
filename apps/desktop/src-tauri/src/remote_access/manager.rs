@@ -69,10 +69,13 @@ impl RemoteAccessManager {
         target_base_url: String,
         ttl_secs: i64,
         credential: Option<String>,
+        on_gateway_error: impl Fn(String) + Send + 'static,
     ) -> Result<RemoteAccessStatus, String> {
+        Self::debug_log(format!("[manager] start: provider={provider_kind:?}"));
         let provider = build_provider(provider_kind);
         let session_store = {
             let mut state = self.inner.write().await;
+            Self::debug_log("[manager] start: acquired write lock".to_string());
             if state.gateway.is_some() {
                 return Err("remote access already running".to_string());
             }
@@ -87,57 +90,64 @@ impl RemoteAccessManager {
             SessionMode::Private
         };
 
-        let session = tokio::time::timeout(
-            tokio::time::Duration::from_secs(2),
-            session_store.create_session(CreateSessionRequest {
+        // create_session is in-memory and cannot block; no timeout needed.
+        Self::debug_log("[manager] start: creating session".to_string());
+        let session = session_store
+            .create_session(CreateSessionRequest {
                 provider: provider_kind,
                 mode: session_mode,
                 permission: SessionPermission::Control,
                 ttl_secs,
-            }),
-        )
-        .await
-        .map_err(|_| "create remote access session timed out after 2s".to_string())?;
+            })
+            .await;
 
-        let gateway = tokio::time::timeout(
-            tokio::time::Duration::from_secs(2),
-            GatewayRuntime::start(GatewayRuntimeConfig {
-                bind_addr: "127.0.0.1:0"
-                    .parse::<SocketAddr>()
-                    .map_err(|e| e.to_string())?,
-                target_base_url: target_base_url.clone(),
-                session_store: session_store.clone(),
-            }),
-        )
+        // GatewayRuntime::start binds a local socket and spawns a task — instant.
+        Self::debug_log("[manager] start: starting gateway".to_string());
+        let gateway = GatewayRuntime::start(GatewayRuntimeConfig {
+            bind_addr: "127.0.0.1:0"
+                .parse::<SocketAddr>()
+                .map_err(|e| e.to_string())?,
+            target_base_url: target_base_url.clone(),
+            session_store: session_store.clone(),
+        })
         .await
-        .map_err(|_| "start remote access gateway timed out after 2s".to_string())?
         .map_err(|e| e.to_string())?;
         let gateway_url = gateway.local_url.clone();
+        Self::debug_log(format!("[manager] start: gateway up at {gateway_url}"));
 
-        let start_result = tokio::time::timeout(
-            tokio::time::Duration::from_secs(20),
-            provider.start(ProviderStartRequest {
+        // Watch for gateway runtime errors and forward them to the caller.
+        let mut gateway_error_rx = gateway.error_rx.clone();
+        tokio::spawn(async move {
+            if gateway_error_rx.changed().await.is_ok() {
+                if let Some(err) = gateway_error_rx.borrow().clone() {
+                    on_gateway_error(err);
+                }
+            }
+        });
+
+        // provider.start() is self-limiting: each provider uses an OS-thread
+        // timer to kill subprocesses (Tailscale/Cloudflare) or tokio timeouts
+        // (Ngrok) and returns an Err if it cannot connect within its deadline.
+        Self::debug_log("[manager] start: calling provider.start".to_string());
+        let status = match provider
+            .start(ProviderStartRequest {
                 target_url: gateway_url.clone(),
                 mode,
                 credential,
-            }),
-        )
-        .await;
-        let status = match start_result {
-            Ok(Ok(status)) => status,
-            Ok(Err(err)) => {
+            })
+            .await
+        {
+            Ok(status) => {
+                Self::debug_log(format!("[manager] start: provider ok url={:?}", status.public_url));
+                status
+            }
+            Err(err) => {
+                Self::debug_log(format!("[manager] start: provider err={err}"));
                 gateway.shutdown().await;
                 let mut state = self.inner.write().await;
                 state.provider = None;
                 state.provider_kind = None;
                 return Err(err.to_string());
-            }
-            Err(_elapsed) => {
-                gateway.shutdown().await;
-                let mut state = self.inner.write().await;
-                state.provider = None;
-                state.provider_kind = None;
-                return Err("provider start timed out after 20s".to_string());
             }
         };
 
@@ -157,19 +167,15 @@ impl RemoteAccessManager {
             state.gateway = Some(gateway);
         }
 
-        tokio::time::timeout(
-            tokio::time::Duration::from_secs(2),
-            self.persist_started_state(PersistedRemoteAccessState {
-                provider: provider_kind,
-                mode,
-                target_base_url,
-                ttl_secs,
-                last_started_at: Utc::now().to_rfc3339(),
-                session: session.clone(),
-            }),
-        )
-        .await
-        .map_err(|_| "persist remote access state timed out after 2s".to_string())??;
+        self.persist_started_state(PersistedRemoteAccessState {
+            provider: provider_kind,
+            mode,
+            target_base_url,
+            ttl_secs,
+            last_started_at: Utc::now().to_rfc3339(),
+            session: session.clone(),
+        })
+        .await?;
 
         Ok(Self::build_status(
             Some(provider_kind),
@@ -462,6 +468,27 @@ impl RemoteAccessManager {
             public_url: None,
             message: Some("not running".to_string()),
             started_at: None,
+        }
+    }
+
+    /// Write a timestamped debug line directly to the macOS log file so we can
+    /// see exactly which step inside manager.start() is hanging — without
+    /// relying on the Tauri AppHandle (which isn't available here).
+    fn debug_log(msg: impl AsRef<str>) {
+        use std::io::Write as _;
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let line = format!("[{ts}] [DEBUG] {}\n", msg.as_ref());
+        let path = dirs::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("Library")
+            .join("Logs")
+            .join("com.atmos.desktop")
+            .join("desktop.log");
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+            let _ = f.write_all(line.as_bytes());
         }
     }
 

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use remote_access::{ProviderAccessMode, ProviderKind, RemoteAccessStatus};
+use tauri::Emitter;
 use serde::{Deserialize, Serialize};
 use crate::logging;
 
@@ -65,9 +66,8 @@ pub async fn remote_access_start(
         ),
     );
 
-    let result = tokio::time::timeout(
-        tokio::time::Duration::from_secs(28),
-        state
+    let app_handle = app.clone();
+    let result = state
         .remote_access_manager
         .start(
             req.provider,
@@ -75,12 +75,14 @@ pub async fn remote_access_start(
             req.target_base_url,
             req.ttl_secs.unwrap_or(3600),
             credential,
-        ),
-    )
-    .await;
+            move |err| {
+                let _ = app_handle.emit("remote-access-gateway-error", err);
+            },
+        )
+        .await;
 
     match result {
-        Ok(Ok(status)) => {
+        Ok(status) => {
             logging::append_log(
                 &log_path,
                 &format!(
@@ -90,18 +92,10 @@ pub async fn remote_access_start(
             );
             Ok(status)
         }
-        Ok(Err(err)) => {
+        Err(err) => {
             logging::append_log(
                 &log_path,
                 &format!("[remote-access] command failed err={err}"),
-            );
-            Err(err)
-        }
-        Err(_) => {
-            let err = "remote access command timed out after 28s".to_string();
-            logging::append_log(
-                &log_path,
-                &format!("[remote-access] command timeout err={err}"),
             );
             Err(err)
         }

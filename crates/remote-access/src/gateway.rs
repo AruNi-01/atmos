@@ -33,6 +33,7 @@ pub struct GatewayRuntimeConfig {
 
 pub struct GatewayHandle {
     pub local_url: String,
+    pub error_rx: tokio::sync::watch::Receiver<Option<String>>,
     shutdown_tx: Option<oneshot::Sender<()>>,
 }
 
@@ -48,9 +49,15 @@ pub struct GatewayRuntime;
 
 impl GatewayRuntime {
     pub async fn start(config: GatewayRuntimeConfig) -> anyhow::Result<GatewayHandle> {
-        let listener = TcpListener::bind(config.bind_addr).await?;
+        // Use std::net::TcpListener (synchronous) instead of tokio's async bind.
+        // In the Tauri runtime context, tokio::net::TcpListener::bind().await
+        // can hang indefinitely; the sync bind + from_std conversion avoids that.
+        let std_listener = std::net::TcpListener::bind(config.bind_addr)?;
+        std_listener.set_nonblocking(true)?;
+        let listener = TcpListener::from_std(std_listener)?;
         let local_addr = listener.local_addr()?;
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let (error_tx, error_rx) = tokio::sync::watch::channel(None);
 
         let state = GatewayState {
             target_base_url: config.target_base_url,
@@ -60,20 +67,24 @@ impl GatewayRuntime {
 
         let app = Router::new()
             .route("/ws", any(proxy_ws_root))
-            .route("/ws/*path", any(proxy_ws))
+            .route("/ws/{*path}", any(proxy_ws))
             .fallback(any(proxy_http))
             .with_state(state);
 
         tokio::spawn(async move {
-            let _ = serve(listener, app)
+            let result = serve(listener, app)
                 .with_graceful_shutdown(async move {
                     let _ = shutdown_rx.await;
                 })
                 .await;
+            if let Err(err) = result {
+                let _ = error_tx.send(Some(err.to_string()));
+            }
         });
 
         Ok(GatewayHandle {
             local_url: format!("http://{}", local_addr),
+            error_rx,
             shutdown_tx: Some(shutdown_tx),
         })
     }
@@ -101,7 +112,7 @@ async fn proxy_http(
     let session_id = match validation {
         SessionValidation::Authorized { session_id } => session_id,
         SessionValidation::Unauthorized => {
-            return (StatusCode::UNAUTHORIZED, "remote access session required").into_response()
+            return unauthorized_html_response().into_response();
         }
     };
 
@@ -178,7 +189,7 @@ async fn proxy_ws_impl(
         .validate(session_cookie.as_deref(), query.entry_token.as_deref())
         .await;
     if matches!(validation, SessionValidation::Unauthorized) {
-        return (StatusCode::UNAUTHORIZED, "remote access session required").into_response();
+        return (StatusCode::UNAUTHORIZED, "remote access session required\n\nProvide ?entry_token=<token> in the URL").into_response();
     }
 
     let target = build_ws_target(&state.target_base_url, &path);
@@ -253,6 +264,100 @@ async fn bridge_websocket(
         _ = to_upstream => {},
         _ = to_client => {},
     }
+}
+
+fn unauthorized_html_response() -> impl IntoResponse {
+    let html = r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atmos Remote Access</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #141414;
+      border: 1px solid #262626;
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 420px;
+    }
+    h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    p { font-size: 13px; color: #737373; margin-bottom: 24px; line-height: 1.6; }
+    label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 6px; color: #a3a3a3; }
+    input {
+      width: 100%;
+      background: #0a0a0a;
+      border: 1px solid #262626;
+      border-radius: 6px;
+      color: #e5e5e5;
+      font-size: 13px;
+      font-family: monospace;
+      padding: 10px 12px;
+      outline: none;
+      margin-bottom: 16px;
+      transition: border-color 0.15s;
+    }
+    input:focus { border-color: #525252; }
+    button {
+      width: 100%;
+      background: #e5e5e5;
+      color: #0a0a0a;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover { background: #d4d4d4; }
+    .error { color: #ef4444; font-size: 12px; margin-top: -8px; margin-bottom: 12px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Atmos Remote Access</h1>
+    <p>Enter the access token from your Atmos desktop app to continue.</p>
+    <label for="token">Access Token</label>
+    <input id="token" type="password" placeholder="Paste your entry token here" autocomplete="off" />
+    <p class="error" id="err">Invalid token. Please try again.</p>
+    <button onclick="submit()">Access</button>
+  </div>
+  <script>
+    // Pre-fill from URL if already provided (shows error state)
+    var params = new URLSearchParams(location.search);
+    if (params.get('entry_token')) {
+      document.getElementById('err').style.display = 'block';
+    }
+    document.getElementById('token').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') submit();
+    });
+    function submit() {
+      var token = document.getElementById('token').value.trim();
+      if (!token) return;
+      var url = new URL(location.href);
+      url.searchParams.set('entry_token', token);
+      location.href = url.toString();
+    }
+  </script>
+</body>
+</html>"#;
+    (
+        StatusCode::UNAUTHORIZED,
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        html,
+    )
 }
 
 fn parse_session_cookie(headers: &HeaderMap) -> Option<String> {

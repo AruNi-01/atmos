@@ -415,7 +415,7 @@ const Header: React.FC = () => {
     description: 'Toggle AI Usage'
   });
 
-  useHotkeys('mod+m', () => setIsActionMenuOpen(prev => !prev), {
+  useHotkeys('mod+shift+m', () => setIsActionMenuOpen(prev => !prev), {
     enableOnFormTags: false,
     preventDefault: true,
     description: 'Toggle menu'
@@ -1038,7 +1038,7 @@ const Header: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span>Menu</span>
                 <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                  <Command className="size-3" /><span className="text-xs">M</span>
+                  <Command className="size-3" /><ArrowBigUp className="size-3" /><span className="text-xs">M</span>
                 </kbd>
               </div>
               </TooltipContent>

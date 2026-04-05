@@ -91,14 +91,45 @@ impl TunnelProvider for TailscaleProvider {
             args = vec!["funnel", "--bg"];
         }
 
-        let output = super::provider_command("tailscale")
-            .args(args)
-            .arg(req.target_url)
-            .output()
-            .await?;
+        // `tailscale serve --bg` forks a background daemon.  The daemon
+        // inherits all file descriptors, so piping stdout/stderr causes
+        // read_to_end() to block forever (the daemon keeps the pipes open
+        // even after the CLI parent exits).  Discard output and wait for
+        // just the CLI parent to exit via child.wait() (uses SIGCHLD, not
+        // the tokio timer driver).
+        //
+        // An OS-thread watchdog sends SIGKILL after 10 s if the CLI parent
+        // doesn't exit on its own (e.g. "Serve is not enabled on tailnet"
+        // causes it to hang waiting for the user).
+        let mut child = super::provider_command("tailscale")
+            .args(&args)
+            .arg(&req.target_url)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()?;
 
-        if !output.status.success() {
-            let err = String::from_utf8_lossy(&output.stderr).to_string();
+        // Watchdog: SIGKILL the CLI parent after 10 s.
+        let child_id = child.id();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            if let Some(pid) = child_id {
+                #[cfg(unix)]
+                unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL); }
+            }
+        });
+
+        // Wait for the CLI parent to exit (tokio's SIGCHLD-based wait,
+        // not timer-based).  Returns as soon as the CLI exits or is killed.
+        let exit_status = child.wait().await;
+        let exit_ok = exit_status.map(|s| s.success()).unwrap_or(false);
+
+        if !exit_ok {
+            let err = concat!(
+                "tailscale serve did not start. ",
+                "Run `tailscale serve --bg <port>` in a terminal to see the error. ",
+                "Common cause: Serve is not enabled on your tailnet — enable it at ",
+                "https://login.tailscale.com/admin/settings/features"
+            ).to_string();
             *self.last_mode.write().await = None;
             *self.last_error.write().await = Some(err.clone());
             anyhow::bail!(err);

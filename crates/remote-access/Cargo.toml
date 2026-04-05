@@ -21,3 +21,6 @@ tracing = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
 url = "2"
 ngrok = "0.18"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

@@ -108,6 +108,7 @@ pub fn provider_command(program: &str) -> tokio::process::Command {
 
     let mut cmd = tokio::process::Command::new(program);
     cmd.env("PATH", path);
+    cmd.stdin(std::process::Stdio::null());
     cmd
 }
 

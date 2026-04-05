@@ -59,9 +59,26 @@ impl TunnelProvider for NgrokProvider {
             builder.authtoken_from_env();
         }
 
-        let session = builder.connect().await?;
+        // connect() and listen_and_forward() are network calls that may hang.
+        // Wrap with tokio::time::timeout as a best-effort; the ngrok SDK uses
+        // tokio internally so this should fire even if the Tauri timer driver
+        // behaves unexpectedly.
+        let session = tokio::time::timeout(
+            tokio::time::Duration::from_secs(15),
+            builder.connect(),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("ngrok connect timed out after 15s"))?
+        .map_err(|e| anyhow::anyhow!("ngrok connect failed: {e}"))?;
+
         let to_url = reqwest::Url::parse(&req.target_url)?;
-        let mut forwarder = session.http_endpoint().listen_and_forward(to_url).await?;
+        let mut forwarder = tokio::time::timeout(
+            tokio::time::Duration::from_secs(15),
+            session.http_endpoint().listen_and_forward(to_url),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("ngrok listen_and_forward timed out after 15s"))?
+        .map_err(|e| anyhow::anyhow!("ngrok listen_and_forward failed: {e}"))?;
 
         let public_url = forwarder.url().to_string();
         let (stop_tx, stop_rx) = oneshot::channel();

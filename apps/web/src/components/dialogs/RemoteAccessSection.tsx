@@ -5,9 +5,6 @@ import { format } from 'date-fns';
 import {
   Button,
   Calendar,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Input,
   Popover,
   PopoverContent,
@@ -21,7 +18,7 @@ import {
   cn,
   toastManager,
 } from '@workspace/ui';
-import { CalendarIcon, Check, ChevronDown, Copy, Download, ExternalLink, Globe, KeyRound, LoaderCircle, Play, RefreshCw, Square, SquareTerminal, X } from 'lucide-react';
+import { CalendarIcon, Check, Copy, Download, ExternalLink, KeyRound, LoaderCircle, Play, RefreshCw, Square, SquareTerminal, X } from 'lucide-react';
 import { getRuntimeApiConfig, httpBase, isTauriRuntime } from '@/lib/desktop-runtime';
 import { Terminal, type TerminalRef } from '@/components/terminal/Terminal';
 import {
@@ -71,17 +68,6 @@ function StatusDot({ state }: { state: string }) {
         ? 'bg-red-500'
         : 'bg-yellow-500';
   return <span className={cn('inline-block size-2 rounded-full', color)} />;
-}
-
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5 last:border-b-0">
-      <div className="flex items-center">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-      </div>
-      <div className="flex items-center gap-2 text-sm text-foreground">{children}</div>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -577,187 +563,122 @@ function providerAuthLabel(
     : { label: 'Not Authenticated', color: 'text-red-500' };
 }
 
-function RemoteAccessContent() {
-  const {
-    status,
-    providers,
-    isLoading,
-    isStarting,
-    isStopping,
-    detect,
-    refreshStatus,
-    start,
-    stop,
-    saveCredential,
-  } = useRemoteAccess();
+// ---------------------------------------------------------------------------
+// Start Tunnel Popover
+// ---------------------------------------------------------------------------
 
-  const [selectedProvider, setSelectedProvider] = React.useState<ProviderKind | ''>('');
-  const [selectedMode, setSelectedMode] = React.useState<ProviderAccessMode>('private');
+function StartTunnelPopover({
+  provider,
+  isStarting,
+  onStart,
+}: {
+  provider: ProviderKind;
+  isStarting: boolean;
+  onStart: (mode: ProviderAccessMode, ttlSecs: number) => Promise<void>;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [mode, setMode] = React.useState<ProviderAccessMode>('private');
   const [ttlSecs, setTtlSecs] = React.useState(3600);
-  const [detectionExpanded, setDetectionExpanded] = React.useState(false);
-  const [tokenEditProvider, setTokenEditProvider] = React.useState<ProviderKind | null>(null);
-  const [tokenDraft, setTokenDraft] = React.useState('');
-
-  React.useEffect(() => {
-    void detect();
-  }, [detect]);
-
-  React.useEffect(() => {
-    if (providers.length > 0 && !selectedProvider) {
-      setSelectedProvider(providers[0].provider);
-    }
-  }, [providers, selectedProvider]);
-
-  const isRunning = !!(status && status.provider_status.state === 'Running');
+  const [startError, setStartError] = React.useState<string | null>(null);
 
   const handleStart = async () => {
-    if (!selectedProvider) return;
+    setStartError(null);
     try {
-      const config = await getRuntimeApiConfig();
-      const targetBaseUrl = httpBase(config);
-      await start(
-        selectedProvider,
-        selectedMode,
-        targetBaseUrl,
-        ttlSecs || undefined,
-      );
+      await onStart(mode, ttlSecs);
+      setOpen(false);
     } catch (err) {
-      toastManager.add({
-        title: 'Failed to start tunnel',
-        description: err instanceof Error ? err.message : String(err),
-        type: 'error',
-      });
+      setStartError(err instanceof Error ? err.message : String(err));
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Card 1: Tunnel Status */}
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="px-6 py-5">
-          <div className="flex items-center gap-3">
-            <p className="text-base font-medium text-foreground">Remote Access</p>
-            {isRunning && (
-              <span className="flex items-center gap-1.5 text-xs text-emerald-500">
-                <StatusDot state="Running" />
-                Tunnel active
-              </span>
-            )}
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setStartError(null); }}>
+      <PopoverTrigger asChild>
+        <Button size="sm" className="cursor-pointer" disabled={isStarting}>
+          {isStarting ? (
+            <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+          ) : (
+            <Play className="mr-1.5 size-3.5" />
+          )}
+          Start Tunnel
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-72 p-4">
+        <p className="mb-3 text-sm font-medium text-foreground">
+          Start {formatProvider(provider)} Tunnel
+        </p>
+        <div className="space-y-3">
+          <div>
+            <p className="mb-1.5 text-xs text-muted-foreground">Access Mode</p>
+            <Select value={mode} onValueChange={(v) => setMode(v as ProviderAccessMode)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="private">Private — requires authentication</SelectItem>
+                <SelectItem value="public">Public — open access</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Expose your local Atmos instance via a secure tunnel for remote browser access.
-          </p>
+          <div>
+            <p className="mb-1.5 text-xs text-muted-foreground">Expiration</p>
+            <TtlPicker value={ttlSecs} onChange={setTtlSecs} />
+          </div>
+          {startError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <p className="font-medium">Failed to start tunnel</p>
+              <p className="mt-1 whitespace-pre-wrap leading-relaxed">{startError}</p>
+            </div>
+          )}
+          <Button
+            className="w-full cursor-pointer"
+            size="sm"
+            onClick={() => void handleStart()}
+            disabled={isStarting}
+          >
+            {isStarting ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <Play className="mr-1.5 size-3.5" />}
+            Start Tunnel
+          </Button>
         </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
-        <div className="border-t border-border">
-          <div className="space-y-4 px-6 py-5">
-            <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
-              <div>
-                <p className="text-sm font-medium text-foreground">Provider</p>
-                <p className="mt-1 text-xs text-muted-foreground">Select tunnel provider</p>
-              </div>
-              <div className="flex items-center">
-                {isLoading ? (
-                  <Skeleton className="h-9 w-full rounded-md" />
-                ) : (
-                  <Select
-                    value={selectedProvider}
-                    onValueChange={(v) => setSelectedProvider(v as ProviderKind)}
-                    disabled={isRunning}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select provider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {providers.map((p) => (
-                        <SelectItem key={p.provider} value={p.provider}>
-                          <span className="flex items-center gap-2">
-                            {formatProvider(p.provider)}
-                            {p.logged_in && (
-                              <span className="text-xs text-emerald-500">✓ ready</span>
-                            )}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
+// ---------------------------------------------------------------------------
+// View Tunnel Popover
+// ---------------------------------------------------------------------------
 
-            <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
-              <div>
-                <p className="text-sm font-medium text-foreground">Access Mode</p>
-                <p className="mt-1 text-xs text-muted-foreground">Private requires authentication, public is open</p>
-              </div>
-              <div className="flex items-center">
-                <Select
-                  value={selectedMode}
-                  onValueChange={(v) => setSelectedMode(v as ProviderAccessMode)}
-                  disabled={isRunning}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="private">Private</SelectItem>
-                    <SelectItem value="public">Public</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+function ViewTunnelPopover({ status }: { status: NonNullable<ReturnType<typeof useRemoteAccess>['status']> }) {
+  const [open, setOpen] = React.useState(false);
 
-            <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
-              <div>
-                <p className="text-sm font-medium text-foreground">Expiration</p>
-                <p className="mt-1 text-xs text-muted-foreground">Session duration</p>
-              </div>
-              <div className="flex items-center">
-                <TtlPicker value={ttlSecs} onChange={setTtlSecs} disabled={isRunning} />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                onClick={() => void handleStart()}
-                disabled={isStarting || !selectedProvider || isRunning}
-                className="cursor-pointer"
-              >
-                {isStarting ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <Play className="mr-2 size-4" />
-                )}
-                {isRunning ? 'Tunnel Running' : 'Start Tunnel'}
-              </Button>
-            </div>
-          </div>
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="cursor-pointer">
+          <ExternalLink className="mr-1.5 size-3.5" />
+          View Tunnel
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-[400px] p-0">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <StatusDot state="Running" />
+            Active Tunnel
+          </span>
+          <button
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setOpen(false)}
+          >
+            <X className="size-3.5" />
+          </button>
         </div>
-      </div>
-
-      {/* Card 2: Active Tunnel (visible only when running) */}
-      {isRunning && status && (
-        <div className="overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/5">
-          <div className="px-6 py-5">
-            <div className="flex items-center gap-3">
-              <p className="text-base font-medium text-foreground">Active Tunnel</p>
-              <span className="flex items-center gap-1.5 text-xs text-emerald-500">
-                <StatusDot state="Running" />
-                {status.provider ? formatProvider(status.provider) : 'Unknown'}
-              </span>
-            </div>
-          </div>
-          <div className="border-t border-emerald-500/20">
-            {status.gateway_url && (
-              <InfoRow label="Gateway URL">
-                <code className="truncate rounded bg-muted px-2 py-0.5 font-mono text-xs">
-                  {status.gateway_url}
-                </code>
-              </InfoRow>
-            )}
-            {status.public_url && (
-              <InfoRow label="Public URL">
-                <code className="truncate rounded bg-muted px-2 py-0.5 font-mono text-xs">
+        <div className="divide-y divide-border">
+          {status.public_url && (
+            <div className="px-4 py-3">
+              <p className="mb-1.5 text-xs text-muted-foreground">Public URL</p>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
                   {status.public_url}
                 </code>
                 <button
@@ -776,11 +697,14 @@ function RemoteAccessContent() {
                 >
                   <ExternalLink className="size-3.5" />
                 </a>
-              </InfoRow>
-            )}
-            {status.share_url && (
-              <InfoRow label="Share URL">
-                <code className="truncate rounded bg-muted px-2 py-0.5 font-mono text-xs">
+              </div>
+            </div>
+          )}
+          {status.share_url && (
+            <div className="px-4 py-3">
+              <p className="mb-1.5 text-xs text-muted-foreground">Access URL (with token)</p>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
                   {status.share_url}
                 </code>
                 <button
@@ -790,128 +714,173 @@ function RemoteAccessContent() {
                 >
                   <Copy className="size-3.5" />
                 </button>
-              </InfoRow>
-            )}
-            {status.active_session_id && (
-              <InfoRow label="Session">
-                <code className="truncate rounded bg-muted px-2 py-0.5 font-mono text-xs">
-                  {status.active_session_id.slice(0, 16)}…
-                </code>
-              </InfoRow>
-            )}
-            <InfoRow label="Expires">
-              {formatExpiry(status.expires_at)}
-            </InfoRow>
-            {status.provider_status.message && (
-              <InfoRow label="Message">
-                <span className="text-xs text-muted-foreground">{status.provider_status.message}</span>
-              </InfoRow>
-            )}
-            <div className="flex justify-end px-6 py-4">
-              <Button
-                variant="destructive"
-                onClick={() => void stop()}
-                disabled={isStopping}
-                className="cursor-pointer"
-              >
-                {isStopping ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <Square className="mr-2 size-4" />
-                )}
-                Stop Tunnel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Card 2: Provider Detection */}
-      <Collapsible
-        open={detectionExpanded}
-        onOpenChange={setDetectionExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
-      >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex items-start gap-3">
-              <span className="relative mt-0.5 size-5 shrink-0">
-                <Globe className="absolute inset-0 size-5 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Provider Detection</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Detected tunnel providers and their current status.
-                </p>
+                <a
+                  href={status.share_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                  title="Open in browser"
+                >
+                  <ExternalLink className="size-3.5" />
+                </a>
               </div>
             </div>
-          </CollapsibleTrigger>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setDetectionExpanded(true);
-              void detect();
-            }}
-            disabled={isLoading}
-            className="cursor-pointer"
-          >
-            {isLoading ? (
-              <LoaderCircle className="mr-2 size-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 size-4" />
-            )}
-            Detect
-          </Button>
-        </div>
-
-        <CollapsibleContent>
-          {providers.length === 0 ? (
-            <div className="border-t border-border px-6 py-5 text-sm text-muted-foreground">
-              {isLoading ? 'Detecting providers…' : 'No providers detected.'}
+          )}
+          {status.gateway_url && (
+            <div className="px-4 py-3">
+              <p className="mb-1.5 text-xs text-muted-foreground">Gateway URL</p>
+              <code className="block truncate rounded bg-muted px-2 py-1 font-mono text-xs">
+                {status.gateway_url}
+              </code>
             </div>
-          ) : (
-            <div className="border-t border-border px-4">
-              {providers.map((p) => {
-                const install = providerInstallLabel(p);
-                const auth = providerAuthLabel(p);
-                const showTokenConfig = supportsTokenConfig(p.provider) && !p.logged_in;
-                const isEditing = tokenEditProvider === p.provider;
+          )}
+          {status.active_session_id && (
+            <div className="px-4 py-3">
+              <p className="mb-1.5 text-xs text-muted-foreground">Session ID</p>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
+                  {status.active_session_id}
+                </code>
+                <button
+                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => copyToClipboard(status.active_session_id!)}
+                  title="Copy"
+                >
+                  <Copy className="size-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="px-4 py-3">
+            <p className="mb-1 text-xs text-muted-foreground">Expires</p>
+            <p className="text-xs text-foreground">{formatExpiry(status.expires_at)}</p>
+          </div>
+          {status.provider_status.message && (
+            <div className="px-4 py-3">
+              <p className="mb-1 text-xs text-muted-foreground">Message</p>
+              <p className="text-xs text-foreground">{status.provider_status.message}</p>
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
-                return (
-                  <div
-                    key={p.provider}
-                    className="border-b border-border px-2 py-4 last:border-b-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="min-w-0 flex-1">
+// ---------------------------------------------------------------------------
+// Main content
+// ---------------------------------------------------------------------------
+
+function RemoteAccessContent() {
+  const {
+    status,
+    providers,
+    isLoading,
+    isStarting,
+    isStopping,
+    detect,
+    start,
+    stop,
+    saveCredential,
+  } = useRemoteAccess();
+
+  const [tokenEditProvider, setTokenEditProvider] = React.useState<ProviderKind | null>(null);
+  const [tokenDraft, setTokenDraft] = React.useState('');
+
+  React.useEffect(() => {
+    void detect();
+  }, [detect]);
+
+  const isRunning = !!(status && status.provider_status.state === 'Running');
+  const runningProvider = status?.provider ?? null;
+
+  const handleStart = async (provider: ProviderKind, mode: ProviderAccessMode, ttlSecs: number) => {
+    const config = await getRuntimeApiConfig();
+    const targetBaseUrl = httpBase(config);
+    await start(provider, mode, targetBaseUrl, ttlSecs || undefined);
+  };
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 px-6 py-5">
+        <div>
+          <p className="text-base font-medium text-foreground">Providers</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tunnel providers for remote browser access to your local Atmos instance.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void detect()}
+          disabled={isLoading}
+          className="cursor-pointer"
+        >
+          {isLoading ? (
+            <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-1.5 size-3.5" />
+          )}
+          Refresh
+        </Button>
+      </div>
+
+      {/* Provider list */}
+      <div className="border-t border-border">
+        {isLoading && providers.length === 0 ? (
+          <div className="space-y-px px-6 py-4">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
+        ) : providers.length === 0 ? (
+          <div className="px-6 py-5 text-sm text-muted-foreground">No providers detected.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {providers.map((p) => {
+              const install = providerInstallLabel(p);
+              const auth = providerAuthLabel(p);
+              const isReady = p.logged_in;
+              const isThisRunning = isRunning && runningProvider === p.provider;
+              const showTokenConfig = supportsTokenConfig(p.provider) && !p.logged_in;
+              const isEditing = tokenEditProvider === p.provider;
+              // Only one tunnel can run at a time — disable Start for others
+              const startDisabled = isRunning && !isThisRunning;
+
+              return (
+                <div key={p.provider} className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    {/* Provider info */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
                         <p className="text-sm font-medium text-foreground">
                           {formatProvider(p.provider)}
                         </p>
-                        <div className="mt-1 flex items-center gap-3">
-                          {/* Install / SDK status */}
-                          <span className={cn('inline-flex items-center gap-1 text-xs', install.color)}>
-                            <span className={cn(
-                              'inline-block size-1.5 rounded-full',
-                              install.color.replace('text-', 'bg-'),
-                            )} />
-                            {install.label}
+                        {isThisRunning && (
+                          <span className="flex items-center gap-1 text-xs text-emerald-500">
+                            <StatusDot state="Running" />
+                            Running
                           </span>
-
-                          {/* Auth status (hidden when uninstalled) */}
-                          {auth && (
-                            <span className={cn('inline-flex items-center gap-1 text-xs', auth.color)}>
-                              <span className={cn(
-                                'inline-block size-1.5 rounded-full',
-                                auth.color.replace('text-', 'bg-'),
-                              )} />
-                              {auth.label}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
+                      <div className="mt-1 flex items-center gap-3">
+                        <span className={cn('inline-flex items-center gap-1 text-xs', install.color)}>
+                          <span className={cn('inline-block size-1.5 rounded-full', install.color.replace('text-', 'bg-'))} />
+                          {install.label}
+                        </span>
+                        {auth && (
+                          <span className={cn('inline-flex items-center gap-1 text-xs', auth.color)}>
+                            <span className={cn('inline-block size-1.5 rounded-full', auth.color.replace('text-', 'bg-'))} />
+                            {auth.label}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                      {/* Install button (for uninstalled binary providers) */}
+                    {/* Action buttons */}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {/* Install */}
                       {p.provider !== 'ngrok' && !p.binary_found && PROVIDER_INSTALL[p.provider] && (
                         <ProviderActionTerminalPopover
                           provider={p.provider}
@@ -923,76 +892,103 @@ function RemoteAccessContent() {
                         />
                       )}
 
-                      {/* Configure token button */}
+                      {/* Configure token (ngrok) */}
                       {showTokenConfig && !isEditing && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="shrink-0 cursor-pointer"
-                          onClick={() => {
-                            setTokenEditProvider(p.provider);
-                            setTokenDraft('');
-                          }}
+                          className="cursor-pointer"
+                          onClick={() => { setTokenEditProvider(p.provider); setTokenDraft(''); }}
                         >
                           <KeyRound className="mr-1.5 size-3.5" />
                           Configure
                         </Button>
                       )}
+
+                      {/* Tunnel controls (ready providers) */}
+                      {isReady && (
+                        <>
+                          {isThisRunning ? (
+                            <>
+                              {status && <ViewTunnelPopover status={status} />}
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="cursor-pointer"
+                                onClick={() => void stop()}
+                                disabled={isStopping}
+                              >
+                                {isStopping ? (
+                                  <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+                                ) : (
+                                  <Square className="mr-1.5 size-3.5" />
+                                )}
+                                Stop Tunnel
+                              </Button>
+                            </>
+                          ) : (
+                            !startDisabled && (
+                              <StartTunnelPopover
+                                provider={p.provider}
+                                isStarting={isStarting}
+                                onStart={(mode, ttl) => handleStart(p.provider, mode, ttl)}
+                              />
+                            )
+                          )}
+                        </>
+                      )}
                     </div>
-
-                    {/* Inline token editor */}
-                    {isEditing && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <Input
-                          type="password"
-                          value={tokenDraft}
-                          onChange={(e) => setTokenDraft(e.target.value)}
-                          placeholder="Paste auth token…"
-                          className="h-8 flex-1 font-mono text-xs"
-                          autoFocus
-                        />
-                        <Button
-                          size="sm"
-                          className="shrink-0 cursor-pointer"
-                          disabled={!tokenDraft.trim()}
-                          onClick={async () => {
-                            await saveCredential(p.provider, tokenDraft.trim());
-                            setTokenEditProvider(null);
-                            setTokenDraft('');
-                            toastManager.add({ title: 'Token saved', type: 'success' });
-                            void detect();
-                          }}
-                        >
-                          <Check className="mr-1 size-3.5" />
-                          Save
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="shrink-0 cursor-pointer"
-                          onClick={() => {
-                            setTokenEditProvider(null);
-                            setTokenDraft('');
-                          }}
-                        >
-                          <X className="size-3.5" />
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Structured actions: install link, auth hint */}
-                    <ProviderActions p={p} onRedetect={() => void detect()} />
-
-                    {p.last_error && (
-                      <p className="mt-2 text-xs text-red-500">{p.last_error}</p>
-                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
+
+                  {/* Inline token editor */}
+                  {isEditing && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <Input
+                        type="password"
+                        value={tokenDraft}
+                        onChange={(e) => setTokenDraft(e.target.value)}
+                        placeholder="Paste auth token…"
+                        className="h-8 flex-1 font-mono text-xs"
+                        autoFocus
+                      />
+                      <Button
+                        size="sm"
+                        className="shrink-0 cursor-pointer"
+                        disabled={!tokenDraft.trim()}
+                        onClick={async () => {
+                          await saveCredential(p.provider, tokenDraft.trim());
+                          setTokenEditProvider(null);
+                          setTokenDraft('');
+                          toastManager.add({ title: 'Token saved', type: 'success' });
+                          void detect();
+                        }}
+                      >
+                        <Check className="mr-1 size-3.5" />
+                        Save
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 cursor-pointer"
+                        onClick={() => { setTokenEditProvider(null); setTokenDraft(''); }}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Structured actions and warnings */}
+                  <ProviderActions p={p} onRedetect={() => void detect()} />
+
+                  {p.last_error && (
+                    <p className="mt-2 text-xs text-red-500">{p.last_error}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
