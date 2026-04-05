@@ -1,52 +1,93 @@
 import type { SkillInfo } from '@/api/ws-api';
 
-// Agent display names and colors
-export const AGENT_CONFIG: Record<string, { name: string; color: string }> = {
-  unified: { name: 'Unified', color: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },
-  amp: { name: 'Amp', color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400' },
-  antigravity: { name: 'Antigravity', color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
-  augment: { name: 'Augment', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
-  claude: { name: 'Claude', color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400' },
-  'in-project': { name: 'InsideTheProject', color: 'bg-red-500/20 text-red-600 dark:text-red-400' },
-  cline: { name: 'Cline', color: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400' },
-  codebuddy: { name: 'CodeBuddy', color: 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' },
-  codex: { name: 'Codex', color: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },
-  commandcode: { name: 'Command Code', color: 'bg-slate-500/20 text-slate-600 dark:text-slate-400' },
-  continue: { name: 'Continue', color: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' },
-  crush: { name: 'Crush', color: 'bg-pink-500/20 text-pink-600 dark:text-pink-400' },
-  cursor: { name: 'Cursor', color: 'bg-violet-500/20 text-violet-600 dark:text-violet-400' },
-  factory: { name: 'Droid', color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400' },
-  gemini: { name: 'Gemini', color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
-  copilot: { name: 'Copilot', color: 'bg-gray-500/20 text-gray-600 dark:text-gray-400' },
-  goose: { name: 'Goose', color: 'bg-amber-500/20 text-amber-600 dark:text-amber-400' },
-  junie: { name: 'Junie', color: 'bg-rose-500/20 text-rose-600 dark:text-rose-400' },
-  iflow: { name: 'iFlow', color: 'bg-sky-500/20 text-sky-600 dark:text-sky-400' },
-  kilocode: { name: 'Kilo Code', color: 'bg-lime-500/20 text-lime-600 dark:text-lime-400' },
-  kimi: { name: 'Kimi', color: 'bg-fuchsia-500/20 text-fuchsia-600 dark:text-fuchsia-400' },
-  kiro: { name: 'Kiro', color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400' },
-  kode: { name: 'Kode', color: 'bg-red-500/20 text-red-600 dark:text-red-400' },
-  mcpjam: { name: 'MCPJam', color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400' },
-  vibe: { name: 'Mistral Vibe', color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400' },
-  mux: { name: 'Mux', color: 'bg-green-500/20 text-green-600 dark:text-green-400' },
-  opencode: { name: 'OpenCode', color: 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400' },
-  openclaude: { name: 'OpenClaude', color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400' },
-  openhands: { name: 'OpenHands', color: 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' },
-  pi: { name: 'Pi', color: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },
-  qoder: { name: 'Qoder', color: 'bg-slate-500/20 text-slate-600 dark:text-slate-400' },
-  qwen: { name: 'Qwen', color: 'bg-violet-500/20 text-violet-600 dark:text-violet-400' },
-  replit: { name: 'Replit', color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400' },
-  roo: { name: 'Roo Code', color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400' },
-  trae: { name: 'Trae', color: 'bg-pink-500/20 text-pink-600 dark:text-pink-400' },
-  windsurf: { name: 'Windsurf', color: 'bg-sky-500/20 text-sky-600 dark:text-sky-400' },
-  zed: { name: 'Zed', color: 'bg-sky-500/20 text-sky-600 dark:text-sky-400' },
-  zencoder: { name: 'Zencoder', color: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' },
-  neovate: { name: 'Neovate', color: 'bg-lime-500/20 text-lime-600 dark:text-lime-400' },
-  pochi: { name: 'Pochi', color: 'bg-rose-500/20 text-rose-600 dark:text-rose-400' },
-  adal: { name: 'AdaL', color: 'bg-fuchsia-500/20 text-fuchsia-600 dark:text-fuchsia-400' },
+// Agent display names
+export const AGENT_CONFIG: Record<string, { name: string }> = {
+  unified: { name: 'Unified' },
+  amp: { name: 'Amp' },
+  antigravity: { name: 'Antigravity' },
+  augment: { name: 'Augment' },
+  claude: { name: 'Claude' },
+  'in-project': { name: 'InsideTheProject' },
+  cline: { name: 'Cline' },
+  codebuddy: { name: 'CodeBuddy' },
+  codex: { name: 'Codex' },
+  commandcode: { name: 'Command Code' },
+  continue: { name: 'Continue' },
+  crush: { name: 'Crush' },
+  cursor: { name: 'Cursor' },
+  factory: { name: 'Droid' },
+  gemini: { name: 'Gemini' },
+  copilot: { name: 'Copilot' },
+  goose: { name: 'Goose' },
+  junie: { name: 'Junie' },
+  iflow: { name: 'iFlow' },
+  kilocode: { name: 'Kilo Code' },
+  kimi: { name: 'Kimi' },
+  kiro: { name: 'Kiro' },
+  kode: { name: 'Kode' },
+  mcpjam: { name: 'MCPJam' },
+  vibe: { name: 'Mistral Vibe' },
+  mux: { name: 'Mux' },
+  opencode: { name: 'OpenCode' },
+  openclaude: { name: 'OpenClaude' },
+  openhands: { name: 'OpenHands' },
+  pi: { name: 'Pi' },
+  qoder: { name: 'Qoder' },
+  qwen: { name: 'Qwen' },
+  replit: { name: 'Replit' },
+  roo: { name: 'Roo Code' },
+  trae: { name: 'Trae' },
+  windsurf: { name: 'Windsurf' },
+  zed: { name: 'Zed' },
+  zencoder: { name: 'Zencoder' },
+  neovate: { name: 'Neovate' },
+  pochi: { name: 'Pochi' },
+  adal: { name: 'AdaL' },
+};
+
+// Map skills agent keys to AgentIcon registryIds
+// AgentIcon handles icon resolution (remaps, aliases, fallbacks)
+export const AGENT_REGISTRY_ID_MAP: Record<string, string> = {
+  amp: 'amp',
+  antigravity: 'antigravity',
+  augment: 'auggie',
+  claude: 'claude',
+  cline: 'cline',
+  codebuddy: 'codebuddy-code',
+  codex: 'codex',
+  cursor: 'cursor',
+  factory: 'factory-droid',
+  gemini: 'gemini',
+  copilot: 'github-copilot',
+  goose: 'goose',
+  junie: 'junie',
+  kilocode: 'kilocode',
+  kimi: 'kimi',
+  kiro: 'kiro',
+  opencode: 'opencode',
+  qoder: 'qoder',
+  qwen: 'qwen-code',
+  roo: 'roo',
+  trae: 'trae',
+  vibe: 'mistral-vibe',
+  windsurf: 'windsurf',
 };
 
 export function getAgentConfig(agent: string) {
-  return AGENT_CONFIG[agent] || { name: agent, color: 'bg-gray-500/20 text-gray-600 dark:text-gray-400' };
+  return AGENT_CONFIG[agent] || { name: agent };
+}
+
+export function getAgentRegistryId(agent: string): string | null {
+  return AGENT_REGISTRY_ID_MAP[agent] ?? null;
+}
+
+/** Sort agents so "unified" always comes first */
+export function sortAgents(agents: string[]): string[] {
+  return [...agents].sort((a, b) => {
+    if (a === 'unified') return -1;
+    if (b === 'unified') return 1;
+    return 0;
+  });
 }
 
 function isUnifiedPath(path: string) {

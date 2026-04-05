@@ -37,7 +37,13 @@ import {
   MotionSidebarMenuItem,
   MotionSidebarProvider,
 } from '@workspace/ui';
-import { Bell, Bot, BrainCircuit, Building2, Check, ChevronDown, Download, ExternalLink, Info, Languages, LoaderCircle, Plus, RefreshCw, Route, Save, SlidersHorizontal, SquareTerminal, Trash2, Webhook } from 'lucide-react';
+import { Bot, Building2, Check, ChevronDown, Download, ExternalLink, Languages, LoaderCircle, Plus, RefreshCw, Route, Save, SlidersHorizontal, Trash2, Webhook } from 'lucide-react';
+import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
+import TerminalIcon from '@workspace/ui/components/icons/terminal-icon';
+import { BotIcon } from '@workspace/ui/components/icons/bot-icon';
+import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon';
+import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
+import WorldIcon from '@workspace/ui/components/icons/world-icon';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
@@ -77,37 +83,31 @@ const SETTINGS_SECTIONS = [
     id: 'about',
     label: 'About',
     description: 'Product overview and desktop updates',
-    icon: Info,
   },
   {
     id: 'terminal',
     label: 'Terminal',
     description: 'Terminal preferences and link behavior',
-    icon: SquareTerminal,
   },
   {
     id: 'code-agent',
     label: 'Code Agent',
     description: 'Agent startup commands and custom parameters',
-    icon: Bot,
   },
   {
     id: 'ai',
     label: 'AI & Provider',
     description: 'Providers and lightweight task routing',
-    icon: BrainCircuit,
   },
   {
     id: 'notify',
     label: 'Notify',
     description: 'Notification channels and agent event triggers',
-    icon: Bell,
   },
   {
     id: 'remote-access',
     label: 'Remote Access',
     description: 'Tunnel gateway and remote browser access',
-    icon: Route,
   },
 ] as const;
 
@@ -1512,8 +1512,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <MotionSidebarContent className="overflow-y-auto p-3">
                   <MotionSidebarMenu>
                     {SETTINGS_SECTIONS.map((section) => {
-                      const Icon = section.icon;
                       const isActive = resolvedActiveSection === section.id;
+                      const iconRef = React.useRef<any>(null);
 
                       return (
                         <MotionSidebarMenuItem key={section.id}>
@@ -1522,8 +1522,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             isActive={isActive}
                             onClick={() => void setActiveSection(section.id)}
                             className="h-10 gap-3 rounded-lg px-3 text-left"
+                            onMouseEnter={() => iconRef.current?.startAnimation?.()}
+                            onMouseLeave={() => iconRef.current?.stopAnimation?.()}
                           >
-                            <Icon className="size-4 shrink-0" />
+                            {section.id === 'code-agent' && <BotIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'notify' && <BellIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'about' && <InfoCircleIcon ref={iconRef} className="size-4 shrink-0" />}
+                            {section.id === 'terminal' && <TerminalIcon ref={iconRef} className="size-4 shrink-0" />}
+                            {section.id === 'ai' && <BrainCircuitIcon ref={iconRef} className="size-4 shrink-0" />}
+                            {section.id === 'remote-access' && <WorldIcon ref={iconRef} className="size-4 shrink-0" />}
                             <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
                           </MotionSidebarMenuButton>
                         </MotionSidebarMenuItem>

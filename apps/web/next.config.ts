@@ -31,6 +31,7 @@ const nextConfig: NextConfig = {
   trailingSlash: isDesktop,
   images: { unoptimized: isDesktop },
   allowedDevOrigins: ["*"],
+  experimental: { viewTransition: true },
   ...devHeadersConfig,
 };
 
