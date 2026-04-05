@@ -445,7 +445,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center gap-1.5 flex-wrap overflow-hidden h-[22px]">
               {sortAgents(skill.agents).filter((agent) => agent !== 'in-project').map((agent) => {
                 const agentStatus = getAgentStatus(skill, agent);

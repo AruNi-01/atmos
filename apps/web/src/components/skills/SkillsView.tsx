@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { addTransitionType, startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ViewTransition } from "react";
+import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ViewTransition } from "react";
 import {
   Button,
   Collapsible,
@@ -284,7 +284,6 @@ function InstalledSkillListCard({
                   <StatusIcon className="size-2.5" />
                   {statusMeta.label}
                 </span>
-
               </div>
             </div>
           </div>
@@ -487,7 +486,6 @@ export const SkillsView: React.FC = () => {
 
   const handleBack = useCallback(() => {
     startTransition(() => {
-      addTransitionType('nav-back');
       router.push(
         buildSkillListUrl({
           activeTab,
@@ -528,7 +526,7 @@ export const SkillsView: React.FC = () => {
     searchParams.set("scope", skill.scope);
     searchParams.set("skillId", skill.id);
     startTransition(() => {
-      addTransitionType('nav-forward');
+      setSelectedSkill(skill);
       router.push(`/skills?${searchParams.toString()}`);
     });
   };
@@ -547,42 +545,32 @@ export const SkillsView: React.FC = () => {
     }));
   };
 
-  if (skillId && skillScope) {
-    if (isLoadingDetail) {
-      return (
-        <div className="flex h-full items-center justify-center bg-background">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+  if (selectedSkill) {
+    return (
+      <ViewTransition key="skill-detail">
+        <div className="h-full overflow-hidden bg-background">
+          <SkillDetail
+            skill={selectedSkill}
+            onBack={handleBack}
+            onUpdated={handleSkillUpdated}
+            onDeleted={handleSkillDeleted}
+          />
         </div>
-      );
-    }
+      </ViewTransition>
+    );
+  }
 
-    if (selectedSkill) {
-      return (
-        <ViewTransition
-          enter={{ 'nav-forward': 'nav-forward', 'nav-back': 'nav-back', default: 'none' }}
-          exit={{ 'nav-forward': 'nav-forward', 'nav-back': 'nav-back', default: 'none' }}
-          default="none"
-        >
-          <div className="h-full overflow-hidden bg-background">
-            <SkillDetail
-              skill={selectedSkill}
-              onBack={handleBack}
-              onUpdated={handleSkillUpdated}
-              onDeleted={handleSkillDeleted}
-            />
-          </div>
-        </ViewTransition>
-      );
-    }
+  if (skillId && skillScope && isLoadingDetail) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
     <>
-      <ViewTransition
-        enter={{ 'nav-forward': 'nav-forward', 'nav-back': 'nav-back', default: 'none' }}
-        exit={{ 'nav-forward': 'nav-forward', 'nav-back': 'nav-back', default: 'none' }}
-        default="none"
-      >
+      <ViewTransition key="skill-list">
       <div className="flex h-full flex-col overflow-hidden bg-background">
         <div className="sticky top-0 z-10 border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm">
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-6">

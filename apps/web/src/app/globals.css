@@ -177,57 +177,35 @@ html:not([data-theme-ready="true"]) body {
   padding-top: 10px !important;
 }
 
-/* ── View Transition Recipes ── */
+/* ── View Transitions ── */
 
-:root {
-  --duration-exit: 150ms;
-  --duration-enter: 210ms;
-  --duration-move: 400ms;
-}
-
-@keyframes fade {
-  from { filter: blur(3px); opacity: 0; }
-  to { filter: blur(0); opacity: 1; }
+/* Freeze everything outside the named transition group */
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation: none;
 }
 
-@keyframes slide {
-  from { translate: var(--slide-offset); }
-  to { translate: 0; }
+/* Simple fade for skill list ↔ detail */
+::view-transition-old(skill-list),
+::view-transition-old(skill-detail) {
+  animation: 180ms ease-out both fade-out;
+}
+::view-transition-new(skill-list),
+::view-transition-new(skill-detail) {
+  animation: 220ms ease-in both fade-in;
 }
 
-/* Directional navigation (forward / back) */
-::view-transition-old(.nav-forward) {
-  --slide-offset: -60px;
-  animation:
-    var(--duration-exit) ease-in both fade reverse,
-    var(--duration-move) ease-in-out both slide reverse;
+@keyframes fade-out {
+  to { opacity: 0; }
 }
-::view-transition-new(.nav-forward) {
-  --slide-offset: 60px;
-  animation:
-    var(--duration-enter) ease-out var(--duration-exit) both fade,
-    var(--duration-move) ease-in-out both slide;
-}
-
-::view-transition-old(.nav-back) {
-  --slide-offset: 60px;
-  animation:
-    var(--duration-exit) ease-in both fade reverse,
-    var(--duration-move) ease-in-out both slide reverse;
-}
-::view-transition-new(.nav-back) {
-  --slide-offset: -60px;
-  animation:
-    var(--duration-enter) ease-out var(--duration-exit) both fade,
-    var(--duration-move) ease-in-out both slide;
+@keyframes fade-in {
+  from { opacity: 0; }
 }
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(*),
-  ::view-transition-new(*),
-  ::view-transition-group(*) {
+  ::view-transition-new(*) {
     animation-duration: 0s !important;
-    animation-delay: 0s !important;
   }
 }
