@@ -36,7 +36,7 @@ pub struct RemoteAccessStatus {
     pub share_url: Option<String>,
     pub provider: Option<ProviderKind>,
     pub provider_status: ProviderStatus,
-    pub active_session_id: Option<String>,
+    pub entry_token: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
 }
 

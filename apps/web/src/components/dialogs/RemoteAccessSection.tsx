@@ -3,6 +3,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import {
+  Badge,
   Button,
   Calendar,
   Input,
@@ -18,7 +19,8 @@ import {
   cn,
   toastManager,
 } from '@workspace/ui';
-import { CalendarIcon, Check, Copy, Download, ExternalLink, KeyRound, LoaderCircle, Play, RefreshCw, Square, SquareTerminal, X } from 'lucide-react';
+import { CalendarIcon, Check, Copy, Download, ExternalLink, KeyRound, LoaderCircle, Play, RefreshCw, RotateCcw, ShieldCheck, ShieldOff, Square, SquareTerminal, Wifi, X } from 'lucide-react';
+
 import { getRuntimeApiConfig, httpBase, isTauriRuntime } from '@/lib/desktop-runtime';
 import { Terminal, type TerminalRef } from '@/components/terminal/Terminal';
 import {
@@ -26,9 +28,10 @@ import {
   type ProviderKind,
   type ProviderAccessMode,
   type ProviderDiagnostics,
+  type RemoteAccessStatus,
 } from '@/hooks/use-remote-access';
 
-function formatProvider(kind: ProviderKind): string {
+export function formatProvider(kind: ProviderKind): string {
   if (kind === 'cloudflare') return 'Cloudflare Tunnel';
   return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
@@ -42,7 +45,7 @@ function getActionCommand(provider: ProviderKind, action: 'install' | 'start' | 
   return null;
 }
 
-function formatExpiry(expiresAt: string | null): string {
+export function formatExpiry(expiresAt: string | null): string {
   if (!expiresAt) return 'Unknown';
   const diff = new Date(expiresAt).getTime() - Date.now();
   if (diff <= 0) return 'Expired';
@@ -52,6 +55,16 @@ function formatExpiry(expiresAt: string | null): string {
   const remainMinutes = minutes % 60;
   if (remainMinutes === 0) return `in ${hours} hour${hours === 1 ? '' : 's'}`;
   return `in ${hours}h ${remainMinutes}m`;
+}
+
+export type SessionUrgency = 'ok' | 'warning' | 'expired';
+
+export function getSessionUrgency(expiresAt: string | null): SessionUrgency {
+  if (!expiresAt) return 'ok';
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  if (diff <= 0) return 'expired';
+  if (diff < 60 * 60 * 1000) return 'warning'; // < 1 hour
+  return 'ok';
 }
 
 function copyToClipboard(text: string): void {
@@ -68,6 +81,55 @@ function StatusDot({ state }: { state: string }) {
         ? 'bg-red-500'
         : 'bg-yellow-500';
   return <span className={cn('inline-block size-2 rounded-full', color)} />;
+}
+
+/** Label row with optional external-link button on the right. */
+export function CopyableLabel({ children, href }: { children: React.ReactNode; href?: string }) {
+  return (
+    <div className="mb-1.5 flex items-center justify-between">
+      <p className="text-xs text-muted-foreground">{children}</p>
+      {href && (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+          title="Open in browser"
+        >
+          <ExternalLink className="size-3" />
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** Inline copyable text box — click anywhere to copy, hover highlights, icon → check on success. */
+export function CopyableText({ value }: { value: string }) {
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      title="Click to copy"
+      className="group flex w-full min-w-0 cursor-pointer items-center gap-1.5 rounded bg-muted px-2 py-1 transition-colors hover:bg-accent"
+    >
+      <code className="min-w-0 flex-1 truncate text-left font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+        {value}
+      </code>
+      {copied ? (
+        <Check className="size-3 shrink-0 text-emerald-500" />
+      ) : (
+        <Copy className="size-3 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+      )}
+    </button>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -494,7 +556,7 @@ function TtlPicker({
               <CalendarIcon className="ml-1 size-3.5 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto overflow-hidden p-0" align="end">
+          <PopoverContent className="w-auto overflow-hidden p-0" align="end" avoidCollisions={false}>
             <Calendar
               mode="single"
               selected={customDate}
@@ -502,6 +564,7 @@ function TtlPicker({
               defaultMonth={customDate ?? new Date()}
               disabled={{ before: new Date() }}
               onSelect={(d) => setCustomDate(d)}
+              classNames={{ month_grid: 'w-full', weeks: 'min-h-[168px]' }}
             />
             <div className="flex items-center gap-2 border-t border-border px-3 py-2">
               <Input
@@ -564,28 +627,141 @@ function providerAuthLabel(
 }
 
 // ---------------------------------------------------------------------------
+// Renew Session Popover
+// ---------------------------------------------------------------------------
+
+export function RenewSessionPopover({
+  provider,
+  status,
+  onRenew,
+  urgency,
+}: {
+  provider: ProviderKind;
+  status: RemoteAccessStatus;
+  onRenew: (ttlSecs: number, reuseToken: boolean) => Promise<void>;
+  urgency: SessionUrgency;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [ttlSecs, setTtlSecs] = React.useState(3600);
+  const [reuseToken, setReuseToken] = React.useState(true);
+  const [isRenewing, setIsRenewing] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleRenew = async () => {
+    setError(null);
+    setIsRenewing(true);
+    try {
+      await onRenew(ttlSecs, reuseToken);
+      setOpen(false);
+      toastManager.add({ title: 'Session renewed', type: 'success' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsRenewing(false);
+    }
+  };
+
+  const triggerCls = urgency === 'expired'
+    ? 'border-red-500/60 bg-red-500/10 text-red-500 hover:bg-red-500/20'
+    : 'border-amber-500/60 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20';
+
+  return (
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setError(null); }}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className={cn('cursor-pointer', triggerCls)}>
+          <RotateCcw className="mr-1.5 size-3.5" />
+          {urgency === 'expired' ? 'Expired — Renew' : 'Renew'}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="w-72 p-4">
+        <p className="mb-3 text-sm font-medium text-foreground">Renew Session</p>
+        <div className="space-y-3">
+          <div>
+            <p className="mb-1.5 text-xs text-muted-foreground">New expiration</p>
+            <TtlPicker value={ttlSecs} onChange={setTtlSecs} />
+          </div>
+          <div>
+            <p className="mb-1.5 text-xs text-muted-foreground">Entry token</p>
+            <div className="flex flex-col gap-1.5">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+                <input
+                  type="radio"
+                  name={`token-mode-${provider}`}
+                  checked={reuseToken}
+                  onChange={() => setReuseToken(true)}
+                  className="accent-foreground"
+                />
+                Keep existing token
+                <span className="ml-auto rounded bg-muted px-1 text-[10px] text-muted-foreground">recommended</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+                <input
+                  type="radio"
+                  name={`token-mode-${provider}`}
+                  checked={!reuseToken}
+                  onChange={() => setReuseToken(false)}
+                  className="accent-foreground"
+                />
+                Generate new token
+              </label>
+            </div>
+            {!reuseToken && (
+              <p className="mt-1.5 text-[11px] text-amber-500">
+                Previously shared URLs will stop working.
+              </p>
+            )}
+          </div>
+          {error && (
+            <p className="text-xs text-destructive">{error}</p>
+          )}
+          <Button className="w-full cursor-pointer" size="sm" onClick={() => void handleRenew()} disabled={isRenewing}>
+            {isRenewing ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 size-3.5" />}
+            Renew Session
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Start Tunnel Popover
 // ---------------------------------------------------------------------------
 
 function StartTunnelPopover({
   provider,
   isStarting,
+  isStopping,
   onStart,
+  onForceStop,
 }: {
   provider: ProviderKind;
   isStarting: boolean;
+  isStopping: boolean;
   onStart: (mode: ProviderAccessMode, ttlSecs: number) => Promise<void>;
+  onForceStop: () => Promise<void>;
 }) {
   const [open, setOpen] = React.useState(false);
-  const [mode, setMode] = React.useState<ProviderAccessMode>('private');
+  const [mode, setMode] = React.useState<ProviderAccessMode>('public');
   const [ttlSecs, setTtlSecs] = React.useState(3600);
   const [startError, setStartError] = React.useState<string | null>(null);
+
+  const isAlreadyRunning = startError?.toLowerCase().includes('already running');
 
   const handleStart = async () => {
     setStartError(null);
     try {
-      await onStart(mode, ttlSecs);
+      await onStart(provider === 'tailscale' ? mode : 'public', ttlSecs);
       setOpen(false);
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleForceStop = async () => {
+    try {
+      await onForceStop();
+      setStartError(null);
     } catch (err) {
       setStartError(err instanceof Error ? err.message : String(err));
     }
@@ -608,18 +784,20 @@ function StartTunnelPopover({
           Start {formatProvider(provider)} Tunnel
         </p>
         <div className="space-y-3">
-          <div>
-            <p className="mb-1.5 text-xs text-muted-foreground">Access Mode</p>
-            <Select value={mode} onValueChange={(v) => setMode(v as ProviderAccessMode)}>
-              <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="private">Private — requires authentication</SelectItem>
-                <SelectItem value="public">Public — open access</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {provider === 'tailscale' && (
+            <div>
+              <p className="mb-1.5 text-xs text-muted-foreground">Access Mode</p>
+              <Select value={mode} onValueChange={(v) => setMode(v as ProviderAccessMode)}>
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Public — internet accessible (Funnel)</SelectItem>
+                  <SelectItem value="private">Private — tailnet only (Serve)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <p className="mb-1.5 text-xs text-muted-foreground">Expiration</p>
             <TtlPicker value={ttlSecs} onChange={setTtlSecs} />
@@ -627,7 +805,19 @@ function StartTunnelPopover({
           {startError && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <p className="font-medium">Failed to start tunnel</p>
-              <p className="mt-1 whitespace-pre-wrap leading-relaxed">{startError}</p>
+              <p className="mt-1 whitespace-pre-wrap break-words leading-relaxed">{startError}</p>
+              {isAlreadyRunning && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="mt-2 w-full cursor-pointer"
+                  onClick={() => void handleForceStop()}
+                  disabled={isStopping}
+                >
+                  {isStopping ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <Square className="mr-1.5 size-3.5" />}
+                  Stop Now
+                </Button>
+              )}
             </div>
           )}
           <Button
@@ -649,8 +839,21 @@ function StartTunnelPopover({
 // View Tunnel Popover
 // ---------------------------------------------------------------------------
 
-function ViewTunnelPopover({ status }: { status: NonNullable<ReturnType<typeof useRemoteAccess>['status']> }) {
+function ViewTunnelPopover({
+  status,
+  onRenew,
+}: {
+  status: RemoteAccessStatus;
+  onRenew: (ttlSecs: number, reuseToken: boolean) => Promise<void>;
+}) {
   const [open, setOpen] = React.useState(false);
+  const urgency = getSessionUrgency(status.expires_at);
+  const expiryTextCls =
+    urgency === 'expired'
+      ? 'text-red-500 font-medium'
+      : urgency === 'warning'
+        ? 'text-amber-500 font-medium'
+        : 'text-foreground';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -673,94 +876,40 @@ function ViewTunnelPopover({ status }: { status: NonNullable<ReturnType<typeof u
             <X className="size-3.5" />
           </button>
         </div>
-        <div className="divide-y divide-border">
+        {/* Inset dividers per SettingsModalRule: px-4 wrapper, border-b on each row */}
+        <div className="px-4">
           {status.public_url && (
-            <div className="px-4 py-3">
-              <p className="mb-1.5 text-xs text-muted-foreground">Public URL</p>
-              <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
-                  {status.public_url}
-                </code>
-                <button
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => copyToClipboard(status.public_url!)}
-                  title="Copy"
-                >
-                  <Copy className="size-3.5" />
-                </button>
-                <a
-                  href={status.public_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                  title="Open in browser"
-                >
-                  <ExternalLink className="size-3.5" />
-                </a>
-              </div>
+            <div className="border-b border-border py-3 last:border-b-0">
+              <CopyableLabel href={status.public_url}>Public URL</CopyableLabel>
+              <CopyableText value={status.public_url} />
             </div>
           )}
           {status.share_url && (
-            <div className="px-4 py-3">
-              <p className="mb-1.5 text-xs text-muted-foreground">Access URL (with token)</p>
-              <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
-                  {status.share_url}
-                </code>
-                <button
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => copyToClipboard(status.share_url!)}
-                  title="Copy"
-                >
-                  <Copy className="size-3.5" />
-                </button>
-                <a
-                  href={status.share_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                  title="Open in browser"
-                >
-                  <ExternalLink className="size-3.5" />
-                </a>
-              </div>
+            <div className="border-b border-border py-3 last:border-b-0">
+              <CopyableLabel href={status.share_url}>Access URL (with token)</CopyableLabel>
+              <CopyableText value={status.share_url} />
             </div>
           )}
-          {status.gateway_url && (
-            <div className="px-4 py-3">
-              <p className="mb-1.5 text-xs text-muted-foreground">Gateway URL</p>
-              <code className="block truncate rounded bg-muted px-2 py-1 font-mono text-xs">
-                {status.gateway_url}
-              </code>
+          {status.entry_token && (
+            <div className="border-b border-border py-3 last:border-b-0">
+              <CopyableLabel>Entry Token</CopyableLabel>
+              <CopyableText value={status.entry_token} />
             </div>
           )}
-          {status.active_session_id && (
-            <div className="px-4 py-3">
-              <p className="mb-1.5 text-xs text-muted-foreground">Session ID</p>
-              <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 font-mono text-xs">
-                  {status.active_session_id}
-                </code>
-                <button
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={() => copyToClipboard(status.active_session_id!)}
-                  title="Copy"
-                >
-                  <Copy className="size-3.5" />
-                </button>
-              </div>
+          <div className="flex items-center justify-between border-b border-border py-3 last:border-b-0">
+            <div>
+              <p className="mb-1 text-xs text-muted-foreground">Expires</p>
+              <p className={cn('text-xs', expiryTextCls)}>{formatExpiry(status.expires_at)}</p>
             </div>
-          )}
-          <div className="px-4 py-3">
-            <p className="mb-1 text-xs text-muted-foreground">Expires</p>
-            <p className="text-xs text-foreground">{formatExpiry(status.expires_at)}</p>
+            {(urgency === 'warning' || urgency === 'expired') && status.provider && (
+              <RenewSessionPopover
+                provider={status.provider}
+                status={status}
+                onRenew={onRenew}
+                urgency={urgency}
+              />
+            )}
           </div>
-          {status.provider_status.message && (
-            <div className="px-4 py-3">
-              <p className="mb-1 text-xs text-muted-foreground">Message</p>
-              <p className="text-xs text-foreground">{status.provider_status.message}</p>
-            </div>
-          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -773,14 +922,15 @@ function ViewTunnelPopover({ status }: { status: NonNullable<ReturnType<typeof u
 
 function RemoteAccessContent() {
   const {
-    status,
+    statusMap,
     providers,
     isLoading,
-    isStarting,
-    isStopping,
+    startingProviders,
+    stoppingProviders,
     detect,
     start,
     stop,
+    renew,
     saveCredential,
   } = useRemoteAccess();
 
@@ -790,9 +940,6 @@ function RemoteAccessContent() {
   React.useEffect(() => {
     void detect();
   }, [detect]);
-
-  const isRunning = !!(status && status.provider_status.state === 'Running');
-  const runningProvider = status?.provider ?? null;
 
   const handleStart = async (provider: ProviderKind, mode: ProviderAccessMode, ttlSecs: number) => {
     const config = await getRuntimeApiConfig();
@@ -837,19 +984,21 @@ function RemoteAccessContent() {
         ) : providers.length === 0 ? (
           <div className="px-6 py-5 text-sm text-muted-foreground">No providers detected.</div>
         ) : (
-          <div className="divide-y divide-border">
+          <div className="border-t border-border px-4">
             {providers.map((p) => {
               const install = providerInstallLabel(p);
               const auth = providerAuthLabel(p);
               const isReady = p.logged_in;
-              const isThisRunning = isRunning && runningProvider === p.provider;
+              const providerStatus = statusMap[p.provider];
+              const isThisRunning = !!(providerStatus && providerStatus.provider_status.state === 'Running');
+              const isThisStarting = startingProviders.has(p.provider);
+              const isThisStopping = stoppingProviders.has(p.provider);
               const showTokenConfig = supportsTokenConfig(p.provider) && !p.logged_in;
               const isEditing = tokenEditProvider === p.provider;
-              // Only one tunnel can run at a time — disable Start for others
-              const startDisabled = isRunning && !isThisRunning;
+              const sessionUrgency = isThisRunning ? getSessionUrgency(providerStatus?.expires_at ?? null) : 'ok';
 
               return (
-                <div key={p.provider} className="px-6 py-4">
+                <div key={p.provider} className="border-b border-border px-2 py-4 last:border-b-0">
                   <div className="flex items-center gap-3">
                     {/* Provider info */}
                     <div className="min-w-0 flex-1">
@@ -858,22 +1007,44 @@ function RemoteAccessContent() {
                           {formatProvider(p.provider)}
                         </p>
                         {isThisRunning && (
-                          <span className="flex items-center gap-1 text-xs text-emerald-500">
-                            <StatusDot state="Running" />
+                          <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <Wifi className="size-3" />
                             Running
-                          </span>
+                          </Badge>
+                        )}
+                        {sessionUrgency === 'expired' && (
+                          <Badge className="border-red-500/30 bg-red-500/10 text-red-500">
+                            Session expired
+                          </Badge>
+                        )}
+                        {sessionUrgency === 'warning' && (
+                          <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-500">
+                            Expires {formatExpiry(providerStatus?.expires_at ?? null)}
+                          </Badge>
                         )}
                       </div>
-                      <div className="mt-1 flex items-center gap-3">
-                        <span className={cn('inline-flex items-center gap-1 text-xs', install.color)}>
-                          <span className={cn('inline-block size-1.5 rounded-full', install.color.replace('text-', 'bg-'))} />
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge
+                          className={cn(
+                            install.color === 'text-emerald-500'
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                              : 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400',
+                          )}
+                        >
+                          {install.color === 'text-emerald-500' ? <Check className="size-3" /> : <X className="size-3" />}
                           {install.label}
-                        </span>
+                        </Badge>
                         {auth && (
-                          <span className={cn('inline-flex items-center gap-1 text-xs', auth.color)}>
-                            <span className={cn('inline-block size-1.5 rounded-full', auth.color.replace('text-', 'bg-'))} />
+                          <Badge
+                            className={cn(
+                              auth.color === 'text-emerald-500'
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400',
+                            )}
+                          >
+                            {auth.color === 'text-emerald-500' ? <ShieldCheck className="size-3" /> : <ShieldOff className="size-3" />}
                             {auth.label}
-                          </span>
+                          </Badge>
                         )}
                       </div>
                     </div>
@@ -910,15 +1081,28 @@ function RemoteAccessContent() {
                         <>
                           {isThisRunning ? (
                             <>
-                              {status && <ViewTunnelPopover status={status} />}
+                              {providerStatus && (
+                                <ViewTunnelPopover
+                                  status={providerStatus}
+                                  onRenew={(ttlSecs, reuseToken) => renew(p.provider, ttlSecs, reuseToken).then(() => {})}
+                                />
+                              )}
+                              {providerStatus && (sessionUrgency === 'warning' || sessionUrgency === 'expired') && (
+                                <RenewSessionPopover
+                                  provider={p.provider}
+                                  status={providerStatus}
+                                  onRenew={(ttlSecs, reuseToken) => renew(p.provider, ttlSecs, reuseToken).then(() => {})}
+                                  urgency={sessionUrgency}
+                                />
+                              )}
                               <Button
                                 variant="destructive"
                                 size="sm"
                                 className="cursor-pointer"
-                                onClick={() => void stop()}
-                                disabled={isStopping}
+                                onClick={() => void stop(p.provider)}
+                                disabled={isThisStopping}
                               >
-                                {isStopping ? (
+                                {isThisStopping ? (
                                   <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
                                 ) : (
                                   <Square className="mr-1.5 size-3.5" />
@@ -927,13 +1111,13 @@ function RemoteAccessContent() {
                               </Button>
                             </>
                           ) : (
-                            !startDisabled && (
-                              <StartTunnelPopover
-                                provider={p.provider}
-                                isStarting={isStarting}
-                                onStart={(mode, ttl) => handleStart(p.provider, mode, ttl)}
-                              />
-                            )
+                            <StartTunnelPopover
+                              provider={p.provider}
+                              isStarting={isThisStarting}
+                              isStopping={isThisStopping}
+                              onStart={(mode, ttl) => handleStart(p.provider, mode, ttl)}
+                              onForceStop={() => stop(p.provider)}
+                            />
                           )}
                         </>
                       )}

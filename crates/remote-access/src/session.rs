@@ -75,6 +75,29 @@ impl SessionStore {
         guard.insert(session.session_id.clone(), session);
     }
 
+    /// Extend an existing session's TTL. If `reuse_token` is true the existing
+    /// `entry_token` is kept; otherwise a fresh one is generated (invalidating
+    /// any previously shared URLs).
+    pub async fn renew_session(
+        &self,
+        session_id: &str,
+        ttl_secs: i64,
+        reuse_token: bool,
+    ) -> Result<TunnelSession, RemoteAccessError> {
+        let now = Utc::now();
+        let mut guard = self.inner.write().await;
+        let session = guard
+            .get_mut(session_id)
+            .ok_or(RemoteAccessError::SessionNotFound)?;
+
+        session.expires_at = now + Duration::seconds(ttl_secs.max(60));
+        session.revoked_at = None;
+        if !reuse_token {
+            session.entry_token = Alphanumeric.sample_string(&mut rand::thread_rng(), 48);
+        }
+        Ok(session.clone())
+    }
+
     pub async fn revoke_session(&self, session_id: &str) -> Result<(), RemoteAccessError> {
         let mut guard = self.inner.write().await;
         let session = guard

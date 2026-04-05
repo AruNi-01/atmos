@@ -18,6 +18,11 @@ pub struct StartRemoteAccessReq {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct StopRemoteAccessReq {
+    pub provider: ProviderKind,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct SaveCredentialReq {
     pub provider: ProviderKind,
     pub credential: String,
@@ -56,7 +61,6 @@ pub async fn remote_access_start(
     req: StartRemoteAccessReq,
 ) -> Result<RemoteAccessStatus, String> {
     let log_path = logging::app_log_path(&app, "desktop.log");
-    // Always try saved credentials — the user configured them for a reason.
     let credential = load_provider_credential(req.provider).unwrap_or(None);
     logging::append_log(
         &log_path,
@@ -86,17 +90,14 @@ pub async fn remote_access_start(
             logging::append_log(
                 &log_path,
                 &format!(
-                    "[remote-access] command success provider={:?} public_url={:?}",
+                    "[remote-access] start success provider={:?} public_url={:?}",
                     status.provider, status.public_url
                 ),
             );
             Ok(status)
         }
         Err(err) => {
-            logging::append_log(
-                &log_path,
-                &format!("[remote-access] command failed err={err}"),
-            );
+            logging::append_log(&log_path, &format!("[remote-access] start failed err={err}"));
             Err(err)
         }
     }
@@ -105,28 +106,55 @@ pub async fn remote_access_start(
 #[tauri::command]
 pub async fn remote_access_recover(
     state: tauri::State<'_, AppState>,
-) -> Result<Option<RemoteAccessStatus>, String> {
-    let provider = state
+) -> Result<HashMap<String, RemoteAccessStatus>, String> {
+    let provider_kinds = state
         .remote_access_manager
-        .persisted_provider_kind()
-        .await?;
-    let credential = match provider {
-        Some(provider) => load_provider_credential(provider)?,
-        None => None,
-    };
-    state.remote_access_manager.recover(credential).await
+        .persisted_provider_kinds()
+        .await;
+
+    let mut credentials: HashMap<remote_access::ProviderKind, Option<String>> = HashMap::new();
+    for kind in provider_kinds {
+        credentials.insert(kind, load_provider_credential(kind).unwrap_or(None));
+    }
+
+    state.remote_access_manager.recover(credentials).await
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RenewRemoteAccessReq {
+    pub provider: ProviderKind,
+    pub ttl_secs: Option<i64>,
+    pub reuse_token: Option<bool>,
 }
 
 #[tauri::command]
-pub async fn remote_access_stop(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.remote_access_manager.stop().await
+pub async fn remote_access_renew(
+    state: tauri::State<'_, AppState>,
+    req: RenewRemoteAccessReq,
+) -> Result<RemoteAccessStatus, String> {
+    state
+        .remote_access_manager
+        .renew(
+            req.provider,
+            req.ttl_secs.unwrap_or(3600),
+            req.reuse_token.unwrap_or(true),
+        )
+        .await
+}
+
+#[tauri::command]
+pub async fn remote_access_stop(
+    state: tauri::State<'_, AppState>,
+    req: StopRemoteAccessReq,
+) -> Result<(), String> {
+    state.remote_access_manager.stop(req.provider).await
 }
 
 #[tauri::command]
 pub async fn remote_access_status(
     state: tauri::State<'_, AppState>,
-) -> Result<RemoteAccessStatus, String> {
-    Ok(state.remote_access_manager.status().await)
+) -> Result<HashMap<String, RemoteAccessStatus>, String> {
+    Ok(state.remote_access_manager.status_all().await)
 }
 
 #[tauri::command]
@@ -186,4 +214,9 @@ fn credential_key(provider: ProviderKind) -> String {
 fn load_provider_credential(provider: ProviderKind) -> Result<Option<String>, String> {
     let creds = load_all_credentials()?;
     Ok(creds.get(&credential_key(provider)).cloned())
+}
+
+/// Public helper for startup recovery (called from mod.rs).
+pub fn load_credential_for_provider(provider: ProviderKind) -> Option<String> {
+    load_provider_credential(provider).unwrap_or(None)
 }

@@ -124,12 +124,16 @@ impl TunnelProvider for TailscaleProvider {
         let exit_ok = exit_status.map(|s| s.success()).unwrap_or(false);
 
         if !exit_ok {
-            let err = concat!(
-                "tailscale serve did not start. ",
-                "Run `tailscale serve --bg <port>` in a terminal to see the error. ",
-                "Common cause: Serve is not enabled on your tailnet — enable it at ",
-                "https://login.tailscale.com/admin/settings/features"
-            ).to_string();
+            let subcmd = if req.mode == ProviderAccessMode::Public { "funnel" } else { "serve" };
+            let err = format!(
+                "tailscale {subcmd} failed to start.\n\n\
+                If this is your first time using Funnel, run this in a terminal — it will open \
+                a browser page where you can approve Funnel for your tailnet:\n\n\
+                    tailscale funnel --bg {target}\n\n\
+                After approving in the browser, try starting the tunnel again.",
+                subcmd = subcmd,
+                target = req.target_url,
+            );
             *self.last_mode.write().await = None;
             *self.last_error.write().await = Some(err.clone());
             anyhow::bail!(err);

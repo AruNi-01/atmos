@@ -65,7 +65,7 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && !cfg.token) {
     throw new Error('Desktop API token is missing in Tauri runtime');
   }
-  const apiBase = `http://${cfg.host}:${cfg.port}`;
+  const apiBase = httpBase(cfg);
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
@@ -603,7 +603,7 @@ export const agentApi = {
     }
 
     const cfg = await getRuntimeApiConfig();
-    const apiBase = `http://${cfg.host}:${cfg.port}`;
+    const apiBase = httpBase(cfg);
     const res = await fetch(`${apiBase}/api/agent/upload-attachments`, {
       method: 'POST',
       headers: cfg.token ? { Authorization: `Bearer ${cfg.token}` } : undefined,

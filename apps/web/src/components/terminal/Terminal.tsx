@@ -49,7 +49,7 @@ import "@xterm/xterm/css/xterm.css";
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "./theme";
 import { useTerminalWebSocket } from "./use-terminal-websocket";
 import type { TerminalProps } from "./types";
-import { getRuntimeApiConfig } from "@/lib/desktop-runtime";
+import { getRuntimeApiConfig, isTauriRuntime } from "@/lib/desktop-runtime";
 import { openDesktopExternalUrl } from "@/lib/desktop-external-url";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import { appApi } from "@/api/ws-api";
@@ -256,11 +256,16 @@ const Terminal = ({
   const getTerminalWsUrl = () => {
     if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
     if (process.env.NEXT_PUBLIC_API_PORT) return `ws://localhost:${process.env.NEXT_PUBLIC_API_PORT}`;
-    if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
-      const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      if (!isLocal) {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        return `${protocol}//${window.location.hostname}:30303`;
+    if (typeof window !== "undefined") {
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      if (process.env.NODE_ENV === "development") {
+        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+        if (!isLocal) {
+          return `${wsProtocol}//${window.location.hostname}:30303`;
+        }
+      } else {
+        // Production: use same host/port as the page (tunnel or direct)
+        return `${wsProtocol}//${window.location.host}`;
       }
     }
     return "ws://localhost:30303";
@@ -1000,7 +1005,7 @@ const Terminal = ({
         const urlObj = new URL(wsUrl);
         if (port) {
           urlObj.host = `${host}:${port}`;
-          urlObj.protocol = "ws:";
+          urlObj.protocol = isTauriRuntime() ? "ws:" : urlObj.protocol;
         }
         if (token) {
           urlObj.searchParams.set("token", token);

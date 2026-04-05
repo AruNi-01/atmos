@@ -101,10 +101,11 @@ fn main() {
                         .join("desktop")
                 })
                 .join(WINDOW_STATE_FILE);
-            let remote_access_state_path = window_state_path
-                .parent()
-                .map(|p| p.join("remote-access-state.json"))
-                .unwrap_or_else(|| std::env::temp_dir().join("remote-access-state.json"));
+            let remote_access_state_path = dirs::home_dir()
+                .unwrap_or_else(std::env::temp_dir)
+                .join(".atmos")
+                .join("remote-access")
+                .join("state.json");
             app.manage(AppState {
                 api_port: Mutex::new(None),
                 api_token: api_token.clone(),
@@ -162,6 +163,16 @@ fn main() {
                     let x = *state.api_port.lock().unwrap();
                     x
                 };
+
+                // Asynchronously restore any tunnel providers that were running
+                // when the app was last closed, now that the sidecar API is ready.
+                if let Some(p) = port {
+                    let recover_handle = app_handle.clone();
+                    let target_base_url = format!("http://127.0.0.1:{p}");
+                    tauri::async_runtime::spawn(async move {
+                        remote_access::startup_recover(recover_handle, target_base_url).await;
+                    });
+                }
 
                 if let Some(main) = app_handle.get_webview_window("main") {
                     if let Some(p) = port {
@@ -385,6 +396,7 @@ fn main() {
             remote_access::commands::remote_access_detect,
             remote_access::commands::remote_access_start,
             remote_access::commands::remote_access_stop,
+            remote_access::commands::remote_access_renew,
             remote_access::commands::remote_access_status,
             remote_access::commands::remote_access_recover,
             remote_access::commands::remote_access_provider_guide,

@@ -38,9 +38,12 @@ export type RemoteAccessStatus = {
   share_url: string | null;
   provider: ProviderKind | null;
   provider_status: ProviderStatus;
-  active_session_id: string | null;
+  entry_token: string | null;
   expires_at: string | null;
 };
+
+// Map of provider kind → its active status (only contains running providers).
+export type RemoteAccessStatusMap = Partial<Record<ProviderKind, RemoteAccessStatus>>;
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -49,23 +52,21 @@ export type RemoteAccessStatus = {
 export function useRemoteAccess() {
   const isDesktop = useMemo(() => isTauriRuntime(), []);
 
-  const [status, setStatus] = useState<RemoteAccessStatus | null>(null);
+  const [statusMap, setStatusMap] = useState<RemoteAccessStatusMap>({});
   const [providers, setProviders] = useState<ProviderDiagnostics[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isStarting, setIsStarting] = useState(false);
-  const [isStopping, setIsStopping] = useState(false);
+  // Per-provider loading states
+  const [startingProviders, setStartingProviders] = useState<Set<ProviderKind>>(new Set());
+  const [stoppingProviders, setStoppingProviders] = useState<Set<ProviderKind>>(new Set());
 
   const refreshStatus = useCallback(async () => {
     if (!isDesktop) return;
-    setIsLoading(true);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<RemoteAccessStatus>('remote_access_status');
-      setStatus(result);
+      const result = await invoke<Record<string, RemoteAccessStatus>>('remote_access_status');
+      setStatusMap(result as RemoteAccessStatusMap);
     } catch (err) {
       errorLog(`[remote-access] refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsLoading(false);
     }
   }, [isDesktop]);
 
@@ -89,20 +90,13 @@ export function useRemoteAccess() {
       mode?: ProviderAccessMode,
       targetBaseUrl?: string,
       ttlSecs?: number,
-      useSavedCredential?: boolean,
     ): Promise<RemoteAccessStatus | undefined> => {
       if (!isDesktop) return undefined;
-      setIsStarting(true);
+      setStartingProviders((prev) => new Set(prev).add(provider));
       try {
         const { invoke } = await import('@tauri-apps/api/core');
         const payload = {
-          req: {
-            provider,
-            mode,
-            target_base_url: targetBaseUrl,
-            ttl_secs: ttlSecs,
-            use_saved_credential: useSavedCredential,
-          },
+          req: { provider, mode, target_base_url: targetBaseUrl, ttl_secs: ttlSecs },
         };
         debugLog(`[remote-access] start: ${JSON.stringify(payload)}`);
         const result = await Promise.race([
@@ -112,41 +106,78 @@ export function useRemoteAccess() {
           ),
         ]);
         debugLog(`[remote-access] start ok: provider=${result.provider} url=${result.public_url}`);
-        setStatus(result);
+        setStatusMap((prev) => ({ ...prev, [provider]: result }));
         return result;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         errorLog(`[remote-access] start failed: ${msg}`);
         throw err;
       } finally {
-        setIsStarting(false);
+        setStartingProviders((prev) => {
+          const next = new Set(prev);
+          next.delete(provider);
+          return next;
+        });
       }
     },
     [isDesktop],
   );
 
-  const stop = useCallback(async () => {
-    if (!isDesktop) return;
-    setIsStopping(true);
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('remote_access_stop');
-      setStatus(null);
-    } catch (err) {
-      errorLog(`[remote-access] stop failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsStopping(false);
-    }
-  }, [isDesktop]);
+  const stop = useCallback(
+    async (provider: ProviderKind) => {
+      if (!isDesktop) return;
+      setStoppingProviders((prev) => new Set(prev).add(provider));
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('remote_access_stop', { req: { provider } });
+        setStatusMap((prev) => {
+          const next = { ...prev };
+          delete next[provider];
+          return next;
+        });
+      } catch (err) {
+        errorLog(`[remote-access] stop failed: ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        setStoppingProviders((prev) => {
+          const next = new Set(prev);
+          next.delete(provider);
+          return next;
+        });
+      }
+    },
+    [isDesktop],
+  );
+
+  const renew = useCallback(
+    async (
+      provider: ProviderKind,
+      ttlSecs?: number,
+      reuseToken?: boolean,
+    ): Promise<RemoteAccessStatus | undefined> => {
+      if (!isDesktop) return undefined;
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const result = await invoke<RemoteAccessStatus>('remote_access_renew', {
+          req: { provider, ttl_secs: ttlSecs, reuse_token: reuseToken ?? true },
+        });
+        setStatusMap((prev) => ({ ...prev, [provider]: result }));
+        return result;
+      } catch (err) {
+        errorLog(`[remote-access] renew failed: ${err instanceof Error ? err.message : String(err)}`);
+        throw err;
+      }
+    },
+    [isDesktop],
+  );
 
   const recover = useCallback(async () => {
     if (!isDesktop) return;
     setIsLoading(true);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<RemoteAccessStatus | null>('remote_access_recover');
-      if (result) {
-        setStatus(result);
+      const result = await invoke<Record<string, RemoteAccessStatus>>('remote_access_recover');
+      if (result && Object.keys(result).length > 0) {
+        setStatusMap(result as RemoteAccessStatusMap);
       }
     } catch (err) {
       errorLog(`[remote-access] recover failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -200,17 +231,32 @@ export function useRemoteAccess() {
     void refreshStatus();
   }, [isDesktop, refreshStatus]);
 
+  // Listen for the startup recovery event emitted by Rust after sidecar is ready.
+  useEffect(() => {
+    if (!isDesktop) return;
+    let unlisten: (() => void) | undefined;
+    import('@tauri-apps/api/event').then(({ listen }) => {
+      listen<Record<string, RemoteAccessStatus>>('remote-access-recovered', (event) => {
+        if (event.payload && Object.keys(event.payload).length > 0) {
+          setStatusMap(event.payload as RemoteAccessStatusMap);
+        }
+      }).then((fn) => { unlisten = fn; });
+    });
+    return () => { unlisten?.(); };
+  }, [isDesktop]);
+
   return {
-    status,
+    statusMap,
     providers,
     isLoading,
-    isStarting,
-    isStopping,
+    startingProviders,
+    stoppingProviders,
     isDesktop,
     refreshStatus,
     detect,
     start,
     stop,
+    renew,
     recover,
     getProviderGuide,
     saveCredential,

@@ -56,7 +56,7 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
             self.logs.write().await.push(ProviderLogEntry {
                 at: Utc::now(),
                 level: "warn".to_string(),
-                message: "cloudflare quick tunnel 为公网模式，已按公网模式启动".to_string(),
+                message: "cloudflare quick tunnel is public-only; started in public mode".to_string(),
             });
         }
 
@@ -81,9 +81,16 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
         // Tauri runtime context).  Killing the child closes its pipes, which
         // causes the log drain tasks to EOF and drop the url_tx senders, which
         // causes url_rx.recv() below to return None and unblock.
+        //
+        // The cancel flag lets us skip the kill once a URL has been extracted.
+        let cancel_kill = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let cancel_kill_clone = Arc::clone(&cancel_kill);
         let child_id = child.id();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(15));
+            if cancel_kill_clone.load(std::sync::atomic::Ordering::Relaxed) {
+                return;
+            }
             if let Some(pid) = child_id {
                 // SIGTERM the child so cloudflared can clean up; if it doesn't
                 // die in time kill_on_drop (when Child is dropped) finishes it.
@@ -100,6 +107,7 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
         // url_rx.recv() completes when a URL is sent OR all senders are dropped
         // (which happens when the log drain tasks hit EOF after the child is killed).
         if let Some(url) = url_rx.recv().await {
+            cancel_kill.store(true, std::sync::atomic::Ordering::Relaxed);
             public_url = Some(url);
         }
 

@@ -2,7 +2,7 @@
 
 import { debugLog, errorLog } from './desktop-logger';
 
-export type ApiConfig = { host: string; port: number; token: string };
+export type ApiConfig = { host: string; port: number; token: string; protocol?: string };
 
 let cachedConfig: ApiConfig | null = null;
 
@@ -12,12 +12,14 @@ export function isTauriRuntime(): boolean {
 
 /** Build an HTTP base URL from the resolved config. */
 export function httpBase(cfg: ApiConfig): string {
-  return `http://${cfg.host}:${cfg.port}`;
+  const scheme = cfg.protocol ?? 'http';
+  return `${scheme}://${cfg.host}:${cfg.port}`;
 }
 
 /** Build a WebSocket base URL from the resolved config. */
 export function wsBase(cfg: ApiConfig): string {
-  return `ws://${cfg.host}:${cfg.port}`;
+  const scheme = cfg.protocol === 'https' ? 'wss' : 'ws';
+  return `${scheme}://${cfg.host}:${cfg.port}`;
 }
 
 export async function getRuntimeApiConfig(): Promise<ApiConfig> {
@@ -56,10 +58,12 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
   //      same-machine and LAN browsers work automatically.
   //   2) Dev mode (localhost:3030): API runs separately on port 30303.
   if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'development') {
+    const protocol = window.location.protocol.replace(':', ''); // 'http' or 'https'
     const host = window.location.hostname;
-    const port = parseInt(window.location.port || '80', 10);
-    cachedConfig = { host, port, token: '' };
-    debugLog(`getRuntimeApiConfig: same-origin ${host}:${port}`);
+    const defaultPort = protocol === 'https' ? '443' : '80';
+    const port = parseInt(window.location.port || defaultPort, 10);
+    cachedConfig = { host, port, token: '', protocol };
+    debugLog(`getRuntimeApiConfig: same-origin ${protocol}://${host}:${port}`);
     return cachedConfig;
   }
 
