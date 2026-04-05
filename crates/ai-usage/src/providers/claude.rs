@@ -43,20 +43,12 @@ struct ClaudeCredentialsData {
 #[derive(Debug, Clone)]
 struct ClaudeCredentials {
     access_token: String,
-    refresh_token: Option<String>,
     scopes: Vec<String>,
     rate_limit_tier: Option<String>,
     expires_at: Option<u64>,
 }
 
-const CLAUDE_TOKEN_REFRESH_URL: &str = "https://console.anthropic.com/v1/oauth/token";
-const CLAUDE_OAUTH_CLIENT_ID: &str = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 const TOKEN_EXPIRY_BUFFER_SECS: u64 = 300;
-
-#[derive(Debug, Clone, Deserialize)]
-struct ClaudeRefreshResponse {
-    access_token: Option<String>,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 struct ClaudeUsageResponse {
@@ -97,29 +89,29 @@ struct ClaudeExtraUsage {
 pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
     let mut credentials = load_claude_credentials()?;
 
+    // If the token is expired, delegate refresh to Claude CLI rather than
+    // calling the OAuth token endpoint ourselves.  Calling the endpoint
+    // directly rotates the token and leaves the Claude Code CLI holding a
+    // stale access_token, which causes persistent 401 errors.
     if claude_token_needs_refresh(&credentials) {
-        if let Some(refresh_token) = credentials.refresh_token.as_deref() {
-            debug!("Claude OAuth access token expired or expiring soon, refreshing");
-            credentials.access_token = refresh_claude_access_token(client, refresh_token).await?;
-        }
+        debug!("Claude OAuth access token expired or expiring soon, delegating refresh to Claude CLI");
+        delegate_claude_refresh()?;
+        // Re-read credentials after Claude CLI has refreshed them
+        credentials = load_claude_credentials()?;
     }
 
     let payload = match request_claude_usage(client, &credentials.access_token).await {
         Ok(payload) => payload,
-        Err(error) if error.contains("401") || error.contains("403") || error.contains("429") => {
-            if let Some(refresh_token) = credentials.refresh_token.as_deref() {
-                debug!(
-                    "Claude OAuth usage request failed ({}), attempting token refresh",
-                    error
-                );
-                credentials.access_token =
-                    refresh_claude_access_token(client, refresh_token).await?;
-                request_claude_usage(client, &credentials.access_token)
-                    .await
-                    .map_err(ProviderError::Fetch)?
-            } else {
-                return Err(ProviderError::Fetch(error));
-            }
+        Err(error) if error.contains("401") || error.contains("403") => {
+            debug!(
+                "Claude OAuth usage request failed ({}), delegating refresh to Claude CLI",
+                error
+            );
+            delegate_claude_refresh()?;
+            credentials = load_claude_credentials()?;
+            request_claude_usage(client, &credentials.access_token)
+                .await
+                .map_err(ProviderError::Fetch)?
         }
         Err(error) => return Err(ProviderError::Fetch(error)),
     };
@@ -197,8 +189,8 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
         .as_ref()
         .filter(|extra| extra.is_enabled == Some(true))
     {
-        let used = extra.used_credits.unwrap_or_default();
-        let limit = extra.monthly_limit.unwrap_or_default();
+        let used = extra.used_credits.unwrap_or_default() / 100.0;
+        let limit = extra.monthly_limit.unwrap_or_default() / 100.0;
         credits_label = Some(format!(
             "{used:.2} / {limit:.2} {}",
             extra.currency.clone().unwrap_or_else(|| "USD".to_string())
@@ -250,54 +242,49 @@ fn claude_token_needs_refresh(credentials: &ClaudeCredentials) -> bool {
     expires_at <= unix_now() + TOKEN_EXPIRY_BUFFER_SECS
 }
 
-async fn refresh_claude_access_token(
-    client: &Client,
-    refresh_token: &str,
-) -> Result<String, ProviderError> {
-    let response = client
-        .post(CLAUDE_TOKEN_REFRESH_URL)
-        .form(&[
-            ("grant_type", "refresh_token"),
-            ("client_id", CLAUDE_OAUTH_CLIENT_ID),
-            ("refresh_token", refresh_token),
-        ])
-        .send()
-        .await
-        .map_err(|error| ProviderError::Fetch(format!("Claude token refresh failed: {error}")))?;
-
-    if !response.status().is_success() {
-        return Err(ProviderError::Fetch(format!(
-            "Claude token refresh returned {}. Try running `claude /login` to re-authenticate.",
-            response.status()
-        )));
+/// Delegate token refresh to the Claude CLI by running `claude /status`.
+/// This lets Claude Code rotate its own token so the credentials file /
+/// keychain are updated atomically.  We never call the OAuth token endpoint
+/// ourselves because that would invalidate the token Claude Code is using.
+fn delegate_claude_refresh() -> Result<(), ProviderError> {
+    match run_command("claude", &["/status"]) {
+        Ok(_) => {
+            debug!("Claude CLI /status completed, credentials should be refreshed");
+            Ok(())
+        }
+        Err(error) => {
+            debug!("Claude CLI /status failed: {error}, credentials may be stale");
+            Ok(())
+        }
     }
+}
 
-    let payload = response
-        .json::<ClaudeRefreshResponse>()
-        .await
-        .map_err(|error| {
-            ProviderError::Fetch(format!("Invalid Claude refresh payload: {error}"))
-        })?;
-
-    payload
-        .access_token
-        .filter(|v| !v.is_empty())
-        .ok_or_else(|| {
-            ProviderError::Fetch("Claude refresh response missing access_token".to_string())
+fn detect_claude_version() -> String {
+    run_command("claude", &["--version"])
+        .ok()
+        .and_then(|output| {
+            output
+                .trim()
+                .split_whitespace()
+                .next()
+                .filter(|v| v.contains('.'))
+                .map(str::to_string)
         })
+        .unwrap_or_else(|| "2.1.0".to_string())
 }
 
 async fn request_claude_usage(
     client: &Client,
     access_token: &str,
 ) -> Result<ClaudeUsageResponse, String> {
+    let version = detect_claude_version();
     let response = client
         .get("https://api.anthropic.com/api/oauth/usage")
         .bearer_auth(access_token)
         .header("Accept", "application/json")
         .header("Content-Type", "application/json")
         .header("anthropic-beta", "oauth-2025-04-20")
-        .header("User-Agent", "claude-code/2.1.0")
+        .header("User-Agent", format!("claude-code/{version}"))
         .send()
         .await
         .map_err(|error| format!("Claude OAuth request failed: {error}"))?;
@@ -336,7 +323,6 @@ fn load_claude_credentials() -> Result<ClaudeCredentials, ProviderError> {
     {
         return Ok(ClaudeCredentials {
             access_token: token,
-            refresh_token: None,
             scopes: vec![],
             rate_limit_tier: env::var("CLAUDE_CODE_RATE_LIMIT_TIER")
                 .ok()
@@ -421,10 +407,6 @@ fn parse_oauth_credentials(oauth: ClaudeCredentialsData) -> Option<ClaudeCredent
 
     Some(ClaudeCredentials {
         access_token,
-        refresh_token: oauth
-            .refresh_token
-            .map(|v| v.trim().to_string())
-            .filter(|v| !v.is_empty()),
         scopes: oauth.scopes,
         rate_limit_tier: plan_label(oauth.subscription_type, oauth.rate_limit_tier),
         expires_at: oauth.expires_at.map(|value| value as u64),
