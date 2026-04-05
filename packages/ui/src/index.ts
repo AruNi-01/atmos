@@ -58,6 +58,7 @@ export * from "./components/ui/rating";
 export * from "./components/ui/separator";
 export * from "./components/ui/switch";
 export * from "./components/ui/accordion";
+export { Calendar, CalendarDayButton } from "./components/ui/calendar";
 export * from "./components/ui/flow-button";
 export * from "./components/ui/border-beam";
 export { ShineBorder } from "./components/ui/shine-border";
@@ -101,6 +102,10 @@ export type { BotMessageSquareHandle } from "./components/icons/bot-message-squa
 export { default as ArrowNarrowUpDashedIcon } from "./components/icons/arrow-narrow-up-dashed-icon";
 export { default as ArrowNarrowDownDashedIcon } from "./components/icons/arrow-narrow-down-dashed-icon";
 export { default as SimpleCheckedIcon } from "./components/icons/simple-checked-icon";
+export { GitPullRequestCreateIcon } from "./components/icons/git-pull-request-create-icon";
+export type { GitPullRequestCreateIconHandle } from "./components/icons/git-pull-request-create-icon";
+export { GitPullRequestClosedIcon } from "./components/icons/git-pull-request-closed-icon";
+export type { GitPullRequestClosedIconHandle } from "./components/icons/git-pull-request-closed-icon";
 
 // Utilities
 export { cn } from "./lib/utils";

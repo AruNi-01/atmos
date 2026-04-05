@@ -37,7 +37,13 @@ import {
   MotionSidebarMenuItem,
   MotionSidebarProvider,
 } from '@workspace/ui';
-import { Bell, Bot, BrainCircuit, Building2, Check, ChevronDown, Download, ExternalLink, Info, Languages, LoaderCircle, Plus, RefreshCw, Route, Save, SlidersHorizontal, SquareTerminal, Trash2, Webhook } from 'lucide-react';
+import { Bot, Building2, Check, ChevronDown, Download, ExternalLink, Languages, LoaderCircle, Plus, RefreshCw, Route, Save, SlidersHorizontal, Trash2, Webhook } from 'lucide-react';
+import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
+import TerminalIcon from '@workspace/ui/components/icons/terminal-icon';
+import { BotIcon } from '@workspace/ui/components/icons/bot-icon';
+import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon';
+import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
+import WorldIcon from '@workspace/ui/components/icons/world-icon';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
@@ -64,6 +70,7 @@ import { useWebSocketStore } from '@/hooks/use-websocket';
 import { settingsModalParams } from '@/lib/nuqs/searchParams';
 import { useNotificationSettings, type PushServerConfig, type PushServerType } from '@/hooks/use-notification-settings';
 import { ensureBrowserNotificationPermission } from '@/hooks/use-agent-notifications';
+import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -76,31 +83,31 @@ const SETTINGS_SECTIONS = [
     id: 'about',
     label: 'About',
     description: 'Product overview and desktop updates',
-    icon: Info,
   },
   {
     id: 'terminal',
     label: 'Terminal',
     description: 'Terminal preferences and link behavior',
-    icon: SquareTerminal,
   },
   {
     id: 'code-agent',
     label: 'Code Agent',
     description: 'Agent startup commands and custom parameters',
-    icon: Bot,
   },
   {
     id: 'ai',
     label: 'AI & Provider',
     description: 'Providers and lightweight task routing',
-    icon: BrainCircuit,
   },
   {
     id: 'notify',
     label: 'Notify',
     description: 'Notification channels and agent event triggers',
-    icon: Bell,
+  },
+  {
+    id: 'remote-access',
+    label: 'Remote Access',
+    description: 'Tunnel gateway and remote browser access',
   },
 ] as const;
 
@@ -1477,6 +1484,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, []);
 
+  const sectionIconRefs = React.useRef<Record<string, React.RefObject<any>>>({});
+  for (const section of SETTINGS_SECTIONS) {
+    if (!sectionIconRefs.current[section.id]) {
+      sectionIconRefs.current[section.id] = React.createRef();
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} className="h-[min(90vh,820px)] w-[min(96vw,1360px)] max-w-[min(96vw,1360px)] overflow-hidden border-border bg-background p-0 sm:!max-w-[min(96vw,1360px)]">
@@ -1505,8 +1519,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <MotionSidebarContent className="overflow-y-auto p-3">
                   <MotionSidebarMenu>
                     {SETTINGS_SECTIONS.map((section) => {
-                      const Icon = section.icon;
                       const isActive = resolvedActiveSection === section.id;
+                      const iconRef = sectionIconRefs.current[section.id];
 
                       return (
                         <MotionSidebarMenuItem key={section.id}>
@@ -1515,8 +1529,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             isActive={isActive}
                             onClick={() => void setActiveSection(section.id)}
                             className="h-10 gap-3 rounded-lg px-3 text-left"
+                            onMouseEnter={() => iconRef.current?.startAnimation?.()}
+                            onMouseLeave={() => iconRef.current?.stopAnimation?.()}
                           >
-                            <Icon className="size-4 shrink-0" />
+                            {section.id === 'code-agent' && <BotIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'notify' && <BellIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'about' && <InfoCircleIcon ref={iconRef} className="size-4 shrink-0" />}
+                            {section.id === 'terminal' && <TerminalIcon ref={iconRef} className="size-4 shrink-0" />}
+                            {section.id === 'ai' && <BrainCircuitIcon ref={iconRef} className="size-4 shrink-0" />}
+                            {section.id === 'remote-access' && <WorldIcon ref={iconRef} className="size-4 shrink-0" />}
                             <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
                           </MotionSidebarMenuButton>
                         </MotionSidebarMenuItem>
@@ -2393,7 +2414,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
-                ) : (
+                ) : resolvedActiveSection === 'notify' ? (
                   <NotifySettingsSection
                     settings={notifySettings}
                     isLoading={isNotifyLoading}
@@ -2420,7 +2441,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onUpdatePushServer={updatePushServer}
                     onTestPushServer={testPushServer}
                   />
-                )}
+                ) : resolvedActiveSection === 'remote-access' ? (
+                  <RemoteAccessSection />
+                ) : null}
                 </div>
               </ScrollArea>
             </div>

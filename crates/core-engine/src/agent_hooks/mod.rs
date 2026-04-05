@@ -36,15 +36,30 @@ pub struct AgentHookToolStatus {
 
 impl AgentHookToolStatus {
     fn not_detected() -> Self {
-        Self { detected: false, installed: false, config_path: None, error: None }
+        Self {
+            detected: false,
+            installed: false,
+            config_path: None,
+            error: None,
+        }
     }
 
     fn success(config_path: impl Into<String>) -> Self {
-        Self { detected: true, installed: true, config_path: Some(config_path.into()), error: None }
+        Self {
+            detected: true,
+            installed: true,
+            config_path: Some(config_path.into()),
+            error: None,
+        }
     }
 
     fn failed(config_path: impl Into<String>, error: impl Into<String>) -> Self {
-        Self { detected: true, installed: false, config_path: Some(config_path.into()), error: Some(error.into()) }
+        Self {
+            detected: true,
+            installed: false,
+            config_path: Some(config_path.into()),
+            error: Some(error.into()),
+        }
     }
 }
 
@@ -63,7 +78,11 @@ pub fn install_all_hooks() -> AgentHookInstallReport {
         if opencode.installed { "ok" } else { "skip" },
     );
 
-    AgentHookInstallReport { claude_code: claude, codex, opencode }
+    AgentHookInstallReport {
+        claude_code: claude,
+        codex,
+        opencode,
+    }
 }
 
 pub fn uninstall_all_hooks() -> AgentHookInstallReport {
@@ -74,7 +93,11 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
     let codex = codex::uninstall(port);
     let opencode = opencode::uninstall();
 
-    AgentHookInstallReport { claude_code: claude, codex, opencode }
+    AgentHookInstallReport {
+        claude_code: claude,
+        codex,
+        opencode,
+    }
 }
 
 pub fn check_all_hooks() -> AgentHookInstallReport {
@@ -84,9 +107,14 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
     let codex = codex::check(port);
     let opencode = opencode::check();
 
-    AgentHookInstallReport { claude_code: claude, codex, opencode }
+    AgentHookInstallReport {
+        claude_code: claude,
+        codex,
+        opencode,
+    }
 }
 
 fn home_dir() -> Result<PathBuf> {
-    dirs::home_dir().ok_or_else(|| EngineError::Processing("Cannot determine home directory".into()))
+    dirs::home_dir()
+        .ok_or_else(|| EngineError::Processing("Cannot determine home directory".into()))
 }

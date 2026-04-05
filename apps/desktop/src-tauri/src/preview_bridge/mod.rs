@@ -5,11 +5,11 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::webview::PageLoadEvent;
-use tauri::{
-    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Position, Size, WebviewUrl,
-    Webview, WebviewBuilder,
-};
 use tauri::Url;
+use tauri::{
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Position, Size, Webview,
+    WebviewBuilder, WebviewUrl,
+};
 
 pub const PREVIEW_INSPECTOR_LABEL: &str = "preview-inspector";
 
@@ -153,7 +153,11 @@ fn emit_navigation_changed(app: &AppHandle, session_id: &str, url: &str) {
 
 fn log_preview(app: &AppHandle, message: impl AsRef<str>) {
     let path = logging::app_log_path(app, "desktop.log");
-    logging::append_log_with_level(&path, LogLevel::Debug, &format!("[preview] {}", message.as_ref()));
+    logging::append_log_with_level(
+        &path,
+        LogLevel::Debug,
+        &format!("[preview] {}", message.as_ref()),
+    );
 }
 
 fn sync_pick_mode(webview: &Webview, session_id: &str, pick_mode: bool) {
@@ -331,7 +335,9 @@ pub fn navigate_preview_window(app: &AppHandle, session_id: &str, url: &str) -> 
         DesktopPreviewBridgeState {
             session_id: session_id.to_string(),
             current_url: url.to_string(),
-            pick_mode: bridge_state(app).map(|state| state.pick_mode).unwrap_or(false),
+            pick_mode: bridge_state(app)
+                .map(|state| state.pick_mode)
+                .unwrap_or(false),
         },
     )?;
 

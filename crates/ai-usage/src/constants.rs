@@ -1,15 +1,11 @@
 pub(crate) const CACHE_TTL_SECS: u64 = 180;
 pub(crate) const PROVIDER_TIMEOUT_MILLIS: u64 = 8000;
 pub(crate) const CODEX_USAGE_API_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
-pub(crate) const CODEX_REFRESH_URL: &str = "https://auth.openai.com/oauth/token";
-pub(crate) const CODEX_OAUTH_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 pub(crate) const CODEX_SCAN_WINDOW_DAYS: i64 = 30;
 pub(crate) const CURSOR_USAGE_SERVICE_URL: &str =
     "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
 pub(crate) const CURSOR_PLAN_INFO_URL: &str =
     "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo";
-pub(crate) const CURSOR_TOKEN_REFRESH_URL: &str = "https://api2.cursor.sh/oauth/token";
-pub(crate) const CURSOR_CLIENT_ID: &str = "KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB";
 pub(crate) const OPENCODE_SERVER_URL: &str = "https://opencode.ai/_server";
 pub(crate) const OPENCODE_WORKSPACES_SERVER_ID: &str =
     "def39973159c7f0483d8793a822b8dbb10d067e12c65455fcb4608459ba0234f";

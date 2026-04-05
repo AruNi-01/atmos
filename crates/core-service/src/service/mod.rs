@@ -1,9 +1,9 @@
 pub mod agent;
 pub mod agent_hooks;
 pub mod agent_session;
-pub mod notification;
 pub mod git_commit_message;
 pub mod message_push;
+pub mod notification;
 pub mod project;
 pub mod session_title;
 pub mod skill;

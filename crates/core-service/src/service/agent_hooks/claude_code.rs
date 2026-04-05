@@ -22,7 +22,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
     let session_id = service.resolve_session_id(payload, AgentToolType::ClaudeCode, ctx);
     let project_path = AgentHooksService::extract_cwd(payload).map(String::from);
 
-    debug!("Claude Code hook event: {} session_id={}", hook_event, session_id);
+    debug!(
+        "Claude Code hook event: {} session_id={}",
+        hook_event, session_id
+    );
 
     // If this session is actively running/waiting under a different tool
     // (e.g. opencode using Claude as backend), skip — the owning tool is
@@ -71,9 +74,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 .get("notification_type")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            if notification_type == "permission_prompt"
-                || notification_type == "permissionprompt"
-            {
+            if notification_type == "permission_prompt" || notification_type == "permissionprompt" {
                 service.update_state(
                     &session_id,
                     AgentToolType::ClaudeCode,

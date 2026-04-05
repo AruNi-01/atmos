@@ -353,11 +353,7 @@ impl FsEngine {
             })?;
         } else {
             fs::remove_file(path).map_err(|e| {
-                EngineError::FileSystem(format!(
-                    "Failed to delete file {}: {}",
-                    path.display(),
-                    e
-                ))
+                EngineError::FileSystem(format!("Failed to delete file {}: {}", path.display(), e))
             })?;
         }
 

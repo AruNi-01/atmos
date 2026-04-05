@@ -341,7 +341,6 @@ impl TmuxEngine {
         let _ = self.run_tmux(&["set-environment", "-g", "ATMOS_MANAGED", "1"]);
     }
 
-
     /// Apply the standard tmux configuration options for Atmos sessions.
     ///
     /// Key design decisions:
@@ -584,7 +583,12 @@ impl TmuxEngine {
                 args.push("-e".to_string());
                 args.push(format!("{}={}", key, value));
             }
-            debug!("Tmux new-window with env vars: {:?}", vars.iter().map(|(k,v)| format!("{}={}", k, v)).collect::<Vec<_>>());
+            debug!(
+                "Tmux new-window with env vars: {:?}",
+                vars.iter()
+                    .map(|(k, v)| format!("{}={}", k, v))
+                    .collect::<Vec<_>>()
+            );
         }
         if let Some(cmd) = shell_command {
             for part in cmd {

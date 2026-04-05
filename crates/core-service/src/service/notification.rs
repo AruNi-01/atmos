@@ -118,9 +118,8 @@ impl NotificationService {
     ) {
         let settings = self.settings.read().clone();
 
-        let should_notify_permission =
-            settings.notify_on_permission_request
-                && update.state == AgentHookState::PermissionRequest;
+        let should_notify_permission = settings.notify_on_permission_request
+            && update.state == AgentHookState::PermissionRequest;
 
         let should_notify_complete = settings.notify_on_task_complete
             && update.state == AgentHookState::Idle
@@ -142,10 +141,7 @@ impl NotificationService {
         } else {
             (
                 format!("{} - Task Complete", tool_display_name(&update.tool)),
-                format!(
-                    "{} has finished running.",
-                    tool_display_name(&update.tool)
-                ),
+                format!("{} has finished running.", tool_display_name(&update.tool)),
             )
         };
 

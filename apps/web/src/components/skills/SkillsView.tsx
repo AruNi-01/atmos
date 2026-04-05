@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ViewTransition } from "react";
 import {
   Button,
   Collapsible,
@@ -38,7 +38,6 @@ import {
   Folder,
   FolderOpen,
   Globe,
-  EyeOff,
   Link2,
   Loader2,
   Puzzle,
@@ -49,7 +48,8 @@ import {
 import { SkillDetail } from "./SkillDetail";
 import { SkillActionsMenu } from "./SkillActionsMenu";
 import { SkillInstallTerminalDialog } from "./SkillInstallTerminalDialog";
-import { getAgentConfig, getAgentStatus } from "./constants";
+import { getAgentStatus, sortAgents } from "./constants";
+import { SkillAgentBadge } from "./SkillAgentBadge";
 import {
   marketCategories,
   resourceCategories,
@@ -284,7 +284,6 @@ function InstalledSkillListCard({
                   <StatusIcon className="size-2.5" />
                   {statusMeta.label}
                 </span>
-
               </div>
             </div>
           </div>
@@ -306,38 +305,16 @@ function InstalledSkillListCard({
         )}
 
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {skill.agents.filter((agent) => agent !== "in-project").map((agent) => {
-            const config = getAgentConfig(agent);
+          {sortAgents(skill.agents).filter((agent) => agent !== "in-project").map((agent) => {
             const agentStatus = getAgentStatus(skill, agent);
-            const label = (
-              <span
+            return (
+              <SkillAgentBadge
                 key={agent}
-                className={cn(
-                  "rounded px-1.5 py-0.5 text-[10px] font-medium shrink-0 inline-flex items-center gap-1",
-                  agentStatus === "disabled"
-                    ? "bg-muted text-muted-foreground"
-                    : config.color,
-                )}
-              >
-                {agentStatus === "disabled" && <EyeOff className="size-2.5" />}
-                {config.name}
-              </span>
+                agent={agent}
+                status={agentStatus}
+                tooltip={agent === "unified" ? "From: .agents/skills" : undefined}
+              />
             );
-
-            if (agent === "unified") {
-              return (
-                <TooltipProvider key={agent} delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>{label}</TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p className="text-xs">From: .agents/skills</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
-            }
-
-            return label;
           })}
         </div>
       </div>
@@ -508,15 +485,17 @@ export const SkillsView: React.FC = () => {
   };
 
   const handleBack = useCallback(() => {
-    router.push(
-      buildSkillListUrl({
-        activeTab,
-        filter: scopeFilter,
-        projects: projectsParam,
-        query,
-      }),
-    );
-    setSelectedSkill(null);
+    startTransition(() => {
+      router.push(
+        buildSkillListUrl({
+          activeTab,
+          filter: scopeFilter,
+          projects: projectsParam,
+          query,
+        }),
+      );
+      setSelectedSkill(null);
+    });
   }, [activeTab, projectsParam, query, router, scopeFilter]);
 
   const handleSkillDeleted = useCallback(
@@ -546,7 +525,10 @@ export const SkillsView: React.FC = () => {
     }
     searchParams.set("scope", skill.scope);
     searchParams.set("skillId", skill.id);
-    router.push(`/skills?${searchParams.toString()}`);
+    startTransition(() => {
+      setSelectedSkill(skill);
+      router.push(`/skills?${searchParams.toString()}`);
+    });
   };
 
   const searchPlaceholder =
@@ -563,17 +545,9 @@ export const SkillsView: React.FC = () => {
     }));
   };
 
-  if (skillId && skillScope) {
-    if (isLoadingDetail) {
-      return (
-        <div className="flex h-full items-center justify-center bg-background">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        </div>
-      );
-    }
-
-    if (selectedSkill) {
-      return (
+  if (selectedSkill) {
+    return (
+      <ViewTransition key="skill-detail">
         <div className="h-full overflow-hidden bg-background">
           <SkillDetail
             skill={selectedSkill}
@@ -582,12 +556,21 @@ export const SkillsView: React.FC = () => {
             onDeleted={handleSkillDeleted}
           />
         </div>
-      );
-    }
+      </ViewTransition>
+    );
+  }
+
+  if (skillId && skillScope && isLoadingDetail) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
     <>
+      <ViewTransition key="skill-list">
       <div className="flex h-full flex-col overflow-hidden bg-background">
         <div className="sticky top-0 z-10 border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm">
           <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-6">
@@ -992,6 +975,7 @@ export const SkillsView: React.FC = () => {
           </div>
         </Tabs>
       </div>
+      </ViewTransition>
 
       <SkillInstallTerminalDialog
         open={!!installingSkill}

@@ -15,14 +15,13 @@ use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
-    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest, CodeAgentCustomUpdateRequest,
-    CustomAgentAddRequest,
-    CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest,
-    FsDuplicatePathRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest,
-    FsRenamePathRequest, FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest,
-    FsWriteFileRequest, FunctionSettingsUpdateRequest,
-    GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
-    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
+    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest,
+    CodeAgentCustomUpdateRequest, CustomAgentAddRequest, CustomAgentRemoveRequest,
+    CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest, FsDuplicatePathRequest,
+    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsRenamePathRequest,
+    FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest, FsWriteFileRequest,
+    FunctionSettingsUpdateRequest, GitChangedFilesRequest, GitCommitRequest,
+    GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
     GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
     GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest,
     GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
@@ -31,7 +30,7 @@ use infra::{
     GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
-    GithubPrReopenRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
+    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
     ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
     ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
     ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest, SkillsGetRequest,
@@ -557,6 +556,10 @@ impl WsMessageService {
                 self.handle_github_pr_detail_sidebar(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubPrTimelinePage => {
+                self.handle_github_pr_timeline_page(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubPrCreate => {
                 self.handle_github_pr_create(parse_request(request.data)?)
                     .await
@@ -644,12 +647,9 @@ impl WsMessageService {
             // Notification settings are managed via REST endpoints (/hooks/notification/*)
             WsAction::NotificationSettingsGet
             | WsAction::NotificationSettingsUpdate
-            | WsAction::NotificationTestPush => {
-                Err(ServiceError::Processing(
-                    "Notification settings are managed via REST API at /hooks/notification/*"
-                        .into(),
-                ))
-            }
+            | WsAction::NotificationTestPush => Err(ServiceError::Processing(
+                "Notification settings are managed via REST API at /hooks/notification/*".into(),
+            )),
         }
     }
 
@@ -2936,26 +2936,36 @@ set -x
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels,reviewRequests,closingIssuesReferences"];
-        let mut output = self
+        let output = self
             .github_engine
             .run_gh(&args)
             .await
             .map_err(|e| ServiceError::Validation(format!("Failed to get PR detail: {}", e)))?;
-
-        let timeline_endpoint = format!(
-            "repos/{}/{}/issues/{}/timeline?per_page=100",
-            req.owner, req.repo, req.pr_number
-        );
-        let timeline_args = vec!["api", &timeline_endpoint];
-        if let Ok(timeline) = self.github_engine.run_gh(&timeline_args).await {
-            if let Some(obj) = output.as_object_mut() {
-                obj.insert("timeline".to_string(), timeline);
-            }
-        } else {
-            tracing::warn!("Failed to fetch timeline for PR #{}", req.pr_number);
-        }
-
         Ok(output)
+    }
+
+    async fn handle_github_pr_timeline_page(&self, req: GithubPrTimelinePageRequest) -> Result<Value> {
+        let per_page = req.per_page.clamp(1, 100);
+        let endpoint = format!(
+            "repos/{}/{}/issues/{}/timeline?per_page={}&page={}",
+            req.owner, req.repo, req.pr_number, per_page, req.page
+        );
+        let args = vec!["api", &endpoint];
+        let items = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or(serde_json::Value::Array(vec![]));
+
+        let count = items.as_array().map(|a| a.len()).unwrap_or(0);
+        let has_more = count == per_page as usize;
+
+        Ok(serde_json::json!({
+            "items": items,
+            "page": req.page,
+            "per_page": per_page,
+            "has_more": has_more,
+        }))
     }
 
     async fn handle_github_pr_detail_sidebar(&self, req: GithubPrDetailRequest) -> Result<Value> {
@@ -2979,9 +2989,7 @@ set -x
                 let args = vec!["api", "graphql", "-f", &graphql_query_arg];
                 self.github_engine.run_gh(&args).await.ok()
             },
-            async {
-                self.fetch_enriched_closing_issues(&req).await
-            }
+            async { self.fetch_enriched_closing_issues(&req).await }
         );
 
         let mut result = json!({});
@@ -3015,10 +3023,21 @@ set -x
         Ok(result)
     }
 
-    async fn fetch_enriched_closing_issues(&self, req: &GithubPrDetailRequest) -> Option<Vec<Value>> {
+    async fn fetch_enriched_closing_issues(
+        &self,
+        req: &GithubPrDetailRequest,
+    ) -> Option<Vec<Value>> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "closingIssuesReferences"];
+        let args = vec![
+            "pr",
+            "view",
+            &pr_num_str,
+            "--repo",
+            &repo_arg,
+            "--json",
+            "closingIssuesReferences",
+        ];
         let output = self.github_engine.run_gh(&args).await.ok()?;
         let issues = output.get("closingIssuesReferences")?.as_array()?.clone();
         if issues.is_empty() {
@@ -3411,10 +3430,7 @@ set -x
         let path = terminal_code_agent_path();
         if path.exists() {
             let content = std::fs::read_to_string(&path).map_err(|e| {
-                ServiceError::Validation(format!(
-                    "Failed to read terminal_code_agent.json: {}",
-                    e
-                ))
+                ServiceError::Validation(format!("Failed to read terminal_code_agent.json: {}", e))
             })?;
             let val: Value = serde_json::from_str(&content).unwrap_or(json!({ "agents": [] }));
             Ok(val)

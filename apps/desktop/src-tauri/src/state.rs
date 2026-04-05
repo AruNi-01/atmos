@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use tauri_plugin_shell::process::CommandChild;
+
+use crate::remote_access::manager::RemoteAccessManager;
 use tokio::sync::Notify;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -33,4 +35,5 @@ pub struct AppState {
     pub startup_failed: AtomicBool,
     pub theme_ready: AtomicBool,
     pub theme_ready_notify: Notify,
+    pub remote_access_manager: RemoteAccessManager,
 }

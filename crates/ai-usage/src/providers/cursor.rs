@@ -4,13 +4,11 @@ use serde_json::json;
 use std::env;
 use std::path::PathBuf;
 
-use crate::constants::{
-    CURSOR_CLIENT_ID, CURSOR_PLAN_INFO_URL, CURSOR_TOKEN_REFRESH_URL, CURSOR_USAGE_SERVICE_URL,
-};
+use crate::constants::{CURSOR_PLAN_INFO_URL, CURSOR_USAGE_SERVICE_URL};
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
-    build_percent_usage_summary, decode_jwt_payload, expand_home, format_reset_relative_text,
+    build_percent_usage_summary, expand_home, format_reset_relative_text,
     normalize_fraction_percent, parse_i64_string, round_metric, run_command, run_sqlite_query,
     unix_now,
 };
@@ -66,42 +64,23 @@ struct CursorPlanInfo {
     billing_cycle_end: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct CursorRefreshResponse {
-    #[serde(default)]
-    access_token: Option<String>,
-    #[serde(default)]
-    should_logout: Option<bool>,
-}
-
 #[derive(Debug, Clone)]
 struct CursorAuth {
     access_token: String,
-    refresh_token: Option<String>,
     email: Option<String>,
     membership_type: Option<String>,
 }
 
 pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
-    let mut auth = load_cursor_auth()?;
-
-    if cursor_token_needs_refresh(&auth.access_token) {
-        if let Some(refresh_token) = auth.refresh_token.clone() {
-            auth.access_token = refresh_cursor_access_token(client, &refresh_token).await?;
-        }
-    }
+    let auth = load_cursor_auth()?;
 
     let usage = match request_cursor_usage(client, &auth.access_token).await {
         Ok(usage) => usage,
         Err(error) if error.contains("401") || error.contains("403") => {
-            if let Some(refresh_token) = auth.refresh_token.clone() {
-                auth.access_token = refresh_cursor_access_token(client, &refresh_token).await?;
-                request_cursor_usage(client, &auth.access_token)
-                    .await
-                    .map_err(ProviderError::Fetch)?
-            } else {
-                return Err(ProviderError::Fetch(error));
-            }
+            return Err(ProviderError::Fetch(
+                "Cursor session expired or token invalid. Sign in again in Cursor desktop."
+                    .to_string(),
+            ));
         }
         Err(error) => return Err(ProviderError::Fetch(error)),
     };
@@ -284,59 +263,14 @@ async fn request_cursor_plan_info(
         .ok_or_else(|| ProviderError::Fetch("Cursor planInfo missing".to_string()))
 }
 
-async fn refresh_cursor_access_token(
-    client: &Client,
-    refresh_token: &str,
-) -> Result<String, ProviderError> {
-    let response = client
-        .post(CURSOR_TOKEN_REFRESH_URL)
-        .json(&json!({
-            "grant_type": "refresh_token",
-            "client_id": CURSOR_CLIENT_ID,
-            "refresh_token": refresh_token,
-        }))
-        .send()
-        .await
-        .map_err(|error| ProviderError::Fetch(format!("Cursor token refresh failed: {error}")))?;
-
-    if !response.status().is_success() {
-        return Err(ProviderError::Fetch(format!(
-            "Cursor token refresh returned {}",
-            response.status()
-        )));
-    }
-
-    let payload = response
-        .json::<CursorRefreshResponse>()
-        .await
-        .map_err(|error| {
-            ProviderError::Fetch(format!("Invalid Cursor refresh payload: {error}"))
-        })?;
-
-    if payload.should_logout == Some(true) {
-        return Err(ProviderError::Fetch(
-            "Cursor session expired. Sign in again in Cursor desktop.".to_string(),
-        ));
-    }
-
-    payload.access_token.ok_or_else(|| {
-        ProviderError::Fetch("Cursor refresh payload missing access_token".to_string())
-    })
-}
-
 fn load_cursor_auth() -> Result<CursorAuth, ProviderError> {
     let env_access = env::var("ATMOS_USAGE_CURSOR_ACCESS_TOKEN")
         .ok()
         .or_else(|| env::var("CURSOR_ACCESS_TOKEN").ok())
         .filter(|value| !value.trim().is_empty());
-    let env_refresh = env::var("ATMOS_USAGE_CURSOR_REFRESH_TOKEN")
-        .ok()
-        .or_else(|| env::var("CURSOR_REFRESH_TOKEN").ok())
-        .filter(|value| !value.trim().is_empty());
     if let Some(access_token) = env_access {
         return Ok(CursorAuth {
             access_token,
-            refresh_token: env_refresh,
             email: None,
             membership_type: None,
         });
@@ -362,14 +296,12 @@ fn load_cursor_auth_from_state_db() -> Result<Option<CursorAuth>, ProviderError>
         }
 
         let access_token = cursor_state_value(&path, "cursorAuth/accessToken")?;
-        let refresh_token = cursor_state_value(&path, "cursorAuth/refreshToken")?;
-        if access_token.is_none() && refresh_token.is_none() {
+        if access_token.is_none() {
             continue;
         }
 
         return Ok(Some(CursorAuth {
             access_token: access_token.unwrap_or_default(),
-            refresh_token,
             email: cursor_state_value(&path, "cursorAuth/cachedEmail")?,
             membership_type: cursor_state_value(&path, "cursorAuth/stripeMembershipType")?,
         }));
@@ -380,14 +312,12 @@ fn load_cursor_auth_from_state_db() -> Result<Option<CursorAuth>, ProviderError>
 
 fn load_cursor_auth_from_keychain() -> Result<Option<CursorAuth>, ProviderError> {
     let access_token = security_find_generic_password("cursor-access-token")?;
-    let refresh_token = security_find_generic_password("cursor-refresh-token")?;
-    if access_token.is_none() && refresh_token.is_none() {
+    if access_token.is_none() {
         return Ok(None);
     }
 
     Ok(Some(CursorAuth {
         access_token: access_token.unwrap_or_default(),
-        refresh_token,
         email: None,
         membership_type: None,
     }))
@@ -429,16 +359,6 @@ fn security_find_generic_password(service: &str) -> Result<Option<String>, Provi
         return Ok(None);
     }
     Ok(Some(value.to_string()))
-}
-
-fn cursor_token_needs_refresh(token: &str) -> bool {
-    let Some(payload) = decode_jwt_payload(token) else {
-        return false;
-    };
-    let Some(exp) = payload.get("exp").and_then(|value| value.as_i64()) else {
-        return false;
-    };
-    exp <= (unix_now() as i64 + 300)
 }
 
 fn parse_cursor_timestamp(raw: &str) -> Option<u64> {

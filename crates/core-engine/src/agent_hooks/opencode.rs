@@ -3,9 +3,12 @@ use tracing::{debug, info};
 use super::{home_dir, AgentHookToolStatus};
 
 fn plugin_path() -> Option<std::path::PathBuf> {
-    home_dir()
-        .ok()
-        .map(|h| h.join(".config").join("opencode").join("plugins").join("atmos_plugin.ts"))
+    home_dir().ok().map(|h| {
+        h.join(".config")
+            .join("opencode")
+            .join("plugins")
+            .join("atmos_plugin.ts")
+    })
 }
 
 fn plugin_dir_path() -> Option<std::path::PathBuf> {
@@ -139,7 +142,11 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
 
     match std::fs::write(&plugin_file, &source) {
         Ok(()) => {
-            info!("opencode plugin installed at {} ({} bytes). Restart opencode to activate.", path_str, source.len());
+            info!(
+                "opencode plugin installed at {} ({} bytes). Restart opencode to activate.",
+                path_str,
+                source.len()
+            );
             AgentHookToolStatus::success(&path_str)
         }
         Err(e) => AgentHookToolStatus::failed(&path_str, e.to_string()),
@@ -156,7 +163,12 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
 
     if let Ok(content) = std::fs::read_to_string(&plugin_file) {
         if !content.contains(PLUGIN_MARKER) {
-            return AgentHookToolStatus { detected: true, installed: false, config_path: Some(path_str), error: None };
+            return AgentHookToolStatus {
+                detected: true,
+                installed: false,
+                config_path: Some(path_str),
+                error: None,
+            };
         }
     }
 
@@ -186,14 +198,24 @@ pub(super) fn check() -> AgentHookToolStatus {
     let path_str = plugin_file.display().to_string();
 
     if !plugin_file.exists() {
-        return AgentHookToolStatus { detected: true, installed: false, config_path: Some(path_str), error: None };
+        return AgentHookToolStatus {
+            detected: true,
+            installed: false,
+            config_path: Some(path_str),
+            error: None,
+        };
     }
 
     let installed = std::fs::read_to_string(&plugin_file)
         .map(|content| content.contains(PLUGIN_MARKER))
         .unwrap_or(false);
 
-    AgentHookToolStatus { detected: true, installed, config_path: Some(path_str), error: None }
+    AgentHookToolStatus {
+        detected: true,
+        installed,
+        config_path: Some(path_str),
+        error: None,
+    }
 }
 
 fn which_exists(cmd: &str) -> bool {

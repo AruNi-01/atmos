@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::env;
 use std::fs;
 
-use crate::constants::{CODEX_OAUTH_CLIENT_ID, CODEX_REFRESH_URL, CODEX_USAGE_API_URL};
+use crate::constants::CODEX_USAGE_API_URL;
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
@@ -67,35 +67,20 @@ struct CodexCredits {
 #[derive(Debug, Clone)]
 struct CodexAuth {
     access_token: String,
-    refresh_token: Option<String>,
     account_id: Option<String>,
     email: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-struct RefreshResponse {
-    #[serde(default, rename = "access_token")]
-    access_token: Option<String>,
-}
-
 pub(crate) async fn fetch_codex_live(client: &Client) -> Result<LiveFetchResult, ProviderError> {
     let now = unix_now();
-    let mut auth = load_codex_auth()?;
+    let auth = load_codex_auth()?;
     let response = match request_usage(client, &auth).await {
         Ok(payload) => payload,
         Err(error) if error.contains("401") || error.contains("403") => {
-            if let Some(refresh_token) = auth.refresh_token.clone() {
-                if let Ok(access_token) = refresh_access_token(client, &refresh_token).await {
-                    auth.access_token = access_token;
-                    request_usage(client, &auth)
-                        .await
-                        .map_err(ProviderError::Fetch)?
-                } else {
-                    return Err(ProviderError::Fetch(error));
-                }
-            } else {
-                return Err(ProviderError::Fetch(error));
-            }
+            return Err(ProviderError::Fetch(
+                "Codex session expired or token invalid. Run `codex` to re-authenticate."
+                    .to_string(),
+            ));
         }
         Err(error) => return Err(ProviderError::Fetch(error)),
     };
@@ -208,7 +193,6 @@ fn load_codex_auth() -> Result<CodexAuth, ProviderError> {
     {
         return Ok(CodexAuth {
             access_token,
-            refresh_token: None,
             account_id: None,
             email: None,
         });
@@ -227,11 +211,6 @@ fn load_codex_auth() -> Result<CodexAuth, ProviderError> {
             tokens.and_then(|tokens| string_field(tokens, &["access_token", "accessToken"]))
         });
         if let Some(access_token) = access_token {
-            let refresh_token =
-                string_field(&value, &["refresh_token", "refreshToken"]).or_else(|| {
-                    tokens
-                        .and_then(|tokens| string_field(tokens, &["refresh_token", "refreshToken"]))
-                });
             let account_id = string_field(&value, &["account_id", "accountId"]).or_else(|| {
                 tokens.and_then(|tokens| string_field(tokens, &["account_id", "accountId"]))
             });
@@ -264,7 +243,6 @@ fn load_codex_auth() -> Result<CodexAuth, ProviderError> {
                 });
             return Ok(CodexAuth {
                 access_token,
-                refresh_token,
                 account_id,
                 email,
             });
@@ -303,38 +281,6 @@ async fn request_usage(client: &Client, auth: &CodexAuth) -> Result<CodexUsageRe
         .json::<CodexUsageResponse>()
         .await
         .map_err(|error| error.to_string())
-}
-
-async fn refresh_access_token(
-    client: &Client,
-    refresh_token: &str,
-) -> Result<String, ProviderError> {
-    let response = client
-        .post(CODEX_REFRESH_URL)
-        .json(&serde_json::json!({
-            "client_id": CODEX_OAUTH_CLIENT_ID,
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        }))
-        .send()
-        .await
-        .map_err(|error| ProviderError::Fetch(format!("Codex token refresh failed: {error}")))?;
-    if !response.status().is_success() {
-        return Err(ProviderError::Fetch(format!(
-            "Codex token refresh returned {}",
-            response.status()
-        )));
-    }
-    let payload = response
-        .json::<RefreshResponse>()
-        .await
-        .map_err(|error| ProviderError::Fetch(format!("Invalid Codex refresh payload: {error}")))?;
-    payload
-        .access_token
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            ProviderError::Fetch("Codex refresh token response missing access_token".to_string())
-        })
 }
 
 fn codex_auth_paths() -> Vec<std::path::PathBuf> {

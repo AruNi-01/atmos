@@ -31,14 +31,14 @@ import {
   toastManager,
   Circle,
   Save,
-  EyeOff,
 } from '@workspace/ui';
 import { useAppStorage } from "@atmos/shared";
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/components/markdown/MarkdownToc';
 import { SkillInfo, SkillFile, fsApi } from '@/api/ws-api';
 import { detectCodeLanguage } from '@/lib/code-language';
-import { getAgentConfig, getAgentStatus } from './constants';
+import { getAgentStatus, sortAgents } from './constants';
+import { SkillAgentBadge } from './SkillAgentBadge';
 import { QuickOpen } from '@/components/layout/QuickOpen';
 import { SkillActionsMenu } from './SkillActionsMenu';
 
@@ -445,24 +445,17 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center gap-1.5 flex-wrap overflow-hidden h-[22px]">
-              {skill.agents.filter((agent) => agent !== 'in-project').map((agent) => {
-                const config = getAgentConfig(agent);
+              {sortAgents(skill.agents).filter((agent) => agent !== 'in-project').map((agent) => {
                 const agentStatus = getAgentStatus(skill, agent);
                 return (
-                  <span 
-                    key={agent} 
-                    className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 inline-flex items-center gap-1",
-                      agentStatus === 'disabled'
-                        ? 'bg-muted text-muted-foreground'
-                        : config.color,
-                    )}
-                  >
-                    {agentStatus === 'disabled' && <EyeOff className="size-2.5" />}
-                    {config.name}
-                  </span>
+                  <SkillAgentBadge
+                    key={agent}
+                    agent={agent}
+                    status={agentStatus}
+                    tooltip={agent === 'unified' ? 'From: .agents/skills' : undefined}
+                  />
                 );
               })}
             </div>

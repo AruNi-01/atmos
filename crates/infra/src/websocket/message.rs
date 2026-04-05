@@ -340,6 +340,8 @@ pub enum WsAction {
     GithubPrOpenBrowser,
     /// 将 PR 转换为 Draft
     GithubPrDraft,
+    /// 分页获取 PR timeline
+    GithubPrTimelinePage,
     /// 列出仓库 issue
     GithubIssueList,
     /// 获取单个 issue 详情或通过 URL 解析 issue
@@ -1301,6 +1303,15 @@ pub struct GithubPrOpenBrowserRequest {
     pub owner: String,
     pub repo: String,
     pub pr_number: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrTimelinePageRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    pub page: u64,
+    pub per_page: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

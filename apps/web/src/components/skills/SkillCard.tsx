@@ -14,7 +14,8 @@ import {
   FileText,
 } from '@workspace/ui';
 import { SkillInfo } from '@/api/ws-api';
-import { getAgentConfig } from './constants';
+import { sortAgents } from './constants';
+import { SkillAgentBadge } from './SkillAgentBadge';
 
 interface SkillCardProps {
   skill: SkillInfo;
@@ -95,47 +96,20 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
       </div>
 
       <div className="flex items-center gap-1.5 mt-3 flex-wrap overflow-hidden h-[22px]">
-        {skill.agents.map((agent) => {
-          const config = getAgentConfig(agent);
-          const label = (
-            <span
-              key={agent}
-              className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0", config.color)}
-            >
-              {config.name}
-            </span>
-          );
-
+        {sortAgents(skill.agents).map((agent) => {
           if (agent === 'unified') {
             return (
-              <TooltipProvider key={agent} delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>{label}</TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="text-xs">From: .agents/skills</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <SkillAgentBadge key={agent} agent={agent} tooltip="From: .agents/skills" />
             );
           }
 
           if (agent === 'in-project') {
-            const relativePath = skill.path && skill.project_name
-              ? `skills/${skill.name}`
-              : `skills/${skill.name}`;
             return (
-              <TooltipProvider key={agent} delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>{label}</TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="text-xs">{relativePath}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <SkillAgentBadge key={agent} agent={agent} tooltip={`skills/${skill.name}`} />
             );
           }
 
-          return label;
+          return <SkillAgentBadge key={agent} agent={agent} />;
         })}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef, startTransition } from 'react';
 import { useWebSocketStore } from './use-websocket';
 
 export interface GithubContext {
@@ -95,6 +95,58 @@ export function useGithubPRDetail(prNumber: number, owner?: string, repo?: strin
   }, [fetch]);
 
   return { data, loading, fetch };
+}
+
+const TIMELINE_PER_PAGE = 20;
+
+export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: string, enabled = true) {
+  const send = useWebSocketStore(s => s.send);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [items, setItems] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const nextPageRef = useRef(1);
+
+  const fetchPage = useCallback(async (page: number) => {
+    if (!owner || !repo || !prNumber) return;
+    setIsLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await send('github_pr_timeline_page', {
+        owner,
+        repo,
+        pr_number: prNumber,
+        page,
+        per_page: TIMELINE_PER_PAGE,
+      }) as { items: any[]; has_more: boolean };
+
+      const newItems = Array.isArray(result?.items) ? result.items : [];
+      nextPageRef.current = page + 1;
+      const hasMore = result?.has_more ?? false;
+      startTransition(() => {
+        setItems(prev => page === 1 ? newItems : [...prev, ...newItems]);
+        setHasMore(hasMore);
+      });
+    } catch (e) {
+      console.error('Failed to fetch PR timeline page', e);
+      setHasMore(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [owner, repo, prNumber, send]);
+
+  useEffect(() => {
+    if (!enabled || !owner || !repo || !prNumber) return;
+    nextPageRef.current = 1;
+    void fetchPage(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prNumber, owner, repo, enabled]);
+
+  const loadMore = useCallback(() => {
+    void fetchPage(nextPageRef.current);
+  }, [fetchPage]);
+
+  return { items, isLoading, hasMore, loadMore };
 }
 
 export function useGithubPRDetailSidebar(prNumber: number, owner?: string, repo?: string) {
