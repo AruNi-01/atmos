@@ -95,7 +95,7 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
     // stale access_token, which causes persistent 401 errors.
     if claude_token_needs_refresh(&credentials) {
         debug!("Claude OAuth access token expired or expiring soon, delegating refresh to Claude CLI");
-        delegate_claude_refresh()?;
+        delegate_claude_refresh().await?;
         // Re-read credentials after Claude CLI has refreshed them
         credentials = load_claude_credentials()?;
     }
@@ -107,7 +107,7 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
                 "Claude OAuth usage request failed ({}), delegating refresh to Claude CLI",
                 error
             );
-            delegate_claude_refresh()?;
+            delegate_claude_refresh().await?;
             credentials = load_claude_credentials()?;
             request_claude_usage(client, &credentials.access_token)
                 .await
@@ -246,19 +246,22 @@ fn claude_token_needs_refresh(credentials: &ClaudeCredentials) -> bool {
 /// This lets Claude Code rotate its own token so the credentials file /
 /// keychain are updated atomically.  We never call the OAuth token endpoint
 /// ourselves because that would invalidate the token Claude Code is using.
-fn delegate_claude_refresh() -> Result<(), ProviderError> {
-    match run_command("claude", &["/status"]) {
-        Ok(_) => {
+///
+/// The CLI command does network I/O, so it is run in a blocking thread to
+/// avoid stalling the async executor.
+async fn delegate_claude_refresh() -> Result<(), ProviderError> {
+    tokio::task::spawn_blocking(|| run_command("claude", &["/status"]))
+        .await
+        .map_err(|e| ProviderError::Fetch(e.to_string()))?
+        .map(|_| {
             debug!("Claude CLI /status completed, credentials should be refreshed");
-            Ok(())
-        }
-        Err(error) => {
+        })
+        .map_err(|error| {
             debug!("Claude CLI /status failed: {error}, credentials may be stale");
-            Err(ProviderError::Fetch(format!(
+            ProviderError::Fetch(format!(
                 "Claude CLI refresh failed: {error}. Ensure the `claude` CLI is installed and try again."
-            )))
-        }
-    }
+            ))
+        })
 }
 
 fn detect_claude_version() -> String {

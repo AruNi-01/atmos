@@ -117,7 +117,11 @@ pub async fn remote_access_recover(
         credentials.insert(kind, load_provider_credential(kind).map_err(|e| e.to_string())?);
     }
 
-    state.remote_access_manager.recover(credentials).await
+    let port = state.api_port.lock().ok()
+        .and_then(|guard| *guard)
+        .unwrap_or(30303);
+    let target_base_url = format!("http://127.0.0.1:{port}");
+    state.remote_access_manager.recover_with_target(credentials, target_base_url).await
 }
 
 #[derive(Debug, Deserialize)]
