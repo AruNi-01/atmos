@@ -167,6 +167,7 @@ impl RemoteAccessManager {
             Ok(s) => s,
             Err(err) => {
                 Self::debug_log(format!("[manager] start: provider err={err}"));
+                let _ = session_store.revoke_session(&session.session_id).await;
                 // If this was the only provider, shut down the gateway.
                 let mut state = self.inner.write().await;
                 if state.active.is_empty() {
@@ -593,12 +594,22 @@ impl RemoteAccessManager {
             .map(|d| d.as_millis())
             .unwrap_or(0);
         let line = format!("[{ts}] [DEBUG] {}\n", msg.as_ref());
-        let path = dirs::home_dir()
+        #[cfg(target_os = "macos")]
+        let log_dir = dirs::home_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("."))
             .join("Library")
             .join("Logs")
-            .join("com.atmos.desktop")
-            .join("desktop.log");
+            .join(if cfg!(debug_assertions) { "com.atmos.desktop.dev" } else { "com.atmos.desktop" });
+        #[cfg(not(target_os = "macos"))]
+        let log_dir = dirs::data_local_dir()
+            .or_else(|| dirs::home_dir())
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("atmos")
+            .join("logs");
+        let path = log_dir.join("desktop.log");
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
         if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
             let _ = f.write_all(line.as_bytes());
         }

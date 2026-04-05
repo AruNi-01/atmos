@@ -84,6 +84,7 @@ export function getAgentRegistryId(agent: string): string | null {
 /** Sort agents so "unified" always comes first */
 export function sortAgents(agents: string[]): string[] {
   return [...agents].sort((a, b) => {
+    if (a === b) return 0;
     if (a === 'unified') return -1;
     if (b === 'unified') return 1;
     return 0;

@@ -254,7 +254,9 @@ fn delegate_claude_refresh() -> Result<(), ProviderError> {
         }
         Err(error) => {
             debug!("Claude CLI /status failed: {error}, credentials may be stale");
-            Ok(())
+            Err(ProviderError::Fetch(format!(
+                "Claude CLI refresh failed: {error}. Ensure the `claude` CLI is installed and try again."
+            )))
         }
     }
 }

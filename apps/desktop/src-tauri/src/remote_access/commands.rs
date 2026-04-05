@@ -114,7 +114,7 @@ pub async fn remote_access_recover(
 
     let mut credentials: HashMap<remote_access::ProviderKind, Option<String>> = HashMap::new();
     for kind in provider_kinds {
-        credentials.insert(kind, load_provider_credential(kind).unwrap_or(None));
+        credentials.insert(kind, load_provider_credential(kind).map_err(|e| e.to_string())?);
     }
 
     state.remote_access_manager.recover(credentials).await

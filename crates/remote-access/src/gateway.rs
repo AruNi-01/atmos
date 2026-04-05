@@ -116,6 +116,21 @@ async fn proxy_http(
         }
     };
 
+    // If the request carried an entry_token in the URL, redirect to strip it.
+    // The session cookie set below persists across the redirect, so the user
+    // lands on the clean URL without the token in history or Referer headers.
+    if query.entry_token.is_some() {
+        let clean_uri = strip_entry_token_from_uri(&uri);
+        let set_cookie = build_session_cookie(&session_id);
+        let resp = Response::builder()
+            .status(StatusCode::FOUND)
+            .header(header::LOCATION, clean_uri.to_string())
+            .header(header::SET_COOKIE, set_cookie)
+            .body(Body::empty())
+            .unwrap_or_else(|_| Response::new(Body::empty()));
+        return resp.into_response();
+    }
+
     let target_url = format!("{}{}", state.target_base_url, uri);
     let mut builder = state.client.request(method, &target_url);
     for (key, value) in &headers {
@@ -161,19 +176,23 @@ async fn proxy_ws_root(
     ws: WebSocketUpgrade,
     State(state): State<GatewayState>,
     headers: HeaderMap,
+    uri: Uri,
     Query(query): Query<EntryQuery>,
 ) -> impl IntoResponse {
-    proxy_ws_impl(ws, state, headers, query, String::new()).await
+    let raw_query = uri.query().unwrap_or("").to_string();
+    proxy_ws_impl(ws, state, headers, query, String::new(), raw_query).await
 }
 
 async fn proxy_ws(
     ws: WebSocketUpgrade,
     State(state): State<GatewayState>,
     headers: HeaderMap,
+    uri: Uri,
     Query(query): Query<EntryQuery>,
     axum::extract::Path(path): axum::extract::Path<String>,
 ) -> impl IntoResponse {
-    proxy_ws_impl(ws, state, headers, query, path).await
+    let raw_query = uri.query().unwrap_or("").to_string();
+    proxy_ws_impl(ws, state, headers, query, path, raw_query).await
 }
 
 async fn proxy_ws_impl(
@@ -182,6 +201,7 @@ async fn proxy_ws_impl(
     headers: HeaderMap,
     query: EntryQuery,
     path: String,
+    raw_query: String,
 ) -> Response<Body> {
     let session_cookie = parse_session_cookie(&headers);
     let validation = state
@@ -192,7 +212,7 @@ async fn proxy_ws_impl(
         return (StatusCode::UNAUTHORIZED, "remote access session required\n\nProvide ?entry_token=<token> in the URL").into_response();
     }
 
-    let target = build_ws_target(&state.target_base_url, &path);
+    let target = build_ws_target(&state.target_base_url, &path, &raw_query);
     ws.on_upgrade(move |socket| async move {
         if let Ok((upstream, _)) = connect_async(target).await {
             bridge_websocket(socket, upstream).await;
@@ -375,7 +395,7 @@ fn build_session_cookie(session_id: &str) -> String {
     format!("atmos_tunnel_session={session_id}; HttpOnly; Secure; Path=/; SameSite=Lax")
 }
 
-fn build_ws_target(target_base_url: &str, path: &str) -> String {
+fn build_ws_target(target_base_url: &str, path: &str, raw_query: &str) -> String {
     let tail = if path.is_empty() {
         String::new()
     } else {
@@ -384,5 +404,39 @@ fn build_ws_target(target_base_url: &str, path: &str) -> String {
     let ws_target = target_base_url
         .replace("http://", "ws://")
         .replace("https://", "wss://");
-    format!("{ws_target}/ws{tail}")
+    let upstream_query = strip_entry_token_from_query(raw_query);
+    if upstream_query.is_empty() {
+        format!("{ws_target}/ws{tail}")
+    } else {
+        format!("{ws_target}/ws{tail}?{upstream_query}")
+    }
+}
+
+/// Remove `entry_token` from a query string, preserving all other parameters.
+fn strip_entry_token_from_query(raw_query: &str) -> String {
+    raw_query
+        .split('&')
+        .filter(|part| {
+            let key = part.split('=').next().unwrap_or("");
+            key != "entry_token"
+        })
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("&")
+}
+
+/// Rebuild the URI without the `entry_token` query parameter.
+fn strip_entry_token_from_uri(uri: &Uri) -> Uri {
+    let query = uri.query().unwrap_or("");
+    let clean_query = strip_entry_token_from_query(query);
+    let path = uri.path();
+    let new_path_and_query = if clean_query.is_empty() {
+        path.to_string()
+    } else {
+        format!("{path}?{clean_query}")
+    };
+    Uri::builder()
+        .path_and_query(new_path_and_query)
+        .build()
+        .unwrap_or_else(|_| uri.clone())
 }

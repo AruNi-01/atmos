@@ -31,22 +31,20 @@ const BotIcon = forwardRef<BotIconHandle, BotIconProps>(
 
     const handleMouseEnter = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
-        if (isControlledRef.current) {
-          onMouseEnter?.(e);
-        } else {
+        if (!isControlledRef.current) {
           controls.start("animate");
         }
+        onMouseEnter?.(e);
       },
       [controls, onMouseEnter]
     );
 
     const handleMouseLeave = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
-        if (isControlledRef.current) {
-          onMouseLeave?.(e);
-        } else {
+        if (!isControlledRef.current) {
           controls.start("normal");
         }
+        onMouseLeave?.(e);
       },
       [controls, onMouseLeave]
     );

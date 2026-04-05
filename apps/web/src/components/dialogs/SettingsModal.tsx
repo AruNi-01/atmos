@@ -1484,6 +1484,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, []);
 
+  const sectionIconRefs = React.useRef<Record<string, React.RefObject<any>>>({});
+  for (const section of SETTINGS_SECTIONS) {
+    if (!sectionIconRefs.current[section.id]) {
+      sectionIconRefs.current[section.id] = React.createRef();
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} className="h-[min(90vh,820px)] w-[min(96vw,1360px)] max-w-[min(96vw,1360px)] overflow-hidden border-border bg-background p-0 sm:!max-w-[min(96vw,1360px)]">
@@ -1513,7 +1520,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <MotionSidebarMenu>
                     {SETTINGS_SECTIONS.map((section) => {
                       const isActive = resolvedActiveSection === section.id;
-                      const iconRef = React.useRef<any>(null);
+                      const iconRef = sectionIconRefs.current[section.id];
 
                       return (
                         <MotionSidebarMenuItem key={section.id}>

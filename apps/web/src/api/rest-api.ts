@@ -1,5 +1,5 @@
 'use client';
-import { getRuntimeApiConfig, httpBase } from '@/lib/desktop-runtime';
+import { getRuntimeApiConfig, httpBase, wsBase } from '@/lib/desktop-runtime';
 
 /**
  * REST API client for endpoints that need to be called before WebSocket connection
@@ -9,7 +9,7 @@ import { getRuntimeApiConfig, httpBase } from '@/lib/desktop-runtime';
 /** WebSocket base URL for agent chat (ws/wss derived from API base) */
 export const getAgentWsBase = async (): Promise<string> => {
   const cfg = await getRuntimeApiConfig();
-  return `ws://${cfg.host}:${cfg.port}`;
+  return wsBase(cfg);
 };
 
 export const getRuntimeHttpBase = async (): Promise<string> => {
