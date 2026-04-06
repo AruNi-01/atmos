@@ -677,13 +677,7 @@ pub async fn ingest_frontend_debug_log(
     }
     let logger = DebugLogger::new(&format!("frontend-{}", safe_prefix));
     for entry in &payload.entries {
-        let extra = entry.data.clone().map(|d| {
-            if let Value::Object(map) = d {
-                serde_json::json!(map)
-            } else {
-                d
-            }
-        });
+        let extra = entry.data.clone();
         // Prefix the frontend timestamp into the message so it's visible in the log line
         let msg = format!("[fe:{}] {}", entry.ts, entry.msg);
         logger.log(&entry.cat, &msg, extra);

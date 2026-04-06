@@ -851,16 +851,27 @@ impl TerminalService {
         // subsequent attach for the same window sees it already exists and
         // `create_grouped_session` returns early — zero new PTYs on refresh.
         //
-        // Format: atmos_client_{tmux_session}_w{window_index}
+        // Format: atmos_client_{tmux_session}_w{window_index}_p{pid}
         //
-        // Only replace ':' — tmux uses it as a target separator (session:window).
-        // Hyphens are valid in tmux session names and must be preserved; stripping
-        // them would collapse distinct sessions (e.g. "atmos_my-app_ws" and
-        // "atmos_my_app_ws") into the same client session name.
+        // Three-part stable name:
+        //
+        // 1. {tmux_session}  — ties the grouped session to the correct master.
+        //    Only ':' is replaced (tmux target separator); hyphens are preserved
+        //    so atmos_my-app_ws and atmos_my_app_ws never collide.
+        //
+        // 2. _w{window_index} — distinguishes multiple terminals in one workspace.
+        //
+        // 3. _p{pid}  — ties the session to THIS process instance so that two
+        //    concurrent API processes sharing the same tmux socket (e.g. the
+        //    desktop sidecar on :30303 and the dev server on :30301) never
+        //    overwrite each other's grouped sessions.  On restart the old PID
+        //    changes, so cleanup_stale_client_sessions() correctly kills the
+        //    orphaned sessions from the previous run.
         let client_session_name = format!(
-            "atmos_client_{}_w{}",
+            "atmos_client_{}_w{}_p{}",
             tmux_session.replace(':', "_"),
-            window_index
+            window_index,
+            std::process::id(),
         );
 
         // Create the grouped session if it doesn't exist

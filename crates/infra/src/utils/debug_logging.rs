@@ -19,7 +19,7 @@
 //! })));
 //! ```
 
-use chrono::{Local, Utc};
+use chrono::Local;
 use serde_json::Value;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -62,7 +62,10 @@ impl DebugLogger {
             return;
         }
 
-        let ts = Utc::now().format("%H:%M:%S%.3f").to_string();
+        // Use the same Local::now() source as date_str so the timestamp and
+        // filename date always refer to the same calendar day (avoids a
+        // mismatch at midnight when UTC is already on the next date).
+        let ts = Local::now().format("%H:%M:%S%.3f").to_string();
         let entry = if let Some(ref e) = extra {
             serde_json::json!({
                 "ts":  ts,
