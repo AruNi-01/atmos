@@ -1,6 +1,6 @@
 [package]
 name = "atmos-desktop"
-version = "0.2.6"
+version = "1.0.0"
 description = "Atmos desktop app powered by Tauri"
 authors = ["atmos"]
 edition = "2021"
