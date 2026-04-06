@@ -2,6 +2,16 @@ import { Marquee } from '@workspace/ui/components/ui/marquee'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
 
+const agents = [
+  { name: 'Claude Code', icon: '/agents/claude.svg' },
+  { name: 'Codex', icon: '/agents/codex.svg' },
+  { name: 'Amp', icon: '/agents/amp.svg' },
+  { name: 'Droid', icon: '/agents/droid.svg' },
+  { name: 'Kilo', icon: '/agents/kilo.svg' },
+  { name: 'OpenCode', icon: '/agents/opencode.svg' },
+  { name: 'Gemini', icon: '/agents/gemini.svg' },
+] as const
+
 export const AgentShow = () => {
   return (
     <MotionPreset
@@ -30,34 +40,16 @@ export const AgentShow = () => {
           <div className='from-background pointer-events-none absolute inset-y-0 left-0 z-1 w-10 bg-linear-to-r via-85% to-transparent' />
           <div className='from-background pointer-events-none absolute inset-y-0 right-0 z-1 w-10 bg-linear-to-l via-85% to-transparent' />
           <Marquee pauseOnHover duration={30} gap={5} className='*:items-center'>
-            <div className='flex items-center gap-2'>
-              <img src="/agents/claude.svg" alt="Claude Code" className="size-6" />
-              <span className='text-lg font-semibold opacity-70'>Claude Code</span>
-            </div>
-            <div className='flex items-center gap-2'>
-              <img src="/agents/codex.svg" alt="Codex" className="size-6" />
-              <span className='text-lg font-semibold opacity-70'>Codex</span>
-            </div>
-            <div className='flex items-center gap-2'>
-              <img src="/agents/amp.svg" alt="Amp" className="size-6" />
-              <span className='text-lg font-semibold opacity-70'>Amp</span>
-            </div>
-            <div className='flex items-center gap-2'>
-              <img src="/agents/droid.svg" alt="Droid" className="size-6" />
-              <span className='text-lg font-semibold opacity-70'>Droid</span>
-            </div>
-            <div className='flex items-center gap-2'>
-              <img src="/agents/kilo.svg" alt="Kilo" className="size-6" />
-              <span className='text-lg font-semibold opacity-70'>Kilo</span>
-            </div>
-            <div className='flex items-center gap-2'>
-              <img src="/agents/opencode.svg" alt="OpenCode" className="size-6" />
-              <span className='text-lg font-semibold opacity-70'>OpenCode</span>
-            </div>
-            <div className='flex items-center gap-2'>
-              <img src="/agents/gemini.svg" alt="Gemini" className="size-6" />
-              <span className='text-lg font-semibold opacity-70'>Gemini</span>
-            </div>
+            {agents.map((agent) => (
+              <div key={agent.name} className='flex items-center gap-2'>
+                <img
+                  src={agent.icon}
+                  alt={agent.name}
+                  className='size-6 invert dark:invert-0'
+                />
+                <span className='text-lg font-semibold opacity-70'>{agent.name}</span>
+              </div>
+            ))}
           </Marquee>
         </MotionPreset>
       </div>
