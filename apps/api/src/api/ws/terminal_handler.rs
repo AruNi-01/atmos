@@ -450,13 +450,13 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
 
     // Close the terminal session (detach only - keeps tmux window)
     // If destroy was requested, the handler already called destroy_session
-    if !destroy_requested.load(std::sync::atomic::Ordering::SeqCst) {
+    let destroy_req = destroy_requested.load(std::sync::atomic::Ordering::SeqCst);
+    if !destroy_req {
         if let Err(e) = terminal_service.close_session(&session_id).await {
             // Don't warn if session doesn't exist (may have been destroyed)
             debug!("Note: closing terminal session {}: {}", session_id, e);
         }
     }
-
     info!("Terminal WebSocket closed for session: {}", session_id);
 }
 

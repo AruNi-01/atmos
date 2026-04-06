@@ -151,7 +151,7 @@ export function useTerminalWebSocket({
     }
     setIsConnected(false);
     setIsReconnecting(false);
-  }, [clearReconnectTimeout, reconnectAttempts]);
+  }, [clearReconnectTimeout, reconnectAttempts, sessionId]);
 
   // Store the effective URL for reconnections (may include cols/rows from initial connect)
   const effectiveUrlRef = useRef(url);
@@ -302,6 +302,7 @@ export function useTerminalWebSocket({
         wsRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearReconnectTimeout]);
 
   return {
