@@ -20,27 +20,42 @@ import { Button } from '@workspace/ui/components/ui/button'
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { OsIcon } from '@/components/os-icon'
 
+const RELEASES_LATEST_URL = 'https://github.com/AruNi-01/atmos/releases/latest'
+
+type DownloadLinks = {
+  macAppleSilicon: string
+  macIntel: string
+  windows: string
+  linux: string
+}
+
+type GitHubReleaseAsset = {
+  name: string
+  browser_download_url: string
+}
+
+type GitHubLatestRelease = {
+  assets?: GitHubReleaseAsset[]
+}
+
+const createDefaultDownloadLinks = (): DownloadLinks => ({
+  macAppleSilicon: RELEASES_LATEST_URL,
+  macIntel: RELEASES_LATEST_URL,
+  windows: RELEASES_LATEST_URL,
+  linux: RELEASES_LATEST_URL
+})
+
 const ReadyDownload = () => {
   const [copied, setCopied] = useState(false)
-  const [downloadLinks, setDownloadLinks] = useState({
-    macAppleSilicon: 'https://github.com/AruNi-01/atmos/releases/latest',
-    macIntel: 'https://github.com/AruNi-01/atmos/releases/latest',
-    windows: 'https://github.com/AruNi-01/atmos/releases/latest',
-    linux: 'https://github.com/AruNi-01/atmos/releases/latest'
-  })
+  const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(createDefaultDownloadLinks)
 
   useEffect(() => {
     fetch('https://api.github.com/repos/AruNi-01/atmos/releases/latest')
       .then(res => res.json())
-      .then((data: any) => {
-        if (data && data.assets) {
-          const links = {
-            macAppleSilicon: 'https://github.com/AruNi-01/atmos/releases/latest',
-            macIntel: 'https://github.com/AruNi-01/atmos/releases/latest',
-            windows: 'https://github.com/AruNi-01/atmos/releases/latest',
-            linux: 'https://github.com/AruNi-01/atmos/releases/latest'
-          }
-          data.assets.forEach((asset: any) => {
+      .then((data: GitHubLatestRelease) => {
+        if (Array.isArray(data.assets)) {
+          const links = createDefaultDownloadLinks()
+          data.assets.forEach((asset) => {
             const name = asset.name.toLowerCase()
             if (name.endsWith('.dmg')) {
               if (name.includes('aarch64') || name.includes('arm64') || name.includes('m1')) {

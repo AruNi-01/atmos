@@ -49,7 +49,7 @@ export default function ChangelogPage() {
   const [isScrolling, setIsScrolling] = useState(false);
   const [isDesktopTocCollapsed, setIsDesktopTocCollapsed] = useState(false);
   const githubIconRef = useRef<GithubIconHandle>(null);
-  const releaseGithubIconRefs = useRef(
+  const [releaseGithubIconRefs] = useState(() =>
     changelogData.map(() => createRef<GithubIconHandle>())
   );
 
@@ -374,30 +374,28 @@ export default function ChangelogPage() {
                                       aria-label={t("changelog.viewOnGitHub")}
                                       title={t("changelog.viewOnGitHub")}
                                       onMouseEnter={() =>
-                                        releaseGithubIconRefs.current[
+                                        releaseGithubIconRefs[
                                           itemIndex
                                         ]?.current?.startAnimation()
                                       }
                                       onMouseLeave={() =>
-                                        releaseGithubIconRefs.current[
+                                        releaseGithubIconRefs[
                                           itemIndex
                                         ]?.current?.stopAnimation()
                                       }
                                       onFocus={() =>
-                                        releaseGithubIconRefs.current[
+                                        releaseGithubIconRefs[
                                           itemIndex
                                         ]?.current?.startAnimation()
                                       }
                                       onBlur={() =>
-                                        releaseGithubIconRefs.current[
+                                        releaseGithubIconRefs[
                                           itemIndex
                                         ]?.current?.stopAnimation()
                                       }
                                     >
                                       <GithubIcon
-                                        ref={
-                                          releaseGithubIconRefs.current[itemIndex]
-                                        }
+                                        ref={releaseGithubIconRefs[itemIndex]}
                                         className="text-current"
                                         size={14}
                                       />
