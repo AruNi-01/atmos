@@ -48,8 +48,8 @@ let sessions   = count_atmos_client_sessions(&socket_path); // Option<usize> —
 
 ## Frontend (TypeScript)
 
-**File**: `packages/shared/src/utils/debug-logger.ts`
-**Import**: `import { getDebugLogger } from "@atmos/shared/utils/debug-logger";`
+**File**: `packages/shared/src/debug/debug-logger.ts`
+**Import**: `import { getDebugLogger } from "@atmos/shared/debug/debug-logger";`
 
 ### Basic usage
 
@@ -112,6 +112,6 @@ Once the bug is fixed, **remove the call sites** from production code.
 
 Files to keep:
 - `crates/infra/src/utils/debug_logging.rs`
-- `packages/shared/src/utils/debug-logger.ts`
+- `packages/shared/src/debug/debug-logger.ts`
 - `apps/api/src/api/system/handlers.rs` → `ingest_frontend_debug_log` handler
 - `apps/api/src/api/system/mod.rs` → `/debug-log` route

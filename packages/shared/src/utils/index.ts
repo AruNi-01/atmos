@@ -3,9 +3,6 @@
 // Time utilities
 export * from "./time";
 
-// Debug logger (reusable structured logging → ./logs/debug/)
-export * from "./debug-logger";
-
 /**
  * Format a date to locale string
  */

@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./types/*": "./src/types/*.ts",
     "./utils/*": "./src/utils/*.ts",
-    "./hooks/*": "./src/hooks/*.ts"
+    "./hooks/*": "./src/hooks/*.ts",
+    "./debug/*": "./src/debug/*.ts"
   },
   "scripts": {
 

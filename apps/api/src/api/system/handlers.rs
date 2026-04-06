@@ -663,7 +663,19 @@ pub struct FrontendLogPayload {
 pub async fn ingest_frontend_debug_log(
     Json(payload): Json<FrontendLogPayload>,
 ) -> impl IntoResponse {
-    let logger = DebugLogger::new(&format!("frontend-{}", payload.prefix));
+    // Sanitize the caller-supplied prefix before embedding it in a file path.
+    // Allow only alphanumeric, hyphen, and underscore — strip everything else
+    // (including '/', '..', and other path-traversal sequences) so the resolved
+    // path can never escape ./logs/debug/.
+    let safe_prefix: String = payload
+        .prefix
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+        .collect();
+    if safe_prefix.is_empty() {
+        return StatusCode::BAD_REQUEST;
+    }
+    let logger = DebugLogger::new(&format!("frontend-{}", safe_prefix));
     for entry in &payload.entries {
         let extra = entry.data.clone().map(|d| {
             if let Value::Object(map) = d {

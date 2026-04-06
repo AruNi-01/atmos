@@ -17,8 +17,9 @@
 packages/shared/
 └── src/
     ├── hooks/               # Generic React hooks
-    ├── utils/               # Framework-agnostic helpers
-    └── lib.ts               # Module exports
+    ├── utils/               # Framework-agnostic, pure helpers (no side effects)
+    ├── debug/               # Debug-only utilities (may have side effects — see below)
+    └── index.ts             # Module exports
 ```
 
 ---
@@ -37,11 +38,25 @@ packages/shared/
 
 ### NEVER
 - Add framework-specific code to utils — keep them framework-agnostic
-- Add API calls or side effects to utility functions
+- Add API calls or side effects to `utils/` functions
 
 ### ALWAYS
-- Keep utilities pure and reusable
+- Keep `utils/` functions pure and reusable
 - Use tree-shaking-friendly exports
+
+### Exception: `src/debug/`
+`src/debug/` is explicitly allowed to contain utilities with side effects (network
+calls, `console.*`, mutable state). These are debug-only tools — **never import
+them in production code paths**. They are exported under the `@atmos/shared/debug/*`
+subpath, kept out of the main `"."` barrel so they are never accidentally
+tree-shaken into production bundles.
+
+```ts
+// ✅ correct — explicit debug import
+import { getDebugLogger } from "@atmos/shared/debug/debug-logger";
+
+// ❌ wrong — never re-export from utils/ or the root index
+```
 
 ---
 

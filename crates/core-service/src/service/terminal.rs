@@ -852,9 +852,14 @@ impl TerminalService {
         // `create_grouped_session` returns early — zero new PTYs on refresh.
         //
         // Format: atmos_client_{tmux_session}_w{window_index}
+        //
+        // Only replace ':' — tmux uses it as a target separator (session:window).
+        // Hyphens are valid in tmux session names and must be preserved; stripping
+        // them would collapse distinct sessions (e.g. "atmos_my-app_ws" and
+        // "atmos_my_app_ws") into the same client session name.
         let client_session_name = format!(
             "atmos_client_{}_w{}",
-            tmux_session.replace(['-', ':'], "_"),
+            tmux_session.replace(':', "_"),
             window_index
         );
 
