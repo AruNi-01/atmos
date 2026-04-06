@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use infra::utils::debug_logging::DebugLogger;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -636,4 +637,50 @@ pub async fn serve_file(Query(query): Query<ServeFileQuery>) -> Result<Response,
         .body(body)
         .unwrap()
         .into_response())
+}
+
+// ── Frontend debug log ingestion ─────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct FrontendLogEntry {
+    pub ts: String,
+    pub cat: String,
+    pub msg: String,
+    pub data: Option<Value>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct FrontendLogPayload {
+    /// Logger prefix, e.g. "terminal" → writes to frontend-terminal-YYYY-MM-DD.log
+    pub prefix: String,
+    pub entries: Vec<FrontendLogEntry>,
+}
+
+/// POST /api/system/debug-log
+///
+/// Receives batched log entries from the frontend and appends them to
+/// `./logs/debug/frontend-<prefix>-YYYY-MM-DD.log` on the server.
+pub async fn ingest_frontend_debug_log(
+    Json(payload): Json<FrontendLogPayload>,
+) -> impl IntoResponse {
+    // Sanitize the caller-supplied prefix before embedding it in a file path.
+    // Allow only alphanumeric, hyphen, and underscore — strip everything else
+    // (including '/', '..', and other path-traversal sequences) so the resolved
+    // path can never escape ./logs/debug/.
+    let safe_prefix: String = payload
+        .prefix
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
+        .collect();
+    if safe_prefix.is_empty() {
+        return StatusCode::BAD_REQUEST;
+    }
+    let logger = DebugLogger::new(&format!("frontend-{}", safe_prefix));
+    for entry in &payload.entries {
+        let extra = entry.data.clone();
+        // Prefix the frontend timestamp into the message so it's visible in the log line
+        let msg = format!("[fe:{}] {}", entry.ts, entry.msg);
+        logger.log(&entry.cat, &msg, extra);
+    }
+    StatusCode::NO_CONTENT
 }

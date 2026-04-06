@@ -99,44 +99,14 @@ just lint               # Run all linters
 
 ---
 
-**Next Steps**: Choose your working area from the table above and open its specific `AGENTS.md`.
+## 🪲 Debug Logging
+
+The project has a ready-made debug logging infrastructure (Rust + TypeScript) that writes structured JSON-line logs to `./logs/debug/`. Use it whenever you need to instrument a lifecycle flow or diagnose a tricky bug.
+
+→ **[Full usage guide](agents/references/debug-logging.md)**
 
 ---
 
-## Cursor Cloud specific instructions
+**Next Steps**: Choose your working area from the table above and open its specific `AGENTS.md`.
 
-### Services overview
-
-| Service | Port | Start command | Notes |
-|---------|------|---------------|-------|
-| **Rust API** | 30303 | `cargo run --bin api` | Embedded SQLite at `~/.atmos/db/atmos.db`; auto-migrates on startup |
-| **Next.js Web** | 3030 | `cd apps/web && bun x next dev --turbopack --port 3030` | Connects to API via REST + WebSocket |
-
-No external databases, Redis, or Docker services are required. tmux must be installed (used for terminal session management).
-
-### Bun install gotcha
-
-The `bun.lock` file in this repo can cause `bun install` to hang indefinitely in containerized/overlay-fs environments. **Workaround**: temporarily rename `bun.lock` before install, then restore it:
-
-```bash
-mv bun.lock bun.lock.bak
-bun install --ignore-scripts --no-save
-mv bun.lock.bak bun.lock
-```
-
-Bun will resolve from `pnpm-lock.yaml` instead and complete successfully.
-
-### Rust build notes
-
-- The Cargo workspace includes `apps/desktop/src-tauri` which requires GTK3/GDK dev libraries (`libgtk-3-dev`, `libwebkit2gtk-4.1-dev`). These are only needed if building/linting the desktop app.
-- To lint/test without desktop: `cargo clippy --workspace --exclude atmos-desktop` and `cargo test --workspace --exclude atmos-desktop`.
-- The `justfile` defaults to `zsh` shell (`set shell := ["zsh", "-cu"]`), so `zsh` must be installed.
-
-### Standard dev commands
-
-See `justfile` and root `AGENTS.md` Commands section. Key shortcuts:
-
-- `just dev-api` / `just dev-web` / `just dev-all` for starting services
-- `just lint` for `bun lint` + `cargo clippy --workspace`
-- `just test` for `bun test` + `cargo test --workspace`
-- `just fmt` for formatting
+---
