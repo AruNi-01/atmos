@@ -789,7 +789,10 @@ impl GitEngine {
                 Ok(())
             }
             Err(stderr) => {
-                if stderr.contains("no upstream") || stderr.contains("set-upstream") {
+                if stderr.contains("no upstream")
+                    || stderr.contains("set-upstream")
+                    || stderr.contains("does not match")
+                {
                     let branch = self.get_current_branch(repo_path)?;
                     run_git(repo_path, &["push", "--set-upstream", "origin", &branch])?;
                     tracing::info!("Pushed changes to remote (with set-upstream)");
