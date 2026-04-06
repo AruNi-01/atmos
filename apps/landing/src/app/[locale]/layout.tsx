@@ -52,20 +52,6 @@ export default async function LocaleLayout({ children, params }: Props) {
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
-        <style>{`
-          #superDeveloper111,
-          #fixMeDetectBox {
-            position: fixed !important;
-            left: 0 !important;
-            bottom: 0 !important;
-            width: 0 !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: hidden !important;
-            pointer-events: none !important;
-          }
-        `}</style>
         {process.env.NODE_ENV === "development" && (
           <Script
             src="//unpkg.com/react-grab/dist/index.global.js"
