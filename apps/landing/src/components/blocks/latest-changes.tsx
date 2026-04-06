@@ -1,7 +1,8 @@
 'use client'
 
-import Link from 'next/link'
+import { useLocale } from 'next-intl'
 import { HistoryIcon, ArrowUpRightIcon, ZapIcon, StarIcon, WrenchIcon } from 'lucide-react'
+import { Link } from '@atmos/i18n/navigation'
 
 import { Badge } from '@workspace/ui/components/ui/badge'
 
@@ -11,31 +12,23 @@ import { Separator } from '@workspace/ui/components/ui/separator'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { CraftButton, CraftButtonIcon, CraftButtonLabel } from '@workspace/ui/components/ui/craft-button'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
+import { changelogData } from '@/lib/changelog-data'
+import { formatDate } from '@/lib/utils'
 
-
-
-const latestChangesData = [
-  {
-    title: 'v0.2.0 - Agent Ecosystem & UI Polish',
-    description: 'Introduced custom ACP agents support, overhauled the workspace UI, and shipped new styling aesthetics across the board.',
-    time: 'Mar 22, 2026',
-    icon: ZapIcon
-  },
-  {
-    title: 'v0.1.5 - Terminal & PTY Reliability',
-    description: 'Improved native terminal capabilities backed by tmux, ensuring detached processes never skip a beat. Cut latency by ~20%.',
-    time: 'Mar 15, 2026',
-    icon: WrenchIcon
-  },
-  {
-    title: 'v0.1.2 - LLM Workflow Upgrades',
-    description: 'Redesigned the lightweight provider integration. Now supports dynamic configuration with rapid context switching.',
-    time: 'Mar 01, 2026',
-    icon: StarIcon
-  }
-]
+const icons = [ZapIcon, WrenchIcon, StarIcon]
 
 const LatestChanges = () => {
+  const locale = useLocale()
+  const language = locale === 'zh' ? 'zh' : 'en'
+  const latestChangesData = changelogData.slice(0, 3).map((item, index) => ({
+    id: item.id,
+    title: `v${item.version} - ${item.title[language]}`,
+    description: item.description[language].replace(/\*\*|\*/g, ''),
+    time: formatDate(new Date(item.date), language),
+    href: `/changelog#v${item.version}`,
+    icon: icons[index] ?? ZapIcon
+  }))
+
   return (
     <section id='latest-changes' className='relative'>
       <MotionPreset
@@ -81,17 +74,16 @@ const LatestChanges = () => {
           {/* Grid */}
           <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3'>
             {latestChangesData.map((change, index) => {
-              const anchor = change.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
               return (
               <MotionPreset
-                key={change.title}
+                key={change.id}
                 fade
                 blur
                 slide={{ offset: 50, direction: index % 2 === 0 ? 'left' : 'right' }}
                 delay={0.8 + (index * 0.2)}
                 transition={{ duration: 0.6 }}
               >
-                <Link href={`/changelog#${anchor}`} target='_blank' rel='noopener noreferrer' className='block h-full outline-hidden ring-offset-background transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-3xl'>
+                <Link href={change.href} className='block h-full outline-hidden ring-offset-background transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-3xl'>
                   <Card className={`rounded-3xl border shadow-xs h-full transition-colors hover:bg-muted/50`}>
                     <CardHeader className='gap-3'>
                       <div className='flex justify-between items-start'>
@@ -125,7 +117,7 @@ const LatestChanges = () => {
             transition={{ duration: 0.6 }}
           >
             <CraftButton asChild>
-              <Link href='/changelog' target='_blank' rel='noopener noreferrer'>
+              <Link href='/changelog'>
                 <CraftButtonLabel>See all releases</CraftButtonLabel>
                 <CraftButtonIcon>
                   <ArrowUpRightIcon className='size-3 stroke-2 transition-transform duration-300 group-hover:rotate-45' />

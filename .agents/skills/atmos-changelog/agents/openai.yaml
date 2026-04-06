@@ -1,0 +1,4 @@
+interface:
+  display_name: "Atmos Changelog"
+  short_description: "Extract GitHub Releases into landing changelog data"
+  default_prompt: "Use this skill to convert Atmos GitHub release notes into apps/landing/src/lib/changelog-data.ts entries. If a version is provided, refresh only that version; otherwise add only releases missing from the current data file."

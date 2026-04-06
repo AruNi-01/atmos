@@ -106,6 +106,7 @@ scripts/open-source/
 !.agents/skills/
 .agents/skills/*
 !.agents/skills/atmos-release/
+!.agents/skills/atmos-changelog/
 .augment/
 .claude/
 .codex/
