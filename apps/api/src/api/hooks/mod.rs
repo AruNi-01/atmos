@@ -148,18 +148,18 @@ async fn test_push_notification(
     }
 }
 
-async fn install_hooks() -> Json<Value> {
-    let report = core_engine::agent_hooks::install_all_hooks();
+async fn install_hooks(State(state): State<AppState>) -> Json<Value> {
+    let report = core_engine::agent_hooks::install_all_hooks_with_port(state.server_port);
     Json(serde_json::to_value(report).unwrap_or_default())
 }
 
-async fn uninstall_hooks() -> Json<Value> {
-    let report = core_engine::agent_hooks::uninstall_all_hooks();
+async fn uninstall_hooks(State(state): State<AppState>) -> Json<Value> {
+    let report = core_engine::agent_hooks::uninstall_all_hooks_with_port(state.server_port);
     Json(serde_json::to_value(report).unwrap_or_default())
 }
 
-async fn hooks_status() -> Json<Value> {
-    let report = core_engine::agent_hooks::check_all_hooks();
+async fn hooks_status(State(state): State<AppState>) -> Json<Value> {
+    let report = core_engine::agent_hooks::check_all_hooks_with_port(state.server_port);
     Json(serde_json::to_value(report).unwrap_or_default())
 }
 

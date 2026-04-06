@@ -744,6 +744,21 @@ impl TerminalService {
             tmux_session, final_window_index, session_id
         );
 
+        // Update ATMOS_PANE_ID and ATMOS_CONTEXT_ID in the tmux session environment so
+        // that newly-spawned processes (e.g. agent hooks started after reconnect) inherit
+        // the current session_id and workspace_id rather than stale values from the
+        // original window creation.
+        if !session_id.is_empty() {
+            let _ = self.tmux_engine.run_tmux_pub(&[
+                "setenv", "-t", &tmux_session, "ATMOS_PANE_ID", &session_id,
+            ]);
+        }
+        if !workspace_id.is_empty() {
+            let _ = self.tmux_engine.run_tmux_pub(&[
+                "setenv", "-t", &tmux_session, "ATMOS_CONTEXT_ID", &workspace_id,
+            ]);
+        }
+
         let rx = self
             .attach_to_tmux_window(
                 session_id,

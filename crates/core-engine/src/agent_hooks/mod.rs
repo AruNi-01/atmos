@@ -17,6 +17,38 @@ fn atmos_port() -> u16 {
         .unwrap_or(30303)
 }
 
+/// Install hooks using the explicitly provided port (preferred over env-var fallback).
+pub fn install_all_hooks_with_port(port: u16) -> AgentHookInstallReport {
+    info!("Installing agent hooks for Atmos port {}", port);
+    let claude = claude_code::install(port);
+    let codex = codex::install(port);
+    let opencode = opencode::install(port);
+    info!(
+        "Agent hook install complete: claude_code={}, codex={}, opencode={}",
+        if claude.installed { "ok" } else { "skip" },
+        if codex.installed { "ok" } else { "skip" },
+        if opencode.installed { "ok" } else { "skip" },
+    );
+    AgentHookInstallReport { claude_code: claude, codex, opencode }
+}
+
+/// Uninstall hooks using the explicitly provided port.
+pub fn uninstall_all_hooks_with_port(port: u16) -> AgentHookInstallReport {
+    info!("Uninstalling agent hooks for Atmos port {}", port);
+    let claude = claude_code::uninstall(port);
+    let codex = codex::uninstall(port);
+    let opencode = opencode::uninstall();
+    AgentHookInstallReport { claude_code: claude, codex, opencode }
+}
+
+/// Check hook status using the explicitly provided port.
+pub fn check_all_hooks_with_port(port: u16) -> AgentHookInstallReport {
+    let claude = claude_code::check(port);
+    let codex = codex::check(port);
+    let opencode = opencode::check();
+    AgentHookInstallReport { claude_code: claude, codex, opencode }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentHookInstallReport {
     pub claude_code: AgentHookToolStatus,

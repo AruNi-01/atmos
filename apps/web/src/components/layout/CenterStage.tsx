@@ -119,12 +119,14 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
 const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
 
-function TerminalTabAgentIndicator() {
+function TerminalTabAgentIndicator({ contextId }: { contextId: string | null }) {
   const globalState = useAgentHooksStore((s) => {
     for (const session of s.sessions.values()) {
+      if (contextId && session.context_id !== contextId) continue;
       if (session.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
     }
     for (const session of s.sessions.values()) {
+      if (contextId && session.context_id !== contextId) continue;
       if (session.state === AGENT_STATE.RUNNING) return AGENT_STATE.RUNNING;
     }
     return AGENT_STATE.IDLE;
@@ -969,7 +971,7 @@ const CenterStage: React.FC = () => {
               />
             </span>
             <span className="text-[13px] font-medium whitespace-nowrap">Term</span>
-            <TerminalTabAgentIndicator />
+            <TerminalTabAgentIndicator contextId={effectiveContextId} />
 
             <DropdownMenu
               open={agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE}
@@ -1182,7 +1184,7 @@ const CenterStage: React.FC = () => {
                         "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center rounded-r-sm bg-linear-to-l from-muted/25 to-transparent pl-2.5 pr-1.5 backdrop-blur-[4px] transition-opacity duration-200",
                         activeValue === tab.id
                           ? "opacity-0 group-hover/term-tab:opacity-100"
-                          : "opacity-0"
+                          : "opacity-0 pointer-events-none"
                       )}
                     >
                       <span

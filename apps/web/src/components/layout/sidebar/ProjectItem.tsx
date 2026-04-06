@@ -110,9 +110,15 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const isDark = theme === 'dark';
   const initialLetter = project.name.charAt(0).toUpperCase();
 
-  const projectAgentState = useAgentHooksStore((s) =>
-    s.getAgentStateForContextId(project.id)
-  );
+  const projectAgentState = useAgentHooksStore((s) => {
+    const projectState = s.getAgentStateForContextId(project.id);
+    if (projectState !== AGENT_STATE.IDLE) return projectState;
+    for (const ws of project.workspaces) {
+      const wsState = s.getAgentStateForContextId(ws.id);
+      if (wsState !== AGENT_STATE.IDLE) return wsState;
+    }
+    return AGENT_STATE.IDLE;
+  });
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

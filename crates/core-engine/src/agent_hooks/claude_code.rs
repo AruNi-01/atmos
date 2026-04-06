@@ -13,20 +13,22 @@ fn hook_url(port: u16) -> String {
     format!("http://localhost:{}/hooks/claude-code", port)
 }
 
-fn is_atmos_hook(hook_entry: &Value, port: u16) -> bool {
-    let url = hook_url(port);
+fn is_atmos_hook(hook_entry: &Value, _port: u16) -> bool {
+    // Identify Atmos hooks by the ATMOS_MANAGED marker that every generated
+    // command contains. This is Atmos-specific and port-independent, so hooks
+    // are correctly removed even when the port changes between restarts.
     hook_entry
         .get("hooks")
         .and_then(|h| h.as_array())
         .map(|arr| {
             arr.iter().any(|h| {
-                // Match HTTP hook by URL
-                if h.get("url").and_then(|u| u.as_str()) == Some(&url) {
-                    return true;
-                }
-                // Match command hook by URL substring in the command string
                 if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
-                    return cmd.contains(&url);
+                    return cmd.contains("ATMOS_MANAGED");
+                }
+                // HTTP-type hooks: match by Atmos-specific header name
+                if let Some(headers) = h.get("headers").and_then(|v| v.as_object()) {
+                    return headers.contains_key("X-Atmos-Context")
+                        || headers.contains_key("X-Atmos-Pane");
                 }
                 false
             })

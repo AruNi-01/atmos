@@ -33,6 +33,8 @@ pub struct AppState {
     pub agent_hooks_service: Arc<AgentHooksService>,
     pub notification_service: Arc<NotificationService>,
     pub ws_service: Arc<WsService>,
+    /// The actual port the HTTP server is listening on.
+    pub server_port: u16,
 }
 
 impl AppState {
@@ -40,6 +42,7 @@ impl AppState {
         services: AppServices,
         ws_service_config: WsServiceConfig,
         db: Arc<infra::DatabaseConnection>,
+        server_port: u16,
     ) -> Self {
         let agent_session_service = Arc::new(AgentSessionService::new(
             Arc::clone(&services.agent_service),
@@ -61,6 +64,7 @@ impl AppState {
             agent_hooks_service: services.agent_hooks_service,
             notification_service: services.notification_service,
             ws_service: Arc::new(ws_service),
+            server_port,
         }
     }
 }

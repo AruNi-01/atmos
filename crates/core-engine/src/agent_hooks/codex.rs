@@ -17,18 +17,18 @@ fn hook_url(port: u16) -> String {
     format!("http://localhost:{}/hooks/codex", port)
 }
 
-fn is_atmos_hook(hook_entry: &Value, port: u16) -> bool {
-    let url = hook_url(port);
+fn is_atmos_hook(hook_entry: &Value, _port: u16) -> bool {
     hook_entry
         .get("hooks")
         .and_then(|h| h.as_array())
         .map(|arr| {
             arr.iter().any(|h| {
-                if h.get("url").and_then(|u| u.as_str()) == Some(&url) {
-                    return true;
-                }
                 if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
-                    return cmd.contains(&url);
+                    return cmd.contains("ATMOS_MANAGED");
+                }
+                if let Some(headers) = h.get("headers").and_then(|v| v.as_object()) {
+                    return headers.contains_key("X-Atmos-Context")
+                        || headers.contains_key("X-Atmos-Pane");
                 }
                 false
             })

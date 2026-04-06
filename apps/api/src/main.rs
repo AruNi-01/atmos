@@ -69,13 +69,14 @@ fn spawn_non_critical_startup_tasks(
     agent_service: Arc<AgentService>,
     project_service: Arc<ProjectService>,
     agent_hooks_service: Arc<core_service::AgentHooksService>,
+    server_port: u16,
 ) {
     tokio::task::spawn_blocking(|| {
         infra::utils::system_skill_sync::sync_system_skills_on_startup();
     });
 
-    tokio::task::spawn_blocking(|| {
-        let report = core_engine::agent_hooks::install_all_hooks();
+    tokio::task::spawn_blocking(move || {
+        let report = core_engine::agent_hooks::install_all_hooks_with_port(server_port);
         tracing::info!(
             "Agent hooks auto-install: claude_code={}, codex={}, opencode={}",
             if report.claude_code.installed {
@@ -204,6 +205,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let terminal_service_shutdown = terminal_service.clone();
 
     // Create AppState with dependency injection
+    // server_port is not yet known (bind happens below); we set a placeholder and
+    // patch it after bind. Clone is cheap because all fields are Arc.
     let app_state = AppState::new(
         AppServices {
             test_service,
@@ -219,6 +222,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         ws_config,
         db,
+        server_config.port, // will be corrected to actual_addr.port() below
     );
 
     // Inject WsManager into WsMessageService for server-to-client notifications
@@ -314,12 +318,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     })?;
     let actual_addr = listener.local_addr()?;
+    let actual_port = actual_addr.port();
     info!("Server listening on http://{}", actual_addr);
-    println!("ATMOS_READY port={}", actual_addr.port());
+    println!("ATMOS_READY port={}", actual_port);
     spawn_non_critical_startup_tasks(
         agent_service_for_startup,
         project_service_for_startup,
         agent_hooks_for_startup,
+        actual_port,
     );
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
