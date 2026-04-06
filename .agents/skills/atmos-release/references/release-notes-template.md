@@ -39,8 +39,6 @@ Use the collected JSON context as the primary source:
 ## Suggested structure
 
 ```md
-# Atmos Desktop <version>
-
 Short one-paragraph summary of the release.
 
 ## New Features
@@ -55,6 +53,8 @@ Short one-paragraph summary of the release.
 ## Other Changes
 - ...
 ```
+
+> **Note:** Do not include a top-level `#` heading. GitHub Releases already render the release title as an H1 — adding one inside the body creates a duplicate heading.
 
 ## Section intent
 

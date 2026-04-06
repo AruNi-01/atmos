@@ -1,5 +1,3 @@
-# Atmos Desktop 1.0.0
-
 Atmos 1.0.0 is our first major release. This version brings remote access to your desktop, real-time agent state tracking across the entire UI, a live file tree with Git status, branch sync visibility in the top bar, and a range of reliability and polish improvements throughout the app.
 
 ## New Features

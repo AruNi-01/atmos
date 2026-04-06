@@ -34,6 +34,85 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-v1.0.0",
+    title: {
+      zh: "首个正式大版本：远程访问 · Agent 实时同步 · 文件树 Git 状态",
+      en: "Remote Access, Real-Time Agent Sync & Live Git File Tree",
+    },
+    description: {
+      zh: "Atmos 1.0.0 是首个正式大版本。本次发布带来了桌面远程访问、全 UI 实时 Agent 状态同步、带 Git 状态的实时文件树、顶栏分支同步显示，以及大量稳定性和交互打磨。",
+      en: "Atmos 1.0.0 is our first major release. It brings remote access to your desktop, real-time agent state tracking across the entire UI, a live file tree with Git status, branch sync visibility in the top bar, and a range of reliability and polish improvements.",
+    },
+    date: "2026-04-06",
+    version: "1.0.0",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v1.0.0",
+    image: "/changelog/v1.0.0_img.png",
+    tags: [
+      { zh: "远程访问", en: "Remote Access" },
+      { zh: "Agent", en: "Agent" },
+      { zh: "文件树", en: "File Tree" },
+      { zh: "Git", en: "Git" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**远程访问** — 通过 Tailscale、Cloudflare Tunnel 或 ngrok 从任意位置连接你的 Atmos 桌面端，支持互联网访问和局域网可信 API。([#67](https://github.com/AruNi-01/atmos/pull/67)，关闭 [#26](https://github.com/AruNi-01/atmos/issues/26))",
+          "**Agent Hooks 与实时状态同步** — Claude Code、Codex、OpenCode 的 Agent 生命周期事件（运行中、空闲、等待权限、完成）现在通过 hooks 实时同步到侧边栏、底栏和终端标签页。Agent 等待权限时会显示动态铃铛图标。([#63](https://github.com/AruNi-01/atmos/pull/63)，关闭 [#24](https://github.com/AruNi-01/atmos/issues/24)、[#25](https://github.com/AruNi-01/atmos/issues/25))",
+          "**实时文件树与 Git 状态** — 文件树实时更新，并展示每个文件的 Git 状态标识（已修改、已新增、已删除），无需离开编辑器即可掌握改动全貌。",
+          "**顶栏分支同步状态** — 顶栏实时显示当前分支是否领先、落后或与远程同步，随时掌握 Git 状态。([#66](https://github.com/AruNi-01/atmos/pull/66))",
+          "**技能面板全面改版** — 技能面板与设置弹窗采用全新布局，支持列表与详情视图的平滑切换动画、自定义 Agent SVG 图标及新增的 SkillAgentBadge 组件。([#67](https://github.com/AruNi-01/atmos/pull/67))",
+        ],
+        fixes: [
+          "**PTY 泄漏修复** — 修复页面刷新时终端 PTY 会话未正确释放的问题，现在使用稳定分组名称防止跨刷新积累。([#68](https://github.com/AruNi-01/atmos/pull/68)，关闭 [#64](https://github.com/AruNi-01/atmos/issues/64))",
+          "**Agent 权限响应延迟与卡死** — 修复用户授权后 Claude Code 仍显示卡住的问题，权限回复处理更可靠，Agent 能及时恢复运行。",
+          "**远程访问 HTTPS 隧道连通性** — 修复 HTTPS 隧道连接问题，并新增 session 续期，在网络条件不佳时保持远程访问会话存活。",
+          "**阻塞异步执行器与硬编码 Sidecar 端口** — 修复 sidecar 阻塞异步执行器的问题，并移除导致部分环境无法启动的硬编码端口。",
+          "**Agent 对话面板透明度** — 恢复因重构误删的 Agent 对话面板透明度控制。",
+          "**旋转图标对齐** — 修复用量和计时 UI 中旋转图标错位的问题。([#38](https://github.com/AruNi-01/atmos/issues/38))",
+          "**桌面端终端拖放** — 修复桌面端终端面板的拖放行为异常。",
+          "**终端标签页 Hydration** — 修复桌面端启动时终端标签页 hydration 失败的问题。",
+        ],
+        improvements: [
+          "**空闲会话徽章** — 在侧边栏悬停空闲 Agent 会话时，会以滑入动画展示 CLEAR 操作，无需跳转页面即可快速清理已完成的会话。",
+          "**Agent 状态指示器尺寸** — 侧边栏和终端标签页中的紧凑 Agent 状态指示器适当放大，在小尺寸下更易辨识。",
+          "**桌面端应用图标刷新** — 更新桌面端应用图标，在 macOS 上呈现更精致的外观。",
+          "**Landing Changelog 页面** — Landing 站点正式上线 Changelog 页面及共享 CTA 组件。([#69](https://github.com/AruNi-01/atmos/pull/69))",
+        ],
+        others: [
+          "[完整变更对比](https://github.com/AruNi-01/atmos/compare/desktop-v0.2.6...desktop-v1.0.0)",
+        ],
+      },
+      en: {
+        features: [
+          "**Remote Access** — Connect to your Atmos desktop from anywhere using Tailscale, Cloudflare Tunnel, or ngrok. Enable the built-in web service and share access over the internet or your local network, with opt-in LAN trust for the API. ([#67](https://github.com/AruNi-01/atmos/pull/67), closes [#26](https://github.com/AruNi-01/atmos/issues/26))",
+          "**Agent Hooks & Real-Time State Sync** — Agent lifecycle events (running, idle, waiting for permission, complete) now flow through hooks for Claude Code, Codex, and OpenCode, keeping the sidebar, footer, and terminal tabs in sync in real time. An animated bell icon appears when an agent is waiting for your permission. ([#63](https://github.com/AruNi-01/atmos/pull/63), closes [#24](https://github.com/AruNi-01/atmos/issues/24), [#25](https://github.com/AruNi-01/atmos/issues/25))",
+          "**Live File Tree with Git Status** — The file tree updates in real time and shows live Git status indicators so you can see which files have been modified, added, or deleted without leaving the editor pane.",
+          "**Branch Sync Status in Top Bar** — The top bar now shows whether your current branch is ahead, behind, or in sync with its remote, giving you a quick read on your Git state at all times. ([#66](https://github.com/AruNi-01/atmos/pull/66))",
+          "**Skills UI Overhaul** — The skills panel and settings modal have been redesigned with a refreshed layout, smooth view transitions between list and detail views, custom agent SVG icons, and a new SkillAgentBadge component. ([#67](https://github.com/AruNi-01/atmos/pull/67))",
+        ],
+        fixes: [
+          "**PTY Leak on Page Refresh** — Fixed a leak where terminal PTY sessions were not properly released on page refresh. Sessions now use stable grouped names to prevent accumulation across reloads. ([#68](https://github.com/AruNi-01/atmos/pull/68), closes [#64](https://github.com/AruNi-01/atmos/issues/64))",
+          "**Agent Permission Latency & Stuck State** — Resolved a bug where Claude Code would appear stuck after the user granted a permission prompt. Permission reply handling is now more reliable and the agent resumes promptly.",
+          "**Remote Access HTTPS Tunnel Connectivity** — Fixed connectivity issues with HTTPS tunnels and added session renewal to keep remote access sessions alive under adverse network conditions.",
+          "**Blocking Async Executor & Hardcoded Sidecar Port** — Fixed a case where the sidecar was blocking the async executor and removed a hardcoded port that prevented the sidecar from starting in some environments.",
+          "**Agent Chat Panel Opacity** — Restored opacity control for the agent chat panel that was inadvertently removed in a prior refactor.",
+          "**Spinning Icon Alignment** — Corrected misaligned spinner icons in the usage and timer UI. ([#38](https://github.com/AruNi-01/atmos/issues/38))",
+          "**Desktop Terminal Pane Drag and Drop** — Fixed drag-and-drop behavior in the desktop terminal pane.",
+          "**Terminal Tab Hydration** — Fixed an issue where terminal tabs would fail to hydrate correctly on desktop app startup.",
+        ],
+        improvements: [
+          "**Idle Session Badge** — Hovering over an idle agent session in the sidebar now reveals a CLEAR action with a slide animation, making it easier to dismiss finished sessions without navigating away.",
+          "**Agent State Indicator Sizing** — The compact agent state indicator in the sidebar and terminal tab is now slightly larger for better visibility at a glance.",
+          "**Desktop App Icons Refresh** — Updated desktop app icons for a more polished look on macOS.",
+          "**Landing Changelog Page** — A changelog page and shared CTA components are now live on the Atmos landing site. ([#69](https://github.com/AruNi-01/atmos/pull/69))",
+        ],
+        others: [
+          "[Full changelog comparison](https://github.com/AruNi-01/atmos/compare/desktop-v0.2.6...desktop-v1.0.0)",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-v0.2.6",
     title: {
       zh: "Landing 页面打磨与预览检查器",

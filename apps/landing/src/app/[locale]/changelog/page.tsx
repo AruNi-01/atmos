@@ -1,6 +1,6 @@
 "use client";
 
-import { createRef, useEffect, useRef, useState } from "react";
+import { createRef, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ArrowLeftIcon,
@@ -40,6 +40,11 @@ const sectionBadgeClasses = {
     "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-300",
 } as const;
 
+const normalizeHashValue = (value: string) => {
+  const parts = value.split("#").filter(Boolean);
+  return parts.at(-1) ?? "";
+};
+
 export default function ChangelogPage() {
   const t = useTranslations();
   const locale = useLocale();
@@ -47,16 +52,48 @@ export default function ChangelogPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isTocOpen, setIsTocOpen] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
-  const [isDesktopTocCollapsed, setIsDesktopTocCollapsed] = useState(false);
+  const [isDesktopTocCollapsed, setIsDesktopTocCollapsed] = useState(true);
   const githubIconRef = useRef<GithubIconHandle>(null);
   const [releaseGithubIconRefs] = useState(() =>
     changelogData.map(() => createRef<GithubIconHandle>())
   );
 
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+
+  const openLightbox = useCallback((src: string, alt: string) => {
+    setLightbox({ src, alt });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setLightboxVisible(true));
+    });
+  }, []);
+
+  const closeLightbox = useCallback(() => {
+    setLightboxVisible(false);
+    setTimeout(() => setLightbox(null), 300);
+  }, []);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeLightbox(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, closeLightbox]);
+
   useEffect(() => {
     const scrollToHash = () => {
-      const hash = window.location.hash.slice(1);
+      const rawHash = window.location.hash.slice(1);
+      const hash = normalizeHashValue(rawHash);
+
       if (hash) {
+        if (hash !== rawHash) {
+          window.history.replaceState(
+            null,
+            "",
+            `${window.location.pathname}${window.location.search}#${hash}`
+          );
+        }
+
         setActiveId(hash);
         setIsScrolling(true);
 
@@ -105,7 +142,11 @@ export default function ChangelogPage() {
     const id = `v${version}`;
     setActiveId(id);
     setIsScrolling(true);
-    window.history.pushState(null, "", `#${id}`);
+    window.history.pushState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}#${id}`
+    );
 
     const element = document.getElementById(id);
     if (element) {
@@ -336,10 +377,10 @@ export default function ChangelogPage() {
                                   e.preventDefault();
                                   handleTocClick(item.version!);
                                 }}
-                                className="relative z-10 inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-700/90 bg-zinc-900 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary"
+                                className="relative z-10 inline-flex items-center justify-center rounded-lg border border-zinc-700/90 px-2.5 py-1 text-sm font-bold text-foreground transition-colors hover:border-primary hover:text-primary"
                                 title={t("changelog.copyLink")}
                               >
-                                {item.version}
+                                v{item.version}
                               </Link>
                             )}
                           </div>
@@ -418,24 +459,29 @@ export default function ChangelogPage() {
                               )}
                             </div>
 
-                            {item.image && (
-                              <div className="relative h-96 w-full overflow-hidden rounded-lg border bg-muted">
-                                <Image
-                                  src={item.image}
-                                  alt={item.title[language]}
-                                  fill
-                                  className="object-cover"
-                                  loading="lazy"
-                                  unoptimized
-                                />
-                              </div>
-                            )}
-
                             <div className="prose prose-sm max-w-none text-muted-foreground prose-p:my-0 prose-a:text-primary prose-a:underline dark:prose-invert [&_a]:underline">
                               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                 {item.description[language]}
                               </ReactMarkdown>
                             </div>
+
+                            {item.image && (
+                              <button
+                                type="button"
+                                onClick={() => openLightbox(item.image!, item.title[language])}
+                                className="group w-full cursor-zoom-in overflow-hidden rounded-lg border bg-muted transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              >
+                                <Image
+                                  src={item.image}
+                                  alt={item.title[language]}
+                                  width={1200}
+                                  height={800}
+                                  className="h-auto w-full transition-transform duration-300 group-hover:scale-[1.01]"
+                                  loading="lazy"
+                                  unoptimized
+                                />
+                              </button>
+                            )}
 
                             <Accordion type="multiple" className="w-full">
                               {sections.map(
@@ -483,6 +529,36 @@ export default function ChangelogPage() {
           </div>
         </div>
       </section>
+
+      {lightbox && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={lightbox.alt}
+          onClick={closeLightbox}
+          className={cn(
+            "fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-300",
+            lightboxVisible ? "bg-black/80 backdrop-blur-sm" : "bg-black/0 backdrop-blur-none"
+          )}
+        >
+          <div
+            className={cn(
+              "relative max-h-[90vh] max-w-[90vw] cursor-zoom-out overflow-hidden rounded-xl shadow-2xl transition-all duration-300",
+              lightboxVisible ? "scale-100 opacity-100" : "scale-90 opacity-0"
+            )}
+            onClick={closeLightbox}
+          >
+            <Image
+              src={lightbox.src}
+              alt={lightbox.alt}
+              width={1800}
+              height={1200}
+              className="h-auto max-h-[90vh] w-auto max-w-[90vw] object-contain"
+              unoptimized
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
