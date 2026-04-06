@@ -15,8 +15,8 @@
   },
   "changelog": {
     "title": "更新日志",
-    "heroTitle": "Catch up on the latest from Atmos",
-    "heroDescription": "We're constantly shipping shiny new features, squashing bugs, and making things faster so you can build better.",
+    "heroTitle": "了解 Atmos 的最新动态",
+    "heroDescription": "我们持续推出新功能、修复问题并提升性能，帮助你更好地构建应用。",
     "back": "返回",
     "viewOnGitHub": "View In GitHub",
     "features": "新功能",
