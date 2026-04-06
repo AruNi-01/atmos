@@ -10,6 +10,8 @@ type CTA1Props = {
   actionButtonTwo?: React.ReactNode;
   className?: string;
   widthClassName?: string;
+  showFrame?: boolean;
+  showBorder?: boolean;
 };
 
 export function CTA1({
@@ -19,23 +21,30 @@ export function CTA1({
   actionButtonTwo,
   className,
   widthClassName = "max-w-5xl",
+  showFrame = true,
+  showBorder = true,
 }: CTA1Props) {
   return (
     <section
       className={cn(
-        "relative mx-auto flex w-full flex-col justify-between gap-y-5 border-y px-4 py-8 md:px-8 md:py-12",
+        "relative mx-auto flex w-full flex-col justify-between gap-y-5 px-4 py-8 md:px-8 md:py-12",
+        showBorder && "border-y",
         widthClassName,
         "bg-[radial-gradient(35%_80%_at_25%_0%,color-mix(in_oklab,var(--foreground)_8%,transparent),transparent)]",
         className
       )}
     >
-      <DecorIcon className="size-4" position="top-left" />
-      <DecorIcon className="size-4" position="top-right" />
-      <DecorIcon className="size-4" position="bottom-left" />
-      <DecorIcon className="size-4" position="bottom-right" />
+      {showFrame ? (
+        <>
+          <DecorIcon className="size-4" position="top-left" />
+          <DecorIcon className="size-4" position="top-right" />
+          <DecorIcon className="size-4" position="bottom-left" />
+          <DecorIcon className="size-4" position="bottom-right" />
 
-      <div className="pointer-events-none absolute -inset-y-6 -left-px w-px border-l" />
-      <div className="pointer-events-none absolute -inset-y-6 -right-px w-px border-r" />
+          <div className="pointer-events-none absolute -inset-y-6 -left-px w-px border-l" />
+          <div className="pointer-events-none absolute -inset-y-6 -right-px w-px border-r" />
+        </>
+      ) : null}
       <div className="space-y-3">
         <h1 className="text-balance text-center text-3xl font-semibold tracking-tight md:text-5xl">
           {title}
