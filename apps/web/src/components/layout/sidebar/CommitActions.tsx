@@ -199,6 +199,12 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       await pushChanges();
     } catch (e) {
       console.error(e);
+      toastManager.add({
+        title: "Publish Failed",
+        description:
+          e instanceof Error ? e.message : "Failed to publish branch.",
+        type: "error",
+      });
     } finally {
       setIsGlobalActionLoading(false);
     }
