@@ -1,5 +1,6 @@
 /* Import additional animations */
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 /* Import UI package global styles */
 @import "@workspace/ui/globals.css";

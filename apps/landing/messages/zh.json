@@ -13,6 +13,19 @@
     "dark": "深色",
     "system": "跟随系统"
   },
+  "changelog": {
+    "title": "更新日志",
+    "heroTitle": "Catch up on the latest from Atmos",
+    "heroDescription": "We're constantly shipping shiny new features, squashing bugs, and making things faster so you can build better.",
+    "back": "返回",
+    "viewOnGitHub": "View In GitHub",
+    "features": "新功能",
+    "improvements": "改进",
+    "fixes": "修复",
+    "others": "其他",
+    "toc": "目录",
+    "copyLink": "点击复制版本链接"
+  },
   "landing": {
     "nav": {
       "features": "功能特性",

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Hammer } from 'lucide-react'
 
 import Link from 'next/link'
+import { Link as IntlLink } from '@atmos/i18n/navigation'
 
 import { Button } from '@workspace/ui/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/ui/tooltip'
@@ -100,9 +101,9 @@ const Header = ({ className }: HeaderProps) => {
             <Link href="https://github.com/AruNi-01/atmos" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground">
               Docs
             </Link>
-            <Link href="/changelog" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground">
+            <IntlLink href="/changelog" className="transition-colors hover:text-foreground">
               Changelog
-            </Link>
+            </IntlLink>
           </nav>
 
           {/* Theme Toggle */}
