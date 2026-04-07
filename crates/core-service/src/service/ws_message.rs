@@ -905,6 +905,7 @@ impl WsMessageService {
 
         Ok(json!({
             "has_uncommitted_changes": status.has_uncommitted_changes,
+            "has_merge_conflicts": status.has_merge_conflicts,
             "has_unpushed_commits": status.has_unpushed_commits,
             "uncommitted_count": status.uncommitted_count,
             "unpushed_count": status.unpushed_count,

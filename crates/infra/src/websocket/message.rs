@@ -731,6 +731,8 @@ pub struct GitGetCommitCountRequest {
 pub struct GitStatusResponse {
     /// 是否有未提交的更改
     pub has_uncommitted_changes: bool,
+    /// 是否存在未解决的 merge conflicts
+    pub has_merge_conflicts: bool,
     /// 是否有未推送的提交
     pub has_unpushed_commits: bool,
     /// 未提交更改的数量

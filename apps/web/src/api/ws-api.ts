@@ -116,6 +116,7 @@ export interface ProjectModel {
 // Git 状态响应
 export interface GitStatusResponse {
   has_uncommitted_changes: boolean;
+  has_merge_conflicts: boolean;
   has_unpushed_commits: boolean;
   uncommitted_count: number;
   unpushed_count: number;

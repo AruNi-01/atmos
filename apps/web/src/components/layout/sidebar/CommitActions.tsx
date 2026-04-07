@@ -29,7 +29,7 @@ import {
   PopoverTrigger,
   toastManager,
 } from "@workspace/ui";
-import { CloudSync, Sparkles } from "lucide-react";
+import { CloudSync, SendHorizontal, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   GitChangedFile,
@@ -205,16 +205,68 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       .trim();
   }, []);
 
+  const isMergeConflictError = useCallback((message: string) => {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("conflict") ||
+      normalized.includes("automatic merge failed") ||
+      normalized.includes("fix conflicts and then commit the result") ||
+      normalized.includes("resolve all conflicts manually")
+    );
+  }, []);
+
   const showActionErrorToast = useCallback(
     (title: string, error: unknown) => {
+      const description = formatActionError(error);
+      const conflictDetected = isMergeConflictError(description);
+
       toastManager.add({
-        title,
-        description: formatActionError(error),
+        title: conflictDetected ? "Merge conflicts need resolution" : title,
+        description: conflictDetected
+          ? "Pull stopped because remote changes conflict with your local branch. Resolve the conflicted files in Changes, stage the resolved files, complete the merge, then retry Sync & Push."
+          : description,
         type: "error",
       });
     },
-    [formatActionError],
+    [formatActionError, isMergeConflictError],
   );
+  const hasMergeConflicts = gitStatus?.has_merge_conflicts ?? false;
+
+  const handleCopyConflictPrompt = useCallback(async () => {
+    const repoPath = currentProjectPath ?? "the current repository";
+    const contextLabel =
+      currentWorkspace?.name?.trim() ||
+      currentProject?.name?.trim() ||
+      "this workspace";
+    const prompt = `Resolve the current Git merge conflicts in ${contextLabel} (${repoPath}).
+
+Inspect every conflicted file carefully.
+
+Rules:
+- If both sides are functionally independent, preserve both behaviors.
+- If the two sides are not independent, or the correct resolution is ambiguous, stop and ask the user for confirmation before deciding.
+- Do not make unilateral accept-ours, accept-theirs, or accept-both decisions.
+- Do not create a commit unless the user explicitly asks for one.
+- Stage the resolved files after resolving them.
+
+Report back which files were resolved and whether any conflicts still need user confirmation.`;
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      toastManager.add({
+        title: "Conflict prompt copied",
+        description: "Paste it into Agent Chat to ask for conflict resolution.",
+        type: "success",
+      });
+    } catch (error) {
+      console.error(error);
+      toastManager.add({
+        title: "Failed to copy conflict prompt",
+        description: "Clipboard access is not available.",
+        type: "error",
+      });
+    }
+  }, [currentProject?.name, currentProjectPath, currentWorkspace?.name]);
 
   const handlePublish = async () => {
     setIsGlobalActionLoading(true);
@@ -456,6 +508,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     !commitMessage.trim() ||
     (stagedFiles.length === 0 && unstagedFiles.length === 0);
   const isPrimaryButtonDisabled =
+    hasMergeConflicts ||
     isCommitting ||
     isGeneratingCommitMessage ||
     isGlobalActionLoading ||
@@ -617,7 +670,9 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">
         <button
           onClick={
-            showPublishButton
+            hasMergeConflicts
+              ? undefined
+              : showPublishButton
               ? handlePublish
               : showSyncPushButton
                 ? () => handleGlobalAction(syncChanges, "Failed to sync and push")
@@ -639,7 +694,9 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
             <Loader2 className="size-3.5 animate-spin" />
           )}
           <span>
-            {showPublishButton
+            {hasMergeConflicts
+              ? "Need Resolve Conflicts"
+              : showPublishButton
               ? isGlobalActionLoading
                 ? "Publishing..."
                 : "Publish Branch"
@@ -657,37 +714,56 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
           </span>
         </button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={cn(
-                "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
-                isPrimaryButtonDisabled
-                  ? "bg-muted text-muted-foreground border-l-transparent"
-                  : showSyncPushButton || showPushButton
-                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
-              )}
-              disabled={isPrimaryButtonDisabled}
-            >
-              <ChevronDown className="size-3.5 opacity-80" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges, "Failed to pull changes")}>
-              <ArrowDown className="mr-2 size-4" /> Pull
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges, "Failed to push changes")}>
-              <Upload className="mr-2 size-4" /> Push
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, "Failed to fetch changes")}>
-              <RefreshCw className="mr-2 size-4" /> Fetch
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, "Failed to sync with remote")}>
-              <CloudSync className="mr-2 size-4" /> Sync with Remote
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {hasMergeConflicts ? (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => void handleCopyConflictPrompt()}
+                  className="px-2 flex items-center justify-center rounded-r-md border-l bg-muted text-muted-foreground border-l-transparent hover:text-foreground transition-colors"
+                >
+                  <SendHorizontal className="size-3.5 opacity-90" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                Ask Agent to resolve this conflict
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
+                  isPrimaryButtonDisabled
+                    ? "bg-muted text-muted-foreground border-l-transparent"
+                    : showSyncPushButton || showPushButton
+                      ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
+                )}
+                disabled={isPrimaryButtonDisabled}
+              >
+                <ChevronDown className="size-3.5 opacity-80" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges, "Failed to pull changes")}>
+                <ArrowDown className="mr-2 size-4" /> Pull
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges, "Failed to push changes")}>
+                <Upload className="mr-2 size-4" /> Push
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, "Failed to fetch changes")}>
+                <RefreshCw className="mr-2 size-4" /> Fetch
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, "Failed to sync with remote")}>
+                <CloudSync className="mr-2 size-4" /> Sync with Remote
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );

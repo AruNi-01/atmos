@@ -383,6 +383,13 @@ impl GitEngine {
         let status_stdout = run_git(repo_path, &["status", "--porcelain", "-uall"])?;
         let uncommitted_count = status_stdout.lines().filter(|l| !l.is_empty()).count() as u32;
         let has_uncommitted_changes = uncommitted_count > 0;
+        let has_merge_conflicts = status_stdout.lines().any(|line| {
+            if line.len() < 2 {
+                return false;
+            }
+
+            matches!(&line[..2], "DD" | "AU" | "UD" | "UA" | "DU" | "AA" | "UU")
+        });
 
         let (has_unpushed_commits, unpushed_count) =
             match try_run_git(repo_path, &["rev-list", "@{u}..HEAD", "--count"])? {
@@ -428,6 +435,7 @@ impl GitEngine {
 
         Ok(GitStatus {
             has_uncommitted_changes,
+            has_merge_conflicts,
             has_unpushed_commits,
             uncommitted_count,
             unpushed_count,
@@ -1184,6 +1192,7 @@ pub struct WorktreeInfo {
 #[derive(Debug, Clone, Serialize)]
 pub struct GitStatus {
     pub has_uncommitted_changes: bool,
+    pub has_merge_conflicts: bool,
     pub has_unpushed_commits: bool,
     pub uncommitted_count: u32,
     pub unpushed_count: u32,
@@ -1495,6 +1504,37 @@ mod tests {
         assert_eq!(status.default_branch.as_deref(), Some("main"));
         assert_eq!(status.default_branch_ahead, None);
         assert_eq!(status.default_branch_behind, None);
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn git_status_reports_merge_conflicts() {
+        let (root, origin_path) = setup_remote_repo("merge-conflicts");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        commit_file(&repo_path, "README.md", "feature change\n", "feature work");
+        git(&repo_path, &["checkout", "main"]);
+        commit_file(&repo_path, "README.md", "main change\n", "main work");
+        git(&repo_path, &["checkout", "feature"]);
+
+        let output = Command::new("git")
+            .current_dir(&repo_path)
+            .args(["merge", "main"])
+            .output()
+            .expect("git merge should run");
+        assert!(
+            !output.status.success(),
+            "merge should produce conflict"
+        );
+
+        let status = engine
+            .get_git_status(&repo_path)
+            .expect("git status should be available");
+
+        assert!(status.has_merge_conflicts);
 
         fs::remove_dir_all(root).expect("temp repo should be removed");
     }

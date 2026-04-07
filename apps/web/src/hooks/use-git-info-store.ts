@@ -22,6 +22,7 @@ export interface GitInfoState {
   currentBranch: string | null;
   targetBranch: string | null;
   hasUncommittedChanges: boolean;
+  hasMergeConflicts: boolean;
   hasUnpushedCommits: boolean;
   uncommittedCount: number;
   unpushedCount: number;
@@ -66,6 +67,7 @@ const initialState: GitInfoState = {
   currentBranch: null,
   targetBranch: null,
   hasUncommittedChanges: false,
+  hasMergeConflicts: false,
   hasUnpushedCommits: false,
   uncommittedCount: 0,
   unpushedCount: 0,
@@ -119,6 +121,7 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
       set({
         currentBranch: status.current_branch,
         hasUncommittedChanges: status.has_uncommitted_changes,
+        hasMergeConflicts: status.has_merge_conflicts,
         hasUnpushedCommits: status.has_unpushed_commits,
         uncommittedCount: status.uncommitted_count,
         unpushedCount: status.unpushed_count,
