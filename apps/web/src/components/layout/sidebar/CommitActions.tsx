@@ -6,6 +6,7 @@ import React, {
   useLayoutEffect,
   useRef,
   useCallback,
+  useMemo,
 } from "react";
 import {
   Upload,
@@ -31,6 +32,10 @@ import {
 } from "@workspace/ui";
 import { CloudSync, SendHorizontal, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  useEditorStore,
+  EDITOR_CONFLICT_RESOLVE_ALL_PATH,
+} from "@/hooks/use-editor-store";
 import {
   GitChangedFile,
   functionSettingsApi,
@@ -220,17 +225,52 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       const description = formatActionError(error);
       const conflictDetected = isMergeConflictError(description);
 
+      if (conflictDetected) {
+        return;
+      }
+
       toastManager.add({
-        title: conflictDetected ? "Merge conflicts need resolution" : title,
-        description: conflictDetected
-          ? "Pull stopped because remote changes conflict with your local branch. Resolve the conflicted files in Changes, stage the resolved files, complete the merge, then retry Sync & Push."
-          : description,
+        title,
+        description,
         type: "error",
       });
     },
     [formatActionError, isMergeConflictError],
   );
   const hasMergeConflicts = gitStatus?.has_merge_conflicts ?? false;
+  const openEditorFile = useEditorStore((s) => s.openFile);
+
+  const conflictedFiles = useMemo(() => {
+    const filesByPath = new Map<string, GitChangedFile>();
+    const isConflictedStatus = (status: string) =>
+      ["DD", "AU", "UD", "UA", "DU", "AA", "UU", "U"].includes(status);
+
+    for (const file of [...stagedFiles, ...unstagedFiles]) {
+      if (isConflictedStatus(file.status)) {
+        filesByPath.set(file.path, file);
+      }
+    }
+
+    return Array.from(filesByPath.values());
+  }, [stagedFiles, unstagedFiles]);
+
+  const handleOpenConflictResolver = useCallback(async () => {
+    if (conflictedFiles.length === 0) {
+      toastManager.add({
+        title: "No conflicted files found",
+        description:
+          "Refresh repository state if Git still reports an unresolved merge.",
+        type: "warning",
+      });
+      return;
+    }
+
+    await openEditorFile(
+      EDITOR_CONFLICT_RESOLVE_ALL_PATH,
+      workspaceId || undefined,
+      { preview: false },
+    );
+  }, [conflictedFiles.length, openEditorFile, workspaceId]);
 
   const handleCopyConflictPrompt = useCallback(async () => {
     const repoPath = currentProjectPath ?? "the current repository";
@@ -508,10 +548,10 @@ Report back which files were resolved and whether any conflicts still need user 
     !commitMessage.trim() ||
     (stagedFiles.length === 0 && unstagedFiles.length === 0);
   const isPrimaryButtonDisabled =
-    hasMergeConflicts ||
     isCommitting ||
     isGeneratingCommitMessage ||
     isGlobalActionLoading ||
+    (hasMergeConflicts && conflictedFiles.length === 0) ||
     (!hasPrimaryGitAction && isCommitDisabled);
 
   return (
@@ -671,7 +711,7 @@ Report back which files were resolved and whether any conflicts still need user 
         <button
           onClick={
             hasMergeConflicts
-              ? undefined
+              ? () => void handleOpenConflictResolver()
               : showPublishButton
               ? handlePublish
               : showSyncPushButton

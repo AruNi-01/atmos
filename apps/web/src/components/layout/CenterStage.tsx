@@ -7,6 +7,7 @@ import {
   X,
   GitCompare,
   Circle,
+  CircleAlert,
   Loader2,
   Tabs,
   TabsList,
@@ -32,7 +33,14 @@ import {
   LayoutDashboard,
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
-import { useEditorStore, useEditorStoreHydration, OpenFile } from "@/hooks/use-editor-store";
+import {
+  useEditorStore,
+  useEditorStoreHydration,
+  OpenFile,
+  getEditorSourcePath,
+  isConflictResolveEditorPath,
+  isDiffEditorPath,
+} from "@/hooks/use-editor-store";
 import { useShallow } from "zustand/react/shallow";
 import { useGitStore } from "@/hooks/use-git-store";
 import { Plus, BookOpen, RefreshCw, Star, Bot } from "lucide-react";
@@ -75,6 +83,14 @@ const WikiTab = dynamic(
 
 const DiffViewer = dynamic(
   () => import("@/components/diff/DiffViewer").then((m) => m.DiffViewer),
+  { ssr: false },
+);
+
+const GitConflictResolver = dynamic(
+  () =>
+    import("@/components/diff/GitConflictResolver").then(
+      (m) => m.GitConflictResolver,
+    ),
   { ssr: false },
 );
 
@@ -1260,8 +1276,9 @@ const CenterStage: React.FC = () => {
 
           {/* Open File Tabs */}
           {openFiles.map((file) => {
-            const isDiff = file.path.startsWith("diff://");
-            const displayPath = isDiff ? file.path.replace("diff://", "") : file.path;
+            const isDiff = isDiffEditorPath(file.path);
+            const isConflictResolver = isConflictResolveEditorPath(file.path);
+            const displayPath = getEditorSourcePath(file.path);
 
             return (
               <Tooltip key={file.path}>
@@ -1282,6 +1299,8 @@ const CenterStage: React.FC = () => {
                   >
                     {isDiff ? (
                       <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+                    ) : isConflictResolver ? (
+                      <CircleAlert className="size-3.5 shrink-0 text-amber-500" />
                     ) : (
                       <FileIcon name={file.name} className="size-3.5 shrink-0" />
                     )}
@@ -1289,6 +1308,7 @@ const CenterStage: React.FC = () => {
                       className={cn(
                         "text-[13px] font-medium whitespace-nowrap",
                         isDiff && "text-emerald-500",
+                        isConflictResolver && "text-amber-500",
                         file.isPreview && "italic"
                       )}
                     >
@@ -1489,11 +1509,13 @@ const CenterStage: React.FC = () => {
             value={file.path}
             className="flex-1 min-h-0 min-w-0"
           >
-            {file.path.startsWith("diff://") && currentRepoPath ? (
+            {isDiffEditorPath(file.path) && currentRepoPath ? (
               <DiffViewer
                 repoPath={currentRepoPath}
-                filePath={file.path.replace("diff://", "")}
+                filePath={getEditorSourcePath(file.path)}
               />
+            ) : isConflictResolveEditorPath(file.path) ? (
+              <GitConflictResolver />
             ) : (
               <FileViewer file={file} className="flex-1" />
             )}

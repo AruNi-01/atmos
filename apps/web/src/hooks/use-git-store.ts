@@ -306,6 +306,11 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await get().refreshChangedFiles();
     } catch (error) {
       console.error('Failed to push changes:', error);
+      try {
+        await get().refreshRepositoryState({ fetchRemote: true });
+      } catch (refreshError) {
+        console.error('Failed to refresh repository state after push error:', refreshError);
+      }
       throw error;
     } finally {
       set({ isLoading: false });
@@ -431,6 +436,11 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await get().refreshChangedFiles();
     } catch (error) {
       console.error('Failed to pull changes:', error);
+      try {
+        await get().refreshRepositoryState({ fetchRemote: false });
+      } catch (refreshError) {
+        console.error('Failed to refresh repository state after pull error:', refreshError);
+      }
       throw error;
     } finally {
       set({ isLoading: false });
@@ -466,6 +476,11 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await get().refreshChangedFiles();
     } catch (error) {
       console.error('Failed to sync changes:', error);
+      try {
+        await get().refreshRepositoryState({ fetchRemote: true });
+      } catch (refreshError) {
+        console.error('Failed to refresh repository state after sync error:', refreshError);
+      }
       throw error;
     } finally {
       set({ isLoading: false });

@@ -80,12 +80,36 @@ interface EditorStore {
   hasUnsavedChanges: (workspaceId?: string) => boolean;
 }
 
+export const EDITOR_DIFF_PREFIX = 'diff://';
+export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
+export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
+
+export function isDiffEditorPath(path: string): boolean {
+  return path.startsWith(EDITOR_DIFF_PREFIX);
+}
+
+export function isConflictResolveEditorPath(path: string): boolean {
+  return path.startsWith(EDITOR_CONFLICT_RESOLVE_PREFIX);
+}
+
+export function getEditorSourcePath(path: string): string {
+  if (isDiffEditorPath(path)) {
+    return path.slice(EDITOR_DIFF_PREFIX.length);
+  }
+
+  if (isConflictResolveEditorPath(path)) {
+    return path.slice(EDITOR_CONFLICT_RESOLVE_PREFIX.length);
+  }
+
+  return path;
+}
+
 function getLanguageFromPath(path: string): string {
-  return detectCodeLanguage(path);
+  return detectCodeLanguage(getEditorSourcePath(path));
 }
 
 function isBinaryFile(path: string): boolean {
-    const ext = path.split('.').pop()?.toLowerCase();
+    const ext = getEditorSourcePath(path).split('.').pop()?.toLowerCase();
     const binaryExts = [
         'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tiff', 
         'pdf', 
@@ -98,11 +122,29 @@ function isBinaryFile(path: string): boolean {
 }
 
 function getFileNameFromPath(path: string): string {
-  return path.split('/').pop() || path;
+  const sourcePath = getEditorSourcePath(path);
+  const baseName = sourcePath.split('/').pop() || sourcePath;
+
+  if (isConflictResolveEditorPath(path)) {
+    if (sourcePath === 'merge-conflicts') {
+      return 'Merge Conflicts';
+    }
+    return `${baseName} (Conflict)`;
+  }
+
+  return baseName;
 }
 
 function getDiffTabName(name: string): string {
   return name.endsWith(' (Diff)') ? name : `${name} (Diff)`;
+}
+
+function getSpecialTabName(path: string, name: string): string {
+  if (isDiffEditorPath(path)) {
+    return getDiffTabName(name);
+  }
+
+  return name;
 }
 
 async function readFileWithTimeout(path: string, timeoutMs = 12000) {
@@ -400,17 +442,17 @@ export const useEditorStore = create<EditorStore>()(
             : removeNavigationTargetForPath(state.navigationTargets, id, path),
         }));
 
-        if (path.startsWith('diff://')) {
+        if (isDiffEditorPath(path) || isConflictResolveEditorPath(path)) {
           set((state) => {
              const ws = state.workspaceStates[id];
              return {
                workspaceStates: {
-                 ...state.workspaceStates,
-                 [id]: {
-                   ...ws,
-                   openFiles: ws.openFiles.map(f => f.path === path ? { ...f, isLoading: false, name: getDiffTabName(f.name) } : f)
-                 }
-               }
+                  ...state.workspaceStates,
+                  [id]: {
+                    ...ws,
+                    openFiles: ws.openFiles.map(f => f.path === path ? { ...f, isLoading: false, name: getSpecialTabName(path, f.name) } : f)
+                  }
+                }
              };
           });
           return;
@@ -428,8 +470,8 @@ export const useEditorStore = create<EditorStore>()(
                        // Use special protocol to indicate streaming/external load
                        openFiles: ws.openFiles.map(f => f.path === path ? { 
                            ...f, 
-                           content: `stream://${path}`, 
-                           originalContent: `stream://${path}`, 
+                           content: `stream://${getEditorSourcePath(path)}`, 
+                           originalContent: `stream://${getEditorSourcePath(path)}`, 
                            isLoading: false 
                        } : f)
                      }
@@ -446,7 +488,7 @@ export const useEditorStore = create<EditorStore>()(
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
 
-        if (path.startsWith('diff://')) {
+        if (isDiffEditorPath(path) || isConflictResolveEditorPath(path)) {
           set((state) => {
             const ws = state.workspaceStates[id];
             if (!ws) return state;
@@ -455,7 +497,7 @@ export const useEditorStore = create<EditorStore>()(
                 ...state.workspaceStates,
                 [id]: {
                   ...ws,
-                  openFiles: ws.openFiles.map(f => f.path === path ? { ...f, isLoading: false, name: getDiffTabName(f.name) } : f)
+                  openFiles: ws.openFiles.map(f => f.path === path ? { ...f, isLoading: false, name: getSpecialTabName(path, f.name) } : f)
                 }
               }
             };
@@ -474,8 +516,8 @@ export const useEditorStore = create<EditorStore>()(
                   ...ws,
                   openFiles: ws.openFiles.map(f => f.path === path ? {
                     ...f,
-                    content: `stream://${path}`,
-                    originalContent: `stream://${path}`,
+                    content: `stream://${getEditorSourcePath(path)}`,
+                    originalContent: `stream://${getEditorSourcePath(path)}`,
                     isLoading: false
                   } : f)
                 }
@@ -486,7 +528,7 @@ export const useEditorStore = create<EditorStore>()(
         }
 
         try {
-          const response = await readFileWithTimeout(path);
+          const response = await readFileWithTimeout(getEditorSourcePath(path));
           if (!response.exists || response.content === null) {
             const fileName = path.split('/').pop() || path;
             toastManager.add({
@@ -666,7 +708,7 @@ export const useEditorStore = create<EditorStore>()(
         if (!file || !file.isDirty) return;
 
         try {
-          await fsApi.writeFile(path, file.content);
+          await fsApi.writeFile(getEditorSourcePath(path), file.content);
           set((state) => {
             const currentWs = state.workspaceStates[id];
             return {
