@@ -73,3 +73,5 @@ just dev-desktop
 ## License
 
 MIT. See [LICENSE](./LICENSE).
+
+## Conflict Test
