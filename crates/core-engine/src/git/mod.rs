@@ -392,6 +392,11 @@ impl GitEngine {
                 }
                 None => (false, 0),
             };
+        let upstream_behind_count =
+            match try_run_git(repo_path, &["rev-list", "HEAD..@{u}", "--count"])? {
+                Some(count_str) => Some(count_str.trim().parse::<u32>().unwrap_or(0)),
+                None => None,
+            };
 
         let default_branch = self.get_remote_default_branch(repo_path)?;
         let current_branch = self.get_current_branch(repo_path).ok();
@@ -426,6 +431,7 @@ impl GitEngine {
             has_unpushed_commits,
             uncommitted_count,
             unpushed_count,
+            upstream_behind_count,
             default_branch,
             default_branch_ahead,
             default_branch_behind,
@@ -1178,6 +1184,7 @@ pub struct GitStatus {
     pub has_unpushed_commits: bool,
     pub uncommitted_count: u32,
     pub unpushed_count: u32,
+    pub upstream_behind_count: Option<u32>,
     pub default_branch: Option<String>,
     pub default_branch_ahead: Option<u32>,
     pub default_branch_behind: Option<u32>,

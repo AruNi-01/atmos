@@ -193,23 +193,51 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
     return () => cancelAnimationFrame(frameId);
   }, [commitMessage, isGeneratingCommitMessage]);
 
+  const formatActionError = useCallback((error: unknown) => {
+    if (!(error instanceof Error)) {
+      return "Unknown error";
+    }
+
+    return error.message
+      .replace(/^\[[^\]]+\]\s*/i, "")
+      .replace(/^Request failed:\s*/i, "")
+      .replace(/^Validation error:\s*/i, "")
+      .trim();
+  }, []);
+
+  const showActionErrorToast = useCallback(
+    (title: string, error: unknown) => {
+      toastManager.add({
+        title,
+        description: formatActionError(error),
+        type: "error",
+      });
+    },
+    [formatActionError],
+  );
+
   const handlePublish = async () => {
     setIsGlobalActionLoading(true);
     try {
       await pushChanges();
     } catch (e) {
       console.error(e);
+      showActionErrorToast("Failed to publish branch", e);
     } finally {
       setIsGlobalActionLoading(false);
     }
   };
 
-  const handleGlobalAction = async (action: () => Promise<void>) => {
+  const handleGlobalAction = async (
+    action: () => Promise<void>,
+    errorTitle: string,
+  ) => {
     setIsGlobalActionLoading(true);
     try {
       await action();
     } catch (e) {
       console.error(e);
+      showActionErrorToast(errorTitle, e);
     } finally {
       setIsGlobalActionLoading(false);
     }
@@ -228,6 +256,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       setCommitMessage("");
     } catch (e) {
       console.error(e);
+      showActionErrorToast("Failed to commit changes", e);
     } finally {
       setIsCommitting(false);
     }
@@ -409,11 +438,28 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
   };
 
   const showPublishButton = !isBranchPublished;
+  const showSyncPushButton =
+    isBranchPublished &&
+    !!gitStatus?.has_unpushed_commits &&
+    (gitStatus.upstream_behind_count ?? 0) > 0 &&
+    stagedFiles.length === 0 &&
+    !commitMessage.trim();
   const showPushButton =
     isBranchPublished &&
     !!gitStatus?.has_unpushed_commits &&
+    (gitStatus.upstream_behind_count ?? 0) === 0 &&
     stagedFiles.length === 0 &&
     !commitMessage.trim();
+  const hasPrimaryGitAction =
+    showPublishButton || showSyncPushButton || showPushButton;
+  const isCommitDisabled =
+    !commitMessage.trim() ||
+    (stagedFiles.length === 0 && unstagedFiles.length === 0);
+  const isPrimaryButtonDisabled =
+    isCommitting ||
+    isGeneratingCommitMessage ||
+    isGlobalActionLoading ||
+    (!hasPrimaryGitAction && isCommitDisabled);
 
   return (
     <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
@@ -573,32 +619,18 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
           onClick={
             showPublishButton
               ? handlePublish
-              : showPushButton
-                ? () => handleGlobalAction(pushChanges)
+              : showSyncPushButton
+                ? () => handleGlobalAction(syncChanges, "Failed to sync and push")
+                : showPushButton
+                ? () => handleGlobalAction(pushChanges, "Failed to push changes")
                 : handleCommit
           }
-          disabled={
-            isCommitting ||
-            isGeneratingCommitMessage ||
-            isGlobalActionLoading ||
-            (!showPublishButton &&
-              !showPushButton &&
-              (!commitMessage.trim() ||
-                (stagedFiles.length === 0 &&
-                  unstagedFiles.length === 0)))
-          }
+          disabled={isPrimaryButtonDisabled}
           className={cn(
             "flex-1 flex items-center justify-center gap-2 rounded-l-md transition-all text-xs font-semibold select-none",
-            isCommitting ||
-              isGeneratingCommitMessage ||
-              isGlobalActionLoading ||
-              (!showPublishButton &&
-                !showPushButton &&
-                (!commitMessage.trim() ||
-                  (stagedFiles.length === 0 &&
-                    unstagedFiles.length === 0)))
+            isPrimaryButtonDisabled
               ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : showPushButton
+              : showSyncPushButton || showPushButton
                 ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
                 : "bg-primary text-primary-foreground hover:bg-primary/90",
           )}
@@ -611,6 +643,10 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
               ? isGlobalActionLoading
                 ? "Publishing..."
                 : "Publish Branch"
+              : showSyncPushButton
+                ? isGlobalActionLoading
+                  ? "Syncing..."
+                  : `Sync & Push${gitStatus?.unpushed_count ? ` ↑${gitStatus.unpushed_count}` : ""}${(gitStatus?.upstream_behind_count ?? 0) > 0 ? ` ↓${gitStatus?.upstream_behind_count}` : ""}`
               : showPushButton
                 ? isGlobalActionLoading
                   ? "Pushing..."
@@ -626,50 +662,28 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
             <button
               className={cn(
                 "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
-                isCommitting ||
-                  isGlobalActionLoading ||
-                  (!showPublishButton &&
-                    !showPushButton &&
-                    (!commitMessage.trim() ||
-                      (stagedFiles.length === 0 &&
-                        unstagedFiles.length === 0)))
+                isPrimaryButtonDisabled
                   ? "bg-muted text-muted-foreground border-l-transparent"
-                  : showPushButton
+                  : showSyncPushButton || showPushButton
                     ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
                     : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
               )}
-              disabled={
-                isCommitting ||
-                isGlobalActionLoading ||
-                (!showPublishButton &&
-                  !showPushButton &&
-                  (!commitMessage.trim() ||
-                    (stagedFiles.length === 0 &&
-                      unstagedFiles.length === 0)))
-              }
+              disabled={isPrimaryButtonDisabled}
             >
               <ChevronDown className="size-3.5 opacity-80" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem
-              onClick={() => handleGlobalAction(pullChanges)}
-            >
+            <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges, "Failed to pull changes")}>
               <ArrowDown className="mr-2 size-4" /> Pull
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleGlobalAction(pushChanges)}
-            >
+            <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges, "Failed to push changes")}>
               <Upload className="mr-2 size-4" /> Push
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleGlobalAction(fetchChanges)}
-            >
+            <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, "Failed to fetch changes")}>
               <RefreshCw className="mr-2 size-4" /> Fetch
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleGlobalAction(syncChanges)}
-            >
+            <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, "Failed to sync with remote")}>
               <CloudSync className="mr-2 size-4" /> Sync with Remote
             </DropdownMenuItem>
           </DropdownMenuContent>

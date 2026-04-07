@@ -737,6 +737,8 @@ pub struct GitStatusResponse {
     pub uncommitted_count: u32,
     /// 未推送提交的数量
     pub unpushed_count: u32,
+    /// 当前分支落后其远程跟踪分支的提交数
+    pub upstream_behind_count: Option<u32>,
     /// 默认远程分支名
     pub default_branch: Option<String>,
     /// 当前分支对应的远程分支领先 origin/<default_branch> 的提交数

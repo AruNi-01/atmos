@@ -119,6 +119,7 @@ export interface GitStatusResponse {
   has_unpushed_commits: boolean;
   uncommitted_count: number;
   unpushed_count: number;
+  upstream_behind_count: number | null;
   default_branch: string | null;
   default_branch_ahead: number | null;
   default_branch_behind: number | null;
