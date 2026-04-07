@@ -34,7 +34,7 @@ function stopActionEvent(
 }
 
 export interface ChangeSectionProps {
-  kind: "staged" | "unstaged" | "untracked";
+  kind: "staged" | "unstaged" | "untracked" | "compared";
   title: string;
   files: GitChangedFile[];
   defaultOpen?: boolean;
@@ -129,7 +129,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               );
             }}
             title={title}
-            className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
           >
             <Minus className="size-3.5" />
           </button>
@@ -349,7 +349,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                           );
                         }}
                         title={stageLabel}
-                        className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Plus className="size-3.5" />
                       </button>
@@ -367,7 +367,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                           );
                         }}
                         title="Unstage Changes"
-                        className="p-1 hover:bg-background rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Minus className="size-3.5" />
                       </button>

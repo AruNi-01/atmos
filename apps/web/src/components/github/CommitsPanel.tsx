@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { GitCommit as GitCommitIcon, ChevronLeft, ChevronRight, Copy, Check, Loader2, Github } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,8 @@ interface CommitsPanelProps {
   branch: string;
   owner?: string;
   repo?: string;
+  onRefreshReady?: (refresh: () => Promise<unknown> | void) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 function groupCommitsByDay(commits: GitCommit[]): Array<{ dateLabel: string; date: Date; commits: GitCommit[] }> {
@@ -194,9 +196,24 @@ function CommitRow({ commit, owner, repo }: { commit: GitCommit; owner?: string;
   );
 }
 
-export function CommitsPanel({ repoPath, owner, repo }: CommitsPanelProps) {
-  const { commits, loading, page, hasMore, goToPrevPage, goToNextPage } = useGitLog({ repoPath });
+export function CommitsPanel({
+  repoPath,
+  owner,
+  repo,
+  onRefreshReady,
+  onLoadingChange,
+}: CommitsPanelProps) {
+  const { commits, loading, page, hasMore, goToPrevPage, goToNextPage, refresh } =
+    useGitLog({ repoPath });
   const grouped = useMemo(() => groupCommitsByDay(commits), [commits]);
+
+  useEffect(() => {
+    onRefreshReady?.(refresh);
+  }, [onRefreshReady, refresh]);
+
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
 
   if (loading && commits.length === 0) {
     return (

@@ -8,17 +8,34 @@ export interface GithubContext {
 }
 
 // PR 列表
-export function useGithubPRList({ owner, repo, branch, state }: GithubContext & { state?: string }) {
+export function useGithubPRList({
+  owner,
+  repo,
+  branch,
+  state,
+  emitBranchStatusRefresh = false,
+  enabled = true,
+}: GithubContext & {
+  state?: string;
+  emitBranchStatusRefresh?: boolean;
+  enabled?: boolean;
+}) {
   const send = useWebSocketStore(s => s.send);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const fetch = useCallback(async () => {
-    if (!owner || !repo || !branch) return;
+    if (!enabled || !owner || !repo || !branch) return;
     setLoading(true);
     try {
-      const result = await send('github_pr_list', { owner, repo, branch, state });
+      const result = await send('github_pr_list', {
+        owner,
+        repo,
+        branch,
+        state,
+        emit_branch_status_refresh: emitBranchStatusRefresh,
+      });
       setData(result);
     } catch (e) {
       console.error(e);
@@ -26,11 +43,12 @@ export function useGithubPRList({ owner, repo, branch, state }: GithubContext & 
     } finally {
       setLoading(false);
     }
-  }, [owner, repo, branch, state, send]);
+  }, [owner, repo, branch, state, send, emitBranchStatusRefresh, enabled]);
 
   useEffect(() => { 
+    if (!enabled) return;
     fetch(); 
-  }, [fetch]);
+  }, [enabled, fetch]);
 
   return { data, loading, refresh: fetch };
 }
@@ -316,5 +334,7 @@ export function useGitLog({ repoPath, limit = 30 }: { repoPath: string | null; l
     if (hasMore) fetchPage(page + 1);
   }, [page, hasMore, fetchPage]);
 
-  return { commits, loading, page, hasMore, goToPrevPage, goToNextPage, refresh: () => fetchPage(page) };
+  const refresh = useCallback(() => fetchPage(page), [fetchPage, page]);
+
+  return { commits, loading, page, hasMore, goToPrevPage, goToNextPage, refresh };
 }

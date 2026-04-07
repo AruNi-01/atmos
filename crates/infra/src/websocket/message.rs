@@ -219,7 +219,7 @@ pub enum WsAction {
     ProjectCreate,
     /// 更新项目
     ProjectUpdate,
-    /// 更新项目目标分支（用于 merge/PR/git diff）
+    /// 更新项目目标分支（用于 merge/PR）
     ProjectUpdateTargetBranch,
     /// 更新项目排序
     ProjectUpdateOrder,
@@ -404,6 +404,8 @@ pub enum WsEvent {
     AgentHookStateChanged,
     /// Agent notification (permission request, task complete, etc.)
     AgentNotification,
+    /// Current branch PR status should be refreshed
+    GithubBranchPrStatusRefreshed,
 }
 
 // ===== 消息通知数据结构 =====
@@ -737,9 +739,9 @@ pub struct GitStatusResponse {
     pub unpushed_count: u32,
     /// 默认远程分支名
     pub default_branch: Option<String>,
-    /// 当前分支领先 origin/<default_branch> 的提交数
+    /// 当前分支对应的远程分支领先 origin/<default_branch> 的提交数
     pub default_branch_ahead: Option<u32>,
-    /// 当前分支落后 origin/<default_branch> 的提交数
+    /// 当前分支对应的远程分支落后 origin/<default_branch> 的提交数
     pub default_branch_behind: Option<u32>,
     /// 当前分支名
     pub current_branch: Option<String>,
@@ -781,6 +783,8 @@ pub struct GitChangedFilesRequest {
     pub path: String,
     #[serde(default)]
     pub base_branch: Option<String>,
+    #[serde(default)]
+    pub use_preferred_compare: bool,
 }
 
 /// 变更文件信息
@@ -1232,6 +1236,8 @@ pub struct GithubPrListRequest {
     pub repo: String,
     pub branch: String,
     pub state: Option<String>,
+    #[serde(default)]
+    pub emit_branch_status_refresh: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

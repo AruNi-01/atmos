@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { RefreshCw } from "@workspace/ui";
 import {
   GitBranch,
   Plus,
   GitPullRequest,
   FileCheck,
+  RefreshCw,
 } from "lucide-react";
 import { Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,11 +16,7 @@ export interface ChangesViewSwitcherProps {
   changesView: ChangesView;
   onViewChange: (view: ChangesView) => void;
   hasWorkingContext: boolean;
-  isLoading: boolean;
-  onRefreshGitStatus: () => void;
-  onRefreshChangedFiles: () => void;
   onCodeReview: () => void;
-  onRefreshPr: () => void;
   onCreatePr: () => void;
   onRefreshActions: () => void;
 }
@@ -29,11 +25,7 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
   changesView,
   onViewChange,
   hasWorkingContext,
-  isLoading,
-  onRefreshGitStatus,
-  onRefreshChangedFiles,
   onCodeReview,
-  onRefreshPr,
   onCreatePr,
   onRefreshActions,
 }) => {
@@ -113,29 +105,15 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
               <span className="text-[11px] font-medium">Changes</span>
             </div>
 
-            {/* Hover State (Refresh + Review) */}
+            {/* Hover State (Review) */}
             <div
               className={cn(
-                "absolute inset-0 flex transition-all duration-300 ease-out divide-x divide-sidebar-border/50",
+                "absolute inset-0 flex transition-all duration-300 ease-out",
                 showChangesActions
                   ? "translate-y-0 opacity-100"
                   : "translate-y-10 opacity-0 pointer-events-none",
               )}
             >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRefreshGitStatus();
-                  onRefreshChangedFiles();
-                }}
-                className="flex-1 flex items-center justify-center gap-1.5 hover:bg-sidebar-accent group/refresh cursor-pointer transition-colors"
-                title="Refresh"
-              >
-                <RefreshCw
-                  className={cn("size-3.5", isLoading && "animate-spin")}
-                />
-              </button>
-
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -180,23 +158,12 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
 
             <div
               className={cn(
-                "absolute inset-0 flex transition-all duration-300 ease-out divide-x divide-sidebar-border/50",
+                "absolute inset-0 flex transition-all duration-300 ease-out",
                 showPrActions
                   ? "translate-y-0 opacity-100"
                   : "translate-y-10 opacity-0 pointer-events-none",
               )}
             >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRefreshPr();
-                }}
-                className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
-                title="Refresh"
-              >
-                <RefreshCw className="size-3.5" />
-              </button>
-
               <button
                 onClick={(e) => {
                   e.stopPropagation();

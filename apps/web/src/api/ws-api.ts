@@ -144,6 +144,7 @@ export interface GitChangedFilesResponse {
   total_additions: number;
   total_deletions: number;
   is_branch_published: boolean;
+  compare_ref: string | null;
 }
 
 // 文件 diff 响应
@@ -152,6 +153,7 @@ export interface GitFileDiffResponse {
   old_content: string;
   new_content: string;
   status: string;
+  compare_ref: string | null;
 }
 
 // Git 提交响应
@@ -682,10 +684,12 @@ export const gitApi = {
   getChangedFiles: async (
     path: string,
     baseBranch?: string | null,
+    usePreferredCompare?: boolean,
   ): Promise<GitChangedFilesResponse> => {
     return wsRequest<GitChangedFilesResponse>("git_changed_files", {
       path,
       base_branch: baseBranch ?? null,
+      use_preferred_compare: usePreferredCompare ?? false,
     });
   },
 

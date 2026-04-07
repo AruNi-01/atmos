@@ -545,7 +545,7 @@ impl WsMessageService {
 
             // GitHub
             WsAction::GithubPrList => {
-                self.handle_github_pr_list(parse_request(request.data)?)
+                self.handle_github_pr_list(conn_id, parse_request(request.data)?)
                     .await
             }
             WsAction::GithubPrDetail => {
@@ -967,7 +967,11 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         let info = self
             .git_engine
-            .get_changed_files(&path, req.base_branch.as_deref())
+            .get_changed_files(
+                &path,
+                req.base_branch.as_deref(),
+                req.use_preferred_compare,
+            )
             .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
 
         let convert_file = |f: core_engine::ChangedFileInfo| -> Value {
@@ -996,6 +1000,7 @@ impl WsMessageService {
             "total_additions": info.total_additions,
             "total_deletions": info.total_deletions,
             "is_branch_published": is_branch_published,
+            "compare_ref": info.compare_ref,
         }))
     }
 
@@ -1011,6 +1016,7 @@ impl WsMessageService {
             "old_content": diff.old_content,
             "new_content": diff.new_content,
             "status": diff.status,
+            "compare_ref": diff.compare_ref,
         }))
     }
 
@@ -1022,7 +1028,7 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         let changes = self
             .git_engine
-            .get_changed_files(&path, None)
+            .get_changed_files(&path, None, false)
             .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
 
         let repo_name = path.file_name().and_then(|value| value.to_str());
@@ -2873,7 +2879,7 @@ set -x
         Ok(json!(Self::to_issue_payload(issue)))
     }
 
-    async fn handle_github_pr_list(&self, req: GithubPrListRequest) -> Result<Value> {
+    async fn handle_github_pr_list(&self, conn_id: &str, req: GithubPrListRequest) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let state = req.state.as_deref().unwrap_or("open").to_lowercase();
 
@@ -2928,6 +2934,20 @@ set -x
             let b_time = b.get("createdAt").and_then(|t| t.as_str()).unwrap_or("");
             b_time.cmp(a_time)
         });
+
+        if req.emit_branch_status_refresh {
+            if let Some(manager) = self.ws_manager.get().cloned() {
+                let notification = infra::WsMessage::notification(
+                    infra::WsEvent::GithubBranchPrStatusRefreshed,
+                    json!({
+                        "owner": req.owner,
+                        "repo": req.repo,
+                        "branch": req.branch,
+                    }),
+                );
+                let _ = manager.send_to(conn_id, &notification).await;
+            }
+        }
 
         Ok(json!(unique_prs))
     }

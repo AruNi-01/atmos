@@ -7,7 +7,7 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Add target_branch column to Project table
-        // This stores the target branch for merge/PR/git diff operations
+        // This stores the target branch for merge/PR operations
         // Default is NULL, meaning it will use the repository's default branch
         manager
             .alter_table(

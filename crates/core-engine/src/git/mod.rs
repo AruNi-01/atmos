@@ -107,6 +107,43 @@ impl GitEngine {
         )))
     }
 
+    fn get_upstream_branch_ref(&self, repo_path: &Path) -> Result<Option<String>> {
+        let Some(stdout) = try_run_git(
+            repo_path,
+            &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        )?
+        else {
+            return Ok(None);
+        };
+
+        let upstream_ref = stdout.trim();
+        if upstream_ref.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(upstream_ref.to_string()))
+    }
+
+    fn resolve_preferred_compare_ref(
+        &self,
+        repo_path: &Path,
+        base_branch: Option<&str>,
+    ) -> Result<Option<String>> {
+        if let Some(base_branch) = base_branch.filter(|value| !value.trim().is_empty()) {
+            return self
+                .resolve_remote_branch_ref(repo_path, base_branch)
+                .map(Some);
+        }
+
+        if let Some(upstream_ref) = self.get_upstream_branch_ref(repo_path)? {
+            return Ok(Some(upstream_ref));
+        }
+
+        Ok(self
+            .get_remote_default_branch(repo_path)?
+            .map(|branch| format!("origin/{branch}")))
+    }
+
     /// Get the worktree path for a workspace: ~/.atmos/workspaces/{project_scope}/{workspace_name}
     /// Note: workspace_name may already include the project scope prefix.
     pub fn get_worktree_path(&self, workspace_name: &str) -> Result<PathBuf> {
@@ -357,16 +394,32 @@ impl GitEngine {
             };
 
         let default_branch = self.get_remote_default_branch(repo_path)?;
-        let (default_branch_ahead, default_branch_behind) =
-            if let Some(branch) = default_branch.as_deref() {
-                let default_branch_ref = format!("origin/{}", branch);
-                match self.get_branch_divergence(repo_path, &default_branch_ref, "HEAD")? {
-                    Some((ahead, behind)) => (Some(ahead), Some(behind)),
-                    None => (None, None),
+        let current_branch = self.get_current_branch(repo_path).ok();
+        let (default_branch_ahead, default_branch_behind) = match (
+            default_branch.as_deref(),
+            current_branch.as_deref(),
+        ) {
+            (Some(default_branch), Some(current_branch)) => {
+                let default_branch_ref = format!("origin/{}", default_branch);
+                let current_branch_remote_ref = format!("origin/{}", current_branch);
+
+                if try_run_git(repo_path, &["rev-parse", "--verify", &current_branch_remote_ref])?
+                    .is_some()
+                {
+                    match self.get_branch_divergence(
+                        repo_path,
+                        &default_branch_ref,
+                        &current_branch_remote_ref,
+                    )? {
+                        Some((ahead, behind)) => (Some(ahead), Some(behind)),
+                        None => (None, None),
+                    }
+                } else {
+                    (None, None)
                 }
-            } else {
-                (None, None)
-            };
+            }
+            _ => (None, None),
+        };
 
         Ok(GitStatus {
             has_uncommitted_changes,
@@ -478,6 +531,7 @@ impl GitEngine {
         &self,
         repo_path: &Path,
         base_branch: Option<&str>,
+        use_preferred_compare: bool,
     ) -> Result<ChangedFilesInfo> {
         let status_stdout = run_git(
             repo_path,
@@ -490,9 +544,14 @@ impl GitEngine {
             ],
         )?;
 
-        let compare_numstat =
-            if let Some(base_branch) = base_branch.filter(|value| !value.trim().is_empty()) {
-                let base_ref = self.resolve_remote_branch_ref(repo_path, base_branch)?;
+        let compare_ref =
+            if use_preferred_compare || base_branch.filter(|value| !value.trim().is_empty()).is_some() {
+                self.resolve_preferred_compare_ref(repo_path, base_branch)?
+            } else {
+                None
+            };
+
+        let compare_numstat = if let Some(base_ref) = compare_ref.as_deref() {
                 Some(Self::build_numstat_map(
                     try_run_git(
                         repo_path,
@@ -500,9 +559,9 @@ impl GitEngine {
                     )?
                     .as_deref(),
                 ))
-            } else {
-                None
-            };
+        } else {
+            None
+        };
 
         let (staged_numstat, unstaged_numstat) = if let Some(compare_numstat) = compare_numstat {
             (compare_numstat, HashMap::new())
@@ -531,7 +590,7 @@ impl GitEngine {
             )
         };
 
-        let is_base_branch_mode = base_branch.filter(|v| !v.trim().is_empty()).is_some();
+        let is_compare_mode = compare_ref.is_some();
         let mut staged_files: Vec<ChangedFileInfo> = Vec::new();
         let mut unstaged_files: Vec<ChangedFileInfo> = Vec::new();
         let mut untracked_files: Vec<ChangedFileInfo> = Vec::new();
@@ -558,7 +617,7 @@ impl GitEngine {
                     deletions: 0,
                     staged: false,
                 });
-            } else if is_base_branch_mode {
+            } else if is_compare_mode {
                 // In base-branch mode, emit each file exactly once using
                 // the unified diff stats against the base branch.
                 if seen_in_base_mode.insert(file_path.clone()) {
@@ -647,6 +706,7 @@ impl GitEngine {
             untracked_files,
             total_additions,
             total_deletions,
+            compare_ref,
         })
     }
 
@@ -743,16 +803,15 @@ impl GitEngine {
             "M".to_string()
         };
 
+        let compare_ref = self.resolve_preferred_compare_ref(repo_path, base_branch)?;
+
         let old_content = if status == "A" {
             String::new()
         } else {
-            let show_ref =
-                if let Some(base_branch) = base_branch.filter(|value| !value.trim().is_empty()) {
-                    let base_ref = self.resolve_remote_branch_ref(repo_path, base_branch)?;
-                    format!("{}:{}", base_ref, file_path)
-                } else {
-                    format!("HEAD:{}", file_path)
-                };
+            let show_ref = compare_ref
+                .as_deref()
+                .map(|base_ref| format!("{base_ref}:{file_path}"))
+                .unwrap_or_else(|| format!("HEAD:{file_path}"));
             try_run_git(repo_path, &["show", &show_ref])?.unwrap_or_default()
         };
 
@@ -768,6 +827,7 @@ impl GitEngine {
             old_content,
             new_content,
             status,
+            compare_ref,
         })
     }
 
@@ -783,6 +843,20 @@ impl GitEngine {
 
     /// Push to remote
     pub fn push(&self, repo_path: &Path) -> Result<()> {
+        let branch = self.get_current_branch(repo_path)?;
+        let expected_upstream = format!("origin/{branch}");
+        let should_set_upstream =
+            self.get_upstream_branch_ref(repo_path)?.as_deref() != Some(expected_upstream.as_str());
+
+        if should_set_upstream {
+            run_git(repo_path, &["push", "--set-upstream", "origin", &branch])?;
+            tracing::info!(
+                "Pushed changes to remote with upstream set to {}",
+                expected_upstream
+            );
+            return Ok(());
+        }
+
         match try_run_git_with_stderr(repo_path, &["push"])? {
             Ok(_) => {
                 tracing::info!("Pushed changes to remote");
@@ -790,7 +864,6 @@ impl GitEngine {
             }
             Err(stderr) => {
                 if stderr.contains("no upstream") || stderr.contains("set-upstream") {
-                    let branch = self.get_current_branch(repo_path)?;
                     run_git(repo_path, &["push", "--set-upstream", "origin", &branch])?;
                     tracing::info!("Pushed changes to remote (with set-upstream)");
                     Ok(())
@@ -1132,6 +1205,7 @@ pub struct ChangedFilesInfo {
     pub untracked_files: Vec<ChangedFileInfo>,
     pub total_additions: u32,
     pub total_deletions: u32,
+    pub compare_ref: Option<String>,
 }
 
 /// File diff information with old and new content
@@ -1141,6 +1215,7 @@ pub struct FileDiffInfo {
     pub old_content: String,
     pub new_content: String,
     pub status: String,
+    pub compare_ref: Option<String>,
 }
 
 /// Information about a single git commit
@@ -1236,6 +1311,21 @@ mod tests {
         );
     }
 
+    fn git_output(current_dir: &Path, args: &[&str]) -> String {
+        let output = Command::new("git")
+            .current_dir(current_dir)
+            .args(args)
+            .output()
+            .expect("git command should run");
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).expect("git stdout should be utf-8")
+    }
+
     fn write_file(path: &Path, content: &str) {
         fs::write(path, content).expect("file should be written");
     }
@@ -1320,6 +1410,7 @@ mod tests {
 
         git(&repo_path, &["checkout", "-b", "feature"]);
         commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
+        git(&repo_path, &["push", "-u", "origin", "feature"]);
 
         let status = engine
             .get_git_status(&repo_path)
@@ -1339,9 +1430,13 @@ mod tests {
         let other_clone_path = clone_repo(&root, &origin_path, "other");
         let engine = GitEngine::new();
 
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        git(&repo_path, &["push", "-u", "origin", "feature"]);
+        git(&repo_path, &["checkout", "main"]);
         commit_file(&other_clone_path, "remote.txt", "remote\n", "remote update");
         git(&other_clone_path, &["push", "origin", "main"]);
         git(&repo_path, &["fetch", "origin"]);
+        git(&repo_path, &["checkout", "feature"]);
 
         let status = engine
             .get_git_status(&repo_path)
@@ -1350,6 +1445,104 @@ mod tests {
         assert_eq!(status.default_branch.as_deref(), Some("main"));
         assert_eq!(status.default_branch_ahead, Some(0));
         assert_eq!(status.default_branch_behind, Some(1));
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn git_status_reports_unknown_branch_sync_without_upstream() {
+        let (root, origin_path) = setup_remote_repo("no-upstream");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
+
+        let status = engine
+            .get_git_status(&repo_path)
+            .expect("git status should be available");
+
+        assert_eq!(status.default_branch.as_deref(), Some("main"));
+        assert_eq!(status.default_branch_ahead, None);
+        assert_eq!(status.default_branch_behind, None);
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn git_status_reports_unknown_branch_sync_when_only_tracking_default_branch() {
+        let (root, origin_path) = setup_remote_repo("tracking-default-only");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        git(&repo_path, &["branch", "--set-upstream-to=origin/main", "feature"]);
+
+        let status = engine
+            .get_git_status(&repo_path)
+            .expect("git status should be available");
+
+        assert_eq!(status.default_branch.as_deref(), Some("main"));
+        assert_eq!(status.default_branch_ahead, None);
+        assert_eq!(status.default_branch_behind, None);
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn preferred_compare_ref_uses_upstream_when_available() {
+        let (root, origin_path) = setup_remote_repo("compare-upstream");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
+        git(&repo_path, &["push", "-u", "origin", "feature"]);
+
+        let compare_ref = engine
+            .resolve_preferred_compare_ref(&repo_path, None)
+            .expect("compare ref should resolve");
+
+        assert_eq!(compare_ref.as_deref(), Some("origin/feature"));
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn preferred_compare_ref_falls_back_to_remote_default_branch() {
+        let (root, origin_path) = setup_remote_repo("compare-default");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
+
+        let compare_ref = engine
+            .resolve_preferred_compare_ref(&repo_path, None)
+            .expect("compare ref should resolve");
+
+        assert_eq!(compare_ref.as_deref(), Some("origin/main"));
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn push_republishes_branch_when_tracking_default_branch() {
+        let (root, origin_path) = setup_remote_repo("push-mismatched-upstream");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        git(&repo_path, &["branch", "--set-upstream-to=origin/main", "feature"]);
+        commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
+
+        engine.push(&repo_path).expect("push should succeed");
+
+        let upstream = git_output(&repo_path, &["rev-parse", "--abbrev-ref", "@{u}"]);
+        assert_eq!(upstream.trim(), "origin/feature");
+
+        let remote_branch = git_output(&repo_path, &["rev-parse", "--verify", "origin/feature"]);
+        assert!(!remote_branch.trim().is_empty());
 
         fs::remove_dir_all(root).expect("temp repo should be removed");
     }

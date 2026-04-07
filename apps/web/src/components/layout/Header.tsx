@@ -11,6 +11,7 @@ import {
   ArrowRight,
   ArrowNarrowDownDashedIcon,
   ArrowNarrowUpDashedIcon,
+  CircleHelp,
   Search,
   Edit2,
   Check,
@@ -72,6 +73,7 @@ import { formatProvider, formatExpiry, getSessionUrgency, CopyableText, Copyable
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
+import { useWebSocketStore } from '@/hooks/use-websocket';
 import { ArrowBigUp, ChevronDown, ChevronLeft, ChevronRight, Command, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SunMoon } from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
@@ -87,6 +89,15 @@ interface BranchSyncIndicatorState {
 const BranchSyncIndicatorIcon: React.FC<{
   direction: BranchSyncDirection;
 }> = ({ direction }) => {
+  if (direction === 'diverged') {
+    return (
+      <span className="flex size-4 shrink-0 items-center justify-center gap-[1px]">
+        <ArrowNarrowUpDashedIcon size={12} strokeWidth={2.1} className="text-success" />
+        <ArrowNarrowDownDashedIcon size={12} strokeWidth={2.1} className="text-destructive" />
+      </span>
+    );
+  }
+
   if (direction === 'ahead' || direction === 'behind') {
     const isAhead = direction === 'ahead';
     const colorClass = isAhead ? 'text-success' : 'text-destructive';
@@ -98,6 +109,14 @@ const BranchSyncIndicatorIcon: React.FC<{
         ) : (
           <ArrowNarrowDownDashedIcon size={14} strokeWidth={2.25} />
         )}
+      </span>
+    );
+  }
+
+  if (direction === 'unknown') {
+    return (
+      <span className="flex size-4 items-center justify-center text-muted-foreground">
+        <CircleHelp size={13} strokeWidth={2.1} />
       </span>
     );
   }
@@ -142,34 +161,34 @@ function getBranchSyncIndicatorState(params: {
   if (aheadCount === null || behindCount === null) {
     return {
       direction: 'unknown',
-      tooltip: `Unable to compare with origin/${defaultBranchLabel}`,
+      tooltip: `Unable to compare the remote branch with origin/${defaultBranchLabel}`,
     };
   }
 
   if (aheadCount > 0 && behindCount > 0) {
     return {
       direction: 'diverged',
-      tooltip: `Diverged from origin/${defaultBranchLabel}: ahead ${aheadCount}, behind ${behindCount}`,
+      tooltip: `Remote branch diverged from origin/${defaultBranchLabel}: ahead ${aheadCount}, behind ${behindCount}`,
     };
   }
 
   if (aheadCount > 0) {
     return {
       direction: 'ahead',
-      tooltip: `Ahead of origin/${defaultBranchLabel} by ${aheadCount} commit${aheadCount === 1 ? '' : 's'}`,
+      tooltip: `Remote branch is ahead of origin/${defaultBranchLabel} by ${aheadCount} commit${aheadCount === 1 ? '' : 's'}`,
     };
   }
 
   if (behindCount > 0) {
     return {
       direction: 'behind',
-      tooltip: `Behind origin/${defaultBranchLabel} by ${behindCount} commit${behindCount === 1 ? '' : 's'}`,
+      tooltip: `Remote branch is behind origin/${defaultBranchLabel} by ${behindCount} commit${behindCount === 1 ? '' : 's'}`,
     };
   }
 
   return {
     direction: 'equal',
-    tooltip: `In sync with origin/${defaultBranchLabel}`,
+    tooltip: `Remote branch is in sync with origin/${defaultBranchLabel}`,
   };
 }
 
@@ -370,7 +389,8 @@ const Header: React.FC = () => {
 
   const [, setModalParams] = useQueryStates(rightSidebarModalParams);
 
-  const { data: prListData } = useGithubPRList({
+  const onWsEvent = useWebSocketStore(s => s.onEvent);
+  const { data: prListData, refresh: refreshHeaderPrList } = useGithubPRList({
     owner: githubOwner ?? undefined,
     repo: githubRepo ?? undefined,
     branch: currentBranch ?? undefined,
@@ -385,6 +405,23 @@ const Header: React.FC = () => {
     return matches.reduce((latest: any, pr: any) => pr.number > latest.number ? pr : latest, matches[0]);
   }, [prListData, currentBranch]);
   const prIconRef = useRef<{ startAnimation: () => void; stopAnimation: () => void } | null>(null);
+
+  useEffect(() => {
+    return onWsEvent('github_branch_pr_status_refreshed', (data: unknown) => {
+      const payload = data as {
+        owner?: string;
+        repo?: string;
+        branch?: string;
+      } | null;
+
+      if (!payload) return;
+      if (payload.owner !== githubOwner) return;
+      if (payload.repo !== githubRepo) return;
+      if (payload.branch !== currentBranch) return;
+
+      void refreshHeaderPrList();
+    });
+  }, [onWsEvent, githubOwner, githubRepo, currentBranch, refreshHeaderPrList]);
 
   const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -40,6 +41,7 @@ import { CommitsPanel } from "@/components/github/CommitsPanel";
 import { ActionsPanel } from "@/components/github/ActionsPanel";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
+import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
 
 import { ChangeSection } from '@/components/layout/sidebar/ChangeSection';
 import { ChangesViewSwitcher } from '@/components/layout/sidebar/ChangesViewSwitcher';
@@ -100,7 +102,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     stagedFiles,
     unstagedFiles,
     untrackedFiles,
+    compareFiles,
+    compareRef,
     setCurrentRepoPath,
+    refreshRepositoryState,
     refreshGitStatus,
     refreshChangedFiles,
     isBranchPublished,
@@ -134,6 +139,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
     "changes",
   );
+  const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
+  const [refreshCommitsPanel, setRefreshCommitsPanel] = useState<
+    (() => Promise<unknown> | void) | null
+  >(null);
+  const [isCommitsLoading, setIsCommitsLoading] = useState(false);
   const [prRefreshKey, setPrRefreshKey] = useState(0);
   const [actionsRefreshKey, setActionsRefreshKey] = useState(0);
 
@@ -157,7 +167,54 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     stagedFiles.length > 0 ||
     unstagedFiles.length > 0 ||
     untrackedFiles.length > 0;
+  const compareStatsByPath = useMemo(
+    () => new Map(compareFiles.map((file) => [file.path, file])),
+    [compareFiles],
+  );
+  const displayedStagedFiles = useMemo(
+    () =>
+      compareRef
+        ? stagedFiles
+            .filter((file) => compareStatsByPath.has(file.path))
+            .map((file) => ({
+              ...file,
+              additions: compareStatsByPath.get(file.path)?.additions ?? file.additions,
+              deletions: compareStatsByPath.get(file.path)?.deletions ?? file.deletions,
+            }))
+        : stagedFiles,
+    [compareRef, compareStatsByPath, stagedFiles],
+  );
+  const displayedUnstagedFiles = useMemo(
+    () =>
+      compareRef
+        ? unstagedFiles
+            .filter((file) => compareStatsByPath.has(file.path))
+            .map((file) => ({
+              ...file,
+              additions: compareStatsByPath.get(file.path)?.additions ?? file.additions,
+              deletions: compareStatsByPath.get(file.path)?.deletions ?? file.deletions,
+            }))
+        : unstagedFiles,
+    [compareRef, compareStatsByPath, unstagedFiles],
+  );
+  const displayedUntrackedFiles = useMemo(
+    () => (compareRef ? untrackedFiles : untrackedFiles),
+    [compareRef, untrackedFiles],
+  );
+  const hasDisplayedChanges =
+    displayedStagedFiles.length > 0 ||
+    displayedUnstagedFiles.length > 0 ||
+    displayedUntrackedFiles.length > 0;
   const showWikiAskSidebar = activeCenterTab === "wiki";
+  const handleCommitsRefreshReady = useCallback(
+    (refresh: () => Promise<unknown> | void) => {
+      setRefreshCommitsPanel(() => refresh);
+    },
+    [],
+  );
+  const handleCommitsLoadingChange = useCallback((loading: boolean) => {
+    setIsCommitsLoading(loading);
+  }, []);
 
   return (
     <aside className="w-full flex flex-col h-full">
@@ -204,11 +261,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             changesView={changesView}
             onViewChange={(view) => setSidebarParams({ rsView: view })}
             hasWorkingContext={hasWorkingContext}
-            isLoading={isLoading}
-            onRefreshGitStatus={refreshGitStatus}
-            onRefreshChangedFiles={refreshChangedFiles}
             onCodeReview={() => setCodeReviewDialogOpen(true)}
-            onRefreshPr={() => setPrRefreshKey(Date.now())}
             onCreatePr={() => setModalParams({ rsCreatePr: true })}
             onRefreshActions={() => setActionsRefreshKey(Date.now())}
           />
@@ -221,20 +274,42 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               </span>
               <Tabs
                 value={changesSubTab}
-                onValueChange={(v) =>
-                  setChangesSubTab(v as "changes" | "commits")
-                }
+                onValueChange={(v) => {
+                  const nextTab = v as "changes" | "commits";
+                  setChangesSubTab(nextTab);
+                  if (nextTab === "commits") {
+                    setHasVisitedCommits(true);
+                  }
+                }}
                 className="h-full"
               >
                 <TabsList variant="underline" className="h-full !py-0">
-                  <TabsTab value="changes" className="">
+                  <RefreshableTabsTab
+                    value="changes"
+                    activeValue={changesSubTab}
+                    refreshTitle="Refresh changes"
+                    onRefresh={() =>
+                      refreshRepositoryState({ fetchRemote: true })
+                    }
+                    isRefreshing={
+                      changesSubTab === "changes" && isLoading
+                    }
+                  >
                     <GitBranch className="size-3" />
                     <span className="text-xs">Changes</span>
-                  </TabsTab>
-                  <TabsTab value="commits" className="">
+                  </RefreshableTabsTab>
+                  <RefreshableTabsTab
+                    value="commits"
+                    activeValue={changesSubTab}
+                    refreshTitle="Refresh commits"
+                    onRefresh={() => refreshCommitsPanel?.()}
+                    isRefreshing={
+                      changesSubTab === "commits" && isCommitsLoading
+                    }
+                  >
                     <GitCommitIcon className="size-3" />
                     <span className="text-xs">Commits</span>
-                  </TabsTab>
+                  </RefreshableTabsTab>
                 </TabsList>
               </Tabs>
             </div>
@@ -250,7 +325,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               changesView === "changes" &&
                 changesSubTab !== "commits" &&
                 hasWorkingContext &&
-                !hasChanges &&
+                !hasDisplayedChanges &&
                 !isLoading &&
                 "flex items-center justify-center",
               changesView === "changes" &&
@@ -308,62 +383,76 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             ) : changesView === "changes" ? (
               hasWorkingContext ? (
                 <>
-                  {changesSubTab === "commits" ? (
-                    <div className="-mx-2 -mb-2 flex-1 h-full">
-                      {currentProjectPath && currentBranch ? (
-                        <CommitsPanel
-                          repoPath={currentProjectPath}
-                          branch={currentBranch}
-                          owner={githubOwner ?? undefined}
-                          repo={githubRepo ?? undefined}
+                  <div
+                    className={cn(
+                      changesSubTab === "commits" && "hidden",
+                      "h-full",
+                    )}
+                  >
+                    {!hasDisplayedChanges && !isLoading ? (
+                      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50">
+                        <Check className="size-8 opacity-20 mb-2" />
+                        <span className="text-xs">
+                          {compareRef
+                            ? `No changes against ${compareRef}`
+                            : "No changes detected"}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <ChangeSection
+                          kind="staged"
+                          title="Staged Changes"
+                          files={displayedStagedFiles}
+                          workspaceId={workspaceId}
+                          onUnstage={unstageFiles}
+                          onUnstageAll={unstageAll}
                         />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
-                          <span className="text-xs">No repository context</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      {!hasChanges && !isLoading ? (
-                        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50">
-                          <Check className="size-8 opacity-20 mb-2" />
-                          <span className="text-xs">No changes detected</span>
-                        </div>
-                      ) : (
-                        <>
-                          <ChangeSection
-                            kind="staged"
-                            title="Staged Changes"
-                            files={stagedFiles}
-                            workspaceId={workspaceId}
-                            onUnstage={unstageFiles}
-                            onUnstageAll={unstageAll}
-                          />
-                          <ChangeSection
-                            kind="unstaged"
-                            title="Unstaged Changes"
-                            files={unstagedFiles}
-                            workspaceId={workspaceId}
-                            onStage={stageFiles}
-                            onDiscard={discardUnstagedChanges}
-                            onStageAll={stageAllUnstaged}
-                            onDiscardAll={discardAllUnstaged}
-                          />
-                          <ChangeSection
-                            kind="untracked"
-                            title="Untracked Changes"
-                            files={untrackedFiles}
-                            workspaceId={workspaceId}
-                            onStage={stageFiles}
-                            onDiscard={discardUntrackedFiles}
-                            onStageAll={stageAllUntracked}
-                            onDiscardAll={discardAllUntracked}
-                          />
-                        </>
-                      )}
-                    </>
-                  )}
+                        <ChangeSection
+                          kind="unstaged"
+                          title="Unstaged Changes"
+                          files={displayedUnstagedFiles}
+                          workspaceId={workspaceId}
+                          onStage={stageFiles}
+                          onDiscard={discardUnstagedChanges}
+                          onStageAll={stageAllUnstaged}
+                          onDiscardAll={discardAllUnstaged}
+                        />
+                        <ChangeSection
+                          kind="untracked"
+                          title="Untracked Changes"
+                          files={displayedUntrackedFiles}
+                          workspaceId={workspaceId}
+                          onStage={stageFiles}
+                          onDiscard={discardUntrackedFiles}
+                          onStageAll={stageAllUntracked}
+                          onDiscardAll={discardAllUntracked}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  <div
+                    className={cn(
+                      changesSubTab !== "commits" && "hidden",
+                      "-mx-2 -mb-2 flex-1 h-full",
+                    )}
+                  >
+                    {hasVisitedCommits && currentProjectPath && currentBranch ? (
+                      <CommitsPanel
+                        repoPath={currentProjectPath}
+                        branch={currentBranch}
+                        owner={githubOwner ?? undefined}
+                        repo={githubRepo ?? undefined}
+                        onRefreshReady={handleCommitsRefreshReady}
+                        onLoadingChange={handleCommitsLoadingChange}
+                      />
+                    ) : currentProjectPath && currentBranch ? null : (
+                      <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
+                        <span className="text-xs">No repository context</span>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="flex flex-col items-center text-muted-foreground/50">
@@ -430,8 +519,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         activePrNumber={activePrNumber}
         onClosePr={() => setModalParams({ rsPr: null })}
         onPrMerged={() => {
-          refreshGitStatus();
-          refreshChangedFiles();
+          void refreshRepositoryState({ fetchRemote: true });
         }}
         activeRunId={activeRunId}
         activeActionRun={activeActionRun}

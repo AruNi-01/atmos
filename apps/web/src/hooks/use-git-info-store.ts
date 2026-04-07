@@ -9,7 +9,7 @@ import { toastManager } from '@workspace/ui';
  * This store manages:
  * - Current workspace's git status (uncommitted/unpushed changes)
  * - Current branch name (from workspace)
- * - Target branch (from project, for merge/PR/git diff)
+ * - Target branch (from project, for merge/PR)
  */
 
 export interface GitInfoState {

@@ -15,6 +15,8 @@ interface GitStore {
   stagedFiles: GitChangedFile[];
   unstagedFiles: GitChangedFile[];
   untrackedFiles: GitChangedFile[];
+  compareFiles: GitChangedFile[];
+  compareRef: string | null;
   
   totalAdditions: number;
   totalDeletions: number;
@@ -24,6 +26,7 @@ interface GitStore {
 
   // 动作
   setCurrentRepoPath: (path: string | null) => void;
+  refreshRepositoryState: (options?: { fetchRemote?: boolean }) => Promise<void>;
   refreshGitStatus: () => Promise<void>;
   refreshChangedFiles: () => Promise<void>;
   selectFile: (filePath: string | null) => void;
@@ -52,6 +55,8 @@ export const useGitStore = create<GitStore>((set, get) => ({
   stagedFiles: [],
   unstagedFiles: [],
   untrackedFiles: [],
+  compareFiles: [],
+  compareRef: null,
   totalAdditions: 0,
   totalDeletions: 0,
   isBranchPublished: true,
@@ -62,9 +67,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
   setCurrentRepoPath: (path) => {
     set({ currentRepoPath: path });
     if (path) {
-      // 自动刷新状态
-      get().refreshGitStatus();
-      get().refreshChangedFiles();
+      void get().refreshRepositoryState({ fetchRemote: true });
     } else {
       // 清除状态当没有路径时
       set({
@@ -72,6 +75,8 @@ export const useGitStore = create<GitStore>((set, get) => ({
         stagedFiles: [],
         unstagedFiles: [],
         untrackedFiles: [],
+        compareFiles: [],
+        compareRef: null,
         totalAdditions: 0,
         totalDeletions: 0,
       });
@@ -87,6 +92,87 @@ export const useGitStore = create<GitStore>((set, get) => ({
         githubOwner: null,
         githubRepo: null,
       });
+    }
+  },
+
+  refreshRepositoryState: async (options) => {
+    const { currentRepoPath } = get();
+    if (!currentRepoPath) return;
+
+    const fetchRemote = options?.fetchRemote ?? false;
+
+    try {
+      set({ isLoading: true });
+      useGitInfoStore.setState({ isLoadingStatus: true });
+
+      if (fetchRemote) {
+        try {
+          await gitApi.fetch(currentRepoPath);
+        } catch (error) {
+          console.error('Failed to fetch remote refs before refresh:', error);
+        }
+      }
+
+      const status = await gitApi.getStatus(currentRepoPath);
+      const worktreeResponse: GitChangedFilesResponse = await gitApi.getChangedFiles(
+        currentRepoPath,
+        null,
+        false,
+      );
+      const compareResponse: GitChangedFilesResponse | null = await gitApi
+        .getChangedFiles(currentRepoPath, null, true)
+        .catch((error) => {
+          console.error('Failed to refresh compare changes:', error);
+          return null;
+        });
+
+      set({
+        gitStatus: status,
+        stagedFiles: worktreeResponse.staged_files,
+        unstagedFiles: worktreeResponse.unstaged_files,
+        untrackedFiles: worktreeResponse.untracked_files,
+        compareFiles: compareResponse?.compare_ref
+          ? [
+              ...compareResponse.staged_files,
+              ...compareResponse.unstaged_files,
+              ...compareResponse.untracked_files,
+            ]
+          : [],
+        compareRef: compareResponse?.compare_ref ?? null,
+        totalAdditions: worktreeResponse.total_additions,
+        totalDeletions: worktreeResponse.total_deletions,
+        isBranchPublished: worktreeResponse.is_branch_published,
+      });
+
+      useGitInfoStore.setState({
+        currentBranch: status.current_branch,
+        hasUncommittedChanges: status.has_uncommitted_changes,
+        hasUnpushedCommits: status.has_unpushed_commits,
+        uncommittedCount: status.uncommitted_count,
+        unpushedCount: status.unpushed_count,
+        defaultBranch: status.default_branch,
+        defaultBranchAhead: status.default_branch_ahead,
+        defaultBranchBehind: status.default_branch_behind,
+        githubOwner: status.github_owner,
+        githubRepo: status.github_repo,
+        lastStatusFetch: Date.now(),
+        isLoadingStatus: false,
+      });
+    } catch (error) {
+      console.error('Failed to refresh repository state:', error);
+      set({
+        gitStatus: null,
+        stagedFiles: [],
+        unstagedFiles: [],
+        untrackedFiles: [],
+        compareFiles: [],
+        compareRef: null,
+        totalAdditions: 0,
+        totalDeletions: 0,
+      });
+      useGitInfoStore.setState({ isLoadingStatus: false });
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -132,21 +218,44 @@ export const useGitStore = create<GitStore>((set, get) => ({
 
     try {
       set({ isLoading: true });
-      const response: GitChangedFilesResponse = await gitApi.getChangedFiles(
+      const worktreeResponse: GitChangedFilesResponse = await gitApi.getChangedFiles(
         currentRepoPath,
         null,
+        false,
       );
+      const compareResponse: GitChangedFilesResponse | null = await gitApi
+        .getChangedFiles(currentRepoPath, null, true)
+        .catch((error) => {
+          console.error('Failed to refresh compare changes:', error);
+          return null;
+        });
       set({
-        stagedFiles: response.staged_files,
-        unstagedFiles: response.unstaged_files,
-        untrackedFiles: response.untracked_files,
-        totalAdditions: response.total_additions,
-        totalDeletions: response.total_deletions,
-        isBranchPublished: response.is_branch_published,
+        stagedFiles: worktreeResponse.staged_files,
+        unstagedFiles: worktreeResponse.unstaged_files,
+        untrackedFiles: worktreeResponse.untracked_files,
+        compareFiles: compareResponse?.compare_ref
+          ? [
+              ...compareResponse.staged_files,
+              ...compareResponse.unstaged_files,
+              ...compareResponse.untracked_files,
+            ]
+          : [],
+        compareRef: compareResponse?.compare_ref ?? null,
+        totalAdditions: worktreeResponse.total_additions,
+        totalDeletions: worktreeResponse.total_deletions,
+        isBranchPublished: worktreeResponse.is_branch_published,
       });
     } catch (error) {
       console.error('Failed to refresh changed files:', error);
-      set({ stagedFiles: [], unstagedFiles: [], untrackedFiles: [], totalAdditions: 0, totalDeletions: 0 });
+      set({
+        stagedFiles: [],
+        unstagedFiles: [],
+        untrackedFiles: [],
+        compareFiles: [],
+        compareRef: null,
+        totalAdditions: 0,
+        totalDeletions: 0,
+      });
     } finally {
       set({ isLoading: false });
     }

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGithubPRList } from '@/hooks/use-github';
-import { GitPullRequest, Search, Loader2, GitBranch, MessageSquare, GitCommit, RefreshCw, Github, ArrowLeft } from 'lucide-react';
-import { Avatar, AvatarImage, AvatarFallback, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, Button, Tabs, TabsList, TabsTab } from '@workspace/ui';
-import { formatDistanceToNow, format, parseISO } from 'date-fns';
+import { GitPullRequest, GitPullRequestCreate, GitPullRequestClosed, Loader2, GitBranch, MessageSquare, GitCommit, RefreshCcw, ArrowLeft } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, Button, Tabs, TabsList } from '@workspace/ui';
+import { formatDistanceToNow, format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useWebSocketStore } from '@/hooks/use-websocket';
+import { RefreshableTabsTab } from '@/components/ui/RefreshableTabsTab';
 
 interface PRPanelProps {
   owner: string;
@@ -17,21 +17,36 @@ type PRState = 'OPEN' | 'CLOSED';
 
 export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
   const [stateFilter, setStateFilter] = useState<PRState>('OPEN');
-  const { data: prs, loading, refresh } = useGithubPRList({
+  const [loadedStates, setLoadedStates] = useState<Record<PRState, boolean>>({
+    OPEN: true,
+    CLOSED: false,
+  });
+
+  const openPrList = useGithubPRList({
     owner,
     repo,
     branch,
-    state: stateFilter.toLowerCase()
+    state: 'open',
+    emitBranchStatusRefresh: true,
+    enabled: loadedStates.OPEN,
+  });
+  const closedPrList = useGithubPRList({
+    owner,
+    repo,
+    branch,
+    state: 'closed',
+    emitBranchStatusRefresh: true,
+    enabled: loadedStates.CLOSED,
   });
 
-  if (loading && !prs) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
-        <Loader2 className="size-6 animate-spin opacity-50 mb-4" />
-        <span className="text-xs font-medium">Fetching {stateFilter.toLowerCase()} PRs...</span>
-      </div>
-    );
-  }
+  const activePrList = stateFilter === 'OPEN' ? openPrList : closedPrList;
+  const prs = activePrList.data;
+  const loading = activePrList.loading;
+  const refresh = activePrList.refresh;
+  const refreshLabel = useMemo(
+    () => `Refresh ${stateFilter.toLowerCase()} pull requests`,
+    [stateFilter],
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const prList: any[] = prs || [];
@@ -42,20 +57,51 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
         {/* Header */}
         <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm relative z-[1]">
           <span className="text-xs font-bold text-muted-foreground tracking-wider leading-none">Pull Requests</span>
-          <Tabs value={stateFilter} onValueChange={(v) => setStateFilter(v as PRState)} className="h-full">
+          <Tabs
+            value={stateFilter}
+            onValueChange={(v) => {
+              const nextState = v as PRState;
+              setStateFilter(nextState);
+              setLoadedStates((prev) =>
+                prev[nextState] ? prev : { ...prev, [nextState]: true },
+              );
+            }}
+            className="h-full"
+          >
             <TabsList variant='underline' className="h-full !py-0">
-              <TabsTab value="OPEN" className="">
+              <RefreshableTabsTab
+                value="OPEN"
+                activeValue={stateFilter}
+                refreshTitle="Refresh open pull requests"
+                onRefresh={openPrList.refresh}
+                isRefreshing={stateFilter === 'OPEN' && openPrList.loading}
+              >
+                <GitPullRequestCreate className="size-3 shrink-0" />
                 <span className="text-xs">Open</span>
-              </TabsTab>
-              <TabsTab value="CLOSED" className="">
+              </RefreshableTabsTab>
+              <RefreshableTabsTab
+                value="CLOSED"
+                activeValue={stateFilter}
+                refreshTitle="Refresh closed pull requests"
+                onRefresh={closedPrList.refresh}
+                isRefreshing={stateFilter === 'CLOSED' && closedPrList.loading}
+              >
+                <GitPullRequestClosed className="size-3 shrink-0" />
                 <span className="text-xs">Closed</span>
-              </TabsTab>
+              </RefreshableTabsTab>
             </TabsList>
           </Tabs>
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar p-2">
-          {prList.length === 0 ? (
+          {loading && !prs ? (
+            <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3">
+              <Loader2 className="size-5 animate-spin opacity-50" />
+              <span className="text-xs font-medium">
+                Loading {stateFilter.toLowerCase()} pull requests...
+              </span>
+            </div>
+          ) : prList.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground px-6">
               <div className="size-16 rounded-full bg-primary/5 flex items-center justify-center mb-6 border border-primary/10">
                 <GitPullRequest className="size-8 text-primary/40" />
@@ -69,8 +115,8 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
                 onClick={() => refresh()}
                 className="h-9 px-6 text-[11px] font-bold tracking-widest gap-2.5 shadow-sm cursor-pointer"
               >
-                <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-                Refresh {stateFilter.toLowerCase()}
+                <RefreshCcw className={cn("size-3.5", loading && "animate-spin")} />
+                {refreshLabel}
               </Button>
             </div>
           ) : (

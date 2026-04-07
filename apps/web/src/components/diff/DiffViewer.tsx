@@ -42,6 +42,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
   const [error, setError] = useState<string | null>(null);
   const [oldFile, setOldFile] = useState<FileContents | null>(null);
   const [newFile, setNewFile] = useState<FileContents | null>(null);
+  const [diffCompareRef, setDiffCompareRef] = useState<string | null>(null);
   const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
   const [wordWrap, setWordWrap] = useState(false);
   const [disableBackground, setDisableBackground] = useState(false);
@@ -49,14 +50,17 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
   const [tipPaused, setTipPaused] = useState(false);
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
-  const targetBranch = useGitInfoStore((s) => s.targetBranch);
+  const currentBranch = useGitInfoStore((s) => s.currentBranch);
+  const defaultBranch = useGitInfoStore((s) => s.defaultBranch);
 
-  const { stagedFiles, unstagedFiles, untrackedFiles } = useGitStore();
+  const { stagedFiles, unstagedFiles, untrackedFiles, compareFiles, compareRef, isBranchPublished } = useGitStore();
   const diffStats = useMemo(() => {
-    const allFiles = [...stagedFiles, ...unstagedFiles, ...untrackedFiles];
+    const allFiles = compareRef
+      ? compareFiles
+      : [...stagedFiles, ...unstagedFiles, ...untrackedFiles];
     const file = allFiles.find(f => f.path === filePath);
     return file ? { additions: file.additions, deletions: file.deletions } : null;
-  }, [stagedFiles, unstagedFiles, untrackedFiles, filePath]);
+  }, [compareFiles, compareRef, stagedFiles, unstagedFiles, untrackedFiles, filePath]);
 
   // Rotating tip timer: show file path 5s, then tip 5s (pauses on hover)
   useEffect(() => {
@@ -292,13 +296,15 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     const loadDiff = async () => {
       setIsLoading(true);
       setError(null);
+      setDiffCompareRef(null);
 
       try {
-        const diff = await gitApi.getFileDiff(repoPath, filePath, targetBranch);
+        const diff = await gitApi.getFileDiff(repoPath, filePath);
         const fileName = filePath.split('/').pop() || filePath;
 
         setOldFile({ name: fileName, contents: diff.old_content });
         setNewFile({ name: fileName, contents: diff.new_content });
+        setDiffCompareRef(diff.compare_ref);
       } catch (err) {
         console.error('Failed to load diff:', err);
         setError(err instanceof Error ? err.message : 'Failed to load diff');
@@ -308,7 +314,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     };
 
     loadDiff();
-  }, [repoPath, filePath, targetBranch]);
+  }, [repoPath, filePath, currentBranch, defaultBranch, isBranchPublished]);
 
   const diffOptions = useMemo(() => ({
     theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
@@ -365,9 +371,9 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
             }}
           >
             <span className="text-sm font-medium text-foreground truncate">{filePath}</span>
-            {targetBranch && (
+            {diffCompareRef && (
               <span className="text-xs text-muted-foreground shrink-0">
-                vs origin/{targetBranch}
+                vs {diffCompareRef}
               </span>
             )}
             {diffStats && (diffStats.additions > 0 || diffStats.deletions > 0) && (
