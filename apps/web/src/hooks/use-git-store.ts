@@ -4,6 +4,30 @@ import { create } from 'zustand';
 import { gitApi, GitChangedFile, GitChangedFilesResponse, GitStatusResponse } from '@/api/ws-api';
 import { useGitInfoStore } from './use-git-info-store';
 
+function formatGitActionError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "";
+  }
+
+  return error.message
+    .replace(/^\[[^\]]+\]\s*/i, "")
+    .replace(/^Request failed:\s*/i, "")
+    .replace(/^Validation error:\s*/i, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isConflictActionError(error: unknown): boolean {
+  const message = formatGitActionError(error);
+  return (
+    message.includes("conflict") ||
+    message.includes("automatic merge failed") ||
+    message.includes("fix conflicts and then commit the result") ||
+    message.includes("unmerged files") ||
+    message.includes("resolve all conflicts manually")
+  );
+}
+
 // ===== 类型定义 =====
 
 interface GitStore {
@@ -305,11 +329,13 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await get().refreshGitStatus();
       await get().refreshChangedFiles();
     } catch (error) {
-      console.error('Failed to push changes:', error);
       try {
         await get().refreshRepositoryState({ fetchRemote: true });
       } catch (refreshError) {
         console.error('Failed to refresh repository state after push error:', refreshError);
+      }
+      if (!(get().gitStatus?.has_merge_conflicts || isConflictActionError(error))) {
+        console.error('Failed to push changes:', error);
       }
       throw error;
     } finally {
@@ -435,11 +461,13 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await get().refreshGitStatus();
       await get().refreshChangedFiles();
     } catch (error) {
-      console.error('Failed to pull changes:', error);
       try {
         await get().refreshRepositoryState({ fetchRemote: false });
       } catch (refreshError) {
         console.error('Failed to refresh repository state after pull error:', refreshError);
+      }
+      if (!(get().gitStatus?.has_merge_conflicts || isConflictActionError(error))) {
+        console.error('Failed to pull changes:', error);
       }
       throw error;
     } finally {
@@ -475,11 +503,13 @@ export const useGitStore = create<GitStore>((set, get) => ({
       await get().refreshGitStatus();
       await get().refreshChangedFiles();
     } catch (error) {
-      console.error('Failed to sync changes:', error);
       try {
         await get().refreshRepositoryState({ fetchRemote: true });
       } catch (refreshError) {
         console.error('Failed to refresh repository state after sync error:', refreshError);
+      }
+      if (!(get().gitStatus?.has_merge_conflicts || isConflictActionError(error))) {
+        console.error('Failed to sync changes:', error);
       }
       throw error;
     } finally {

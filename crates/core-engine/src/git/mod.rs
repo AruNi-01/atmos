@@ -75,6 +75,10 @@ fn try_run_git_with_stderr(
     }
 }
 
+fn is_unmerged_porcelain_status(status: &str) -> bool {
+    matches!(status, "DD" | "AU" | "UD" | "UA" | "DU" | "AA" | "UU")
+}
+
 /// Git engine for repository operations
 pub struct GitEngine;
 
@@ -618,6 +622,8 @@ impl GitEngine {
             }
             let x = line.chars().next().unwrap_or(' ');
             let y = line.chars().nth(1).unwrap_or(' ');
+            let porcelain_status = format!("{x}{y}");
+            let is_unmerged = is_unmerged_porcelain_status(&porcelain_status);
             let file_path = Self::unquote_path(&line[3..]);
 
             if x == '?' && y == '?' {
@@ -668,16 +674,20 @@ impl GitEngine {
                     total_additions += additions;
                     total_deletions += deletions;
 
-                    let status = match x {
-                        'M' => "M",
-                        'A' => "A",
-                        'D' => "D",
-                        'R' => "R",
-                        'C' => "C",
-                        'U' => "U",
-                        _ => "M",
-                    }
-                    .to_string();
+                    let status = if is_unmerged {
+                        porcelain_status.clone()
+                    } else {
+                        match x {
+                            'M' => "M",
+                            'A' => "A",
+                            'D' => "D",
+                            'R' => "R",
+                            'C' => "C",
+                            'U' => "U",
+                            _ => "M",
+                        }
+                        .to_string()
+                    };
 
                     staged_files.push(ChangedFileInfo {
                         path: file_path.clone(),
@@ -695,13 +705,17 @@ impl GitEngine {
                     total_additions += additions;
                     total_deletions += deletions;
 
-                    let status = match y {
-                        'M' => "M",
-                        'D' => "D",
-                        'U' => "U",
-                        _ => "M",
-                    }
-                    .to_string();
+                    let status = if is_unmerged {
+                        porcelain_status.clone()
+                    } else {
+                        match y {
+                            'M' => "M",
+                            'D' => "D",
+                            'U' => "U",
+                            _ => "M",
+                        }
+                        .to_string()
+                    };
 
                     unstaged_files.push(ChangedFileInfo {
                         path: file_path,
@@ -973,9 +987,16 @@ impl GitEngine {
 
     /// Pull from remote
     pub fn pull(&self, repo_path: &Path) -> Result<()> {
-        run_git(repo_path, &["pull"])?;
-        tracing::info!("Pulled from remote");
-        Ok(())
+        match try_run_git_with_stderr(repo_path, &["pull"])? {
+            Ok(_) => {
+                tracing::info!("Pulled from remote");
+                Ok(())
+            }
+            Err(stderr) => Err(EngineError::Git(format!(
+                "git pull failed: {}",
+                stderr.trim()
+            ))),
+        }
     }
 
     /// Fetch from remote
@@ -1535,6 +1556,38 @@ mod tests {
             .expect("git status should be available");
 
         assert!(status.has_merge_conflicts);
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn changed_files_preserve_unmerged_status_codes() {
+        let (root, origin_path) = setup_remote_repo("merge-conflict-statuses");
+        let repo_path = clone_repo(&root, &origin_path, "work");
+        let engine = GitEngine::new();
+
+        git(&repo_path, &["checkout", "-b", "feature"]);
+        commit_file(&repo_path, "README.md", "feature change\n", "feature work");
+        git(&repo_path, &["checkout", "main"]);
+        commit_file(&repo_path, "README.md", "main change\n", "main work");
+        git(&repo_path, &["checkout", "feature"]);
+
+        let output = Command::new("git")
+            .current_dir(&repo_path)
+            .args(["merge", "main"])
+            .output()
+            .expect("git merge should run");
+        assert!(!output.status.success(), "merge should produce conflict");
+
+        let changes = engine
+            .get_changed_files(&repo_path, None, false)
+            .expect("changed files should be available");
+
+        assert!(changes
+            .staged_files
+            .iter()
+            .chain(changes.unstaged_files.iter())
+            .any(|file| file.path == "README.md" && file.status == "UU"));
 
         fs::remove_dir_all(root).expect("temp repo should be removed");
     }

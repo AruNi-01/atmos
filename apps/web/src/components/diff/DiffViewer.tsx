@@ -105,15 +105,21 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
           }
         } else {
           const change = content as ChangeContent;
-          const hasBoth = change.deletions.length > 0 && change.additions.length > 0;
-          const lineType = hasBoth ? 'mixed' : (change.deletions.length > 0 ? 'deletion' : 'addition');
+          const deletionCount = Array.isArray(change.deletions)
+            ? change.deletions.length
+            : change.deletions;
+          const additionCount = Array.isArray(change.additions)
+            ? change.additions.length
+            : change.additions;
+          const hasBoth = deletionCount > 0 && additionCount > 0;
+          const lineType = hasBoth ? 'mixed' : (deletionCount > 0 ? 'deletion' : 'addition');
           const delStart = oldLine;
           const addStart = newLine;
-          for (let i = 0; i < change.deletions.length; i++) {
+          for (let i = 0; i < deletionCount; i++) {
             oldMap.set(oldLine, { type: lineType, oldLine, newLine: addStart });
             oldLine++;
           }
-          for (let i = 0; i < change.additions.length; i++) {
+          for (let i = 0; i < additionCount; i++) {
             newMap.set(newLine, { type: lineType, oldLine: delStart, newLine });
             newLine++;
           }

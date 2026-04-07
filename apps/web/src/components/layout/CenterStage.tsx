@@ -7,7 +7,6 @@ import {
   X,
   GitCompare,
   Circle,
-  CircleAlert,
   Loader2,
   Tabs,
   TabsList,
@@ -32,6 +31,7 @@ import {
   getFileIconProps,
   LayoutDashboard,
 } from "@workspace/ui";
+import { GitMergeIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useEditorStore,
@@ -1300,7 +1300,7 @@ const CenterStage: React.FC = () => {
                     {isDiff ? (
                       <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
                     ) : isConflictResolver ? (
-                      <CircleAlert className="size-3.5 shrink-0 text-amber-500" />
+                      <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
                     ) : (
                       <FileIcon name={file.name} className="size-3.5 shrink-0" />
                     )}

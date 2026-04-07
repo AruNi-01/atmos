@@ -38,7 +38,7 @@
     "@codemirror/view": "^6",
     "@headless-tree/core": "^1.6.2",
     "@headless-tree/react": "^1.6.2",
-    "@pierre/diffs": "^1.0.7",
+    "@pierre/diffs": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@replit/codemirror-lang-svelte": "^6.0.0",
     "@tailwindcss/typography": "^0.5.19",

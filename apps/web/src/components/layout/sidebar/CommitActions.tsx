@@ -30,12 +30,13 @@ import {
   PopoverTrigger,
   toastManager,
 } from "@workspace/ui";
-import { CloudSync, SendHorizontal, Sparkles } from "lucide-react";
+import { CloudSync, MessageCircleReply, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useEditorStore,
   EDITOR_CONFLICT_RESOLVE_ALL_PATH,
 } from "@/hooks/use-editor-store";
+import { useGitStore } from "@/hooks/use-git-store";
 import {
   GitChangedFile,
   functionSettingsApi,
@@ -216,18 +217,30 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       normalized.includes("conflict") ||
       normalized.includes("automatic merge failed") ||
       normalized.includes("fix conflicts and then commit the result") ||
+      normalized.includes("unmerged files") ||
       normalized.includes("resolve all conflicts manually")
     );
   }, []);
 
+  const shouldSilenceConflictError = useCallback(
+    (error: unknown) => {
+      const description = formatActionError(error);
+      if (isMergeConflictError(description)) {
+        return true;
+      }
+
+      return useGitStore.getState().gitStatus?.has_merge_conflicts ?? false;
+    },
+    [formatActionError, isMergeConflictError],
+  );
+
   const showActionErrorToast = useCallback(
     (title: string, error: unknown) => {
-      const description = formatActionError(error);
-      const conflictDetected = isMergeConflictError(description);
-
-      if (conflictDetected) {
+      if (shouldSilenceConflictError(error)) {
         return;
       }
+
+      const description = formatActionError(error);
 
       toastManager.add({
         title,
@@ -235,7 +248,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
         type: "error",
       });
     },
-    [formatActionError, isMergeConflictError],
+    [formatActionError, shouldSilenceConflictError],
   );
   const hasMergeConflicts = gitStatus?.has_merge_conflicts ?? false;
   const openEditorFile = useEditorStore((s) => s.openFile);
@@ -313,7 +326,9 @@ Report back which files were resolved and whether any conflicts still need user 
     try {
       await pushChanges();
     } catch (e) {
-      console.error(e);
+      if (!shouldSilenceConflictError(e)) {
+        console.error(e);
+      }
       showActionErrorToast("Failed to publish branch", e);
     } finally {
       setIsGlobalActionLoading(false);
@@ -328,7 +343,9 @@ Report back which files were resolved and whether any conflicts still need user 
     try {
       await action();
     } catch (e) {
-      console.error(e);
+      if (!shouldSilenceConflictError(e)) {
+        console.error(e);
+      }
       showActionErrorToast(errorTitle, e);
     } finally {
       setIsGlobalActionLoading(false);
@@ -347,7 +364,9 @@ Report back which files were resolved and whether any conflicts still need user 
       await commitChanges(commitMessage);
       setCommitMessage("");
     } catch (e) {
-      console.error(e);
+      if (!shouldSilenceConflictError(e)) {
+        console.error(e);
+      }
       showActionErrorToast("Failed to commit changes", e);
     } finally {
       setIsCommitting(false);
@@ -552,7 +571,7 @@ Report back which files were resolved and whether any conflicts still need user 
     isGeneratingCommitMessage ||
     isGlobalActionLoading ||
     (hasMergeConflicts && conflictedFiles.length === 0) ||
-    (!hasPrimaryGitAction && isCommitDisabled);
+    (!hasMergeConflicts && !hasPrimaryGitAction && isCommitDisabled);
 
   return (
     <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
@@ -761,9 +780,9 @@ Report back which files were resolved and whether any conflicts still need user 
                 <button
                   type="button"
                   onClick={() => void handleCopyConflictPrompt()}
-                  className="px-2 flex items-center justify-center rounded-r-md border-l bg-muted text-muted-foreground border-l-transparent hover:text-foreground transition-colors"
+                  className="h-full px-2 flex items-center justify-center rounded-r-md border-l border-l-blue-500/40 bg-blue-500/10 text-blue-300 hover:text-blue-200 transition-colors"
                 >
-                  <SendHorizontal className="size-3.5 opacity-90" />
+                  <MessageCircleReply className="size-3.5 text-blue-400" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
