@@ -11,6 +11,7 @@ import { useEditorStore } from "@/hooks/use-editor-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import {
   Check,
+  Button,
   Tabs,
   TabsList,
   TabsTab,
@@ -123,6 +124,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     pullChanges,
     fetchChanges,
     syncChanges,
+    compareAgainstDefaultBranch,
+    resetCompareMode,
     isLoading,
     gitStatus,
   } = useGitStore();
@@ -216,6 +219,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     setIsCommitsLoading(loading);
   }, []);
 
+  const handleChangesRefresh = useCallback(async () => {
+    resetCompareMode();
+    await refreshRepositoryState({ fetchRemote: true });
+  }, [refreshRepositoryState, resetCompareMode]);
+
   return (
     <aside className="w-full flex flex-col h-full">
       <div className={cn("flex-1 min-h-0", !showWikiAskSidebar && "hidden")}>
@@ -288,9 +296,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     value="changes"
                     activeValue={changesSubTab}
                     refreshTitle="Refresh changes"
-                    onRefresh={() =>
-                      refreshRepositoryState({ fetchRemote: true })
-                    }
+                    onRefresh={handleChangesRefresh}
                     isRefreshing={
                       changesSubTab === "changes" && isLoading
                     }
@@ -390,13 +396,25 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     )}
                   >
                     {!hasDisplayedChanges && !isLoading ? (
-                      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50">
+                      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50 gap-3">
                         <Check className="size-8 opacity-20 mb-2" />
                         <span className="text-xs">
                           {compareRef
                             ? `No changes against ${compareRef}`
                             : "No changes detected"}
                         </span>
+                        {!compareRef && gitStatus?.default_branch ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => {
+                              void compareAgainstDefaultBranch();
+                            }}
+                          >
+                            Compare with origin/{gitStatus.default_branch}
+                          </Button>
+                        ) : null}
                       </div>
                     ) : (
                       <>

@@ -41,6 +41,7 @@ interface GitStore {
   untrackedFiles: GitChangedFile[];
   compareFiles: GitChangedFile[];
   compareRef: string | null;
+  compareMode: 'normal' | 'default-branch';
   
   totalAdditions: number;
   totalDeletions: number;
@@ -53,6 +54,8 @@ interface GitStore {
   refreshRepositoryState: (options?: { fetchRemote?: boolean }) => Promise<void>;
   refreshGitStatus: () => Promise<void>;
   refreshChangedFiles: () => Promise<void>;
+  compareAgainstDefaultBranch: () => Promise<void>;
+  resetCompareMode: () => void;
   selectFile: (filePath: string | null) => void;
   commitChanges: (message: string) => Promise<void>;
   pushChanges: () => Promise<void>;
@@ -81,6 +84,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
   untrackedFiles: [],
   compareFiles: [],
   compareRef: null,
+  compareMode: 'normal',
   totalAdditions: 0,
   totalDeletions: 0,
   isBranchPublished: true,
@@ -101,6 +105,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
         untrackedFiles: [],
         compareFiles: [],
         compareRef: null,
+        compareMode: 'normal',
         totalAdditions: 0,
         totalDeletions: 0,
       });
@@ -145,8 +150,13 @@ export const useGitStore = create<GitStore>((set, get) => ({
         null,
         false,
       );
+      const compareMode = get().compareMode;
       const compareResponse: GitChangedFilesResponse | null = await gitApi
-        .getChangedFiles(currentRepoPath, null, true)
+        .getChangedFiles(
+          currentRepoPath,
+          compareMode === 'default-branch' ? status.default_branch : null,
+          compareMode === 'default-branch' ? false : true,
+        )
         .catch((error) => {
           console.error('Failed to refresh compare changes:', error);
           return null;
@@ -165,6 +175,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
             ]
           : [],
         compareRef: compareResponse?.compare_ref ?? null,
+        compareMode,
         totalAdditions: worktreeResponse.total_additions,
         totalDeletions: worktreeResponse.total_deletions,
         isBranchPublished: worktreeResponse.is_branch_published,
@@ -195,6 +206,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
         untrackedFiles: [],
         compareFiles: [],
         compareRef: null,
+        compareMode: 'normal',
         totalAdditions: 0,
         totalDeletions: 0,
       });
@@ -253,8 +265,14 @@ export const useGitStore = create<GitStore>((set, get) => ({
         null,
         false,
       );
+      const status = get().gitStatus ?? await gitApi.getStatus(currentRepoPath);
+      const compareMode = get().compareMode;
       const compareResponse: GitChangedFilesResponse | null = await gitApi
-        .getChangedFiles(currentRepoPath, null, true)
+        .getChangedFiles(
+          currentRepoPath,
+          compareMode === 'default-branch' ? status.default_branch : null,
+          compareMode === 'default-branch' ? false : true,
+        )
         .catch((error) => {
           console.error('Failed to refresh compare changes:', error);
           return null;
@@ -271,6 +289,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
             ]
           : [],
         compareRef: compareResponse?.compare_ref ?? null,
+        compareMode,
         totalAdditions: worktreeResponse.total_additions,
         totalDeletions: worktreeResponse.total_deletions,
         isBranchPublished: worktreeResponse.is_branch_published,
@@ -283,6 +302,7 @@ export const useGitStore = create<GitStore>((set, get) => ({
         untrackedFiles: [],
         compareFiles: [],
         compareRef: null,
+        compareMode: 'normal',
         totalAdditions: 0,
         totalDeletions: 0,
       });
@@ -515,5 +535,24 @@ export const useGitStore = create<GitStore>((set, get) => ({
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  compareAgainstDefaultBranch: async () => {
+    const { currentRepoPath } = get();
+    if (!currentRepoPath) return;
+
+    try {
+      set({ isLoading: true, compareMode: 'default-branch' });
+      await get().refreshRepositoryState({ fetchRemote: true });
+    } catch (error) {
+      console.error('Failed to compare against default branch:', error);
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  resetCompareMode: () => {
+    set({ compareMode: 'normal' });
   },
 }));

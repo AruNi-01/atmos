@@ -1,14 +1,19 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { MultiFileDiff } from '@pierre/diffs/react';
-import type { FileContents, SelectedLineRange, Hunk, ContextContent, ChangeContent } from '@pierre/diffs';
+import { FileDiff } from '@pierre/diffs/react';
+import type {
+  FileContents,
+  SelectedLineRange,
+  ContextContent,
+  ChangeContent,
+  FileDiffMetadata,
+} from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
 import { gitApi } from '@/api/ws-api';
 import { Loader2 } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
-import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 
@@ -42,6 +47,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
   const [error, setError] = useState<string | null>(null);
   const [oldFile, setOldFile] = useState<FileContents | null>(null);
   const [newFile, setNewFile] = useState<FileContents | null>(null);
+  const [workingDiff, setWorkingDiff] = useState<FileDiffMetadata | null>(null);
   const [diffCompareRef, setDiffCompareRef] = useState<string | null>(null);
   const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
   const [wordWrap, setWordWrap] = useState(false);
@@ -50,10 +56,8 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
   const [tipPaused, setTipPaused] = useState(false);
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
-  const currentBranch = useGitInfoStore((s) => s.currentBranch);
-  const defaultBranch = useGitInfoStore((s) => s.defaultBranch);
 
-  const { stagedFiles, unstagedFiles, untrackedFiles, compareFiles, compareRef, isBranchPublished } = useGitStore();
+  const { stagedFiles, unstagedFiles, untrackedFiles, compareFiles, compareRef, compareMode } = useGitStore();
   const diffStats = useMemo(() => {
     const allFiles = compareRef
       ? compareFiles
@@ -62,7 +66,6 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     return file ? { additions: file.additions, deletions: file.deletions } : null;
   }, [compareFiles, compareRef, stagedFiles, unstagedFiles, untrackedFiles, filePath]);
 
-  // Rotating tip timer: show file path 5s, then tip 5s (pauses on hover)
   useEffect(() => {
     if (tipPaused) return;
     const interval = setInterval(() => {
@@ -71,17 +74,8 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     return () => clearInterval(interval);
   }, [tipPaused]);
 
-  // Compute diff hunks for accurate line-type detection
-  const diffMeta = useMemo(() => {
-    if (!oldFile || !newFile) return null;
-    try {
-      return parseDiffFromFile(oldFile, newFile);
-    } catch {
-      return null;
-    }
-  }, [oldFile, newFile]);
+  const diffMeta = workingDiff;
 
-  // Build a map: line number -> { type, correspondingLines } for each side
   type LineTypeInfo = { type: 'context' | 'addition' | 'deletion' | 'mixed'; oldLine?: number; newLine?: number };
   const lineTypeMap = useMemo(() => {
     const oldMap = new Map<number, LineTypeInfo>();
@@ -94,8 +88,9 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
 
       for (const content of hunk.hunkContent) {
         if (content.type === 'context') {
-          // content.lines may be number (count) or string[] (lines) depending on version
-          const lineCount = Array.isArray(content.lines) ? (content.lines as string[]).length : (content.lines as number);
+          const lineCount = Array.isArray(content.lines)
+            ? (content.lines as string[]).length
+            : (content.lines as number);
           for (let i = 0; i < lineCount; i++) {
             const info: LineTypeInfo = { type: 'context', oldLine, newLine };
             oldMap.set(oldLine, info);
@@ -129,7 +124,6 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     return { oldMap, newMap };
   }, [diffMeta]);
 
-  // Selection popover state
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [isPopoverVisible, setIsPopoverVisible] = useState(false);
   const [isPopoverExpanded, setIsPopoverExpanded] = useState(false);
@@ -142,11 +136,8 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     setSelectionInfo(null);
   }, []);
 
-  // Handle line selection from @pierre/diffs
   const handleLineSelectionEnd = useCallback((range: SelectedLineRange | null) => {
-    if (!range || !containerRef.current) {
-      return;
-    }
+    if (!range || !containerRef.current) return;
 
     const startLine = Math.min(range.start, range.end);
     const endLine = Math.max(range.start, range.end);
@@ -163,7 +154,6 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     const newLines = newFile?.contents?.split('\n') || [];
     const sideMap = side === 'deletions' ? lineTypeMap.oldMap : lineTypeMap.newMap;
 
-    // Determine change type from hunk data
     const lineTypes = new Set<string>();
     for (let ln = startLine; ln <= endLine; ln++) {
       const info = sideMap.get(ln);
@@ -195,7 +185,6 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       beforeText = oldLines.slice(startLine - 1, endLine).join('\n');
       afterText = undefined;
     } else {
-      // Mixed/modification - gather before/after from hunk mapping
       changeType = 'mixed';
       let minOtherLine = Infinity;
       let maxOtherLine = -Infinity;
@@ -222,7 +211,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       }
     }
 
-    const info: SelectionInfo = {
+    setSelectionInfo({
       filePath: filePath,
       startLine,
       endLine,
@@ -230,11 +219,8 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       changeType,
       beforeText,
       afterText,
-    };
+    });
 
-    setSelectionInfo(info);
-
-    // Position popover near the selection (relative to container for absolute positioning)
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
     const diffElement = container.querySelector('diffs-container');
@@ -244,7 +230,6 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     let popY = 100;
 
     if (shadowRoot) {
-      // In split view, query within the correct side container to avoid matching wrong panel
       const sideAttr = side === 'deletions' ? '[data-deletions]' : '[data-additions]';
       const sideContainer = shadowRoot.querySelector(sideAttr);
       const selectedLineEl = sideContainer
@@ -252,10 +237,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
         : shadowRoot.querySelector(`[data-line="${endLine}"]`);
       if (selectedLineEl) {
         const lineRect = selectedLineEl.getBoundingClientRect();
-        popX = Math.min(
-          lineRect.left - containerRect.left + 50,
-          containerRect.width - 180
-        );
+        popX = Math.min(lineRect.left - containerRect.left + 50, containerRect.width - 180);
         popY = lineRect.bottom - containerRect.top + 8;
       }
     }
@@ -265,13 +247,11 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     setIsPopoverExpanded(false);
   }, [filePath, oldFile, newFile, lineTypeMap]);
 
-  // Dismiss on click outside or Escape
   useEffect(() => {
     if (!isPopoverVisible) return;
 
     const handleMouseDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      // Check for popover elements (including Portal-rendered content)
       if (
         popoverRef.current?.contains(target) ||
         target.closest('[data-selection-popover]') ||
@@ -284,14 +264,11 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        dismissPopover();
-      }
+      if (event.key === 'Escape') dismissPopover();
     };
 
     document.addEventListener('mousedown', handleMouseDown, true);
     document.addEventListener('keydown', handleKeyDown);
-
     return () => {
       document.removeEventListener('mousedown', handleMouseDown, true);
       document.removeEventListener('keydown', handleKeyDown);
@@ -307,20 +284,23 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       try {
         const diff = await gitApi.getFileDiff(repoPath, filePath);
         const fileName = filePath.split('/').pop() || filePath;
-
-        setOldFile({ name: fileName, contents: diff.old_content });
-        setNewFile({ name: fileName, contents: diff.new_content });
+        const nextOldFile = { name: fileName, contents: diff.old_content };
+        const nextNewFile = { name: fileName, contents: diff.new_content };
+        setOldFile(nextOldFile);
+        setNewFile(nextNewFile);
+        setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
         setDiffCompareRef(diff.compare_ref);
       } catch (err) {
         console.error('Failed to load diff:', err);
         setError(err instanceof Error ? err.message : 'Failed to load diff');
+        setWorkingDiff(null);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadDiff();
-  }, [repoPath, filePath, currentBranch, defaultBranch, isBranchPublished]);
+  }, [repoPath, filePath, compareMode]);
 
   const diffOptions = useMemo(() => ({
     theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
@@ -352,7 +332,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     );
   }
 
-  if (!oldFile || !newFile) {
+  if (!oldFile || !newFile || !workingDiff) {
     return (
       <div className="flex items-center justify-center h-full bg-background">
         <p className="text-muted-foreground">No diff available</p>
@@ -362,7 +342,6 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
-      {/* Header */}
       <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0">
         <div
           className="relative h-5 flex-1 min-w-0 overflow-hidden mr-3"
@@ -371,37 +350,21 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
         >
           <div
             className="absolute inset-x-0 h-full flex items-center gap-3 transition-all duration-500 ease-in-out"
-            style={{
-              transform: showTip ? 'translateY(-100%)' : 'translateY(0)',
-              opacity: showTip ? 0 : 1,
-            }}
+            style={{ transform: showTip ? 'translateY(-100%)' : 'translateY(0)', opacity: showTip ? 0 : 1 }}
           >
             <span className="text-sm font-medium text-foreground truncate">{filePath}</span>
-            {diffCompareRef && (
-              <span className="text-xs text-muted-foreground shrink-0">
-                vs {diffCompareRef}
-              </span>
-            )}
+            {diffCompareRef && <span className="text-xs text-muted-foreground shrink-0">vs {diffCompareRef}</span>}
             {diffStats && (diffStats.additions > 0 || diffStats.deletions > 0) && (
               <span className="text-xs font-mono shrink-0">
-                {diffStats.additions > 0 && (
-                  <span className="text-green-500">+{diffStats.additions}</span>
-                )}
-                {diffStats.additions > 0 && diffStats.deletions > 0 && (
-                  <span className="text-muted-foreground mx-1">/</span>
-                )}
-                {diffStats.deletions > 0 && (
-                  <span className="text-red-500">-{diffStats.deletions}</span>
-                )}
+                {diffStats.additions > 0 && <span className="text-green-500">+{diffStats.additions}</span>}
+                {diffStats.additions > 0 && diffStats.deletions > 0 && <span className="text-muted-foreground mx-1">/</span>}
+                {diffStats.deletions > 0 && <span className="text-red-500">-{diffStats.deletions}</span>}
               </span>
             )}
           </div>
           <div
             className="absolute inset-x-0 h-full flex items-center transition-all duration-500 ease-in-out"
-            style={{
-              transform: showTip ? 'translateY(0)' : 'translateY(100%)',
-              opacity: showTip ? 1 : 0,
-            }}
+            style={{ transform: showTip ? 'translateY(0)' : 'translateY(100%)', opacity: showTip ? 1 : 0 }}
           >
             <span className="text-xs text-muted-foreground truncate">
               Tips: Select line numbers to annotate changes and quickly send to AI Agent (⇧ Shift for multi-select)
@@ -413,83 +376,43 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
             onClick={() => setWordWrap(!wordWrap)}
             className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
           >
-            <span
-              className="inline-block transition-all duration-300 ease-out"
-              style={{
-                transform: wordWrap ? 'translateY(-100%)' : 'translateY(0)',
-                opacity: wordWrap ? 0 : 1,
-              }}
-            >
+            <span className="inline-block transition-all duration-300 ease-out" style={{ transform: wordWrap ? 'translateY(-100%)' : 'translateY(0)', opacity: wordWrap ? 0 : 1 }}>
               Wrap
             </span>
-            <span
-              className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out"
-              style={{
-                transform: wordWrap ? 'translateY(0)' : 'translateY(100%)',
-                opacity: wordWrap ? 1 : 0,
-              }}
-            >
+            <span className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out" style={{ transform: wordWrap ? 'translateY(0)' : 'translateY(100%)', opacity: wordWrap ? 1 : 0 }}>
               Scroll
             </span>
           </button>
-
           <button
-            onClick={() => setDiffStyle(diffStyle === 'split' ? 'unified' : 'split')}
+            onClick={() => setDiffStyle(diffStyle === 'unified' ? 'split' : 'unified')}
             className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
           >
-            <span
-              className="inline-block transition-all duration-300 ease-out"
-              style={{
-                transform: diffStyle === 'unified' ? 'translateY(-100%)' : 'translateY(0)',
-                opacity: diffStyle === 'unified' ? 0 : 1,
-              }}
-            >
+            <span className="inline-block transition-all duration-300 ease-out" style={{ transform: diffStyle === 'unified' ? 'translateY(-100%)' : 'translateY(0)', opacity: diffStyle === 'unified' ? 0 : 1 }}>
               Unified
             </span>
-            <span
-              className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out"
-              style={{
-                transform: diffStyle === 'unified' ? 'translateY(0)' : 'translateY(100%)',
-                opacity: diffStyle === 'unified' ? 1 : 0,
-              }}
-            >
+            <span className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out" style={{ transform: diffStyle === 'unified' ? 'translateY(0)' : 'translateY(100%)', opacity: diffStyle === 'unified' ? 1 : 0 }}>
               Split
             </span>
           </button>
-
           <button
             onClick={() => setDisableBackground(!disableBackground)}
             className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
           >
-            <span
-              className="inline-block transition-all duration-300 ease-out"
-              style={{
-                transform: disableBackground ? 'translateY(-100%)' : 'translateY(0)',
-                opacity: disableBackground ? 0 : 1,
-              }}
-            >
+            <span className="inline-block transition-all duration-300 ease-out" style={{ transform: disableBackground ? 'translateY(-100%)' : 'translateY(0)', opacity: disableBackground ? 0 : 1 }}>
               No BG
             </span>
-            <span
-              className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out"
-              style={{
-                transform: disableBackground ? 'translateY(0)' : 'translateY(100%)',
-                opacity: disableBackground ? 1 : 0,
-              }}
-            >
+            <span className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out" style={{ transform: disableBackground ? 'translateY(0)' : 'translateY(100%)', opacity: disableBackground ? 1 : 0 }}>
               BG
             </span>
           </button>
         </div>
       </div>
 
-      {/* Diff Content */}
       <div
         ref={containerRef}
         className="diff-viewer-container flex-1 min-h-0 w-full overflow-scroll bg-background relative"
         style={{ height: '100%', scrollbarGutter: 'stable' }}
       >
-        {/* Selection Popover for AI */}
         <SelectionPopover
           isVisible={isPopoverVisible}
           position={popoverPosition}
@@ -501,9 +424,8 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
           popoverRef={popoverRef}
           positioning="absolute"
         />
-        <MultiFileDiff
-          oldFile={oldFile}
-          newFile={newFile}
+        <FileDiff
+          fileDiff={workingDiff}
           options={diffOptions}
           style={{ minHeight: '100%', width: '100%' }}
         />

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { UnresolvedFile, type FileContents } from "@pierre/diffs";
-import { Loader2, toastManager } from "@workspace/ui";
+import { getFileIconProps, Loader2, toastManager } from "@workspace/ui";
 import { useTheme } from "next-themes";
 import { fsApi } from "@/api/ws-api";
 import { useGitStore } from "@/hooks/use-git-store";
@@ -38,15 +38,36 @@ function ConflictFileRenderer({
   onResolved,
 }: ConflictFileRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const fileName = useMemo(() => file.name.split("/").pop() || file.name, [file.name]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
+    const headerPrefix = () => {
+      const wrapper = document.createElement("span");
+      wrapper.style.display = "inline-flex";
+      wrapper.style.alignItems = "center";
+
+      const icon = document.createElement("img");
+      const iconProps = getFileIconProps({
+        name: fileName,
+        isDir: false,
+        className: "size-4 shrink-0",
+      });
+      icon.src = iconProps.src;
+      if (iconProps.alt) icon.alt = iconProps.alt;
+      icon.className = "size-4 shrink-0";
+
+      wrapper.appendChild(icon);
+      return wrapper;
+    };
+
     const instance = new UnresolvedFile({
       theme,
       mergeConflictActionsType: "default",
       maxContextLines: 16,
+      renderHeaderPrefix: headerPrefix,
       onMergeConflictResolve: (nextFile) => {
         onResolved(nextFile);
       },
@@ -58,7 +79,7 @@ function ConflictFileRenderer({
       instance.cleanUp();
       container.innerHTML = "";
     };
-  }, [file, onResolved, theme]);
+  }, [file, fileName, onResolved, theme]);
 
   return <div ref={containerRef} className="w-full" />;
 }
