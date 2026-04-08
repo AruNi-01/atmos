@@ -1461,7 +1461,48 @@ impl WsMessageService {
             tracing::warn!("Failed to initialize target branch: {e}");
         }
 
-        // Spawn setup in background
+        if let Err(error) = self
+            .workspace_service
+            .ensure_worktree_ready(workspace.model.guid.clone())
+            .await
+        {
+            tracing::error!(
+                "[handle_workspace_create] Failed to prepare worktree for {}: {}",
+                workspace.model.guid,
+                error
+            );
+
+            if let Err(cleanup_error) = self
+                .workspace_service
+                .soft_delete_workspace(&workspace.model.guid)
+                .await
+            {
+                tracing::warn!(
+                    "[handle_workspace_create] Failed to clean up workspace {} after worktree error: {}",
+                    workspace.model.guid,
+                    cleanup_error
+                );
+            }
+
+            return Err(error.into());
+        }
+
+        let next_setup_step = Self::build_workspace_setup_plan(
+            &self.project_service,
+            &req.project_guid,
+            req.initial_requirement.as_deref(),
+            req.github_issue.as_ref(),
+            req.auto_extract_todos,
+        )
+        .await
+        .and_then(|plan| {
+            plan.steps
+                .into_iter()
+                .find(|step| *step != WorkspaceSetupStep::CreateWorktree)
+        })
+        .or(Some(WorkspaceSetupStep::Ready));
+
+        // Spawn the remaining setup steps in background after the worktree is ready.
         if let Some(manager) = self.ws_manager.get().cloned() {
             let project_service = self.project_service.clone();
             let workspace_id = workspace.model.guid.clone();
@@ -1485,7 +1526,7 @@ impl WsMessageService {
                     initial_requirement,
                     github_issue,
                     auto_extract_todos,
-                    None,
+                    next_setup_step,
                 )
                 .await;
             });

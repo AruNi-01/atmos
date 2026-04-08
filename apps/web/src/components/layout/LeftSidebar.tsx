@@ -57,6 +57,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { ProjectItem } from '@/components/layout/sidebar/ProjectItem';
 import { SortableProject } from '@/components/layout/sidebar/SortableProject';
 import { WorkspaceContent } from '@/components/layout/sidebar/WorkspaceContent';
+import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
+import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 
 interface LeftSidebarProps {
     projects?: Project[];
@@ -160,7 +162,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     const currentProjectId = currentProject?.id ?? null;
     const currentWorkspace = currentProject?.workspaces.find(w => w.id === currentWorkspaceId);
     const currentEffectivePath = currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
-    const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
+    const isSettingUp = isWorkspaceSetupBlocking(
+        currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
+    );
+    const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
+    const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
+    const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
 
     useEffect(() => {
         if (currentProjectId && currentEffectivePath) {
@@ -352,10 +359,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     };
 
     const handleQuickAddWorkspace = async (projectId: string) => {
+        showCreating();
         const workspaceId = await quickAddWorkspace(projectId);
         if (workspaceId) {
+            showOpening(workspaceId);
             router.push(`/workspace?id=${workspaceId}`);
+            return;
         }
+        clearWorkspaceCreationOverlay();
     };
 
     const handleSetColor = async (projectId: string, color?: string) => {

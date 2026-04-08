@@ -78,6 +78,8 @@ import { ArrowBigUp, ChevronDown, ChevronLeft, ChevronRight, Command, ExternalLi
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
+import { WorkspaceStatusPopover } from './WorkspaceStatusPopover';
+import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 
 type BranchSyncDirection = 'ahead' | 'behind' | 'equal' | 'unknown' | 'diverged';
 
@@ -423,8 +425,6 @@ const Header: React.FC = () => {
     });
   }, [onWsEvent, githubOwner, githubRepo, currentBranch, refreshHeaderPrList]);
 
-  const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
-
   // Find current project based on workspaceId OR projectId
   const currentProject = projects.find(p =>
     (currentWorkspaceId && p.workspaces.some(w => w.id === currentWorkspaceId)) ||
@@ -433,6 +433,8 @@ const Header: React.FC = () => {
   const currentWorkspace = currentProject?.workspaces.find(
     w => w.id === currentWorkspaceId
   );
+  const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
+  const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
 
   // Editable state for target branch
 
@@ -512,6 +514,7 @@ const Header: React.FC = () => {
 
   const deleteProject = useProjectStore(s => s.deleteProject);
   const fetchProjects = useProjectStore(s => s.fetchProjects);
+  const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
 
   useEffect(() => {
     const handleFullScreenChange = () => {
@@ -906,6 +909,14 @@ const Header: React.FC = () => {
               />
             )}
           </div>
+          {currentWorkspace && currentWorkspaceSetupProgress && (
+            <div className="desktop-no-drag">
+              <WorkspaceStatusPopover
+                progress={currentWorkspaceSetupProgress}
+                onFinish={() => clearSetupProgress(currentWorkspace.id)}
+              />
+            </div>
+          )}
         </div>
 
         {/* Center: Git Context Flow */}

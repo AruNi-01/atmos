@@ -1,12 +1,13 @@
 'use client';
 import React, { useMemo, type JSX } from 'react';
 import { motion } from 'motion/react';
-import { cn } from '@/lib/utils';
+import { cn } from '../../lib/utils';
 
 export type TextShimmerProps = {
   children: string;
   as?: React.ElementType;
   className?: string;
+  style?: React.CSSProperties;
   duration?: number;
   spread?: number;
 };
@@ -15,11 +16,13 @@ function TextShimmerComponent({
   children,
   as: Component = 'p',
   className,
+  style,
   duration = 2,
   spread = 2,
 }: TextShimmerProps) {
-  const MotionComponent = motion.create(
-    Component as keyof JSX.IntrinsicElements
+  const MotionComponent = useMemo(
+    () => motion.create(Component as keyof JSX.IntrinsicElements),
+    [Component],
   );
 
   const dynamicSpread = useMemo(() => {
@@ -42,12 +45,11 @@ function TextShimmerComponent({
         duration,
         ease: 'linear',
       }}
-      style={
-        {
-          '--spread': `${dynamicSpread}px`,
-          backgroundImage: `var(--bg), linear-gradient(var(--base-color), var(--base-color))`,
-        } as React.CSSProperties
-      }
+      style={{
+        '--spread': `${dynamicSpread}px`,
+        backgroundImage: `var(--bg), linear-gradient(var(--base-color), var(--base-color))`,
+        ...style,
+      } as React.CSSProperties}
     >
       {children}
     </MotionComponent>

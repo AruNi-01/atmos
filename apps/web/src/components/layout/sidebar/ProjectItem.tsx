@@ -85,6 +85,8 @@ const getVerticalLineStyle = (colorStr: string): React.CSSProperties => {
   };
 };
 
+const PROJECT_MENU_CLOSE_DELAY_MS = 120;
+
 export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   project,
   isExpanded,
@@ -143,7 +145,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         setIsProjectMenuOpen(false);
       }
       projectMenuTimerRef.current = null;
-    }, 500);
+    }, PROJECT_MENU_CLOSE_DELAY_MS);
   }, [cancelProjectMenuClose]);
 
   useEffect(() => {
@@ -264,7 +266,11 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 ref={menuRef}
-                align="end"
+                side="right"
+                align="start"
+                alignOffset={6}
+                sideOffset={8}
+                avoidCollisions={false}
                 className="w-56"
                 onMouseEnter={cancelProjectMenuClose}
                 onMouseLeave={scheduleProjectMenuClose}

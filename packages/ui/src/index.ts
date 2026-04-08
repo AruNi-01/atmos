@@ -64,8 +64,11 @@ export * from "./components/ui/flow-button";
 export * from "./components/ui/border-beam";
 export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
+export { TextShimmerWave } from "./components/ui/text-shimmer-wave";
 export { TextScramble } from "./components/ui/text-scramble";
 export { TextMorph } from "./components/ui/text-morph";
+export { AnimatedNumber } from "./components/ui/animated-number";
+export type { AnimatedNumberProps } from "./components/ui/animated-number";
 export {
   Sidebar as MotionSidebar,
   SidebarContent as MotionSidebarContent,

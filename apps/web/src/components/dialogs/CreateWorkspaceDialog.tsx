@@ -37,6 +37,7 @@ import {
 } from '@/api/ws-api';
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useProjectStore } from '@/hooks/use-project-store';
+import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 
 interface CreateWorkspaceDialogProps {
   isOpen: boolean;
@@ -176,6 +177,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const router = useAppRouter();
   const projects = useProjectStore((s) => s.projects);
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
+  const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
+  const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
+  const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
 
   const [projectId, setProjectId] = useState(
     defaultProjectId || (projects.length > 0 ? projects[0].id : ''),
@@ -241,6 +245,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setIssuePreview(null);
       setIssues([]);
       setRepoContext(null);
+      setIsSubmitting(false);
       setIssueError(null);
       setBranchError(null);
       setSubmitError(null);
@@ -478,7 +483,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     event.preventDefault();
     if (!projectId) return;
 
+    let keepGlobalLoading = false;
     setIsSubmitting(true);
+    showCreating();
     setBranchError(null);
     setSubmitError(null);
     try {
@@ -499,9 +506,12 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         autoExtractTodos: autoExtractTodos && !!issuePreview && !!todoProviderLabel,
         hasSetupScript,
       });
+      keepGlobalLoading = true;
+      showOpening(workspaceId);
       onClose();
       router.push(`/workspace?id=${workspaceId}`);
     } catch (error) {
+      clearWorkspaceCreationOverlay();
       const message = sanitizeCreateWorkspaceErrorMessage(
         error instanceof Error ? error.message : 'Failed to create workspace',
       );
@@ -519,7 +529,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         setSubmitError(message);
       }
     } finally {
-      setIsSubmitting(false);
+      if (!keepGlobalLoading) {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -877,7 +889,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
           </div>
 
           <DialogFooter className="mt-5">
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button

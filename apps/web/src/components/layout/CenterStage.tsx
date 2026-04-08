@@ -58,6 +58,7 @@ import { useContextParams } from "@/hooks/use-context-params";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
+import { isWorkspaceSetupBlocking } from "@/utils/workspace-setup";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { WorkspacesManagementView } from "@/components/workspace/WorkspacesManagementView";
 import { SkillsView } from "@/components/skills/SkillsView";
@@ -227,7 +228,8 @@ const CenterStage: React.FC = () => {
     }))
   );
   const setupProgressMap = useProjectStore((s) => s.setupProgress);
-  const isSetupActive = workspaceId ? !!setupProgressMap[workspaceId] : false;
+  const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
+  const isSetupBlocking = isWorkspaceSetupBlocking(currentSetupProgress);
   const visibleTerminalTabs = React.useMemo(
     () => terminalTabs && terminalTabs.length > 0
       ? terminalTabs
@@ -282,7 +284,7 @@ const CenterStage: React.FC = () => {
   // Intentionally NOT depending on tabFromUrl: when user triggers wiki gen from Wiki tab, we switch to project-wiki
   // and the window doesn't exist yet — re-running the check would overwrite projectWikiTabVisible and redirect away.
   React.useEffect(() => {
-    if (isSetupActive) return;
+    if (isSetupBlocking) return;
     if (!effectiveContextId) return;
     const ctxId = effectiveContextId;
     systemApi.checkProjectWikiWindow(ctxId).then(
@@ -301,11 +303,11 @@ const CenterStage: React.FC = () => {
         }
       }
     );
-  }, [effectiveContextId, isSetupActive]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/setUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
+  }, [effectiveContextId, isSetupBlocking]); // eslint-disable-line react-hooks/exhaustive-deps -- tabFromUrl/setUrlParams in callback; exclude tabFromUrl to avoid race when user switches to project-wiki
 
   // Check Code Review window on mount and when workspace changes.
   React.useEffect(() => {
-    if (isSetupActive) return;
+    if (isSetupBlocking) return;
     if (!effectiveContextId) return;
     const ctxId = effectiveContextId;
     systemApi.checkCodeReviewWindow(ctxId).then(
@@ -324,7 +326,7 @@ const CenterStage: React.FC = () => {
         }
       }
     );
-  }, [effectiveContextId, isSetupActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveContextId, isSetupBlocking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCloseFile = (file: OpenFile) => {
     if (file.isDirty) {
@@ -366,8 +368,6 @@ const CenterStage: React.FC = () => {
   const projects = useProjectStore(s => s.projects);
   const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
   const { currentBranch } = useGitInfoStore();
-
-  const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
 
   const closeFilesSafely = (files: OpenFile[]) => {
     if (files.length === 0) return;
@@ -490,7 +490,7 @@ const CenterStage: React.FC = () => {
   }, [effectiveContextId, visibleTerminalTabs]);
 
   React.useEffect(() => {
-    if (isSetupActive) return;
+    if (isSetupBlocking) return;
     if (!effectiveContextId) return;
     for (const file of openFiles) {
       if (!file.isLoading) continue;
@@ -502,7 +502,7 @@ const CenterStage: React.FC = () => {
           reloadingFilesRef.current.delete(key);
         });
     }
-  }, [effectiveContextId, isSetupActive, openFiles, reloadFileContent]);
+  }, [effectiveContextId, isSetupBlocking, openFiles, reloadFileContent]);
 
   React.useEffect(() => {
     const container = scrollableTabsRef.current;
@@ -635,7 +635,7 @@ const CenterStage: React.FC = () => {
 
   // Load agent custom settings and custom agents
   React.useEffect(() => {
-    if (isSetupActive) return;
+    if (isSetupBlocking) return;
     Promise.all([
       functionSettingsApi.get(),
       codeAgentCustomApi.get(),
@@ -663,7 +663,7 @@ const CenterStage: React.FC = () => {
         ));
       }
     }).catch(() => {});
-  }, [isSetupActive]);
+  }, [isSetupBlocking]);
 
   const visibleBuiltInAgents = React.useMemo(
     () => AGENT_OPTIONS.filter((agent) => (agentCustomSettings[agent.id]?.enabled ?? true)),
@@ -870,7 +870,7 @@ const CenterStage: React.FC = () => {
   }
 
   // Show setup progress if active workspace is being initialized
-  if (currentSetupProgress) {
+  if (currentSetupProgress && isSetupBlocking) {
     return (
       <main className="h-full overflow-hidden bg-background">
         <WorkspaceSetupProgressView

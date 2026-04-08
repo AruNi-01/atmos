@@ -10,6 +10,7 @@ import Footer from "@/components/layout/Footer";
 import { PanelLayout } from "@/components/layout/PanelLayout";
 import { DocumentTitle } from "@/components/layout/DocumentTitle";
 import { SidebarLayoutProvider } from "@/components/layout/SidebarLayoutContext";
+import { WorkspaceCreationOverlay } from "@/components/layout/WorkspaceCreationOverlay";
 
 type Props = {
   children: React.ReactNode;
@@ -59,6 +60,8 @@ export default async function AppLayout({ children, params }: Props) {
           <AgentChatPanel />
 
           <DocumentTitle />
+
+          <WorkspaceCreationOverlay />
         </SidebarLayoutProvider>
       </Suspense>
 

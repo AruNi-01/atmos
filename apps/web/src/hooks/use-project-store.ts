@@ -107,6 +107,49 @@ function getSetupStepOrder(
   return SETUP_STEP_ORDER[stepKey] ?? -1;
 }
 
+function getInitialAsyncSetupState(input: {
+  hasGithubIssue: boolean;
+  hasRequirementStep: boolean;
+  autoExtractTodos: boolean;
+  hasSetupScript: boolean;
+}): Pick<WorkspaceSetupProgress, 'status' | 'stepKey' | 'stepTitle' | 'success'> {
+  if (input.hasGithubIssue || input.hasRequirementStep) {
+    return {
+      status: 'creating',
+      stepKey: 'write_requirement',
+      stepTitle: input.hasGithubIssue
+        ? 'Filling Requirement Specification'
+        : 'Writing Requirement Specification',
+      success: true,
+    };
+  }
+
+  if (input.autoExtractTodos) {
+    return {
+      status: 'creating',
+      stepKey: 'extract_todos',
+      stepTitle: 'Extracting Initial TODOs',
+      success: true,
+    };
+  }
+
+  if (input.hasSetupScript) {
+    return {
+      status: 'setting_up',
+      stepKey: 'run_setup_script',
+      stepTitle: 'Running Setup Script',
+      success: true,
+    };
+  }
+
+  return {
+    status: 'completed',
+    stepKey: 'ready',
+    stepTitle: 'Ready to Build',
+    success: true,
+  };
+}
+
 
 function isWorkspaceSetupProgressEventPayload(
   data: unknown,
@@ -404,6 +447,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         autoExtractTodos: !!data.autoExtractTodos,
         hasSetupScript: !!data.hasSetupScript,
       };
+      const initialAsyncSetupState = getInitialAsyncSetupState(setupContext);
 
       set(state => ({
         setupProgress: {
@@ -415,11 +459,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
               }
             : {
                 workspaceId: newWorkspace.id,
-                status: 'creating',
-                stepKey: 'create_worktree',
-                stepTitle: 'Creating Workspace',
+                ...initialAsyncSetupState,
                 output: '',
-                success: true,
                 setupContext,
                 retryContext: {
                   initialRequirement: data.initialRequirement ?? null,
@@ -476,6 +517,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
+      const setupContext = {
+        hasGithubIssue: false,
+        hasRequirementStep: false,
+        autoExtractTodos: false,
+        hasSetupScript,
+      };
+      const initialAsyncSetupState = getInitialAsyncSetupState(setupContext);
 
       set(state => ({
         setupProgress: {
@@ -483,26 +531,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           [newWorkspace.id]: state.setupProgress[newWorkspace.id]
             ? {
                 ...state.setupProgress[newWorkspace.id],
-                setupContext: {
-                  hasGithubIssue: false,
-                  hasRequirementStep: false,
-                  autoExtractTodos: false,
-                  hasSetupScript,
-                },
+                setupContext,
               }
             : {
                 workspaceId: newWorkspace.id,
-                status: 'creating',
-                stepKey: 'create_worktree',
-                stepTitle: 'Creating Workspace',
+                ...initialAsyncSetupState,
                 output: '',
-                success: true,
-                setupContext: {
-                  hasGithubIssue: false,
-                  hasRequirementStep: false,
-                  autoExtractTodos: false,
-                  hasSetupScript,
-                },
+                setupContext,
                 retryContext: {
                   initialRequirement: null,
                   githubIssue: undefined,
@@ -807,7 +842,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const newStatus = progress.status;
     const existingStepOrder = getSetupStepOrder(existing?.stepKey);
     const incomingStepOrder = getSetupStepOrder(progress.stepKey);
+    const shouldIgnoreCompletedRegression =
+      !!existing &&
+      existing.status === 'completed' &&
+      newStatus !== 'completed';
     const shouldIgnoreRegression =
+      !shouldIgnoreCompletedRegression &&
       !!existing &&
       existing.status !== 'error' &&
       existing.status !== 'completed' &&

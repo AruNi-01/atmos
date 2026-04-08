@@ -46,6 +46,8 @@ import {
 } from '@workspace/ui';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useProjectStore } from '@/hooks/use-project-store';
+import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
+import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { fsApi, appApi, SearchMatch, FileTreeNode } from '@/api/ws-api';
 import { llmProvidersModalParams, agentChatParams } from '@/lib/nuqs/searchParams';
@@ -247,7 +249,12 @@ export function GlobalSearch() {
     }
   }, [selectedValue]);
 
-  const isSettingUp = currentWorkspaceId ? setupProgress[currentWorkspaceId]?.status !== 'completed' && !!setupProgress[currentWorkspaceId] : false;
+  const isSettingUp = isWorkspaceSetupBlocking(
+    currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
+  );
+  const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
+  const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
+  const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
 
   // Load file tree when switching to files tab
   useEffect(() => {
@@ -511,9 +518,13 @@ export function GlobalSearch() {
         keywords: ['new', 'workspace', 'quick', 'create', project.name],
         icon: <Zap className="size-4 text-muted-foreground" />,
         action: async () => {
+          showCreating();
           const workspaceId = await quickAddWorkspace(project.id);
           if (workspaceId) {
+            showOpening(workspaceId);
             router.push(`/workspace?id=${workspaceId}`);
+          } else {
+            clearWorkspaceCreationOverlay();
           }
           setGlobalSearchOpen(false);
         },
@@ -1123,4 +1134,3 @@ export function GlobalSearch() {
 }
 
 export default GlobalSearch;
-

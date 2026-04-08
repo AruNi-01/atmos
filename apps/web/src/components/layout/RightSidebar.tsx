@@ -43,6 +43,7 @@ import { ActionsPanel } from "@/components/github/ActionsPanel";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
 import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
+import { isWorkspaceSetupBlocking } from "@/utils/workspace-setup";
 
 import { ChangeSection } from '@/components/layout/sidebar/ChangeSection';
 import { ChangesViewSwitcher } from '@/components/layout/sidebar/ChangesViewSwitcher';
@@ -92,10 +93,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     [currentProject, workspaceId],
   );
   const setupProgress = useProjectStore((s) => s.setupProgress);
-  const isSettingUp =
-    workspaceId && setupProgress[workspaceId]
-      ? setupProgress[workspaceId].status !== "completed"
-      : false;
+  const isSettingUp = isWorkspaceSetupBlocking(
+    workspaceId ? setupProgress[workspaceId] : null,
+  );
 
   const effectiveContextId = workspaceId || projectIdFromUrl;
 

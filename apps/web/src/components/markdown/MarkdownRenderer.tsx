@@ -502,6 +502,8 @@ export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLink
     <div className={cn(
       "prose prose-[14px] max-w-none prose-code:before:content-none prose-code:after:content-none",
       "prose-img:inline-block prose-img:m-0 prose-p:my-2 prose-a:break-all",
+      "[&_ul.contains-task-list]:list-none [&_ul.contains-task-list]:pl-0",
+      "[&_li.task-list-item]:list-none [&_li.task-list-item]:pl-0",
       "[&_picture]:inline-block [&_img]:inline-block [&_img]:m-0 [&_svg]:inline-block [&_svg]:align-middle [&_svg]:m-0",
       resolvedTheme === 'dark' && "prose-invert",
       className,
