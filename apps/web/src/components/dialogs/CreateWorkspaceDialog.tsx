@@ -811,7 +811,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                           <div className="text-xs text-muted-foreground">
                             {issuePreview.owner}/{issuePreview.repo}#{issuePreview.number}
                           </div>
-                          <h3 className="mt-1 text-sm font-medium text-foreground">
+                          <h3 className="mt-1 truncate text-sm font-medium text-foreground">
                             {issuePreview.title}
                           </h3>
                         </div>
