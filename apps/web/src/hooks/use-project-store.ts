@@ -878,16 +878,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   retryWorkspaceSetup: async (workspaceId) => {
     try {
       const progress = get().setupProgress[workspaceId];
-      if (!progress?.failedStepKey) {
-        throw new Error('No failed setup step recorded');
-      }
+      const retryStep = progress?.failedStepKey ?? progress?.stepKey ?? 'create_worktree';
 
       await useWebSocketStore.getState().send('workspace_retry_setup', {
         guid: workspaceId,
-        failed_step_key: progress.failedStepKey,
-        initial_requirement: progress.retryContext?.initialRequirement ?? null,
-        github_issue: progress.retryContext?.githubIssue ?? null,
-        auto_extract_todos: progress.retryContext?.autoExtractTodos ?? false,
+        failed_step_key: retryStep,
+        initial_requirement: progress?.retryContext?.initialRequirement ?? null,
+        github_issue: progress?.retryContext?.githubIssue ?? null,
+        auto_extract_todos: progress?.retryContext?.autoExtractTodos ?? false,
       });
     } catch (error) {
       console.error('Failed to retry setup:', error);

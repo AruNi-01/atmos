@@ -164,6 +164,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const [isSkippingSetupScript, setIsSkippingSetupScript] = useState(false);
   const [isTodoEditing, setIsTodoEditing] = useState(false);
   const [editedTodoOutput, setEditedTodoOutput] = useState<string | null>(null);
+  const [isStale, setIsStale] = useState(false);
 
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
@@ -244,6 +245,19 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       onFinish();
     }
   }, [localCountdown, onFinish, status]);
+
+  // Detect stale progress: if no update arrives for 30s while in-progress,
+  // the backend may have finished silently (e.g. plan build failure, lost WS events).
+  // Skip detection when waiting for user confirmation (requiresConfirmation).
+  useEffect(() => {
+    if (status === "completed" || status === "error" || status === "setting_up" || progress.requiresConfirmation) {
+      setIsStale(false);
+      return;
+    }
+    setIsStale(false);
+    const timer = setTimeout(() => setIsStale(true), 90_000);
+    return () => clearTimeout(timer);
+  }, [status, stepKey, stepTitle, output, progress.requiresConfirmation]);
 
   useEffect(() => {
     if (!progress.requiresConfirmation) {
@@ -474,7 +488,9 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             ? "Everything is ready."
             : status === "error"
               ? "Setup stopped before completion."
-              : "Preparing this workspace based on your creation options."}
+              : isStale
+                ? "Setup appears to be unresponsive. You can retry or skip."
+                : "Preparing this workspace based on your creation options."}
         </p>
       </div>
 
@@ -590,6 +606,25 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                   )}
                 </Button>
               )}
+              <Button
+                variant="destructive"
+                size="lg"
+                className="rounded-sm px-12 shadow-lg transition-all hover:scale-105 active:scale-95"
+                onClick={() => retryWorkspaceSetup(workspaceId)}
+              >
+                Retry Initialization
+              </Button>
+            </>
+          ) : isStale ? (
+            <>
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-sm px-8 shadow-lg transition-all hover:scale-105 active:scale-95"
+                onClick={onFinish}
+              >
+                Skip & Enter Workspace
+              </Button>
               <Button
                 variant="destructive"
                 size="lg"

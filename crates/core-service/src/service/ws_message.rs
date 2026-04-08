@@ -1489,6 +1489,11 @@ impl WsMessageService {
                 )
                 .await;
             });
+        } else {
+            tracing::error!(
+                "[handle_workspace_create] WsManager not available, cannot run workspace setup for {}",
+                workspace.model.guid
+            );
         }
 
         Ok(json!(workspace))
@@ -1893,6 +1898,30 @@ impl WsMessageService {
         )
         .await
         else {
+            tracing::error!(
+                "[execute_setup_state_machine] Failed to build setup plan for workspace {}",
+                workspace_id
+            );
+            let message = WsMessage::notification(
+                WsEvent::WorkspaceSetupProgress,
+                json!(WorkspaceSetupProgressNotification {
+                    workspace_id: workspace_id.clone(),
+                    status: "error".to_string(),
+                    step_key: Some("create_worktree".to_string()),
+                    failed_step_key: Some("create_worktree".to_string()),
+                    step_title: "Workspace Setup Failed".to_string(),
+                    output: Some(
+                        "\r\n\x1b[31mFailed to initialize workspace setup: could not load project configuration.\x1b[0m\r\n"
+                            .to_string()
+                    ),
+                    replace_output: true,
+                    requires_confirmation: false,
+                    success: false,
+                    countdown: None,
+                    setup_context: None,
+                }),
+            );
+            let _ = manager.broadcast(&message).await;
             return;
         };
 
@@ -2190,6 +2219,10 @@ impl WsMessageService {
                         .await;
                         return;
                     }
+
+                    // Brief pause so the user can see the final script output
+                    // before the view transitions to the Ready step.
+                    tokio::time::sleep(Duration::from_secs(2)).await;
                 }
                 WorkspaceSetupStep::Ready => {
                     Self::send_workspace_setup_progress(
