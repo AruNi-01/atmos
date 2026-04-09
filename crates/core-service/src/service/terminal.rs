@@ -836,42 +836,33 @@ impl TerminalService {
         terminal_name: Option<String>,
         cwd: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
-        // Create a stable grouped session name derived from the tmux window identity
-        // (tmux_session + window_index) rather than the ephemeral session_id UUID.
+        // Each WebSocket connection gets its own grouped tmux session, named after
+        // the ephemeral session_id UUID assigned by the frontend.
         //
-        // WHY: `tmux new-session -d -t master -s client` allocates +1 PTY device on the
-        // OS for the grouped session's internal representation.  Previously the name was
-        // based on the ephemeral UUID session_id, so every page refresh created a NEW
-        // grouped session (and a new PTY), while the old one was killed — but the OS
-        // release was asynchronous (~600ms delay observed in logs).  Over many refreshes
-        // the unreleased PTYs accumulated, causing exhaustion.
+        // WHY per-connection (not per-window):
+        // Using a window-stable name caused multiple simultaneous clients (e.g. local
+        // browser + remote access) to share the same grouped session. tmux only allows
+        // one terminal attached to a session at a time, so the second attach would
+        // detach the first, showing "[detached (from session ...)]" to the user.
         //
-        // With a window-stable name the first attach for a given tmux window creates the
-        // grouped session (+1 PTY, amortised over the window's lifetime).  Every
-        // subsequent attach for the same window sees it already exists and
-        // `create_grouped_session` returns early — zero new PTYs on refresh.
+        // By using session_id (a UUID v4 generated fresh per pane per connection),
+        // each WebSocket connection gets its own grouped session and they never
+        // interfere with each other.
         //
-        // Format: atmos_client_{tmux_session}_w{window_index}_p{pid}
+        // PTY cleanup: stale grouped sessions from disconnected clients are cleaned up
+        // by evict_conflicting_tmux_window_sessions() on reconnect, and by
+        // cleanup_stale_client_sessions() on startup (both key on atmos_client_ prefix).
         //
-        // Three-part stable name:
+        // Format: atmos_client_{tmux_session}_w{window_index}_{session_id_prefix}
         //
-        // 1. {tmux_session}  — ties the grouped session to the correct master.
-        //    Only ':' is replaced (tmux target separator); hyphens are preserved
-        //    so atmos_my-app_ws and atmos_my_app_ws never collide.
-        //
-        // 2. _w{window_index} — distinguishes multiple terminals in one workspace.
-        //
-        // 3. _p{pid}  — ties the session to THIS process instance so that two
-        //    concurrent API processes sharing the same tmux socket (e.g. the
-        //    desktop sidecar on :30303 and the dev server on :30301) never
-        //    overwrite each other's grouped sessions.  On restart the old PID
-        //    changes, so cleanup_stale_client_sessions() correctly kills the
-        //    orphaned sessions from the previous run.
+        // {tmux_session} + _w{window_index} — human-readable context (which workspace/window).
+        // {session_id_prefix}               — first 8 chars of UUID, unique per connection.
+        let session_id_prefix = &session_id[..8.min(session_id.len())];
         let client_session_name = format!(
-            "atmos_client_{}_w{}_p{}",
+            "atmos_client_{}_w{}_{}",
             tmux_session.replace(':', "_"),
             window_index,
-            std::process::id(),
+            session_id_prefix.replace('-', "_"),
         );
 
         // Create the grouped session if it doesn't exist
