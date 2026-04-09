@@ -1111,11 +1111,14 @@ impl TerminalService {
                 // (destroy_session / cleanup_workspace_terminal_state / shutdown).
             }
 
-            // Signal the PTY thread to stop its command loop.  It will see EOF
-            // (from the already-detached client) and exit cleanly.
+            // Signal the PTY thread to stop its command loop.
+            // Pass client_session + socket_path so the PTY thread uses detach-client
+            // (idempotent — already detached above) rather than falling back to writing
+            // the Ctrl+B d key sequence, which can race with the tmux process exit and
+            // cause a spurious "[detached]" message to appear in the terminal.
             let _ = handle.command_tx.send(SessionCommand::Close {
-                client_session: None,
-                socket_path: None,
+                client_session: handle.client_session.clone(),
+                socket_path: Some(std::path::PathBuf::from(&sock)),
             });
 
             info!(
