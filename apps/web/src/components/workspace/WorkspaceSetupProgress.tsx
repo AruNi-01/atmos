@@ -332,6 +332,20 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   };
 
   const renderBody = () => {
+    if (status === "completed") {
+      return (
+        <div className={cn(
+          "flex w-full flex-1 items-center justify-center border border-border bg-background text-center text-sm text-muted-foreground",
+          compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
+        )}>
+          <div className="max-w-md space-y-2">
+            <p className="text-sm font-medium text-foreground">Workspace is ready</p>
+            <p>Setup completed. You can enter the workspace and start building.</p>
+          </div>
+        </div>
+      );
+    }
+
     if (showTerminalPanel) {
       return (
           <div className={cn(
@@ -473,14 +487,31 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       );
     }
 
+    if (currentStepKey === "run_setup_script") {
+      return (
+        <div className={cn(
+          "flex w-full flex-1 items-center justify-center border border-border bg-background text-center text-sm text-muted-foreground",
+          compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
+        )}>
+          <div className="max-w-md space-y-2">
+            <p className="text-sm font-medium text-foreground">Running workspace setup script</p>
+            <p>
+              Waiting for the project setup command to finish.
+              {!output.trim() ? " Output will appear here once the script writes to the terminal." : ""}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     return (
         <div className={cn(
           "flex w-full flex-1 items-center justify-center border border-border bg-background text-center text-sm text-muted-foreground",
           compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
         )}>
         <div className="max-w-md space-y-2">
-          <p className="text-sm font-medium text-foreground">Workspace is ready</p>
-          <p>Setup completed. You can enter the workspace and start building.</p>
+          <p className="text-sm font-medium text-foreground">Preparing workspace</p>
+          <p>Setup is still in progress. This view will update as the next step starts.</p>
         </div>
       </div>
     );
