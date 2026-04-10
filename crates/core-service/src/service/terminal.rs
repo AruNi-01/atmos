@@ -1723,14 +1723,14 @@ fn run_pty_session_with_tmux(
                 } => {
                     debug!("Closing PTY session (detaching): {}", session_id);
 
-                    // Use `tmux detach-client` for reliable detach instead of the
-                    // fragile Ctrl+B,d key sequence. The key sequence is unreliable:
-                    // 1. Depends on prefix key being Ctrl+B (user's .tmux.conf may differ)
-                    // 2. Input buffering can interfere with prefix + 'd' sequence
-                    // 3. Programs consuming input (vim, etc.) intercept the keys
-                    // `detach-client` is a direct command to the tmux server that
-                    // always works and produces a clean exit (no "[exited]" message).
-                    let detached = if let (Some(ref client_name), Some(ref sock)) = (&cs, &sp) {
+                    // Use `tmux detach-client` to disconnect this client from its
+                    // grouped session. close_session() already calls this before
+                    // sending the Close command, so this call is typically a no-op
+                    // (session already detached). We do NOT fall back to writing
+                    // Ctrl+B d (0x02 0x64) — that key sequence races with the tmux
+                    // process exit and produces a spurious "[detached]" message in
+                    // the terminal output seen by the user.
+                    if let (Some(ref client_name), Some(ref sock)) = (&cs, &sp) {
                         let mut detach_cmd = std::process::Command::new("tmux");
                         detach_cmd.args([
                             "-u",
@@ -1743,19 +1743,7 @@ fn run_pty_session_with_tmux(
                             client_name,
                         ]);
                         apply_utf8_env_to_tmux_command(&mut detach_cmd);
-                        detach_cmd
-                            .output()
-                            .map(|o| o.status.success())
-                            .unwrap_or(false)
-                    } else {
-                        false
-                    };
-
-                    if !detached {
-                        // Fallback to key sequence if detach-client failed or
-                        // client info was not provided (shouldn't happen normally)
-                        let _ = writer.write_all(&[0x02, b'd']); // Ctrl+B, d
-                        let _ = writer.flush();
+                        let _ = detach_cmd.output();
                     }
 
                     // Store client session info for post-detach cleanup
