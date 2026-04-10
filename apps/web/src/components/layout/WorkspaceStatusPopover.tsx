@@ -131,7 +131,7 @@ export function WorkspaceStatusPopover({
                       "--base-color": "rgb(201 153 29 / 0.6)",
                       "--base-gradient-color": "rgb(263 197 39)",
                     } as React.CSSProperties)
-                  : null
+                  : undefined
               }
             >
               {progress.stepTitle}
