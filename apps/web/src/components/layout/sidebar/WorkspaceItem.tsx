@@ -2,21 +2,31 @@
 
 import React from "react";
 import { useSortable, CSS } from "@workspace/ui";
-import type { Workspace } from "@/types/types";
+import type { Workspace, WorkspaceWorkflowStatus } from "@/types/types";
 import { WorkspaceContent } from "./WorkspaceContent";
 
 export interface WorkspaceItemProps {
   workspace: Workspace;
   projectId: string;
   projectPath?: string;
+  projectName?: string;
   onPin: (workspaceId: string) => void;
   onUnpin: (workspaceId: string) => void;
   onArchive: (workspaceId: string) => void;
   onDelete: (workspaceId: string) => void;
+  onUpdateWorkflowStatus?: (workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => void;
 }
 
 export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceItem({
-  workspace, projectId, projectPath, onPin, onUnpin, onArchive, onDelete,
+  workspace,
+  projectId,
+  projectPath,
+  projectName,
+  onPin,
+  onUnpin,
+  onArchive,
+  onDelete,
+  onUpdateWorkflowStatus,
 }) {
   const {
     attributes,
@@ -38,6 +48,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         workspace={workspace}
         projectId={projectId}
         projectPath={projectPath}
+        projectName={projectName}
         isPlaceholder={isDragging}
         attributes={attributes}
         listeners={listeners}
@@ -45,6 +56,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         onUnpin={onUnpin}
         onArchive={onArchive}
         onDelete={onDelete}
+        onUpdateWorkflowStatus={onUpdateWorkflowStatus}
       />
     </div>
   );

@@ -56,7 +56,8 @@ impl TunnelProvider for CloudflareQuickTunnelProvider {
             self.logs.write().await.push(ProviderLogEntry {
                 at: Utc::now(),
                 level: "warn".to_string(),
-                message: "cloudflare quick tunnel is public-only; started in public mode".to_string(),
+                message: "cloudflare quick tunnel is public-only; started in public mode"
+                    .to_string(),
             });
         }
 

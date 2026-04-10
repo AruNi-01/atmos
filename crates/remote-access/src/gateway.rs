@@ -212,7 +212,11 @@ async fn proxy_ws_impl(
         .validate(session_cookie.as_deref(), query.entry_token.as_deref())
         .await;
     if matches!(validation, SessionValidation::Unauthorized) {
-        return (StatusCode::UNAUTHORIZED, "remote access session required\n\nProvide ?entry_token=<token> in the URL").into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            "remote access session required\n\nProvide ?entry_token=<token> in the URL",
+        )
+            .into_response();
     }
 
     let target = build_ws_target(&state.target_base_url, &path, &raw_query);

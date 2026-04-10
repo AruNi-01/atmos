@@ -243,8 +243,12 @@ pub enum WsAction {
     WorkspaceUpdateName,
     /// 更新 Workspace 分支
     WorkspaceUpdateBranch,
+    /// 更新 Workspace 流程状态
+    WorkspaceUpdateWorkflowStatus,
     /// 更新 Workspace 排序
     WorkspaceUpdateOrder,
+    /// 记录 Workspace 最近访问时间
+    WorkspaceMarkVisited,
     /// 删除 Workspace
     WorkspaceDelete,
     /// 置顶 Workspace
@@ -1011,9 +1015,20 @@ pub struct WorkspaceUpdateBranchRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUpdateWorkflowStatusRequest {
+    pub guid: String,
+    pub workflow_status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceUpdateOrderRequest {
     pub guid: String,
     pub sidebar_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceMarkVisitedRequest {
+    pub guid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

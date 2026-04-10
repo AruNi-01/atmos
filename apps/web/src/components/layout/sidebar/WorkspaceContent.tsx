@@ -29,11 +29,15 @@ import { getWorkspaceShortName } from "@/utils/workspace";
 import { gitApi } from "@/api/ws-api";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
+import { WorkspaceStatusButton } from "./workspace-status";
+import type { WorkspaceWorkflowStatus } from "@/types/types";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
   projectId: string;
   projectPath?: string;
+  projectName?: string;
+  showProjectName?: boolean;
   isDragging?: boolean;
   isPlaceholder?: boolean;
   attributes?: DraggableAttributes;
@@ -42,10 +46,24 @@ export interface WorkspaceContentProps {
   onUnpin?: (workspaceId: string) => void;
   onArchive?: (workspaceId: string) => void;
   onDelete?: (workspaceId: string) => void;
+  onUpdateWorkflowStatus?: (workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => void;
 }
 
 export const WorkspaceContent = React.memo<WorkspaceContentProps>(function WorkspaceContent({
-  workspace, projectId, projectPath, isDragging, isPlaceholder, attributes, listeners, onPin, onUnpin, onArchive, onDelete,
+  workspace,
+  projectId,
+  projectPath,
+  projectName,
+  showProjectName,
+  isDragging,
+  isPlaceholder,
+  attributes,
+  listeners,
+  onPin,
+  onUnpin,
+  onArchive,
+  onDelete,
+  onUpdateWorkflowStatus,
 }) {
   const router = useAppRouter();
   const { workspaceId } = useContextParams();
@@ -151,7 +169,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const shortName = getWorkspaceShortName(workspace.name);
   const displayName = workspace.displayName?.trim() || shortName;
-  const timeAgo = formatRelativeTime(workspace.createdAt);
+  const timeAgo = formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt);
 
   const workspaceAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(workspace.id)
@@ -164,7 +182,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
         {...listeners}
         onClick={handleClick}
         className={cn(
-          "flex flex-col px-3 py-2 rounded-md cursor-pointer transition-all border border-transparent hover:bg-sidebar-accent/50 group/ws",
+          "relative flex flex-col px-3 py-2 rounded-md cursor-pointer transition-all border border-transparent hover:bg-sidebar-accent/50 group/ws",
           isActive
             ? 'bg-sidebar-accent/50 text-sidebar-foreground shadow-sm'
             : 'text-muted-foreground hover:text-sidebar-foreground',
@@ -194,7 +212,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
             </button>
           </div>
-          <div className="flex items-center min-w-0 pl-5 gap-1">
+          <div className="flex items-center min-w-0 gap-1 pl-5 pr-12">
             {displayName ? (
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
@@ -218,13 +236,26 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             )}
           </div>
         </div>
-        <div className="flex items-center mt-0.5 ml-5 relative min-w-0">
+        <div className="mt-0.5 ml-5 flex min-w-0 items-center pr-12">
           <div className="flex items-center min-w-0 flex-1">
-            <span className="text-[11px] text-muted-foreground truncate">{shortName}</span>
+            <span className="text-[11px] text-muted-foreground truncate">
+              {showProjectName && projectName ? projectName : shortName}
+            </span>
             <span className="text-[11px] text-muted-foreground mx-1">·</span>
             <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo}</span>
           </div>
-          <div className="absolute -right-0.5 top-1/2 -translate-y-1/2 flex h-full items-center justify-end gap-0.5 rounded-r-sm bg-radial-[ellipse_at_center] from-sidebar-accent/34 via-sidebar-accent/14 to-transparent pl-2 pr-0 opacity-0 backdrop-blur-[0.5px] transition-opacity z-10 group-hover/ws:opacity-100">
+        </div>
+        <div className="pointer-events-none absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col items-end gap-1">
+          <WorkspaceStatusButton
+            status={workspace.workflowStatus}
+            onChange={
+              onUpdateWorkflowStatus
+                ? (nextStatus) => onUpdateWorkflowStatus(workspace.id, nextStatus)
+                : undefined
+            }
+            className="pointer-events-auto"
+          />
+          <div className="pointer-events-auto flex items-center justify-end gap-0.5 overflow-hidden rounded-r-sm bg-radial-[ellipse_at_center] from-sidebar-accent/34 via-sidebar-accent/14 to-transparent pl-2 pr-0 opacity-0 backdrop-blur-[0.5px] transition-opacity duration-200 group-hover/ws:opacity-100">
             <button
               onClick={handleArchiveClick}
               className="size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer"

@@ -19,6 +19,14 @@ const WORKSPACE_ISSUE_TODO_SYSTEM_PROMPT_TEMPLATE: &str =
     include_str!("../../../../prompt/workspace/workspace-issue-todo-generator.md");
 const WORKSPACE_ISSUE_TODO_USER_PROMPT_TEMPLATE: &str =
     include_str!("../../../../prompt/workspace/workspace-issue-todo-user.md");
+pub const WORKSPACE_WORKFLOW_STATUSES: &[&str] = &[
+    "todo",
+    "in_progress",
+    "in_review",
+    "blocked",
+    "completed",
+    "canceled",
+];
 
 #[derive(Serialize)]
 pub struct WorkspaceDto {
@@ -749,6 +757,31 @@ impl WorkspaceService {
     pub async fn update_branch(&self, guid: String, branch: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
         Ok(repo.update_branch(&guid, branch).await?)
+    }
+
+    pub async fn mark_visited(&self, guid: String) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo
+            .update_last_visited_at(&guid, chrono::Utc::now().naive_utc())
+            .await?)
+    }
+
+    pub async fn update_workflow_status(
+        &self,
+        guid: String,
+        workflow_status: String,
+    ) -> Result<()> {
+        if !WORKSPACE_WORKFLOW_STATUSES
+            .iter()
+            .any(|candidate| *candidate == workflow_status)
+        {
+            return Err(ServiceError::Validation(format!(
+                "Unsupported workspace workflow status: {workflow_status}"
+            )));
+        }
+
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.update_workflow_status(&guid, workflow_status).await?)
     }
 
     /// 更新侧边栏排序

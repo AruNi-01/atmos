@@ -196,6 +196,8 @@ export interface WorkspaceModel {
   pinned_at: string | null;
   is_archived: boolean;
   archived_at: string | null;
+  last_visited_at: string | null;
+  workflow_status: string;
   local_path: string;
   github_issue: GithubIssuePayload | null;
 }
@@ -971,6 +973,16 @@ export const wsWorkspaceApi = {
     });
   },
 
+  updateWorkflowStatus: async (
+    guid: string,
+    workflowStatus: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_workflow_status", {
+      guid,
+      workflow_status: workflowStatus,
+    });
+  },
+
   confirmTodos: async (
     guid: string,
     markdown: string,
@@ -1000,6 +1012,10 @@ export const wsWorkspaceApi = {
       guid,
       sidebar_order: sidebarOrder,
     });
+  },
+
+  markVisited: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_mark_visited", { guid });
   },
 
   /**

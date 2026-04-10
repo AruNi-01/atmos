@@ -411,31 +411,32 @@ impl GitEngine {
 
         let default_branch = self.get_remote_default_branch(repo_path)?;
         let current_branch = self.get_current_branch(repo_path).ok();
-        let (default_branch_ahead, default_branch_behind) = match (
-            default_branch.as_deref(),
-            current_branch.as_deref(),
-        ) {
-            (Some(default_branch), Some(current_branch)) => {
-                let default_branch_ref = format!("origin/{}", default_branch);
-                let current_branch_remote_ref = format!("origin/{}", current_branch);
+        let (default_branch_ahead, default_branch_behind) =
+            match (default_branch.as_deref(), current_branch.as_deref()) {
+                (Some(default_branch), Some(current_branch)) => {
+                    let default_branch_ref = format!("origin/{}", default_branch);
+                    let current_branch_remote_ref = format!("origin/{}", current_branch);
 
-                if try_run_git(repo_path, &["rev-parse", "--verify", &current_branch_remote_ref])?
-                    .is_some()
-                {
-                    match self.get_branch_divergence(
+                    if try_run_git(
                         repo_path,
-                        &default_branch_ref,
-                        &current_branch_remote_ref,
-                    )? {
-                        Some((ahead, behind)) => (Some(ahead), Some(behind)),
-                        None => (None, None),
+                        &["rev-parse", "--verify", &current_branch_remote_ref],
+                    )?
+                    .is_some()
+                    {
+                        match self.get_branch_divergence(
+                            repo_path,
+                            &default_branch_ref,
+                            &current_branch_remote_ref,
+                        )? {
+                            Some((ahead, behind)) => (Some(ahead), Some(behind)),
+                            None => (None, None),
+                        }
+                    } else {
+                        (None, None)
                     }
-                } else {
-                    (None, None)
                 }
-            }
-            _ => (None, None),
-        };
+                _ => (None, None),
+            };
 
         Ok(GitStatus {
             has_uncommitted_changes,
@@ -562,21 +563,24 @@ impl GitEngine {
             ],
         )?;
 
-        let compare_ref =
-            if use_preferred_compare || base_branch.filter(|value| !value.trim().is_empty()).is_some() {
-                self.resolve_preferred_compare_ref(repo_path, base_branch)?
-            } else {
-                None
-            };
+        let compare_ref = if use_preferred_compare
+            || base_branch
+                .filter(|value| !value.trim().is_empty())
+                .is_some()
+        {
+            self.resolve_preferred_compare_ref(repo_path, base_branch)?
+        } else {
+            None
+        };
 
         let compare_numstat = if let Some(base_ref) = compare_ref.as_deref() {
-                Some(Self::build_numstat_map(
-                    try_run_git(
-                        repo_path,
-                        &["-c", "core.quotePath=false", "diff", "--numstat", &base_ref],
-                    )?
-                    .as_deref(),
-                ))
+            Some(Self::build_numstat_map(
+                try_run_git(
+                    repo_path,
+                    &["-c", "core.quotePath=false", "diff", "--numstat", &base_ref],
+                )?
+                .as_deref(),
+            ))
         } else {
             None
         };
@@ -1516,7 +1520,10 @@ mod tests {
         let engine = GitEngine::new();
 
         git(&repo_path, &["checkout", "-b", "feature"]);
-        git(&repo_path, &["branch", "--set-upstream-to=origin/main", "feature"]);
+        git(
+            &repo_path,
+            &["branch", "--set-upstream-to=origin/main", "feature"],
+        );
 
         let status = engine
             .get_git_status(&repo_path)
@@ -1546,10 +1553,7 @@ mod tests {
             .args(["merge", "main"])
             .output()
             .expect("git merge should run");
-        assert!(
-            !output.status.success(),
-            "merge should produce conflict"
-        );
+        assert!(!output.status.success(), "merge should produce conflict");
 
         let status = engine
             .get_git_status(&repo_path)
@@ -1636,7 +1640,10 @@ mod tests {
         let engine = GitEngine::new();
 
         git(&repo_path, &["checkout", "-b", "feature"]);
-        git(&repo_path, &["branch", "--set-upstream-to=origin/main", "feature"]);
+        git(
+            &repo_path,
+            &["branch", "--set-upstream-to=origin/main", "feature"],
+        );
         commit_file(&repo_path, "feature.txt", "feature\n", "feature work");
 
         engine.push(&repo_path).expect("push should succeed");

@@ -798,8 +798,14 @@ impl TerminalService {
                 if let Some(ref cs) = handle.client_session {
                     let mut detach_cmd = std::process::Command::new("tmux");
                     detach_cmd.args([
-                        "-u", "-f", "/dev/null", "-S", &sock,
-                        "detach-client", "-s", cs,
+                        "-u",
+                        "-f",
+                        "/dev/null",
+                        "-S",
+                        &sock,
+                        "detach-client",
+                        "-s",
+                        cs,
                     ]);
                     apply_utf8_env_to_tmux_command(&mut detach_cmd);
                     let _ = detach_cmd.output();
@@ -1377,8 +1383,14 @@ impl TerminalService {
                 if let Some(ref client_session) = handle.client_session {
                     let mut detach_cmd = std::process::Command::new("tmux");
                     detach_cmd.args([
-                        "-u", "-f", "/dev/null", "-S", &sock,
-                        "detach-client", "-s", client_session,
+                        "-u",
+                        "-f",
+                        "/dev/null",
+                        "-S",
+                        &sock,
+                        "detach-client",
+                        "-s",
+                        client_session,
                     ]);
                     apply_utf8_env_to_tmux_command(&mut detach_cmd);
                     let _ = detach_cmd.output();
@@ -1502,8 +1514,14 @@ impl TerminalService {
                 if let Some(ref client_session) = handle.client_session {
                     let mut detach_cmd = std::process::Command::new("tmux");
                     detach_cmd.args([
-                        "-u", "-f", "/dev/null", "-S", &sock,
-                        "detach-client", "-s", client_session,
+                        "-u",
+                        "-f",
+                        "/dev/null",
+                        "-S",
+                        &sock,
+                        "detach-client",
+                        "-s",
+                        client_session,
                     ]);
                     apply_utf8_env_to_tmux_command(&mut detach_cmd);
                     let _ = detach_cmd.output();

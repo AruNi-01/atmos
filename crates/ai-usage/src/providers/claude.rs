@@ -95,7 +95,9 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
     // directly rotates the token and leaves the Claude Code CLI holding a
     // stale access_token, which causes persistent 401 errors.
     if claude_token_needs_refresh(&credentials) {
-        debug!("Claude OAuth access token expired or expiring soon, delegating refresh to Claude CLI");
+        debug!(
+            "Claude OAuth access token expired or expiring soon, delegating refresh to Claude CLI"
+        );
         delegate_claude_refresh().await?;
         // Re-read credentials after Claude CLI has refreshed them
         credentials = load_claude_credentials()?;

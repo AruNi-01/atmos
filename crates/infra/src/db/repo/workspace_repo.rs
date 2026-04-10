@@ -76,6 +76,8 @@ impl<'a> WorkspaceRepo<'a> {
             pinned_at: Set(None),
             is_archived: Set(false),
             archived_at: Set(None),
+            last_visited_at: Set(None),
+            workflow_status: Set("in_progress".to_string()),
             terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
             github_issue_url: Set(github_issue_url),
@@ -138,6 +140,49 @@ impl<'a> WorkspaceRepo<'a> {
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
             )
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub async fn update_last_visited_at(
+        &self,
+        guid: &str,
+        last_visited_at: chrono::NaiveDateTime,
+    ) -> Result<()> {
+        let result = workspace::Entity::update_many()
+            .col_expr(
+                workspace::Column::LastVisitedAt,
+                Expr::value(Some(last_visited_at)),
+            )
+            .filter(workspace::Column::Guid.eq(guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .filter(workspace::Column::IsArchived.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub async fn update_workflow_status(&self, guid: &str, workflow_status: String) -> Result<()> {
+        let now = chrono::Utc::now().naive_utc();
+        let result = workspace::Entity::update_many()
+            .col_expr(
+                workspace::Column::WorkflowStatus,
+                Expr::value(workflow_status),
+            )
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
             .filter(workspace::Column::Guid.eq(guid))
             .filter(workspace::Column::IsDeleted.eq(false))
             .exec(self.db)

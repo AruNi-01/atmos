@@ -21,6 +21,8 @@ pub struct Model {
     pub pinned_at: Option<DateTime>,
     pub is_archived: bool,
     pub archived_at: Option<DateTime>,
+    pub last_visited_at: Option<DateTime>,
+    pub workflow_status: String,
     /// JSON-encoded terminal layout configuration
     pub terminal_layout: Option<String>,
     /// The ID of the currently maximized terminal pane, if any

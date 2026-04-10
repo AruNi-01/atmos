@@ -30,19 +30,21 @@ use infra::{
     GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
-    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
-    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
-    ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
-    ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest, SkillsGetRequest,
-    SkillsSetEnabledRequest, SyncSingleSystemSkillRequest, UsageAddProviderApiKeyRequest,
-    UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest, UsageDeleteProviderApiKeyRequest,
-    UsageOverviewRequest, UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
-    WorkspaceArchiveRequest, WorkspaceConfirmTodosRequest, WorkspaceCreateRequest,
-    WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest, WorkspaceListRequest,
-    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
+    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest,
+    LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
+    ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
+    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
+    SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
+    UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
+    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
+    UsageProviderSwitchRequest, WorkspaceArchiveRequest, WorkspaceConfirmTodosRequest,
+    WorkspaceCreateRequest, WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest,
+    WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
+    WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
     WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest,
     WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
+    WorkspaceUpdateOrderRequest, WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent,
+    WsMessage, WsMessageHandler, WsRequest,
 };
 use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
@@ -434,8 +436,16 @@ impl WsMessageService {
                 self.handle_workspace_update_branch(parse_request(request.data)?)
                     .await
             }
+            WsAction::WorkspaceUpdateWorkflowStatus => {
+                self.handle_workspace_update_workflow_status(parse_request(request.data)?)
+                    .await
+            }
             WsAction::WorkspaceUpdateOrder => {
                 self.handle_workspace_update_order(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceMarkVisited => {
+                self.handle_workspace_mark_visited(parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceDelete => {
@@ -969,11 +979,7 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         let info = self
             .git_engine
-            .get_changed_files(
-                &path,
-                req.base_branch.as_deref(),
-                req.use_preferred_compare,
-            )
+            .get_changed_files(&path, req.base_branch.as_deref(), req.use_preferred_compare)
             .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
 
         let convert_file = |f: core_engine::ChangedFileInfo| -> Value {
@@ -1557,6 +1563,16 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
+    async fn handle_workspace_update_workflow_status(
+        &self,
+        req: WorkspaceUpdateWorkflowStatusRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_workflow_status(req.guid, req.workflow_status)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
     async fn handle_workspace_update_order(
         &self,
         req: WorkspaceUpdateOrderRequest,
@@ -1564,6 +1580,14 @@ impl WsMessageService {
         self.workspace_service
             .update_order(req.guid, req.sidebar_order)
             .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_mark_visited(
+        &self,
+        req: WorkspaceMarkVisitedRequest,
+    ) -> Result<Value> {
+        self.workspace_service.mark_visited(req.guid).await?;
         Ok(json!({ "success": true }))
     }
 
@@ -2955,7 +2979,11 @@ set -x
         Ok(json!(Self::to_issue_payload(issue)))
     }
 
-    async fn handle_github_pr_list(&self, conn_id: &str, req: GithubPrListRequest) -> Result<Value> {
+    async fn handle_github_pr_list(
+        &self,
+        conn_id: &str,
+        req: GithubPrListRequest,
+    ) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let state = req.state.as_deref().unwrap_or("open").to_lowercase();
 
@@ -3040,7 +3068,10 @@ set -x
         Ok(output)
     }
 
-    async fn handle_github_pr_timeline_page(&self, req: GithubPrTimelinePageRequest) -> Result<Value> {
+    async fn handle_github_pr_timeline_page(
+        &self,
+        req: GithubPrTimelinePageRequest,
+    ) -> Result<Value> {
         let per_page = req.per_page.clamp(1, 100);
         let endpoint = format!(
             "repos/{}/{}/issues/{}/timeline?per_page={}&page={}",

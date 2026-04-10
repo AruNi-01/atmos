@@ -127,7 +127,11 @@ impl TunnelProvider for TailscaleProvider {
         let exit_ok = exit_status.map(|s| s.success()).unwrap_or(false);
 
         if !exit_ok {
-            let subcmd = if req.mode == ProviderAccessMode::Public { "funnel" } else { "serve" };
+            let subcmd = if req.mode == ProviderAccessMode::Public {
+                "funnel"
+            } else {
+                "serve"
+            };
             let err = format!(
                 "tailscale {subcmd} failed to start.\n\n\
                 If this is your first time using Funnel, run this in a terminal — it will open \

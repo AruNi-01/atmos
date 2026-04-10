@@ -1,5 +1,13 @@
 import type { GithubIssuePayload } from '@/api/ws-api';
 
+export type WorkspaceWorkflowStatus =
+  | 'todo'
+  | 'in_progress'
+  | 'in_review'
+  | 'blocked'
+  | 'completed'
+  | 'canceled';
+
 export interface Workspace {
   id: string;
   name: string;
@@ -14,6 +22,8 @@ export interface Workspace {
   isArchived: boolean;
   archivedAt?: string;
   createdAt: string;
+  lastVisitedAt?: string;
+  workflowStatus: WorkspaceWorkflowStatus;
   localPath: string;
   githubIssue?: GithubIssuePayload | null;
 }

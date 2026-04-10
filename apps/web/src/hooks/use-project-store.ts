@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { Project, Workspace } from '@/types/types';
+import { Project, Workspace, WorkspaceWorkflowStatus } from '@/types/types';
 import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
@@ -216,6 +216,12 @@ interface ProjectStore {
   unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   updateWorkspaceBranch: (projectId: string, workspaceId: string, branch: string) => Promise<void>;
+  updateWorkspaceWorkflowStatus: (
+    projectId: string,
+    workspaceId: string,
+    workflowStatus: WorkspaceWorkflowStatus,
+  ) => Promise<void>;
+  markWorkspaceVisited: (workspaceId: string) => Promise<void>;
   
   reorderProjects: (newOrder: Project[]) => Promise<void>;
   reorderWorkspaces: (projectId: string, newOrder: Workspace[]) => Promise<void>;
@@ -259,6 +265,8 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     isArchived: model.is_archived,
     archivedAt: model.archived_at ?? undefined,
     createdAt: model.created_at,
+    lastVisitedAt: model.last_visited_at ?? undefined,
+    workflowStatus: model.workflow_status as WorkspaceWorkflowStatus,
     localPath: model.local_path,
     githubIssue: model.github_issue,
   };
@@ -765,6 +773,46 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error updating workspace branch:', error);
       throw error;
+    }
+  },
+
+  updateWorkspaceWorkflowStatus: async (
+    projectId: string,
+    workspaceId: string,
+    workflowStatus: WorkspaceWorkflowStatus,
+  ) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updateWorkflowStatus(workspaceId, workflowStatus);
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: p.workspaces.map(w =>
+                  w.id === workspaceId ? { ...w, workflowStatus } : w
+                ),
+              }
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace workflow status:', error);
+      toastManager.add({
+        title: 'Error',
+        description: 'Failed to update workspace status',
+        type: 'error'
+      });
+    }
+  },
+
+  markWorkspaceVisited: async (workspaceId: string) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.markVisited(workspaceId);
+    } catch (error) {
+      console.error('Error marking workspace visited:', error);
     }
   },
 
