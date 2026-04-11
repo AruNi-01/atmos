@@ -96,6 +96,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         pinWorkspace,
         unpinWorkspace,
         archiveWorkspace,
+        updateWorkspaceName,
         updateWorkspaceWorkflowStatus,
         markWorkspaceVisited,
         reorderProjects,
@@ -113,6 +114,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             pinWorkspace: s.pinWorkspace,
             unpinWorkspace: s.unpinWorkspace,
             archiveWorkspace: s.archiveWorkspace,
+            updateWorkspaceName: s.updateWorkspaceName,
             updateWorkspaceWorkflowStatus: s.updateWorkspaceWorkflowStatus,
             markWorkspaceVisited: s.markWorkspaceVisited,
             reorderProjects: s.reorderProjects,
@@ -640,6 +642,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                 onArchiveWorkspace={archiveWorkspace}
                                                 onDeleteWorkspace={deleteWorkspace}
                                                 onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                                onUpdateWorkspaceName={updateWorkspaceName}
                                                 onConfigureScripts={handleConfigureScripts}
                                                 onSelectMain={(id) => router.push(`/project?id=${id}`)}
                                                 isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
@@ -672,6 +675,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                 onUnpinWorkspace={() => { }}
                                                 onArchiveWorkspace={() => { }}
                                                 onDeleteWorkspace={() => { }}
+                                                onUpdateWorkspaceName={async () => { }}
                                                 onUpdateWorkspaceWorkflowStatus={() => { }}
                                                 onConfigureScripts={() => { }}
                                                 onSelectMain={() => { }}
@@ -694,7 +698,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     </DragOverlay>
                                 </DndContext>
                             ) : (
-                                <div className="space-y-4 px-2">
+                                <div className="space-y-0.5 px-2">
                                     {groupedWorkspaces.map((group) => (
                                         <section key={group.key} className="space-y-1.5">
                                             {(() => {
@@ -710,7 +714,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => toggleWorkspaceGroup(stateKey)}
-                                                            className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
+                                                            className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
                                                         >
                                                             {StatusIcon ? (
                                                                 <StatusIcon className={cn("size-3.5 shrink-0", statusMeta?.className)} />
@@ -726,27 +730,37 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                                 {group.items.length}
                                                             </span>
                                                         </button>
-                                                        {!isCollapsed && (
-                                                            <div className="space-y-0.5">
-                                                                {group.items.map((entry) => (
-                                                                    <WorkspaceContent
-                                                                        key={entry.workspace.id}
-                                                                        workspace={entry.workspace}
-                                                                        projectId={entry.projectId}
-                                                                        projectName={entry.projectName}
-                                                                        projectPath={entry.projectPath}
-                                                                        showProjectName={true}
-                                                                        onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
-                                                                        onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
-                                                                        onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
-                                                                        onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
+                                                        <div
+                                                            className={cn(
+                                                                "grid transition-[grid-template-rows] duration-300 ease-out",
+                                                                isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+                                                            )}
+                                                        >
+                                                            <div className="overflow-hidden">
+                                                                <div className="space-y-1 pl-3 pt-0.5">
+                                                                    {group.items.map((entry) => (
+                                                                        <WorkspaceContent
+                                                                            key={entry.workspace.id}
+                                                                            workspace={entry.workspace}
+                                                                            projectId={entry.projectId}
+                                                                            projectName={entry.projectName}
+                                                                            projectPath={entry.projectPath}
+                                                                            showProjectName={true}
+                                                                            onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
+                                                                            onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
+                                                                            onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
+                                                                            onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
                                                                         onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
                                                                             updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
                                                                         }
+                                                                        onUpdateName={(workspaceId, name) =>
+                                                                            updateWorkspaceName(entry.projectId, workspaceId, name)
+                                                                        }
                                                                     />
                                                                 ))}
+                                                                </div>
                                                             </div>
-                                                        )}
+                                                        </div>
                                                     </>
                                                 );
                                             })()}
@@ -823,7 +837,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 </div>
                 {activeTab === 'projects' && (
                     <div className="relative shrink-0 bg-transparent">
-                        <div className="relative flex items-center justify-end px-3 pb-2 pt-1">
+                        <div className="relative flex items-center justify-end px-3 py-0.5">
                             {(() => {
                                 const currentGroupingOption = SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)
                                     ?? SIDEBAR_GROUPING_OPTIONS[0];

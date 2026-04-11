@@ -1,6 +1,7 @@
 import type { GithubIssuePayload } from '@/api/ws-api';
 
 export type WorkspaceWorkflowStatus =
+  | 'backlog'
   | 'todo'
   | 'in_progress'
   | 'in_review'

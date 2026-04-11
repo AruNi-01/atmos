@@ -52,9 +52,12 @@ function getTimeGroup(source: Date, now: Date): { key: string; label: string } {
 }
 
 function sortEntriesByRecency(items: FlattenedWorkspaceEntry[]): FlattenedWorkspaceEntry[] {
-  return [...items].sort(
-    (a, b) => getRecencyTimestamp(b.workspace) - getRecencyTimestamp(a.workspace),
-  );
+  return [...items].sort((a, b) => {
+    const aPinned = a.workspace.isPinned ? 1 : 0;
+    const bPinned = b.workspace.isPinned ? 1 : 0;
+    if (aPinned !== bPinned) return bPinned - aPinned;
+    return getRecencyTimestamp(b.workspace) - getRecencyTimestamp(a.workspace);
+  });
 }
 
 export function groupWorkspaces(
@@ -62,6 +65,16 @@ export function groupWorkspaces(
   groupingMode: Exclude<SidebarGroupingMode, "project">,
 ): WorkspaceGroup[] {
   if (groupingMode === "status") {
+    const STATUS_ORDER: WorkspaceWorkflowStatus[] = [
+      "backlog",
+      "todo",
+      "in_progress",
+      "in_review",
+      "blocked",
+      "completed",
+      "canceled",
+    ];
+
     const grouped = new Map<WorkspaceWorkflowStatus, FlattenedWorkspaceEntry[]>();
 
     for (const item of sortEntriesByRecency(items)) {
@@ -70,10 +83,10 @@ export function groupWorkspaces(
       grouped.set(item.workspace.workflowStatus, bucket);
     }
 
-    return Array.from(grouped.entries()).map(([status, entries]) => ({
+    return STATUS_ORDER.map((status) => ({
       key: status,
       label: getWorkspaceWorkflowStatusMeta(status).label,
-      items: entries,
+      items: grouped.get(status) ?? [],
     }));
   }
 

@@ -10,6 +10,10 @@ import {
   Trash2,
   AlertTriangle,
   GitBranch,
+  Pencil,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,10 +21,16 @@ import {
   DialogHeader,
   DialogTitle,
   Button,
+  Input,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
   cn,
 } from "@workspace/ui";
 import type { Workspace } from "@/types/types";
@@ -29,7 +39,10 @@ import { getWorkspaceShortName } from "@/utils/workspace";
 import { gitApi } from "@/api/ws-api";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
-import { WorkspaceStatusButton } from "./workspace-status";
+import {
+  getWorkspaceWorkflowStatusMeta,
+  WORKSPACE_WORKFLOW_STATUS_OPTIONS,
+} from "./workspace-status";
 import type { WorkspaceWorkflowStatus } from "@/types/types";
 
 export interface WorkspaceContentProps {
@@ -46,7 +59,44 @@ export interface WorkspaceContentProps {
   onUnpin?: (workspaceId: string) => void;
   onArchive?: (workspaceId: string) => void;
   onDelete?: (workspaceId: string) => void;
+  onUpdateName?: (workspaceId: string, name: string) => Promise<void>;
   onUpdateWorkflowStatus?: (workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => void;
+}
+
+type WorkspaceMetadataValueProps = {
+  value: string;
+  className?: string;
+  valueClassName?: string;
+  tooltipClassName?: string;
+};
+
+function WorkspaceMetadataValue({
+  value,
+  className,
+  valueClassName,
+  tooltipClassName,
+}: WorkspaceMetadataValueProps) {
+  return (
+    <div className={cn("min-w-0 flex-1 text-right", className)}>
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                "inline-block max-w-full truncate whitespace-nowrap align-top text-foreground",
+                valueClassName,
+              )}
+            >
+              {value}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="center" sideOffset={8} avoidCollisions={false} className={cn("max-w-sm break-all", tooltipClassName)}>
+            {value}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
 }
 
 export const WorkspaceContent = React.memo<WorkspaceContentProps>(function WorkspaceContent({
@@ -63,6 +113,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   onUnpin,
   onArchive,
   onDelete,
+  onUpdateName,
   onUpdateWorkflowStatus,
 }) {
   const router = useAppRouter();
@@ -73,6 +124,46 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [gitWarningMessage, setGitWarningMessage] = useState('');
   const [pendingOperation, setPendingOperation] = useState<'archive' | 'delete' | null>(null);
   const [isCheckingGit, setIsCheckingGit] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editableName, setEditableName] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const infoPopoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+
+  const cancelInfoPopoverClose = React.useCallback(() => {
+    if (infoPopoverTimerRef.current) {
+      clearTimeout(infoPopoverTimerRef.current);
+      infoPopoverTimerRef.current = null;
+    }
+  }, []);
+
+  const openInfoPopover = React.useCallback(() => {
+    cancelInfoPopoverClose();
+    infoPopoverTimerRef.current = setTimeout(() => {
+      setIsInfoPopoverOpen(true);
+      infoPopoverTimerRef.current = null;
+    }, 1000);
+  }, [cancelInfoPopoverClose]);
+
+  const scheduleInfoPopoverClose = React.useCallback(() => {
+    cancelInfoPopoverClose();
+    infoPopoverTimerRef.current = setTimeout(() => {
+      if (isStatusMenuOpen) {
+        infoPopoverTimerRef.current = null;
+        return;
+      }
+      setIsInfoPopoverOpen(false);
+      infoPopoverTimerRef.current = null;
+    }, 150);
+  }, [cancelInfoPopoverClose, isStatusMenuOpen]);
+
+  React.useEffect(() => {
+    return () => {
+      cancelInfoPopoverClose();
+    };
+  }, [cancelInfoPopoverClose]);
 
   const handleClick = () => {
     router.push(`/workspace?id=${workspace.id}`);
@@ -168,115 +259,276 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   };
 
   const shortName = getWorkspaceShortName(workspace.name);
-  const displayName = workspace.displayName?.trim() || shortName;
+  const rawDisplayName = workspace.displayName?.trim() || "";
+  const displayName = rawDisplayName || shortName;
   const timeAgo = formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt);
+
+  React.useEffect(() => {
+    setEditableName(rawDisplayName);
+  }, [rawDisplayName]);
+
+
 
   const workspaceAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(workspace.id)
   );
 
+  const handleSaveName = React.useCallback(async () => {
+    const nextName = editableName.trim();
+    if (!nextName || nextName === rawDisplayName || !onUpdateName) {
+      setEditableName(rawDisplayName);
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      setIsSavingName(true);
+      await onUpdateName(workspace.id, nextName);
+      setIsEditingName(false);
+    } finally {
+      setIsSavingName(false);
+    }
+  }, [editableName, onUpdateName, rawDisplayName, workspace.id]);
+
   return (
     <>
-      <div
-        {...attributes}
-        {...listeners}
-        onClick={handleClick}
-        className={cn(
-          "relative flex flex-col px-3 py-2 rounded-md cursor-pointer transition-all border border-transparent hover:bg-sidebar-accent/50 group/ws",
-          isActive
-            ? 'bg-sidebar-accent/50 text-sidebar-foreground shadow-sm'
-            : 'text-muted-foreground hover:text-sidebar-foreground',
-          isPlaceholder && "opacity-20",
-          isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
-        )}
-      >
-        <div className="relative min-w-0 w-full">
-          <div className="absolute -left-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm">
-            <GitBranch
-              className={cn(
-                "size-3.5",
-                isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
-                workspace.isPinned ? "hidden" : "block group-hover/ws:hidden"
-              )}
-            />
-            <button
-              onClick={handlePinClick}
-              className={cn(
-                "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
-                workspace.isPinned
-                  ? "text-amber-500"
-                  : "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
-              )}
-              title={workspace.isPinned ? "Unpin" : "Pin"}
-            >
-              <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
-            </button>
-          </div>
-          <div className="flex items-center min-w-0 gap-1 pl-5 pr-12">
-            {displayName ? (
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-sm break-words">
-                    {displayName}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <span className="text-[13px] font-medium truncate">{workspace.branch}</span>
+      <Popover open={isInfoPopoverOpen}>
+        <PopoverTrigger asChild>
+          <div
+            {...attributes}
+            {...listeners}
+            onClick={handleClick}
+            onMouseEnter={openInfoPopover}
+            onMouseLeave={scheduleInfoPopoverClose}
+            className={cn(
+              "relative flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-all border border-transparent hover:bg-sidebar-accent/50 group/ws",
+              isActive
+                ? 'bg-sidebar-accent/50 text-sidebar-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-sidebar-foreground',
+              isPlaceholder && "opacity-20",
+              isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
             )}
-            {workspaceAgentState !== AGENT_STATE.IDLE && (
-              <AgentHookStatusIndicator
-                state={workspaceAgentState}
-                variant="compact"
-                className="shrink-0"
-              />
-            )}
+          >
+            <div className="relative flex min-w-0 w-full items-center">
+              <div className="absolute -left-1 flex size-5 items-center justify-center rounded-sm">
+                <GitBranch
+                  className={cn(
+                    "size-3.5",
+                    isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
+                    workspace.isPinned ? "hidden" : "block group-hover/ws:hidden"
+                  )}
+                />
+                <button
+                  onClick={handlePinClick}
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
+                    workspace.isPinned
+                      ? "text-amber-500"
+                      : "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
+                  )}
+                  title={workspace.isPinned ? "Unpin" : "Pin"}
+                >
+                  <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
+                </button>
+              </div>
+              <div className="flex items-center min-w-0 gap-1.5 pl-5">
+                <span className="text-[13px] font-medium truncate">
+                  {shortName}
+                  {showProjectName && projectName && (
+                    <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
+                  )}
+                </span>
+                {workspaceAgentState !== AGENT_STATE.IDLE && (
+                  <AgentHookStatusIndicator
+                    state={workspaceAgentState}
+                    variant="compact"
+                    className="shrink-0"
+                  />
+                )}
+              </div>
+              <div className="pointer-events-none absolute inset-y-0 -right-1 z-10 flex items-center gap-1 rounded-r-md pl-5 opacity-0 backdrop-blur-[2px] transition-opacity duration-200 [mask-image:linear-gradient(to_right,transparent,black_30%)] group-hover/ws:pointer-events-auto group-hover/ws:opacity-100">
+                <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
+                <button
+                  onClick={handleArchiveClick}
+                  className="size-4 flex items-center justify-center rounded text-muted-foreground transition-colors hover:cursor-pointer hover:text-foreground"
+                  title="Archive"
+                  disabled={isCheckingGit}
+                >
+                  <Archive className="size-3" />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="mt-0.5 ml-5 flex min-w-0 items-center pr-12">
-          <div className="flex items-center min-w-0 flex-1">
-            <span className="text-[11px] text-muted-foreground truncate">
-              {showProjectName && projectName ? projectName : shortName}
-            </span>
-            <span className="text-[11px] text-muted-foreground mx-1">·</span>
-            <span className="text-[11px] text-muted-foreground shrink-0">{timeAgo}</span>
-          </div>
-        </div>
-        <div className="pointer-events-none absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col items-end gap-1">
-          <WorkspaceStatusButton
-            status={workspace.workflowStatus}
-            onChange={
-              onUpdateWorkflowStatus
-                ? (nextStatus) => onUpdateWorkflowStatus(workspace.id, nextStatus)
-                : undefined
-            }
-            className="pointer-events-auto"
-          />
-          <div className="pointer-events-auto flex items-center justify-end gap-0.5 overflow-hidden rounded-r-sm bg-radial-[ellipse_at_center] from-sidebar-accent/34 via-sidebar-accent/14 to-transparent pl-2 pr-0 opacity-0 backdrop-blur-[0.5px] transition-opacity duration-200 group-hover/ws:opacity-100">
-            <button
-              onClick={handleArchiveClick}
-              className="size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer"
-              title="Archive"
-              disabled={isCheckingGit}
-            >
-              <Archive className="size-3" />
-            </button>
-            {onDelete && (
+        </PopoverTrigger>
+        {!isDragging && (
+          <PopoverContent
+            side="right"
+            align="start"
+            sideOffset={10}
+            className="w-72 space-y-3 p-3"
+            onMouseEnter={openInfoPopover}
+            onMouseLeave={scheduleInfoPopoverClose}
+          >
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <span className="shrink-0 whitespace-nowrap">Display name</span>
+                <div className="group/display relative min-w-0 flex-1 text-right">
+                  <TooltipProvider delayDuration={250}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-block max-w-full truncate whitespace-nowrap align-top text-foreground">
+                          {rawDisplayName || "Not set"}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center" sideOffset={8} avoidCollisions={false} className="max-w-sm break-all">
+                        {rawDisplayName || "Not set"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {onUpdateName ? (
+                    <Popover
+                      open={isEditingName}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          setEditableName(rawDisplayName);
+                        }
+                        setIsEditingName(open);
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="absolute right-0 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded border border-border/60 bg-background/85 text-muted-foreground opacity-0 shadow-sm backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground group-hover/display:opacity-100"
+                          title="Edit display name"
+                        >
+                          <Pencil className="size-2.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent side="right" align="start" className="w-56 p-2">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editableName}
+                            onChange={(e) => setEditableName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                void handleSaveName();
+                              }
+                              if (e.key === "Escape") {
+                                setIsEditingName(false);
+                              }
+                            }}
+                            className="h-7 flex-1 text-xs"
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={isSavingName || !editableName.trim()}
+                            onClick={() => void handleSaveName()}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="shrink-0 whitespace-nowrap">Workspace name</span>
+                <WorkspaceMetadataValue value={workspace.name} />
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="shrink-0 whitespace-nowrap">Current branch</span>
+                <WorkspaceMetadataValue value={workspace.branch} valueClassName="font-semibold text-foreground" />
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="shrink-0 whitespace-nowrap">Base branch</span>
+                <WorkspaceMetadataValue value={workspace.baseBranch} />
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="shrink-0 whitespace-nowrap">Last active</span>
+                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-right text-foreground">{timeAgo}</span>
+              </div>
+              {(() => {
+                const statusMeta = getWorkspaceWorkflowStatusMeta(workspace.workflowStatus);
+                const StatusIcon = statusMeta.icon;
+                const statusContent = (
+                  <div className="flex items-center gap-3">
+                    <span className="shrink-0 whitespace-nowrap">Status</span>
+                    <div className="min-w-0 flex-1" />
+                    <div className={cn(
+                      "flex shrink-0 items-center gap-1.5 text-foreground",
+                      onUpdateWorkflowStatus && "cursor-pointer rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted",
+                    )}>
+                      <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
+                      <span>{statusMeta.label}</span>
+                    </div>
+                  </div>
+                );
+                if (!onUpdateWorkflowStatus) return statusContent;
+                return (
+                  <DropdownMenu modal={false} onOpenChange={setIsStatusMenuOpen}>
+                    <DropdownMenuTrigger asChild>
+                      {statusContent}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start" className="w-40">
+                      <DropdownMenuRadioGroup
+                        value={workspace.workflowStatus}
+                        onValueChange={(value) => onUpdateWorkflowStatus(workspace.id, value as WorkspaceWorkflowStatus)}
+                      >
+                        {WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => {
+                          const OptionIcon = option.icon;
+                          return (
+                            <DropdownMenuRadioItem
+                              key={option.value}
+                              value={option.value}
+                              className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
+                            >
+                              <OptionIcon className={cn("size-4", option.className)} />
+                              <span>{option.label}</span>
+                            </DropdownMenuRadioItem>
+                          );
+                        })}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              })()}
+              <div className="flex items-center gap-3">
+                <span className="shrink-0 whitespace-nowrap">Path</span>
+                <WorkspaceMetadataValue
+                  value={workspace.localPath}
+                  valueClassName="rounded-md bg-muted/60 px-2 py-1 text-left [direction:rtl]"
+                  tooltipClassName="max-w-md text-xs"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 border-t border-border/60 pt-2">
               <button
-                onClick={handleDeleteClick}
-                className="size-4 flex items-center justify-center hover:bg-muted rounded transition-colors hover:cursor-pointer hover:text-destructive"
-                title="Delete"
+                type="button"
+                onClick={handleArchiveClick}
                 disabled={isCheckingGit}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <Trash2 className="size-3" />
+                <Archive className="size-3" />
+                <span>Archive</span>
               </button>
-            )}
-          </div>
-        </div>
-      </div>
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={handleDeleteClick}
+                  disabled={isCheckingGit}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <Trash2 className="size-3" />
+                  <span>Delete</span>
+                </button>
+              )}
+            </div>
+          </PopoverContent>
+        )}
+      </Popover>
 
       <Dialog open={showGitWarningDialog} onOpenChange={setShowGitWarningDialog}>
         <DialogContent showCloseButton={false}>
