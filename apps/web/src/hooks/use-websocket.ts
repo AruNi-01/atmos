@@ -83,6 +83,7 @@ export type WsAction =
   | "workspace_list_archived"
   | "workspace_unarchive"
   | "workspace_retry_setup"
+  | "workspace_skip_setup_step"
   | "workspace_skip_setup_script"
   | "workspace_confirm_todos"
   // Project 检查操作

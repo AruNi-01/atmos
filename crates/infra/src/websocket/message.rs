@@ -273,6 +273,8 @@ pub enum WsAction {
     WorkspaceListArchived,
     /// 重试 Workspace 设置 (脚本执行)
     WorkspaceRetrySetup,
+    /// 跳过失败的 Workspace 设置步骤，继续执行后续步骤
+    WorkspaceSkipSetupStep,
     /// 跳过失败的 setup script，直接完成 workspace 初始化
     WorkspaceSkipSetupScript,
     /// 确认 LLM 生成的 TODO 并继续 setup
@@ -1108,6 +1110,12 @@ pub struct WorkspaceRetrySetupRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceSkipSetupScriptRequest {
     pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceSkipSetupStepRequest {
+    pub guid: String,
+    pub failed_step_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1059,6 +1059,16 @@ export const wsWorkspaceApi = {
     });
   },
 
+  skipSetupStep: async (
+    guid: string,
+    failedStepKey: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_skip_setup_step", {
+      guid,
+      failed_step_key: failedStepKey,
+    });
+  },
+
   /**
    * 更新 Workspace 排序
    */

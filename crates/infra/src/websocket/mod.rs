@@ -47,9 +47,10 @@ pub use message::{
     WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest, WorkspaceLabelCreateRequest,
     WorkspaceLabelUpdateRequest, WorkspaceListRequest, WorkspaceMarkVisitedRequest,
     WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
-    WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest,
-    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WorkspaceUpdatePriorityRequest,
+    WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest,
+    WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateOrderRequest, WorkspaceUpdatePriorityRequest,
     WorkspaceUpdateWorkflowStatusRequest, WsAction, WsErrorPayload, WsEvent, WsMessage, WsRequest,
     WsResponse,
 };

@@ -385,7 +385,13 @@ impl WorkspaceService {
             )
             .await?;
 
-        self.to_dto(model, Vec::new())
+        let labels = workspace_repo
+            .list_labels_by_workspace_guids(std::slice::from_ref(&model.guid))
+            .await?
+            .remove(&model.guid)
+            .unwrap_or_default();
+
+        self.to_dto(model, labels)
     }
 
     /// 确保 Worktree 已就绪（不存在则创建）

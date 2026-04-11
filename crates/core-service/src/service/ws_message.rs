@@ -42,9 +42,9 @@ use infra::{
     WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest, WorkspaceListRequest,
     WorkspaceMarkVisitedRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
     WorkspaceSetupContextNotification, WorkspaceSetupProgressNotification,
-    WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
-    WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WorkspaceUpdatePriorityRequest,
+    WorkspaceSkipSetupScriptRequest, WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest,
+    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest,
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WorkspaceUpdatePriorityRequest,
     WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent, WsMessage, WsMessageHandler,
     WsRequest,
 };
@@ -490,6 +490,10 @@ impl WsMessageService {
             WsAction::WorkspaceListArchived => self.handle_workspace_list_archived().await,
             WsAction::WorkspaceRetrySetup => {
                 self.handle_workspace_retry_setup(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceSkipSetupStep => {
+                self.handle_workspace_skip_setup_step(conn_id, parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceSkipSetupScript => {
@@ -1857,6 +1861,78 @@ impl WsMessageService {
                     github_issue,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::Ready),
+                )
+                .await;
+            });
+        }
+
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_skip_setup_step(
+        &self,
+        conn_id: &str,
+        req: WorkspaceSkipSetupStepRequest,
+    ) -> Result<Value> {
+        let workspace = self
+            .workspace_service
+            .get_workspace(req.guid.clone())
+            .await?
+            .ok_or_else(|| ServiceError::Validation("Workspace not found".to_string()))?;
+
+        let failed_step = WorkspaceSetupStep::from_key(&req.failed_step_key).ok_or_else(|| {
+            ServiceError::Validation(format!(
+                "Unsupported setup step `{}` for skip",
+                req.failed_step_key
+            ))
+        })?;
+
+        if failed_step == WorkspaceSetupStep::CreateWorktree {
+            return Err(ServiceError::Validation(
+                "Cannot skip workspace creation because the workspace directory is required"
+                    .to_string(),
+            ));
+        }
+
+        if let Some(manager) = self.ws_manager.get().cloned() {
+            let project_service = self.project_service.clone();
+            let workspace_service = self.workspace_service.clone();
+            let conn_id = conn_id.to_string();
+            let workspace_id = workspace.model.guid.clone();
+            let project_guid = workspace.model.project_guid.clone();
+            let workspace_name = workspace.model.name.clone();
+            let github_issue = workspace.github_issue.clone();
+            let auto_extract_todos = workspace.model.auto_extract_todos;
+
+            tokio::spawn(async move {
+                let start_step = Self::build_workspace_setup_plan(
+                    &project_service,
+                    &project_guid,
+                    None,
+                    github_issue.as_ref(),
+                    auto_extract_todos,
+                )
+                .await
+                .and_then(|plan| {
+                    plan.steps
+                        .iter()
+                        .position(|candidate| *candidate == failed_step)
+                        .and_then(|index| plan.steps.get(index + 1).copied())
+                })
+                .unwrap_or(WorkspaceSetupStep::Ready);
+
+                Self::execute_setup_state_machine(
+                    manager,
+                    project_service,
+                    workspace_service,
+                    conn_id,
+                    project_guid,
+                    workspace_id,
+                    workspace_name,
+                    None,
+                    github_issue,
+                    auto_extract_todos,
+                    Some(start_step),
                 )
                 .await;
             });
