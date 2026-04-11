@@ -294,7 +294,7 @@ function KanbanWorkspaceCard({
   projectId: string;
   projectName: string;
   cardProperties: KanbanCardProperties;
-  onEnterWorkspace: () => void;
+  onEnterWorkspace: (projectId: string, workspaceId: string) => void;
   availableLabels: WorkspaceLabel[];
   onUpdateWorkflowStatus: (
     projectId: string,
@@ -608,8 +608,7 @@ function KanbanWorkspaceCard({
             variant="outline"
             className="size-7 p-0"
             onClick={() => {
-              onEnterWorkspace();
-              router.push(`/workspace?id=${workspace.id}`);
+              onEnterWorkspace(projectId, workspace.id);
             }}
             aria-label="Enter workspace"
           >
@@ -690,7 +689,7 @@ function DraggableWorkspaceCard(props: React.ComponentProps<typeof KanbanWorkspa
         "relative z-0",
         isDragging && "z-50"
       )}
-      style={{ opacity: isDragging ? 0.3 : 1, cursor: "pointer" }}
+      style={{ opacity: isDragging ? 0.3 : 1, cursor: "default" }}
     >
       <div className={cn(
         "transition-all duration-500 ease-out rounded-md",
@@ -714,7 +713,7 @@ function KanbanDragLayer() {
     if (typeof document === "undefined") return;
     const prev = document.body.style.cursor;
     if (isDragging) {
-      document.body.style.cursor = "pointer";
+      document.body.style.cursor = "default";
     }
     return () => {
       document.body.style.cursor = prev;
@@ -810,6 +809,7 @@ export function WorkspaceKanbanView({
   onUpdateLabels,
   trigger,
 }: WorkspaceKanbanViewProps) {
+  const router = useAppRouter();
   const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const [searchQuery, setSearchQuery] = useQueryState("lsKanbanQ", leftSidebarParams.lsKanbanQ);
   const availableStatusSet = React.useMemo(
@@ -1051,9 +1051,11 @@ export function WorkspaceKanbanView({
     }, 2000);
   }, [onUpdateWorkflowStatus]);
 
-  const handleEnterWorkspace = React.useCallback(() => {
-    void setIsKanbanExpanded(false);
-  }, [setIsKanbanExpanded]);
+  const handleEnterWorkspace = React.useCallback((_projectId: string, workspaceId: string) => {
+    void setIsKanbanExpanded(false).then(() => {
+      router.push(`/workspace?id=${workspaceId}`);
+    });
+  }, [router, setIsKanbanExpanded]);
 
   const selectedFilterChips = React.useMemo(() => {
     const chips: Array<{
