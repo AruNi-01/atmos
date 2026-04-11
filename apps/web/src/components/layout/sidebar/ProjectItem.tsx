@@ -27,7 +27,6 @@ import {
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-  Button,
   SortableContext,
   verticalListSortingStrategy,
 } from "@workspace/ui";
@@ -35,11 +34,9 @@ import type { Project, WorkspaceLabel, WorkspacePriority } from "@/types/types";
 import { PROJECT_COLOR_PRESETS } from "@/types/types";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
-import { formatRelativeTime } from "@atmos/shared";
 import { WorkspaceItem } from "./WorkspaceItem";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
-import { getProjectWorkflowStatus, WorkspaceStatusButton } from "./workspace-status";
 import type { WorkspaceWorkflowStatus } from "@/types/types";
 
 export interface ProjectItemProps {
@@ -148,22 +145,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const projectAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(project.id)
   );
-  const projectWorkflowStatus = getProjectWorkflowStatus(project);
-  const latestWorkspace = [...project.workspaces].sort((a, b) => {
-    const aTime = new Date(a.lastVisitedAt ?? a.createdAt).getTime();
-    const bTime = new Date(b.lastVisitedAt ?? b.createdAt).getTime();
-    return bTime - aTime;
-  })[0];
-  const lastActiveLabel = latestWorkspace
-    ? formatRelativeTime(latestWorkspace.lastVisitedAt ?? latestWorkspace.createdAt)
-    : "No workspaces";
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
-  const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false);
-  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const infoPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const infoPopoverTriggerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [customColor, setCustomColor] = useState<{ r: number; g: number; b: number; a: number }>({
@@ -181,37 +165,6 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     cancelProjectMenuClose();
     setIsProjectMenuOpen(true);
   }, [cancelProjectMenuClose]);
-
-  const cancelInfoPopoverClose = useCallback(() => {
-    if (infoPopoverTimerRef.current) {
-      clearTimeout(infoPopoverTimerRef.current);
-      infoPopoverTimerRef.current = null;
-    }
-  }, []);
-
-  const openInfoPopover = useCallback(() => {
-    cancelInfoPopoverClose();
-    infoPopoverTimerRef.current = setTimeout(() => {
-      if (!infoPopoverTriggerRef.current?.matches(":hover")) {
-        infoPopoverTimerRef.current = null;
-        return;
-      }
-      setIsInfoPopoverOpen(true);
-      infoPopoverTimerRef.current = null;
-    }, 1000);
-  }, [cancelInfoPopoverClose]);
-
-  const scheduleInfoPopoverClose = useCallback(() => {
-    cancelInfoPopoverClose();
-    infoPopoverTimerRef.current = setTimeout(() => {
-      if (isStatusMenuOpen) {
-        infoPopoverTimerRef.current = null;
-        return;
-      }
-      setIsInfoPopoverOpen(false);
-      infoPopoverTimerRef.current = null;
-    }, 150);
-  }, [cancelInfoPopoverClose, isStatusMenuOpen]);
 
   const scheduleProjectMenuClose = useCallback(() => {
     cancelProjectMenuClose();
@@ -235,9 +188,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   useEffect(() => {
     return () => {
       cancelProjectMenuClose();
-      cancelInfoPopoverClose();
     };
-  }, [cancelProjectMenuClose, cancelInfoPopoverClose]);
+  }, [cancelProjectMenuClose]);
 
   return (
     <div
@@ -247,18 +199,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         isDragging && "z-50"
       )}
     >
-      <Popover open={isInfoPopoverOpen}>
-        <PopoverTrigger asChild>
-          <div
-            ref={infoPopoverTriggerRef}
-            className={cn(
+      <div
+        className={cn(
             "flex items-center px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300 relative",
             isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
             isActiveProject && "bg-sidebar-accent/70"
           )}
-            onMouseEnter={openInfoPopover}
-            onMouseLeave={scheduleInfoPopoverClose}
-          >
+      >
         <div
           {...attributes}
           {...listeners}
@@ -477,75 +424,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             </div>
           </div>
         )}
-          </div>
-        </PopoverTrigger>
-        {!isDragging && (
-          <PopoverContent
-            side="right"
-            align="start"
-            sideOffset={10}
-            className="w-72 space-y-3 p-3"
-            onMouseEnter={openInfoPopover}
-            onMouseLeave={scheduleInfoPopoverClose}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-foreground">{project.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {project.workspaces.length} workspace{project.workspaces.length === 1 ? "" : "s"}
-                </div>
-              </div>
-              <WorkspaceStatusButton
-                status={projectWorkflowStatus}
-                showTooltip={false}
-                onOpenChange={setIsStatusMenuOpen}
-              />
-            </div>
-
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="flex items-center justify-between gap-3">
-                <span>Target branch</span>
-                <span className="truncate text-right text-foreground">{project.targetBranch || "Not set"}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>Last active</span>
-                <span className="truncate text-right text-foreground">{lastActiveLabel}</span>
-              </div>
-              {latestWorkspace && (
-                <div className="flex items-center justify-between gap-3">
-                  <span>Latest workspace</span>
-                  <span className="truncate text-right text-foreground">{latestWorkspace.branch}</span>
-                </div>
-              )}
-              <div className="space-y-1">
-                <div>Main path</div>
-                <div className="truncate rounded-md bg-muted/60 px-2 py-1 text-foreground">
-                  {project.mainFilePath}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs"
-                onClick={() => onSelectMain(project.id)}
-              >
-                Open Main
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs"
-                onClick={() => onQuickAddWorkspace(project.id)}
-              >
-                New Workspace
-              </Button>
-            </div>
-          </PopoverContent>
-        )}
-      </Popover>
+      </div>
 
       <div
         className={cn(
@@ -593,6 +472,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   onUpdateLabels={(wsId, labels) =>
                     onUpdateWorkspaceLabels(project.id, wsId, labels)
                   }
+                  suppressInfoPopover={isProjectMenuOpen}
                 />
               ))}
             </SortableContext>

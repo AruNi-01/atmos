@@ -10,6 +10,7 @@ export interface WorkspaceItemProps {
   projectId: string;
   projectPath?: string;
   projectName?: string;
+  suppressInfoPopover?: boolean;
   onPin: (workspaceId: string) => void;
   onUnpin: (workspaceId: string) => void;
   onArchive: (workspaceId: string) => void;
@@ -28,6 +29,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   projectId,
   projectPath,
   projectName,
+  suppressInfoPopover,
   onPin,
   onUnpin,
   onArchive,
@@ -61,6 +63,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         projectId={projectId}
         projectPath={projectPath}
         projectName={projectName}
+        suppressInfoPopover={suppressInfoPopover}
         isPlaceholder={isDragging}
         attributes={attributes}
         listeners={listeners}

@@ -6,12 +6,9 @@ import { getEmptyImage, HTML5Backend } from "react-dnd-html5-backend";
 import {
   Badge,
   Button,
-  Checkbox,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -24,9 +21,6 @@ import {
   DialogTitle,
   DialogTrigger,
   Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -46,12 +40,20 @@ import type {
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/types/types";
-import { PROJECT_COLOR_PRESETS } from "@/types/types";
 import { formatRelativeTime } from "@atmos/shared";
 import {
   getWorkspaceWorkflowStatusMeta,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
 } from "@/components/layout/sidebar/workspace-status";
+import {
+  getWorkspacePriorityMeta,
+  WORKSPACE_PRIORITY_OPTIONS,
+  WORKSPACE_PRIORITY_SORT_WEIGHT,
+  WorkspaceLabelBadges,
+  WorkspaceLabelPicker,
+  WorkspacePrioritySelect,
+  WorkspaceStatusSelect,
+} from "@/components/layout/sidebar/workspace-metadata-controls";
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -68,8 +70,6 @@ import {
   Tags,
   X,
 } from "lucide-react";
-import { useTheme } from "next-themes";
-import { SketchPicker } from "react-color";
 
 type KanbanEntry = {
   projectId: string;
@@ -95,35 +95,6 @@ const STATUS_COLOR_MAP: Record<WorkspaceWorkflowStatus, string> = {
   canceled: "#6b7280",
 };
 
-const PRIORITY_META: Record<WorkspacePriority, { label: string; className: string; dot: string }> = {
-  no_priority: { label: "No priority", className: "text-muted-foreground", dot: "bg-muted-foreground/60" },
-  urgent: { label: "Urgent", className: "text-red-400", dot: "bg-red-400" },
-  high: { label: "High", className: "text-orange-400", dot: "bg-orange-400" },
-  medium: { label: "Medium", className: "text-yellow-400", dot: "bg-yellow-400" },
-  low: { label: "Low", className: "text-emerald-400", dot: "bg-emerald-400" },
-};
-
-const WORKSPACE_PRIORITY_OPTIONS: Array<{
-  value: WorkspacePriority;
-  label: string;
-  className: string;
-  icon: React.ComponentType<{ className?: string }>;
-}> = [
-  { value: "no_priority", label: "No priority", className: "text-muted-foreground", icon: PriorityNoneIcon },
-  { value: "urgent", label: "Urgent", className: "text-red-500/85", icon: PriorityUrgentIcon },
-  { value: "high", label: "High", className: "text-orange-500", icon: PriorityBarsHighIcon },
-  { value: "medium", label: "Medium", className: "text-yellow-500", icon: PriorityBarsMediumIcon },
-  { value: "low", label: "Low", className: "text-emerald-500", icon: PriorityBarsLowIcon },
-];
-
-const LABEL_COLOR_PRESETS = [...PROJECT_COLOR_PRESETS, { name: "Cyan", color: "#06b6d4" }];
-const WORKSPACE_PRIORITY_SORT_WEIGHT: Record<WorkspacePriority, number> = {
-  no_priority: 0,
-  low: 1,
-  medium: 2,
-  high: 3,
-  urgent: 4,
-};
 const KANBAN_SORT_BY_VALUES = ["last_visit", "create_time", "priority"] as const;
 const KANBAN_SORT_ORDER_VALUES = ["asc", "desc"] as const;
 const KANBAN_CARD_PROPERTY_KEYS = [
@@ -176,83 +147,6 @@ type WorkspaceKanbanViewSavedState = {
   };
   properties: KanbanCardProperties;
 };
-
-function PriorityNoneIcon({ className }: { className?: string }) {
-  return (
-    <span className={cn("inline-flex size-4 flex-col items-center justify-center gap-[3px]", className)}>
-      {[0, 1, 2].map((line) => (
-        <span key={line} className="h-[1.5px] w-3 rounded-full bg-current" />
-      ))}
-    </span>
-  );
-}
-
-function PriorityUrgentIcon({ className }: { className?: string }) {
-  return (
-    <span className={cn("inline-flex size-4 items-center justify-center rounded-[3px] bg-current", className)}>
-      <span className="text-[11px] font-bold leading-none text-background">!</span>
-    </span>
-  );
-}
-
-function PriorityBarsIcon({
-  className,
-  activeBars,
-}: {
-  className?: string;
-  activeBars: number;
-}) {
-  return (
-    <span className={cn("inline-flex h-4 w-4 items-end gap-[2px]", className)}>
-      {[1, 2, 3].map((bar) => (
-        <span
-          key={bar}
-          className={cn(
-            "w-[3px] rounded-[1px] bg-current",
-            bar === 1 && "h-1.5",
-            bar === 2 && "h-2.5",
-            bar === 3 && "h-3.5",
-            bar > activeBars && "opacity-30",
-          )}
-        />
-      ))}
-    </span>
-  );
-}
-
-function PriorityBarsHighIcon({ className }: { className?: string }) {
-  return <PriorityBarsIcon className={className} activeBars={3} />;
-}
-
-function PriorityBarsMediumIcon({ className }: { className?: string }) {
-  return <PriorityBarsIcon className={className} activeBars={2} />;
-}
-
-function PriorityBarsLowIcon({ className }: { className?: string }) {
-  return <PriorityBarsIcon className={className} activeBars={1} />;
-}
-
-function parseHexColor(color: string) {
-  const hex = color.replace("#", "");
-  return {
-    r: parseInt(hex.slice(0, 2), 16),
-    g: parseInt(hex.slice(2, 4), 16),
-    b: parseInt(hex.slice(4, 6), 16),
-  };
-}
-
-function parseColorToRgb(color: string): { r: number; g: number; b: number; a: number } {
-  const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-  if (rgbaMatch) {
-    return {
-      r: parseInt(rgbaMatch[1], 10),
-      g: parseInt(rgbaMatch[2], 10),
-      b: parseInt(rgbaMatch[3], 10),
-      a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1,
-    };
-  }
-  return { ...parseHexColor(color), a: 1 };
-}
 
 interface WorkspaceKanbanViewProps {
   projects: Project[];
@@ -314,129 +208,30 @@ function KanbanWorkspaceCard({
     labels: WorkspaceLabel[],
   ) => Promise<void>;
 }) {
-  const router = useAppRouter();
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-  const [isLabelPopoverOpen, setIsLabelPopoverOpen] = React.useState(false);
-  const [labelEditorKey, setLabelEditorKey] = React.useState<string | null>(null);
-  const [editingLabel, setEditingLabel] = React.useState<WorkspaceLabel | null>(null);
-  const [labelSearchQuery, setLabelSearchQuery] = React.useState("");
-  const [newLabelName, setNewLabelName] = React.useState("");
-  const [newLabelColor, setNewLabelColor] = React.useState({ r: 59, g: 130, b: 246, a: 1 });
-
-  const statusMeta = getWorkspaceWorkflowStatusMeta(workspace.workflowStatus);
-  const StatusIcon = statusMeta.icon;
-  const priorityOption =
-    WORKSPACE_PRIORITY_OPTIONS.find((option) => option.value === workspace.priority) ?? WORKSPACE_PRIORITY_OPTIONS[0];
-  const PriorityIcon = priorityOption.icon;
-  const selectedLabelIds = React.useMemo(
-    () => new Set(workspace.labels.map((label) => label.id)),
-    [workspace.labels],
-  );
-  const filteredAvailableLabels = React.useMemo(() => {
-    const query = labelSearchQuery.trim().toLowerCase();
-    if (!query) return availableLabels;
-    return availableLabels.filter((label) => label.name.toLowerCase().includes(query));
-  }, [availableLabels, labelSearchQuery]);
-
-  const handleToggleLabel = React.useCallback((label: WorkspaceLabel) => {
-    const nextLabels = selectedLabelIds.has(label.id)
-      ? workspace.labels.filter((existing) => existing.id !== label.id)
-      : [...workspace.labels, label];
-    void onUpdateLabels(projectId, workspace.id, nextLabels);
-  }, [onUpdateLabels, projectId, selectedLabelIds, workspace.id, workspace.labels]);
-
-  const handleCreateLabel = React.useCallback(async () => {
-    const name = newLabelName.trim();
-    if (!name) return;
-    const color = `rgba(${newLabelColor.r}, ${newLabelColor.g}, ${newLabelColor.b}, ${newLabelColor.a})`;
-    const label = editingLabel
-      ? await onUpdateLabel(editingLabel.id, { name, color })
-      : await onCreateLabel({ name, color });
-    const nextLabels = selectedLabelIds.has(label.id) ? workspace.labels : [...workspace.labels, label];
-    await onUpdateLabels(projectId, workspace.id, nextLabels);
-    setNewLabelName("");
-    setLabelEditorKey(null);
-    setEditingLabel(null);
-  }, [editingLabel, newLabelColor, newLabelName, onCreateLabel, onUpdateLabel, onUpdateLabels, projectId, selectedLabelIds, workspace.id, workspace.labels]);
-
-  const openLabelEditor = React.useCallback((label: WorkspaceLabel | null) => {
-    setEditingLabel(label);
-    setNewLabelName(label?.name ?? "");
-    setNewLabelColor(label?.color ? parseColorToRgb(label.color) : { r: 59, g: 130, b: 246, a: 1 });
-    setLabelEditorKey(label?.id ?? "new");
-  }, []);
-
   return (
     <div className="w-full rounded-md border border-border bg-background p-3 text-left shadow-xs">
       {cardProperties.project || cardProperties.priority || cardProperties.status ? (
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {cardProperties.priority ? (
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex size-6 items-center justify-center rounded-md border border-border/60 bg-muted/35 text-xs text-foreground transition-colors hover:bg-muted"
-                  >
-                    <PriorityIcon className={cn("shrink-0", priorityOption.className)} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start" className="w-40">
-                  <DropdownMenuRadioGroup
-                    value={workspace.priority}
-                    onValueChange={(value) => void onUpdatePriority(projectId, workspace.id, value as WorkspacePriority)}
-                  >
-                    {WORKSPACE_PRIORITY_OPTIONS.map((option) => (
-                      <DropdownMenuRadioItem
-                        key={option.value}
-                        value={option.value}
-                        className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
-                      >
-                        <option.icon className={cn("shrink-0", option.className)} />
-                        <span className="font-medium">{option.label}</span>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <WorkspacePrioritySelect
+                value={workspace.priority}
+                onChange={(value) => void onUpdatePriority(projectId, workspace.id, value)}
+                triggerVariant="icon"
+                contentSide="right"
+                triggerClassName="size-6 border border-border/60 bg-muted/35"
+              />
             ) : null}
             {cardProperties.project ? <span className="text-sm font-medium text-foreground">{projectName}</span> : null}
           </div>
           {cardProperties.status ? (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex size-6 items-center justify-center rounded-md bg-muted/35 text-foreground transition-colors hover:bg-muted"
-                  title={statusMeta.label}
-                >
-                  <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="right" align="start" className="w-40">
-                <DropdownMenuRadioGroup
-                  value={workspace.workflowStatus}
-                  onValueChange={(value) =>
-                    void onUpdateWorkflowStatus(projectId, workspace.id, value as WorkspaceWorkflowStatus)
-                  }
-                >
-                  {WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => {
-                    const OptionIcon = option.icon;
-                    return (
-                      <DropdownMenuRadioItem
-                        key={option.value}
-                        value={option.value}
-                        className="cursor-pointer pl-2 data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground [&>span:first-child]:hidden"
-                      >
-                        <OptionIcon className={cn("size-4", option.className)} />
-                        <span>{option.label}</span>
-                      </DropdownMenuRadioItem>
-                    );
-                  })}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <WorkspaceStatusSelect
+              value={workspace.workflowStatus}
+              onChange={(value) => void onUpdateWorkflowStatus(projectId, workspace.id, value)}
+              triggerVariant="icon"
+              contentSide="right"
+              triggerClassName="size-6 bg-muted/35"
+            />
           ) : null}
         </div>
       ) : null}
@@ -448,153 +243,15 @@ function KanbanWorkspaceCard({
 
       {cardProperties.labels ? (
         <div className="mb-3 flex min-h-[1.5rem] flex-wrap items-center gap-1.5">
-        <Popover
-          open={isLabelPopoverOpen}
-          onOpenChange={(open) => {
-            setIsLabelPopoverOpen(open);
-            if (!open) {
-              setLabelEditorKey(null);
-              setEditingLabel(null);
-              setLabelSearchQuery("");
-              setNewLabelName("");
-            }
-          }}
-        >
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-6 items-center rounded-full border border-dashed border-foreground/25 bg-foreground/12 px-2 text-xs font-medium text-foreground transition-colors hover:bg-foreground/18"
-            >
-              + Label
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="right" align="start" className="w-64 space-y-3 p-3">
-            <Popover
-              open={labelEditorKey === "new"}
-              onOpenChange={(open) => {
-                if (open) openLabelEditor(null);
-                else if (labelEditorKey === "new") {
-                  setLabelEditorKey(null);
-                  setEditingLabel(null);
-                }
-              }}
-            >
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  <span>Create New</span>
-                  <span className="text-muted-foreground">+</span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent side="right" align="start" sideOffset={8} alignOffset={28} className="w-72 space-y-2 p-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={newLabelName}
-                    onChange={(event) => setNewLabelName(event.target.value)}
-                    placeholder="New label"
-                    className="h-7 flex-1 text-xs"
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    disabled={!newLabelName.trim()}
-                    onClick={() => void handleCreateLabel()}
-                  >
-                    {editingLabel ? "Save" : "Add"}
-                  </Button>
-                </div>
-                <div className="grid grid-cols-6 gap-1">
-                  {LABEL_COLOR_PRESETS.map((preset) => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => setNewLabelColor({ ...parseHexColor(preset.color), a: 0.18 })}
-                      className="h-6 w-full rounded border border-border/50 transition-transform hover:scale-105"
-                      style={{ backgroundColor: preset.color }}
-                      title={preset.name}
-                    />
-                  ))}
-                </div>
-                <SketchPicker
-                  color={newLabelColor}
-                  onChange={(color) => {
-                    setNewLabelColor({
-                      r: color.rgb.r,
-                      g: color.rgb.g,
-                      b: color.rgb.b,
-                      a: color.rgb.a ?? 1,
-                    });
-                  }}
-                  styles={{
-                    default: {
-                      picker: {
-                        background: isDark ? "#1c1c1f" : "#fff",
-                        boxSizing: "border-box",
-                        borderRadius: "8px",
-                        boxShadow: "none",
-                        border: isDark ? "1px solid #27272a" : "1px solid #e4e4e7",
-                        padding: "10px",
-                        width: "100%",
-                      },
-                      saturation: { borderRadius: "8px" },
-                      activeColor: { borderRadius: "4px" },
-                      hue: { height: "10px", borderRadius: "4px" },
-                      alpha: { height: "10px", borderRadius: "4px" },
-                    },
-                  }}
-                />
-              </PopoverContent>
-            </Popover>
-            <Input
-              value={labelSearchQuery}
-              onChange={(event) => setLabelSearchQuery(event.target.value)}
-              placeholder="Search labels"
-              className="h-7 text-xs"
-            />
-            <div className="max-h-64 space-y-1 overflow-y-auto">
-              {availableLabels.length === 0 ? (
-                <div className="py-2 text-center text-xs text-muted-foreground">No labels yet</div>
-              ) : filteredAvailableLabels.length === 0 ? (
-                <div className="py-2 text-center text-xs text-muted-foreground">No matching labels</div>
-              ) : filteredAvailableLabels.map((label) => (
-                <div
-                  key={label.id}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleToggleLabel(label);
-                    }
-                  }}
-                  onClick={() => handleToggleLabel(label)}
-                  className={cn(
-                    "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-muted",
-                    selectedLabelIds.has(label.id) && "bg-muted",
-                  )}
-                >
-                  <Checkbox
-                    checked={selectedLabelIds.has(label.id)}
-                    tabIndex={-1}
-                    className="pointer-events-none size-3.5"
-                  />
-                  <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
-                  <span className="min-w-0 truncate">{label.name}</span>
-                </div>
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {workspace.labels.map((label) => (
-          <Badge key={label.id} variant="outline" className="gap-1.5 rounded-full bg-background text-muted-foreground">
-            <span className="size-1.5 rounded-full" style={{ backgroundColor: label.color }} aria-hidden="true" />
-            {label.name}
-          </Badge>
-        ))}
+          <WorkspaceLabelPicker
+            labels={workspace.labels}
+            availableLabels={availableLabels}
+            onChange={(nextLabels) => onUpdateLabels(projectId, workspace.id, nextLabels)}
+            onCreateLabel={onCreateLabel}
+            onUpdateLabel={onUpdateLabel}
+            contentSide="right"
+          />
+          <WorkspaceLabelBadges labels={workspace.labels} className="contents" />
         </div>
       ) : null}
 
@@ -722,8 +379,7 @@ function KanbanDragLayer() {
 
   if (!isDragging || !item || !currentOffset) return null;
 
-  const priorityOption =
-    WORKSPACE_PRIORITY_OPTIONS.find((option) => option.value === item.preview.priority) ?? WORKSPACE_PRIORITY_OPTIONS[0];
+  const priorityOption = getWorkspacePriorityMeta(item.preview.priority);
   const statusMeta = getWorkspaceWorkflowStatusMeta(item.preview.workflowStatus);
   const PriorityIcon = priorityOption.icon;
   const StatusIcon = statusMeta.icon;

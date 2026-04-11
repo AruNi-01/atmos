@@ -210,6 +210,9 @@ interface ProjectStore {
     githubIssue?: WorkspaceModel['github_issue'];
     autoExtractTodos?: boolean;
     hasSetupScript?: boolean;
+    priority?: WorkspacePriority;
+    workflowStatus?: WorkspaceWorkflowStatus;
+    labels?: WorkspaceLabel[];
   }) => Promise<string>;
   quickAddWorkspace: (projectId: string) => Promise<string | null>;
   deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
@@ -480,6 +483,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         initialRequirement: data.initialRequirement,
         githubIssue: data.githubIssue,
         autoExtractTodos: data.autoExtractTodos,
+        priority: data.priority,
+        workflowStatus: data.workflowStatus,
+        labelGuids: data.labels?.map(label => label.id),
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
@@ -557,6 +563,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         projectGuid: projectId,
         name: '',  // Backend will generate a unique Pokemon name
         branch: '', // Backend will use the generated name as branch,
+        priority: 'no_priority',
+        workflowStatus: 'in_progress',
+        labelGuids: [],
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);

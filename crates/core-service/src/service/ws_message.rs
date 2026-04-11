@@ -1471,6 +1471,9 @@ impl WsMessageService {
                 req.sidebar_order,
                 req.github_issue.clone(),
                 req.auto_extract_todos,
+                req.priority,
+                req.workflow_status,
+                req.label_guids,
             )
             .await?;
 

@@ -941,6 +941,9 @@ export const wsWorkspaceApi = {
     initialRequirement?: string | null;
     githubIssue?: GithubIssuePayload | null;
     autoExtractTodos?: boolean;
+    priority?: string | null;
+    workflowStatus?: string | null;
+    labelGuids?: string[];
   }): Promise<WorkspaceModel> => {
     return wsRequest<WorkspaceModel>("workspace_create", {
       project_guid: data.projectGuid,
@@ -952,6 +955,9 @@ export const wsWorkspaceApi = {
       initial_requirement: data.initialRequirement ?? null,
       github_issue: data.githubIssue ?? null,
       auto_extract_todos: data.autoExtractTodos ?? false,
+      priority: data.priority ?? null,
+      workflow_status: data.workflowStatus ?? null,
+      label_guids: data.labelGuids ?? null,
     });
   },
 

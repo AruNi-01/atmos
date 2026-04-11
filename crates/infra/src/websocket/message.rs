@@ -1010,6 +1010,12 @@ pub struct WorkspaceCreateRequest {
     pub github_issue: Option<GithubIssuePayload>,
     #[serde(default)]
     pub auto_extract_todos: bool,
+    #[serde(default)]
+    pub priority: Option<String>,
+    #[serde(default)]
+    pub workflow_status: Option<String>,
+    #[serde(default)]
+    pub label_guids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -168,6 +168,9 @@ impl WorkspaceService {
         sidebar_order: i32,
         github_issue: Option<GithubIssuePayload>,
         auto_extract_todos: bool,
+        priority: Option<String>,
+        workflow_status: Option<String>,
+        labels: Option<Vec<String>>,
     ) -> Result<WorkspaceDto> {
         // Get project to find the repository path and name
         let project_repo = ProjectRepo::new(&self.db);
@@ -177,6 +180,36 @@ impl WorkspaceService {
             .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", project_guid)))?;
 
         let repo_path = Path::new(&project.main_file_path);
+        let workflow_status = match workflow_status {
+            Some(status)
+                if WORKSPACE_WORKFLOW_STATUSES
+                    .iter()
+                    .any(|candidate| *candidate == status) =>
+            {
+                Some(status)
+            }
+            Some(status) => {
+                return Err(ServiceError::Validation(format!(
+                    "Unsupported workspace workflow status: {status}"
+                )));
+            }
+            None => None,
+        };
+        let priority = match priority {
+            Some(value)
+                if WORKSPACE_PRIORITIES
+                    .iter()
+                    .any(|candidate| *candidate == value) =>
+            {
+                Some(value)
+            }
+            Some(value) => {
+                return Err(ServiceError::Validation(format!(
+                    "Unsupported workspace priority: {value}"
+                )));
+            }
+            None => None,
+        };
 
         let requested_base_branch = base_branch
             .as_deref()
@@ -346,6 +379,9 @@ impl WorkspaceService {
                 github_issue_url,
                 github_issue_data,
                 auto_extract_todos,
+                workflow_status,
+                priority,
+                labels,
             )
             .await?;
 

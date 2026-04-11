@@ -1457,6 +1457,7 @@ const CenterStage: React.FC = () => {
           >
             <OverviewTab
               contextId={effectiveContextId}
+              projectId={currentProject?.id}
               projectName={currentProject?.name}
               projectPath={currentProject?.mainFilePath}
               workspaceName={currentWorkspace?.displayName ?? currentWorkspace?.name}
@@ -1465,6 +1466,9 @@ const CenterStage: React.FC = () => {
               createdAt={currentWorkspace?.createdAt}
               isProjectOnly={!currentWorkspace}
               githubIssue={currentWorkspace?.githubIssue}
+              priority={currentWorkspace?.priority}
+              workflowStatus={currentWorkspace?.workflowStatus}
+              labels={currentWorkspace?.labels}
             />
           </div>
         )}

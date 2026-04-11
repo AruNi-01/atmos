@@ -27,6 +27,14 @@ import {
 } from '@workspace/ui';
 import { cn } from '@/lib/utils';
 import { Check, ChevronDown, ExternalLink, GitBranch, Github, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/types/types';
+import {
+  WorkspaceLabelDots,
+  WorkspaceLabelPicker,
+  WorkspacePrioritySelect,
+  WorkspaceStatusSelect,
+} from '@/components/layout/sidebar/workspace-metadata-controls';
+import { useProjectStore } from '@/hooks/use-project-store';
 import {
   gitApi,
   llmProvidersApi,
@@ -36,7 +44,6 @@ import {
   wsGithubApi,
 } from '@/api/ws-api';
 import { useAppRouter } from '@/hooks/use-app-router';
-import { useProjectStore } from '@/hooks/use-project-store';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 
 interface CreateWorkspaceDialogProps {
@@ -52,6 +59,7 @@ interface RepoContext {
 
 const ISSUE_CACHE_TTL_MS = 5 * 60 * 1000;
 const issueListCache = new Map<string, { expiresAt: number; issues: GithubIssuePayload[] }>();
+
 const POKEMON_NAMES = [
   'bulbasaur',
   'ivysaur',
@@ -208,6 +216,14 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const [todoProviderLabel, setTodoProviderLabel] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Metadata states - defaults: no_priority, in_progress, empty labels
+  const [priority, setPriority] = useState<WorkspacePriority>('no_priority');
+  const [workflowStatus, setWorkflowStatus] = useState<WorkspaceWorkflowStatus>('in_progress');
+  const [selectedLabels, setSelectedLabels] = useState<WorkspaceLabel[]>([]);
+
+  const workspaceLabels = useProjectStore(s => s.workspaceLabels);
+  const createWorkspaceLabel = useProjectStore(s => s.createWorkspaceLabel);
+
   const nameTouchedRef = useRef(false);
   const branchTouchedRef = useRef(false);
   const generatedBranchRef = useRef<string | null>(null);
@@ -257,6 +273,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setIsIssuePreviewLoading(false);
       setIsLlmRoutingLoading(false);
       setHasSetupScript(false);
+      // Reset metadata states to defaults
+      setPriority('no_priority');
+      setWorkflowStatus('in_progress');
+      setSelectedLabels([]);
       nameTouchedRef.current = false;
       branchTouchedRef.current = false;
       generatedBranchRef.current = null;
@@ -505,6 +525,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         githubIssue: issuePreview,
         autoExtractTodos: autoExtractTodos && !!issuePreview && !!todoProviderLabel,
         hasSetupScript,
+        priority,
+        workflowStatus,
+        labels: selectedLabels,
       });
       keepGlobalLoading = true;
       showOpening(workspaceId);
@@ -888,22 +911,49 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
             )}
           </div>
 
-          <DialogFooter className="mt-5">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                isSubmitting ||
-                !projectId ||
-                isIssuePreviewLoading ||
-                isBaseBranchesLoading ||
-                remoteBranches.length === 0
-              }
-            >
-              {isSubmitting ? 'Creating...' : 'Create Workspace'}
-            </Button>
+          <DialogFooter className="mt-5 flex w-full flex-row items-center justify-between sm:justify-between">
+            <div className="flex items-center gap-2">
+              <WorkspacePrioritySelect
+                value={priority}
+                onChange={setPriority}
+                triggerVariant="icon"
+                contentSide="top"
+              />
+              <WorkspaceStatusSelect
+                value={workflowStatus}
+                onChange={setWorkflowStatus}
+                triggerVariant="icon"
+                contentSide="top"
+              />
+              <WorkspaceLabelPicker
+                labels={selectedLabels}
+                availableLabels={workspaceLabels}
+                onChange={setSelectedLabels}
+                onCreateLabel={createWorkspaceLabel}
+                triggerVariant="icon"
+                contentSide="top"
+                editorSide="left"
+              />
+              <WorkspaceLabelDots labels={selectedLabels} overlap className="pl-1" />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  !projectId ||
+                  isIssuePreviewLoading ||
+                  isBaseBranchesLoading ||
+                  remoteBranches.length === 0
+                }
+              >
+                {isSubmitting ? 'Creating...' : 'Create Workspace'}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

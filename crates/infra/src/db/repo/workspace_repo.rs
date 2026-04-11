@@ -59,8 +59,16 @@ impl<'a> WorkspaceRepo<'a> {
         github_issue_url: Option<String>,
         github_issue_data: Option<String>,
         auto_extract_todos: bool,
+        workflow_status: Option<String>,
+        priority: Option<String>,
+        label_guids: Option<Vec<String>>,
     ) -> Result<workspace::Model> {
         let base = BaseFields::new();
+
+        let serialized_labels = match label_guids {
+            Some(guids) => self.serialize_existing_label_guids(guids).await?,
+            None => None,
+        };
 
         let model = workspace::ActiveModel {
             guid: Set(base.guid),
@@ -78,9 +86,9 @@ impl<'a> WorkspaceRepo<'a> {
             is_archived: Set(false),
             archived_at: Set(None),
             last_visited_at: Set(None),
-            workflow_status: Set("in_progress".to_string()),
-            priority: Set("no_priority".to_string()),
-            label_guids: Set(None),
+            workflow_status: Set(workflow_status.unwrap_or_else(|| "in_progress".to_string())),
+            priority: Set(priority.unwrap_or_else(|| "no_priority".to_string())),
+            label_guids: Set(serialized_labels),
             terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
             github_issue_url: Set(github_issue_url),
@@ -342,12 +350,38 @@ impl<'a> WorkspaceRepo<'a> {
         workspace_guid: &str,
         label_guids: Vec<String>,
     ) -> Result<()> {
+        let serialized = self.serialize_existing_label_guids(label_guids).await?;
+
+        let now = chrono::Utc::now().naive_utc();
+        let result = workspace::Entity::update_many()
+            .col_expr(workspace::Column::LabelGuids, Expr::value(serialized))
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace::Column::Guid.eq(workspace_guid))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace not found".into(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    async fn serialize_existing_label_guids(
+        &self,
+        label_guids: Vec<String>,
+    ) -> Result<Option<String>> {
         let mut seen_label_guids = HashSet::new();
         let unique_label_guids: Vec<String> = label_guids
             .into_iter()
             .filter(|guid| !guid.trim().is_empty())
             .filter(|guid| seen_label_guids.insert(guid.clone()))
             .collect();
+        if unique_label_guids.is_empty() {
+            return Ok(None);
+        }
 
         let existing_label_guids: HashSet<String> = workspace_label::Entity::find()
             .filter(workspace_label::Column::IsDeleted.eq(false))
@@ -373,21 +407,7 @@ impl<'a> WorkspaceRepo<'a> {
             )
         };
 
-        let now = chrono::Utc::now().naive_utc();
-        let result = workspace::Entity::update_many()
-            .col_expr(workspace::Column::LabelGuids, Expr::value(serialized))
-            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
-            .filter(workspace::Column::Guid.eq(workspace_guid))
-            .filter(workspace::Column::IsDeleted.eq(false))
-            .exec(self.db)
-            .await?;
-        if result.rows_affected == 0 {
-            return Err(crate::error::InfraError::Custom(
-                "Workspace not found".into(),
-            ));
-        }
-
-        Ok(())
+        Ok(serialized)
     }
 
     /// 删除工作区（硬删除）
