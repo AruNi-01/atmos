@@ -51,7 +51,6 @@ import {
   XOctagon,
   PlayCircle,
   LayoutDashboard,
-  Info,
   History,
   ChevronRight,
   CircleDashed,
@@ -298,9 +297,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="text-xs text-muted-foreground font-medium tracking-wide uppercase shrink-0">
-                  {isProjectOnly ? 'Project Overview' : 'Workspace Overview'}
-                </span>
                 <div className="inline-flex items-center gap-3 text-[11px] text-muted-foreground min-w-0">
                   <div className="inline-flex items-center gap-1.5 min-w-0 shrink-0">
                     <GitBranch className="size-3.5" />

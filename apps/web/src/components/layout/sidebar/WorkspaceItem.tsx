@@ -14,6 +14,7 @@ export interface WorkspaceItemProps {
   onUnpin: (workspaceId: string) => void;
   onArchive: (workspaceId: string) => void;
   onDelete: (workspaceId: string) => void;
+  onUpdateName?: (workspaceId: string, name: string) => Promise<void>;
   onUpdateWorkflowStatus?: (workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => void;
 }
 
@@ -26,6 +27,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   onUnpin,
   onArchive,
   onDelete,
+  onUpdateName,
   onUpdateWorkflowStatus,
 }) {
   const {
@@ -56,6 +58,7 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         onUnpin={onUnpin}
         onArchive={onArchive}
         onDelete={onDelete}
+        onUpdateName={onUpdateName}
         onUpdateWorkflowStatus={onUpdateWorkflowStatus}
       />
     </div>

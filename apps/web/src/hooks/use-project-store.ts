@@ -215,6 +215,7 @@ interface ProjectStore {
   pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  updateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
   updateWorkspaceBranch: (projectId: string, workspaceId: string, branch: string) => Promise<void>;
   updateWorkspaceWorkflowStatus: (
     projectId: string,
@@ -750,6 +751,34 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         description: 'Failed to archive workspace', 
         type: 'error' 
       });
+    }
+  },
+
+  updateWorkspaceName: async (projectId: string, workspaceId: string, name: string) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updateName(workspaceId, name);
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: p.workspaces.map(w =>
+                  w.id === workspaceId ? { ...w, displayName: name } : w
+                ),
+              }
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace name:', error);
+      toastManager.add({
+        title: 'Error',
+        description: 'Failed to update workspace name',
+        type: 'error'
+      });
+      throw error;
     }
   },
 
