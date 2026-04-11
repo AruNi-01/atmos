@@ -39,12 +39,14 @@ use infra::{
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
     UsageProviderSwitchRequest, WorkspaceArchiveRequest, WorkspaceConfirmTodosRequest,
     WorkspaceCreateRequest, WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest,
-    WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
-    WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
-    WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent,
-    WsMessage, WsMessageHandler, WsRequest,
+    WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest, WorkspaceListRequest,
+    WorkspaceMarkVisitedRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
+    WorkspaceSetupContextNotification, WorkspaceSetupProgressNotification,
+    WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateOrderRequest, WorkspaceUpdatePriorityRequest,
+    WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent, WsMessage, WsMessageHandler,
+    WsRequest,
 };
 use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
@@ -438,6 +440,23 @@ impl WsMessageService {
             }
             WsAction::WorkspaceUpdateWorkflowStatus => {
                 self.handle_workspace_update_workflow_status(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceUpdatePriority => {
+                self.handle_workspace_update_priority(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceLabelList => self.handle_workspace_label_list().await,
+            WsAction::WorkspaceLabelCreate => {
+                self.handle_workspace_label_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceLabelUpdate => {
+                self.handle_workspace_label_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceUpdateLabels => {
+                self.handle_workspace_update_labels(parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceUpdateOrder => {
@@ -1569,6 +1588,53 @@ impl WsMessageService {
     ) -> Result<Value> {
         self.workspace_service
             .update_workflow_status(req.guid, req.workflow_status)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_update_priority(
+        &self,
+        req: WorkspaceUpdatePriorityRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_priority(req.guid, req.priority)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_label_list(&self) -> Result<Value> {
+        let labels = self.workspace_service.list_labels().await?;
+        Ok(json!(labels))
+    }
+
+    async fn handle_workspace_label_create(
+        &self,
+        req: WorkspaceLabelCreateRequest,
+    ) -> Result<Value> {
+        let label = self
+            .workspace_service
+            .create_label(req.name, req.color)
+            .await?;
+        Ok(json!(label))
+    }
+
+    async fn handle_workspace_label_update(
+        &self,
+        req: WorkspaceLabelUpdateRequest,
+    ) -> Result<Value> {
+        let label = self
+            .workspace_service
+            .update_label(req.guid, req.name, req.color)
+            .await?;
+        Ok(json!(label))
+    }
+
+    async fn handle_workspace_update_labels(
+        &self,
+        req: WorkspaceUpdateLabelsRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_labels(req.guid, req.label_guids)
             .await?;
         Ok(json!({ "success": true }))
     }

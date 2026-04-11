@@ -98,6 +98,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         archiveWorkspace,
         updateWorkspaceName,
         updateWorkspaceWorkflowStatus,
+        updateWorkspacePriority,
+        workspaceLabels,
+        createWorkspaceLabel,
+        updateWorkspaceLabel,
+        updateWorkspaceLabels,
         markWorkspaceVisited,
         reorderProjects,
         reorderWorkspaces,
@@ -116,6 +121,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             archiveWorkspace: s.archiveWorkspace,
             updateWorkspaceName: s.updateWorkspaceName,
             updateWorkspaceWorkflowStatus: s.updateWorkspaceWorkflowStatus,
+            updateWorkspacePriority: s.updateWorkspacePriority,
+            workspaceLabels: s.workspaceLabels,
+            createWorkspaceLabel: s.createWorkspaceLabel,
+            updateWorkspaceLabel: s.updateWorkspaceLabel,
+            updateWorkspaceLabels: s.updateWorkspaceLabels,
             markWorkspaceVisited: s.markWorkspaceVisited,
             reorderProjects: s.reorderProjects,
             reorderWorkspaces: s.reorderWorkspaces,
@@ -642,6 +652,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                 onArchiveWorkspace={archiveWorkspace}
                                                 onDeleteWorkspace={deleteWorkspace}
                                                 onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                                onUpdateWorkspacePriority={updateWorkspacePriority}
+                                                availableLabels={workspaceLabels}
+                                                onCreateWorkspaceLabel={createWorkspaceLabel}
+                                                onUpdateWorkspaceLabel={updateWorkspaceLabel}
+                                                onUpdateWorkspaceLabels={updateWorkspaceLabels}
                                                 onUpdateWorkspaceName={updateWorkspaceName}
                                                 onConfigureScripts={handleConfigureScripts}
                                                 onSelectMain={(id) => router.push(`/project?id=${id}`)}
@@ -677,6 +692,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                 onDeleteWorkspace={() => { }}
                                                 onUpdateWorkspaceName={async () => { }}
                                                 onUpdateWorkspaceWorkflowStatus={() => { }}
+                                                onUpdateWorkspacePriority={() => { }}
+                                                availableLabels={workspaceLabels}
+                                                onCreateWorkspaceLabel={async data => ({ id: "", name: data.name, color: data.color })}
+                                                onUpdateWorkspaceLabel={async (_labelId, data) => ({ id: _labelId, name: data.name, color: data.color })}
+                                                onUpdateWorkspaceLabels={async () => { }}
                                                 onConfigureScripts={() => { }}
                                                 onSelectMain={() => { }}
                                                 isActiveProject={false}
@@ -750,9 +770,18 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                                             onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
                                                                             onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
                                                                             onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
-                                                                        onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
-                                                                            updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
-                                                                        }
+                                                                            onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
+                                                                                updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
+                                                                            }
+                                                                            onUpdatePriority={(workspaceId, priority) =>
+                                                                                updateWorkspacePriority(entry.projectId, workspaceId, priority)
+                                                                            }
+                                                                            availableLabels={workspaceLabels}
+                                                                            onCreateLabel={createWorkspaceLabel}
+                                                                            onUpdateLabel={updateWorkspaceLabel}
+                                                                            onUpdateLabels={(workspaceId, labels) =>
+                                                                                updateWorkspaceLabels(entry.projectId, workspaceId, labels)
+                                                                            }
                                                                         onUpdateName={(workspaceId, name) =>
                                                                             updateWorkspaceName(entry.projectId, workspaceId, name)
                                                                         }

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useSortable, CSS } from "@workspace/ui";
-import type { Workspace, WorkspaceWorkflowStatus } from "@/types/types";
+import type { Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from "@/types/types";
 import { WorkspaceContent } from "./WorkspaceContent";
 
 export interface WorkspaceItemProps {
@@ -16,6 +16,11 @@ export interface WorkspaceItemProps {
   onDelete: (workspaceId: string) => void;
   onUpdateName?: (workspaceId: string, name: string) => Promise<void>;
   onUpdateWorkflowStatus?: (workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => void;
+  onUpdatePriority?: (workspaceId: string, priority: WorkspacePriority) => void;
+  availableLabels?: WorkspaceLabel[];
+  onCreateLabel?: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateLabel?: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateLabels?: (workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
 }
 
 export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceItem({
@@ -29,6 +34,11 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
   onDelete,
   onUpdateName,
   onUpdateWorkflowStatus,
+  onUpdatePriority,
+  availableLabels,
+  onCreateLabel,
+  onUpdateLabel,
+  onUpdateLabels,
 }) {
   const {
     attributes,
@@ -60,6 +70,11 @@ export const WorkspaceItem = React.memo<WorkspaceItemProps>(function WorkspaceIt
         onDelete={onDelete}
         onUpdateName={onUpdateName}
         onUpdateWorkflowStatus={onUpdateWorkflowStatus}
+        onUpdatePriority={onUpdatePriority}
+        availableLabels={availableLabels}
+        onCreateLabel={onCreateLabel}
+        onUpdateLabel={onUpdateLabel}
+        onUpdateLabels={onUpdateLabels}
       />
     </div>
   );

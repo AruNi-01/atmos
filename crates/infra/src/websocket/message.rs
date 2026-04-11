@@ -245,6 +245,16 @@ pub enum WsAction {
     WorkspaceUpdateBranch,
     /// 更新 Workspace 流程状态
     WorkspaceUpdateWorkflowStatus,
+    /// 更新 Workspace 优先级
+    WorkspaceUpdatePriority,
+    /// 获取可复用 Workspace 标签
+    WorkspaceLabelList,
+    /// 创建可复用 Workspace 标签
+    WorkspaceLabelCreate,
+    /// 更新可复用 Workspace 标签
+    WorkspaceLabelUpdate,
+    /// 更新 Workspace 标签关联
+    WorkspaceUpdateLabels,
     /// 更新 Workspace 排序
     WorkspaceUpdateOrder,
     /// 记录 Workspace 最近访问时间
@@ -1018,6 +1028,32 @@ pub struct WorkspaceUpdateBranchRequest {
 pub struct WorkspaceUpdateWorkflowStatusRequest {
     pub guid: String,
     pub workflow_status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUpdatePriorityRequest {
+    pub guid: String,
+    pub priority: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceLabelCreateRequest {
+    pub name: String,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceLabelUpdateRequest {
+    pub guid: String,
+    pub name: String,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUpdateLabelsRequest {
+    pub guid: String,
+    #[serde(default)]
+    pub label_guids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

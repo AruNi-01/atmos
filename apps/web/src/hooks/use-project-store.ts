@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { Project, Workspace, WorkspaceWorkflowStatus } from '@/types/types';
+import { Project, Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
 import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
@@ -190,6 +190,7 @@ function isWorkspaceSetupProgressEventPayload(
 
 interface ProjectStore {
   projects: Project[];
+  workspaceLabels: WorkspaceLabel[];
   activeWorkspaceId: string | null;
   isLoading: boolean;
 
@@ -221,6 +222,22 @@ interface ProjectStore {
     projectId: string,
     workspaceId: string,
     workflowStatus: WorkspaceWorkflowStatus,
+  ) => Promise<void>;
+  updateWorkspacePriority: (
+    projectId: string,
+    workspaceId: string,
+    priority: WorkspacePriority,
+  ) => Promise<void>;
+  fetchWorkspaceLabels: () => Promise<void>;
+  createWorkspaceLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  updateWorkspaceLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
+  updateWorkspaceLabels: (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
   ) => Promise<void>;
   markWorkspaceVisited: (workspaceId: string) => Promise<void>;
   
@@ -268,6 +285,12 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     createdAt: model.created_at,
     lastVisitedAt: model.last_visited_at ?? undefined,
     workflowStatus: model.workflow_status as WorkspaceWorkflowStatus,
+    priority: model.priority as WorkspacePriority,
+    labels: (model.labels ?? []).map(label => ({
+      id: label.guid,
+      name: label.name,
+      color: label.color,
+    })),
     localPath: model.local_path,
     githubIssue: model.github_issue,
   };
@@ -308,6 +331,7 @@ async function waitForConnection(timeoutMs = 5000): Promise<void> {
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
+  workspaceLabels: [],
   activeWorkspaceId: null,
   isLoading: false,
 
@@ -318,7 +342,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await waitForConnection();
       
       // 获取所有项目
-      const projects = await wsProjectApi.list();
+      const [projects, labels] = await Promise.all([
+        wsProjectApi.list(),
+        wsWorkspaceApi.listLabels(),
+      ]);
+      set({
+        workspaceLabels: labels.map(label => ({
+          id: label.guid,
+          name: label.name,
+          color: label.color,
+        })),
+      });
 
       // 为每个项目获取 Workspaces
       const projectsWithWorkspaces = await Promise.all(
@@ -833,6 +867,116 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         description: 'Failed to update workspace status',
         type: 'error'
       });
+    }
+  },
+
+  updateWorkspacePriority: async (
+    projectId: string,
+    workspaceId: string,
+    priority: WorkspacePriority,
+  ) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updatePriority(workspaceId, priority);
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: p.workspaces.map(w =>
+                  w.id === workspaceId ? { ...w, priority } : w
+                ),
+              }
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace priority:', error);
+      toastManager.add({
+        title: 'Error',
+        description: 'Failed to update workspace priority',
+        type: 'error'
+      });
+      throw error;
+    }
+  },
+
+  fetchWorkspaceLabels: async () => {
+    await waitForConnection();
+    const labels = await wsWorkspaceApi.listLabels();
+    set({
+      workspaceLabels: labels.map(label => ({
+        id: label.guid,
+        name: label.name,
+        color: label.color,
+      })),
+    });
+  },
+
+  createWorkspaceLabel: async ({ name, color }) => {
+    await waitForConnection();
+    const label = await wsWorkspaceApi.createLabel({ name, color });
+    const mappedLabel = { id: label.guid, name: label.name, color: label.color };
+    set(state => ({
+      workspaceLabels: [
+        ...state.workspaceLabels.filter(existing => existing.id !== mappedLabel.id),
+        mappedLabel,
+      ].sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+    return mappedLabel;
+  },
+
+  updateWorkspaceLabel: async (labelId, { name, color }) => {
+    await waitForConnection();
+    const label = await wsWorkspaceApi.updateLabel(labelId, { name, color });
+    const mappedLabel = { id: label.guid, name: label.name, color: label.color };
+    set(state => ({
+      workspaceLabels: state.workspaceLabels
+        .map(existing => existing.id === mappedLabel.id ? mappedLabel : existing)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      projects: state.projects.map(project => ({
+        ...project,
+        workspaces: project.workspaces.map(workspace => ({
+          ...workspace,
+          labels: workspace.labels.map(existing =>
+            existing.id === mappedLabel.id ? mappedLabel : existing
+          ),
+        })),
+      })),
+    }));
+    return mappedLabel;
+  },
+
+  updateWorkspaceLabels: async (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updateLabels(workspaceId, labels.map(label => label.id));
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: p.workspaces.map(w =>
+                  w.id === workspaceId ? { ...w, labels } : w
+                ),
+              }
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace labels:', error);
+      toastManager.add({
+        title: 'Error',
+        description: 'Failed to update workspace labels',
+        type: 'error'
+      });
+      throw error;
     }
   },
 

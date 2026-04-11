@@ -198,8 +198,16 @@ export interface WorkspaceModel {
   archived_at: string | null;
   last_visited_at: string | null;
   workflow_status: string;
+  priority: string;
   local_path: string;
   github_issue: GithubIssuePayload | null;
+  labels: WorkspaceLabelModel[];
+}
+
+export interface WorkspaceLabelModel {
+  guid: string;
+  name: string;
+  color: string;
 }
 
 export interface GithubIssueLabelPayload {
@@ -980,6 +988,50 @@ export const wsWorkspaceApi = {
     return wsRequest<{ success: boolean }>("workspace_update_workflow_status", {
       guid,
       workflow_status: workflowStatus,
+    });
+  },
+
+  updatePriority: async (
+    guid: string,
+    priority: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_priority", {
+      guid,
+      priority,
+    });
+  },
+
+  listLabels: async (): Promise<WorkspaceLabelModel[]> => {
+    return wsRequest<WorkspaceLabelModel[]>("workspace_label_list", {});
+  },
+
+  createLabel: async (data: {
+    name: string;
+    color: string;
+  }): Promise<WorkspaceLabelModel> => {
+    return wsRequest<WorkspaceLabelModel>("workspace_label_create", data);
+  },
+
+  updateLabel: async (
+    guid: string,
+    data: {
+      name: string;
+      color: string;
+    },
+  ): Promise<WorkspaceLabelModel> => {
+    return wsRequest<WorkspaceLabelModel>("workspace_label_update", {
+      guid,
+      ...data,
+    });
+  },
+
+  updateLabels: async (
+    guid: string,
+    labelGuids: string[],
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_labels", {
+      guid,
+      label_guids: labelGuids,
     });
   },
 

@@ -31,7 +31,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@workspace/ui";
-import type { Project } from "@/types/types";
+import type { Project, WorkspaceLabel, WorkspacePriority } from "@/types/types";
 import { PROJECT_COLOR_PRESETS } from "@/types/types";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
@@ -65,6 +65,22 @@ export interface ProjectItemProps {
     workspaceId: string,
     workflowStatus: WorkspaceWorkflowStatus,
   ) => void;
+  onUpdateWorkspacePriority: (
+    projectId: string,
+    workspaceId: string,
+    priority: WorkspacePriority,
+  ) => void;
+  availableLabels: WorkspaceLabel[];
+  onCreateWorkspaceLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateWorkspaceLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
+  onUpdateWorkspaceLabels: (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => Promise<void>;
   onConfigureScripts: (projectId: string) => void;
   onSelectMain: (projectId: string) => void;
   isActiveProject: boolean;
@@ -116,6 +132,11 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   onDeleteWorkspace,
   onUpdateWorkspaceName,
   onUpdateWorkspaceWorkflowStatus,
+  onUpdateWorkspacePriority,
+  availableLabels,
+  onCreateWorkspaceLabel,
+  onUpdateWorkspaceLabel,
+  onUpdateWorkspaceLabels,
   onConfigureScripts,
   onSelectMain,
   isActiveProject,
@@ -555,6 +576,15 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                   onUpdateName={(wsId, name) => onUpdateWorkspaceName(project.id, wsId, name)}
                   onUpdateWorkflowStatus={(wsId, workflowStatus) =>
                     onUpdateWorkspaceWorkflowStatus(project.id, wsId, workflowStatus)
+                  }
+                  onUpdatePriority={(wsId, priority) =>
+                    onUpdateWorkspacePriority(project.id, wsId, priority)
+                  }
+                  availableLabels={availableLabels}
+                  onCreateLabel={onCreateWorkspaceLabel}
+                  onUpdateLabel={onUpdateWorkspaceLabel}
+                  onUpdateLabels={(wsId, labels) =>
+                    onUpdateWorkspaceLabels(project.id, wsId, labels)
                   }
                 />
               ))}

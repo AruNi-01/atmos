@@ -141,7 +141,7 @@ export const SIDEBAR_GROUPING_OPTIONS: Array<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { value: "project", label: "By Project", icon: FolderKanban },
-  { value: "status", label: "By Status", icon: StatusTodo },
+  { value: "status", label: "By Status", icon: StatusBacklog },
   { value: "time", label: "By Time", icon: Clock3 },
 ];
 
