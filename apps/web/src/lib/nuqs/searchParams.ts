@@ -119,6 +119,8 @@ export type LeftSidebarTab = "projects" | "files";
 
 export const leftSidebarParams = {
   lsTab: parseAsStringEnum<LeftSidebarTab>(["projects", "files"]).withDefault("projects"),
+  lsKanban: parseAsBoolean.withDefault(false),
+  lsKanbanQ: parseAsString.withDefault(""),
 };
 
 // ---------------------------------------------------------------------------

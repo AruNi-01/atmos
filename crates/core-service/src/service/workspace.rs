@@ -20,6 +20,7 @@ const WORKSPACE_ISSUE_TODO_SYSTEM_PROMPT_TEMPLATE: &str =
 const WORKSPACE_ISSUE_TODO_USER_PROMPT_TEMPLATE: &str =
     include_str!("../../../../prompt/workspace/workspace-issue-todo-user.md");
 pub const WORKSPACE_WORKFLOW_STATUSES: &[&str] = &[
+    "backlog",
     "todo",
     "in_progress",
     "in_review",

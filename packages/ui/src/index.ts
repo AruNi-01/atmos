@@ -59,6 +59,7 @@ export * from "./components/ui/rating";
 export * from "./components/ui/separator";
 export * from "./components/ui/switch";
 export * from "./components/ui/accordion";
+export * from "./components/ui/expandable-screen";
 export { Calendar, CalendarDayButton } from "./components/ui/calendar";
 export * from "./components/ui/flow-button";
 export * from "./components/ui/border-beam";

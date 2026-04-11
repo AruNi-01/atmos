@@ -770,11 +770,18 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                           <div className="py-2 text-center text-xs text-muted-foreground">No matching labels</div>
                         ) : filteredAvailableLabels.map(label => (
                           <div key={label.id} className="group/label-item relative">
-                            <button
-                              type="button"
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  handleToggleLabel(label);
+                                }
+                              }}
                               onClick={() => handleToggleLabel(label)}
                               className={cn(
-                                "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-muted",
+                                "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-muted",
                                 selectedLabelIds.has(label.id) && "bg-muted",
                               )}
                             >
@@ -785,7 +792,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                               />
                               <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
                               <span className="min-w-0 truncate">{label.name}</span>
-                            </button>
+                            </div>
                             {onUpdateLabel && (
                               <Popover
                                 open={labelEditorKey === label.id}

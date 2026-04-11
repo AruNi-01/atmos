@@ -61,6 +61,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ProjectItem } from '@/components/layout/sidebar/ProjectItem';
 import { SortableProject } from '@/components/layout/sidebar/SortableProject';
 import { WorkspaceContent } from '@/components/layout/sidebar/WorkspaceContent';
+import { WorkspaceKanbanView } from '@/components/layout/sidebar/WorkspaceKanbanView';
 import { flattenProjectWorkspaces, groupWorkspaces } from '@/components/layout/sidebar/workspace-grouping';
 import {
     SIDEBAR_GROUPING_OPTIONS,
@@ -866,7 +867,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 </div>
                 {activeTab === 'projects' && (
                     <div className="relative shrink-0 bg-transparent">
-                        <div className="relative flex items-center justify-end px-3 py-0.5">
+                        <div className="relative flex items-center justify-end gap-1 px-3 py-0.5">
                             {(() => {
                                 const currentGroupingOption = SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)
                                     ?? SIDEBAR_GROUPING_OPTIONS[0];
@@ -876,7 +877,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                 <DropdownMenuTrigger asChild>
                                     <button
                                         type="button"
-                                        className="group inline-flex h-8 items-center gap-2 rounded-lg bg-transparent px-2.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
                                     >
                                         <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
                                             <ListFilter className="size-3.5" />
@@ -904,6 +905,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                             </DropdownMenu>
                                 );
                             })()}
+                            <WorkspaceKanbanView
+                                projects={projects}
+                                availableLabels={workspaceLabels}
+                                onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                onUpdatePriority={updateWorkspacePriority}
+                                onCreateLabel={createWorkspaceLabel}
+                                onUpdateLabel={updateWorkspaceLabel}
+                                onUpdateLabels={updateWorkspaceLabels}
+                                trigger={(
+                                    <button
+                                        type="button"
+                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                    >
+                                        <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                                            <SquareKanban className="size-3.5" />
+                                        </span>
+                                    </button>
+                                )}
+                            />
                         </div>
                     </div>
                 )}

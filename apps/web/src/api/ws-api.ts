@@ -1382,6 +1382,10 @@ export interface FunctionSettings {
     auto_save?: boolean;
     line_wrap?: boolean;
   };
+  workspace_kanban_view?: {
+    state?: unknown;
+    [key: string]: unknown;
+  };
   inner_browser?: {
     favorite_site?: Array<{
       url: string;
