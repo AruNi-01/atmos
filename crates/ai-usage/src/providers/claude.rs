@@ -165,7 +165,7 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
             title: "Usage".to_string(),
             rows: vec![
                 DetailRow {
-                    label: "Session".to_string(),
+                    label: "5 hours".to_string(),
                     value: format!(
                         "{}% used · {}",
                         session_percent.unwrap_or(0.0).round(),
@@ -174,7 +174,7 @@ pub(crate) async fn fetch_claude_live(client: &Client) -> Result<LiveFetchResult
                     tone: RowTone::Default,
                 },
                 DetailRow {
-                    label: "Weekly".to_string(),
+                    label: "1 week".to_string(),
                     value: format!(
                         "{}% used · {}",
                         weekly_percent.unwrap_or(0.0).round(),

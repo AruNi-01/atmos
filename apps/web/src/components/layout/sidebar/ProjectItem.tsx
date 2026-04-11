@@ -163,6 +163,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const infoPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const infoPopoverTriggerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [customColor, setCustomColor] = useState<{ r: number; g: number; b: number; a: number }>({
@@ -191,6 +192,10 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const openInfoPopover = useCallback(() => {
     cancelInfoPopoverClose();
     infoPopoverTimerRef.current = setTimeout(() => {
+      if (!infoPopoverTriggerRef.current?.matches(":hover")) {
+        infoPopoverTimerRef.current = null;
+        return;
+      }
       setIsInfoPopoverOpen(true);
       infoPopoverTimerRef.current = null;
     }, 1000);
@@ -244,7 +249,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     >
       <Popover open={isInfoPopoverOpen}>
         <PopoverTrigger asChild>
-          <div className={cn(
+          <div
+            ref={infoPopoverTriggerRef}
+            className={cn(
             "flex items-center px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300 relative",
             isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
             isActiveProject && "bg-sidebar-accent/70"

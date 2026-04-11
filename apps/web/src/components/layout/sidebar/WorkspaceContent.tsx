@@ -269,6 +269,10 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const openInfoPopover = React.useCallback(() => {
     cancelInfoPopoverClose();
     infoPopoverTimerRef.current = setTimeout(() => {
+      if (!infoPopoverTriggerRef.current?.matches(":hover")) {
+        infoPopoverTimerRef.current = null;
+        return;
+      }
       setIsInfoPopoverOpen(true);
       infoPopoverTimerRef.current = null;
     }, 1000);
