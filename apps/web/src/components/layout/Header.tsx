@@ -699,12 +699,6 @@ const Header: React.FC = () => {
           // Update local branches list immediately if needed
           const branches = await gitApi.listRemoteBranches(currentWorkspace.localPath);
           setAvailableBranches(branches.sort());
-
-          toastManager.add({
-            title: 'Branch Renamed',
-            description: `Renamed branch to ${newBranch}`,
-            type: 'success'
-          });
         }
       } catch (error) {
         console.error('Failed to rename branch:', error);

@@ -104,11 +104,6 @@ export const ArchivedWorkspacesView: React.FC = () => {
       await wsWorkspaceApi.unarchive(workspace.guid);
       setArchivedWorkspaces(prev => prev.filter(w => w.guid !== workspace.guid));
       await fetchProjects(); // Refresh sidebar
-      toastManager.add({
-        title: "Workspace Restored",
-        description: `Restored workspace "${workspace.display_name || workspace.name}"`,
-        type: "success"
-      });
     } catch (error) {
       console.error('Failed to restore workspace:', error);
       toastManager.add({
@@ -407,11 +402,6 @@ export const ArchivedWorkspacesView: React.FC = () => {
             try {
               await wsWorkspaceApi.delete(deleteWorkspaceDialog.workspaceId);
               deleteWorkspaceDialog.onDeleted?.();
-              toastManager.add({
-                title: "Workspace Deleted",
-                description: `Permanently deleted "${deleteWorkspaceDialog.workspaceName}"`,
-                type: "success"
-              });
             } catch (error) {
               console.error("Failed to delete workspace", error);
               toastManager.add({
