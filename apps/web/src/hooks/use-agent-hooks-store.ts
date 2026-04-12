@@ -78,7 +78,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     const existing = get()._unsubscribe;
     if (existing) return;
 
-    const unsubscribe = useWebSocketStore.getState().onEvent(
+    const unsubscribeStateChanged = useWebSocketStore.getState().onEvent(
       "agent_hook_state_changed",
       (data: unknown) => {
         const update = data as AgentHookStateUpdate;
@@ -98,7 +98,24 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
       }
     );
 
-    set({ _unsubscribe: unsubscribe });
+    const unsubscribeCleared = useWebSocketStore.getState().onEvent(
+      "agent_hook_sessions_cleared",
+      (data: unknown) => {
+        const { session_ids } = data as { session_ids: string[] };
+        if (!session_ids?.length) return;
+        set((state) => {
+          const sessions = new Map(state.sessions);
+          for (const id of session_ids) sessions.delete(id);
+          return { sessions };
+        });
+      }
+    );
+
+    const _unsubscribe = () => {
+      unsubscribeStateChanged();
+      unsubscribeCleared();
+    };
+    set({ _unsubscribe });
 
     fetchInitialSessions().then((initialSessions) => {
       if (initialSessions.length > 0) {
