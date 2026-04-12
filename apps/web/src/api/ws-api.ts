@@ -194,6 +194,7 @@ export interface WorkspaceModel {
   is_deleted: boolean;
   is_pinned: boolean;
   pinned_at: string | null;
+  pin_order: number | null;
   is_archived: boolean;
   archived_at: string | null;
   last_visited_at: string | null;
@@ -1105,6 +1106,15 @@ export const wsWorkspaceApi = {
    */
   unpin: async (guid: string): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("workspace_unpin", { guid });
+  },
+
+  /**
+   * 更新置顶工作区顺序
+   */
+  updatePinOrder: async (workspaceIds: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_pin_order", {
+      workspace_ids: workspaceIds,
+    });
   },
 
   /**

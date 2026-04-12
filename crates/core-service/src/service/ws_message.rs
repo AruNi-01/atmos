@@ -44,9 +44,9 @@ use infra::{
     WorkspaceSetupContextNotification, WorkspaceSetupProgressNotification,
     WorkspaceSkipSetupScriptRequest, WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest,
     WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest,
-    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WorkspaceUpdatePriorityRequest,
-    WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent, WsMessage, WsMessageHandler,
-    WsRequest,
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WorkspaceUpdatePinOrderRequest,
+    WorkspaceUpdatePriorityRequest, WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent,
+    WsMessage, WsMessageHandler, WsRequest,
 };
 use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
@@ -477,6 +477,10 @@ impl WsMessageService {
             }
             WsAction::WorkspaceUnpin => {
                 self.handle_workspace_unpin(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceUpdatePinOrder => {
+                self.handle_workspace_update_pin_order(parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceArchive => {
@@ -1727,6 +1731,16 @@ impl WsMessageService {
 
     async fn handle_workspace_unpin(&self, req: WorkspaceUnpinRequest) -> Result<Value> {
         self.workspace_service.unpin_workspace(req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_update_pin_order(
+        &self,
+        req: WorkspaceUpdatePinOrderRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_workspace_pin_order(req.workspace_ids)
+            .await?;
         Ok(json!({ "success": true }))
     }
 

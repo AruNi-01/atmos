@@ -61,8 +61,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { ProjectItem } from '@/components/layout/sidebar/ProjectItem';
 import { SortableProject } from '@/components/layout/sidebar/SortableProject';
 import { WorkspaceContent } from '@/components/layout/sidebar/WorkspaceContent';
+import { WorkspaceItem } from '@/components/layout/sidebar/WorkspaceItem';
 import { WorkspaceKanbanView } from '@/components/layout/sidebar/WorkspaceKanbanView';
-import { flattenProjectWorkspaces, groupWorkspaces } from '@/components/layout/sidebar/workspace-grouping';
+import { flattenProjectWorkspaces, getWorkspaceTimeGroupLabel, groupWorkspaces } from '@/components/layout/sidebar/workspace-grouping';
 import {
     SIDEBAR_GROUPING_OPTIONS,
     getWorkspaceWorkflowStatusMeta,
@@ -97,6 +98,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         pinWorkspace,
         unpinWorkspace,
         archiveWorkspace,
+        updateWorkspacePinOrder,
         updateWorkspaceName,
         updateWorkspaceWorkflowStatus,
         updateWorkspacePriority,
@@ -120,6 +122,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             pinWorkspace: s.pinWorkspace,
             unpinWorkspace: s.unpinWorkspace,
             archiveWorkspace: s.archiveWorkspace,
+            updateWorkspacePinOrder: s.updateWorkspacePinOrder,
             updateWorkspaceName: s.updateWorkspaceName,
             updateWorkspaceWorkflowStatus: s.updateWorkspaceWorkflowStatus,
             updateWorkspacePriority: s.updateWorkspacePriority,
@@ -445,10 +448,33 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     };
 
     const flattenedWorkspaces = useMemo(() => flattenProjectWorkspaces(projects), [projects]);
+    const pinnedWorkspaces = useMemo(
+        () => flattenedWorkspaces
+            .filter((e) => e.workspace.isPinned)
+            .sort((a, b) => {
+                const aOrder = a.workspace.pinOrder;
+                const bOrder = b.workspace.pinOrder;
+                if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) {
+                    return aOrder - bOrder;
+                }
+                if (aOrder !== undefined && bOrder === undefined) return -1;
+                if (aOrder === undefined && bOrder !== undefined) return 1;
+
+                const aTime = a.workspace.pinnedAt ? new Date(a.workspace.pinnedAt).getTime() : 0;
+                const bTime = b.workspace.pinnedAt ? new Date(b.workspace.pinnedAt).getTime() : 0;
+                if (aTime !== bTime) return bTime - aTime;
+                return a.workspace.id.localeCompare(b.workspace.id);
+            }),
+        [flattenedWorkspaces],
+    );
+    const unpinnedFlattenedWorkspaces = useMemo(
+        () => flattenedWorkspaces.filter((e) => !e.workspace.isPinned),
+        [flattenedWorkspaces],
+    );
     const groupedWorkspaces = useMemo(() => {
         if (groupingMode === 'project') return [];
-        return groupWorkspaces(flattenedWorkspaces, groupingMode);
-    }, [flattenedWorkspaces, groupingMode]);
+        return groupWorkspaces(unpinnedFlattenedWorkspaces, groupingMode);
+    }, [unpinnedFlattenedWorkspaces, groupingMode]);
 
     const handleDeleteProject = (projectId: string) => {
         const project = projects.find(p => p.id === projectId);
@@ -480,6 +506,75 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         }
         return () => clearTimeout(timer);
     }, [activeTab]);
+
+    const pinnedWorkspaceSection = pinnedWorkspaces.length > 0 ? (
+        <>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event) => {
+                    const { active, over } = event;
+                    if (!over || active.id === over.id) return;
+
+                    const oldIndex = pinnedWorkspaces.findIndex(e => e.workspace.id === active.id);
+                    const newIndex = pinnedWorkspaces.findIndex(e => e.workspace.id === over.id);
+                    if (oldIndex === -1 || newIndex === -1) return;
+
+                    const reordered = arrayMove(pinnedWorkspaces, oldIndex, newIndex);
+                    updateWorkspacePinOrder(reordered.map(e => e.workspace.id));
+                }}
+                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+            >
+                <SortableContext items={pinnedWorkspaces.map(e => e.workspace.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-0.5 px-2 pb-1">
+                        {pinnedWorkspaces.map((entry) => (
+                            (() => {
+                                const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
+                                const StatusIcon = statusMeta.icon;
+                                const rightContext = groupingMode === 'status' ? (
+                                    <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
+                                ) : groupingMode === 'time' ? (
+                                    <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
+                                ) : undefined;
+
+                                return (
+                                    <WorkspaceItem
+                                        key={entry.workspace.id}
+                                        workspace={entry.workspace}
+                                        projectId={entry.projectId}
+                                        projectName={entry.projectName}
+                                        projectPath={entry.projectPath}
+                                        showProjectName={true}
+                                        rightContext={rightContext}
+                                        onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
+                                        onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
+                                        onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
+                                        onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
+                                        onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
+                                            updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
+                                        }
+                                        onUpdatePriority={(workspaceId, priority) =>
+                                            updateWorkspacePriority(entry.projectId, workspaceId, priority)
+                                        }
+                                        availableLabels={workspaceLabels}
+                                        onCreateLabel={createWorkspaceLabel}
+                                        onUpdateLabel={updateWorkspaceLabel}
+                                        onUpdateLabels={(workspaceId, labels) =>
+                                            updateWorkspaceLabels(entry.projectId, workspaceId, labels)
+                                        }
+                                        onUpdateName={(workspaceId, name) =>
+                                            updateWorkspaceName(entry.projectId, workspaceId, name)
+                                        }
+                                    />
+                                );
+                            })()
+                        ))}
+                    </div>
+                </SortableContext>
+            </DndContext>
+            <div className="mx-4 my-1.5 border-t border-dashed border-sidebar-border" />
+        </>
+    ) : null;
 
     return (
         <>
@@ -628,7 +723,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         </div>
 
                         <TabsPanel value="projects" className="flex-1 overflow-y-auto no-scrollbar pt-1.5 pb-3">
+                            {pinnedWorkspaceSection}
                             {groupingMode === 'project' ? (
+                                <>
                                 <DndContext
                                     sensors={sensors}
                                     collisionDetection={closestCenter}
@@ -718,6 +815,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                         ) : null}
                                     </DragOverlay>
                                 </DndContext>
+                                </>
                             ) : (
                                 <div className="space-y-0.5 px-2">
                                     {groupedWorkspaces.map((group) => (

@@ -1025,6 +1025,12 @@ impl WorkspaceService {
         Ok(repo.unpin_workspace(&guid).await?)
     }
 
+    /// 更新置顶工作区顺序
+    pub async fn update_workspace_pin_order(&self, workspace_ids: Vec<String>) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.update_pin_order(workspace_ids).await?)
+    }
+
     /// 归档工作区（不删除 worktree）
     pub async fn archive_workspace(&self, guid: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);

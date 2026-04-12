@@ -79,6 +79,7 @@ export type WsAction =
   | "workspace_delete"
   | "workspace_pin"
   | "workspace_unpin"
+  | "workspace_update_pin_order"
   | "workspace_archive"
   | "workspace_list_archived"
   | "workspace_unarchive"

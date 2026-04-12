@@ -50,7 +50,7 @@ pub use message::{
     WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest,
     WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WorkspaceUpdatePriorityRequest,
+    WorkspaceUpdateOrderRequest, WorkspaceUpdatePinOrderRequest, WorkspaceUpdatePriorityRequest,
     WorkspaceUpdateWorkflowStatusRequest, WsAction, WsErrorPayload, WsEvent, WsMessage, WsRequest,
     WsResponse,
 };

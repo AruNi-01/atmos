@@ -24,14 +24,16 @@ impl<'a> WorkspaceRepo<'a> {
         Self { db }
     }
 
-    /// 根据项目 GUID 查询所有工作区（过滤已归档，按置顶优先、pinned_at DESC、created_at DESC 排序）
+    /// 根据项目 GUID 查询所有工作区（过滤已归档，按置顶优先、pin_order ASC、pinned_at DESC、created_at DESC 排序）
     pub async fn list_by_project(&self, project_guid: &str) -> Result<Vec<workspace::Model>> {
         let workspaces = workspace::Entity::find()
             .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))
             .filter(workspace::Column::IsArchived.eq(false))
             .order_by_desc(workspace::Column::IsPinned)
+            .order_by_asc(workspace::Column::PinOrder)
             .order_by_desc(workspace::Column::PinnedAt)
+            .order_by_asc(workspace::Column::Guid)
             .order_by_desc(workspace::Column::CreatedAt)
             .all(self.db)
             .await?;
@@ -83,6 +85,7 @@ impl<'a> WorkspaceRepo<'a> {
             sidebar_order: Set(sidebar_order),
             is_pinned: Set(false),
             pinned_at: Set(None),
+            pin_order: Set(None),
             is_archived: Set(false),
             archived_at: Set(None),
             last_visited_at: Set(None),
@@ -467,20 +470,36 @@ impl<'a> WorkspaceRepo<'a> {
 
     /// 置顶工作区
     pub async fn pin_workspace(&self, guid: &str) -> Result<()> {
+        let txn = self.db.begin().await?;
         let now = chrono::Utc::now().naive_utc();
+
+        workspace::Entity::update_many()
+            .col_expr(
+                workspace::Column::PinOrder,
+                Expr::col(workspace::Column::PinOrder).add(1),
+            )
+            .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace::Column::IsDeleted.eq(false))
+            .filter(workspace::Column::IsPinned.eq(true))
+            .filter(workspace::Column::PinOrder.is_not_null())
+            .exec(&txn)
+            .await?;
+
         let result = workspace::Entity::update_many()
             .col_expr(workspace::Column::IsPinned, Expr::value(true))
             .col_expr(workspace::Column::PinnedAt, Expr::value(Some(now)))
+            .col_expr(workspace::Column::PinOrder, Expr::value(Some(0)))
             .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
             .filter(workspace::Column::Guid.eq(guid))
             .filter(workspace::Column::IsDeleted.eq(false))
-            .exec(self.db)
+            .exec(&txn)
             .await?;
         if result.rows_affected == 0 {
             return Err(crate::error::InfraError::Custom(
                 "Workspace not found".into(),
             ));
         }
+        txn.commit().await?;
         Ok(())
     }
 
@@ -492,6 +511,7 @@ impl<'a> WorkspaceRepo<'a> {
                 workspace::Column::PinnedAt,
                 Expr::value(None::<chrono::NaiveDateTime>),
             )
+            .col_expr(workspace::Column::PinOrder, Expr::value(None::<i32>))
             .col_expr(
                 workspace::Column::UpdatedAt,
                 Expr::value(chrono::Utc::now().naive_utc()),
@@ -505,6 +525,31 @@ impl<'a> WorkspaceRepo<'a> {
                 "Workspace not found".into(),
             ));
         }
+        Ok(())
+    }
+
+    /// 更新置顶工作区顺序
+    pub async fn update_pin_order(&self, ordered_guids: Vec<String>) -> Result<()> {
+        let txn = self.db.begin().await?;
+        let now = chrono::Utc::now().naive_utc();
+
+        for (index, guid) in ordered_guids.iter().enumerate() {
+            let result = workspace::Entity::update_many()
+                .col_expr(workspace::Column::PinOrder, Expr::value(Some(index as i32)))
+                .col_expr(workspace::Column::UpdatedAt, Expr::value(now))
+                .filter(workspace::Column::Guid.eq(guid))
+                .filter(workspace::Column::IsDeleted.eq(false))
+                .filter(workspace::Column::IsPinned.eq(true))
+                .exec(&txn)
+                .await?;
+            if result.rows_affected == 0 {
+                return Err(crate::error::InfraError::Custom(
+                    "Workspace not found or not pinned".into(),
+                ));
+            }
+        }
+
+        txn.commit().await?;
         Ok(())
     }
 

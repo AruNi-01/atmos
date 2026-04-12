@@ -33,6 +33,7 @@ export interface Workspace {
   projectId: string;
   isPinned: boolean;
   pinnedAt?: string;
+  pinOrder?: number;
   isArchived: boolean;
   archivedAt?: string;
   createdAt: string;

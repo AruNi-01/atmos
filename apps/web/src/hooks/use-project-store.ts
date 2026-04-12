@@ -6,18 +6,27 @@ import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
 
-// Sort workspaces: pinned first (by pinnedAt DESC), then by createdAt DESC
+// Sort workspaces: pinned first (by pinOrder ASC), then by createdAt DESC
 function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
   return [...workspaces].sort((a, b) => {
     // Pinned items first
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
     
-    // Among pinned items, sort by pinnedAt DESC (most recently pinned first)
+    // Among pinned items, sort by persisted pin order first.
     if (a.isPinned && b.isPinned) {
+      const aOrder = a.pinOrder;
+      const bOrder = b.pinOrder;
+      if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+      if (aOrder !== undefined && bOrder === undefined) return -1;
+      if (aOrder === undefined && bOrder !== undefined) return 1;
+
       const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
       const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
-      return bTime - aTime;
+      if (aTime !== bTime) return bTime - aTime;
+      return a.id.localeCompare(b.id);
     }
     
     // Among non-pinned items, sort by createdAt DESC (newest first)
@@ -244,6 +253,7 @@ interface ProjectStore {
   ) => Promise<void>;
   markWorkspaceVisited: (workspaceId: string) => Promise<void>;
   
+  updateWorkspacePinOrder: (orderedWorkspaceIds: string[]) => Promise<void>;
   reorderProjects: (newOrder: Project[]) => Promise<void>;
   reorderWorkspaces: (projectId: string, newOrder: Workspace[]) => Promise<void>;
   
@@ -283,6 +293,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     projectId: model.project_guid,
     isPinned: model.is_pinned,
     pinnedAt: model.pinned_at ?? undefined,
+    pinOrder: model.pin_order ?? undefined,
     isArchived: model.is_archived,
     archivedAt: model.archived_at ?? undefined,
     createdAt: model.created_at,
@@ -701,19 +712,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await wsWorkspaceApi.pin(workspaceId);
       
       set(state => ({
-        projects: state.projects.map(p => 
-          p.id === projectId 
-            ? { 
-                ...p, 
-                workspaces: sortWorkspaces(
-                  p.workspaces.map(w => 
-                    w.id === workspaceId 
-                      ? { ...w, isPinned: true, pinnedAt: new Date().toISOString() } 
-                      : w
-                  )
-                )
-              } 
-            : p
+        projects: state.projects.map(p =>
+          ({
+            ...p,
+            workspaces: sortWorkspaces(
+              p.workspaces.map(w => {
+                if (w.id === workspaceId) {
+                  return { ...w, isPinned: true, pinnedAt: new Date().toISOString(), pinOrder: 0 };
+                }
+                if (w.isPinned && w.pinOrder !== undefined) {
+                  return { ...w, pinOrder: w.pinOrder + 1 };
+                }
+                return w;
+              })
+            )
+          })
         )
       }));
       
@@ -745,7 +758,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                 workspaces: sortWorkspaces(
                   p.workspaces.map(w => 
                     w.id === workspaceId 
-                      ? { ...w, isPinned: false, pinnedAt: undefined } 
+                      ? { ...w, isPinned: false, pinnedAt: undefined, pinOrder: undefined }
                       : w
                   )
                 )
@@ -766,6 +779,32 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         description: 'Failed to unpin workspace', 
         type: 'error' 
       });
+    }
+  },
+
+  updateWorkspacePinOrder: async (orderedWorkspaceIds) => {
+    const orderById = new Map(orderedWorkspaceIds.map((id, index) => [id, index]));
+
+    // Optimistic update first
+    set(state => ({
+      projects: state.projects.map(p =>
+        ({
+          ...p,
+          workspaces: sortWorkspaces(
+            p.workspaces.map(w => {
+              const pinOrder = orderById.get(w.id);
+              return pinOrder === undefined ? w : { ...w, pinOrder };
+            })
+          )
+        })
+      )
+    }));
+
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updatePinOrder(orderedWorkspaceIds);
+    } catch (error) {
+      console.error('Error updating pinned order:', error);
     }
   },
 

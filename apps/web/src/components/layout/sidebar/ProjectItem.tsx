@@ -447,8 +447,8 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
             )}
           >
-            <SortableContext items={project.workspaces.map(w => w.id)} strategy={verticalListSortingStrategy}>
-              {project.workspaces.map((ws) => (
+            <SortableContext items={project.workspaces.filter(w => !w.isPinned).map(w => w.id)} strategy={verticalListSortingStrategy}>
+              {project.workspaces.filter(w => !w.isPinned).map((ws) => (
                 <WorkspaceItem
                   key={ws.id}
                   workspace={ws}
@@ -476,7 +476,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 />
               ))}
             </SortableContext>
-            {project.workspaces.length === 0 && (
+            {project.workspaces.filter(w => !w.isPinned).length === 0 && (
               <div className="py-2 text-[12px] text-muted-foreground italic ml-4">No workspaces</div>
             )}
           </div>

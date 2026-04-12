@@ -48,6 +48,7 @@ export interface WorkspaceContentProps {
   projectPath?: string;
   projectName?: string;
   showProjectName?: boolean;
+  rightContext?: React.ReactNode;
   isDragging?: boolean;
   isPlaceholder?: boolean;
   suppressInfoPopover?: boolean;
@@ -108,6 +109,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   projectPath,
   projectName,
   showProjectName,
+  rightContext,
   isDragging,
   isPlaceholder,
   suppressInfoPopover,
@@ -369,25 +371,38 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
           >
             <div className="relative flex min-w-0 w-full items-center">
               <div className="absolute -left-1 flex size-5 items-center justify-center rounded-sm">
-                <GitBranch
-                  className={cn(
-                    "size-3.5",
-                    isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
-                    workspace.isPinned ? "hidden" : "block group-hover/ws:hidden"
-                  )}
-                />
-                <button
-                  onClick={handlePinClick}
-                  className={cn(
-                    "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
-                    workspace.isPinned
-                      ? "text-amber-500"
-                      : "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
-                  )}
-                  title={workspace.isPinned ? "Unpin" : "Pin"}
-                >
-                  <Pin className={cn("size-3.5", workspace.isPinned && "fill-amber-500")} />
-                </button>
+                {workspace.isPinned ? (
+                  <button
+                    onClick={handlePinClick}
+                    className={cn(
+                      "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
+                      isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
+                      "hover:text-foreground"
+                    )}
+                    title="Unpin"
+                  >
+                    <Pin className="size-3.5" />
+                  </button>
+                ) : (
+                  <>
+                    <GitBranch
+                      className={cn(
+                        "size-3.5 block group-hover/ws:hidden",
+                        isActive || isDragging ? 'text-sidebar-foreground' : 'text-muted-foreground',
+                      )}
+                    />
+                    <button
+                      onClick={handlePinClick}
+                      className={cn(
+                        "absolute inset-0 flex items-center justify-center rounded-sm hover:bg-sidebar-border/50 hover:cursor-pointer z-10",
+                        "hidden group-hover/ws:flex text-muted-foreground hover:text-foreground"
+                      )}
+                      title="Pin"
+                    >
+                      <Pin className="size-3.5 rotate-45" />
+                    </button>
+                  </>
+                )}
               </div>
               <div className="flex items-center min-w-0 gap-1.5 pl-5">
                 <span className="text-[13px] font-medium truncate">
@@ -404,6 +419,18 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   />
                 )}
               </div>
+              {rightContext ? (
+                <div
+                  className={cn(
+                    "pointer-events-none absolute inset-y-0 -right-2 z-[9] flex items-center rounded-r-md px-2 pl-4 text-[11px] text-muted-foreground transition-opacity duration-200 group-hover/ws:opacity-0",
+                  )}
+                >
+                  <span
+                    className="absolute inset-y-0 -left-1 -right-1 rounded-r-md backdrop-blur-[2px] [mask-image:linear-gradient(to_right,transparent,black_18%,black_78%,transparent)]"
+                  />
+                  <span className="relative z-10">{rightContext}</span>
+                </div>
+              ) : null}
               <div className="pointer-events-none absolute inset-y-0 -right-1 z-10 flex items-center gap-1 rounded-r-md pl-5 opacity-0 backdrop-blur-[2px] transition-opacity duration-200 [mask-image:linear-gradient(to_right,transparent,black_30%)] group-hover/ws:pointer-events-auto group-hover/ws:opacity-100">
                 <span className="text-[11px] text-muted-foreground">{timeAgo}</span>
                 <button

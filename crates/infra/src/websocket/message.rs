@@ -265,6 +265,8 @@ pub enum WsAction {
     WorkspacePin,
     /// 取消置顶 Workspace
     WorkspaceUnpin,
+    /// 更新置顶工作区顺序
+    WorkspaceUpdatePinOrder,
     /// 归档 Workspace
     WorkspaceArchive,
     /// 取消归档 Workspace
@@ -1088,6 +1090,11 @@ pub struct WorkspacePinRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceUnpinRequest {
     pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUpdatePinOrderRequest {
+    pub workspace_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

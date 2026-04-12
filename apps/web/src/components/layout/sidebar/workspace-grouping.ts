@@ -51,6 +51,10 @@ function getTimeGroup(source: Date, now: Date): { key: string; label: string } {
   return { key: "older", label: "Older" };
 }
 
+export function getWorkspaceTimeGroupLabel(workspace: Workspace, now = new Date()): string {
+  return getTimeGroup(new Date(getRecencySource(workspace)), now).label;
+}
+
 function sortEntriesByRecency(items: FlattenedWorkspaceEntry[]): FlattenedWorkspaceEntry[] {
   return [...items].sort((a, b) => {
     const aPinned = a.workspace.isPinned ? 1 : 0;

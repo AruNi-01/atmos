@@ -19,6 +19,7 @@ pub struct Model {
     pub sidebar_order: i32,
     pub is_pinned: bool,
     pub pinned_at: Option<DateTime>,
+    pub pin_order: Option<i32>,
     pub is_archived: bool,
     pub archived_at: Option<DateTime>,
     pub last_visited_at: Option<DateTime>,
