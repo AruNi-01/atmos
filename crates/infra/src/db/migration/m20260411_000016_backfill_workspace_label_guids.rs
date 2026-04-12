@@ -23,19 +23,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if !manager.has_column("workspace", "label_guids").await? {
-            return Ok(());
-        }
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Workspace::Table)
-                    .drop_column(Workspace::LabelGuids)
-                    .to_owned(),
-            )
-            .await?;
-
+        let _ = manager;
         Ok(())
     }
 }

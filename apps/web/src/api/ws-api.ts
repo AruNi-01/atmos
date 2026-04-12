@@ -1063,10 +1063,18 @@ export const wsWorkspaceApi = {
   skipSetupStep: async (
     guid: string,
     failedStepKey: string,
+    context?: {
+      initialRequirement?: string | null;
+      githubIssue?: GithubIssuePayload | null;
+      autoExtractTodos?: boolean;
+    },
   ): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("workspace_skip_setup_step", {
       guid,
       failed_step_key: failedStepKey,
+      initial_requirement: context?.initialRequirement ?? null,
+      github_issue: context?.githubIssue ?? null,
+      auto_extract_todos: context?.autoExtractTodos ?? false,
     });
   },
 

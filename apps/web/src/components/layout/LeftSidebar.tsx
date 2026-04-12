@@ -252,7 +252,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const lastVisitedWorkspaceRef = useRef<string | null>(null);
     useEffect(() => {
-        if (currentView !== 'workspace' || !currentWorkspaceId || isLoading) {
+        if (currentView !== 'workspace' || !currentWorkspaceId) {
+            lastVisitedWorkspaceRef.current = null;
+            return;
+        }
+
+        if (isLoading) {
             return;
         }
 

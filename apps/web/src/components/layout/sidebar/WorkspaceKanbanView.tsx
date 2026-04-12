@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { DndProvider, useDrag, useDragLayer, useDrop } from "react-dnd";
-import { getEmptyImage, HTML5Backend } from "react-dnd-html5-backend";
 import {
   Badge,
   Button,
+  DndContext,
+  DragOverlay,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -28,7 +28,13 @@ import {
   SelectValue,
   Switch,
   cn,
+  MouseSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
 } from "@workspace/ui";
+import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useQueryState } from "nuqs";
@@ -279,13 +285,10 @@ function KanbanWorkspaceCard({
   );
 }
 
-const CARD_DRAG_TYPE = "WORKSPACE_CARD";
-
 interface DragItem {
   id: string;
   projectId: string;
   status: WorkspaceWorkflowStatus;
-  newStatus?: WorkspaceWorkflowStatus;
   preview: {
     projectName: string;
     workspaceName: string;
@@ -300,40 +303,32 @@ interface DragItem {
 
 function DraggableWorkspaceCard(props: React.ComponentProps<typeof KanbanWorkspaceCard> & { isRecentlyDropped?: boolean }) {
   const { isRecentlyDropped, ...cardProps } = props;
-  const [{ isDragging }, drag, preview] = useDrag(() => ({
-    type: CARD_DRAG_TYPE,
-    options: {
-      dropEffect: "move",
+  const dragItem = React.useMemo<DragItem>(() => ({
+    id: cardProps.workspace.id,
+    projectId: cardProps.projectId,
+    status: cardProps.workspace.workflowStatus,
+    preview: {
+      projectName: cardProps.projectName,
+      workspaceName: cardProps.workspace.name,
+      displayName: cardProps.workspace.displayName,
+      priority: cardProps.workspace.priority,
+      workflowStatus: cardProps.workspace.workflowStatus,
+      labels: cardProps.workspace.labels,
+      lastVisitedAt: cardProps.workspace.lastVisitedAt,
+      createdAt: cardProps.workspace.createdAt,
     },
-    item: {
-      id: cardProps.workspace.id,
-      projectId: cardProps.projectId,
-      status: cardProps.workspace.workflowStatus,
-      preview: {
-        projectName: cardProps.projectName,
-        workspaceName: cardProps.workspace.name,
-        displayName: cardProps.workspace.displayName,
-        priority: cardProps.workspace.priority,
-        workflowStatus: cardProps.workspace.workflowStatus,
-        labels: cardProps.workspace.labels,
-        lastVisitedAt: cardProps.workspace.lastVisitedAt,
-        createdAt: cardProps.workspace.createdAt,
-      },
-    } as DragItem,
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  }));
-  React.useEffect(() => {
-    preview(getEmptyImage(), { captureDraggingState: true });
-  }, [preview]);
+  }), [cardProps.projectId, cardProps.projectName, cardProps.workspace]);
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `workspace:${cardProps.workspace.id}`,
+    data: { item: dragItem },
+  });
 
   const nodeRef = React.useRef<HTMLDivElement>(null);
-  
+
   React.useEffect(() => {
     if (isRecentlyDropped && nodeRef.current) {
       setTimeout(() => {
-        nodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        nodeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 50);
     }
   }, [isRecentlyDropped]);
@@ -342,13 +337,15 @@ function DraggableWorkspaceCard(props: React.ComponentProps<typeof KanbanWorkspa
     <div
       ref={(node) => {
         nodeRef.current = node;
-        (drag as unknown as (node: HTMLDivElement | null) => void)(node);
+        setNodeRef(node);
       }}
+      {...attributes}
+      {...listeners}
       className={cn(
         "relative z-0",
         isDragging && "z-50"
       )}
-      style={{ opacity: isDragging ? 0.3 : 1, cursor: "default" }}
+      style={{ opacity: isDragging ? 0.3 : 1, cursor: "grab" }}
     >
       <div className={cn(
         "transition-all duration-500 ease-out rounded-md",
@@ -361,95 +358,69 @@ function DraggableWorkspaceCard(props: React.ComponentProps<typeof KanbanWorkspa
   );
 }
 
-function KanbanDragLayer() {
-  const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
-    item: monitor.getItem() as DragItem | null,
-    isDragging: monitor.isDragging(),
-    currentOffset: monitor.getSourceClientOffset(),
-  }));
-
-  React.useEffect(() => {
-    if (typeof document === "undefined") return;
-    const prev = document.body.style.cursor;
-    if (isDragging) {
-      document.body.style.cursor = "default";
-    }
-    return () => {
-      document.body.style.cursor = prev;
-    };
-  }, [isDragging]);
-
-  if (!isDragging || !item || !currentOffset) return null;
-
+function KanbanDragPreview({ item }: { item: DragItem }) {
   const priorityOption = getWorkspacePriorityMeta(item.preview.priority);
   const statusMeta = getWorkspaceWorkflowStatusMeta(item.preview.workflowStatus);
   const PriorityIcon = priorityOption.icon;
   const StatusIcon = statusMeta.icon;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[999]">
-      <div
-        className="w-[348px]"
-        style={{
-          transform: `translate(${currentOffset.x}px, ${currentOffset.y}px) rotate(2.6deg)`,
-          transformOrigin: "20% 20%",
-        }}
-      >
-        <div className="rounded-md border border-border bg-background p-3 shadow-2xl ring-1 ring-border/40">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex size-6 items-center justify-center rounded-md border border-border/60 bg-muted/35">
-                <PriorityIcon className={cn("shrink-0", priorityOption.className)} />
-              </span>
-              <span className="text-sm font-medium text-foreground">{item.preview.projectName}</span>
-            </div>
-            <span className="inline-flex size-6 items-center justify-center rounded-md bg-muted/35">
-              <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
+    <div className="w-[348px] origin-[20%_20%] rotate-[2.6deg]">
+      <div className="rounded-md border border-border bg-background p-3 shadow-2xl ring-1 ring-border/40">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex size-6 items-center justify-center rounded-md border border-border/60 bg-muted/35">
+              <PriorityIcon className={cn("shrink-0", priorityOption.className)} />
             </span>
+            <span className="text-sm font-medium text-foreground">{item.preview.projectName}</span>
           </div>
-          <h3 className="mb-2 line-clamp-2 text-sm font-semibold">{item.preview.workspaceName}</h3>
-          {item.preview.displayName?.trim() ? (
-            <div className="mb-3 text-xs text-muted-foreground">{item.preview.displayName}</div>
-          ) : null}
-          <div className="mb-3 flex min-h-[1.5rem] flex-wrap items-center gap-1.5">
-            {item.preview.labels.slice(0, 4).map((label) => (
-              <Badge key={label.id} variant="outline" className="gap-1.5 rounded-full bg-background text-muted-foreground">
-                <span className="size-1.5 rounded-full" style={{ backgroundColor: label.color }} aria-hidden="true" />
-                {label.name}
-              </Badge>
-            ))}
-          </div>
-          <div className="mt-auto flex items-center justify-between pt-2">
-            <span className="text-xs text-muted-foreground">
-              {formatRelativeTime(item.preview.lastVisitedAt ?? item.preview.createdAt)}
-            </span>
-          </div>
+          <span className="inline-flex size-6 items-center justify-center rounded-md bg-muted/35">
+            <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
+          </span>
+        </div>
+        <h3 className="mb-2 line-clamp-2 text-sm font-semibold">{item.preview.workspaceName}</h3>
+        {item.preview.displayName?.trim() ? (
+          <div className="mb-3 text-xs text-muted-foreground">{item.preview.displayName}</div>
+        ) : null}
+        <div className="mb-3 flex min-h-[1.5rem] flex-wrap items-center gap-1.5">
+          {item.preview.labels.slice(0, 4).map((label) => (
+            <Badge key={label.id} variant="outline" className="gap-1.5 rounded-full bg-background text-muted-foreground">
+              <span className="size-1.5 rounded-full" style={{ backgroundColor: label.color }} aria-hidden="true" />
+              {label.name}
+            </Badge>
+          ))}
+        </div>
+        <div className="mt-auto flex items-center justify-between pt-2">
+          <span className="text-xs text-muted-foreground">
+            {formatRelativeTime(item.preview.lastVisitedAt ?? item.preview.createdAt)}
+          </span>
         </div>
       </div>
     </div>
   );
 }
 
-function DroppableColumn({ status, onDrop, children }: { status: WorkspaceWorkflowStatus, onDrop: (item: DragItem) => void, children: React.ReactNode }) {
-  const [{ isOver }, drop] = useDrop(() => ({
-    accept: CARD_DRAG_TYPE,
-    canDrop: () => true,
-    drop: (item: DragItem) => {
-      if (item.status !== status) {
-        onDrop({ ...item, newStatus: status });
-      }
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver() && (monitor.getItem() as DragItem | null)?.status !== status,
-    }),
-  }));
+function DroppableColumn({
+  status,
+  activeDragItem,
+  children,
+}: {
+  status: WorkspaceWorkflowStatus;
+  activeDragItem: DragItem | null;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `kanban-status:${status}`,
+    data: { status },
+  });
+  const isValidTarget = isOver && activeDragItem?.status !== status;
 
   return (
     <div
-      ref={drop as unknown as React.LegacyRef<HTMLDivElement>}
+      ref={setNodeRef}
       className={cn(
         "scrollbar-on-hover relative min-h-0 flex-1 space-y-2 overflow-y-auto p-2 transition-colors",
-        isOver && "bg-muted/30"
+        isValidTarget && "bg-muted/30"
       )}
     >
       {children}
@@ -484,12 +455,12 @@ export function WorkspaceKanbanView({
   const [selectedLabelIds, setSelectedLabelIds] = React.useState<string[]>([]);
   const [selectedProjectIds, setSelectedProjectIds] = React.useState<string[]>([]);
   const [recentlyDroppedId, setRecentlyDroppedId] = React.useState<string | null>(null);
+  const [activeDragItem, setActiveDragItem] = React.useState<DragItem | null>(null);
   const [hiddenColumns, setHiddenColumns] = React.useState<WorkspaceWorkflowStatus[]>([]);
   const [sortBy, setSortBy] = React.useState<KanbanSortBy>("last_visit");
   const [sortOrder, setSortOrder] = React.useState<KanbanSortOrder>("desc");
   const [cardProperties, setCardProperties] = React.useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
   const [isSettingsReady, setIsSettingsReady] = React.useState(false);
-  const [isSettingsHydrating, setIsSettingsHydrating] = React.useState(false);
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = React.useState(false);
   const [createWorkspaceStatus, setCreateWorkspaceStatus] =
     React.useState<WorkspaceWorkflowStatus>("in_progress");
@@ -498,6 +469,9 @@ export function WorkspaceKanbanView({
   const [projectFilterQuery, setProjectFilterQuery] = React.useState("");
   const searchContainerRef = React.useRef<HTMLDivElement | null>(null);
   const boardScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+  );
 
   const [isBrowser, setIsBrowser] = React.useState(false);
   React.useEffect(() => {
@@ -511,7 +485,6 @@ export function WorkspaceKanbanView({
   }, [searchQuery]);
 
   const loadWorkspaceKanbanSettings = React.useCallback(async ({ blocking = false }: { blocking?: boolean } = {}) => {
-    setIsSettingsHydrating(true);
     if (blocking) {
       setIsSettingsReady(false);
     }
@@ -579,7 +552,6 @@ export function WorkspaceKanbanView({
         setCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
       }
     } finally {
-      setIsSettingsHydrating(false);
       if (blocking) {
         setIsSettingsReady(true);
       }
@@ -587,11 +559,11 @@ export function WorkspaceKanbanView({
         skipPersistRef.current = false;
       }, 0);
     }
-  }, [availablePrioritySet, availableStatusSet]);
+  }, [availablePrioritySet, availableStatusSet, setSearchQuery]);
 
   React.useEffect(() => {
-    if (!isKanbanExpanded) return;
-    void loadWorkspaceKanbanSettings({ blocking: !isSettingsReady });
+    if (!isKanbanExpanded || isSettingsReady) return;
+    void loadWorkspaceKanbanSettings({ blocking: true });
   }, [isKanbanExpanded, isSettingsReady, loadWorkspaceKanbanSettings]);
 
   const persistWorkspaceKanbanSettings = React.useCallback(async () => {
@@ -704,13 +676,38 @@ export function WorkspaceKanbanView({
     return buckets;
   }, [projects, searchQuery, selectedLabelIds, selectedPriorities, selectedProjectIds, selectedStatuses, sortBy, sortOrder]);
 
-  const handleDrop = React.useCallback((item: DragItem) => {
-    void onUpdateWorkflowStatus(item.projectId, item.id, item.newStatus as WorkspaceWorkflowStatus);
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    const prev = document.body.style.cursor;
+    if (activeDragItem) {
+      document.body.style.cursor = "grabbing";
+    }
+    return () => {
+      document.body.style.cursor = prev;
+    };
+  }, [activeDragItem]);
+
+  const handleDragStart = React.useCallback((event: DragStartEvent) => {
+    const item = event.active.data.current?.item as DragItem | undefined;
+    setActiveDragItem(item ?? null);
+  }, []);
+
+  const handleDragEnd = React.useCallback((event: DragEndEvent) => {
+    const item = event.active.data.current?.item as DragItem | undefined;
+    const targetStatus = event.over?.data.current?.status as WorkspaceWorkflowStatus | undefined;
+    setActiveDragItem(null);
+    if (!item || !targetStatus || item.status === targetStatus) return;
+
+    void onUpdateWorkflowStatus(item.projectId, item.id, targetStatus);
     setRecentlyDroppedId(item.id);
     setTimeout(() => {
       setRecentlyDroppedId((prev) => (prev === item.id ? null : prev));
     }, 2000);
   }, [onUpdateWorkflowStatus]);
+
+  const handleDragCancel = React.useCallback(() => {
+    setActiveDragItem(null);
+  }, []);
 
   const handleEnterWorkspace = React.useCallback((_projectId: string, workspaceId: string) => {
     void setIsKanbanExpanded(false).then(() => {
@@ -1104,102 +1101,109 @@ export function WorkspaceKanbanView({
                 Loading kanban settings...
               </div>
             ) : isBrowser ? (
-              <DndProvider backend={HTML5Backend}>
-                <KanbanDragLayer />
+              <DndContext
+                sensors={sensors}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragCancel={handleDragCancel}
+              >
                 <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2">
-              {visibleColumns.map((column) => {
-                const items = grouped.get(column.status) ?? [];
-                const meta = getWorkspaceWorkflowStatusMeta(column.status);
-                const StatusIcon = meta.icon;
+                  {visibleColumns.map((column) => {
+                    const items = grouped.get(column.status) ?? [];
+                    const meta = getWorkspaceWorkflowStatusMeta(column.status);
+                    const StatusIcon = meta.icon;
 
-                return (
-                  <section
-                    key={column.status}
-                    className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md"
-                    style={{ backgroundColor: `${STATUS_COLOR_MAP[column.status]}10` }}
-                  >
-                    <header className={cn("sticky top-0 z-10 h-[44px] rounded-t-md px-3")}>
-                      <div className="flex h-full w-full items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <StatusIcon className={cn("size-3.5", meta.className)} />
-                          <span className="text-sm font-medium">{meta.label}</span>
-                          <span className="text-sm text-muted-foreground">{items.length}</span>
+                    return (
+                      <section
+                        key={column.status}
+                        className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md"
+                        style={{ backgroundColor: `${STATUS_COLOR_MAP[column.status]}10` }}
+                      >
+                        <header className={cn("sticky top-0 z-10 h-[44px] rounded-t-md px-3")}>
+                          <div className="flex h-full w-full items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <StatusIcon className={cn("size-3.5", meta.className)} />
+                              <span className="text-sm font-medium">{meta.label}</span>
+                              <span className="text-sm text-muted-foreground">{items.length}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => hideColumn(column.status)}
+                                className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                title={`Hide ${meta.label}`}
+                              >
+                                <EyeOff className="size-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openCreateWorkspaceDialog(column.status)}
+                                className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                title={`Create workspace in ${meta.label}`}
+                              >
+                                <Plus className="size-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </header>
+                        <DroppableColumn status={column.status} activeDragItem={activeDragItem}>
+                          {items.map(({ projectId, projectName, workspace }) => (
+                            <DraggableWorkspaceCard
+                              key={workspace.id}
+                              isRecentlyDropped={recentlyDroppedId === workspace.id}
+                              workspace={workspace}
+                              projectId={projectId}
+                              projectName={projectName}
+                              cardProperties={cardProperties}
+                              onEnterWorkspace={handleEnterWorkspace}
+                              availableLabels={availableLabels}
+                              onUpdateWorkflowStatus={onUpdateWorkflowStatus}
+                              onUpdatePriority={onUpdatePriority}
+                              onCreateLabel={onCreateLabel}
+                              onUpdateLabel={onUpdateLabel}
+                              onUpdateLabels={onUpdateLabels}
+                            />
+                          ))}
+                        </DroppableColumn>
+                      </section>
+                    );
+                  })}
+                  {hiddenColumnList.length > 0 ? (
+                    <section className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md border border-dashed border-border/70 bg-muted/20">
+                      <header className="sticky top-0 z-10 h-[44px] px-3">
+                        <div className="flex h-full items-center">
+                          <span className="text-sm font-medium text-muted-foreground">Hidden columns</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => hideColumn(column.status)}
-                            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            title={`Hide ${meta.label}`}
-                          >
-                            <EyeOff className="size-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openCreateWorkspaceDialog(column.status)}
-                            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            title={`Create workspace in ${meta.label}`}
-                          >
-                            <Plus className="size-3.5" />
-                          </button>
-                        </div>
+                      </header>
+                      <div className="space-y-2 p-2">
+                        {hiddenColumnList.map((column) => {
+                          const meta = getWorkspaceWorkflowStatusMeta(column.status);
+                          const StatusIcon = meta.icon;
+                          const hiddenCount = (grouped.get(column.status) ?? []).length;
+                          return (
+                            <div key={column.status} className="flex items-center rounded-md border border-border/60 bg-background px-2 py-1.5">
+                              <StatusIcon className={cn("size-3.5", meta.className)} />
+                              <span className="ml-2 text-xs text-foreground">{meta.label}</span>
+                              <span className="ml-1 text-xs text-muted-foreground">{hiddenCount}</span>
+                              <button
+                                type="button"
+                                onClick={() => showColumn(column.status)}
+                                className="ml-auto inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                title={`Show ${meta.label}`}
+                              >
+                                <Eye className="size-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </header>
-                    <DroppableColumn status={column.status} onDrop={handleDrop}>
-                      {items.map(({ projectId, projectName, workspace }) => (
-                        <DraggableWorkspaceCard
-                          key={workspace.id}
-                          isRecentlyDropped={recentlyDroppedId === workspace.id}
-                          workspace={workspace}
-                          projectId={projectId}
-                          projectName={projectName}
-                          cardProperties={cardProperties}
-                          onEnterWorkspace={handleEnterWorkspace}
-                          availableLabels={availableLabels}
-                          onUpdateWorkflowStatus={onUpdateWorkflowStatus}
-                          onUpdatePriority={onUpdatePriority}
-                          onCreateLabel={onCreateLabel}
-                          onUpdateLabel={onUpdateLabel}
-                          onUpdateLabels={onUpdateLabels}
-                        />
-                      ))}
-                    </DroppableColumn>
-                  </section>
-                );
-              })}
-              {hiddenColumnList.length > 0 ? (
-                <section className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md border border-dashed border-border/70 bg-muted/20">
-                  <header className="sticky top-0 z-10 h-[44px] px-3">
-                    <div className="flex h-full items-center">
-                      <span className="text-sm font-medium text-muted-foreground">Hidden columns</span>
-                    </div>
-                  </header>
-                  <div className="space-y-2 p-2">
-                    {hiddenColumnList.map((column) => {
-                      const meta = getWorkspaceWorkflowStatusMeta(column.status);
-                      const StatusIcon = meta.icon;
-                      const hiddenCount = (grouped.get(column.status) ?? []).length;
-                      return (
-                        <div key={column.status} className="flex items-center rounded-md border border-border/60 bg-background px-2 py-1.5">
-                          <StatusIcon className={cn("size-3.5", meta.className)} />
-                          <span className="ml-2 text-xs text-foreground">{meta.label}</span>
-                          <span className="ml-1 text-xs text-muted-foreground">{hiddenCount}</span>
-                          <button
-                            type="button"
-                            onClick={() => showColumn(column.status)}
-                            className="ml-auto inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            title={`Show ${meta.label}`}
-                          >
-                            <Eye className="size-3.5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ) : null}
+                    </section>
+                  ) : null}
                 </div>
-              </DndProvider>
+                <DragOverlay dropAnimation={null}>
+                  {activeDragItem ? <KanbanDragPreview item={activeDragItem} /> : null}
+                </DragOverlay>
+              </DndContext>
             ) : (
               <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2" />
             )}

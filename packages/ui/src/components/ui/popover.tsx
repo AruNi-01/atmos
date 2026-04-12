@@ -30,7 +30,7 @@ function PopoverContent({
   align = "center",
   sideOffset = 4,
   onOpenAutoFocus = preventAutoFocus,
-  onCloseAutoFocus = preventAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (

@@ -295,7 +295,11 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
     try {
       setIsSkippingFailedStep(true);
-      await wsWorkspaceApi.skipSetupStep(workspaceId, skippableFailedStepKey);
+      await wsWorkspaceApi.skipSetupStep(workspaceId, skippableFailedStepKey, {
+        initialRequirement: progress.retryContext?.initialRequirement ?? null,
+        githubIssue: progress.retryContext?.githubIssue ?? null,
+        autoExtractTodos: progress.retryContext?.autoExtractTodos ?? false,
+      });
     } catch (error) {
       console.error("Failed to skip setup step:", error);
       setIsSkippingFailedStep(false);

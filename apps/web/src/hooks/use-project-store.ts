@@ -355,10 +355,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // 确保 WebSocket 连接
       await waitForConnection();
       
-      // 获取所有项目
+      // 获取所有项目；标签失败不应阻断侧边栏主数据加载。
       const [projects, labels] = await Promise.all([
         wsProjectApi.list(),
-        wsWorkspaceApi.listLabels(),
+        wsWorkspaceApi.listLabels().catch((error) => {
+          console.warn('Failed to fetch workspace labels:', error);
+          return [];
+        }),
       ]);
       set({
         workspaceLabels: labels.map(label => ({
@@ -1014,6 +1017,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     try {
       await waitForConnection();
       await wsWorkspaceApi.markVisited(workspaceId);
+      const visitedAt = new Date().toISOString();
+      set(state => ({
+        projects: state.projects.map(project => ({
+          ...project,
+          workspaces: project.workspaces.map(workspace =>
+            workspace.id === workspaceId
+              ? { ...workspace, lastVisitedAt: visitedAt }
+              : workspace
+          ),
+        })),
+      }));
     } catch (error) {
       console.error('Error marking workspace visited:', error);
     }

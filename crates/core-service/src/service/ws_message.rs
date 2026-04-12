@@ -1915,14 +1915,15 @@ impl WsMessageService {
             let workspace_id = workspace.model.guid.clone();
             let project_guid = workspace.model.project_guid.clone();
             let workspace_name = workspace.model.name.clone();
-            let github_issue = workspace.github_issue.clone();
-            let auto_extract_todos = workspace.model.auto_extract_todos;
+            let initial_requirement = req.initial_requirement.clone();
+            let github_issue = req.github_issue.or(workspace.github_issue.clone());
+            let auto_extract_todos = req.auto_extract_todos || workspace.model.auto_extract_todos;
 
             tokio::spawn(async move {
                 let start_step = Self::build_workspace_setup_plan(
                     &project_service,
                     &project_guid,
-                    None,
+                    initial_requirement.as_deref(),
                     github_issue.as_ref(),
                     auto_extract_todos,
                 )
@@ -1943,7 +1944,7 @@ impl WsMessageService {
                     project_guid,
                     workspace_id,
                     workspace_name,
-                    None,
+                    initial_requirement,
                     github_issue,
                     auto_extract_todos,
                     Some(start_step),
@@ -2943,7 +2944,12 @@ set -x
     async fn handle_skills_system_sync(&self) -> Result<Value> {
         // Run in a blocking task to avoid blocking the async executor
         tokio::task::spawn_blocking(move || {
-            infra::utils::system_skill_sync::sync_system_skills_on_startup();
+            let report = infra::utils::system_skill_sync::sync_system_skills_with_report();
+            tracing::info!(
+                "System skill sync background result: versions={:?}, missing={:?}",
+                report.versions,
+                report.missing_skills
+            );
         });
 
         Ok(json!({ "initiated": true }))

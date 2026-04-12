@@ -6,17 +6,17 @@ const DEFAULT_BEST_FOR: &str = "Code review tasks configured in system skills";
 /// Parse field from YAML frontmatter (standard single-line format)
 fn parse_frontmatter_field(content: &str, field: &str) -> Option<String> {
     // Find frontmatter block
-    let first_dash = content.find("---")?;
-    let second_dash = content[first_dash + 3..].find("---")? + first_dash + 3;
-    let frontmatter = &content[first_dash + 3..second_dash];
+    let content = content.trim_start();
+    let rest = content.strip_prefix("---")?;
+    let second_dash = rest.find("---")?;
+    let frontmatter = &rest[..second_dash];
+    let field_with_colon = format!("{field}:");
 
     // Look for field: "value" or field: value
     for line in frontmatter.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with(field) {
-            let rest = trimmed.strip_prefix(field).unwrap_or("").trim();
-            // Remove leading ":" if present (e.g., "description: \"xxx\"")
-            let rest = rest.trim_start_matches(':').trim();
+        if let Some(rest) = trimmed.strip_prefix(&field_with_colon) {
+            let rest = rest.trim();
             if !rest.is_empty() {
                 return Some(rest.trim_matches('"').trim_matches('\'').to_string());
             }
@@ -107,16 +107,72 @@ fn apply_well_known_overrides(dir_name: &str, label: &mut String, best_for: &mut
     match dir_name {
         "typescript-react-reviewer" => {
             *label = "TypeScript React Expert".to_string();
-            *best_for = "React/Next.js frontend applications".to_string();
+            if *best_for == DEFAULT_BEST_FOR {
+                *best_for = "React/Next.js frontend applications".to_string();
+            }
         }
         "code-review-expert" => {
             *label = "Backend Arch Expert".to_string();
-            *best_for = "Complex backend logic, API, and DB architectural reviews".to_string();
+            if *best_for == DEFAULT_BEST_FOR {
+                *best_for = "Complex backend logic, API, and DB architectural reviews".to_string();
+            }
         }
         "fullstack-reviewer" => {
             *label = "Fullstack Reviewer".to_string();
-            *best_for = "Fullstack review for any project".to_string();
+            if *best_for == DEFAULT_BEST_FOR {
+                *best_for = "Fullstack review for any project".to_string();
+            }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_frontmatter_field;
+
+    #[test]
+    fn parses_exact_frontmatter_field() {
+        let content = r#"---
+description: "Expert code review"
+bestFor: React applications
+---
+
+# Skill
+"#;
+
+        assert_eq!(
+            parse_frontmatter_field(content, "description"),
+            Some("Expert code review".to_string())
+        );
+        assert_eq!(
+            parse_frontmatter_field(content, "bestFor"),
+            Some("React applications".to_string())
+        );
+    }
+
+    #[test]
+    fn does_not_match_field_prefixes() {
+        let content = r#"---
+descriptionLong: "Do not use this"
+bestForExtended: "Do not use this either"
+---
+
+# Skill
+"#;
+
+        assert_eq!(parse_frontmatter_field(content, "description"), None);
+        assert_eq!(parse_frontmatter_field(content, "bestFor"), None);
+    }
+
+    #[test]
+    fn well_known_overrides_preserve_parsed_best_for() {
+        let mut label = "Code Review Expert".to_string();
+        let mut best_for = "Custom parsed guidance".to_string();
+
+        super::apply_well_known_overrides("code-review-expert", &mut label, &mut best_for);
+
+        assert_eq!(label, "Backend Arch Expert");
+        assert_eq!(best_for, "Custom parsed guidance");
     }
 }

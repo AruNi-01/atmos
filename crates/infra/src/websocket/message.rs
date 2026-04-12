@@ -1123,6 +1123,12 @@ pub struct WorkspaceSkipSetupScriptRequest {
 pub struct WorkspaceSkipSetupStepRequest {
     pub guid: String,
     pub failed_step_key: String,
+    #[serde(default)]
+    pub initial_requirement: Option<String>,
+    #[serde(default)]
+    pub github_issue: Option<GithubIssuePayload>,
+    #[serde(default)]
+    pub auto_extract_todos: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

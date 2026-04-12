@@ -379,11 +379,16 @@ export function WorkspaceLabelPicker({
     const name = newLabelName.trim();
     if (!name || !onCreateLabel || !onChange) return;
     const color = `rgba(${newLabelColor.r}, ${newLabelColor.g}, ${newLabelColor.b}, ${newLabelColor.a})`;
-    const label = editingLabel && onUpdateLabel
-      ? await onUpdateLabel(editingLabel.id, { name, color })
-      : await onCreateLabel({ name, color });
-    const nextLabels = selectedLabelIds.has(label.id) ? labels : [...labels, label];
-    await onChange(nextLabels);
+    if (editingLabel && onUpdateLabel) {
+      const label = await onUpdateLabel(editingLabel.id, { name, color });
+      if (selectedLabelIds.has(label.id)) {
+        await onChange(labels.map((existing) => existing.id === label.id ? label : existing));
+      }
+    } else {
+      const label = await onCreateLabel({ name, color });
+      const nextLabels = selectedLabelIds.has(label.id) ? labels : [...labels, label];
+      await onChange(nextLabels);
+    }
     setNewLabelName("");
     setLabelEditorKey(null);
     setEditingLabel(null);
@@ -600,7 +605,7 @@ function LabelEditorContent({
           <button
             key={preset.name}
             type="button"
-            onClick={() => setNewLabelColor({ ...parseHexColor(preset.color), a: 0.18 })}
+            onClick={() => setNewLabelColor({ ...parseHexColor(preset.color), a: 1 })}
             className="h-6 w-full rounded border border-border/50 transition-transform hover:scale-105"
             style={{ backgroundColor: preset.color }}
             title={preset.name}

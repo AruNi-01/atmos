@@ -144,6 +144,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [isLabelPopoverOpen, setIsLabelPopoverOpen] = useState(false);
   const infoPopoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
+  const ignoreNextClickRef = React.useRef(false);
   
 
   const cancelInfoPopoverClose = React.useCallback(() => {
@@ -173,6 +174,16 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       setIsInfoPopoverOpen(true);
       infoPopoverTimerRef.current = null;
     }, 1000);
+  }, [cancelInfoPopoverClose, suppressInfoPopover]);
+
+  const openInfoPopoverNow = React.useCallback(() => {
+    if (suppressInfoPopover) {
+      cancelInfoPopoverClose();
+      setIsInfoPopoverOpen(false);
+      return;
+    }
+    cancelInfoPopoverClose();
+    setIsInfoPopoverOpen(true);
   }, [cancelInfoPopoverClose, suppressInfoPopover]);
 
   React.useEffect(() => {
@@ -225,8 +236,22 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   }, [cancelInfoPopoverClose, isInfoPopoverOpen]);
 
   const handleClick = () => {
+    if (ignoreNextClickRef.current) {
+      ignoreNextClickRef.current = false;
+      return;
+    }
     router.push(`/workspace?id=${workspace.id}`);
   };
+
+  const handleTouchStart = React.useCallback(() => {
+    if (!isInfoPopoverOpen) {
+      ignoreNextClickRef.current = true;
+      openInfoPopoverNow();
+      window.setTimeout(() => {
+        ignoreNextClickRef.current = false;
+      }, 500);
+    }
+  }, [isInfoPopoverOpen, openInfoPopoverNow]);
 
   const handlePinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -358,8 +383,19 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             {...attributes}
             {...listeners}
             onClick={handleClick}
+            onFocusCapture={openInfoPopoverNow}
             onMouseEnter={openInfoPopover}
             onMouseLeave={scheduleInfoPopoverClose}
+            onTouchStart={handleTouchStart}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleClick();
+              }
+            }}
+            role="button"
+            tabIndex={0}
             className={cn(
               "relative flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-all border border-transparent hover:bg-sidebar-accent/50 group/ws",
               isActive
@@ -452,7 +488,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             align="start"
             sideOffset={10}
             className="w-72 space-y-3 p-3"
-            onMouseEnter={openInfoPopover}
+            onMouseEnter={cancelInfoPopoverClose}
             onMouseLeave={scheduleInfoPopoverClose}
           >
             <div className="space-y-2">

@@ -33,8 +33,8 @@ impl<'a> WorkspaceRepo<'a> {
             .order_by_desc(workspace::Column::IsPinned)
             .order_by_asc(workspace::Column::PinOrder)
             .order_by_desc(workspace::Column::PinnedAt)
-            .order_by_asc(workspace::Column::Guid)
             .order_by_desc(workspace::Column::CreatedAt)
+            .order_by_asc(workspace::Column::Guid)
             .all(self.db)
             .await?;
         Ok(workspaces)
@@ -268,6 +268,20 @@ impl<'a> WorkspaceRepo<'a> {
         name: String,
         color: String,
     ) -> Result<workspace_label::Model> {
+        let name = name.trim().to_string();
+        if workspace_label::Entity::find()
+            .filter(workspace_label::Column::IsDeleted.eq(false))
+            .filter(workspace_label::Column::Name.eq(name.clone()))
+            .filter(workspace_label::Column::Guid.ne(guid))
+            .one(self.db)
+            .await?
+            .is_some()
+        {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace label name already exists".into(),
+            ));
+        }
+
         let now = chrono::Utc::now().naive_utc();
         let result = workspace_label::Entity::update_many()
             .col_expr(workspace_label::Column::Name, Expr::value(name))

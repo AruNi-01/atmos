@@ -1224,9 +1224,7 @@ const CenterStage: React.FC = () => {
                   <div
                     className={cn(
                       "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center pl-2 pr-1.5 backdrop-blur-[4px] [mask-image:linear-gradient(to_right,transparent,black_40%)] transition-opacity duration-200",
-                      activeValue === "project-wiki"
-                        ? "opacity-0 group-hover/pw:opacity-100"
-                        : "opacity-0"
+                      "opacity-0 group-hover/pw:opacity-100"
                     )}
                   >
                     <span
@@ -1260,9 +1258,7 @@ const CenterStage: React.FC = () => {
                   <div
                     className={cn(
                       "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center pl-2 pr-1.5 backdrop-blur-[4px] [mask-image:linear-gradient(to_right,transparent,black_40%)] transition-opacity duration-200",
-                      activeValue === "code-review"
-                        ? "opacity-0 group-hover/cr:opacity-100"
-                        : "opacity-0"
+                      "opacity-0 group-hover/cr:opacity-100"
                     )}
                   >
                     <span

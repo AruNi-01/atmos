@@ -476,7 +476,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 />
               ))}
             </SortableContext>
-            {project.workspaces.filter(w => !w.isPinned).length === 0 && (
+            {project.workspaces.length === 0 && (
               <div className="py-2 text-[12px] text-muted-foreground italic ml-4">No workspaces</div>
             )}
           </div>
