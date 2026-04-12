@@ -723,12 +723,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           })
         )
       }));
-      
-      toastManager.add({ 
-        title: 'Pinned', 
-        description: 'Workspace pinned', 
-        type: 'success' 
-      });
     } catch (error) {
       console.error('Error pinning workspace:', error);
       toastManager.add({ 
@@ -760,12 +754,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             : p
         )
       }));
-      
-      toastManager.add({ 
-        title: 'Unpinned', 
-        description: 'Workspace unpinned', 
-        type: 'info' 
-      });
     } catch (error) {
       console.error('Error unpinning workspace:', error);
       toastManager.add({ 
