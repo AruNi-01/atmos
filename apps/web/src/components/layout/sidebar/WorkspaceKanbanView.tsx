@@ -8,11 +8,7 @@ import {
   DragOverlay,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Dialog,
   DialogContent,
@@ -63,21 +59,19 @@ import {
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
-  Check,
-  CircleCheck,
   Eye,
   EyeOff,
-  Flag,
-  Folder,
-  ListFilter,
   LogIn,
   Plus,
   Search,
   Settings2,
-  Tags,
   X,
 } from "lucide-react";
 import { CreateWorkspaceDialog } from "@/components/dialogs/CreateWorkspaceDialog";
+import {
+  WorkspaceKanbanFilterMenu,
+  type WorkspaceKanbanFilters,
+} from "@/components/layout/sidebar/WorkspaceKanbanFilterMenu";
 
 type KanbanEntry = {
   projectId: string;
@@ -176,6 +170,8 @@ interface WorkspaceKanbanViewProps {
     workspaceId: string,
     labels: WorkspaceLabel[],
   ) => Promise<void>;
+  filters: WorkspaceKanbanFilters;
+  onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
   trigger: React.ReactNode;
 }
 
@@ -436,6 +432,8 @@ export function WorkspaceKanbanView({
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
+  filters,
+  onFiltersChange,
   trigger,
 }: WorkspaceKanbanViewProps) {
   const router = useAppRouter();
@@ -450,10 +448,6 @@ export function WorkspaceKanbanView({
     [],
   );
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
-  const [selectedStatuses, setSelectedStatuses] = React.useState<WorkspaceWorkflowStatus[]>([]);
-  const [selectedPriorities, setSelectedPriorities] = React.useState<WorkspacePriority[]>([]);
-  const [selectedLabelIds, setSelectedLabelIds] = React.useState<string[]>([]);
-  const [selectedProjectIds, setSelectedProjectIds] = React.useState<string[]>([]);
   const [recentlyDroppedId, setRecentlyDroppedId] = React.useState<string | null>(null);
   const [activeDragItem, setActiveDragItem] = React.useState<DragItem | null>(null);
   const [hiddenColumns, setHiddenColumns] = React.useState<WorkspaceWorkflowStatus[]>([]);
@@ -465,8 +459,6 @@ export function WorkspaceKanbanView({
   const [createWorkspaceStatus, setCreateWorkspaceStatus] =
     React.useState<WorkspaceWorkflowStatus>("in_progress");
   const skipPersistRef = React.useRef(false);
-  const [labelFilterQuery, setLabelFilterQuery] = React.useState("");
-  const [projectFilterQuery, setProjectFilterQuery] = React.useState("");
   const searchContainerRef = React.useRef<HTMLDivElement | null>(null);
   const boardScrollRef = React.useRef<HTMLDivElement | null>(null);
   const sensors = useSensors(
@@ -534,20 +526,24 @@ export function WorkspaceKanbanView({
       setSortOrder(loadedSortOrder);
       const loadedSearchQuery = typeof filters.search_query === "string" ? filters.search_query : "";
       setSearchQuery((prev) => (prev.trim() ? prev : loadedSearchQuery));
-      setSelectedStatuses(loadedStatuses);
-      setSelectedPriorities(loadedPriorities);
-      setSelectedLabelIds(loadedLabelIds);
-      setSelectedProjectIds(loadedProjectIds);
+      onFiltersChange({
+        statuses: loadedStatuses,
+        priorities: loadedPriorities,
+        labelIds: loadedLabelIds,
+        projectIds: loadedProjectIds,
+      });
       setHiddenColumns(loadedHiddenColumns);
       setCardProperties(nextCardProperties);
     } catch {
       if (blocking) {
         setSortBy("last_visit");
         setSortOrder("desc");
-        setSelectedStatuses([]);
-        setSelectedPriorities([]);
-        setSelectedLabelIds([]);
-        setSelectedProjectIds([]);
+        onFiltersChange({
+          statuses: [],
+          priorities: [],
+          labelIds: [],
+          projectIds: [],
+        });
         setHiddenColumns([]);
         setCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
       }
@@ -559,7 +555,7 @@ export function WorkspaceKanbanView({
         skipPersistRef.current = false;
       }, 0);
     }
-  }, [availablePrioritySet, availableStatusSet, setSearchQuery]);
+  }, [availablePrioritySet, availableStatusSet, onFiltersChange, setSearchQuery]);
 
   React.useEffect(() => {
     if (!isKanbanExpanded || isSettingsReady) return;
@@ -572,10 +568,10 @@ export function WorkspaceKanbanView({
       sort_order: sortOrder,
       filters: {
         search_query: searchQuery,
-        statuses: selectedStatuses,
-        priorities: selectedPriorities,
-        label_ids: selectedLabelIds,
-        project_ids: selectedProjectIds,
+        statuses: filters.statuses,
+        priorities: filters.priorities,
+        label_ids: filters.labelIds,
+        project_ids: filters.projectIds,
         hidden_columns: hiddenColumns,
       },
       properties: cardProperties,
@@ -584,12 +580,9 @@ export function WorkspaceKanbanView({
     await functionSettingsApi.update("workspace_kanban_view", "state", payload);
   }, [
     cardProperties,
+    filters,
     hiddenColumns,
     searchQuery,
-    selectedLabelIds,
-    selectedPriorities,
-    selectedProjectIds,
-    selectedStatuses,
     sortBy,
     sortOrder,
   ]);
@@ -602,40 +595,16 @@ export function WorkspaceKanbanView({
     return () => window.clearTimeout(timer);
   }, [isSettingsReady, persistWorkspaceKanbanSettings]);
 
-  const activeFilterTypeCount = [
-    selectedStatuses.length > 0,
-    selectedPriorities.length > 0,
-    selectedLabelIds.length > 0,
-    selectedProjectIds.length > 0,
-  ].filter(Boolean).length;
-
-  const toggleStatus = (value: WorkspaceWorkflowStatus) =>
-    setSelectedStatuses((prev) =>
-      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value],
-    );
-  const togglePriority = (value: WorkspacePriority) =>
-    setSelectedPriorities((prev) =>
-      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value],
-    );
-  const toggleLabel = (value: string) =>
-    setSelectedLabelIds((prev) =>
-      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value],
-    );
-  const toggleProject = (value: string) =>
-    setSelectedProjectIds((prev) =>
-      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value],
-    );
-
   const grouped = React.useMemo(() => {
     const buckets = new Map<WorkspaceWorkflowStatus, KanbanEntry[]>();
     projects.forEach((project) => {
       project.workspaces.forEach((workspace) => {
-        if (selectedProjectIds.length > 0 && !selectedProjectIds.includes(project.id)) return;
-        if (selectedStatuses.length > 0 && !selectedStatuses.includes(workspace.workflowStatus)) return;
-        if (selectedPriorities.length > 0 && !selectedPriorities.includes(workspace.priority)) return;
+        if (filters.projectIds.length > 0 && !filters.projectIds.includes(project.id)) return;
+        if (filters.statuses.length > 0 && !filters.statuses.includes(workspace.workflowStatus)) return;
+        if (filters.priorities.length > 0 && !filters.priorities.includes(workspace.priority)) return;
         if (
-          selectedLabelIds.length > 0 &&
-          !workspace.labels.some((label) => selectedLabelIds.includes(label.id))
+          filters.labelIds.length > 0 &&
+          !workspace.labels.some((label) => filters.labelIds.includes(label.id))
         ) return;
         if (searchQuery.trim()) {
           const q = searchQuery.trim().toLowerCase();
@@ -674,7 +643,7 @@ export function WorkspaceKanbanView({
     });
 
     return buckets;
-  }, [projects, searchQuery, selectedLabelIds, selectedPriorities, selectedProjectIds, selectedStatuses, sortBy, sortOrder]);
+  }, [filters, projects, searchQuery, sortBy, sortOrder]);
 
   React.useEffect(() => {
     if (typeof document === "undefined") return;
@@ -722,7 +691,7 @@ export function WorkspaceKanbanView({
       type: "status" | "priority" | "label" | "project";
       value: string;
     }> = [];
-    selectedStatuses.forEach((status) => {
+    filters.statuses.forEach((status) => {
       chips.push({
         key: `status-${status}`,
         label: getWorkspaceWorkflowStatusMeta(status).label,
@@ -730,7 +699,7 @@ export function WorkspaceKanbanView({
         value: status,
       });
     });
-    selectedPriorities.forEach((priority) => {
+    filters.priorities.forEach((priority) => {
       chips.push({
         key: `priority-${priority}`,
         label: WORKSPACE_PRIORITY_OPTIONS.find((item) => item.value === priority)?.label ?? priority,
@@ -738,42 +707,47 @@ export function WorkspaceKanbanView({
         value: priority,
       });
     });
-    selectedLabelIds.forEach((labelId) => {
+    filters.labelIds.forEach((labelId) => {
       const label = availableLabels.find((item) => item.id === labelId);
       if (label) chips.push({ key: `label-${labelId}`, label: label.name, type: "label", value: labelId });
     });
-    selectedProjectIds.forEach((projectId) => {
+    filters.projectIds.forEach((projectId) => {
       const project = projects.find((item) => item.id === projectId);
       if (project) chips.push({ key: `project-${projectId}`, label: project.name, type: "project", value: projectId });
     });
     return chips;
-  }, [availableLabels, projects, selectedLabelIds, selectedPriorities, selectedProjectIds, selectedStatuses]);
-
-  const clearAllFilters = React.useCallback(() => {
-    setSelectedStatuses([]);
-    setSelectedPriorities([]);
-    setSelectedLabelIds([]);
-    setSelectedProjectIds([]);
-  }, []);
+  }, [availableLabels, filters, projects]);
 
   const removeFilterChip = React.useCallback((chip: {
     type: "status" | "priority" | "label" | "project";
     value: string;
   }) => {
     if (chip.type === "status") {
-      setSelectedStatuses((prev) => prev.filter((item) => item !== chip.value));
+      onFiltersChange({
+        ...filters,
+        statuses: filters.statuses.filter((item) => item !== chip.value),
+      });
       return;
     }
     if (chip.type === "priority") {
-      setSelectedPriorities((prev) => prev.filter((item) => item !== chip.value));
+      onFiltersChange({
+        ...filters,
+        priorities: filters.priorities.filter((item) => item !== chip.value),
+      });
       return;
     }
     if (chip.type === "label") {
-      setSelectedLabelIds((prev) => prev.filter((item) => item !== chip.value));
+      onFiltersChange({
+        ...filters,
+        labelIds: filters.labelIds.filter((item) => item !== chip.value),
+      });
       return;
     }
-    setSelectedProjectIds((prev) => prev.filter((item) => item !== chip.value));
-  }, []);
+    onFiltersChange({
+      ...filters,
+      projectIds: filters.projectIds.filter((item) => item !== chip.value),
+    });
+  }, [filters, onFiltersChange]);
 
   React.useEffect(() => {
     if (!isSearchOpen) return;
@@ -785,18 +759,6 @@ export function WorkspaceKanbanView({
     document.addEventListener("pointerdown", handlePointerDown, true);
     return () => document.removeEventListener("pointerdown", handlePointerDown, true);
   }, [isSearchOpen, searchQuery]);
-
-  const filteredLabelOptions = React.useMemo(() => {
-    const q = labelFilterQuery.trim().toLowerCase();
-    if (!q) return availableLabels;
-    return availableLabels.filter((label) => label.name.toLowerCase().includes(q));
-  }, [availableLabels, labelFilterQuery]);
-
-  const filteredProjectOptions = React.useMemo(() => {
-    const q = projectFilterQuery.trim().toLowerCase();
-    if (!q) return projects;
-    return projects.filter((project) => project.name.toLowerCase().includes(q));
-  }, [projectFilterQuery, projects]);
 
   const visibleColumns = React.useMemo(
     () => BOARD_COLUMNS.filter((column) => !hiddenColumns.includes(column.status)),
@@ -839,147 +801,12 @@ export function WorkspaceKanbanView({
         <div className="flex h-full min-h-0 min-w-0 flex-col">
           <div className="flex h-10 items-center justify-between border-b px-6 py-1.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button size="xs" variant="secondary" className="relative">
-                    {activeFilterTypeCount > 0 ? (
-                      <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                        {activeFilterTypeCount}
-                      </span>
-                    ) : null}
-                    <ListFilter className="mr-1 size-4" />
-                    Filter
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64 p-1">
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Folder className="size-4" />
-                      Project
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56">
-                      <div className="p-2">
-                        <Input
-                          value={projectFilterQuery}
-                          onChange={(e) => setProjectFilterQuery(e.target.value)}
-                          placeholder="Search projects..."
-                          className="h-7 text-xs"
-                        />
-                      </div>
-                      {filteredProjectOptions.length === 0 ? (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">No matching projects</div>
-                      ) : (
-                        filteredProjectOptions.map((project) => (
-                          <DropdownMenuItem
-                            key={project.id}
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              toggleProject(project.id);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <span>{project.name}</span>
-                            {selectedProjectIds.includes(project.id) ? <Check className="ml-auto size-4" /> : null}
-                          </DropdownMenuItem>
-                        ))
-                      )}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <CircleCheck className="size-4" />
-                      Status
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56">
-                      {WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => (
-                        <DropdownMenuItem
-                          key={option.value}
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            toggleStatus(option.value);
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <option.icon className={cn("size-4", option.className)} />
-                          <span>{option.label}</span>
-                          {selectedStatuses.includes(option.value) ? <Check className="ml-auto size-4" /> : null}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Flag className="size-4" />
-                      Priority
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56">
-                      {WORKSPACE_PRIORITY_OPTIONS.map((option) => (
-                        <DropdownMenuItem
-                          key={option.value}
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            togglePriority(option.value);
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <option.icon className={cn("size-4", option.className)} />
-                          <span>{option.label}</span>
-                          {selectedPriorities.includes(option.value) ? <Check className="ml-auto size-4" /> : null}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Tags className="size-4" />
-                      Labels
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-56">
-                      <div className="p-2">
-                        <Input
-                          value={labelFilterQuery}
-                          onChange={(e) => setLabelFilterQuery(e.target.value)}
-                          placeholder="Search labels..."
-                          className="h-7 text-xs"
-                        />
-                      </div>
-                      {filteredLabelOptions.length === 0 ? (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">No matching labels</div>
-                      ) : (
-                        filteredLabelOptions.map((label) => (
-                          <DropdownMenuItem
-                            key={label.id}
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              toggleLabel(label.id);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <span className="size-2 rounded-full" style={{ backgroundColor: label.color }} />
-                            <span>{label.name}</span>
-                            {selectedLabelIds.includes(label.id) ? <Check className="ml-auto size-4" /> : null}
-                          </DropdownMenuItem>
-                        ))
-                      )}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-
-                  {activeFilterTypeCount > 0 ? (
-                    <>
-                      <DropdownMenuSeparator className="mx-2" />
-                      <DropdownMenuItem
-                        onClick={clearAllFilters}
-                        className="text-xs font-medium text-muted-foreground"
-                      >
-                        Clear All Filters
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <WorkspaceKanbanFilterMenu
+                projects={projects}
+                availableLabels={availableLabels}
+                filters={filters}
+                onFiltersChange={onFiltersChange}
+              />
 
               {selectedFilterChips.length > 0 ? (
                 <div className="scrollbar-on-hover flex max-w-[520px] items-center gap-1 overflow-x-auto whitespace-nowrap pr-1">
@@ -1047,7 +874,7 @@ export function WorkspaceKanbanView({
                       <span className="text-xs font-medium text-foreground">Order</span>
                       <div className="flex items-center gap-1.5">
                         <Select value={sortBy} onValueChange={(value) => setSortBy(value as KanbanSortBy)}>
-                          <SelectTrigger className="h-5 w-[112px] px-2 text-[10px]">
+                          <SelectTrigger className="!h-5 w-[84px] gap-1 rounded-sm px-1.5 py-0 text-[10px] [&_svg]:size-3">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1059,7 +886,7 @@ export function WorkspaceKanbanView({
                         <Button
                           size="icon-xs"
                           variant="outline"
-                          className="size-5"
+                          className="size-5 rounded-sm"
                           onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
                           aria-label={sortOrder === "desc" ? "Switch to ascending" : "Switch to descending"}
                           title={sortOrder === "desc" ? "Descending" : "Ascending"}

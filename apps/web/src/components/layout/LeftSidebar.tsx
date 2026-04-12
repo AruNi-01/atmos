@@ -44,19 +44,19 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@workspace/ui";
-import { Project } from '@/types/types';
+import type { Project, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { FileTree } from '@/components/files/FileTree';
-import { fsApi, FileTreeNode } from '@/api/ws-api';
+import { fsApi, FileTreeNode, functionSettingsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
-import { Bot, ChevronRight, ListFilter, SquareKanban } from "lucide-react";
+import { Bot, ChevronRight, Group, SquareKanban } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ProjectItem } from '@/components/layout/sidebar/ProjectItem';
 import { SortableProject } from '@/components/layout/sidebar/SortableProject';
@@ -66,9 +66,18 @@ import { WorkspaceKanbanView } from '@/components/layout/sidebar/WorkspaceKanban
 import { flattenProjectWorkspaces, getWorkspaceTimeGroupLabel, groupWorkspaces } from '@/components/layout/sidebar/workspace-grouping';
 import {
     SIDEBAR_GROUPING_OPTIONS,
+    WORKSPACE_WORKFLOW_STATUS_OPTIONS,
     getWorkspaceWorkflowStatusMeta,
     type SidebarGroupingMode,
 } from '@/components/layout/sidebar/workspace-status';
+import { WORKSPACE_PRIORITY_OPTIONS } from '@/components/layout/sidebar/workspace-metadata-controls';
+import {
+    EMPTY_WORKSPACE_KANBAN_FILTERS,
+    WorkspaceKanbanFilterMenu,
+    filterWorkspaceKanbanEntries,
+    getActiveWorkspaceKanbanFilterCount,
+    type WorkspaceKanbanFilters,
+} from '@/components/layout/sidebar/WorkspaceKanbanFilterMenu';
 import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 
@@ -146,6 +155,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
+    const [kanbanFilters, setKanbanFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
         currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents'
     );
@@ -186,6 +196,39 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         if (typeof window === 'undefined') return;
         window.localStorage.setItem(GROUPING_STORAGE_KEY, groupingMode);
     }, [groupingMode]);
+
+    useEffect(() => {
+        const availableStatusSet = new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value));
+        const availablePrioritySet = new Set(WORKSPACE_PRIORITY_OPTIONS.map((option) => option.value));
+
+        functionSettingsApi.get()
+            .then((settings) => {
+                const section = settings.workspace_kanban_view;
+                const raw = (section && typeof section === "object" && "state" in (section as Record<string, unknown>))
+                    ? (section as { state?: unknown }).state
+                    : section;
+                const state = (raw && typeof raw === "object") ? raw as { filters?: Record<string, unknown> } : {};
+                const filters = state.filters && typeof state.filters === "object" ? state.filters : {};
+
+                setKanbanFilters({
+                    statuses: Array.isArray(filters.statuses)
+                        ? filters.statuses.filter((item): item is WorkspaceWorkflowStatus => availableStatusSet.has(item as WorkspaceWorkflowStatus))
+                        : [],
+                    priorities: Array.isArray(filters.priorities)
+                        ? filters.priorities.filter((item): item is WorkspacePriority => availablePrioritySet.has(item as WorkspacePriority))
+                        : [],
+                    labelIds: Array.isArray(filters.label_ids)
+                        ? filters.label_ids.filter((item): item is string => typeof item === "string")
+                        : [],
+                    projectIds: Array.isArray(filters.project_ids)
+                        ? filters.project_ids.filter((item): item is string => typeof item === "string")
+                        : [],
+                });
+            })
+            .catch(() => {
+                setKanbanFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
+            });
+    }, []);
 
     useEffect(() => {
         if (projects.length > 0 && expandedProjects.length === 0) {
@@ -453,8 +496,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     };
 
     const flattenedWorkspaces = useMemo(() => flattenProjectWorkspaces(projects), [projects]);
+    const activeKanbanFilterCount = getActiveWorkspaceKanbanFilterCount(kanbanFilters);
+    const filteredFlattenedWorkspaces = useMemo(
+        () => filterWorkspaceKanbanEntries(flattenedWorkspaces, kanbanFilters),
+        [flattenedWorkspaces, kanbanFilters],
+    );
+    const projectModeProjects = useMemo(() => {
+        if (activeKanbanFilterCount === 0) return projects;
+        const visibleWorkspaceIds = new Set(filteredFlattenedWorkspaces.map((entry) => entry.workspace.id));
+        return projects
+            .map((project) => ({
+                ...project,
+                workspaces: project.workspaces.filter((workspace) => visibleWorkspaceIds.has(workspace.id)),
+            }))
+            .filter((project) => project.workspaces.length > 0);
+    }, [activeKanbanFilterCount, filteredFlattenedWorkspaces, projects]);
     const pinnedWorkspaces = useMemo(
-        () => flattenedWorkspaces
+        () => filteredFlattenedWorkspaces
             .filter((e) => e.workspace.isPinned)
             .sort((a, b) => {
                 const aOrder = a.workspace.pinOrder;
@@ -470,11 +528,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 if (aTime !== bTime) return bTime - aTime;
                 return a.workspace.id.localeCompare(b.workspace.id);
             }),
-        [flattenedWorkspaces],
+        [filteredFlattenedWorkspaces],
     );
     const unpinnedFlattenedWorkspaces = useMemo(
-        () => flattenedWorkspaces.filter((e) => !e.workspace.isPinned),
-        [flattenedWorkspaces],
+        () => filteredFlattenedWorkspaces.filter((e) => !e.workspace.isPinned),
+        [filteredFlattenedWorkspaces],
     );
     const groupedWorkspaces = useMemo(() => {
         if (groupingMode === 'project') return [];
@@ -739,7 +797,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
                                 >
                                     <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                        {projects.map(project => (
+                                        {projectModeProjects.map(project => (
                                             <SortableProject
                                                 key={project.id}
                                                 project={project}
@@ -970,63 +1028,76 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 </div>
                 {activeTab === 'projects' && (
                     <div className="relative shrink-0 bg-transparent">
-                        <div className="relative flex items-center justify-end gap-1 px-3 py-0.5">
-                            {(() => {
-                                const currentGroupingOption = SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)
-                                    ?? SIDEBAR_GROUPING_OPTIONS[0];
-
-                                return (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button
-                                        type="button"
-                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-                                    >
-                                        <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-                                            <ListFilter className="size-3.5" />
-                                        </span>
-                                        <span>
-                                            {currentGroupingOption.label}
-                                        </span>
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-40">
-                                    {SIDEBAR_GROUPING_OPTIONS.map((option) => (
-                                        <DropdownMenuItem
-                                            key={option.value}
-                                            className={cn(
-                                                "cursor-pointer",
-                                                groupingMode === option.value && "bg-accent text-accent-foreground",
-                                            )}
-                                            onClick={() => setGroupingMode(option.value)}
-                                        >
-                                                <option.icon className="size-4 text-muted-foreground" />
-                                                <span>{option.label}</span>
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                                );
-                            })()}
-                            <WorkspaceKanbanView
+                        <div className="relative flex items-center justify-between gap-1 px-1.5 py-0.5">
+                            <WorkspaceKanbanFilterMenu
                                 projects={projects}
                                 availableLabels={workspaceLabels}
-                                onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-                                onUpdatePriority={updateWorkspacePriority}
-                                onCreateLabel={createWorkspaceLabel}
-                                onUpdateLabel={updateWorkspaceLabel}
-                                onUpdateLabels={updateWorkspaceLabels}
-                                trigger={(
-                                    <button
-                                        type="button"
-                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-                                    >
-                                        <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-                                            <SquareKanban className="size-3.5" />
-                                        </span>
-                                    </button>
-                                )}
+                                filters={kanbanFilters}
+                                onFiltersChange={setKanbanFilters}
+                                triggerVariant="icon"
+                                align="end"
+                                side="top"
                             />
+                            <div className="flex items-center justify-end -space-x-1">
+                                <WorkspaceKanbanView
+                                    projects={projects}
+                                    availableLabels={workspaceLabels}
+                                    onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                    onUpdatePriority={updateWorkspacePriority}
+                                    onCreateLabel={createWorkspaceLabel}
+                                    onUpdateLabel={updateWorkspaceLabel}
+                                    onUpdateLabels={updateWorkspaceLabels}
+                                    filters={kanbanFilters}
+                                    onFiltersChange={setKanbanFilters}
+                                    trigger={(
+                                        <button
+                                            type="button"
+                                            className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                        >
+                                            <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                                                <SquareKanban className="size-3.5" />
+                                            </span>
+                                        </button>
+                                    )}
+                                />
+                                {(() => {
+                                    const currentGroupingOption = SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)
+                                        ?? SIDEBAR_GROUPING_OPTIONS[0];
+
+                                    return (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="group inline-flex h-8 items-center gap-0.5 rounded-lg bg-transparent px-1 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                                >
+                                                    <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                                                        <Group className="size-3.5" />
+                                                    </span>
+                                                    <span>
+                                                        {currentGroupingOption.label}
+                                                    </span>
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-40">
+                                                {SIDEBAR_GROUPING_OPTIONS.map((option) => (
+                                                    <DropdownMenuItem
+                                                        key={option.value}
+                                                        className={cn(
+                                                            "cursor-pointer",
+                                                            groupingMode === option.value && "bg-accent text-accent-foreground",
+                                                        )}
+                                                        onClick={() => setGroupingMode(option.value)}
+                                                    >
+                                                        <option.icon className="size-4 text-muted-foreground" />
+                                                        <span>{option.label}</span>
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    );
+                                })()}
+                            </div>
                         </div>
                     </div>
                 )}
