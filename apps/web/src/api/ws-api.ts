@@ -1420,6 +1420,10 @@ export interface FunctionSettings {
     state?: unknown;
     [key: string]: unknown;
   };
+  workspace_sidebar?: {
+    grouping_mode?: 'project' | 'status' | 'time';
+    [key: string]: unknown;
+  };
   inner_browser?: {
     favorite_site?: Array<{
       url: string;

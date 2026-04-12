@@ -94,7 +94,6 @@ function normalizePathForContainment(path: string): string {
 }
 
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
-    const GROUPING_STORAGE_KEY = 'atmos.sidebar.grouping_mode';
     const router = useAppRouter();
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
     const {
@@ -155,6 +154,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
+    const [isGroupingSettingsReady, setIsGroupingSettingsReady] = useState(false);
     const [kanbanFilters, setKanbanFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
         currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents'
@@ -185,17 +185,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [fetchProjects]);
 
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const stored = window.localStorage.getItem(GROUPING_STORAGE_KEY);
-        if (stored === 'project' || stored === 'status' || stored === 'time') {
-            setGroupingMode(stored);
-        }
+        functionSettingsApi.get()
+            .then((settings) => {
+                const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
+                if (groupingModeSetting === 'project' || groupingModeSetting === 'status' || groupingModeSetting === 'time') {
+                    setGroupingMode(groupingModeSetting);
+                }
+            })
+            .finally(() => {
+                setIsGroupingSettingsReady(true);
+            });
     }, []);
 
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-        window.localStorage.setItem(GROUPING_STORAGE_KEY, groupingMode);
-    }, [groupingMode]);
+        if (!isGroupingSettingsReady) return;
+        void functionSettingsApi.update('workspace_sidebar', 'grouping_mode', groupingMode);
+    }, [groupingMode, isGroupingSettingsReady]);
 
     useEffect(() => {
         const availableStatusSet = new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value));
@@ -1029,36 +1034,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 {activeTab === 'projects' && (
                     <div className="relative shrink-0 bg-transparent">
                         <div className="relative flex items-center justify-between gap-1 px-1.5 py-0.5">
-                            <WorkspaceKanbanFilterMenu
-                                projects={projects}
-                                availableLabels={workspaceLabels}
-                                filters={kanbanFilters}
-                                onFiltersChange={setKanbanFilters}
-                                triggerVariant="icon"
-                                align="end"
-                                side="top"
-                            />
-                            <div className="flex items-center justify-end -space-x-1">
-                                <WorkspaceKanbanView
+                            <div className="flex items-center gap-0">
+                                <WorkspaceKanbanFilterMenu
                                     projects={projects}
                                     availableLabels={workspaceLabels}
-                                    onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-                                    onUpdatePriority={updateWorkspacePriority}
-                                    onCreateLabel={createWorkspaceLabel}
-                                    onUpdateLabel={updateWorkspaceLabel}
-                                    onUpdateLabels={updateWorkspaceLabels}
                                     filters={kanbanFilters}
                                     onFiltersChange={setKanbanFilters}
-                                    trigger={(
-                                        <button
-                                            type="button"
-                                            className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-                                        >
-                                            <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-                                                <SquareKanban className="size-3.5" />
-                                            </span>
-                                        </button>
-                                    )}
+                                    triggerVariant="icon"
+                                    align="start"
+                                    side="top"
                                 />
                                 {(() => {
                                     const currentGroupingOption = SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)
@@ -1098,6 +1082,27 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     );
                                 })()}
                             </div>
+                            <WorkspaceKanbanView
+                                projects={projects}
+                                availableLabels={workspaceLabels}
+                                onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                onUpdatePriority={updateWorkspacePriority}
+                                onCreateLabel={createWorkspaceLabel}
+                                onUpdateLabel={updateWorkspaceLabel}
+                                onUpdateLabels={updateWorkspaceLabels}
+                                filters={kanbanFilters}
+                                onFiltersChange={setKanbanFilters}
+                                trigger={(
+                                    <button
+                                        type="button"
+                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                    >
+                                        <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                                            <SquareKanban className="size-3.5" />
+                                        </span>
+                                    </button>
+                                )}
+                            />
                         </div>
                     </div>
                 )}
