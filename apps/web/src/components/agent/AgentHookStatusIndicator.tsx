@@ -118,7 +118,7 @@ function CompactIndicator({ state }: { state: AgentHookState }) {
   }
 
   return (
-    <span className="inline-flex items-center justify-center size-5 font-mono text-sm text-blue-400" title="Agent running">
+    <span className="inline-flex items-center justify-center size-5 font-mono text-sm text-muted-foreground/80" title="Agent running">
       {spinnerChar}
     </span>
   );
