@@ -1533,6 +1533,19 @@ export const codeAgentCustomApi = {
   },
 };
 
+export interface AgentBehaviourSettings {
+  idle_session_timeout_mins: number;
+}
+
+export const agentBehaviourSettingsApi = {
+  get: async (): Promise<AgentBehaviourSettings> => {
+    return wsRequest<AgentBehaviourSettings>("agent_behaviour_settings_get");
+  },
+  update: async (settings: AgentBehaviourSettings): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("agent_behaviour_settings_update", settings);
+  },
+};
+
 // ===== Agent API =====
 
 export const agentApi = {

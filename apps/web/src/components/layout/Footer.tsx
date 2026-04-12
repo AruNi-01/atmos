@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   Tooltip,
   TooltipTrigger,
@@ -11,7 +11,6 @@ import {
 } from '@workspace/ui';
 import { cn } from "@/lib/utils";
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { useContextParams } from "@/hooks/use-context-params";
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
 import {
@@ -25,7 +24,8 @@ import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndi
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { X } from 'lucide-react';
-import { BotMessageSquareIcon, type BotMessageSquareHandle } from '@workspace/ui';
+import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
+import type { AnimatedIconHandle } from '@workspace/ui';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -175,6 +175,35 @@ function useContextDisplayNameResolver() {
   }, [projects]);
 }
 
+function useContextNameResolver() {
+  const projects = useProjectStore((s) => s.projects);
+  return useCallback((contextId: string | null | undefined): { projectName: string; workspaceName: string | null } => {
+    if (!contextId) return { projectName: "", workspaceName: null };
+    for (const project of projects) {
+      if (project.id === contextId) return { projectName: project.name, workspaceName: null };
+      const ws = project.workspaces.find((w) => w.id === contextId);
+      if (ws) return { projectName: project.name, workspaceName: ws.displayName || ws.name || ws.branch };
+    }
+    return { projectName: contextId.slice(0, 8), workspaceName: null };
+  }, [projects]);
+}
+
+// Cycling ticker: rotates through active sessions, showing each for `intervalMs`.
+function useSessionTicker(sessions: AgentHookSession[], intervalMs = 3000) {
+  const [index, setIndex] = useState(0);
+  const countRef = useRef(sessions.length);
+  countRef.current = sessions.length;
+
+  useEffect(() => {
+    if (sessions.length <= 1) return;
+    const t = setInterval(() => setIndex((i) => i + 1), intervalMs);
+    return () => clearInterval(t);
+  }, [sessions.length, intervalMs]);
+
+  if (sessions.length === 0) return null;
+  return sessions[index % sessions.length];
+}
+
 function AgentStatusPopoverContent() {
   const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
   const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
@@ -230,6 +259,21 @@ function AgentStatusPopoverContent() {
   );
 }
 
+function PermissionBellFooter() {
+
+  const iconRef = useRef<AnimatedIconHandle>(null);
+  useEffect(() => {
+    const t = setInterval(() => { iconRef.current?.startAnimation(); }, 2000);
+    iconRef.current?.startAnimation();
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span className="inline-flex items-center text-amber-400/70 ml-0.5" title="Permission requested">
+      <FilledBellIcon ref={iconRef} size={12} color="currentColor" strokeWidth={0} />
+    </span>
+  );
+}
+
 function AcpChatButton({ onClick }: { onClick: () => void }) {
   const iconRef = useRef<BotMessageSquareHandle>(null);
   return (
@@ -249,27 +293,18 @@ function AcpChatButton({ onClick }: { onClick: () => void }) {
 
 const Footer: React.FC = () => {
   const connectionState = useWebSocketStore(s => s.connectionState);
-  const { workspaceId: currentWorkspaceId, projectId: currentProjectId } = useContextParams();
   const [, setAgentChatOpen] = useAgentChatUrl();
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const globalState = useAgentHooksStore((s) => {
-    for (const session of s.sessions.values()) {
-      if (session.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
-    }
-    for (const session of s.sessions.values()) {
-      if (session.state === AGENT_STATE.RUNNING) return AGENT_STATE.RUNNING;
-    }
-    return AGENT_STATE.IDLE;
-  });
-  const latestSessionTool = useAgentHooksStore((s) => {
-    let latest: AgentHookSession | null = null;
-    for (const session of s.sessions.values()) {
-      if (!latest || session.timestamp > latest.timestamp) latest = session;
-    }
-    return latest?.tool ?? null;
-  });
+  const resolveContextName = useContextNameResolver();
+
+  // Global: all non-idle sessions for the ticker, permission flag for the bell.
+  const activeSessions = useAgentHooksStore(useShallow((s) =>
+    Array.from(s.sessions.values()).filter((s) => s.state !== AGENT_STATE.IDLE)
+  ));
+  const hasPermission = activeSessions.some((s) => s.state === AGENT_STATE.PERMISSION_REQUEST);
+  const tickerSession = useSessionTicker(activeSessions);
 
   const fetchConnections = useCallback(async () => {
     if (connectionState !== 'connected') return;
@@ -373,38 +408,63 @@ const Footer: React.FC = () => {
       <div className="flex items-center space-x-2">
         <Popover>
           <PopoverTrigger asChild>
-            <button className="flex items-center space-x-1.5 hover:text-foreground transition-colors cursor-pointer">
-              <AgentHookStatusIndicator
-                state={globalState}
-                variant="full"
-                tool={latestSessionTool ? (AGENT_TOOL_LABELS[latestSessionTool] ?? latestSessionTool) : undefined}
-              />
+            <button className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer">
+              {tickerSession ? (
+                <>
+                  {/* Spinner for the current ticker session */}
+                  <AgentHookStatusIndicator state={tickerSession.state} variant="compact" />
+
+                  {/* Ticker label — key remounts on session change, CSS handles fade-in.
+                      Plain span (no motion wrapper) so TextShimmer's internal
+                      motion.create animation is never nested inside another
+                      AnimatePresence and its backgroundPosition isn't interrupted. */}
+                  <span
+                    key={tickerSession.session_id}
+                    className="flex items-center gap-0 animate-in fade-in slide-in-from-bottom-1 duration-200"
+                  >
+                    {(() => {
+                      const { projectName, workspaceName } = resolveContextName(tickerSession.context_id);
+                      return projectName ? (
+                        <span className="font-medium whitespace-nowrap text-foreground">
+                          {projectName}
+                          {workspaceName && (
+                            <>
+                              <span className="text-muted-foreground mx-0.5">-</span>
+                              <span>{workspaceName}</span>
+                            </>
+                          )}
+                        </span>
+                      ) : null;
+                    })()}
+                    <span className="text-muted-foreground mx-1">/</span>
+                    <TextShimmer
+                      as="span"
+                      className={cn(
+                        "text-[10px] whitespace-nowrap",
+                        tickerSession.state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-400/60",
+                      )}
+                      duration={tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? 2 : 1.5}
+                    >
+                      {`${AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}: ${tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? "Waiting for permission" : "Running"}`}
+                    </TextShimmer>
+                  </span>
+
+                  {/* Permission bell — always visible when any session needs attention */}
+                  {hasPermission && <PermissionBellFooter />}
+                </>
+              ) : (
+                <span className="text-muted-foreground whitespace-nowrap">
+                  {activeSessions.length === 0 ? "No active agents" : "Agent: Idle"}
+                </span>
+              )}
             </button>
           </PopoverTrigger>
-          <PopoverContent
-            side="top"
-            align="end"
-            className="w-72 p-0"
-          >
+          <PopoverContent side="top" align="end" className="w-72 p-0">
             <AgentStatusPopoverContent />
           </PopoverContent>
         </Popover>
         <div className="h-3 w-px bg-border"></div>
         <AcpChatButton onClick={() => setAgentChatOpen(true)} />
-        <div className="h-3 w-px bg-border"></div>
-        {currentWorkspaceId ? (
-          <span className="text-[10px] text-emerald-500 font-medium whitespace-nowrap">
-            Dev on workspace
-          </span>
-        ) : currentProjectId ? (
-          <span className="text-[10px] text-amber-500 font-medium whitespace-nowrap">
-            Dev on main
-          </span>
-        ) : (
-          <span className="text-[10px] text-neutral-500 font-medium whitespace-nowrap">
-            Waiting to build
-          </span>
-        )}
       </div>
     </footer>
   );
