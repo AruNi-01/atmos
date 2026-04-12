@@ -718,20 +718,14 @@ impl TerminalService {
             )));
         }
 
-        // Browser refreshes or hot reloads can race with WebSocket teardown and
-        // leave the previous PTY client alive for the same tmux window. Before
-        // we attach a replacement client, proactively evict any older session
-        // handles targeting this exact window so grouped tmux clients do not
-        // accumulate indefinitely.
-        let replaced = self
-            .evict_conflicting_tmux_window_sessions(&session_id, &tmux_session, final_window_index)
-            .await;
-        if replaced > 0 {
-            info!(
-                "Replaced {} stale terminal session(s) for tmux window {}:{}",
-                replaced, tmux_session, final_window_index
-            );
-        }
+        // NOTE: We intentionally do NOT evict existing sessions for the same tmux window
+        // here. Previously this was done to handle page-refresh races, but it also
+        // wrongly kicks legitimate simultaneous clients (e.g. remote access while local
+        // browser is open). Since each connection now gets its own grouped session name
+        // (per-connection session_id), there is no tmux-level conflict between clients.
+        // Stale sessions from crashed/disconnected clients are cleaned up by:
+        //   - close_session() when the WebSocket closes cleanly
+        //   - cleanup_stale_client_sessions() on startup
 
         // Capture recent history before attaching (match tmux history-limit)
         let history = self
@@ -764,66 +758,6 @@ impl TerminalService {
         Ok((rx, history))
     }
 
-    /// Evict stale session handles that are attached to the same tmux window.
-    ///
-    /// When a browser page refreshes or hot-reloads, the old WebSocket may not
-    /// have fully closed before the new one tries to attach.  This leaves an
-    /// orphaned `atmos_client_*` grouped session consuming a PTY device.  By
-    /// sending `SessionCommand::Close` to every conflicting handle *before*
-    /// spawning the new PTY thread we ensure at most one client is attached to
-    /// any given tmux window at a time.
-    async fn evict_conflicting_tmux_window_sessions(
-        &self,
-        session_id: &str,
-        tmux_session: &str,
-        window_index: u32,
-    ) -> usize {
-        let mut sessions = self.sessions.lock().await;
-        let conflicting_ids: Vec<String> = sessions
-            .iter()
-            .filter(|(existing_id, handle)| {
-                existing_id.as_str() != session_id
-                    && handle.tmux_session.as_deref() == Some(tmux_session)
-                    && handle.tmux_window_index == Some(window_index)
-            })
-            .map(|(existing_id, _)| existing_id.clone())
-            .collect();
-
-        let mut evicted = 0;
-        let sock = self.tmux_engine.socket_file_path();
-        for conflicting_id in conflicting_ids {
-            if let Some(handle) = sessions.remove(&conflicting_id) {
-                // Detach the client (releases PTY fd immediately) then remove the
-                // ghost grouped session before the new PTY thread is spawned.
-                if let Some(ref cs) = handle.client_session {
-                    let mut detach_cmd = std::process::Command::new("tmux");
-                    detach_cmd.args([
-                        "-u",
-                        "-f",
-                        "/dev/null",
-                        "-S",
-                        &sock,
-                        "detach-client",
-                        "-s",
-                        cs,
-                    ]);
-                    apply_utf8_env_to_tmux_command(&mut detach_cmd);
-                    let _ = detach_cmd.output();
-                    // Do NOT kill the grouped session here — the new attach for the same
-                    // tmux window will reuse it (window-stable name).  Only detach is
-                    // needed to release the old PTY thread's file descriptor.
-                }
-                let _ = handle.command_tx.send(SessionCommand::Close {
-                    client_session: None,
-                    socket_path: None,
-                });
-                evicted += 1;
-            }
-        }
-
-        evicted
-    }
-
     /// Internal: Attach PTY to a tmux window
     #[allow(clippy::too_many_arguments)]
     async fn attach_to_tmux_window(
@@ -842,42 +776,33 @@ impl TerminalService {
         terminal_name: Option<String>,
         cwd: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
-        // Create a stable grouped session name derived from the tmux window identity
-        // (tmux_session + window_index) rather than the ephemeral session_id UUID.
+        // Each WebSocket connection gets its own grouped tmux session, named after
+        // the ephemeral session_id UUID assigned by the frontend.
         //
-        // WHY: `tmux new-session -d -t master -s client` allocates +1 PTY device on the
-        // OS for the grouped session's internal representation.  Previously the name was
-        // based on the ephemeral UUID session_id, so every page refresh created a NEW
-        // grouped session (and a new PTY), while the old one was killed — but the OS
-        // release was asynchronous (~600ms delay observed in logs).  Over many refreshes
-        // the unreleased PTYs accumulated, causing exhaustion.
+        // WHY per-connection (not per-window):
+        // Using a window-stable name caused multiple simultaneous clients (e.g. local
+        // browser + remote access) to share the same grouped session. tmux only allows
+        // one terminal attached to a session at a time, so the second attach would
+        // detach the first, showing "[detached (from session ...)]" to the user.
         //
-        // With a window-stable name the first attach for a given tmux window creates the
-        // grouped session (+1 PTY, amortised over the window's lifetime).  Every
-        // subsequent attach for the same window sees it already exists and
-        // `create_grouped_session` returns early — zero new PTYs on refresh.
+        // By using session_id (a UUID v4 generated fresh per pane per connection),
+        // each WebSocket connection gets its own grouped session and they never
+        // interfere with each other.
         //
-        // Format: atmos_client_{tmux_session}_w{window_index}_p{pid}
+        // PTY cleanup: stale grouped sessions from disconnected clients are cleaned up
+        // by evict_conflicting_tmux_window_sessions() on reconnect, and by
+        // cleanup_stale_client_sessions() on startup (both key on atmos_client_ prefix).
         //
-        // Three-part stable name:
+        // Format: atmos_client_{tmux_session}_w{window_index}_{session_id_prefix}
         //
-        // 1. {tmux_session}  — ties the grouped session to the correct master.
-        //    Only ':' is replaced (tmux target separator); hyphens are preserved
-        //    so atmos_my-app_ws and atmos_my_app_ws never collide.
-        //
-        // 2. _w{window_index} — distinguishes multiple terminals in one workspace.
-        //
-        // 3. _p{pid}  — ties the session to THIS process instance so that two
-        //    concurrent API processes sharing the same tmux socket (e.g. the
-        //    desktop sidecar on :30303 and the dev server on :30301) never
-        //    overwrite each other's grouped sessions.  On restart the old PID
-        //    changes, so cleanup_stale_client_sessions() correctly kills the
-        //    orphaned sessions from the previous run.
+        // {tmux_session} + _w{window_index} — human-readable context (which workspace/window).
+        // {session_id_prefix}               — first 8 chars of UUID, unique per connection.
+        let session_id_prefix = &session_id[..8.min(session_id.len())];
         let client_session_name = format!(
-            "atmos_client_{}_w{}_p{}",
+            "atmos_client_{}_w{}_{}",
             tmux_session.replace(':', "_"),
             window_index,
-            std::process::id(),
+            session_id_prefix.replace('-', "_"),
         );
 
         // Create the grouped session if it doesn't exist
@@ -1185,11 +1110,14 @@ impl TerminalService {
                 // (destroy_session / cleanup_workspace_terminal_state / shutdown).
             }
 
-            // Signal the PTY thread to stop its command loop.  It will see EOF
-            // (from the already-detached client) and exit cleanly.
+            // Signal the PTY thread to stop its command loop.
+            // Pass client_session + socket_path so the PTY thread uses detach-client
+            // (idempotent — already detached above) rather than falling back to writing
+            // the Ctrl+B d key sequence, which can race with the tmux process exit and
+            // cause a spurious "[detached]" message to appear in the terminal.
             let _ = handle.command_tx.send(SessionCommand::Close {
-                client_session: None,
-                socket_path: None,
+                client_session: handle.client_session.clone(),
+                socket_path: Some(std::path::PathBuf::from(&sock)),
             });
 
             info!(
@@ -1806,14 +1734,14 @@ fn run_pty_session_with_tmux(
                 } => {
                     debug!("Closing PTY session (detaching): {}", session_id);
 
-                    // Use `tmux detach-client` for reliable detach instead of the
-                    // fragile Ctrl+B,d key sequence. The key sequence is unreliable:
-                    // 1. Depends on prefix key being Ctrl+B (user's .tmux.conf may differ)
-                    // 2. Input buffering can interfere with prefix + 'd' sequence
-                    // 3. Programs consuming input (vim, etc.) intercept the keys
-                    // `detach-client` is a direct command to the tmux server that
-                    // always works and produces a clean exit (no "[exited]" message).
-                    let detached = if let (Some(ref client_name), Some(ref sock)) = (&cs, &sp) {
+                    // Use `tmux detach-client` to disconnect this client from its
+                    // grouped session. close_session() already calls this before
+                    // sending the Close command, so this call is typically a no-op
+                    // (session already detached). We do NOT fall back to writing
+                    // Ctrl+B d (0x02 0x64) — that key sequence races with the tmux
+                    // process exit and produces a spurious "[detached]" message in
+                    // the terminal output seen by the user.
+                    if let (Some(ref client_name), Some(ref sock)) = (&cs, &sp) {
                         let mut detach_cmd = std::process::Command::new("tmux");
                         detach_cmd.args([
                             "-u",
@@ -1826,19 +1754,7 @@ fn run_pty_session_with_tmux(
                             client_name,
                         ]);
                         apply_utf8_env_to_tmux_command(&mut detach_cmd);
-                        detach_cmd
-                            .output()
-                            .map(|o| o.status.success())
-                            .unwrap_or(false)
-                    } else {
-                        false
-                    };
-
-                    if !detached {
-                        // Fallback to key sequence if detach-client failed or
-                        // client info was not provided (shouldn't happen normally)
-                        let _ = writer.write_all(&[0x02, b'd']); // Ctrl+B, d
-                        let _ = writer.flush();
+                        let _ = detach_cmd.output();
                     }
 
                     // Store client session info for post-detach cleanup
@@ -1990,45 +1906,4 @@ mod tests {
         println!("tmux available: {}", available);
     }
 
-    #[tokio::test]
-    async fn evict_conflicting_tmux_window_sessions_closes_previous_handle() {
-        let service = TerminalService::new();
-        let (command_tx, mut command_rx) = mpsc::unbounded_channel();
-
-        service.sessions.lock().await.insert(
-            "old-session".to_string(),
-            SessionHandle {
-                command_tx,
-                workspace_id: "workspace-1".to_string(),
-                tmux_session: Some("tmux-workspace".to_string()),
-                tmux_window_index: Some(3),
-                client_session: Some("atmos_client_old_session".to_string()),
-                session_type: SessionType::Tmux,
-                project_name: None,
-                workspace_name: None,
-                terminal_name: Some("3".to_string()),
-                cwd: None,
-                created_at: Instant::now(),
-            },
-        );
-
-        let evicted = service
-            .evict_conflicting_tmux_window_sessions("new-session", "tmux-workspace", 3)
-            .await;
-
-        assert_eq!(evicted, 1);
-        assert!(!service.session_exists("old-session").await);
-
-        match command_rx.recv().await {
-            Some(SessionCommand::Close {
-                client_session,
-                socket_path: _,
-            }) => {
-                // client_session is None because the eviction kills the tmux
-                // session synchronously before signalling the PTY thread.
-                assert!(client_session.is_none());
-            }
-            other => panic!("expected Close command, got {:?}", other),
-        }
-    }
 }

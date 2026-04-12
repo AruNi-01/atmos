@@ -159,6 +159,25 @@ function getInitialAsyncSetupState(input: {
   };
 }
 
+function buildInitialWorkspaceSetupProgress(input: {
+  workspaceId: string;
+  setupContext: WorkspaceSetupProgress['setupContext'];
+  retryContext: WorkspaceSetupProgress['retryContext'];
+}): WorkspaceSetupProgress {
+  return {
+    workspaceId: input.workspaceId,
+    ...getInitialAsyncSetupState({
+      hasGithubIssue: !!input.setupContext?.hasGithubIssue,
+      hasRequirementStep: !!input.setupContext?.hasRequirementStep,
+      autoExtractTodos: !!input.setupContext?.autoExtractTodos,
+      hasSetupScript: !!input.setupContext?.hasSetupScript,
+    }),
+    output: '',
+    setupContext: input.setupContext,
+    retryContext: input.retryContext,
+  };
+}
+
 
 function isWorkspaceSetupProgressEventPayload(
   data: unknown,
@@ -504,7 +523,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         autoExtractTodos: !!data.autoExtractTodos,
         hasSetupScript: !!data.hasSetupScript,
       };
-      const initialAsyncSetupState = getInitialAsyncSetupState(setupContext);
+      const retryContext = {
+        initialRequirement: data.initialRequirement ?? null,
+        githubIssue: data.githubIssue,
+        autoExtractTodos: !!data.autoExtractTodos,
+      };
 
       set(state => ({
         setupProgress: {
@@ -513,18 +536,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             ? {
                 ...state.setupProgress[newWorkspace.id],
                 setupContext,
+                retryContext:
+                  state.setupProgress[newWorkspace.id].retryContext ?? retryContext,
               }
-            : {
+            : buildInitialWorkspaceSetupProgress({
                 workspaceId: newWorkspace.id,
-                ...initialAsyncSetupState,
-                output: '',
                 setupContext,
-                retryContext: {
-                  initialRequirement: data.initialRequirement ?? null,
-                  githubIssue: data.githubIssue,
-                  autoExtractTodos: !!data.autoExtractTodos,
-                },
-              }
+                retryContext,
+              })
         },
         projects: state.projects.map(p => 
           p.id === data.projectId 
@@ -583,7 +602,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         autoExtractTodos: false,
         hasSetupScript,
       };
-      const initialAsyncSetupState = getInitialAsyncSetupState(setupContext);
+      const retryContext = {
+        initialRequirement: null,
+        githubIssue: undefined,
+        autoExtractTodos: false,
+      };
 
       set(state => ({
         setupProgress: {
@@ -592,18 +615,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             ? {
                 ...state.setupProgress[newWorkspace.id],
                 setupContext,
+                retryContext:
+                  state.setupProgress[newWorkspace.id].retryContext ?? retryContext,
               }
-            : {
+            : buildInitialWorkspaceSetupProgress({
                 workspaceId: newWorkspace.id,
-                ...initialAsyncSetupState,
-                output: '',
                 setupContext,
-                retryContext: {
-                  initialRequirement: null,
-                  githubIssue: undefined,
-                  autoExtractTodos: false,
-                },
-              }
+                retryContext,
+              })
         },
         projects: state.projects.map(p => 
           p.id === projectId 
@@ -1120,10 +1139,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       newStatus !== 'completed' &&
       incomingStepOrder >= 0 &&
       existingStepOrder > incomingStepOrder;
+    const shouldIgnoreIncomingState =
+      shouldIgnoreCompletedRegression || shouldIgnoreRegression;
     let lastStatus = existing?.lastStatus;
     let lastStepKey = existing?.lastStepKey;
 
-    if (shouldIgnoreRegression) {
+    if (shouldIgnoreIncomingState) {
       lastStatus = existing?.lastStatus;
       lastStepKey = existing?.lastStepKey;
     } else if (progress.status === 'error') {
@@ -1148,9 +1169,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         [progress.workspaceId]: {
           ...existing,
           ...progress,
-          status: shouldIgnoreRegression ? existing?.status ?? newStatus : newStatus,
-          stepKey: shouldIgnoreRegression ? existing?.stepKey : progress.stepKey,
-          stepTitle: shouldIgnoreRegression
+          status: shouldIgnoreIncomingState ? existing?.status ?? newStatus : newStatus,
+          stepKey: shouldIgnoreIncomingState ? existing?.stepKey : progress.stepKey,
+          stepTitle: shouldIgnoreIncomingState
             ? existing?.stepTitle ?? progress.stepTitle
             : progress.stepTitle,
           lastStatus: lastStatus,
@@ -1163,7 +1184,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                 : existing?.failedStepKey,
           setupContext: progress.setupContext ?? existing?.setupContext,
           retryContext: progress.retryContext ?? existing?.retryContext,
-          output: shouldIgnoreRegression
+          output: shouldIgnoreIncomingState
               ? (existing?.output || '')
               : progress.output !== undefined &&
                 (progress.replaceOutput ||
