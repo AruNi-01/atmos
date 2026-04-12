@@ -13,6 +13,7 @@ use tokio_util::io::ReaderStream;
 use tracing::{info, warn};
 
 use crate::api::dto::ApiResponse;
+use crate::error::ApiError;
 use crate::{app_state::AppState, error::ApiResult};
 
 use super::diagnostics;
@@ -544,17 +545,19 @@ pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
 
 /// POST /api/system/sync-skills
 pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
-    tokio::task::spawn_blocking(|| {
-        match std::panic::catch_unwind(|| {
-            infra::utils::system_skill_sync::sync_system_skills_on_startup();
-        }) {
-            Ok(_) => tracing::info!("System skill sync completed successfully"),
-            Err(e) => tracing::error!("System skill sync panicked: {:?}", e),
-        }
-    });
+    let versions = tokio::task::spawn_blocking(|| {
+        infra::utils::system_skill_sync::sync_system_skills_on_startup();
+        infra::utils::system_skill_sync::get_installed_skill_versions()
+    })
+    .await
+    .map_err(|e| ApiError::InternalError(format!("Task join error: {}", e)))?;
+
+    tracing::info!("System skill sync completed: {:?}", versions);
+
     Ok(Json(ApiResponse::success(json!({
         "initiated": true,
-        "message": "System skill sync initiated"
+        "message": "System skill sync completed",
+        "versions": versions
     }))))
 }
 

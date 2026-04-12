@@ -1,5 +1,6 @@
 ---
 name: project-wiki
+version: "1.0.0"
 description: This skill should be used when the user asks to "generate project wiki", "create project documentation", "document the codebase", "generate a wiki for this project", "create docs from code", or wants to produce a comprehensive, navigable documentation set from source code stored locally as Markdown files in `.atmos/wiki/`.
 ---
 

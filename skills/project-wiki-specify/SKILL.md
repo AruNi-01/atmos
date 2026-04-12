@@ -1,5 +1,6 @@
 ---
 name: project-wiki-specify
+version: "1.0.0"
 description: This skill should be used when the user wants to add a specified topic to the Project Wiki. It generates a focused wiki article on a user-provided theme (e.g., "explore how X feature works", "research why X technology was chosen"), placing it in a dedicated Specify Wiki section separate from Getting Started and Deep Dive.
 ---
 

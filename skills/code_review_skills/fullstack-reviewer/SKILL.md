@@ -1,12 +1,7 @@
 ---
 name: fullstack-reviewer
-description:
-  This skill should be used when the user asks to "review code", "review my changes",
-  "code review", "review this project", "check code quality", "security review",
-  "find bugs", or requests a comprehensive, structured code
-  review covering both frontend and backend. It performs universal full-stack review
-  for any user project (any language, any framework), outputs a structured Markdown
-  report to the specified file path.
+version: "1.0.0"
+description: "This skill should be used when the user asks to review code, review my changes, code review, review this project, check code quality, security review, find bugs, or requests a comprehensive, structured code review covering both frontend and backend."
 ---
 
 # Fullstack Code Reviewer
