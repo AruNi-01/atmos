@@ -63,7 +63,7 @@ import {
   QUICK_OPEN_APP_OPTIONS,
   QuickOpenAppIcon,
 } from '@/components/layout/quick-open-apps';
-import { codeAgentCustomApi, type CodeAgentCustomEntry, llmProvidersApi, type LlmProvidersFile, type SessionTitleFormatConfig } from '@/api/ws-api';
+import { agentBehaviourSettingsApi, codeAgentCustomApi, type CodeAgentCustomEntry, llmProvidersApi, type LlmProvidersFile, type SessionTitleFormatConfig } from '@/api/ws-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -490,8 +490,6 @@ function NotifySettingsSection({
 
   return (
     <div className="space-y-4">
-      <AgentHookStatusCard />
-
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
           <p className="text-base font-medium text-foreground">Notification Channels</p>
@@ -553,7 +551,7 @@ function NotifySettingsSection({
           <div className="border-b border-border px-2 py-4 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">Permission requested</p>
+                <p className="text-sm font-medium text-foreground">Agent permission requested</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Notify when an agent is waiting for your approval to proceed.
                 </p>
@@ -571,7 +569,7 @@ function NotifySettingsSection({
           <div className="border-b border-border px-2 py-4 last:border-b-0">
             <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
               <div>
-                <p className="text-sm font-medium text-foreground">Task complete</p>
+                <p className="text-sm font-medium text-foreground">Agent task complete</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Notify when an agent finishes running (running → idle).
                 </p>
@@ -839,6 +837,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [savingCustomAgentIds, setSavingCustomAgentIds] = useState<Record<string, boolean>>({});
   const [syncingCustomEnabledIds, setSyncingCustomEnabledIds] = useState<Record<string, boolean>>({});
   const [removingCustomAgentIds, setRemovingCustomAgentIds] = useState<Record<string, boolean>>({});
+  const [idleSessionTimeoutMins, setIdleSessionTimeoutMins] = useState<number>(30);
+  const [savedIdleSessionTimeoutMins, setSavedIdleSessionTimeoutMins] = useState<number>(30);
+  const [savingIdleTimeout, setSavingIdleTimeout] = useState(false);
   const {
     fileLinkOpenMode,
     fileLinkOpenApp,
@@ -878,6 +879,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setCustomAgentsExpanded(false);
       setBuiltInAgentOpen({});
       setCustomAgentOpen({});
+
+      const behaviourData = await agentBehaviourSettingsApi.get();
+      const timeout = behaviourData?.idle_session_timeout_mins ?? 30;
+      setIdleSessionTimeoutMins(timeout);
+      setSavedIdleSessionTimeoutMins(timeout);
     } catch {
       // ignore
     } finally {
@@ -1950,6 +1956,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         )}
                       </CollapsibleContent>
                     </Collapsible>
+
+                    <AgentHookStatusCard />
+
+                    {/* Behaviour: idle session cleanup */}
+                    <div className="overflow-hidden rounded-2xl border border-border">
+                      <div className="flex items-start justify-between gap-4 px-6 py-5">
+                        <div className="min-w-0">
+                          <p className="text-base font-medium text-foreground">Behaviour</p>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            Configure how idle agent sessions are managed in memory.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="border-t border-border px-6 py-5">
+                        <div className="flex items-center justify-between gap-6">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground">Idle session cleanup</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Idle agent sessions older than this duration are automatically removed every 5 minutes.
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Input
+                              type="number"
+                              min={1}
+                              max={1440}
+                              value={idleSessionTimeoutMins}
+                              onChange={(e) => setIdleSessionTimeoutMins(Math.max(1, Number(e.target.value)))}
+                              className="h-8 w-20 text-center text-sm"
+                            />
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">min</span>
+                            {idleSessionTimeoutMins !== savedIdleSessionTimeoutMins && (
+                              <Button
+                                size="sm"
+                                disabled={savingIdleTimeout}
+                                onClick={async () => {
+                                  setSavingIdleTimeout(true);
+                                  try {
+                                    await agentBehaviourSettingsApi.update({ idle_session_timeout_mins: idleSessionTimeoutMins });
+                                    setSavedIdleSessionTimeoutMins(idleSessionTimeoutMins);
+                                  } catch { /* ignore */ } finally {
+                                    setSavingIdleTimeout(false);
+                                  }
+                                }}
+                              >
+                                {savingIdleTimeout ? <LoaderCircle className="size-3.5 animate-spin" /> : "Save"}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : resolvedActiveSection === 'ai' ? (
                   <div className="space-y-4">
