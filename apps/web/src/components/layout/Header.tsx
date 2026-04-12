@@ -6,7 +6,7 @@ import { useQueryState, useQueryStates } from "nuqs";
 import { useTheme } from "next-themes";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useContextParams } from "@/hooks/use-context-params";
-import { llmProvidersModalParams, rightSidebarModalParams, settingsModalParams, skillsModalParams } from "@/lib/nuqs/searchParams";
+import { llmProvidersModalParams, rightSidebarModalParams, settingsModalParams, skillsModalParams, tokenUsageParams } from "@/lib/nuqs/searchParams";
 import {
   ArrowRight,
   ArrowNarrowDownDashedIcon,
@@ -304,7 +304,7 @@ const Header: React.FC = () => {
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
-  const [isTokenUsageOpen, setIsTokenUsageOpen] = useState(false);
+  const [isTokenUsageOpen, setIsTokenUsageOpen] = useQueryState("tokenUsage", tokenUsageParams.tokenUsage);
   const [isUsagePopoverOpen, setIsUsagePopoverOpen] = useState(false);
   const [isDesktopFullscreen, setIsDesktopFullscreen] = useState(false);
   const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] = useState(false);

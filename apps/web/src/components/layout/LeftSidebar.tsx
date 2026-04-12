@@ -535,6 +535,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             }),
         [filteredFlattenedWorkspaces],
     );
+    const isPinnedSortingDisabled = activeKanbanFilterCount > 0;
     const unpinnedFlattenedWorkspaces = useMemo(
         () => filteredFlattenedWorkspaces.filter((e) => !e.workspace.isPinned),
         [filteredFlattenedWorkspaces],
@@ -581,6 +582,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragEnd={(event) => {
+                    if (isPinnedSortingDisabled) return;
                     const { active, over } = event;
                     if (!over || active.id === over.id) return;
 
@@ -614,6 +616,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                         projectPath={entry.projectPath}
                                         showProjectName={true}
                                         rightContext={rightContext}
+                                        sortingDisabled={isPinnedSortingDisabled}
+                                        sortingDisabledMessage="Clear workspace filters before reordering pinned workspaces."
                                         onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
                                         onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
                                         onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}

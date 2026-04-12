@@ -15,6 +15,10 @@ import {
   CommandGroup,
   CommandItem,
   CommandShortcut,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   Tabs,
   TabsList,
   TabsTab,
@@ -41,8 +45,13 @@ import {
   CommandInputWithoutBorder,
   Bot,
   BrainCircuit,
+  ChartColumnBig,
+  Gauge,
   ListTodo,
+  CheckSquare,
   ArrowLeft,
+  Settings,
+  SquareKanban,
 } from '@workspace/ui';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -50,9 +59,11 @@ import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { fsApi, appApi, SearchMatch, FileTreeNode } from '@/api/ws-api';
-import { llmProvidersModalParams, agentChatParams } from '@/lib/nuqs/searchParams';
+import { llmProvidersModalParams, agentChatParams, settingsModalParams, tokenUsageParams, leftSidebarParams } from '@/lib/nuqs/searchParams';
 import { useWorkspaceContext } from '@/hooks/use-workspace-context';
 import { TaskListPanel } from '@/components/workspace/TaskListPanel';
+import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
+import { UsagePopover } from '@/components/layout/UsagePopover';
 
 
 
@@ -93,7 +104,7 @@ type SearchTab = 'app' | 'files' | 'code';
 
 interface AppSearchItem {
   id: string;
-  type: 'workspace' | 'theme' | 'project' | 'new-workspace' | 'quick-open' | 'management' | 'modal' | 'todo';
+  type: 'workspace' | 'theme' | 'project' | 'new-workspace' | 'quick-open' | 'management' | 'modal' | 'todo' | 'usage';
   title: string;
   description?: string;
   keywords: string[];
@@ -124,9 +135,15 @@ export function GlobalSearch() {
   // URL-param driven modals
   const [, setLlmProvidersOpen] = useQueryState("llmProvidersModal", llmProvidersModalParams.llmProvidersModal);
   const [, setAgentChatOpen] = useQueryState("chat", agentChatParams.chat);
+  const [, setTokenUsageOpen] = useQueryState("tokenUsage", tokenUsageParams.tokenUsage);
+  const [, setSettingsOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
+  const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
+  const [, setLeftSidebarTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
+  const [, setKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
+  const { isLeftCollapsed, setIsLeftCollapsed } = useSidebarLayout();
 
-  // Sub-view state (null = search, 'todo' = inline TODO panel)
-  const [subView, setSubView] = useState<'todo' | null>(null);
+  // Sub-view state (null = search, inline panels reuse the command dialog shell)
+  const [subView, setSubView] = useState<'todo' | 'usage' | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [fileTreeCache, setFileTreeCache] = useState<FileTreeNode[]>([]);
@@ -477,6 +494,62 @@ export function GlobalSearch() {
       },
     });
 
+    items.push({
+      id: 'modal-token-usage',
+      type: 'modal',
+      title: 'Open Token Usage',
+      description: 'Review model token usage and activity',
+      keywords: ['token', 'tokens', 'usage', 'cost', 'analytics', 'stats', 'model', 'activity', 'open'],
+      icon: <ChartColumnBig className="size-4 text-muted-foreground" />,
+      action: () => {
+        setTokenUsageOpen(true);
+        setGlobalSearchOpen(false);
+      },
+    });
+
+    items.push({
+      id: 'ai-quota-usage',
+      type: 'usage',
+      title: 'AI Quota Usage',
+      description: 'Inspect provider quotas and refresh status',
+      keywords: ['ai', 'quota', 'usage', 'provider', 'providers', 'limit', 'limits', 'refresh', 'open'],
+      icon: <Gauge className="size-4 text-muted-foreground" />,
+      action: () => {
+        setSubView('usage');
+      },
+    });
+
+    items.push({
+      id: 'open-kanban-view',
+      type: 'management',
+      title: 'Open Kanban View',
+      description: 'Open the workspace kanban board',
+      keywords: ['kanban', 'board', 'workspace', 'workspaces', 'status', 'priority', 'view', 'open'],
+      icon: <SquareKanban className="size-4 text-muted-foreground" />,
+      action: () => {
+        setLeftSidebarTab('projects');
+        setKanbanExpanded(true);
+        if (isLeftCollapsed) {
+          setIsLeftCollapsed(false);
+        }
+        setGlobalSearchOpen(false);
+      },
+    });
+
+    items.push({
+      id: 'modal-settings',
+      type: 'modal',
+      title: 'Open Setting',
+      description: 'Open app settings',
+      keywords: ['setting', 'settings', 'preferences', 'configure', 'config', 'open'],
+      icon: <Settings className="size-4 text-muted-foreground" />,
+      action: () => {
+        setActiveSettingTab('about');
+        setSettingsOpen(true);
+        setGlobalSearchOpen(false);
+      },
+    });
+
     // TODO: Open inline TODO sub-view
     if (currentWorkspaceId || currentProject) {
       const todoLabel = currentWorkspace
@@ -582,7 +655,7 @@ export function GlobalSearch() {
     }
 
     return items;
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, currentWorkspaceId, currentWorkspace]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace]);
 
   // Fuse.js instance for app search
   const appFuse = useMemo(() => {
@@ -645,6 +718,7 @@ export function GlobalSearch() {
       management: [],
       modal: [],
       todo: [],
+      usage: [],
     };
 
     filteredAppItems.forEach(item => {
@@ -817,52 +891,84 @@ export function GlobalSearch() {
       className="w-[min(740px,calc(100vw-2rem))] sm:max-w-[740px] h-[min(82vh,900px)]"
     >
       {subView === 'todo' ? (
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 h-12 border-b border-border shrink-0">
+        <div className="flex h-full flex-col overflow-hidden">
+          <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
             <button
               onClick={() => setSubView(null)}
-              className="size-7 flex items-center justify-center hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ArrowLeft className="size-4" />
             </button>
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <ListTodo className="size-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-semibold truncate">
+              <span className="truncate text-sm font-semibold">
                 {currentWorkspace?.name || currentProject?.name || 'Tasks'}
               </span>
             </div>
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-foreground rounded-full transition-all duration-300"
-                  style={{ width: todoTasks.length > 0 ? `${(todoTasks.filter(t => t.status === 'done').length / todoTasks.length) * 100}%` : '0%' }}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <Card className="flex h-full flex-col rounded-none border-0 bg-background">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-border px-4 py-3">
+                <CardTitle className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <CheckSquare className="size-4" />
+                  Tasks
+                </CardTitle>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-foreground transition-all duration-300"
+                      style={{ width: todoTasks.length > 0 ? `${(todoTasks.filter(t => t.status === 'done').length / todoTasks.length) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    {todoTasks.filter(t => t.status === 'done').length}/{todoTasks.length}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden p-0">
+                <TaskListPanel
+                  tasks={todoTasks}
+                  tasksLoading={todoTasksLoading}
+                  effectivePath={currentEffectivePath || ''}
+                  addTask={todoAddTask}
+                  updateTaskStatus={todoUpdateTaskStatus}
+                  updateTaskContent={todoUpdateTaskContent}
+                  deleteTask={todoDeleteTask}
                 />
-              </div>
-              <span className="text-[11px] text-muted-foreground font-mono">
-                {todoTasks.filter(t => t.status === 'done').length}/{todoTasks.length}
-              </span>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="mt-auto flex h-[38px] shrink-0 select-none items-center justify-end border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80">
+            <span className="flex items-center gap-1.5 opacity-80">
+              <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">Esc</kbd>
+              <span>Back</span>
+            </span>
+          </div>
+        </div>
+      ) : subView === 'usage' ? (
+        <div className="flex h-full flex-col overflow-hidden">
+          <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+            <button
+              onClick={() => setSubView(null)}
+              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+            </button>
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <Gauge className="size-4 shrink-0 text-muted-foreground" />
+              <span className="truncate text-sm font-semibold">AI Quota Usage</span>
             </div>
           </div>
 
-          {/* Task list (shared component) */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <TaskListPanel
-              tasks={todoTasks}
-              tasksLoading={todoTasksLoading}
-              effectivePath={currentEffectivePath || ''}
-              addTask={todoAddTask}
-              updateTaskStatus={todoUpdateTaskStatus}
-              updateTaskContent={todoUpdateTaskContent}
-              deleteTask={todoDeleteTask}
-              listClassName="bg-muted/50 dark:bg-black/60 rounded-t-[20px] pt-1 shadow-inner/5"
-            />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <UsagePopover embedded />
           </div>
 
-          {/* Footer */}
-          <div className="mt-auto flex items-center justify-end px-4 h-[38px] bg-transparent border-t border-border/40 text-[11px] text-muted-foreground/80 shrink-0 select-none">
+          <div className="mt-auto flex h-[38px] shrink-0 select-none items-center justify-end border-t border-border/40 bg-transparent px-4 text-[11px] text-muted-foreground/80">
             <span className="flex items-center gap-1.5 opacity-80">
-              <kbd className="px-1.5 h-[18px] flex items-center justify-center bg-background border border-border/60 rounded text-[10px] font-sans shadow-sm uppercase font-medium">Esc</kbd>
+              <kbd className="flex h-[18px] items-center justify-center rounded border border-border/60 bg-background px-1.5 font-sans text-[10px] font-medium uppercase shadow-sm">Esc</kbd>
               <span>Back</span>
             </span>
           </div>
@@ -987,6 +1093,21 @@ export function GlobalSearch() {
             {groupedAppItems.todo.length > 0 && (
               <CommandGroup heading="TODO">
                 {groupedAppItems.todo.map(item => (
+                  <SearchItem
+                    key={item.id}
+                    value={item.id}
+                    onSelect={item.action}
+                    icon={item.icon}
+                    title={item.title}
+                    description={item.description}
+                  />
+                ))}
+              </CommandGroup>
+            )}
+
+            {groupedAppItems.usage.length > 0 && (
+              <CommandGroup heading="Usage">
+                {groupedAppItems.usage.map(item => (
                   <SearchItem
                     key={item.id}
                     value={item.id}

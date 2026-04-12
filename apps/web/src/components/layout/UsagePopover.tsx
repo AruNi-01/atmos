@@ -1177,12 +1177,13 @@ const EMPTY_AGGREGATE: UsageAggregateResponse = {
 interface UsagePopoverProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  embedded?: boolean;
 }
 
-export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenChange }: UsagePopoverProps = {}) {
+export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false }: UsagePopoverProps = {}) {
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
   const [internalOpen, setInternalOpen] = useState(false);
-  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
   const [overview, setOverview] = useState<UsageOverviewResponse | null>(null);
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
@@ -1555,36 +1556,29 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     }
   }, []);
 
-  return (
-    <TooltipProvider>
-      <Popover open={open} onOpenChange={setOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <button
-                aria-label="Usage"
-                className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-              >
-                <Gauge className="size-3.5" />
-              </button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="flex items-center gap-2">
-              <span>AI Quota Usage</span>
-              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                <Command className="size-3" /><span className="text-xs">U</span>
-              </kbd>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      <PopoverContent
-        align="end"
-        sideOffset={10}
-        className="w-[min(92vw,560px)] rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]"
-      >
-        <div className="overflow-hidden rounded-[24px] border border-border/60">
-          <div className="rounded-b-[20px] bg-background/95 pb-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-background">
+  const PanelShell: React.ElementType = embedded ? "div" : PopoverContent;
+  const panelShellProps = embedded
+    ? {
+      className:
+        "h-full w-full overflow-hidden rounded-none border-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-none dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
+    }
+    : {
+      align: "end" as const,
+      sideOffset: 10,
+      className:
+        "w-[min(92vw,560px)] rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
+    };
+
+  const panel = (
+    <PanelShell {...panelShellProps}>
+        <div className={cn(
+          "overflow-hidden rounded-[24px] border border-border/60",
+          embedded && "flex h-full flex-col rounded-none border-0"
+        )}>
+          <div className={cn(
+            "rounded-b-[20px] bg-background/95 pb-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-background",
+            embedded && "min-h-0 flex flex-1 flex-col rounded-none"
+          )}>
             <div className="px-3 pb-2.5 pt-2.5">
               <div className="relative -mx-3 px-3">
                 <div
@@ -1666,7 +1660,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
             <div className="mx-5 border-t border-border/40" />
 
-            <div className="px-0 pb-1 pt-2.5">
+            <div className={cn("px-0 pb-1 pt-2.5", embedded && "min-h-0 flex-1")}>
               {overview?.partial_failures.length ? (
                 <div className="mx-4 mb-2.5 flex items-start gap-3 rounded-[16px] bg-muted/45 px-4 py-3 text-sm text-foreground">
                   <AlertCircle className="mt-0.5 size-4 shrink-0" />
@@ -1676,8 +1670,8 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                 </div>
               ) : null}
 
-              <div>
-                <ScrollArea className="h-[min(62vh,560px)]" scrollbarGutter>
+              <div className={cn(embedded && "min-h-0 h-full")}>
+                <ScrollArea className={embedded ? "h-full" : "h-[min(62vh,560px)]"} scrollbarGutter>
                 <div className="px-0 py-3">
                   {isLoading && !overview ? (
                     <div className="px-4">
@@ -1726,7 +1720,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
             </div>
           </div>
 
-          <div className="px-0 pb-3 pt-3">
+          <div className="shrink-0 px-0 pb-3 pt-3">
             <div className="flex items-center justify-between gap-3 px-4 text-xs text-foreground/90">
               <div
                 className="flex items-center"
@@ -1917,8 +1911,38 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
             </div>
           </div>
         </div>
-      </PopoverContent>
-    </Popover>
+    </PanelShell>
+  );
+
+  return (
+    <TooltipProvider>
+      {embedded ? (
+        panel
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <button
+                  aria-label="Usage"
+                  className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Gauge className="size-3.5" />
+                </button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex items-center gap-2">
+                <span>AI Quota Usage</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                  <Command className="size-3" /><span className="text-xs">U</span>
+                </kbd>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+          {panel}
+        </Popover>
+      )}
     </TooltipProvider>
   );
 }

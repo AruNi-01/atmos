@@ -82,6 +82,10 @@ export const llmProvidersModalParams = {
   llmProvidersModal: parseAsBoolean.withDefault(false),
 };
 
+export const tokenUsageParams = {
+  tokenUsage: parseAsBoolean.withDefault(false),
+};
+
 export type SettingsModalTab = "about" | "terminal" | "code-agent" | "ai" | "notify" | "remote-access";
 
 export const settingsModalParams = {
