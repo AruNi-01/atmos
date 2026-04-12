@@ -50,6 +50,9 @@ interface CreateWorkspaceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   defaultProjectId?: string;
+  defaultWorkflowStatus?: WorkspaceWorkflowStatus;
+  projectSelectionInHeader?: boolean;
+  requireProjectSelection?: boolean;
 }
 
 interface RepoContext {
@@ -181,6 +184,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   isOpen,
   onClose,
   defaultProjectId,
+  defaultWorkflowStatus,
+  projectSelectionInHeader = false,
+  requireProjectSelection = false,
 }) => {
   const router = useAppRouter();
   const projects = useProjectStore((s) => s.projects);
@@ -189,9 +195,11 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
   const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
 
-  const [projectId, setProjectId] = useState(
-    defaultProjectId || (projects.length > 0 ? projects[0].id : ''),
-  );
+  const [projectId, setProjectId] = useState(() => {
+    if (defaultProjectId) return defaultProjectId;
+    if (requireProjectSelection) return '';
+    return projects.length > 0 ? projects[0].id : '';
+  });
   const [name, setName] = useState('');
   const [branch, setBranch] = useState('');
   const [baseBranch, setBaseBranch] = useState('main');
@@ -218,7 +226,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
   // Metadata states - defaults: no_priority, in_progress, empty labels
   const [priority, setPriority] = useState<WorkspacePriority>('no_priority');
-  const [workflowStatus, setWorkflowStatus] = useState<WorkspaceWorkflowStatus>('in_progress');
+  const [workflowStatus, setWorkflowStatus] = useState<WorkspaceWorkflowStatus>(
+    defaultWorkflowStatus ?? 'in_progress',
+  );
   const [selectedLabels, setSelectedLabels] = useState<WorkspaceLabel[]>([]);
 
   const workspaceLabels = useProjectStore(s => s.workspaceLabels);
@@ -243,13 +253,21 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       return;
     }
 
-    if (!projectId && projects.length > 0) {
+    if (!projectId && projects.length > 0 && !requireProjectSelection) {
       setProjectId(projects[0].id);
     }
-  }, [defaultProjectId, projectId, projects]);
+  }, [defaultProjectId, projectId, projects, requireProjectSelection]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
+  }, [defaultWorkflowStatus, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
+      setProjectId(
+        defaultProjectId || (!requireProjectSelection && projects.length > 0 ? projects[0].id : ''),
+      );
       setName('');
       setBranch('');
       setBaseBranch('main');
@@ -275,13 +293,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setHasSetupScript(false);
       // Reset metadata states to defaults
       setPriority('no_priority');
-      setWorkflowStatus('in_progress');
+      setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
       setSelectedLabels([]);
       nameTouchedRef.current = false;
       branchTouchedRef.current = false;
       generatedBranchRef.current = null;
     }
-  }, [isOpen]);
+  }, [defaultProjectId, defaultWorkflowStatus, isOpen, projects, requireProjectSelection]);
 
   useEffect(() => {
     let cancelled = false;
@@ -593,8 +611,12 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
           <DialogTitle>Create New Workspace</DialogTitle>
           <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
             <Github className="size-3.5" />
-            <span>{selectedProject?.name ?? 'Unknown project'}</span>
-            <span className="opacity-40">•</span>
+            {!projectSelectionInHeader ? (
+              <>
+                <span>{selectedProject?.name ?? 'Unknown project'}</span>
+                <span className="opacity-40">•</span>
+              </>
+            ) : null}
             {isRepoLoading ? (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="size-3 animate-spin" />
@@ -608,7 +630,30 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
         <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-5">
-            {!defaultProjectId && (
+            {!defaultProjectId && projectSelectionInHeader && (
+              <div className="grid gap-2">
+                <Label htmlFor="project-inline">Project</Label>
+                <Select value={projectId} onValueChange={setProjectId}>
+                  <SelectTrigger id="project-inline">
+                    <SelectValue placeholder="Please select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!projectId ? (
+                  <p className="text-xs text-destructive">
+                    Please select a project to continue.
+                  </p>
+                ) : null}
+              </div>
+            )}
+
+            {!defaultProjectId && !projectSelectionInHeader && (
               <div className="grid gap-2">
                 <Label htmlFor="project">Project</Label>
                 <Select
@@ -714,7 +759,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                 <p className="text-xs text-muted-foreground">
                   Workspace worktree and downstream Git comparisons will use this remote branch.
                 </p>
-                {!isBaseBranchesLoading && remoteBranches.length === 0 && (
+                {!!selectedProjectId && !isBaseBranchesLoading && remoteBranches.length === 0 && (
                   <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                     No remote branches found for this project.
                   </div>
@@ -773,23 +818,33 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   <>
                     <div className="grid gap-2">
                       <Label htmlFor="issue-select">Select from repository</Label>
-                      <Select value={selectedIssueNumber} onValueChange={handleSelectIssue}>
+                      <Select
+                        value={selectedIssueNumber}
+                        onValueChange={handleSelectIssue}
+                        disabled={!isIssuesLoading && issues.length === 0}
+                      >
                         <SelectTrigger id="issue-select">
                           <SelectValue
-                            placeholder={isIssuesLoading ? 'Loading issues...' : 'Select issue'}
+                            placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
                           />
                         </SelectTrigger>
                         <SelectContent className="max-h-80">
-                          {issues.map((issue) => (
-                            <SelectItem key={issue.number} value={String(issue.number)}>
-                              <div className="flex min-w-0 items-center gap-2">
-                                <span className="font-mono text-xs text-muted-foreground">
-                                  #{issue.number}
-                                </span>
-                                <span className="truncate">{issue.title}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
+                          {issues.length === 0 ? (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                              No GitHub issues found
+                            </div>
+                          ) : (
+                            issues.map((issue) => (
+                              <SelectItem key={issue.number} value={String(issue.number)}>
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    #{issue.number}
+                                  </span>
+                                  <span className="truncate">{issue.title}</span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -822,9 +877,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                       </div>
                     </div>
                   </>
-                ) : (
+                ) : selectedProjectId ? (
                   <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                     This project does not expose a GitHub remote, so issue import is unavailable.
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    Select a project first to load GitHub issue sync.
                   </div>
                 )}
 

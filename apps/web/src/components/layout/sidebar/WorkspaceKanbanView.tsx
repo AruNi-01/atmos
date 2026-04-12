@@ -65,11 +65,13 @@ import {
   Folder,
   ListFilter,
   LogIn,
+  Plus,
   Search,
   Settings2,
   Tags,
   X,
 } from "lucide-react";
+import { CreateWorkspaceDialog } from "@/components/dialogs/CreateWorkspaceDialog";
 
 type KanbanEntry = {
   projectId: string;
@@ -488,6 +490,9 @@ export function WorkspaceKanbanView({
   const [cardProperties, setCardProperties] = React.useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
   const [isSettingsReady, setIsSettingsReady] = React.useState(false);
   const [isSettingsHydrating, setIsSettingsHydrating] = React.useState(false);
+  const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = React.useState(false);
+  const [createWorkspaceStatus, setCreateWorkspaceStatus] =
+    React.useState<WorkspaceWorkflowStatus>("in_progress");
   const skipPersistRef = React.useRef(false);
   const [labelFilterQuery, setLabelFilterQuery] = React.useState("");
   const [projectFilterQuery, setProjectFilterQuery] = React.useState("");
@@ -813,6 +818,11 @@ export function WorkspaceKanbanView({
     setHiddenColumns((prev) => prev.filter((item) => item !== status));
     }, []);
 
+  const openCreateWorkspaceDialog = React.useCallback((status: WorkspaceWorkflowStatus) => {
+    setCreateWorkspaceStatus(status);
+    setIsCreateWorkspaceOpen(true);
+  }, []);
+
     return (
     <Dialog
       open={!!isKanbanExpanded}
@@ -1094,9 +1104,9 @@ export function WorkspaceKanbanView({
                 Loading kanban settings...
               </div>
             ) : isBrowser ? (
-<DndProvider backend={HTML5Backend}>
-<KanbanDragLayer />
-<div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2">
+              <DndProvider backend={HTML5Backend}>
+                <KanbanDragLayer />
+                <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2">
               {visibleColumns.map((column) => {
                 const items = grouped.get(column.status) ?? [];
                 const meta = getWorkspaceWorkflowStatusMeta(column.status);
@@ -1115,14 +1125,24 @@ export function WorkspaceKanbanView({
                           <span className="text-sm font-medium">{meta.label}</span>
                           <span className="text-sm text-muted-foreground">{items.length}</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => hideColumn(column.status)}
-                          className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          title={`Hide ${meta.label}`}
-                        >
-                          <EyeOff className="size-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => hideColumn(column.status)}
+                            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            title={`Hide ${meta.label}`}
+                          >
+                            <EyeOff className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openCreateWorkspaceDialog(column.status)}
+                            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            title={`Create workspace in ${meta.label}`}
+                          >
+                            <Plus className="size-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </header>
                     <DroppableColumn status={column.status} onDrop={handleDrop}>
@@ -1178,12 +1198,21 @@ export function WorkspaceKanbanView({
                   </div>
                 </section>
               ) : null}
-            </div>
-</DndProvider>
-) : <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2" />}
+                </div>
+              </DndProvider>
+            ) : (
+              <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2" />
+            )}
           </div>
         </div>
       </DialogContent>
+      <CreateWorkspaceDialog
+        isOpen={isCreateWorkspaceOpen}
+        onClose={() => setIsCreateWorkspaceOpen(false)}
+        defaultWorkflowStatus={createWorkspaceStatus}
+        projectSelectionInHeader
+        requireProjectSelection
+      />
     </Dialog>
   );
 }
