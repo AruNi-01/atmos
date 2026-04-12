@@ -68,9 +68,7 @@ export function getSessionUrgency(expiresAt: string | null): SessionUrgency {
 }
 
 function copyToClipboard(text: string): void {
-  navigator.clipboard.writeText(text).then(() => {
-    toastManager.add({ title: 'Copied to clipboard', type: 'success' });
-  });
+  navigator.clipboard.writeText(text);
 }
 
 function StatusDot({ state }: { state: string }) {
@@ -661,7 +659,6 @@ export function RenewSessionPopover({
     try {
       await onRenew(ttlSecs, reuseToken);
       setOpen(false);
-      toastManager.add({ title: 'Session renewed', type: 'success' });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -1151,7 +1148,6 @@ function RemoteAccessContent() {
                           await saveCredential(p.provider, tokenDraft.trim());
                           setTokenEditProvider(null);
                           setTokenDraft('');
-                          toastManager.add({ title: 'Token saved', type: 'success' });
                           void detect();
                         }}
                       >

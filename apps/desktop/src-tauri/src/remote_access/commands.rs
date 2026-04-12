@@ -101,7 +101,10 @@ pub async fn remote_access_start(
             Ok(status)
         }
         Err(err) => {
-            logging::append_log(&log_path, &format!("[remote-access] start failed err={err}"));
+            logging::append_log(
+                &log_path,
+                &format!("[remote-access] start failed err={err}"),
+            );
             Err(err)
         }
     }
@@ -111,21 +114,27 @@ pub async fn remote_access_start(
 pub async fn remote_access_recover(
     state: tauri::State<'_, AppState>,
 ) -> Result<HashMap<String, RemoteAccessStatus>, String> {
-    let provider_kinds = state
-        .remote_access_manager
-        .persisted_provider_kinds()
-        .await;
+    let provider_kinds = state.remote_access_manager.persisted_provider_kinds().await;
 
     let mut credentials: HashMap<remote_access::ProviderKind, Option<String>> = HashMap::new();
     for kind in provider_kinds {
-        credentials.insert(kind, load_provider_credential(kind).map_err(|e| e.to_string())?);
+        credentials.insert(
+            kind,
+            load_provider_credential(kind).map_err(|e| e.to_string())?,
+        );
     }
 
-    let port = state.api_port.lock().ok()
+    let port = state
+        .api_port
+        .lock()
+        .ok()
         .and_then(|guard| *guard)
         .unwrap_or(30303);
     let target_base_url = format!("http://127.0.0.1:{port}");
-    state.remote_access_manager.recover_with_target(credentials, target_base_url).await
+    state
+        .remote_access_manager
+        .recover_with_target(credentials, target_base_url)
+        .await
 }
 
 #[derive(Debug, Deserialize)]
@@ -189,8 +198,7 @@ pub fn remote_access_clear_credential(provider: ProviderKind) -> Result<(), Stri
 // ---------------------------------------------------------------------------
 
 fn credentials_file_path() -> Result<PathBuf, String> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| "could not determine home directory".to_string())?;
+    let home = dirs::home_dir().ok_or_else(|| "could not determine home directory".to_string())?;
     Ok(home
         .join(".atmos")
         .join("remote-access")

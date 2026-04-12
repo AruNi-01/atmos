@@ -1,23 +1,32 @@
 'use client';
 
 import { create } from 'zustand';
-import { Project, Workspace } from '@/types/types';
+import { Project, Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
 import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
 
-// Sort workspaces: pinned first (by pinnedAt DESC), then by createdAt DESC
+// Sort workspaces: pinned first (by pinOrder ASC), then by createdAt DESC
 function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
   return [...workspaces].sort((a, b) => {
     // Pinned items first
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
     
-    // Among pinned items, sort by pinnedAt DESC (most recently pinned first)
+    // Among pinned items, sort by persisted pin order first.
     if (a.isPinned && b.isPinned) {
+      const aOrder = a.pinOrder;
+      const bOrder = b.pinOrder;
+      if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+      if (aOrder !== undefined && bOrder === undefined) return -1;
+      if (aOrder === undefined && bOrder !== undefined) return 1;
+
       const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
       const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
-      return bTime - aTime;
+      if (aTime !== bTime) return bTime - aTime;
+      return a.id.localeCompare(b.id);
     }
     
     // Among non-pinned items, sort by createdAt DESC (newest first)
@@ -209,6 +218,7 @@ function isWorkspaceSetupProgressEventPayload(
 
 interface ProjectStore {
   projects: Project[];
+  workspaceLabels: WorkspaceLabel[];
   activeWorkspaceId: string | null;
   isLoading: boolean;
 
@@ -228,14 +238,41 @@ interface ProjectStore {
     githubIssue?: WorkspaceModel['github_issue'];
     autoExtractTodos?: boolean;
     hasSetupScript?: boolean;
+    priority?: WorkspacePriority;
+    workflowStatus?: WorkspaceWorkflowStatus;
+    labels?: WorkspaceLabel[];
   }) => Promise<string>;
   quickAddWorkspace: (projectId: string) => Promise<string | null>;
   deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  updateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
   updateWorkspaceBranch: (projectId: string, workspaceId: string, branch: string) => Promise<void>;
+  updateWorkspaceWorkflowStatus: (
+    projectId: string,
+    workspaceId: string,
+    workflowStatus: WorkspaceWorkflowStatus,
+  ) => Promise<void>;
+  updateWorkspacePriority: (
+    projectId: string,
+    workspaceId: string,
+    priority: WorkspacePriority,
+  ) => Promise<void>;
+  fetchWorkspaceLabels: () => Promise<void>;
+  createWorkspaceLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  updateWorkspaceLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
+  updateWorkspaceLabels: (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => Promise<void>;
+  markWorkspaceVisited: (workspaceId: string) => Promise<void>;
   
+  updateWorkspacePinOrder: (orderedWorkspaceIds: string[]) => Promise<void>;
   reorderProjects: (newOrder: Project[]) => Promise<void>;
   reorderWorkspaces: (projectId: string, newOrder: Workspace[]) => Promise<void>;
   
@@ -275,9 +312,18 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     projectId: model.project_guid,
     isPinned: model.is_pinned,
     pinnedAt: model.pinned_at ?? undefined,
+    pinOrder: model.pin_order ?? undefined,
     isArchived: model.is_archived,
     archivedAt: model.archived_at ?? undefined,
     createdAt: model.created_at,
+    lastVisitedAt: model.last_visited_at ?? undefined,
+    workflowStatus: model.workflow_status as WorkspaceWorkflowStatus,
+    priority: model.priority as WorkspacePriority,
+    labels: (model.labels ?? []).map(label => ({
+      id: label.guid,
+      name: label.name,
+      color: label.color,
+    })),
     localPath: model.local_path,
     githubIssue: model.github_issue,
   };
@@ -318,6 +364,7 @@ async function waitForConnection(timeoutMs = 5000): Promise<void> {
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
+  workspaceLabels: [],
   activeWorkspaceId: null,
   isLoading: false,
 
@@ -327,8 +374,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // 确保 WebSocket 连接
       await waitForConnection();
       
-      // 获取所有项目
-      const projects = await wsProjectApi.list();
+      // 获取所有项目；标签失败不应阻断侧边栏主数据加载。
+      const [projects, labels] = await Promise.all([
+        wsProjectApi.list(),
+        wsWorkspaceApi.listLabels().catch((error) => {
+          console.warn('Failed to fetch workspace labels:', error);
+          return [];
+        }),
+      ]);
+      set({
+        workspaceLabels: labels.map(label => ({
+          id: label.guid,
+          name: label.name,
+          color: label.color,
+        })),
+      });
 
       // 为每个项目获取 Workspaces
       const projectsWithWorkspaces = await Promise.all(
@@ -375,12 +435,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const newProject = mapProjectModel(newProjectModel, []);
       
       set(state => ({ projects: [...state.projects, newProject] }));
-      
-      toastManager.add({ 
-        title: 'Success', 
-        description: `Project "${newProject.name}" imported`, 
-        type: 'success' 
-      });
     } catch (error) {
       console.error('Error adding project:', error);
       toastManager.add({ 
@@ -456,6 +510,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         initialRequirement: data.initialRequirement,
         githubIssue: data.githubIssue,
         autoExtractTodos: data.autoExtractTodos,
+        priority: data.priority,
+        workflowStatus: data.workflowStatus,
+        labelGuids: data.labels?.map(label => label.id),
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
@@ -533,6 +590,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         projectGuid: projectId,
         name: '',  // Backend will generate a unique Pokemon name
         branch: '', // Backend will use the generated name as branch,
+        priority: 'no_priority',
+        workflowStatus: 'in_progress',
+        labelGuids: [],
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
@@ -668,27 +728,23 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await wsWorkspaceApi.pin(workspaceId);
       
       set(state => ({
-        projects: state.projects.map(p => 
-          p.id === projectId 
-            ? { 
-                ...p, 
-                workspaces: sortWorkspaces(
-                  p.workspaces.map(w => 
-                    w.id === workspaceId 
-                      ? { ...w, isPinned: true, pinnedAt: new Date().toISOString() } 
-                      : w
-                  )
-                )
-              } 
-            : p
+        projects: state.projects.map(p =>
+          ({
+            ...p,
+            workspaces: sortWorkspaces(
+              p.workspaces.map(w => {
+                if (w.id === workspaceId) {
+                  return { ...w, isPinned: true, pinnedAt: new Date().toISOString(), pinOrder: 0 };
+                }
+                if (w.isPinned && w.pinOrder !== undefined) {
+                  return { ...w, pinOrder: w.pinOrder + 1 };
+                }
+                return w;
+              })
+            )
+          })
         )
       }));
-      
-      toastManager.add({ 
-        title: 'Pinned', 
-        description: 'Workspace pinned', 
-        type: 'success' 
-      });
     } catch (error) {
       console.error('Error pinning workspace:', error);
       toastManager.add({ 
@@ -712,7 +768,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
                 workspaces: sortWorkspaces(
                   p.workspaces.map(w => 
                     w.id === workspaceId 
-                      ? { ...w, isPinned: false, pinnedAt: undefined } 
+                      ? { ...w, isPinned: false, pinnedAt: undefined, pinOrder: undefined }
                       : w
                   )
                 )
@@ -720,12 +776,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             : p
         )
       }));
-      
-      toastManager.add({ 
-        title: 'Unpinned', 
-        description: 'Workspace unpinned', 
-        type: 'info' 
-      });
     } catch (error) {
       console.error('Error unpinning workspace:', error);
       toastManager.add({ 
@@ -733,6 +783,32 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         description: 'Failed to unpin workspace', 
         type: 'error' 
       });
+    }
+  },
+
+  updateWorkspacePinOrder: async (orderedWorkspaceIds) => {
+    const orderById = new Map(orderedWorkspaceIds.map((id, index) => [id, index]));
+
+    // Optimistic update first
+    set(state => ({
+      projects: state.projects.map(p =>
+        ({
+          ...p,
+          workspaces: sortWorkspaces(
+            p.workspaces.map(w => {
+              const pinOrder = orderById.get(w.id);
+              return pinOrder === undefined ? w : { ...w, pinOrder };
+            })
+          )
+        })
+      )
+    }));
+
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updatePinOrder(orderedWorkspaceIds);
+    } catch (error) {
+      console.error('Error updating pinned order:', error);
     }
   },
 
@@ -764,6 +840,34 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
+  updateWorkspaceName: async (projectId: string, workspaceId: string, name: string) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updateName(workspaceId, name);
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: p.workspaces.map(w =>
+                  w.id === workspaceId ? { ...w, displayName: name } : w
+                ),
+              }
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace name:', error);
+      toastManager.add({
+        title: 'Error',
+        description: 'Failed to update workspace name',
+        type: 'error'
+      });
+      throw error;
+    }
+  },
+
   updateWorkspaceBranch: async (projectId: string, workspaceId: string, branch: string) => {
     try {
       await waitForConnection();
@@ -784,6 +888,167 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } catch (error) {
       console.error('Error updating workspace branch:', error);
       throw error;
+    }
+  },
+
+  updateWorkspaceWorkflowStatus: async (
+    projectId: string,
+    workspaceId: string,
+    workflowStatus: WorkspaceWorkflowStatus,
+  ) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updateWorkflowStatus(workspaceId, workflowStatus);
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: p.workspaces.map(w =>
+                  w.id === workspaceId ? { ...w, workflowStatus } : w
+                ),
+              }
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace workflow status:', error);
+      toastManager.add({
+        title: 'Error',
+        description: 'Failed to update workspace status',
+        type: 'error'
+      });
+    }
+  },
+
+  updateWorkspacePriority: async (
+    projectId: string,
+    workspaceId: string,
+    priority: WorkspacePriority,
+  ) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updatePriority(workspaceId, priority);
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: p.workspaces.map(w =>
+                  w.id === workspaceId ? { ...w, priority } : w
+                ),
+              }
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace priority:', error);
+      toastManager.add({
+        title: 'Error',
+        description: 'Failed to update workspace priority',
+        type: 'error'
+      });
+      throw error;
+    }
+  },
+
+  fetchWorkspaceLabels: async () => {
+    await waitForConnection();
+    const labels = await wsWorkspaceApi.listLabels();
+    set({
+      workspaceLabels: labels.map(label => ({
+        id: label.guid,
+        name: label.name,
+        color: label.color,
+      })),
+    });
+  },
+
+  createWorkspaceLabel: async ({ name, color }) => {
+    await waitForConnection();
+    const label = await wsWorkspaceApi.createLabel({ name, color });
+    const mappedLabel = { id: label.guid, name: label.name, color: label.color };
+    set(state => ({
+      workspaceLabels: [
+        ...state.workspaceLabels.filter(existing => existing.id !== mappedLabel.id),
+        mappedLabel,
+      ].sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+    return mappedLabel;
+  },
+
+  updateWorkspaceLabel: async (labelId, { name, color }) => {
+    await waitForConnection();
+    const label = await wsWorkspaceApi.updateLabel(labelId, { name, color });
+    const mappedLabel = { id: label.guid, name: label.name, color: label.color };
+    set(state => ({
+      workspaceLabels: state.workspaceLabels
+        .map(existing => existing.id === mappedLabel.id ? mappedLabel : existing)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      projects: state.projects.map(project => ({
+        ...project,
+        workspaces: project.workspaces.map(workspace => ({
+          ...workspace,
+          labels: workspace.labels.map(existing =>
+            existing.id === mappedLabel.id ? mappedLabel : existing
+          ),
+        })),
+      })),
+    }));
+    return mappedLabel;
+  },
+
+  updateWorkspaceLabels: async (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.updateLabels(workspaceId, labels.map(label => label.id));
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: p.workspaces.map(w =>
+                  w.id === workspaceId ? { ...w, labels } : w
+                ),
+              }
+            : p
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating workspace labels:', error);
+      toastManager.add({
+        title: 'Error',
+        description: 'Failed to update workspace labels',
+        type: 'error'
+      });
+      throw error;
+    }
+  },
+
+  markWorkspaceVisited: async (workspaceId: string) => {
+    try {
+      await waitForConnection();
+      await wsWorkspaceApi.markVisited(workspaceId);
+      const visitedAt = new Date().toISOString();
+      set(state => ({
+        projects: state.projects.map(project => ({
+          ...project,
+          workspaces: project.workspaces.map(workspace =>
+            workspace.id === workspaceId
+              ? { ...workspace, lastVisitedAt: visitedAt }
+              : workspace
+          ),
+        })),
+      }));
+    } catch (error) {
+      console.error('Error marking workspace visited:', error);
     }
   },
 

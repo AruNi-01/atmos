@@ -19,8 +19,14 @@ pub struct Model {
     pub sidebar_order: i32,
     pub is_pinned: bool,
     pub pinned_at: Option<DateTime>,
+    pub pin_order: Option<i32>,
     pub is_archived: bool,
     pub archived_at: Option<DateTime>,
+    pub last_visited_at: Option<DateTime>,
+    pub workflow_status: String,
+    pub priority: String,
+    /// JSON-encoded array of workspace label GUIDs
+    pub label_guids: Option<String>,
     /// JSON-encoded terminal layout configuration
     pub terminal_layout: Option<String>,
     /// The ID of the currently maximized terminal pane, if any

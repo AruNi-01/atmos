@@ -74,11 +74,6 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
         run: runScript,
         purge: purgeScript
       });
-      toastManager.add({
-        title: 'Success',
-        description: 'Scripts saved successfully',
-        type: 'success'
-      });
       onClose();
     } catch (error) {
       console.error('Failed to save scripts:', error);

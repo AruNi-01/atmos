@@ -30,19 +30,23 @@ use infra::{
     GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
-    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
-    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
-    ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,
-    ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest, SkillsGetRequest,
-    SkillsSetEnabledRequest, SyncSingleSystemSkillRequest, UsageAddProviderApiKeyRequest,
-    UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest, UsageDeleteProviderApiKeyRequest,
-    UsageOverviewRequest, UsageProviderManualSetupRequest, UsageProviderSwitchRequest,
-    WorkspaceArchiveRequest, WorkspaceConfirmTodosRequest, WorkspaceCreateRequest,
-    WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest, WorkspaceListRequest,
-    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
-    WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest, WorkspaceUnarchiveRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateNameRequest,
-    WorkspaceUpdateOrderRequest, WsAction, WsEvent, WsMessage, WsMessageHandler, WsRequest,
+    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest,
+    LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
+    ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
+    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
+    SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
+    UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
+    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
+    UsageProviderSwitchRequest, WorkspaceArchiveRequest, WorkspaceConfirmTodosRequest,
+    WorkspaceCreateRequest, WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest,
+    WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest, WorkspaceListRequest,
+    WorkspaceMarkVisitedRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
+    WorkspaceSetupContextNotification, WorkspaceSetupProgressNotification,
+    WorkspaceSkipSetupScriptRequest, WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest,
+    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest,
+    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WorkspaceUpdatePinOrderRequest,
+    WorkspaceUpdatePriorityRequest, WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent,
+    WsMessage, WsMessageHandler, WsRequest,
 };
 use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
@@ -434,8 +438,33 @@ impl WsMessageService {
                 self.handle_workspace_update_branch(parse_request(request.data)?)
                     .await
             }
+            WsAction::WorkspaceUpdateWorkflowStatus => {
+                self.handle_workspace_update_workflow_status(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceUpdatePriority => {
+                self.handle_workspace_update_priority(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceLabelList => self.handle_workspace_label_list().await,
+            WsAction::WorkspaceLabelCreate => {
+                self.handle_workspace_label_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceLabelUpdate => {
+                self.handle_workspace_label_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceUpdateLabels => {
+                self.handle_workspace_update_labels(parse_request(request.data)?)
+                    .await
+            }
             WsAction::WorkspaceUpdateOrder => {
                 self.handle_workspace_update_order(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceMarkVisited => {
+                self.handle_workspace_mark_visited(parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceDelete => {
@@ -450,6 +479,10 @@ impl WsMessageService {
                 self.handle_workspace_unpin(parse_request(request.data)?)
                     .await
             }
+            WsAction::WorkspaceUpdatePinOrder => {
+                self.handle_workspace_update_pin_order(parse_request(request.data)?)
+                    .await
+            }
             WsAction::WorkspaceArchive => {
                 self.handle_workspace_archive(parse_request(request.data)?)
                     .await
@@ -461,6 +494,10 @@ impl WsMessageService {
             WsAction::WorkspaceListArchived => self.handle_workspace_list_archived().await,
             WsAction::WorkspaceRetrySetup => {
                 self.handle_workspace_retry_setup(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceSkipSetupStep => {
+                self.handle_workspace_skip_setup_step(conn_id, parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceSkipSetupScript => {
@@ -969,11 +1006,7 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         let info = self
             .git_engine
-            .get_changed_files(
-                &path,
-                req.base_branch.as_deref(),
-                req.use_preferred_compare,
-            )
+            .get_changed_files(&path, req.base_branch.as_deref(), req.use_preferred_compare)
             .map_err(|e| ServiceError::Validation(format!("Failed to get changed files: {}", e)))?;
 
         let convert_file = |f: core_engine::ChangedFileInfo| -> Value {
@@ -1446,6 +1479,9 @@ impl WsMessageService {
                 req.sidebar_order,
                 req.github_issue.clone(),
                 req.auto_extract_todos,
+                req.priority,
+                req.workflow_status,
+                req.label_guids,
             )
             .await?;
 
@@ -1557,6 +1593,63 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
+    async fn handle_workspace_update_workflow_status(
+        &self,
+        req: WorkspaceUpdateWorkflowStatusRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_workflow_status(req.guid, req.workflow_status)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_update_priority(
+        &self,
+        req: WorkspaceUpdatePriorityRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_priority(req.guid, req.priority)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_label_list(&self) -> Result<Value> {
+        let labels = self.workspace_service.list_labels().await?;
+        Ok(json!(labels))
+    }
+
+    async fn handle_workspace_label_create(
+        &self,
+        req: WorkspaceLabelCreateRequest,
+    ) -> Result<Value> {
+        let label = self
+            .workspace_service
+            .create_label(req.name, req.color)
+            .await?;
+        Ok(json!(label))
+    }
+
+    async fn handle_workspace_label_update(
+        &self,
+        req: WorkspaceLabelUpdateRequest,
+    ) -> Result<Value> {
+        let label = self
+            .workspace_service
+            .update_label(req.guid, req.name, req.color)
+            .await?;
+        Ok(json!(label))
+    }
+
+    async fn handle_workspace_update_labels(
+        &self,
+        req: WorkspaceUpdateLabelsRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_labels(req.guid, req.label_guids)
+            .await?;
+        Ok(json!({ "success": true }))
+    }
+
     async fn handle_workspace_update_order(
         &self,
         req: WorkspaceUpdateOrderRequest,
@@ -1564,6 +1657,14 @@ impl WsMessageService {
         self.workspace_service
             .update_order(req.guid, req.sidebar_order)
             .await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_mark_visited(
+        &self,
+        req: WorkspaceMarkVisitedRequest,
+    ) -> Result<Value> {
+        self.workspace_service.mark_visited(req.guid).await?;
         Ok(json!({ "success": true }))
     }
 
@@ -1630,6 +1731,16 @@ impl WsMessageService {
 
     async fn handle_workspace_unpin(&self, req: WorkspaceUnpinRequest) -> Result<Value> {
         self.workspace_service.unpin_workspace(req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_update_pin_order(
+        &self,
+        req: WorkspaceUpdatePinOrderRequest,
+    ) -> Result<Value> {
+        self.workspace_service
+            .update_workspace_pin_order(req.workspace_ids)
+            .await?;
         Ok(json!({ "success": true }))
     }
 
@@ -1764,6 +1875,79 @@ impl WsMessageService {
                     github_issue,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::Ready),
+                )
+                .await;
+            });
+        }
+
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_skip_setup_step(
+        &self,
+        conn_id: &str,
+        req: WorkspaceSkipSetupStepRequest,
+    ) -> Result<Value> {
+        let workspace = self
+            .workspace_service
+            .get_workspace(req.guid.clone())
+            .await?
+            .ok_or_else(|| ServiceError::Validation("Workspace not found".to_string()))?;
+
+        let failed_step = WorkspaceSetupStep::from_key(&req.failed_step_key).ok_or_else(|| {
+            ServiceError::Validation(format!(
+                "Unsupported setup step `{}` for skip",
+                req.failed_step_key
+            ))
+        })?;
+
+        if failed_step == WorkspaceSetupStep::CreateWorktree {
+            return Err(ServiceError::Validation(
+                "Cannot skip workspace creation because the workspace directory is required"
+                    .to_string(),
+            ));
+        }
+
+        if let Some(manager) = self.ws_manager.get().cloned() {
+            let project_service = self.project_service.clone();
+            let workspace_service = self.workspace_service.clone();
+            let conn_id = conn_id.to_string();
+            let workspace_id = workspace.model.guid.clone();
+            let project_guid = workspace.model.project_guid.clone();
+            let workspace_name = workspace.model.name.clone();
+            let initial_requirement = req.initial_requirement.clone();
+            let github_issue = req.github_issue.or(workspace.github_issue.clone());
+            let auto_extract_todos = req.auto_extract_todos || workspace.model.auto_extract_todos;
+
+            tokio::spawn(async move {
+                let start_step = Self::build_workspace_setup_plan(
+                    &project_service,
+                    &project_guid,
+                    initial_requirement.as_deref(),
+                    github_issue.as_ref(),
+                    auto_extract_todos,
+                )
+                .await
+                .and_then(|plan| {
+                    plan.steps
+                        .iter()
+                        .position(|candidate| *candidate == failed_step)
+                        .and_then(|index| plan.steps.get(index + 1).copied())
+                })
+                .unwrap_or(WorkspaceSetupStep::Ready);
+
+                Self::execute_setup_state_machine(
+                    manager,
+                    project_service,
+                    workspace_service,
+                    conn_id,
+                    project_guid,
+                    workspace_id,
+                    workspace_name,
+                    initial_requirement,
+                    github_issue,
+                    auto_extract_todos,
+                    Some(start_step),
                 )
                 .await;
             });
@@ -2760,7 +2944,12 @@ set -x
     async fn handle_skills_system_sync(&self) -> Result<Value> {
         // Run in a blocking task to avoid blocking the async executor
         tokio::task::spawn_blocking(move || {
-            infra::utils::system_skill_sync::sync_system_skills_on_startup();
+            let report = infra::utils::system_skill_sync::sync_system_skills_with_report();
+            tracing::info!(
+                "System skill sync background result: versions={:?}, missing={:?}",
+                report.versions,
+                report.missing_skills
+            );
         });
 
         Ok(json!({ "initiated": true }))
@@ -2955,7 +3144,11 @@ set -x
         Ok(json!(Self::to_issue_payload(issue)))
     }
 
-    async fn handle_github_pr_list(&self, conn_id: &str, req: GithubPrListRequest) -> Result<Value> {
+    async fn handle_github_pr_list(
+        &self,
+        conn_id: &str,
+        req: GithubPrListRequest,
+    ) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let state = req.state.as_deref().unwrap_or("open").to_lowercase();
 
@@ -3040,7 +3233,10 @@ set -x
         Ok(output)
     }
 
-    async fn handle_github_pr_timeline_page(&self, req: GithubPrTimelinePageRequest) -> Result<Value> {
+    async fn handle_github_pr_timeline_page(
+        &self,
+        req: GithubPrTimelinePageRequest,
+    ) -> Result<Value> {
         let per_page = req.per_page.clamp(1, 100);
         let endpoint = format!(
             "repos/{}/{}/issues/{}/timeline?per_page={}&page={}",

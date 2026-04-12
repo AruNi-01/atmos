@@ -1,7 +1,7 @@
 use crate::error::{Result, ServiceError};
 use crate::utils::workspace_name_generator;
 use core_engine::{FsEngine, GitEngine, TmuxEngine};
-use infra::db::entities::workspace;
+use infra::db::entities::{workspace, workspace_label};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use infra::GithubIssuePayload;
 use llm::{
@@ -19,6 +19,33 @@ const WORKSPACE_ISSUE_TODO_SYSTEM_PROMPT_TEMPLATE: &str =
     include_str!("../../../../prompt/workspace/workspace-issue-todo-generator.md");
 const WORKSPACE_ISSUE_TODO_USER_PROMPT_TEMPLATE: &str =
     include_str!("../../../../prompt/workspace/workspace-issue-todo-user.md");
+pub const WORKSPACE_WORKFLOW_STATUSES: &[&str] = &[
+    "backlog",
+    "todo",
+    "in_progress",
+    "in_review",
+    "blocked",
+    "completed",
+    "canceled",
+];
+pub const WORKSPACE_PRIORITIES: &[&str] = &["no_priority", "urgent", "high", "medium", "low"];
+
+#[derive(Serialize)]
+pub struct WorkspaceLabelDto {
+    pub guid: String,
+    pub name: String,
+    pub color: String,
+}
+
+impl From<workspace_label::Model> for WorkspaceLabelDto {
+    fn from(model: workspace_label::Model) -> Self {
+        Self {
+            guid: model.guid,
+            name: model.name,
+            color: model.color,
+        }
+    }
+}
 
 #[derive(Serialize)]
 pub struct WorkspaceDto {
@@ -26,6 +53,7 @@ pub struct WorkspaceDto {
     pub model: workspace::Model,
     pub local_path: String,
     pub github_issue: Option<GithubIssuePayload>,
+    pub labels: Vec<WorkspaceLabelDto>,
 }
 
 pub struct WorkspaceService {
@@ -43,7 +71,11 @@ impl WorkspaceService {
         }
     }
 
-    fn to_dto(&self, model: workspace::Model) -> Result<WorkspaceDto> {
+    fn to_dto(
+        &self,
+        model: workspace::Model,
+        labels: Vec<workspace_label::Model>,
+    ) -> Result<WorkspaceDto> {
         let local_path = self
             .git_engine
             .get_worktree_path(&model.name)?
@@ -54,10 +86,15 @@ impl WorkspaceService {
             model,
             local_path,
             github_issue,
+            labels: labels.into_iter().map(Into::into).collect(),
         })
     }
 
-    fn to_dto_lenient(&self, model: workspace::Model) -> WorkspaceDto {
+    fn to_dto_lenient(
+        &self,
+        model: workspace::Model,
+        labels: Vec<workspace_label::Model>,
+    ) -> WorkspaceDto {
         let local_path = self
             .git_engine
             .get_worktree_path(&model.name)
@@ -71,27 +108,39 @@ impl WorkspaceService {
             model,
             local_path,
             github_issue,
+            labels: labels.into_iter().map(Into::into).collect(),
         }
-    }
-
-    fn to_dtos(&self, models: Vec<workspace::Model>) -> Result<Vec<WorkspaceDto>> {
-        models.into_iter().map(|m| self.to_dto(m)).collect()
-    }
-
-    fn to_dtos_lenient(&self, models: Vec<workspace::Model>) -> Vec<WorkspaceDto> {
-        models.into_iter().map(|m| self.to_dto_lenient(m)).collect()
     }
 
     pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
         let models = repo.list_by_project(&project_guid).await?;
-        self.to_dtos(models)
+        let workspace_guids: Vec<String> = models.iter().map(|model| model.guid.clone()).collect();
+        let mut labels_by_workspace = repo
+            .list_labels_by_workspace_guids(&workspace_guids)
+            .await?;
+        models
+            .into_iter()
+            .map(|model| {
+                let labels = labels_by_workspace.remove(&model.guid).unwrap_or_default();
+                self.to_dto(model, labels)
+            })
+            .collect()
     }
 
     pub async fn get_workspace(&self, guid: String) -> Result<Option<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
         let model = repo.find_by_guid(&guid).await?;
-        model.map(|m| self.to_dto(m)).transpose()
+        if let Some(model) = model {
+            let labels = repo
+                .list_labels_by_workspace_guids(std::slice::from_ref(&model.guid))
+                .await?
+                .remove(&model.guid)
+                .unwrap_or_default();
+            Ok(Some(self.to_dto(model, labels)?))
+        } else {
+            Ok(None)
+        }
     }
 
     fn parse_github_issue(&self, raw: &Option<String>) -> Result<Option<GithubIssuePayload>> {
@@ -119,6 +168,9 @@ impl WorkspaceService {
         sidebar_order: i32,
         github_issue: Option<GithubIssuePayload>,
         auto_extract_todos: bool,
+        priority: Option<String>,
+        workflow_status: Option<String>,
+        labels: Option<Vec<String>>,
     ) -> Result<WorkspaceDto> {
         // Get project to find the repository path and name
         let project_repo = ProjectRepo::new(&self.db);
@@ -128,6 +180,36 @@ impl WorkspaceService {
             .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", project_guid)))?;
 
         let repo_path = Path::new(&project.main_file_path);
+        let workflow_status = match workflow_status {
+            Some(status)
+                if WORKSPACE_WORKFLOW_STATUSES
+                    .iter()
+                    .any(|candidate| *candidate == status) =>
+            {
+                Some(status)
+            }
+            Some(status) => {
+                return Err(ServiceError::Validation(format!(
+                    "Unsupported workspace workflow status: {status}"
+                )));
+            }
+            None => None,
+        };
+        let priority = match priority {
+            Some(value)
+                if WORKSPACE_PRIORITIES
+                    .iter()
+                    .any(|candidate| *candidate == value) =>
+            {
+                Some(value)
+            }
+            Some(value) => {
+                return Err(ServiceError::Validation(format!(
+                    "Unsupported workspace priority: {value}"
+                )));
+            }
+            None => None,
+        };
 
         let requested_base_branch = base_branch
             .as_deref()
@@ -297,10 +379,19 @@ impl WorkspaceService {
                 github_issue_url,
                 github_issue_data,
                 auto_extract_todos,
+                workflow_status,
+                priority,
+                labels,
             )
             .await?;
 
-        self.to_dto(model)
+        let labels = workspace_repo
+            .list_labels_by_workspace_guids(std::slice::from_ref(&model.guid))
+            .await?
+            .remove(&model.guid)
+            .unwrap_or_default();
+
+        self.to_dto(model, labels)
     }
 
     /// 确保 Worktree 已就绪（不存在则创建）
@@ -751,6 +842,99 @@ impl WorkspaceService {
         Ok(repo.update_branch(&guid, branch).await?)
     }
 
+    pub async fn mark_visited(&self, guid: String) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo
+            .update_last_visited_at(&guid, chrono::Utc::now().naive_utc())
+            .await?)
+    }
+
+    pub async fn update_workflow_status(
+        &self,
+        guid: String,
+        workflow_status: String,
+    ) -> Result<()> {
+        if !WORKSPACE_WORKFLOW_STATUSES
+            .iter()
+            .any(|candidate| *candidate == workflow_status)
+        {
+            return Err(ServiceError::Validation(format!(
+                "Unsupported workspace workflow status: {workflow_status}"
+            )));
+        }
+
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.update_workflow_status(&guid, workflow_status).await?)
+    }
+
+    pub async fn update_priority(&self, guid: String, priority: String) -> Result<()> {
+        if !WORKSPACE_PRIORITIES
+            .iter()
+            .any(|candidate| *candidate == priority)
+        {
+            return Err(ServiceError::Validation(format!(
+                "Unsupported workspace priority: {priority}"
+            )));
+        }
+
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.update_priority(&guid, priority).await?)
+    }
+
+    pub async fn list_labels(&self) -> Result<Vec<WorkspaceLabelDto>> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo
+            .list_labels()
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect())
+    }
+
+    pub async fn create_label(&self, name: String, color: String) -> Result<WorkspaceLabelDto> {
+        let name = name.trim().to_string();
+        if name.is_empty() {
+            return Err(ServiceError::Validation(
+                "Workspace label name cannot be empty".to_string(),
+            ));
+        }
+        if color.trim().is_empty() {
+            return Err(ServiceError::Validation(
+                "Workspace label color cannot be empty".to_string(),
+            ));
+        }
+
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.create_label(name, color).await?.into())
+    }
+
+    pub async fn update_label(
+        &self,
+        guid: String,
+        name: String,
+        color: String,
+    ) -> Result<WorkspaceLabelDto> {
+        let name = name.trim().to_string();
+        if name.is_empty() {
+            return Err(ServiceError::Validation(
+                "Workspace label name cannot be empty".to_string(),
+            ));
+        }
+        if color.trim().is_empty() {
+            return Err(ServiceError::Validation(
+                "Workspace label color cannot be empty".to_string(),
+            ));
+        }
+
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.update_label(&guid, name, color).await?.into())
+    }
+
+    pub async fn update_labels(&self, guid: String, label_guids: Vec<String>) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.update_workspace_labels(&guid, label_guids).await?)
+    }
+
     /// 更新侧边栏排序
     pub async fn update_order(&self, guid: String, order: i32) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
@@ -841,6 +1025,12 @@ impl WorkspaceService {
         Ok(repo.unpin_workspace(&guid).await?)
     }
 
+    /// 更新置顶工作区顺序
+    pub async fn update_workspace_pin_order(&self, workspace_ids: Vec<String>) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.update_pin_order(workspace_ids).await?)
+    }
+
     /// 归档工作区（不删除 worktree）
     pub async fn archive_workspace(&self, guid: String) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
@@ -857,13 +1047,33 @@ impl WorkspaceService {
     pub async fn list_archived_workspaces(&self) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
         let models = repo.list_archived().await?;
-        Ok(self.to_dtos_lenient(models))
+        let workspace_guids: Vec<String> = models.iter().map(|model| model.guid.clone()).collect();
+        let mut labels_by_workspace = repo
+            .list_labels_by_workspace_guids(&workspace_guids)
+            .await?;
+        Ok(models
+            .into_iter()
+            .map(|model| {
+                let labels = labels_by_workspace.remove(&model.guid).unwrap_or_default();
+                self.to_dto_lenient(model, labels)
+            })
+            .collect())
     }
 
     pub async fn list_all_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
         let models = repo.list_all_by_project(&project_guid).await?;
-        Ok(self.to_dtos_lenient(models))
+        let workspace_guids: Vec<String> = models.iter().map(|model| model.guid.clone()).collect();
+        let mut labels_by_workspace = repo
+            .list_labels_by_workspace_guids(&workspace_guids)
+            .await?;
+        Ok(models
+            .into_iter()
+            .map(|model| {
+                let labels = labels_by_workspace.remove(&model.guid).unwrap_or_default();
+                self.to_dto_lenient(model, labels)
+            })
+            .collect())
     }
 
     /// 删除工作区的 worktree（仅清理 git worktree，不删除数据库记录）

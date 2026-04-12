@@ -1,5 +1,27 @@
 import type { GithubIssuePayload } from '@/api/ws-api';
 
+export type WorkspaceWorkflowStatus =
+  | 'backlog'
+  | 'todo'
+  | 'in_progress'
+  | 'in_review'
+  | 'blocked'
+  | 'completed'
+  | 'canceled';
+
+export type WorkspacePriority =
+  | 'no_priority'
+  | 'urgent'
+  | 'high'
+  | 'medium'
+  | 'low';
+
+export interface WorkspaceLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Workspace {
   id: string;
   name: string;
@@ -11,9 +33,14 @@ export interface Workspace {
   projectId: string;
   isPinned: boolean;
   pinnedAt?: string;
+  pinOrder?: number;
   isArchived: boolean;
   archivedAt?: string;
   createdAt: string;
+  lastVisitedAt?: string;
+  workflowStatus: WorkspaceWorkflowStatus;
+  priority: WorkspacePriority;
+  labels: WorkspaceLabel[];
   localPath: string;
   githubIssue?: GithubIssuePayload | null;
 }

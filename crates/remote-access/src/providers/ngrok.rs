@@ -63,13 +63,10 @@ impl TunnelProvider for NgrokProvider {
         // Wrap with tokio::time::timeout as a best-effort; the ngrok SDK uses
         // tokio internally so this should fire even if the Tauri timer driver
         // behaves unexpectedly.
-        let session = tokio::time::timeout(
-            tokio::time::Duration::from_secs(15),
-            builder.connect(),
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("ngrok connect timed out after 15s"))?
-        .map_err(|e| anyhow::anyhow!("ngrok connect failed: {e}"))?;
+        let session = tokio::time::timeout(tokio::time::Duration::from_secs(15), builder.connect())
+            .await
+            .map_err(|_| anyhow::anyhow!("ngrok connect timed out after 15s"))?
+            .map_err(|e| anyhow::anyhow!("ngrok connect failed: {e}"))?;
 
         let to_url = reqwest::Url::parse(&req.target_url)?;
         let mut forwarder = tokio::time::timeout(

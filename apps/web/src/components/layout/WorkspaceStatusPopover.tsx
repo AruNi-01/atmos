@@ -15,7 +15,6 @@ import {
   getWorkspaceSetupProgressValue,
   getWorkspaceSetupSteps,
 } from "@/utils/workspace-setup";
-import { NIL } from "uuid";
 
 interface WorkspaceStatusPopoverProps {
   progress: WorkspaceSetupProgress;
@@ -42,7 +41,11 @@ function ProgressRing({
       : status === "completed"
         ? "stroke-emerald-500"
         : "stroke-primary";
-  const numberClass = highlightReview ? "text-amber-500" : "text-foreground";
+  const numberClass = highlightReview
+    ? "text-amber-500"
+    : status === "error"
+      ? "text-destructive"
+      : "text-foreground";
 
   return (
     <div className="relative flex size-[22px] shrink-0 items-center justify-center">
@@ -86,6 +89,23 @@ export function WorkspaceStatusPopover({
   const [open, setOpen] = React.useState(false);
   const progressValue = Math.round(getWorkspaceSetupProgressValue(progress));
   const isReviewingTodos = progress.requiresConfirmation === true;
+  const shimmerToneStyle = React.useMemo(() => {
+    if (isReviewingTodos) {
+      return {
+        "--base-color": "rgb(217 119 6 / 0.72)",
+        "--base-gradient-color": "rgb(251 191 36)",
+      } as React.CSSProperties;
+    }
+
+    if (progress.status === "error") {
+      return {
+        "--base-color": "rgb(239 68 68 / 0.72)",
+        "--base-gradient-color": "rgb(248 113 113)",
+      } as React.CSSProperties;
+    }
+
+    return undefined;
+  }, [isReviewingTodos, progress.status]);
   const stepCount = getWorkspaceSetupSteps(progress).length;
   const popoverWidthClass =
     stepCount <= 3
@@ -125,14 +145,7 @@ export function WorkspaceStatusPopover({
               as="span"
               duration={1.6}
               className="block truncate text-center text-[12px] font-medium"
-              style={
-                isReviewingTodos
-                  ? ({
-                      "--base-color": "rgb(201 153 29 / 0.6)",
-                      "--base-gradient-color": "rgb(263 197 39)",
-                    } as React.CSSProperties)
-                  : undefined
-              }
+              style={shimmerToneStyle}
             >
               {progress.stepTitle}
             </TextShimmer>

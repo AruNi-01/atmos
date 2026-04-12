@@ -1,5 +1,6 @@
 ---
 name: code-review-expert
+version: "1.0.0"
 description: "Expert code review of current git changes with a senior engineer lens. Detects SOLID violations, security risks, and proposes actionable improvements."
 ---
 

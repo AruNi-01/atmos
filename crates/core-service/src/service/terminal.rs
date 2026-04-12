@@ -758,7 +758,6 @@ impl TerminalService {
         Ok((rx, history))
     }
 
-
     /// Internal: Attach PTY to a tmux window
     #[allow(clippy::too_many_arguments)]
     async fn attach_to_tmux_window(
@@ -1312,8 +1311,14 @@ impl TerminalService {
                 if let Some(ref client_session) = handle.client_session {
                     let mut detach_cmd = std::process::Command::new("tmux");
                     detach_cmd.args([
-                        "-u", "-f", "/dev/null", "-S", &sock,
-                        "detach-client", "-s", client_session,
+                        "-u",
+                        "-f",
+                        "/dev/null",
+                        "-S",
+                        &sock,
+                        "detach-client",
+                        "-s",
+                        client_session,
                     ]);
                     apply_utf8_env_to_tmux_command(&mut detach_cmd);
                     let _ = detach_cmd.output();
@@ -1437,8 +1442,14 @@ impl TerminalService {
                 if let Some(ref client_session) = handle.client_session {
                     let mut detach_cmd = std::process::Command::new("tmux");
                     detach_cmd.args([
-                        "-u", "-f", "/dev/null", "-S", &sock,
-                        "detach-client", "-s", client_session,
+                        "-u",
+                        "-f",
+                        "/dev/null",
+                        "-S",
+                        &sock,
+                        "detach-client",
+                        "-s",
+                        client_session,
                     ]);
                     apply_utf8_env_to_tmux_command(&mut detach_cmd);
                     let _ = detach_cmd.output();

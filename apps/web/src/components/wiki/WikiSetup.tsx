@@ -242,7 +242,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           <p className="font-medium">Before you start</p>
           <ul className="list-disc list-inside space-y-1 text-muted-foreground">
             <li>
-              Project Wiki generation takes <strong>30–60 minutes</strong>, depending on project
+              Project Wiki generation takes <strong>10–30 minutes</strong>, depending on project
               complexity.
             </li>
             <li>

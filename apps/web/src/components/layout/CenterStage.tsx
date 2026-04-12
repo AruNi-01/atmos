@@ -377,20 +377,11 @@ const CenterStage: React.FC = () => {
     for (const file of closable) {
       closeFile(file.path, effectiveContextId || undefined);
     }
-
-    if (dirtyCount > 0) {
-      toastManager.add({
-        title: "Skipped unsaved tabs",
-        description: `${dirtyCount} tab(s) have unsaved changes and were not closed.`,
-        type: "warning",
-      });
-    }
   };
 
   const copyToClipboard = async (value: string, successTitle: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      toastManager.add({ title: successTitle, type: "success" });
     } catch {
       toastManager.add({
         title: "Copy failed",
@@ -1230,17 +1221,24 @@ const CenterStage: React.FC = () => {
                 >
                   <TerminalIcon className="size-3.5 shrink-0" />
                   <span className="text-[13px] font-medium text-pretty">Project Wiki</span>
-                  <span
-                    role="button"
-                    aria-label="Close Project Wiki tab"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectWikiCloseConfirmOpen(true);
-                    }}
-                    className="absolute right-3 top-1/2 size-4 -translate-y-1/2 flex items-center justify-center rounded-sm opacity-0 group-hover/pw:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
+                  <div
+                    className={cn(
+                      "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center pl-2 pr-1.5 backdrop-blur-[4px] [mask-image:linear-gradient(to_right,transparent,black_40%)] transition-opacity duration-200",
+                      "opacity-0 group-hover/pw:opacity-100"
+                    )}
                   >
-                    <X className="size-3" />
-                  </span>
+                    <span
+                      role="button"
+                      aria-label="Close Project Wiki tab"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProjectWikiCloseConfirmOpen(true);
+                      }}
+                      className="flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground cursor-pointer"
+                    >
+                      <X className="size-3" />
+                    </span>
+                  </div>
                 </TabsTab>
               </TooltipTrigger>
               <TooltipContent side="bottom">Project Wiki Terminal</TooltipContent>
@@ -1257,17 +1255,24 @@ const CenterStage: React.FC = () => {
                 >
                   <TerminalIcon className="size-3.5 shrink-0 text-blue-500" />
                   <span className="text-[13px] font-medium text-pretty">Code Review</span>
-                  <span
-                    role="button"
-                    aria-label="Close Code Review tab"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCodeReviewCloseConfirmOpen(true);
-                    }}
-                    className="absolute right-3 top-1/2 size-4 -translate-y-1/2 flex items-center justify-center rounded-sm opacity-0 group-hover/cr:opacity-100 hover:bg-muted-foreground/20 cursor-pointer transition-all ease-out duration-200"
+                  <div
+                    className={cn(
+                      "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center pl-2 pr-1.5 backdrop-blur-[4px] [mask-image:linear-gradient(to_right,transparent,black_40%)] transition-opacity duration-200",
+                      "opacity-0 group-hover/cr:opacity-100"
+                    )}
                   >
-                    <X className="size-3" />
-                  </span>
+                    <span
+                      role="button"
+                      aria-label="Close Code Review tab"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCodeReviewCloseConfirmOpen(true);
+                      }}
+                      className="flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground cursor-pointer"
+                    >
+                      <X className="size-3" />
+                    </span>
+                  </div>
                 </TabsTab>
               </TooltipTrigger>
               <TooltipContent side="bottom">Code Review Terminal</TooltipContent>
@@ -1439,6 +1444,7 @@ const CenterStage: React.FC = () => {
           >
             <OverviewTab
               contextId={effectiveContextId}
+              projectId={currentProject?.id}
               projectName={currentProject?.name}
               projectPath={currentProject?.mainFilePath}
               workspaceName={currentWorkspace?.displayName ?? currentWorkspace?.name}
@@ -1447,6 +1453,9 @@ const CenterStage: React.FC = () => {
               createdAt={currentWorkspace?.createdAt}
               isProjectOnly={!currentWorkspace}
               githubIssue={currentWorkspace?.githubIssue}
+              priority={currentWorkspace?.priority}
+              workflowStatus={currentWorkspace?.workflowStatus}
+              labels={currentWorkspace?.labels}
             />
           </div>
         )}

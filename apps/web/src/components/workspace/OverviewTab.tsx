@@ -1,25 +1,16 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useQueryState, useQueryStates } from 'nuqs';
-import { overviewParams, rightSidebarModalParams } from '@/lib/nuqs/searchParams';
+import { useQueryStates } from 'nuqs';
+import { rightSidebarModalParams } from '@/lib/nuqs/searchParams';
 import {
   Button,
-  Input,
   cn,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   Skeleton,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
   DndContext,
   DragOverlay,
   useSensor,
@@ -44,19 +35,9 @@ import {
   RefreshCw,
   Pencil,
   Plus,
-  MoreHorizontal,
-  Trash2,
   CheckSquare,
-  Circle,
-  XOctagon,
-  PlayCircle,
   LayoutDashboard,
   Info,
-  History,
-  ChevronRight,
-  CircleDashed,
-  RotateCcw,
-  FileText,
   Rocket,
   GitPullRequest,
   CheckCircle2,
@@ -67,7 +48,7 @@ import {
   GitMerge,
   GitPullRequestClosed,
   GitPullRequestDraft,
-  Github
+  Github,
 } from 'lucide-react';
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -78,14 +59,20 @@ import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from '@/hooks/use-project-store';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useGithubPRList, useGithubActionsList } from '@/hooks/use-github';
-import { PRDetailModal } from '@/components/github/PRDetailModal';
-import { ActionsDetailModal } from '@/components/github/ActionsDetailModal';
 import { type ActionRun, useProcessedActions, ActionsSummaryHeader } from '@/components/github/ActionsPanel';
 import { fsApi, type GithubIssuePayload } from '@/api/ws-api';
 import { TaskListPanel, renderStatusIcon } from '@/components/workspace/TaskListPanel';
+import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/types/types';
+import {
+  WorkspaceLabelBadges,
+  WorkspaceLabelPicker,
+  WorkspacePrioritySelect,
+  WorkspaceStatusSelect,
+} from '@/components/layout/sidebar/workspace-metadata-controls';
 
 interface OverviewTabProps {
   contextId: string;
+  projectId?: string;
   projectName?: string;
   projectPath?: string;
   workspaceName?: string;
@@ -94,6 +81,9 @@ interface OverviewTabProps {
   createdAt?: string;
   isProjectOnly?: boolean;
   githubIssue?: GithubIssuePayload | null;
+  priority?: WorkspacePriority;
+  workflowStatus?: WorkspaceWorkflowStatus;
+  labels?: WorkspaceLabel[];
 }
 
 function formatDate(isoString?: string): string {
@@ -132,8 +122,82 @@ function DraggableTask({ id, children }: { id: string; children: React.ReactNode
   );
 }
 
+interface MetadataControlGroupProps {
+  projectId: string;
+  workspaceId: string;
+  priority?: WorkspacePriority;
+  workflowStatus?: WorkspaceWorkflowStatus;
+  labels?: WorkspaceLabel[];
+  workspaceLabels: WorkspaceLabel[];
+  onUpdatePriority: (projectId: string, workspaceId: string, priority: WorkspacePriority) => Promise<void>;
+  onUpdateWorkflowStatus: (projectId: string, workspaceId: string, workflowStatus: WorkspaceWorkflowStatus) => Promise<void>;
+  onUpdateLabels: (projectId: string, workspaceId: string, labels: WorkspaceLabel[]) => Promise<void>;
+  onCreateLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateLabel: (labelId: string, data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+}
+
+function MetadataControlGroup({
+  projectId,
+  workspaceId,
+  priority = 'no_priority',
+  workflowStatus = 'in_progress',
+  labels = [],
+  workspaceLabels,
+  onUpdatePriority,
+  onUpdateWorkflowStatus,
+  onUpdateLabels,
+  onCreateLabel,
+  onUpdateLabel,
+}: MetadataControlGroupProps) {
+  return (
+    <div className="flex flex-col gap-2 rounded-md bg-muted/30 p-2.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-muted-foreground">Status</span>
+        <WorkspaceStatusSelect
+          value={workflowStatus}
+          onChange={(value) => void onUpdateWorkflowStatus(projectId, workspaceId, value)}
+          contentSide="bottom"
+          contentAlign="end"
+          triggerClassName="h-auto px-2 py-1 bg-background"
+          labelClassName="text-xs"
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-muted-foreground">Priority</span>
+        <WorkspacePrioritySelect
+          value={priority}
+          onChange={(value) => void onUpdatePriority(projectId, workspaceId, value)}
+          contentSide="bottom"
+          contentAlign="end"
+          triggerClassName="h-auto px-2 py-1 bg-background"
+          labelClassName="text-xs"
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-muted-foreground">Labels</span>
+        <WorkspaceLabelPicker
+          labels={labels}
+          availableLabels={workspaceLabels}
+          onChange={(nextLabels) => onUpdateLabels(projectId, workspaceId, nextLabels)}
+          onCreateLabel={onCreateLabel}
+          onUpdateLabel={onUpdateLabel}
+          triggerVariant="summary"
+          contentSide="bottom"
+          contentAlign="end"
+          contentClassName="w-64"
+        />
+      </div>
+
+      <WorkspaceLabelBadges labels={labels} className="pt-1" />
+    </div>
+  );
+}
+
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   contextId,
+  projectId,
   projectName,
   projectPath,
   workspaceName,
@@ -142,8 +206,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   createdAt,
   isProjectOnly = false,
   githubIssue = null,
+  priority,
+  workflowStatus,
+  labels,
 }) => {
   const openFile = useEditorStore(s => s.openFile);
+  const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
+  const updateWorkspaceWorkflowStatus = useProjectStore(s => s.updateWorkspaceWorkflowStatus);
+  const updateWorkspaceLabels = useProjectStore(s => s.updateWorkspaceLabels);
+  const workspaceLabels = useProjectStore(s => s.workspaceLabels);
+  const createWorkspaceLabel = useProjectStore(s => s.createWorkspaceLabel);
+  const updateWorkspaceLabel = useProjectStore(s => s.updateWorkspaceLabel);
   const {
     requirement,
     requirementLoading,
@@ -298,9 +371,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="text-xs text-muted-foreground font-medium tracking-wide uppercase shrink-0">
-                  {isProjectOnly ? 'Project Overview' : 'Workspace Overview'}
-                </span>
                 <div className="inline-flex items-center gap-3 text-[11px] text-muted-foreground min-w-0">
                   <div className="inline-flex items-center gap-1.5 min-w-0 shrink-0">
                     <GitBranch className="size-3.5" />
@@ -392,13 +462,29 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           <Card className="bg-background border border-border flex flex-col h-[520px] min-w-0">
             <CardHeader className="py-3 px-4 border-b border-border">
               <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-                <History className="size-4" />
-                Integration
+                <Info className="size-4" />
+                Details
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-on-hover">
+              {!isProjectOnly && projectId && contextId && (
+                <MetadataControlGroup
+                  projectId={projectId}
+                  workspaceId={contextId}
+                  priority={priority}
+                  workflowStatus={workflowStatus}
+                  labels={labels}
+                  workspaceLabels={workspaceLabels}
+                  onUpdatePriority={updateWorkspacePriority}
+                  onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                  onUpdateLabels={updateWorkspaceLabels}
+                  onCreateLabel={createWorkspaceLabel}
+                  onUpdateLabel={updateWorkspaceLabel}
+                />
+              )}
+
               {!isProjectOnly && createdAt && (
-                <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
                   <div className="flex items-center gap-2.5">
                     <Clock className="size-3.5 text-muted-foreground" />
                     <span className="text-[11px] text-muted-foreground">Created</span>
@@ -459,7 +545,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           <TooltipTrigger asChild>
                             <div
                               onClick={() => openFile(file.path, contextId, { preview: true })}
-                              className="flex items-center gap-2.5 p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer group min-w-0"
+                              className="flex items-center gap-2.5 p-2 rounded-md bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer group min-w-0"
                             >
                               <FileCheck className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
                               <span className="text-[11px] text-muted-foreground group-hover:text-foreground transition-colors truncate">

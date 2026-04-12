@@ -150,6 +150,48 @@ html:not([data-theme-ready="true"]) body {
   .scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/40;
   }
+
+  .scrollbar-overlay-on-hover {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-overlay-on-hover::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  .scrollbar-overlay-on-hover:hover {
+    scrollbar-width: thin;
+  }
+  .scrollbar-overlay-on-hover.is-scrolling {
+    scrollbar-width: thin;
+  }
+  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-overlay-on-hover::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-overlay-on-hover::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+  }
+  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20;
+  }
+  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20;
+  }
+  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
 }
 
 /* SketchPicker Dark Mode Overrides */

@@ -194,10 +194,21 @@ export interface WorkspaceModel {
   is_deleted: boolean;
   is_pinned: boolean;
   pinned_at: string | null;
+  pin_order: number | null;
   is_archived: boolean;
   archived_at: string | null;
+  last_visited_at: string | null;
+  workflow_status: string;
+  priority: string;
   local_path: string;
   github_issue: GithubIssuePayload | null;
+  labels: WorkspaceLabelModel[];
+}
+
+export interface WorkspaceLabelModel {
+  guid: string;
+  name: string;
+  color: string;
 }
 
 export interface GithubIssueLabelPayload {
@@ -931,6 +942,9 @@ export const wsWorkspaceApi = {
     initialRequirement?: string | null;
     githubIssue?: GithubIssuePayload | null;
     autoExtractTodos?: boolean;
+    priority?: string | null;
+    workflowStatus?: string | null;
+    labelGuids?: string[];
   }): Promise<WorkspaceModel> => {
     return wsRequest<WorkspaceModel>("workspace_create", {
       project_guid: data.projectGuid,
@@ -942,6 +956,9 @@ export const wsWorkspaceApi = {
       initial_requirement: data.initialRequirement ?? null,
       github_issue: data.githubIssue ?? null,
       auto_extract_todos: data.autoExtractTodos ?? false,
+      priority: data.priority ?? null,
+      workflow_status: data.workflowStatus ?? null,
+      label_guids: data.labelGuids ?? null,
     });
   },
 
@@ -971,6 +988,60 @@ export const wsWorkspaceApi = {
     });
   },
 
+  updateWorkflowStatus: async (
+    guid: string,
+    workflowStatus: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_workflow_status", {
+      guid,
+      workflow_status: workflowStatus,
+    });
+  },
+
+  updatePriority: async (
+    guid: string,
+    priority: string,
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_priority", {
+      guid,
+      priority,
+    });
+  },
+
+  listLabels: async (): Promise<WorkspaceLabelModel[]> => {
+    return wsRequest<WorkspaceLabelModel[]>("workspace_label_list", {});
+  },
+
+  createLabel: async (data: {
+    name: string;
+    color: string;
+  }): Promise<WorkspaceLabelModel> => {
+    return wsRequest<WorkspaceLabelModel>("workspace_label_create", data);
+  },
+
+  updateLabel: async (
+    guid: string,
+    data: {
+      name: string;
+      color: string;
+    },
+  ): Promise<WorkspaceLabelModel> => {
+    return wsRequest<WorkspaceLabelModel>("workspace_label_update", {
+      guid,
+      ...data,
+    });
+  },
+
+  updateLabels: async (
+    guid: string,
+    labelGuids: string[],
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_labels", {
+      guid,
+      label_guids: labelGuids,
+    });
+  },
+
   confirmTodos: async (
     guid: string,
     markdown: string,
@@ -989,6 +1060,24 @@ export const wsWorkspaceApi = {
     });
   },
 
+  skipSetupStep: async (
+    guid: string,
+    failedStepKey: string,
+    context?: {
+      initialRequirement?: string | null;
+      githubIssue?: GithubIssuePayload | null;
+      autoExtractTodos?: boolean;
+    },
+  ): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_skip_setup_step", {
+      guid,
+      failed_step_key: failedStepKey,
+      initial_requirement: context?.initialRequirement ?? null,
+      github_issue: context?.githubIssue ?? null,
+      auto_extract_todos: context?.autoExtractTodos ?? false,
+    });
+  },
+
   /**
    * 更新 Workspace 排序
    */
@@ -1000,6 +1089,10 @@ export const wsWorkspaceApi = {
       guid,
       sidebar_order: sidebarOrder,
     });
+  },
+
+  markVisited: async (guid: string): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_mark_visited", { guid });
   },
 
   /**
@@ -1021,6 +1114,15 @@ export const wsWorkspaceApi = {
    */
   unpin: async (guid: string): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("workspace_unpin", { guid });
+  },
+
+  /**
+   * 更新置顶工作区顺序
+   */
+  updatePinOrder: async (workspaceIds: string[]): Promise<{ success: boolean }> => {
+    return wsRequest<{ success: boolean }>("workspace_update_pin_order", {
+      workspace_ids: workspaceIds,
+    });
   },
 
   /**
@@ -1313,6 +1415,14 @@ export interface FunctionSettings {
   editor?: {
     auto_save?: boolean;
     line_wrap?: boolean;
+  };
+  workspace_kanban_view?: {
+    state?: unknown;
+    [key: string]: unknown;
+  };
+  workspace_sidebar?: {
+    grouping_mode?: 'project' | 'status' | 'time';
+    [key: string]: unknown;
   };
   inner_browser?: {
     favorite_site?: Array<{

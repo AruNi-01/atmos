@@ -243,14 +243,30 @@ pub enum WsAction {
     WorkspaceUpdateName,
     /// 更新 Workspace 分支
     WorkspaceUpdateBranch,
+    /// 更新 Workspace 流程状态
+    WorkspaceUpdateWorkflowStatus,
+    /// 更新 Workspace 优先级
+    WorkspaceUpdatePriority,
+    /// 获取可复用 Workspace 标签
+    WorkspaceLabelList,
+    /// 创建可复用 Workspace 标签
+    WorkspaceLabelCreate,
+    /// 更新可复用 Workspace 标签
+    WorkspaceLabelUpdate,
+    /// 更新 Workspace 标签关联
+    WorkspaceUpdateLabels,
     /// 更新 Workspace 排序
     WorkspaceUpdateOrder,
+    /// 记录 Workspace 最近访问时间
+    WorkspaceMarkVisited,
     /// 删除 Workspace
     WorkspaceDelete,
     /// 置顶 Workspace
     WorkspacePin,
     /// 取消置顶 Workspace
     WorkspaceUnpin,
+    /// 更新置顶工作区顺序
+    WorkspaceUpdatePinOrder,
     /// 归档 Workspace
     WorkspaceArchive,
     /// 取消归档 Workspace
@@ -259,6 +275,8 @@ pub enum WsAction {
     WorkspaceListArchived,
     /// 重试 Workspace 设置 (脚本执行)
     WorkspaceRetrySetup,
+    /// 跳过失败的 Workspace 设置步骤，继续执行后续步骤
+    WorkspaceSkipSetupStep,
     /// 跳过失败的 setup script，直接完成 workspace 初始化
     WorkspaceSkipSetupScript,
     /// 确认 LLM 生成的 TODO 并继续 setup
@@ -996,6 +1014,12 @@ pub struct WorkspaceCreateRequest {
     pub github_issue: Option<GithubIssuePayload>,
     #[serde(default)]
     pub auto_extract_todos: bool,
+    #[serde(default)]
+    pub priority: Option<String>,
+    #[serde(default)]
+    pub workflow_status: Option<String>,
+    #[serde(default)]
+    pub label_guids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1011,9 +1035,46 @@ pub struct WorkspaceUpdateBranchRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUpdateWorkflowStatusRequest {
+    pub guid: String,
+    pub workflow_status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUpdatePriorityRequest {
+    pub guid: String,
+    pub priority: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceLabelCreateRequest {
+    pub name: String,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceLabelUpdateRequest {
+    pub guid: String,
+    pub name: String,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUpdateLabelsRequest {
+    pub guid: String,
+    #[serde(default)]
+    pub label_guids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceUpdateOrderRequest {
     pub guid: String,
     pub sidebar_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceMarkVisitedRequest {
+    pub guid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1029,6 +1090,11 @@ pub struct WorkspacePinRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceUnpinRequest {
     pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceUpdatePinOrderRequest {
+    pub workspace_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1051,6 +1117,18 @@ pub struct WorkspaceRetrySetupRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceSkipSetupScriptRequest {
     pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceSkipSetupStepRequest {
+    pub guid: String,
+    pub failed_step_key: String,
+    #[serde(default)]
+    pub initial_requirement: Option<String>,
+    #[serde(default)]
+    pub github_issue: Option<GithubIssuePayload>,
+    #[serde(default)]
+    pub auto_extract_todos: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

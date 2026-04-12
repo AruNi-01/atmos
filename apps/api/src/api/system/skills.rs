@@ -3,6 +3,28 @@ use tokio::fs;
 
 const DEFAULT_BEST_FOR: &str = "Code review tasks configured in system skills";
 
+/// Parse field from YAML frontmatter (standard single-line format)
+fn parse_frontmatter_field(content: &str, field: &str) -> Option<String> {
+    // Find frontmatter block
+    let content = content.trim_start();
+    let rest = content.strip_prefix("---")?;
+    let second_dash = rest.find("---")?;
+    let frontmatter = &rest[..second_dash];
+    let field_with_colon = format!("{field}:");
+
+    // Look for field: "value" or field: value
+    for line in frontmatter.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix(&field_with_colon) {
+            let rest = rest.trim();
+            if !rest.is_empty() {
+                return Some(rest.trim_matches('"').trim_matches('\'').to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Scan the code_review_skills directory and return structured skill metadata.
 pub async fn scan_review_skills() -> Vec<Value> {
     let home = std::env::var("HOME").unwrap_or_default();
@@ -45,16 +67,12 @@ pub async fn scan_review_skills() -> Vec<Value> {
         match fs::metadata(&skill_md).await {
             Ok(m) if m.is_file() => {
                 if let Ok(content) = fs::read_to_string(&skill_md).await {
-                    for line in content.lines() {
-                        let trimmed = line.trim();
-                        if let Some(val) = trimmed.strip_prefix("bestFor:") {
-                            best_for = val.trim().to_string();
-                        } else if let Some(val) = trimmed.strip_prefix("description:") {
-                            let val = val.trim();
-                            if !val.is_empty() {
-                                description = val.to_string();
-                            }
-                        }
+                    // Parse from frontmatter
+                    if let Some(desc) = parse_frontmatter_field(&content, "description") {
+                        description = desc;
+                    }
+                    if let Some(bf) = parse_frontmatter_field(&content, "bestFor") {
+                        best_for = bf;
                     }
                 }
             }
@@ -87,24 +105,74 @@ pub async fn scan_review_skills() -> Vec<Value> {
 
 fn apply_well_known_overrides(dir_name: &str, label: &mut String, best_for: &mut String) {
     match dir_name {
-        "fullstack-reviewer" => {
-            *label = "Fullstack Reviewer".into();
+        "typescript-react-reviewer" => {
+            *label = "TypeScript React Expert".to_string();
             if *best_for == DEFAULT_BEST_FOR {
-                *best_for = "Fullstack review for any project".into();
+                *best_for = "React/Next.js frontend applications".to_string();
             }
         }
         "code-review-expert" => {
-            *label = "Backend Arch Expert".into();
+            *label = "Backend Arch Expert".to_string();
             if *best_for == DEFAULT_BEST_FOR {
-                *best_for = "Complex backend logic, API, and DB architectural reviews".into();
+                *best_for = "Complex backend logic, API, and DB architectural reviews".to_string();
             }
         }
-        "typescript-react-reviewer" => {
-            *label = "TypeScript React Expert".into();
+        "fullstack-reviewer" => {
+            *label = "Fullstack Reviewer".to_string();
             if *best_for == DEFAULT_BEST_FOR {
-                *best_for = "React/Next.js frontend applications".into();
+                *best_for = "Fullstack review for any project".to_string();
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_frontmatter_field;
+
+    #[test]
+    fn parses_exact_frontmatter_field() {
+        let content = r#"---
+description: "Expert code review"
+bestFor: React applications
+---
+
+# Skill
+"#;
+
+        assert_eq!(
+            parse_frontmatter_field(content, "description"),
+            Some("Expert code review".to_string())
+        );
+        assert_eq!(
+            parse_frontmatter_field(content, "bestFor"),
+            Some("React applications".to_string())
+        );
+    }
+
+    #[test]
+    fn does_not_match_field_prefixes() {
+        let content = r#"---
+descriptionLong: "Do not use this"
+bestForExtended: "Do not use this either"
+---
+
+# Skill
+"#;
+
+        assert_eq!(parse_frontmatter_field(content, "description"), None);
+        assert_eq!(parse_frontmatter_field(content, "bestFor"), None);
+    }
+
+    #[test]
+    fn well_known_overrides_preserve_parsed_best_for() {
+        let mut label = "Code Review Expert".to_string();
+        let mut best_for = "Custom parsed guidance".to_string();
+
+        super::apply_well_known_overrides("code-review-expert", &mut label, &mut best_for);
+
+        assert_eq!(label, "Backend Arch Expert");
+        assert_eq!(best_for, "Custom parsed guidance");
     }
 }

@@ -7,8 +7,7 @@ use chrono::Utc;
 use remote_access::{
     build_provider, CreateSessionRequest, GatewayHandle, GatewayRuntime, GatewayRuntimeConfig,
     ProviderAccessMode, ProviderDiagnostics, ProviderKind, ProviderStartRequest, ProviderStatus,
-    RemoteAccessStatus, SessionMode, SessionPermission, SessionStore,
-    TunnelSession,
+    RemoteAccessStatus, SessionMode, SessionPermission, SessionStore, TunnelSession,
 };
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
@@ -123,7 +122,10 @@ impl RemoteAccessManager {
                 })
                 .await
                 .map_err(|e| e.to_string())?;
-                Self::debug_log(format!("[manager] start: gateway up at {}", gateway.local_url));
+                Self::debug_log(format!(
+                    "[manager] start: gateway up at {}",
+                    gateway.local_url
+                ));
 
                 let mut gateway_error_rx = gateway.error_rx.clone();
                 tokio::spawn(async move {
@@ -155,7 +157,9 @@ impl RemoteAccessManager {
             })
             .await;
 
-        Self::debug_log(format!("[manager] start: calling provider.start for {provider_kind:?}"));
+        Self::debug_log(format!(
+            "[manager] start: calling provider.start for {provider_kind:?}"
+        ));
         let status = match provider
             .start(ProviderStartRequest {
                 target_url: GATEWAY_URL.to_string(),
@@ -309,7 +313,8 @@ impl RemoteAccessManager {
     }
 
     pub async fn persisted_provider_kinds(&self) -> Vec<ProviderKind> {
-        self.load_state().await
+        self.load_state()
+            .await
             .providers
             .keys()
             .filter_map(|k| provider_kind_from_str(k))
@@ -332,7 +337,8 @@ impl RemoteAccessManager {
         &self,
         credentials: HashMap<ProviderKind, Option<String>>,
     ) -> Result<HashMap<String, RemoteAccessStatus>, String> {
-        self.recover_impl(credentials, "http://127.0.0.1:30303".to_string()).await
+        self.recover_impl(credentials, "http://127.0.0.1:30303".to_string())
+            .await
     }
 
     async fn recover_impl(
@@ -349,7 +355,9 @@ impl RemoteAccessManager {
         let mut results = HashMap::new();
 
         for (key, pstate) in &persisted.providers {
-            let Some(provider_kind) = provider_kind_from_str(key) else { continue };
+            let Some(provider_kind) = provider_kind_from_str(key) else {
+                continue;
+            };
             if pstate.session.is_revoked() || pstate.session.is_expired(now) {
                 let _ = self.remove_persisted_provider(provider_kind).await;
                 continue;
@@ -404,11 +412,14 @@ impl RemoteAccessManager {
                     let public_url = provider_status.public_url.clone();
                     let mut session = pstate.session.clone();
                     if let Some(url) = public_url.clone() {
-                        session_store.set_public_url(&session.session_id, url.clone()).await;
+                        session_store
+                            .set_public_url(&session.session_id, url.clone())
+                            .await;
                         session.public_url = Some(url.clone());
                     }
 
-                    let result = Self::build_status(provider_kind, provider_status, Some(session.clone()));
+                    let result =
+                        Self::build_status(provider_kind, provider_status, Some(session.clone()));
 
                     {
                         let mut state = self.inner.write().await;
@@ -422,20 +433,24 @@ impl RemoteAccessManager {
                         );
                     }
 
-                    let _ = self.persist_provider(
-                        provider_kind,
-                        PersistedProviderState {
-                            mode: pstate.mode,
-                            ttl_secs: pstate.ttl_secs,
-                            last_started_at: Utc::now().to_rfc3339(),
-                            session,
-                        },
-                    ).await;
+                    let _ = self
+                        .persist_provider(
+                            provider_kind,
+                            PersistedProviderState {
+                                mode: pstate.mode,
+                                ttl_secs: pstate.ttl_secs,
+                                last_started_at: Utc::now().to_rfc3339(),
+                                session,
+                            },
+                        )
+                        .await;
 
                     results.insert(key.clone(), result);
                 }
                 Err(err) => {
-                    Self::debug_log(format!("[manager] recover: {provider_kind:?} failed: {err}"));
+                    Self::debug_log(format!(
+                        "[manager] recover: {provider_kind:?} failed: {err}"
+                    ));
                     let _ = session_store
                         .revoke_session(&pstate.session.session_id)
                         .await;
@@ -480,24 +495,32 @@ impl RemoteAccessManager {
 
         // Update public_url in session store in case provider_status has one.
         if let Some(url) = new_session.public_url.clone() {
-            session_store.set_public_url(&new_session.session_id, url).await;
+            session_store
+                .set_public_url(&new_session.session_id, url)
+                .await;
         }
 
         // Persist updated session.
         let persisted = self.load_state().await;
         if let Some(pstate) = persisted.providers.get(&provider_kind_key(provider_kind)) {
-            let _ = self.persist_provider(
-                provider_kind,
-                PersistedProviderState {
-                    session: new_session.clone(),
-                    last_started_at: Utc::now().to_rfc3339(),
-                    ..pstate.clone()
-                },
-            ).await;
+            let _ = self
+                .persist_provider(
+                    provider_kind,
+                    PersistedProviderState {
+                        session: new_session.clone(),
+                        last_started_at: Utc::now().to_rfc3339(),
+                        ..pstate.clone()
+                    },
+                )
+                .await;
         }
 
         let provider_status = provider.status().await;
-        Ok(Self::build_status(provider_kind, provider_status, Some(new_session)))
+        Ok(Self::build_status(
+            provider_kind,
+            provider_status,
+            Some(new_session),
+        ))
     }
 
     pub fn provider_guide(provider: ProviderKind) -> Vec<String> {
@@ -527,7 +550,9 @@ impl RemoteAccessManager {
     async fn load_state(&self) -> PersistedState {
         let raw = match tokio::fs::read(&self.state_file).await {
             Ok(raw) => raw,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return PersistedState::default(),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                return PersistedState::default()
+            }
             Err(err) => {
                 Self::debug_log(format!(
                     "[manager] state file unreadable ({err}), ignoring: {}",
@@ -552,13 +577,21 @@ impl RemoteAccessManager {
 
     async fn save_state(&self, state: &PersistedState) -> Result<(), String> {
         if let Some(parent) = self.state_file.parent() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| e.to_string())?;
         }
         let raw = serde_json::to_vec_pretty(state).map_err(|e| e.to_string())?;
-        tokio::fs::write(&self.state_file, raw).await.map_err(|e| e.to_string())
+        tokio::fs::write(&self.state_file, raw)
+            .await
+            .map_err(|e| e.to_string())
     }
 
-    async fn persist_provider(&self, provider: ProviderKind, pstate: PersistedProviderState) -> Result<(), String> {
+    async fn persist_provider(
+        &self,
+        provider: ProviderKind,
+        pstate: PersistedProviderState,
+    ) -> Result<(), String> {
         let mut full = self.load_state().await;
         full.providers.insert(provider_kind_key(provider), pstate);
         self.save_state(&full).await
@@ -584,11 +617,14 @@ impl RemoteAccessManager {
         session: Option<TunnelSession>,
     ) -> RemoteAccessStatus {
         let gateway_url = Some(GATEWAY_URL.to_string());
-        let public_url = provider_status.public_url.clone().or_else(|| {
-            session.as_ref().and_then(|s| s.public_url.clone())
-        });
+        let public_url = provider_status
+            .public_url
+            .clone()
+            .or_else(|| session.as_ref().and_then(|s| s.public_url.clone()));
         let share_url = session.as_ref().and_then(|s| {
-            public_url.as_ref().map(|u| Self::share_url(u, &s.entry_token))
+            public_url
+                .as_ref()
+                .map(|u| Self::share_url(u, &s.entry_token))
         });
         let entry_token = session.as_ref().map(|s| s.entry_token.clone());
         let expires_at = session.as_ref().and_then(|s| s.expires_at);
@@ -621,7 +657,11 @@ impl RemoteAccessManager {
             .unwrap_or_else(|| std::path::PathBuf::from("."))
             .join("Library")
             .join("Logs")
-            .join(if cfg!(debug_assertions) { "com.atmos.desktop.dev" } else { "com.atmos.desktop" });
+            .join(if cfg!(debug_assertions) {
+                "com.atmos.desktop.dev"
+            } else {
+                "com.atmos.desktop"
+            });
         #[cfg(not(target_os = "macos"))]
         let log_dir = dirs::data_local_dir()
             .or_else(|| dirs::home_dir())
@@ -632,7 +672,11 @@ impl RemoteAccessManager {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
             let _ = f.write_all(line.as_bytes());
         }
     }
@@ -657,7 +701,11 @@ mod tests {
 
     #[test]
     fn provider_kind_round_trip() {
-        for kind in [ProviderKind::Tailscale, ProviderKind::Cloudflare, ProviderKind::Ngrok] {
+        for kind in [
+            ProviderKind::Tailscale,
+            ProviderKind::Cloudflare,
+            ProviderKind::Ngrok,
+        ] {
             let key = provider_kind_key(kind);
             assert_eq!(provider_kind_from_str(&key), Some(kind));
         }

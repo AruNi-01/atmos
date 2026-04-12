@@ -147,7 +147,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const [localCountdown, setLocalCountdown] = useState(5);
   const [isHovered, setIsHovered] = useState(false);
   const [isConfirmingTodos, setIsConfirmingTodos] = useState(false);
-  const [isSkippingSetupScript, setIsSkippingSetupScript] = useState(false);
+  const [isSkippingFailedStep, setIsSkippingFailedStep] = useState(false);
   const [isTodoEditing, setIsTodoEditing] = useState(false);
   const [editedTodoOutput, setEditedTodoOutput] = useState<string | null>(null);
   const [isStale, setIsStale] = useState(false);
@@ -253,7 +253,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
   useEffect(() => {
     if (status !== "error") {
-      setIsSkippingSetupScript(false);
+      setIsSkippingFailedStep(false);
     }
   }, [status]);
 
@@ -283,20 +283,29 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     }
   };
 
-  const canSkipSetupScript = status === "error" && failedStepKey === "run_setup_script";
+  const failedStepToSkip = failedStepKey ?? currentStepKey;
+  const skippableFailedStepKey =
+    status === "error" && failedStepToSkip !== "create_worktree"
+      ? failedStepToSkip
+      : null;
+  const canSkipFailedStep = skippableFailedStepKey !== null;
 
-  const handleSkipSetupScript = async () => {
-    if (!workspaceId || isSkippingSetupScript) return;
+  const handleSkipFailedStep = async () => {
+    if (!workspaceId || !skippableFailedStepKey || isSkippingFailedStep) return;
 
     try {
-      setIsSkippingSetupScript(true);
-      await wsWorkspaceApi.skipSetupScript(workspaceId);
+      setIsSkippingFailedStep(true);
+      await wsWorkspaceApi.skipSetupStep(workspaceId, skippableFailedStepKey, {
+        initialRequirement: progress.retryContext?.initialRequirement ?? null,
+        githubIssue: progress.retryContext?.githubIssue ?? null,
+        autoExtractTodos: progress.retryContext?.autoExtractTodos ?? false,
+      });
     } catch (error) {
-      console.error("Failed to skip setup script:", error);
-      setIsSkippingSetupScript(false);
+      console.error("Failed to skip setup step:", error);
+      setIsSkippingFailedStep(false);
       toastManager.add({
-        title: "Could not skip setup script",
-        description: "Failed to mark the workspace as ready.",
+        title: "Could not skip setup step",
+        description: "Failed to continue setup from the next step.",
         type: "error",
       });
     }
@@ -640,7 +649,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             </Button>
           ) : status === "error" ? (
             <>
-              {canSkipSetupScript && (
+              {canSkipFailedStep && (
                 <Button
                   variant="outline"
                   size={compact ? "default" : "lg"}
@@ -648,10 +657,10 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                     "rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
                     compact ? "px-4" : "px-8",
                   )}
-                  disabled={isSkippingSetupScript}
-                  onClick={handleSkipSetupScript}
+                  disabled={isSkippingFailedStep}
+                  onClick={handleSkipFailedStep}
                 >
-                  {isSkippingSetupScript ? (
+                  {isSkippingFailedStep ? (
                     <>
                       <Loader2 className="mr-2 size-4 animate-spin" />
                       Skipping...

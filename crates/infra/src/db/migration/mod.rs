@@ -14,6 +14,10 @@ mod m20260315_000011_add_workspace_display_name;
 mod m20260315_000012_add_workspace_auto_extract_todos;
 mod m20260315_000013_add_workspace_base_branch;
 mod m20260317_000001_add_project_terminal_layout;
+mod m20260410_000014_add_workspace_visit_and_workflow_status;
+mod m20260411_000015_add_workspace_priority_labels;
+mod m20260411_000016_backfill_workspace_label_guids;
+mod m20260412_000017_add_workspace_pin_order;
 
 pub struct Migrator;
 
@@ -35,6 +39,10 @@ impl MigratorTrait for Migrator {
             Box::new(m20260315_000012_add_workspace_auto_extract_todos::Migration),
             Box::new(m20260315_000013_add_workspace_base_branch::Migration),
             Box::new(m20260317_000001_add_project_terminal_layout::Migration),
+            Box::new(m20260410_000014_add_workspace_visit_and_workflow_status::Migration),
+            Box::new(m20260411_000015_add_workspace_priority_labels::Migration),
+            Box::new(m20260411_000016_backfill_workspace_label_guids::Migration),
+            Box::new(m20260412_000017_add_workspace_pin_order::Migration),
         ]
     }
 }

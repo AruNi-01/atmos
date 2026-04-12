@@ -74,11 +74,6 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
     try {
       await appApi.openWith(appName, path);
-      toastManager.add({
-        title: `Opened in ${appName}`,
-        description: `Path: ${path}`,
-        type: 'success'
-      });
     } catch (error) {
       toastManager.add({
         title: 'Failed to open',
@@ -96,11 +91,6 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
     const path = getWorktreePath();
     if (path) {
       navigator.clipboard.writeText(path);
-      toastManager.add({
-        title: 'Copied',
-        description: 'Worktree path copied to clipboard',
-        type: 'success'
-      });
     }
   };
 

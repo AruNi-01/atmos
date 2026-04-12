@@ -27,6 +27,14 @@ import {
 } from '@workspace/ui';
 import { cn } from '@/lib/utils';
 import { Check, ChevronDown, ExternalLink, GitBranch, Github, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/types/types';
+import {
+  WorkspaceLabelDots,
+  WorkspaceLabelPicker,
+  WorkspacePrioritySelect,
+  WorkspaceStatusSelect,
+} from '@/components/layout/sidebar/workspace-metadata-controls';
+import { useProjectStore } from '@/hooks/use-project-store';
 import {
   gitApi,
   llmProvidersApi,
@@ -36,13 +44,15 @@ import {
   wsGithubApi,
 } from '@/api/ws-api';
 import { useAppRouter } from '@/hooks/use-app-router';
-import { useProjectStore } from '@/hooks/use-project-store';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 
 interface CreateWorkspaceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   defaultProjectId?: string;
+  defaultWorkflowStatus?: WorkspaceWorkflowStatus;
+  projectSelectionInHeader?: boolean;
+  requireProjectSelection?: boolean;
 }
 
 interface RepoContext {
@@ -52,6 +62,7 @@ interface RepoContext {
 
 const ISSUE_CACHE_TTL_MS = 5 * 60 * 1000;
 const issueListCache = new Map<string, { expiresAt: number; issues: GithubIssuePayload[] }>();
+
 const POKEMON_NAMES = [
   'bulbasaur',
   'ivysaur',
@@ -173,6 +184,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   isOpen,
   onClose,
   defaultProjectId,
+  defaultWorkflowStatus,
+  projectSelectionInHeader = false,
+  requireProjectSelection = false,
 }) => {
   const router = useAppRouter();
   const projects = useProjectStore((s) => s.projects);
@@ -181,9 +195,11 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
   const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
 
-  const [projectId, setProjectId] = useState(
-    defaultProjectId || (projects.length > 0 ? projects[0].id : ''),
-  );
+  const [projectId, setProjectId] = useState(() => {
+    if (defaultProjectId) return defaultProjectId;
+    if (requireProjectSelection) return '';
+    return projects.length > 0 ? projects[0].id : '';
+  });
   const [name, setName] = useState('');
   const [branch, setBranch] = useState('');
   const [baseBranch, setBaseBranch] = useState('main');
@@ -208,6 +224,16 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const [todoProviderLabel, setTodoProviderLabel] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Metadata states - defaults: no_priority, in_progress, empty labels
+  const [priority, setPriority] = useState<WorkspacePriority>('no_priority');
+  const [workflowStatus, setWorkflowStatus] = useState<WorkspaceWorkflowStatus>(
+    defaultWorkflowStatus ?? 'in_progress',
+  );
+  const [selectedLabels, setSelectedLabels] = useState<WorkspaceLabel[]>([]);
+
+  const workspaceLabels = useProjectStore(s => s.workspaceLabels);
+  const createWorkspaceLabel = useProjectStore(s => s.createWorkspaceLabel);
+
   const nameTouchedRef = useRef(false);
   const branchTouchedRef = useRef(false);
   const generatedBranchRef = useRef<string | null>(null);
@@ -227,13 +253,21 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       return;
     }
 
-    if (!projectId && projects.length > 0) {
+    if (!projectId && projects.length > 0 && !requireProjectSelection) {
       setProjectId(projects[0].id);
     }
-  }, [defaultProjectId, projectId, projects]);
+  }, [defaultProjectId, projectId, projects, requireProjectSelection]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
+  }, [defaultWorkflowStatus, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
+      setProjectId(
+        defaultProjectId || (!requireProjectSelection && projects.length > 0 ? projects[0].id : ''),
+      );
       setName('');
       setBranch('');
       setBaseBranch('main');
@@ -257,11 +291,15 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setIsIssuePreviewLoading(false);
       setIsLlmRoutingLoading(false);
       setHasSetupScript(false);
+      // Reset metadata states to defaults
+      setPriority('no_priority');
+      setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
+      setSelectedLabels([]);
       nameTouchedRef.current = false;
       branchTouchedRef.current = false;
       generatedBranchRef.current = null;
     }
-  }, [isOpen]);
+  }, [defaultProjectId, defaultWorkflowStatus, isOpen, projects, requireProjectSelection]);
 
   useEffect(() => {
     let cancelled = false;
@@ -505,6 +543,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         githubIssue: issuePreview,
         autoExtractTodos: autoExtractTodos && !!issuePreview && !!todoProviderLabel,
         hasSetupScript,
+        priority,
+        workflowStatus,
+        labels: selectedLabels,
       });
       keepGlobalLoading = true;
       showOpening(workspaceId);
@@ -570,8 +611,12 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
           <DialogTitle>Create New Workspace</DialogTitle>
           <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
             <Github className="size-3.5" />
-            <span>{selectedProject?.name ?? 'Unknown project'}</span>
-            <span className="opacity-40">•</span>
+            {!projectSelectionInHeader ? (
+              <>
+                <span>{selectedProject?.name ?? 'Unknown project'}</span>
+                <span className="opacity-40">•</span>
+              </>
+            ) : null}
             {isRepoLoading ? (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="size-3 animate-spin" />
@@ -585,7 +630,30 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
         <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-5">
-            {!defaultProjectId && (
+            {!defaultProjectId && projectSelectionInHeader && (
+              <div className="grid gap-2">
+                <Label htmlFor="project-inline">Project</Label>
+                <Select value={projectId} onValueChange={setProjectId}>
+                  <SelectTrigger id="project-inline">
+                    <SelectValue placeholder="Please select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!projectId ? (
+                  <p className="text-xs text-destructive">
+                    Please select a project to continue.
+                  </p>
+                ) : null}
+              </div>
+            )}
+
+            {!defaultProjectId && !projectSelectionInHeader && (
               <div className="grid gap-2">
                 <Label htmlFor="project">Project</Label>
                 <Select
@@ -691,7 +759,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                 <p className="text-xs text-muted-foreground">
                   Workspace worktree and downstream Git comparisons will use this remote branch.
                 </p>
-                {!isBaseBranchesLoading && remoteBranches.length === 0 && (
+                {!!selectedProjectId && !isBaseBranchesLoading && remoteBranches.length === 0 && (
                   <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                     No remote branches found for this project.
                   </div>
@@ -750,23 +818,33 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   <>
                     <div className="grid gap-2">
                       <Label htmlFor="issue-select">Select from repository</Label>
-                      <Select value={selectedIssueNumber} onValueChange={handleSelectIssue}>
+                      <Select
+                        value={selectedIssueNumber}
+                        onValueChange={handleSelectIssue}
+                        disabled={!isIssuesLoading && issues.length === 0}
+                      >
                         <SelectTrigger id="issue-select">
                           <SelectValue
-                            placeholder={isIssuesLoading ? 'Loading issues...' : 'Select issue'}
+                            placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
                           />
                         </SelectTrigger>
                         <SelectContent className="max-h-80">
-                          {issues.map((issue) => (
-                            <SelectItem key={issue.number} value={String(issue.number)}>
-                              <div className="flex min-w-0 items-center gap-2">
-                                <span className="font-mono text-xs text-muted-foreground">
-                                  #{issue.number}
-                                </span>
-                                <span className="truncate">{issue.title}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
+                          {issues.length === 0 ? (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                              No GitHub issues found
+                            </div>
+                          ) : (
+                            issues.map((issue) => (
+                              <SelectItem key={issue.number} value={String(issue.number)}>
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    #{issue.number}
+                                  </span>
+                                  <span className="truncate">{issue.title}</span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -799,9 +877,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                       </div>
                     </div>
                   </>
-                ) : (
+                ) : selectedProjectId ? (
                   <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                     This project does not expose a GitHub remote, so issue import is unavailable.
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    Select a project first to load GitHub issue sync.
                   </div>
                 )}
 
@@ -888,22 +970,49 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
             )}
           </div>
 
-          <DialogFooter className="mt-5">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                isSubmitting ||
-                !projectId ||
-                isIssuePreviewLoading ||
-                isBaseBranchesLoading ||
-                remoteBranches.length === 0
-              }
-            >
-              {isSubmitting ? 'Creating...' : 'Create Workspace'}
-            </Button>
+          <DialogFooter className="mt-5 flex w-full flex-row items-center justify-between sm:justify-between">
+            <div className="flex items-center gap-2">
+              <WorkspacePrioritySelect
+                value={priority}
+                onChange={setPriority}
+                triggerVariant="icon"
+                contentSide="top"
+              />
+              <WorkspaceStatusSelect
+                value={workflowStatus}
+                onChange={setWorkflowStatus}
+                triggerVariant="icon"
+                contentSide="top"
+              />
+              <WorkspaceLabelPicker
+                labels={selectedLabels}
+                availableLabels={workspaceLabels}
+                onChange={setSelectedLabels}
+                onCreateLabel={createWorkspaceLabel}
+                triggerVariant="icon"
+                contentSide="top"
+                editorSide="left"
+              />
+              <WorkspaceLabelDots labels={selectedLabels} overlap className="pl-1" />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  !projectId ||
+                  isIssuePreviewLoading ||
+                  isBaseBranchesLoading ||
+                  remoteBranches.length === 0
+                }
+              >
+                {isSubmitting ? 'Creating...' : 'Create Workspace'}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

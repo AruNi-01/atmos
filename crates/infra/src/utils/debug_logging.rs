@@ -81,11 +81,7 @@ impl DebugLogger {
             })
         };
 
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-        {
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
             let _ = writeln!(file, "{}", entry);
         }
     }
@@ -104,11 +100,7 @@ pub fn count_pty_devices() -> Option<usize> {
         if let Ok(rd) = fs::read_dir("/dev") {
             let count = rd
                 .filter_map(|e| e.ok())
-                .filter(|e| {
-                    e.file_name()
-                        .to_string_lossy()
-                        .starts_with("ttys")
-                })
+                .filter(|e| e.file_name().to_string_lossy().starts_with("ttys"))
                 .count();
             return Some(count);
         }

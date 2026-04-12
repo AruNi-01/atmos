@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { DragStartEvent } from '@workspace/ui';
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
@@ -38,25 +38,46 @@ import {
     FolderKanban,
     ArrowRight,
     Puzzle,
-    SquareTerminal
+    SquareTerminal,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@workspace/ui";
-import { Project } from '@/types/types';
+import type { Project, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { FileTree } from '@/components/files/FileTree';
-import { fsApi, FileTreeNode } from '@/api/ws-api';
+import { fsApi, FileTreeNode, functionSettingsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
-import { Bot, SquareKanban } from "lucide-react";
+import { Bot, ChevronRight, Group, SquareKanban } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ProjectItem } from '@/components/layout/sidebar/ProjectItem';
 import { SortableProject } from '@/components/layout/sidebar/SortableProject';
 import { WorkspaceContent } from '@/components/layout/sidebar/WorkspaceContent';
+import { WorkspaceItem } from '@/components/layout/sidebar/WorkspaceItem';
+import { WorkspaceKanbanView } from '@/components/layout/sidebar/WorkspaceKanbanView';
+import { flattenProjectWorkspaces, getWorkspaceTimeGroupLabel, groupWorkspaces } from '@/components/layout/sidebar/workspace-grouping';
+import {
+    SIDEBAR_GROUPING_OPTIONS,
+    WORKSPACE_WORKFLOW_STATUS_OPTIONS,
+    getWorkspaceWorkflowStatusMeta,
+    type SidebarGroupingMode,
+} from '@/components/layout/sidebar/workspace-status';
+import { WORKSPACE_PRIORITY_OPTIONS } from '@/components/layout/sidebar/workspace-metadata-controls';
+import {
+    EMPTY_WORKSPACE_KANBAN_FILTERS,
+    WorkspaceKanbanFilterMenu,
+    filterWorkspaceKanbanEntries,
+    getActiveWorkspaceKanbanFilterCount,
+    type WorkspaceKanbanFilters,
+} from '@/components/layout/sidebar/WorkspaceKanbanFilterMenu';
 import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 
@@ -72,7 +93,7 @@ function normalizePathForContainment(path: string): string {
     return normalized;
 }
 
-const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) => {
+const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const router = useAppRouter();
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
     const {
@@ -85,6 +106,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         pinWorkspace,
         unpinWorkspace,
         archiveWorkspace,
+        updateWorkspacePinOrder,
+        updateWorkspaceName,
+        updateWorkspaceWorkflowStatus,
+        updateWorkspacePriority,
+        workspaceLabels,
+        createWorkspaceLabel,
+        updateWorkspaceLabel,
+        updateWorkspaceLabels,
+        markWorkspaceVisited,
         reorderProjects,
         reorderWorkspaces,
         setupProgress,
@@ -100,6 +130,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             pinWorkspace: s.pinWorkspace,
             unpinWorkspace: s.unpinWorkspace,
             archiveWorkspace: s.archiveWorkspace,
+            updateWorkspacePinOrder: s.updateWorkspacePinOrder,
+            updateWorkspaceName: s.updateWorkspaceName,
+            updateWorkspaceWorkflowStatus: s.updateWorkspaceWorkflowStatus,
+            updateWorkspacePriority: s.updateWorkspacePriority,
+            workspaceLabels: s.workspaceLabels,
+            createWorkspaceLabel: s.createWorkspaceLabel,
+            updateWorkspaceLabel: s.updateWorkspaceLabel,
+            updateWorkspaceLabels: s.updateWorkspaceLabels,
+            markWorkspaceVisited: s.markWorkspaceVisited,
             reorderProjects: s.reorderProjects,
             reorderWorkspaces: s.reorderWorkspaces,
             setupProgress: s.setupProgress,
@@ -113,6 +152,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+    const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
+    const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
+    const [isGroupingSettingsReady, setIsGroupingSettingsReady] = useState(false);
+    const [kanbanFilters, setKanbanFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
         currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents'
     );
@@ -140,6 +183,57 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
     useEffect(() => {
         fetchProjects();
     }, [fetchProjects]);
+
+    useEffect(() => {
+        functionSettingsApi.get()
+            .then((settings) => {
+                const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
+                if (groupingModeSetting === 'project' || groupingModeSetting === 'status' || groupingModeSetting === 'time') {
+                    setGroupingMode(groupingModeSetting);
+                }
+            })
+            .finally(() => {
+                setIsGroupingSettingsReady(true);
+            });
+    }, []);
+
+    useEffect(() => {
+        if (!isGroupingSettingsReady) return;
+        void functionSettingsApi.update('workspace_sidebar', 'grouping_mode', groupingMode);
+    }, [groupingMode, isGroupingSettingsReady]);
+
+    useEffect(() => {
+        const availableStatusSet = new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value));
+        const availablePrioritySet = new Set(WORKSPACE_PRIORITY_OPTIONS.map((option) => option.value));
+
+        functionSettingsApi.get()
+            .then((settings) => {
+                const section = settings.workspace_kanban_view;
+                const raw = (section && typeof section === "object" && "state" in (section as Record<string, unknown>))
+                    ? (section as { state?: unknown }).state
+                    : section;
+                const state = (raw && typeof raw === "object") ? raw as { filters?: Record<string, unknown> } : {};
+                const filters = state.filters && typeof state.filters === "object" ? state.filters : {};
+
+                setKanbanFilters({
+                    statuses: Array.isArray(filters.statuses)
+                        ? filters.statuses.filter((item): item is WorkspaceWorkflowStatus => availableStatusSet.has(item as WorkspaceWorkflowStatus))
+                        : [],
+                    priorities: Array.isArray(filters.priorities)
+                        ? filters.priorities.filter((item): item is WorkspacePriority => availablePrioritySet.has(item as WorkspacePriority))
+                        : [],
+                    labelIds: Array.isArray(filters.label_ids)
+                        ? filters.label_ids.filter((item): item is string => typeof item === "string")
+                        : [],
+                    projectIds: Array.isArray(filters.project_ids)
+                        ? filters.project_ids.filter((item): item is string => typeof item === "string")
+                        : [],
+                });
+            })
+            .catch(() => {
+                setKanbanFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
+            });
+    }, []);
 
     useEffect(() => {
         if (projects.length > 0 && expandedProjects.length === 0) {
@@ -203,6 +297,32 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
             router.replace('/');
         }
     }, [currentView, currentWorkspaceId, isLoading, projects, router]);
+
+    const lastVisitedWorkspaceRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (currentView !== 'workspace' || !currentWorkspaceId) {
+            lastVisitedWorkspaceRef.current = null;
+            return;
+        }
+
+        if (isLoading) {
+            return;
+        }
+
+        const workspaceExists = projects.some((project) =>
+            project.workspaces.some((workspace) => workspace.id === currentWorkspaceId)
+        );
+        if (!workspaceExists) {
+            return;
+        }
+
+        if (lastVisitedWorkspaceRef.current === currentWorkspaceId) {
+            return;
+        }
+
+        lastVisitedWorkspaceRef.current = currentWorkspaceId;
+        void markWorkspaceVisited(currentWorkspaceId);
+    }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
 
     const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string | null, effectivePath: string, showHidden: boolean = false) => {
         if (!effectivePath) return;
@@ -318,6 +438,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         );
     };
 
+    const toggleWorkspaceGroup = useCallback((groupKey: string) => {
+        setCollapsedWorkspaceGroups((prev) => ({
+            ...prev,
+            [groupKey]: !prev[groupKey],
+        }));
+    }, []);
+
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(String(event.active.id));
     };
@@ -373,6 +500,51 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         await updateProject(projectId, { borderColor: color });
     };
 
+    const flattenedWorkspaces = useMemo(() => flattenProjectWorkspaces(projects), [projects]);
+    const activeKanbanFilterCount = getActiveWorkspaceKanbanFilterCount(kanbanFilters);
+    const filteredFlattenedWorkspaces = useMemo(
+        () => filterWorkspaceKanbanEntries(flattenedWorkspaces, kanbanFilters),
+        [flattenedWorkspaces, kanbanFilters],
+    );
+    const projectModeProjects = useMemo(() => {
+        if (activeKanbanFilterCount === 0) return projects;
+        const visibleWorkspaceIds = new Set(filteredFlattenedWorkspaces.map((entry) => entry.workspace.id));
+        return projects
+            .map((project) => ({
+                ...project,
+                workspaces: project.workspaces.filter((workspace) => visibleWorkspaceIds.has(workspace.id)),
+            }))
+            .filter((project) => project.workspaces.length > 0);
+    }, [activeKanbanFilterCount, filteredFlattenedWorkspaces, projects]);
+    const pinnedWorkspaces = useMemo(
+        () => filteredFlattenedWorkspaces
+            .filter((e) => e.workspace.isPinned)
+            .sort((a, b) => {
+                const aOrder = a.workspace.pinOrder;
+                const bOrder = b.workspace.pinOrder;
+                if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) {
+                    return aOrder - bOrder;
+                }
+                if (aOrder !== undefined && bOrder === undefined) return -1;
+                if (aOrder === undefined && bOrder !== undefined) return 1;
+
+                const aTime = a.workspace.pinnedAt ? new Date(a.workspace.pinnedAt).getTime() : 0;
+                const bTime = b.workspace.pinnedAt ? new Date(b.workspace.pinnedAt).getTime() : 0;
+                if (aTime !== bTime) return bTime - aTime;
+                return a.workspace.id.localeCompare(b.workspace.id);
+            }),
+        [filteredFlattenedWorkspaces],
+    );
+    const isPinnedSortingDisabled = activeKanbanFilterCount > 0;
+    const unpinnedFlattenedWorkspaces = useMemo(
+        () => filteredFlattenedWorkspaces.filter((e) => !e.workspace.isPinned),
+        [filteredFlattenedWorkspaces],
+    );
+    const groupedWorkspaces = useMemo(() => {
+        if (groupingMode === 'project') return [];
+        return groupWorkspaces(unpinnedFlattenedWorkspaces, groupingMode);
+    }, [unpinnedFlattenedWorkspaces, groupingMode]);
+
     const handleDeleteProject = (projectId: string) => {
         const project = projects.find(p => p.id === projectId);
         if (!project) return;
@@ -403,6 +575,78 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
         }
         return () => clearTimeout(timer);
     }, [activeTab]);
+
+    const pinnedWorkspaceSection = pinnedWorkspaces.length > 0 ? (
+        <>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event) => {
+                    if (isPinnedSortingDisabled) return;
+                    const { active, over } = event;
+                    if (!over || active.id === over.id) return;
+
+                    const oldIndex = pinnedWorkspaces.findIndex(e => e.workspace.id === active.id);
+                    const newIndex = pinnedWorkspaces.findIndex(e => e.workspace.id === over.id);
+                    if (oldIndex === -1 || newIndex === -1) return;
+
+                    const reordered = arrayMove(pinnedWorkspaces, oldIndex, newIndex);
+                    updateWorkspacePinOrder(reordered.map(e => e.workspace.id));
+                }}
+                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+            >
+                <SortableContext items={pinnedWorkspaces.map(e => e.workspace.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-0.5 px-2 pb-1">
+                        {pinnedWorkspaces.map((entry) => (
+                            (() => {
+                                const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
+                                const StatusIcon = statusMeta.icon;
+                                const rightContext = groupingMode === 'status' ? (
+                                    <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
+                                ) : groupingMode === 'time' ? (
+                                    <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
+                                ) : undefined;
+
+                                return (
+                                    <WorkspaceItem
+                                        key={entry.workspace.id}
+                                        workspace={entry.workspace}
+                                        projectId={entry.projectId}
+                                        projectName={entry.projectName}
+                                        projectPath={entry.projectPath}
+                                        showProjectName={true}
+                                        rightContext={rightContext}
+                                        sortingDisabled={isPinnedSortingDisabled}
+                                        sortingDisabledMessage="Clear workspace filters before reordering pinned workspaces."
+                                        onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
+                                        onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
+                                        onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
+                                        onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
+                                        onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
+                                            updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
+                                        }
+                                        onUpdatePriority={(workspaceId, priority) =>
+                                            updateWorkspacePriority(entry.projectId, workspaceId, priority)
+                                        }
+                                        availableLabels={workspaceLabels}
+                                        onCreateLabel={createWorkspaceLabel}
+                                        onUpdateLabel={updateWorkspaceLabel}
+                                        onUpdateLabels={(workspaceId, labels) =>
+                                            updateWorkspaceLabels(entry.projectId, workspaceId, labels)
+                                        }
+                                        onUpdateName={(workspaceId, name) =>
+                                            updateWorkspaceName(entry.projectId, workspaceId, name)
+                                        }
+                                    />
+                                );
+                            })()
+                        ))}
+                    </div>
+                </SortableContext>
+            </DndContext>
+            <div className="mx-4 my-1.5 border-t border-dashed border-sidebar-border" />
+        </>
+    ) : null;
 
     return (
         <>
@@ -551,79 +795,179 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
                         </div>
 
                         <TabsPanel value="projects" className="flex-1 overflow-y-auto no-scrollbar pt-1.5 pb-3">
-                            <DndContext
-                                sensors={sensors}
-                                collisionDetection={closestCenter}
-                                onDragStart={handleDragStart}
-                                onDragEnd={handleDragEnd}
-                                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-                            >
-                                <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                                    {projects.map(project => (
-                                        <SortableProject
-                                            key={project.id}
-                                            project={project}
-                                            isExpanded={expandedProjects.includes(project.id)}
-                                            isAnyProjectDragging={isAnyProjectDragging}
-                                            onToggle={toggleProject}
-                                            onAddWorkspace={handleAddWorkspace}
-                                            onQuickAddWorkspace={handleQuickAddWorkspace}
-                                            onSetColor={handleSetColor}
-                                            onDelete={handleDeleteProject}
-                                            onPinWorkspace={pinWorkspace}
-                                            onUnpinWorkspace={unpinWorkspace}
-                                            onArchiveWorkspace={archiveWorkspace}
-                                            onDeleteWorkspace={deleteWorkspace}
-                                            onConfigureScripts={handleConfigureScripts}
-                                            onSelectMain={(id) => router.push(`/project?id=${id}`)}
-                                            isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
-                                        />
-                                    ))}
-                                </SortableContext>
-
-                                <DragOverlay
-                                    dropAnimation={{
-                                        sideEffects: defaultDropAnimationSideEffects({
-                                            styles: {
-                                                active: {
-                                                    opacity: '0.4',
-                                                },
-                                            },
-                                        }),
-                                    }}
+                            {pinnedWorkspaceSection}
+                            {groupingMode === 'project' ? (
+                                <>
+                                <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragStart={handleDragStart}
+                                    onDragEnd={handleDragEnd}
+                                    modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
                                 >
-                                    {activeId && projects.find(p => p.id === activeId) ? (
-                                        <ProjectItem
-                                            project={projects.find(p => p.id === activeId)!}
-                                            isExpanded={false}
-                                            isDragging={true}
-                                            onToggle={() => { }}
-                                            onAddWorkspace={() => { }}
-                                            onQuickAddWorkspace={() => { }}
-                                            onSetColor={() => { }}
-                                            onDelete={() => { }}
-                                            onPinWorkspace={() => { }}
-                                            onUnpinWorkspace={() => { }}
-                                            onArchiveWorkspace={() => { }}
-                                            onDeleteWorkspace={() => { }}
-                                            onConfigureScripts={() => { }}
-                                            onSelectMain={() => { }}
-                                            isActiveProject={false}
-                                        />
-                                    ) : activeId && projects.some(p => p.workspaces.some(w => w.id === activeId)) ? (
-                                        (() => {
-                                            const ws = projects.flatMap(p => p.workspaces).find(w => w.id === activeId)!;
-                                            return (
-                                                <WorkspaceContent
-                                                    workspace={ws}
-                                                    projectId={ws.projectId}
-                                                    isDragging={true}
-                                                />
-                                            );
-                                        })()
-                                    ) : null}
-                                </DragOverlay>
-                            </DndContext>
+                                    <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                                        {projectModeProjects.map(project => (
+                                            <SortableProject
+                                                key={project.id}
+                                                project={project}
+                                                isExpanded={expandedProjects.includes(project.id)}
+                                                isAnyProjectDragging={isAnyProjectDragging}
+                                                onToggle={toggleProject}
+                                                onAddWorkspace={handleAddWorkspace}
+                                                onQuickAddWorkspace={handleQuickAddWorkspace}
+                                                onSetColor={handleSetColor}
+                                                onDelete={handleDeleteProject}
+                                                onPinWorkspace={pinWorkspace}
+                                                onUnpinWorkspace={unpinWorkspace}
+                                                onArchiveWorkspace={archiveWorkspace}
+                                                onDeleteWorkspace={deleteWorkspace}
+                                                onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                                onUpdateWorkspacePriority={updateWorkspacePriority}
+                                                availableLabels={workspaceLabels}
+                                                onCreateWorkspaceLabel={createWorkspaceLabel}
+                                                onUpdateWorkspaceLabel={updateWorkspaceLabel}
+                                                onUpdateWorkspaceLabels={updateWorkspaceLabels}
+                                                onUpdateWorkspaceName={updateWorkspaceName}
+                                                onConfigureScripts={handleConfigureScripts}
+                                                onSelectMain={(id) => router.push(`/project?id=${id}`)}
+                                                isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
+                                            />
+                                        ))}
+                                    </SortableContext>
+
+                                    <DragOverlay
+                                        dropAnimation={{
+                                            sideEffects: defaultDropAnimationSideEffects({
+                                                styles: {
+                                                    active: {
+                                                        opacity: '0.4',
+                                                    },
+                                                },
+                                            }),
+                                        }}
+                                    >
+                                        {activeId && projects.find(p => p.id === activeId) ? (
+                                            <ProjectItem
+                                                project={projects.find(p => p.id === activeId)!}
+                                                isExpanded={false}
+                                                isDragging={true}
+                                                onToggle={() => { }}
+                                                onAddWorkspace={() => { }}
+                                                onQuickAddWorkspace={() => { }}
+                                                onSetColor={() => { }}
+                                                onDelete={() => { }}
+                                                onPinWorkspace={() => { }}
+                                                onUnpinWorkspace={() => { }}
+                                                onArchiveWorkspace={() => { }}
+                                                onDeleteWorkspace={() => { }}
+                                                onUpdateWorkspaceName={async () => { }}
+                                                onUpdateWorkspaceWorkflowStatus={() => { }}
+                                                onUpdateWorkspacePriority={() => { }}
+                                                availableLabels={workspaceLabels}
+                                                onCreateWorkspaceLabel={async data => ({ id: "", name: data.name, color: data.color })}
+                                                onUpdateWorkspaceLabel={async (_labelId, data) => ({ id: _labelId, name: data.name, color: data.color })}
+                                                onUpdateWorkspaceLabels={async () => { }}
+                                                onConfigureScripts={() => { }}
+                                                onSelectMain={() => { }}
+                                                isActiveProject={false}
+                                            />
+                                        ) : activeId && projects.some(p => p.workspaces.some(w => w.id === activeId)) ? (
+                                            (() => {
+                                                const entry = flattenedWorkspaces.find(({ workspace }) => workspace.id === activeId);
+                                                if (!entry) return null;
+                                                return (
+                                                    <WorkspaceContent
+                                                        workspace={entry.workspace}
+                                                        projectId={entry.projectId}
+                                                        projectName={entry.projectName}
+                                                        isDragging={true}
+                                                    />
+                                                );
+                                            })()
+                                        ) : null}
+                                    </DragOverlay>
+                                </DndContext>
+                                </>
+                            ) : (
+                                <div className="space-y-0.5 px-2">
+                                    {groupedWorkspaces.map((group) => (
+                                        <section key={group.key} className="space-y-1.5">
+                                            {(() => {
+                                                const stateKey = `${groupingMode}:${group.key}`;
+                                                const isCollapsed = collapsedWorkspaceGroups[stateKey] ?? false;
+                                                const statusMeta = groupingMode === 'status'
+                                                    ? getWorkspaceWorkflowStatusMeta(group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0])
+                                                    : null;
+                                                const StatusIcon = statusMeta?.icon;
+
+                                                return (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleWorkspaceGroup(stateKey)}
+                                                            className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
+                                                        >
+                                                            {StatusIcon ? (
+                                                                <StatusIcon className={cn("size-3.5 shrink-0", statusMeta?.className)} />
+                                                            ) : null}
+                                                            <span className="truncate">{group.label}</span>
+                                                            <ChevronRight
+                                                                className={cn(
+                                                                    "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
+                                                                    !isCollapsed && "rotate-90",
+                                                                )}
+                                                            />
+                                                            <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
+                                                                {group.items.length}
+                                                            </span>
+                                                        </button>
+                                                        <div
+                                                            className={cn(
+                                                                "grid transition-[grid-template-rows] duration-300 ease-out",
+                                                                isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+                                                            )}
+                                                        >
+                                                            <div className="overflow-hidden">
+                                                                <div className="space-y-1 pl-3 pt-0.5">
+                                                                    {group.items.map((entry) => (
+                                                                        <WorkspaceContent
+                                                                            key={entry.workspace.id}
+                                                                            workspace={entry.workspace}
+                                                                            projectId={entry.projectId}
+                                                                            projectName={entry.projectName}
+                                                                            projectPath={entry.projectPath}
+                                                                            showProjectName={true}
+                                                                            onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
+                                                                            onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
+                                                                            onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
+                                                                            onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
+                                                                            onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
+                                                                                updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
+                                                                            }
+                                                                            onUpdatePriority={(workspaceId, priority) =>
+                                                                                updateWorkspacePriority(entry.projectId, workspaceId, priority)
+                                                                            }
+                                                                            availableLabels={workspaceLabels}
+                                                                            onCreateLabel={createWorkspaceLabel}
+                                                                            onUpdateLabel={updateWorkspaceLabel}
+                                                                            onUpdateLabels={(workspaceId, labels) =>
+                                                                                updateWorkspaceLabels(entry.projectId, workspaceId, labels)
+                                                                            }
+                                                                        onUpdateName={(workspaceId, name) =>
+                                                                            updateWorkspaceName(entry.projectId, workspaceId, name)
+                                                                        }
+                                                                    />
+                                                                ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </section>
+                                    ))}
+                                </div>
+                            )}
                         </TabsPanel>
 
                         <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
@@ -691,6 +1035,81 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ projects: initialProjects }) 
 
                     </Tabs>
                 </div>
+                {activeTab === 'projects' && (
+                    <div className="relative shrink-0 bg-transparent">
+                        <div className="relative flex items-center justify-between gap-1 px-1.5 py-0.5">
+                            <div className="flex items-center gap-0">
+                                <WorkspaceKanbanFilterMenu
+                                    projects={projects}
+                                    availableLabels={workspaceLabels}
+                                    filters={kanbanFilters}
+                                    onFiltersChange={setKanbanFilters}
+                                    triggerVariant="icon"
+                                    align="start"
+                                    side="top"
+                                />
+                                {(() => {
+                                    const currentGroupingOption = SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)
+                                        ?? SIDEBAR_GROUPING_OPTIONS[0];
+
+                                    return (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button
+                                                    type="button"
+                                                    className="group inline-flex h-8 items-center gap-0.5 rounded-lg bg-transparent px-1 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                                >
+                                                    <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                                                        <Group className="size-3.5" />
+                                                    </span>
+                                                    <span>
+                                                        {currentGroupingOption.label}
+                                                    </span>
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-40">
+                                                {SIDEBAR_GROUPING_OPTIONS.map((option) => (
+                                                    <DropdownMenuItem
+                                                        key={option.value}
+                                                        className={cn(
+                                                            "cursor-pointer",
+                                                            groupingMode === option.value && "bg-accent text-accent-foreground",
+                                                        )}
+                                                        onClick={() => setGroupingMode(option.value)}
+                                                    >
+                                                        <option.icon className="size-4 text-muted-foreground" />
+                                                        <span>{option.label}</span>
+                                                    </DropdownMenuItem>
+                                                ))}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    );
+                                })()}
+                            </div>
+                            <WorkspaceKanbanView
+                                projects={projects}
+                                availableLabels={workspaceLabels}
+                                onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                onUpdatePriority={updateWorkspacePriority}
+                                onCreateLabel={createWorkspaceLabel}
+                                onUpdateLabel={updateWorkspaceLabel}
+                                onUpdateLabels={updateWorkspaceLabels}
+                                filters={kanbanFilters}
+                                onFiltersChange={setKanbanFilters}
+                                trigger={(
+                                    <button
+                                        type="button"
+                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                    >
+                                        <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                                            <SquareKanban className="size-3.5" />
+                                        </span>
+                                    </button>
+                                )}
+                            />
+                        </div>
+                    </div>
+                )}
             </aside >
 
             <CreateWorkspaceDialog

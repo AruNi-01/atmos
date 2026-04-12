@@ -22,11 +22,14 @@ pub async fn startup_recover(app: tauri::AppHandle, target_base_url: String) {
         return;
     }
 
-    log_startup(&app, &format!(
-        "[remote-access] startup_recover: recovering {} provider(s): {:?}",
-        provider_kinds.len(),
-        provider_kinds
-    ));
+    log_startup(
+        &app,
+        &format!(
+            "[remote-access] startup_recover: recovering {} provider(s): {:?}",
+            provider_kinds.len(),
+            provider_kinds
+        ),
+    );
 
     // Load credentials for each persisted provider.
     let mut credentials: HashMap<ProviderKind, Option<String>> = HashMap::new();
@@ -37,20 +40,29 @@ pub async fn startup_recover(app: tauri::AppHandle, target_base_url: String) {
 
     // Recover passes target_base_url to the gateway — update the manager's
     // gateway config to point at the now-known sidecar port.
-    match manager.recover_with_target(credentials, target_base_url).await {
+    match manager
+        .recover_with_target(credentials, target_base_url)
+        .await
+    {
         Ok(recovered) if !recovered.is_empty() => {
             let recovered: HashMap<String, RemoteAccessStatus> = recovered;
-            log_startup(&app, &format!(
-                "[remote-access] startup_recover: recovered providers: {:?}",
-                recovered.keys().collect::<Vec<_>>()
-            ));
+            log_startup(
+                &app,
+                &format!(
+                    "[remote-access] startup_recover: recovered providers: {:?}",
+                    recovered.keys().collect::<Vec<_>>()
+                ),
+            );
             let _ = app.emit("remote-access-recovered", &recovered);
         }
         Ok(_) => {
             log_startup(&app, "[remote-access] startup_recover: nothing to recover");
         }
         Err(err) => {
-            log_startup(&app, &format!("[remote-access] startup_recover: failed: {err}"));
+            log_startup(
+                &app,
+                &format!("[remote-access] startup_recover: failed: {err}"),
+            );
         }
     }
 }

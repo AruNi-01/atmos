@@ -13,6 +13,7 @@ use tokio_util::io::ReaderStream;
 use tracing::{info, warn};
 
 use crate::api::dto::ApiResponse;
+use crate::error::ApiError;
 use crate::{app_state::AppState, error::ApiResult};
 
 use super::diagnostics;
@@ -544,18 +545,41 @@ pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
 
 /// POST /api/system/sync-skills
 pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
-    tokio::task::spawn_blocking(|| {
-        match std::panic::catch_unwind(|| {
-            infra::utils::system_skill_sync::sync_system_skills_on_startup();
-        }) {
-            Ok(_) => tracing::info!("System skill sync completed successfully"),
-            Err(e) => tracing::error!("System skill sync panicked: {:?}", e),
-        }
-    });
-    Ok(Json(ApiResponse::success(json!({
-        "initiated": true,
-        "message": "System skill sync initiated"
-    }))))
+    let report = tokio::task::spawn_blocking(|| {
+        infra::utils::system_skill_sync::sync_system_skills_with_report()
+    })
+    .await
+    .map_err(|e| ApiError::InternalError(format!("Task join error: {}", e)))?;
+
+    let completed = report.missing_skills.is_empty();
+    let message = if completed {
+        "System skill sync completed"
+    } else {
+        "System skill sync completed with missing skills"
+    };
+
+    tracing::info!(
+        "System skill sync result: completed={}, versions={:?}, missing={:?}",
+        completed,
+        report.versions,
+        report.missing_skills
+    );
+
+    Ok(Json(ApiResponse {
+        success: completed,
+        data: Some(json!({
+            "initiated": true,
+            "completed": completed,
+            "message": message,
+            "versions": report.versions,
+            "missingSkills": report.missing_skills
+        })),
+        error: if completed {
+            None
+        } else {
+            Some("One or more system skills could not be synced".to_string())
+        },
+    }))
 }
 
 // ===== File serving for binary preview =====

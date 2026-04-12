@@ -30,13 +30,14 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@workspace/ui";
-import type { Project } from "@/types/types";
+import type { Project, WorkspaceLabel, WorkspacePriority } from "@/types/types";
 import { PROJECT_COLOR_PRESETS } from "@/types/types";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
 import { WorkspaceItem } from "./WorkspaceItem";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
+import type { WorkspaceWorkflowStatus } from "@/types/types";
 
 export interface ProjectItemProps {
   project: Project;
@@ -55,6 +56,28 @@ export interface ProjectItemProps {
   onUnpinWorkspace: (projectId: string, workspaceId: string) => void;
   onArchiveWorkspace: (projectId: string, workspaceId: string) => void;
   onDeleteWorkspace: (projectId: string, workspaceId: string) => void;
+  onUpdateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
+  onUpdateWorkspaceWorkflowStatus: (
+    projectId: string,
+    workspaceId: string,
+    workflowStatus: WorkspaceWorkflowStatus,
+  ) => void;
+  onUpdateWorkspacePriority: (
+    projectId: string,
+    workspaceId: string,
+    priority: WorkspacePriority,
+  ) => void;
+  availableLabels: WorkspaceLabel[];
+  onCreateWorkspaceLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  onUpdateWorkspaceLabel: (
+    labelId: string,
+    data: { name: string; color: string },
+  ) => Promise<WorkspaceLabel>;
+  onUpdateWorkspaceLabels: (
+    projectId: string,
+    workspaceId: string,
+    labels: WorkspaceLabel[],
+  ) => Promise<void>;
   onConfigureScripts: (projectId: string) => void;
   onSelectMain: (projectId: string) => void;
   isActiveProject: boolean;
@@ -104,6 +127,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   onUnpinWorkspace,
   onArchiveWorkspace,
   onDeleteWorkspace,
+  onUpdateWorkspaceName,
+  onUpdateWorkspaceWorkflowStatus,
+  onUpdateWorkspacePriority,
+  availableLabels,
+  onCreateWorkspaceLabel,
+  onUpdateWorkspaceLabel,
+  onUpdateWorkspaceLabels,
   onConfigureScripts,
   onSelectMain,
   isActiveProject,
@@ -169,15 +199,17 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         isDragging && "z-50"
       )}
     >
-      <div className={cn(
-        "flex items-center px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300 relative",
-        isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
-        isActiveProject && "bg-sidebar-accent/70"
-      )}>
+      <div
+        className={cn(
+            "flex items-center px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300 relative",
+            isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
+            isActiveProject && "bg-sidebar-accent/70"
+          )}
+      >
         <div
           {...attributes}
           {...listeners}
-          className="flex items-center flex-1 min-w-0 cursor-pointer select-none"
+          className="flex items-center flex-1 min-w-0 cursor-pointer select-none pr-8"
           onClick={() => onToggle(project.id)}
         >
           <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -218,170 +250,178 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
           </div>
         </div>
 
-        {!isDragging && (
+            {!isDragging && (
           <div
             className={cn(
-              "absolute right-0 top-1/2 -translate-y-1/2 flex items-center transition-opacity z-10 backdrop-blur-[1px] bg-linear-to-l from-sidebar-accent/60 to-transparent pl-8 pr-2 h-full rounded-r-sm",
-              isProjectMenuOpen ? "opacity-100" : "opacity-0 group-hover/project:opacity-100",
+              "absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end",
             )}
           >
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onQuickAddWorkspace(project.id);
-                    }}
-                    className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
-                  >
-                    <Zap className="size-3.5 text-muted-foreground" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  Quick New Workspace
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <DropdownMenu
-              open={isProjectMenuOpen}
-              modal={false}
-              onOpenChange={(open) => {
-                if (open) {
-                  cancelProjectMenuClose();
-                }
-                setIsProjectMenuOpen(open);
-              }}
+            <div
+              className={cn(
+                "flex items-center overflow-hidden pl-2 transition-all duration-200 ease-out",
+                isProjectMenuOpen
+                  ? "ml-1 max-w-24 opacity-100"
+                  : "max-w-0 opacity-0 group-hover/project:ml-1 group-hover/project:max-w-24 group-hover/project:opacity-100",
+              )}
             >
-              <DropdownMenuTrigger asChild>
-                <button
-                  ref={triggerRef}
-                  className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
-                  onMouseEnter={openProjectMenu}
-                  onMouseLeave={scheduleProjectMenuClose}
-                >
-                  <Ellipsis className="size-3.5 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                ref={menuRef}
-                side="right"
-                align="start"
-                alignOffset={6}
-                sideOffset={8}
-                avoidCollisions={false}
-                className="w-56"
-                onMouseEnter={cancelProjectMenuClose}
-                onMouseLeave={scheduleProjectMenuClose}
-                onCloseAutoFocus={(e) => e.preventDefault()}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuickAddWorkspace(project.id);
+                      }}
+                      className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
+                    >
+                      <Zap className="size-3.5 text-muted-foreground" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    Quick New Workspace
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <DropdownMenu
+                open={isProjectMenuOpen}
+                modal={false}
+                onOpenChange={(open) => {
+                  if (open) {
+                    cancelProjectMenuClose();
+                  }
+                  setIsProjectMenuOpen(open);
+                }}
               >
-                <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
-                  <Plus className="size-4 mr-2" />
-                  <span>New Workspace</span>
-                </DropdownMenuItem>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    ref={triggerRef}
+                    className="p-1 hover:bg-sidebar-accent rounded-sm transition-all duration-200 hover:cursor-pointer"
+                    onMouseEnter={openProjectMenu}
+                    onMouseLeave={scheduleProjectMenuClose}
+                  >
+                    <Ellipsis className="size-3.5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  ref={menuRef}
+                  side="right"
+                  align="start"
+                  alignOffset={6}
+                  sideOffset={8}
+                  avoidCollisions={false}
+                  className="w-56"
+                  onMouseEnter={cancelProjectMenuClose}
+                  onMouseLeave={scheduleProjectMenuClose}
+                  onCloseAutoFocus={(e) => e.preventDefault()}
+                >
+                  <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
+                    <Plus className="size-4 mr-2" />
+                    <span>New Workspace</span>
+                  </DropdownMenuItem>
 
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="cursor-pointer">
-                    <Palette className="size-4 mr-2" />
-                    <span>Set Color</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-[195px] p-3">
-                    <div className="grid grid-cols-6 gap-1 mb-1">
-                      {PROJECT_COLOR_PRESETS.filter(p => p.color).map((preset) => (
-                        <button
-                          key={preset.name}
-                          onClick={() => onSetColor(project.id, preset.color)}
-                          className="size-6 rounded hover:scale-110 transition-transform border border-sidebar-border/50 cursor-pointer"
-                          style={{ backgroundColor: preset.color }}
-                          title={preset.name}
-                        />
-                      ))}
-                      <button
-                        onClick={() => onSetColor(project.id, undefined)}
-                        className="size-6 rounded hover:cursor-pointer hover:bg-sidebar-accent transition-colors border border-sidebar-border/50 flex items-center justify-center"
-                        title="None"
-                      >
-                        <X className="size-4 text-muted-foreground" />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-1 pt-2">
-                      <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
-                        <PopoverTrigger asChild>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="cursor-pointer">
+                      <Palette className="size-4 mr-2" />
+                      <span>Set Color</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-[195px] p-3">
+                      <div className="grid grid-cols-6 gap-1 mb-1">
+                        {PROJECT_COLOR_PRESETS.filter(p => p.color).map((preset) => (
                           <button
-                            className="flex items-center gap-2 px-1 text-xs hover:bg-sidebar-accent rounded transition-colors border border-sidebar-border hover:cursor-pointer w-full"
-                            title="Custom Color"
+                            key={preset.name}
+                            onClick={() => onSetColor(project.id, preset.color)}
+                            className="size-6 rounded hover:scale-110 transition-transform border border-sidebar-border/50 cursor-pointer"
+                            style={{ backgroundColor: preset.color }}
+                            title={preset.name}
+                          />
+                        ))}
+                        <button
+                          onClick={() => onSetColor(project.id, undefined)}
+                          className="size-6 rounded hover:cursor-pointer hover:bg-sidebar-accent transition-colors border border-sidebar-border/50 flex items-center justify-center"
+                          title="None"
+                        >
+                          <X className="size-4 text-muted-foreground" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1 pt-2">
+                        <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
+                          <PopoverTrigger asChild>
+                            <button
+                              className="flex items-center gap-2 px-1 text-xs hover:bg-sidebar-accent rounded transition-colors border border-sidebar-border hover:cursor-pointer w-full"
+                              title="Custom Color"
+                            >
+                              <Palette className="size-4 shrink-0" />
+                              <span className="font-medium whitespace-nowrap">Custom Color</span>
+                              <div
+                                className="size-6 m-[2px] rounded-sm shrink-0 ml-auto"
+                                style={{
+                                  backgroundColor: `rgba(${customColor.r}, ${customColor.g}, ${customColor.b}, ${customColor.a})`,
+                                  boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+                                }}
+                              />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            side="right"
+                            align="start"
+                            sideOffset={8}
+                            className="z-50 p-0 border-0 bg-transparent shadow-none"
                           >
-                            <Palette className="size-4 shrink-0" />
-                            <span className="font-medium whitespace-nowrap">Custom Color</span>
-                            <div
-                              className="size-6 m-[2px] rounded-sm shrink-0 ml-auto"
-                              style={{
-                                backgroundColor: `rgba(${customColor.r}, ${customColor.g}, ${customColor.b}, ${customColor.a})`,
-                                boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+                            <SketchPicker
+                              color={customColor}
+                              onChange={(color) => {
+                                setCustomColor({
+                                  r: color.rgb.r,
+                                  g: color.rgb.g,
+                                  b: color.rgb.b,
+                                  a: color.rgb.a ?? 1,
+                                });
+                              }}
+                              onChangeComplete={(color) => {
+                                const rgb = color.rgb;
+                                const rgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a ?? 1})`;
+                                onSetColor(project.id, rgbaColor);
+                              }}
+                              styles={{
+                                default: {
+                                  picker: {
+                                    background: isDark ? '#1c1c1f' : '#fff',
+                                    borderRadius: '12px',
+                                    boxShadow: 'none',
+                                    border: isDark ? '1px solid #27272a' : '1px solid #e4e4e7',
+                                    padding: '12px',
+                                    width: '220px',
+                                  },
+                                  saturation: { borderRadius: '8px' },
+                                  activeColor: { borderRadius: '4px' },
+                                  hue: { height: '10px', borderRadius: '4px' },
+                                  alpha: { height: '10px', borderRadius: '4px' },
+                                }
                               }}
                             />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          side="right"
-                          align="start"
-                          sideOffset={8}
-                          className="z-50 p-0 border-0 bg-transparent shadow-none"
-                        >
-                          <SketchPicker
-                            color={customColor}
-                            onChange={(color) => {
-                              setCustomColor({
-                                r: color.rgb.r,
-                                g: color.rgb.g,
-                                b: color.rgb.b,
-                                a: color.rgb.a ?? 1,
-                              });
-                            }}
-                            onChangeComplete={(color) => {
-                              const rgb = color.rgb;
-                              const rgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${rgb.a ?? 1})`;
-                              onSetColor(project.id, rgbaColor);
-                            }}
-                            styles={{
-                              default: {
-                                picker: {
-                                  background: isDark ? '#1c1c1f' : '#fff',
-                                  borderRadius: '12px',
-                                  boxShadow: 'none',
-                                  border: isDark ? '1px solid #27272a' : '1px solid #e4e4e7',
-                                  padding: '12px',
-                                  width: '220px',
-                                },
-                                saturation: { borderRadius: '8px' },
-                                activeColor: { borderRadius: '4px' },
-                                hue: { height: '10px', borderRadius: '4px' },
-                                alpha: { height: '10px', borderRadius: '4px' },
-                              }
-                            }}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
-                  <FileCode className="size-4 mr-2" />
-                  <span>Workspace Scripts</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
-                  onClick={() => onDelete(project.id)}
-                >
-                  <Trash2 className="size-4 mr-2" />
-                  <span>Delete Project</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
+                    <FileCode className="size-4 mr-2" />
+                    <span>Workspace Scripts</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
+                    onClick={() => onDelete(project.id)}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    <span>Delete Project</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         )}
       </div>
@@ -407,17 +447,32 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               isAnyProjectDragging ? "pointer-events-none opacity-0" : "opacity-100"
             )}
           >
-            <SortableContext items={project.workspaces.map(w => w.id)} strategy={verticalListSortingStrategy}>
-              {project.workspaces.map((ws) => (
+            <SortableContext items={project.workspaces.filter(w => !w.isPinned).map(w => w.id)} strategy={verticalListSortingStrategy}>
+              {project.workspaces.filter(w => !w.isPinned).map((ws) => (
                 <WorkspaceItem
                   key={ws.id}
                   workspace={ws}
                   projectId={project.id}
+                  projectName={project.name}
                   projectPath={project.mainFilePath}
                   onPin={(wsId) => onPinWorkspace(project.id, wsId)}
                   onUnpin={(wsId) => onUnpinWorkspace(project.id, wsId)}
                   onArchive={(wsId) => onArchiveWorkspace(project.id, wsId)}
                   onDelete={(wsId) => onDeleteWorkspace(project.id, wsId)}
+                  onUpdateName={(wsId, name) => onUpdateWorkspaceName(project.id, wsId, name)}
+                  onUpdateWorkflowStatus={(wsId, workflowStatus) =>
+                    onUpdateWorkspaceWorkflowStatus(project.id, wsId, workflowStatus)
+                  }
+                  onUpdatePriority={(wsId, priority) =>
+                    onUpdateWorkspacePriority(project.id, wsId, priority)
+                  }
+                  availableLabels={availableLabels}
+                  onCreateLabel={onCreateWorkspaceLabel}
+                  onUpdateLabel={onUpdateWorkspaceLabel}
+                  onUpdateLabels={(wsId, labels) =>
+                    onUpdateWorkspaceLabels(project.id, wsId, labels)
+                  }
+                  suppressInfoPopover={isProjectMenuOpen}
                 />
               ))}
             </SortableContext>

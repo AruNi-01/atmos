@@ -713,7 +713,6 @@ export function LlmProviderEditorDialog({
           routing: nextRouting,
         }),
       );
-      toastManager.add({ title: "Provider deleted", type: "success" });
       onSaved?.();
       onOpenChange(false);
     } catch (error) {

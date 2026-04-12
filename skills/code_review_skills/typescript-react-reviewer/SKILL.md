@@ -1,5 +1,6 @@
 ---
 name: typescript-react-reviewer
+version: "1.0.0"
 description: "Expert code reviewer for TypeScript + React 19 applications. Use when reviewing React code, identifying anti-patterns, evaluating state management, or assessing code maintainability. Triggers: code review requests, PR reviews, React architecture evaluation, identifying code smells, TypeScript type safety checks, useEffect abuse detection, state management review."
 ---
 

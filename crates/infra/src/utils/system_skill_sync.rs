@@ -42,6 +42,12 @@ struct RawSystemSkillsManifest {
     files: HashMap<String, Vec<String>>,
 }
 
+#[derive(Clone, Debug)]
+pub struct SystemSkillSyncReport {
+    pub versions: HashMap<String, String>,
+    pub missing_skills: Vec<String>,
+}
+
 /// Recursively copy directory. Symlinks are preserved with their target path unchanged;
 /// since project-wiki is synced first, relative symlinks (e.g. ../project-wiki/references) resolve correctly.
 fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -78,6 +84,57 @@ fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
 /// Check if a skill directory is valid (has SKILL.md). Empty dirs are considered invalid.
 fn skill_dir_is_valid(skill_path: &Path) -> bool {
     skill_path.join("SKILL.md").exists()
+}
+
+/// Parse version from SKILL.md frontmatter (YAML between --- and ---)
+fn parse_skill_version(skill_path: &Path) -> Option<String> {
+    let skill_md = skill_path.join("SKILL.md");
+    let content = std::fs::read_to_string(&skill_md).ok()?;
+    parse_skill_version_from_content(&content)
+}
+
+fn parse_frontmatter(content: &str) -> Option<&str> {
+    let content = content.trim_start();
+    let rest = content.strip_prefix("---")?;
+    let end = rest.find("---")?;
+    Some(&rest[..end])
+}
+
+fn parse_skill_version_from_content(content: &str) -> Option<String> {
+    let frontmatter = parse_frontmatter(content)?;
+
+    for line in frontmatter.lines() {
+        let line = line.trim();
+        if let Some(version) = line.strip_prefix("version:") {
+            let version = version.trim().trim_matches('"').trim_matches('\'');
+            if !version.is_empty() {
+                return Some(version.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// Compare semantic versions. Returns true if new > old.
+fn version_needs_update(current: &str, new: &str) -> bool {
+    let parse_v =
+        |v: &str| -> Vec<u32> { v.split('.').filter_map(|part| part.parse().ok()).collect() };
+
+    let current_parts = parse_v(current);
+    let new_parts = parse_v(new);
+
+    for i in 0..new_parts.len() {
+        let curr = current_parts.get(i).unwrap_or(&0);
+        let new_v = new_parts[i];
+        if new_v > *curr {
+            return true;
+        } else if new_v < *curr {
+            return false;
+        }
+    }
+
+    false
 }
 
 /// Helper function to determine the target directory for a skill.
@@ -133,13 +190,41 @@ fn sync_skill_from_root(
     source_label: &str,
 ) -> bool {
     let target_dir = get_target_dir(system_dir, skill_name);
-    if target_dir.exists() && skill_dir_is_valid(&target_dir) {
-        return true;
-    }
 
+    // Debug: log source directory
     let Some(source_dir) = find_skill_source(skills_root, skill_name) else {
+        warn!("Could not find source directory for skill: {}", skill_name);
         return false;
     };
+
+    // Check if we need to update: compare local version with source version
+    let needs_update = if target_dir.exists() && skill_dir_is_valid(&target_dir) {
+        let local_version = parse_skill_version(&target_dir);
+        let source_version = parse_skill_version(&source_dir);
+
+        // Debug: also check if we can read the source file
+        let source_content = std::fs::read_to_string(source_dir.join("SKILL.md"))
+            .map(|c| c.lines().take(5).collect::<Vec<_>>().join("\n"))
+            .unwrap_or_else(|_| "cannot read".to_string());
+
+        info!(
+            "Checking skill {}: local_version={:?}, source_version={:?}, source_head={:?}",
+            skill_name, local_version, source_version, source_content
+        );
+
+        match (local_version, source_version) {
+            (Some(local), Some(source)) => version_needs_update(&local, &source),
+            (None, Some(_)) => true, // No local version, has source -> update
+            _ => false,              // No source version or same version -> skip
+        }
+    } else {
+        true // Directory doesn't exist or invalid -> needs sync
+    };
+
+    if !needs_update {
+        info!("Skipping {}: already up to date", skill_name);
+        return true;
+    }
 
     if target_dir.exists() {
         let _ = std::fs::remove_dir_all(&target_dir);
@@ -147,9 +232,11 @@ fn sync_skill_from_root(
 
     match copy_dir_all(&source_dir, &target_dir) {
         Ok(()) => {
+            let version = parse_skill_version(&target_dir).unwrap_or_else(|| "unknown".to_string());
             info!(
-                "Synced {} skill to {} ({})",
+                "Synced {} skill v{} to {} ({})",
                 skill_name,
+                version,
                 target_dir.display(),
                 source_label
             );
@@ -250,8 +337,10 @@ fn raw_manifest() -> Result<&'static RawSystemSkillsManifest, String> {
         let response = response
             .error_for_status()
             .map_err(|error| format!("manifest request failed: {}", error))?;
-        response
-            .json::<RawSystemSkillsManifest>()
+        let text = response
+            .text()
+            .map_err(|error| format!("failed to read manifest response: {}", error))?;
+        serde_json::from_str::<RawSystemSkillsManifest>(&text)
             .map_err(|error| format!("failed to parse manifest JSON: {}", error))
     });
 
@@ -320,6 +409,38 @@ fn sync_skill_from_raw_github(skill_name: &str, system_dir: &Path) -> bool {
         return false;
     };
 
+    // Version check: compare local version with remote before downloading
+    let local_version = if target_dir.exists() && skill_dir_is_valid(&target_dir) {
+        parse_skill_version(&target_dir)
+    } else {
+        None
+    };
+
+    // Find SKILL.md path in manifest to get remote version
+    let skill_md_path = files.iter().find(|p| p.ends_with("SKILL.md"));
+    if let Some(skill_md_path) = skill_md_path {
+        if let Ok(client) = raw_http_client() {
+            if let Ok(response) = client.get(raw_github_file_url(skill_md_path)).send() {
+                if let Ok(content) = response.text() {
+                    if let Some(version) = parse_skill_version_from_content(&content) {
+                        let should_update = match &local_version {
+                            Some(local) => version_needs_update(local, &version),
+                            None => true, // No local version -> need update
+                        };
+                        if !should_update {
+                            // Local version is same or newer, skip download
+                            info!(
+                                "Skipping {}: local v{:?} >= remote v{}",
+                                skill_name, local_version, version
+                            );
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if target_dir.exists() {
         let _ = std::fs::remove_dir_all(&target_dir);
     }
@@ -387,9 +508,11 @@ fn sync_skill_from_raw_github(skill_name: &str, system_dir: &Path) -> bool {
     }
 
     if skill_dir_is_valid(&target_dir) {
+        let version = parse_skill_version(&target_dir).unwrap_or_else(|| "unknown".to_string());
         info!(
-            "Synced {} skill to {} (from raw.githubusercontent.com)",
+            "Synced {} skill v{} to {} (from raw.githubusercontent.com)",
             skill_name,
+            version,
             target_dir.display()
         );
         true
@@ -473,10 +596,38 @@ pub fn sync_single_system_skill(skill_name: &str) -> Result<(), String> {
 /// **Blocking**: uses std::fs and blocking HTTP. Callers in async contexts must wrap this in
 /// `tokio::task::spawn_blocking`.
 pub fn sync_system_skills_on_startup() {
+    let _ = sync_system_skills_with_report();
+}
+
+/// Ensure all system skills exist and return a caller-visible summary.
+///
+/// **Blocking**: uses std::fs and blocking HTTP. Callers in async contexts must wrap this in
+/// `tokio::task::spawn_blocking`.
+pub fn sync_system_skills_with_report() -> SystemSkillSyncReport {
     let home = match dirs::home_dir() {
         Some(home) => home,
-        None => return,
+        None => {
+            warn!("Cannot determine home directory for system skill sync");
+            return SystemSkillSyncReport {
+                versions: HashMap::new(),
+                missing_skills: ALL_SYSTEM_SKILL_NAMES
+                    .iter()
+                    .map(|name| (*name).to_string())
+                    .collect(),
+            };
+        }
     };
+
+    // Debug: check which source we're using
+    if std::env::var_os(BUNDLED_SYSTEM_SKILLS_DIR_ENV).is_some() {
+        if let Some(dir) = bundled_skills_dir() {
+            info!("Using bundled system skills from: {}", dir.display());
+        }
+    } else if let Some(dir) = source_skills_dir() {
+        info!("Using source workspace skills from: {}", dir.display());
+    } else {
+        warn!("No source found for system skills, will fallback to raw GitHub");
+    }
 
     let system_dir = home.join(".atmos").join("skills").join(".system");
     if let Err(error) = std::fs::create_dir_all(&system_dir) {
@@ -485,17 +636,100 @@ pub fn sync_system_skills_on_startup() {
             system_dir.display(),
             error
         );
-        return;
+        return SystemSkillSyncReport {
+            versions: HashMap::new(),
+            missing_skills: ALL_SYSTEM_SKILL_NAMES
+                .iter()
+                .map(|name| (*name).to_string())
+                .collect(),
+        };
+    }
+
+    let mut missing_skills = Vec::new();
+    for skill_name in ALL_SYSTEM_SKILL_NAMES {
+        // Always try to sync - the sync function will check version and skip if up-to-date
+        if !sync_skill_from_available_sources(skill_name, &system_dir) {
+            warn_missing_skill(skill_name);
+            missing_skills.push((*skill_name).to_string());
+        }
+    }
+
+    SystemSkillSyncReport {
+        versions: get_installed_skill_versions(),
+        missing_skills,
+    }
+}
+
+/// Get installed system skills with their versions.
+/// Returns a HashMap of skill_name -> version.
+pub fn get_installed_skill_versions() -> std::collections::HashMap<String, String> {
+    let mut versions = std::collections::HashMap::new();
+
+    let home = match dirs::home_dir() {
+        Some(home) => home,
+        None => return versions,
+    };
+
+    let system_dir = home.join(".atmos").join("skills").join(".system");
+    if !system_dir.is_dir() {
+        return versions;
     }
 
     for skill_name in ALL_SYSTEM_SKILL_NAMES {
         let target_dir = get_target_dir(&system_dir, skill_name);
-        if skill_dir_is_valid(&target_dir) {
-            continue;
+        if let Some(version) = parse_skill_version(&target_dir) {
+            versions.insert(skill_name.to_string(), version);
         }
+    }
 
-        if !sync_skill_from_available_sources(skill_name, &system_dir) {
-            warn_missing_skill(skill_name);
-        }
+    versions
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_skill_version_from_content;
+
+    #[test]
+    fn parses_version_from_frontmatter_with_markdown_body() {
+        let content = r#"---
+name: code-review-expert
+version: "1.2.3"
+description: "Review skill"
+---
+
+# Code Review Expert
+"#;
+
+        assert_eq!(
+            parse_skill_version_from_content(content),
+            Some("1.2.3".to_string())
+        );
+    }
+
+    #[test]
+    fn parses_single_quoted_version_from_frontmatter() {
+        let content = r#"---
+version: '2.0.0'
+---
+
+Body
+"#;
+
+        assert_eq!(
+            parse_skill_version_from_content(content),
+            Some("2.0.0".to_string())
+        );
+    }
+
+    #[test]
+    fn returns_none_without_frontmatter_version() {
+        assert_eq!(
+            parse_skill_version_from_content("# Skill\n\nNo metadata"),
+            None
+        );
+        assert_eq!(
+            parse_skill_version_from_content("---\ndescription: Only text\n---\n\nBody"),
+            None
+        );
     }
 }

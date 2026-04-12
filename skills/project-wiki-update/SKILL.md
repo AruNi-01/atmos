@@ -1,5 +1,6 @@
 ---
 name: project-wiki-update
+version: "1.0.0"
 description: This skill should be used when the user wants to incrementally update an existing Project Wiki. It detects code changes since the wiki was generated, identifies affected wiki pages, and only regenerates those pages while preserving unchanged content.
 ---
 
