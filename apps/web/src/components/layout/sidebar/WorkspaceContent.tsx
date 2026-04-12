@@ -488,6 +488,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             align="start"
             sideOffset={10}
             className="w-72 space-y-3 p-3"
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            onCloseAutoFocus={(event) => event.preventDefault()}
             onMouseEnter={cancelInfoPopoverClose}
             onMouseLeave={scheduleInfoPopoverClose}
           >
