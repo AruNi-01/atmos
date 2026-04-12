@@ -16,7 +16,7 @@ use core_engine::{FsEngine, GitEngine};
 use infra::{
     AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
     AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest,
-    CodeAgentCustomUpdateRequest, CustomAgentAddRequest, CustomAgentRemoveRequest,
+    AgentBehaviourSettingsUpdateRequest, CodeAgentCustomUpdateRequest, CustomAgentAddRequest, CustomAgentRemoveRequest,
     CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest, FsDuplicatePathRequest,
     FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsRenamePathRequest,
     FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest, FsWriteFileRequest,
@@ -678,6 +678,11 @@ impl WsMessageService {
             WsAction::CodeAgentCustomGet => self.handle_code_agent_custom_get().await,
             WsAction::CodeAgentCustomUpdate => {
                 self.handle_code_agent_custom_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AgentBehaviourSettingsGet => self.handle_agent_behaviour_settings_get().await,
+            WsAction::AgentBehaviourSettingsUpdate => {
+                self.handle_agent_behaviour_settings_update(parse_request(request.data)?)
                     .await
             }
 
@@ -3767,6 +3772,50 @@ set -x
             ServiceError::Validation(format!("Failed to write terminal_code_agent.json: {}", e))
         })?;
 
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_agent_behaviour_settings_get(&self) -> Result<Value> {
+        let path = terminal_code_agent_path();
+        let val: Value = if path.exists() {
+            let content = std::fs::read_to_string(&path).map_err(|e| {
+                ServiceError::Validation(format!("Failed to read terminal_code_agent.json: {}", e))
+            })?;
+            serde_json::from_str(&content).unwrap_or(json!({}))
+        } else {
+            json!({})
+        };
+        let timeout = val
+            .get("idle_session_timeout_mins")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(30);
+        Ok(json!({ "idle_session_timeout_mins": timeout }))
+    }
+
+    async fn handle_agent_behaviour_settings_update(
+        &self,
+        req: AgentBehaviourSettingsUpdateRequest,
+    ) -> Result<Value> {
+        let path = terminal_code_agent_path();
+        // Read existing file to preserve `agents` list
+        let mut val: Value = if path.exists() {
+            let content = std::fs::read_to_string(&path).unwrap_or_default();
+            serde_json::from_str(&content).unwrap_or(json!({ "agents": [] }))
+        } else {
+            json!({ "agents": [] })
+        };
+        val["idle_session_timeout_mins"] = json!(req.idle_session_timeout_mins);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                ServiceError::Validation(format!("Failed to create ~/.atmos/agent dir: {}", e))
+            })?;
+        }
+        let pretty = serde_json::to_string_pretty(&val).map_err(|e| {
+            ServiceError::Validation(format!("Failed to serialize settings: {}", e))
+        })?;
+        std::fs::write(&path, pretty).map_err(|e| {
+            ServiceError::Validation(format!("Failed to write terminal_code_agent.json: {}", e))
+        })?;
         Ok(json!({ "ok": true }))
     }
 

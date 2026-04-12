@@ -150,6 +150,52 @@ impl AgentHooksService {
         idle_ids
     }
 
+    /// Remove idle sessions whose last activity is older than `timeout_mins` minutes.
+    /// Broadcasts `AgentHookSessionsCleared` with the removed session IDs so clients
+    /// can update their local state without a full refresh.
+    pub fn clear_idle_older_than(&self, timeout_mins: u64) {
+        let cutoff = Utc::now() - chrono::Duration::minutes(timeout_mins as i64);
+        let removed: Vec<String> = {
+            let mut sessions = self.sessions.write();
+            let to_remove: Vec<String> = sessions
+                .iter()
+                .filter(|(_, s)| {
+                    if s.state != AgentHookState::Idle {
+                        return false;
+                    }
+                    chrono::DateTime::parse_from_rfc3339(&s.timestamp)
+                        .map(|t| t < cutoff)
+                        .unwrap_or(true)
+                })
+                .map(|(id, _)| id.clone())
+                .collect();
+            for id in &to_remove {
+                sessions.remove(id);
+            }
+            to_remove
+        };
+
+        if removed.is_empty() {
+            return;
+        }
+
+        info!("Cleared {} idle agent hook session(s) older than {} min", removed.len(), timeout_mins);
+
+        let ws = self.ws_manager.read();
+        if let Some(ref manager) = *ws {
+            let manager = Arc::clone(manager);
+            let msg = WsMessage::notification(
+                WsEvent::AgentHookSessionsCleared,
+                serde_json::json!({ "session_ids": removed }),
+            );
+            tokio::spawn(async move {
+                if let Err(e) = manager.broadcast(&msg).await {
+                    warn!("Failed to broadcast agent hook sessions cleared: {}", e);
+                }
+            });
+        }
+    }
+
     fn update_state(
         &self,
         session_id: &str,

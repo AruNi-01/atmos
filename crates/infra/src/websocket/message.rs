@@ -390,6 +390,10 @@ pub enum WsAction {
     // ===== Code Agent Custom Settings =====
     /// Read ~/.atmos/agent/terminal_code_agent.json
     CodeAgentCustomGet,
+    /// Get agent behaviour settings (idle timeout, etc.)
+    AgentBehaviourSettingsGet,
+    /// Update agent behaviour settings
+    AgentBehaviourSettingsUpdate,
     /// Overwrite ~/.atmos/agent/terminal_code_agent.json
     CodeAgentCustomUpdate,
 
@@ -420,6 +424,8 @@ pub enum WsEvent {
     WorkspaceDeleteProgress,
     /// Agent hook 状态变更
     AgentHookStateChanged,
+    /// Idle agent hook sessions were cleared; payload contains removed session IDs
+    AgentHookSessionsCleared,
     /// Agent notification (permission request, task complete, etc.)
     AgentNotification,
     /// Current branch PR status should be refreshed
@@ -1585,6 +1591,11 @@ pub struct LlmProviderTestRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeAgentCustomUpdateRequest {
     pub agents: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentBehaviourSettingsUpdateRequest {
+    pub idle_session_timeout_mins: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

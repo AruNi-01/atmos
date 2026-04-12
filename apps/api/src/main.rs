@@ -123,6 +123,39 @@ fn spawn_non_critical_startup_tasks(
     });
 }
 
+/// Spawn the idle agent session cleanup task.
+/// Runs every 5 minutes; reads `idle_session_timeout_mins` from
+/// `~/.atmos/agent/terminal_code_agent.json` (default 30) each tick.
+fn spawn_idle_session_cleanup(agent_hooks_service: Arc<core_service::AgentHooksService>) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(5 * 60));
+        interval.tick().await; // skip the immediate first tick
+        loop {
+            interval.tick().await;
+            let timeout_mins = read_idle_session_timeout_mins();
+            agent_hooks_service.clear_idle_older_than(timeout_mins);
+        }
+    });
+}
+
+fn read_idle_session_timeout_mins() -> u64 {
+    const DEFAULT: u64 = 30;
+    let path = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".atmos")
+        .join("agent")
+        .join("terminal_code_agent.json");
+    let Ok(content) = std::fs::read_to_string(&path) else {
+        return DEFAULT;
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return DEFAULT;
+    };
+    val.get("idle_session_timeout_mins")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(DEFAULT)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
@@ -319,8 +352,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     spawn_non_critical_startup_tasks(
         agent_service_for_startup,
         project_service_for_startup,
-        agent_hooks_for_startup,
+        Arc::clone(&agent_hooks_for_startup),
     );
+    spawn_idle_session_cleanup(agent_hooks_for_startup);
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
