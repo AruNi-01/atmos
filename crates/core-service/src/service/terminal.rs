@@ -473,10 +473,15 @@ impl TerminalService {
             final_window_name, session_id
         );
 
+        // Use a stable pane ID based on workspace_id + window_name so that
+        // ATMOS_PANE_ID remains consistent across page reloads / reconnects.
+        // The frontend session_id is a per-connection UUID that changes on every
+        // reconnect, making it useless as a stable hook key.
+        let stable_pane_id = format!("{}:{}", workspace_id, final_window_name);
         let atmos_env_vars: Vec<(&str, &str)> = vec![
             ("ATMOS_MANAGED", "1"),
             ("ATMOS_CONTEXT_ID", &workspace_id),
-            ("ATMOS_PANE_ID", &session_id),
+            ("ATMOS_PANE_ID", &stable_pane_id),
         ];
         let window_index = self
             .tmux_engine
