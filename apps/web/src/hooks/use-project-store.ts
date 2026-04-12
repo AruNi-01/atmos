@@ -413,12 +413,6 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const newProject = mapProjectModel(newProjectModel, []);
       
       set(state => ({ projects: [...state.projects, newProject] }));
-      
-      toastManager.add({ 
-        title: 'Success', 
-        description: `Project "${newProject.name}" imported`, 
-        type: 'success' 
-      });
     } catch (error) {
       console.error('Error adding project:', error);
       toastManager.add({ 

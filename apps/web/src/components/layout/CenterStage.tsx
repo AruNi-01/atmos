@@ -377,20 +377,11 @@ const CenterStage: React.FC = () => {
     for (const file of closable) {
       closeFile(file.path, effectiveContextId || undefined);
     }
-
-    if (dirtyCount > 0) {
-      toastManager.add({
-        title: "Skipped unsaved tabs",
-        description: `${dirtyCount} tab(s) have unsaved changes and were not closed.`,
-        type: "warning",
-      });
-    }
   };
 
   const copyToClipboard = async (value: string, successTitle: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      toastManager.add({ title: successTitle, type: "success" });
     } catch {
       toastManager.add({
         title: "Copy failed",
