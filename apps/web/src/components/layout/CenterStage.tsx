@@ -136,24 +136,35 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
 const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
 
-function TerminalTabAgentIndicator() {
-  const globalState = useAgentHooksStore((s) => {
-    for (const session of s.sessions.values()) {
-      if (session.state === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
+// Inner component: only subscribes to agent store, receives pane IDs as stable prop.
+function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] }) {
+  const state = useAgentHooksStore((s) => {
+    if (stablePaneIds.length === 0) return AGENT_STATE.IDLE;
+    let hasRunning = false;
+    for (const stablePaneId of stablePaneIds) {
+      const paneState = s.getAgentStateForPaneId(stablePaneId);
+      if (paneState === AGENT_STATE.PERMISSION_REQUEST) return AGENT_STATE.PERMISSION_REQUEST;
+      if (paneState === AGENT_STATE.RUNNING) hasRunning = true;
     }
-    for (const session of s.sessions.values()) {
-      if (session.state === AGENT_STATE.RUNNING) return AGENT_STATE.RUNNING;
-    }
-    return AGENT_STATE.IDLE;
+    return hasRunning ? AGENT_STATE.RUNNING : AGENT_STATE.IDLE;
   });
-  if (globalState === AGENT_STATE.IDLE) return null;
-  return (
-    <AgentHookStatusIndicator
-      state={globalState}
-      variant="compact"
-      className="ml-0.5"
-    />
+  if (state === AGENT_STATE.IDLE) return null;
+  return <AgentHookStatusIndicator state={state} variant="compact" className="ml-0.5" />;
+}
+
+// Outer component: only subscribes to terminal store, passes stable string[]
+// to the inner component. Two separate subscriptions in two separate render
+// scopes — no closure dependency between stores, no infinite-update loop.
+function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { contextId: string; tabId: string }) {
+  const stablePaneIds = useTerminalStore(
+    useShallow((s) => {
+      const panes = s.getPanes(contextId, tabId);
+      return Object.values(panes)
+        .map((p) => (p.tmuxWindowName ? `${contextId}:${p.tmuxWindowName}` : null))
+        .filter((id): id is string => id !== null);
+    })
   );
+  return <TerminalTabAgentIndicator stablePaneIds={stablePaneIds} />;
 }
 
 function isTerminalCenterTabValue(value: string | null | undefined): value is string {
@@ -976,7 +987,7 @@ const CenterStage: React.FC = () => {
               />
             </span>
             <span className="text-[13px] font-medium whitespace-nowrap">Term</span>
-            <TerminalTabAgentIndicator />
+            {effectiveContextId && <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={FIXED_TERMINAL_TAB_VALUE} />}
 
             <DropdownMenu
               open={agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE}
@@ -1093,6 +1104,7 @@ const CenterStage: React.FC = () => {
                       />
                     </span>
                     <span className="text-[13px] font-medium whitespace-nowrap">{tab.title}</span>
+                    {effectiveContextId && <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />}
                     <DropdownMenu
                       open={agentDropdownTabId === tab.id}
                       onOpenChange={(open) => {
