@@ -153,8 +153,9 @@ interface TerminalStore {
 function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): string {
   const values = Object.values(existingPanes);
   const usedNames = new Set([
-     ...values.map(p => p.tmuxWindowName),
-     ...values.map(p => p.title)
+    ...values.map(p => p.tmuxWindowName),
+    ...values.map(p => p.title),
+    ...values.map(p => p.label),
   ].filter(Boolean));
   
   let num = 1;
@@ -179,10 +180,11 @@ function getUniqueAgentName(baseName: string, existingPanes: Record<string, Term
 
   const values = Object.values(existingPanes);
   const usedNames = new Set([
-     ...values.map(p => p.tmuxWindowName),
-     ...values.map(p => p.title)
+    ...values.map(p => p.tmuxWindowName),
+    ...values.map(p => p.title),
+    ...values.map(p => p.label),
   ].filter(Boolean));
-  
+
   // If base name is not used, return it directly
   if (!usedNames.has(baseName)) {
     return baseName;
@@ -359,11 +361,15 @@ function hydratePersistedTab(
   for (const [id, pane] of Object.entries(tab.panes)) {
     const windowName = pane.tmuxWindowName || pane.title || getNextWindowName(validatedPanes);
     const windowExists = existingWindowNames.has(windowName);
+    // Migration: old persisted panes (before `label` was added) don't have a label field.
+    // Cast to access the optional field without a TypeScript error, then fall back to title.
+    const persistedLabel = (pane as TerminalPaneProps & { label?: string }).label;
 
     validatedPanes[id] = {
       ...pane,
       workspaceId,
-      title: windowName,
+      label: persistedLabel ?? pane.title,  // preserved user-visible name, never overwritten
+      title: windowName,                     // tmux identifier (may drift via auto-rename)
       tmuxWindowName: windowName,
       sessionId: uuidv4(),
       isNewPane: !windowExists,
@@ -391,6 +397,7 @@ function createInitialLayout(
     panes: {
       [initialId]: {
         id: initialId,
+        label: windowName,
         title: windowName,
         sessionId: uuidv4(),
         workspaceId,
@@ -774,6 +781,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     
     const newPane: TerminalPaneProps = {
       id: newId,
+      label: windowName,
       title: windowName,
       sessionId: uuidv4(),
       workspaceId,
@@ -782,7 +790,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     };
 
     const nextPanes = { ...panes, [newId]: newPane };
-    
+
     let nextLayout: MosaicNode<string>;
     if (!layout) {
       nextLayout = newId;
@@ -868,6 +876,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     
     const newPane: TerminalPaneProps = {
       id: newId,
+      label: windowName,
       title: windowName,
       sessionId: uuidv4(),
       workspaceId,
@@ -1139,6 +1148,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           paneIds.push(id);
           panes[id] = {
             id,
+            label: win.name,
             title: win.name,
             sessionId: uuidv4(),
             workspaceId,
@@ -1252,6 +1262,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           for (const [id, pane] of Object.entries(panes)) {
             cleanPanes[id] = {
               id: pane.id,
+              label: pane.label,
               title: pane.title,
               workspaceId: pane.workspaceId,
               tmuxWindowName: pane.tmuxWindowName,
@@ -1314,23 +1325,25 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
     const panes = get().workspacePanes[scopeKey];
     if (!panes || !panes[paneId]) return;
-    
+
     const updatedPanes = {
       ...panes,
       [paneId]: {
         ...panes[paneId],
+        // Keep tmux identifiers in sync with the actual window name.
+        // Do NOT touch `label` — it is the immutable user-visible display name.
         tmuxWindowName,
         title: tmuxWindowName,
       },
     };
-    
+
     set((state) => ({
       workspacePanes: {
         ...state.workspacePanes,
         [scopeKey]: updatedPanes,
       },
     }));
-    
+
     get().saveToBackend(workspaceId);
   },
 
@@ -1395,6 +1408,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const newId = uuidv4();
     const newPane: TerminalPaneProps = {
       id: newId,
+      label: title,
       title,
       sessionId: uuidv4(),
       workspaceId,
@@ -1422,6 +1436,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const newId = uuidv4();
     const newPane: TerminalPaneProps = {
       id: newId,
+      label: PROJECT_WIKI_WINDOW_NAME + "-2",
       title: PROJECT_WIKI_WINDOW_NAME + "-2",
       sessionId: uuidv4(),
       workspaceId,
@@ -1495,6 +1510,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           const newId = uuidv4();
           const newPane: TerminalPaneProps = {
             id: newId,
+            label: PROJECT_WIKI_WINDOW_NAME,
             title: PROJECT_WIKI_WINDOW_NAME,
             sessionId: uuidv4(),
             workspaceId,
@@ -1572,6 +1588,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const newId = uuidv4();
     const newPane: TerminalPaneProps = {
       id: newId,
+      label: title,
       title,
       sessionId: uuidv4(),
       workspaceId,
@@ -1633,6 +1650,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           const newId = uuidv4();
           const newPane: TerminalPaneProps = {
             id: newId,
+            label: CODE_REVIEW_WINDOW_NAME,
             title: CODE_REVIEW_WINDOW_NAME,
             sessionId: uuidv4(),
             workspaceId,
@@ -1697,6 +1715,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const newId = uuidv4();
     const newPane: TerminalPaneProps = {
       id: newId,
+      label: CODE_REVIEW_WINDOW_NAME + "-2",
       title: CODE_REVIEW_WINDOW_NAME + "-2",
       sessionId: uuidv4(),
       workspaceId,

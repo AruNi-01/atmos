@@ -368,7 +368,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
 
-    const displayTitle = pane.dynamicTitle || pane.title;
+    // label is the immutable user-visible name; fall back to title for legacy panes.
+    const displayTitle = pane.dynamicTitle || pane.label || pane.title;
 
     return (
       <MosaicWindow<string>
@@ -379,16 +380,17 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         onDragEnd={() => setIsPaneDragging(false)}
         renderToolbar={() => {
           // Check displayTitle first (reflects active process name from shim CMD_START),
-          // then fall back to pane.title (the static label set when the pane was created).
+          // then fall back to pane.label (immutable user-visible name set at creation).
+          const staticLabel = pane.label || pane.title;
           const agentRegistryId =
             PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(displayTitle).toLowerCase()] ??
-            PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(pane.title).toLowerCase()];
+            PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(staticLabel).toLowerCase()];
 
           return (
             <div className="terminal-mosaic-toolbar group/toolbar">
               <div className="terminal-mosaic-toolbar-left">
                 {agentRegistryId ? (
-                  <AgentIcon registryId={agentRegistryId} name={pane.title} size={14} />
+                  <AgentIcon registryId={agentRegistryId} name={staticLabel} size={14} />
                 ) : (
                   <div className="size-2 rounded-full bg-emerald-500" />
                 )}

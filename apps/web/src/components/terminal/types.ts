@@ -60,6 +60,17 @@ export interface TerminalProps {
 
 export interface TerminalPaneProps {
   id: string;
+  /**
+   * User-visible display name. Set once at creation (e.g., "Claude Code", "Codex", "1").
+   * NEVER overwritten by tmux window name changes after initial creation.
+   * Persisted to backend. Falls back to `title` for legacy panes that predate this field.
+   */
+  label: string;
+  /**
+   * tmux window identifier used for session attach/create operations.
+   * Kept in sync with the actual tmux window name — may drift from `label`
+   * if tmux auto-renames the window.
+   */
   title: string;
   sessionId: string;
   workspaceId: string;
@@ -68,12 +79,12 @@ export interface TerminalPaneProps {
   projectName?: string;
   /** Workspace name for human-readable tmux session naming */
   workspaceName?: string;
-  /** 
+  /**
    * If true, this is a newly created pane that doesn't have a tmux window yet.
    * The Terminal will send terminal_name (to create) instead of tmux_window_name (to attach).
    */
   isNewPane?: boolean;
-  /** 
+  /**
    * Dynamic title from shell shim (e.g., running command name or current directory).
    * This is transient and NOT persisted to backend — only used for tab display.
    */
