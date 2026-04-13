@@ -26,11 +26,22 @@ import { Terminal, TerminalRef } from "./Terminal";
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
+import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
+
+// Hash map: normalized agent label → registry ID for O(1) pane title lookup
+const PANE_TITLE_TO_REGISTRY_ID: Record<string, string> = Object.fromEntries(
+  AGENT_OPTIONS.map((a) => [a.label.toLowerCase(), a.id])
+);
+
+// Strip the "-N" uniqueness suffix added by getUniqueAgentName (e.g. "Claude Code-2" → "Claude Code")
+function getBasePaneTitle(title: string): string {
+  return title.replace(/-\d+$/, "");
+}
 
 type TerminalGridScope = "default" | "project-wiki" | "code-review";
 
@@ -360,13 +371,16 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         onDragStart={() => setIsPaneDragging(true)}
         onDragEnd={() => setIsPaneDragging(false)}
         renderToolbar={() => {
-          const isClaude = pane.title.toLowerCase().includes("claude");
-          const statusColor = isClaude ? "bg-yellow-500" : "bg-emerald-500";
+          const agentRegistryId = PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(pane.title).toLowerCase()];
 
           return (
             <div className="terminal-mosaic-toolbar group/toolbar">
               <div className="terminal-mosaic-toolbar-left">
-                <div className={cn("size-2 rounded-full", statusColor)} />
+                {agentRegistryId ? (
+                  <AgentIcon registryId={agentRegistryId} name={pane.title} size={14} />
+                ) : (
+                  <div className="size-2 rounded-full bg-emerald-500" />
+                )}
 
                 <span className="terminal-mosaic-title flex items-center gap-1.5 ml-1">
                   {displayTitle}
