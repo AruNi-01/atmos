@@ -33,10 +33,17 @@ import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndi
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
 
-// Hash map: normalized agent label → registry ID for O(1) pane title lookup
-const PANE_TITLE_TO_REGISTRY_ID: Record<string, string> = Object.fromEntries(
-  AGENT_OPTIONS.map((a) => [a.label.toLowerCase(), a.id])
-);
+// Hash map: normalized string → registry ID for O(1) lookup.
+// Covers both agent labels (pane.title from createAndRunTerminal) and
+// process names (pane.dynamicTitle from shell shim CMD_START sequences).
+const PANE_TITLE_TO_REGISTRY_ID: Record<string, string> = {
+  // Labels — set as pane.title when launching an agent terminal
+  ...Object.fromEntries(AGENT_OPTIONS.map((a) => [a.label.toLowerCase(), a.id])),
+  // Primary commands — reported by the shim as CMD_START when the agent runs
+  ...Object.fromEntries(AGENT_OPTIONS.map((a) => [a.cmd.toLowerCase(), a.id])),
+  // Additional command aliases not captured above
+  "cursor-agent": "cursor",
+};
 
 // Strip the "-N" uniqueness suffix added by getUniqueAgentName (e.g. "Claude Code-2" → "Claude Code")
 function getBasePaneTitle(title: string): string {
@@ -371,7 +378,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         onDragStart={() => setIsPaneDragging(true)}
         onDragEnd={() => setIsPaneDragging(false)}
         renderToolbar={() => {
-          const agentRegistryId = PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(pane.title).toLowerCase()];
+          // Check displayTitle first (reflects active process name from shim CMD_START),
+          // then fall back to pane.title (the static label set when the pane was created).
+          const agentRegistryId =
+            PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(displayTitle).toLowerCase()] ??
+            PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(pane.title).toLowerCase()];
 
           return (
             <div className="terminal-mosaic-toolbar group/toolbar">
