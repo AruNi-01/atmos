@@ -22,6 +22,9 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -31,7 +34,7 @@ import {
   getFileIconProps,
   LayoutDashboard,
 } from "@workspace/ui";
-import { GitMergeIcon } from "lucide-react";
+import { GitMergeIcon, Rows4 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useEditorStore,
@@ -135,6 +138,11 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
 
 const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
+type TabGroupItem = {
+  id: string;
+  label: string;
+  value: string;
+};
 
 // Inner component: only subscribes to agent store, receives pane IDs as stable prop.
 function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] }) {
@@ -201,6 +209,7 @@ const CenterStage: React.FC = () => {
     y: number;
     filePath: string;
   } | null>(null);
+  const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);
 
   // Agent dropdown state
   const [agentDropdownTabId, setAgentDropdownTabId] = React.useState<string | null>(null);
@@ -813,6 +822,91 @@ const CenterStage: React.FC = () => {
     }
   }, [activeValue, closeTerminalTab, effectiveContextId, setUrlParams]);
 
+  const handleCenterStageTabChange = React.useCallback((val: string) => {
+    if (isTerminalCenterTabValue(val)) {
+      if (effectiveContextId) {
+        setActiveTerminalTab(effectiveContextId, val);
+      }
+      setUrlParams({ tab: val, wikiPage: null });
+      setActiveFile(null, effectiveContextId || undefined);
+    } else if (FIXED_TABS.has(val)) {
+      setFixedTab(val as FixedTab);
+      setActiveFile(null, effectiveContextId || undefined);
+    } else {
+      setActiveFile(val, effectiveContextId || undefined);
+      // Clear tab param when opening a file
+      setUrlParams({ tab: null, wikiPage: null });
+    }
+  }, [effectiveContextId, setActiveFile, setActiveTerminalTab, setFixedTab, setUrlParams]);
+
+  const groupedTabItems = React.useMemo(() => {
+    const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
+    const terminalTabsGroup: TabGroupItem[] = [];
+
+    terminalTabsGroup.push({
+      id: FIXED_TERMINAL_TAB_VALUE,
+      label: "Term",
+      value: FIXED_TERMINAL_TAB_VALUE,
+    });
+    visibleTerminalTabs
+      .filter((tab) => tab.id !== FIXED_TERMINAL_TAB_VALUE)
+      .forEach((tab) => {
+        terminalTabsGroup.push({
+          id: tab.id,
+          label: tab.title,
+          value: tab.id,
+        });
+      });
+    if (effectiveContextId && projectWikiTabVisible) {
+      terminalTabsGroup.push({
+        id: "project-wiki",
+        label: "Project Wiki",
+        value: "project-wiki",
+      });
+    }
+    if (effectiveContextId && codeReviewTabVisible) {
+      terminalTabsGroup.push({
+        id: "code-review",
+        label: "Code Review",
+        value: "code-review",
+      });
+    }
+    groups.push({ key: "term", label: "term", tabs: terminalTabsGroup });
+
+    const fixedTabsGroup: TabGroupItem[] = [];
+    if (effectiveContextId) {
+      fixedTabsGroup.push({ id: "overview", label: "Overview", value: "overview" });
+      fixedTabsGroup.push({ id: "wiki", label: "Wiki", value: "wiki" });
+    }
+    if (fixedTabsGroup.length > 0) {
+      groups.push({ key: "fixed", label: "view", tabs: fixedTabsGroup });
+    }
+
+    const fileTabsGroup = openFiles
+      .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
+      .map((file) => ({
+        id: file.path,
+        label: file.name,
+        value: file.path,
+      }));
+    if (fileTabsGroup.length > 0) {
+      groups.push({ key: "file", label: "file", tabs: fileTabsGroup });
+    }
+
+    const diffTabsGroup = openFiles
+      .filter((file) => isDiffEditorPath(file.path) || isConflictResolveEditorPath(file.path))
+      .map((file) => ({
+        id: file.path,
+        label: file.name,
+        value: file.path,
+      }));
+    if (diffTabsGroup.length > 0) {
+      groups.push({ key: "diff", label: "diff", tabs: diffTabsGroup });
+    }
+
+    return groups;
+  }, [codeReviewTabVisible, effectiveContextId, openFiles, projectWikiTabVisible, visibleTerminalTabs]);
+
   const { currentRepoPath } = useGitStore();
 
   // Derive workspace and project info for OverviewTab
@@ -889,22 +983,7 @@ const CenterStage: React.FC = () => {
     <main className="h-full flex flex-col overflow-hidden">
       <Tabs
         value={activeValue}
-        onValueChange={(val) => {
-          if (isTerminalCenterTabValue(val)) {
-            if (effectiveContextId) {
-              setActiveTerminalTab(effectiveContextId, val);
-            }
-            setUrlParams({ tab: val, wikiPage: null });
-            setActiveFile(null, effectiveContextId || undefined);
-          } else if (FIXED_TABS.has(val)) {
-            setFixedTab(val as FixedTab);
-            setActiveFile(null, effectiveContextId || undefined);
-          } else {
-            setActiveFile(val, effectiveContextId || undefined);
-            // Clear tab param when opening a file
-            setUrlParams({ tab: null, wikiPage: null });
-          }
-        }}
+        onValueChange={handleCenterStageTabChange}
         className="flex-1 flex flex-col gap-0 min-h-0 overflow-hidden"
       >
         {/* Top Tab Bar */}
@@ -1358,6 +1437,53 @@ const CenterStage: React.FC = () => {
               </Tooltip>
             );
           })}
+          </div>
+          <div className="sticky right-0 z-20 flex h-full shrink-0 items-center border-l border-sidebar-border/70 bg-background/95 px-1 backdrop-blur-sm">
+            <Popover open={tabGroupPopoverOpen} onOpenChange={setTabGroupPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  aria-label="Open tab groups"
+                >
+                  <Rows4 className="size-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[320px] p-2">
+                <div className="max-h-80 overflow-auto">
+                  <div className="flex min-w-[420px] flex-col gap-2">
+                    {groupedTabItems.map((group) => (
+                      <div key={group.key} className="rounded-md border border-border/70 bg-muted/20">
+                        <div className="border-b border-border/60 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {group.label}
+                        </div>
+                        <div className="flex flex-col gap-1 p-1">
+                          {group.tabs.map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => {
+                                handleCenterStageTabChange(tab.value);
+                                setTabGroupPopoverOpen(false);
+                              }}
+                              className={cn(
+                                "w-full rounded-sm px-2 py-1.5 text-left text-xs transition-colors",
+                                activeValue === tab.value
+                                  ? "bg-accent text-accent-foreground"
+                                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                              )}
+                            >
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </TabsList>
 
