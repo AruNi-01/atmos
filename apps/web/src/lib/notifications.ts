@@ -9,8 +9,11 @@ export interface AppNotificationPayload {
 
 export interface BrowserNotificationOptions {
   tag?: string;
+  icon?: string;
   requireInteraction?: boolean;
 }
+
+const DEFAULT_NOTIFICATION_ICON = "/notification-icon.png";
 
 export async function requestBrowserNotificationPermission(): Promise<boolean> {
   if (typeof window === "undefined" || !("Notification" in window)) return false;
@@ -29,7 +32,7 @@ export function showBrowserNotification(
 
   new Notification(payload.title, {
     body: payload.body,
-    icon: "/icon-192.png",
+    icon: options.icon ?? DEFAULT_NOTIFICATION_ICON,
     tag: options.tag,
     requireInteraction: options.requireInteraction,
   });
