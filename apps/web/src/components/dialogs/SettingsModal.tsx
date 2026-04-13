@@ -69,7 +69,11 @@ import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { settingsModalParams } from '@/lib/nuqs/searchParams';
 import { useNotificationSettings, type PushServerConfig, type PushServerType } from '@/hooks/use-notification-settings';
-import { ensureBrowserNotificationPermission } from '@/hooks/use-agent-notifications';
+import {
+  requestBrowserNotificationPermission,
+  sendBrowserNotification,
+  showDesktopNotification,
+} from '@/lib/notifications';
 import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
 
 interface SettingsModalProps {
@@ -360,12 +364,19 @@ const PUSH_SERVER_TYPE_OPTIONS: { value: PushServerType; label: string; descript
   { value: 'custom_webhook', label: 'Custom Webhook', description: 'Send to any HTTP endpoint' },
 ];
 
+const TEST_NOTIFICATION_PAYLOAD = {
+  title: 'Atmos Test Notification',
+  body: 'This is a test notification from Atmos.',
+};
+
 function NotifySettingsSection({
   settings,
   isLoading,
   isSaving,
   onToggleBrowser,
   onToggleDesktop,
+  onTestBrowser,
+  onTestDesktop,
   onTogglePermissionRequest,
   onToggleTaskComplete,
   onAddPushServer,
@@ -378,6 +389,8 @@ function NotifySettingsSection({
   isSaving: boolean;
   onToggleBrowser: (checked: boolean) => void;
   onToggleDesktop: (checked: boolean) => void;
+  onTestBrowser: () => Promise<boolean>;
+  onTestDesktop: () => Promise<boolean>;
   onTogglePermissionRequest: (checked: boolean) => void;
   onToggleTaskComplete: (checked: boolean) => void;
   onAddPushServer: (server: PushServerConfig) => Promise<void>;
@@ -387,6 +400,7 @@ function NotifySettingsSection({
 }) {
   const [pushServersExpanded, setPushServersExpanded] = React.useState(false);
   const [testingServerId, setTestingServerId] = React.useState<string | null>(null);
+  const [testingLocalChannel, setTestingLocalChannel] = React.useState<'browser' | 'desktop' | null>(null);
   const [pushServerLocalById, setPushServerLocalById] = React.useState<Record<string, PushServerConfig>>({});
 
   React.useEffect(() => {
@@ -479,6 +493,30 @@ function NotifySettingsSection({
     }
   };
 
+  const handleTestLocalChannel = async (channel: 'browser' | 'desktop') => {
+    setTestingLocalChannel(channel);
+    let ok = false;
+    try {
+      ok = channel === 'browser' ? await onTestBrowser() : await onTestDesktop();
+    } finally {
+      setTestingLocalChannel(null);
+    }
+
+    if (ok) {
+      toastManager.add({ title: 'Test notification sent', type: 'success' });
+      return;
+    }
+
+    toastManager.add({
+      title: 'Test failed',
+      description:
+        channel === 'browser'
+          ? 'Please allow notifications in your browser settings.'
+          : 'The desktop app could not send a system notification.',
+      type: 'error',
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -500,14 +538,25 @@ function NotifySettingsSection({
 
         <div className="border-t border-border px-4">
           <div className="border-b border-border px-2 py-4 last:border-b-0">
-            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+            <div className="grid grid-cols-[minmax(0,1fr)_160px] gap-8">
               <div>
                 <p className="text-sm font-medium text-foreground">Browser notifications</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Show native browser notifications when agents need attention.
                 </p>
               </div>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-end gap-2">
+                {settings.browser_notification && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={() => void handleTestLocalChannel('browser')}
+                    disabled={testingLocalChannel === 'browser'}
+                  >
+                    {testingLocalChannel === 'browser' ? 'Testing...' : 'Test'}
+                  </Button>
+                )}
                 <Switch
                   checked={settings.browser_notification}
                   onCheckedChange={onToggleBrowser}
@@ -519,14 +568,25 @@ function NotifySettingsSection({
 
           {isTauriRuntime() && (
             <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div className="grid grid-cols-[minmax(0,1fr)_160px] gap-8">
                 <div>
                   <p className="text-sm font-medium text-foreground">Desktop notifications</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Show system-level notifications via the desktop app.
                   </p>
                 </div>
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-end gap-2">
+                  {settings.desktop_notification && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => void handleTestLocalChannel('desktop')}
+                      disabled={testingLocalChannel === 'desktop'}
+                    >
+                      {testingLocalChannel === 'desktop' ? 'Testing...' : 'Test'}
+                    </Button>
+                  )}
                   <Switch
                     checked={settings.desktop_notification}
                     onCheckedChange={onToggleDesktop}
@@ -2479,7 +2539,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     isSaving={isNotifySaving}
                     onToggleBrowser={async (checked) => {
                       if (checked) {
-                        const granted = await ensureBrowserNotificationPermission();
+                        const granted = await requestBrowserNotificationPermission();
                         if (!granted) {
                           toastManager.add({
                             title: 'Browser notification permission denied',
@@ -2492,6 +2552,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       void updateNotifyField('browser_notification', checked);
                     }}
                     onToggleDesktop={(checked) => void updateNotifyField('desktop_notification', checked)}
+                    onTestBrowser={() => sendBrowserNotification(TEST_NOTIFICATION_PAYLOAD)}
+                    onTestDesktop={() => showDesktopNotification(TEST_NOTIFICATION_PAYLOAD)}
                     onTogglePermissionRequest={(checked) => void updateNotifyField('notify_on_permission_request', checked)}
                     onToggleTaskComplete={(checked) => void updateNotifyField('notify_on_task_complete', checked)}
                     onAddPushServer={addPushServer}
