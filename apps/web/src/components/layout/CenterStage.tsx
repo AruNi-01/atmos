@@ -27,6 +27,7 @@ import {
   PopoverTrigger,
   DndContext,
   type DragEndEvent,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -37,6 +38,7 @@ import {
   CSS,
   arrayMove,
   restrictToVerticalAxis,
+  sortableKeyboardCoordinates,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -166,7 +168,23 @@ function readTabGroupOrderStorage(): TabGroupOrderByContext {
   try {
     const raw = window.sessionStorage.getItem(TAB_GROUP_ORDER_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" ? parsed as TabGroupOrderByContext : {};
+    if (!parsed || typeof parsed !== "object") return {};
+
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).map(([contextId, groups]) => [
+        contextId,
+        groups && typeof groups === "object"
+          ? Object.fromEntries(
+              Object.entries(groups as Record<string, unknown>).map(([groupKey, savedOrder]) => [
+                groupKey,
+                Array.isArray(savedOrder)
+                  ? savedOrder.filter((item): item is string => typeof item === "string")
+                  : [],
+              ])
+            )
+          : {},
+      ])
+    ) as TabGroupOrderByContext;
   } catch {
     return {};
   }
@@ -183,9 +201,12 @@ function writeTabGroupOrderStorage(orderByContext: TabGroupOrderByContext) {
 }
 
 function applySavedTabGroupOrder(group: { key: string; label: string; tabs: TabGroupItem[] }, savedOrder?: string[]) {
-  if (!savedOrder?.length) return group;
+  const normalizedSavedOrder = Array.isArray(savedOrder)
+    ? savedOrder.filter((item): item is string => typeof item === "string")
+    : [];
+  if (!normalizedSavedOrder.length) return group;
 
-  const orderIndex = new Map(savedOrder.map((id, index) => [id, index]));
+  const orderIndex = new Map(normalizedSavedOrder.map((id, index) => [id, index]));
   return {
     ...group,
     tabs: [...group.tabs].sort((left, right) => {
@@ -297,10 +318,16 @@ function SortableTabGroupItem({
       {closable ? (
         <span
           role="button"
-          tabIndex={-1}
+          tabIndex={0}
           aria-label={`Close ${tab.label}`}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
             event.stopPropagation();
             onClose();
           }}
@@ -352,6 +379,7 @@ const CenterStage: React.FC = () => {
     React.useState<TabGroupOrderByContext>(() => readTabGroupOrderStorage());
   const tabGroupDndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   // Agent dropdown state
@@ -1082,8 +1110,8 @@ const CenterStage: React.FC = () => {
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem, isActive: boolean) => {
     const textClassName = cn(
       "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
-      tab.kind === "diff" && !isActive && "text-emerald-500",
-      tab.kind === "conflict" && !isActive && "text-amber-500",
+      tab.kind === "diff" && !isActive && "text-success-foreground",
+      tab.kind === "conflict" && !isActive && "text-warning-foreground",
       tab.file?.isPreview && "italic",
     );
 
@@ -1117,7 +1145,7 @@ const CenterStage: React.FC = () => {
     if (tab.kind === "code-review") {
       return (
         <>
-          <TerminalIcon className="size-3.5 shrink-0 text-blue-500" />
+          <TerminalIcon className="size-3.5 shrink-0 text-primary-foreground" />
           <span className={textClassName}>{tab.label}</span>
         </>
       );
@@ -1142,9 +1170,9 @@ const CenterStage: React.FC = () => {
     return (
       <>
         {tab.kind === "diff" ? (
-          <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+          <GitCompare className="size-3.5 shrink-0 text-success-foreground" />
         ) : tab.kind === "conflict" ? (
-          <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+          <GitMergeIcon className="size-3.5 shrink-0 text-warning-foreground" />
         ) : (
           <FileIcon name={tab.file.name} className="size-3.5 shrink-0" />
         )}
