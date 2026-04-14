@@ -48,7 +48,7 @@ import {
   getFileIconProps,
   LayoutDashboard,
 } from "@workspace/ui";
-import { GitMergeIcon, GripVertical, Rows4 } from "lucide-react";
+import { GitMergeIcon, GripVertical, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useEditorStore,
@@ -297,7 +297,7 @@ function SortableTabGroupItem({
         transition,
       }}
       className={cn(
-        "group/tab-item relative flex h-10 w-full min-w-max cursor-pointer items-center gap-1.5 rounded-md pl-2 pr-3 text-left transition-colors",
+        "group/tab-item relative flex h-10 w-full min-w-max cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left transition-colors",
         isActive
           ? "bg-sidebar-accent text-sidebar-foreground shadow-xs hover:bg-sidebar-accent"
           : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
@@ -331,7 +331,7 @@ function SortableTabGroupItem({
             event.stopPropagation();
             onClose();
           }}
-          className="ml-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
+          className="ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
         >
           <X className="size-3" />
         </span>
@@ -1013,50 +1013,30 @@ const CenterStage: React.FC = () => {
   const groupedTabItems = React.useMemo(() => {
     const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
 
-    const fixedTabsGroup: TabGroupItem[] = [];
-    if (effectiveContextId) {
-      fixedTabsGroup.push({ id: "overview", label: "Overview", value: "overview", kind: "overview" });
-      fixedTabsGroup.push({ id: "wiki", label: "Wiki", value: "wiki", kind: "wiki" });
-    }
-    if (fixedTabsGroup.length > 0) {
-      groups.push({ key: "fixed", label: "View", tabs: fixedTabsGroup });
-    }
-
-    const terminalTabsGroup: TabGroupItem[] = [];
-
-    terminalTabsGroup.push({
-      id: FIXED_TERMINAL_TAB_VALUE,
-      label: "Term",
-      value: FIXED_TERMINAL_TAB_VALUE,
-      kind: "terminal",
-    });
-    visibleTerminalTabs
-      .filter((tab) => tab.id !== FIXED_TERMINAL_TAB_VALUE)
-      .forEach((tab) => {
-        terminalTabsGroup.push({
-          id: tab.id,
-          label: tab.title,
-          value: tab.id,
-          kind: "terminal",
-        });
-      });
     if (effectiveContextId && projectWikiTabVisible) {
-      terminalTabsGroup.push({
-        id: "project-wiki",
+      groups.push({
+        key: "project-wiki",
         label: "Project Wiki",
-        value: "project-wiki",
-        kind: "project-wiki",
+        tabs: [{
+          id: "project-wiki",
+          label: "Project Wiki",
+          value: "project-wiki",
+          kind: "project-wiki",
+        }],
       });
     }
     if (effectiveContextId && codeReviewTabVisible) {
-      terminalTabsGroup.push({
-        id: "code-review",
+      groups.push({
+        key: "code-review",
         label: "Code Review",
-        value: "code-review",
-        kind: "code-review",
+        tabs: [{
+          id: "code-review",
+          label: "Code Review",
+          value: "code-review",
+          kind: "code-review",
+        }],
       });
     }
-    groups.push({ key: "term", label: "Terminal", tabs: terminalTabsGroup });
 
     const fileTabsGroup = openFiles
       .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
@@ -1782,7 +1762,7 @@ const CenterStage: React.FC = () => {
                   className="h-full rounded-none border-0 px-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
                   aria-label="Open tab groups"
                 >
-                  <Rows4 className="size-4" />
+                  <List className="size-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] border-border/70 bg-popover/68 p-2 shadow-xl backdrop-blur-2xl">
@@ -1791,14 +1771,14 @@ const CenterStage: React.FC = () => {
                     {orderedGroupedTabItems.map((group) => (
                       <section
                         key={group.key}
-                        className="flex max-h-[396px] min-h-0 min-w-40 max-w-80 flex-col overflow-hidden rounded-md border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72"
+                        className="flex max-h-[396px] min-h-0 w-fit flex-col overflow-hidden rounded-md border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72"
                       >
                         <header className="sticky top-0 z-10 h-10 shrink-0 px-3">
                           <div className="flex h-full items-center text-[11px] font-semibold tracking-wide text-muted-foreground">
                             {group.label}
                           </div>
                         </header>
-                        <div className="scrollbar-on-hover min-h-0 flex-1 space-y-1 overflow-y-auto p-2 pt-0">
+                        <div className="scrollbar-on-hover min-h-0 flex-1 w-full space-y-1 overflow-y-auto p-2 pt-0">
                           <DndContext
                             sensors={tabGroupDndSensors}
                             collisionDetection={closestCenter}
@@ -1809,22 +1789,24 @@ const CenterStage: React.FC = () => {
                               items={group.tabs.map((tab) => tab.id)}
                               strategy={verticalListSortingStrategy}
                             >
-                              {group.tabs.map((tab) => (
-                                <SortableTabGroupItem
-                                  key={tab.id}
-                                  groupKey={group.key}
-                                  tab={tab}
-                                  isActive={activeValue === tab.value}
-                                  closable={isTabGroupItemClosable(tab)}
-                                  onSelect={() => {
-                                    handleCenterStageTabChange(tab.value);
-                                    setTabGroupPopoverOpen(false);
-                                  }}
-                                  onClose={() => handleCloseTabGroupItem(tab)}
-                                >
-                                  {renderTabGroupItemContent(tab, activeValue === tab.value)}
-                                </SortableTabGroupItem>
-                              ))}
+                              <div className="w-fit">
+                                {group.tabs.map((tab) => (
+                                  <SortableTabGroupItem
+                                    key={tab.id}
+                                    groupKey={group.key}
+                                    tab={tab}
+                                    isActive={activeValue === tab.value}
+                                    closable={isTabGroupItemClosable(tab)}
+                                    onSelect={() => {
+                                      handleCenterStageTabChange(tab.value);
+                                      setTabGroupPopoverOpen(false);
+                                    }}
+                                    onClose={() => handleCloseTabGroupItem(tab)}
+                                  >
+                                    {renderTabGroupItemContent(tab, activeValue === tab.value)}
+                                  </SortableTabGroupItem>
+                                ))}
+                              </div>
                             </SortableContext>
                           </DndContext>
                         </div>
