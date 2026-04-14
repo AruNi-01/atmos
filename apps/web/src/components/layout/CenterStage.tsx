@@ -1110,8 +1110,8 @@ const CenterStage: React.FC = () => {
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem, isActive: boolean) => {
     const textClassName = cn(
       "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
-      tab.kind === "diff" && !isActive && "text-success-foreground",
-      tab.kind === "conflict" && !isActive && "text-warning-foreground",
+      tab.kind === "diff" && !isActive && "text-success",
+      tab.kind === "conflict" && !isActive && "text-warning",
       tab.file?.isPreview && "italic",
     );
 
