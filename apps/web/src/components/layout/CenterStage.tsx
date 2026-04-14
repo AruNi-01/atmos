@@ -1145,7 +1145,7 @@ const CenterStage: React.FC = () => {
     if (tab.kind === "code-review") {
       return (
         <>
-          <TerminalIcon className="size-3.5 shrink-0 text-primary-foreground" />
+          <TerminalIcon className="size-3.5 shrink-0 text-primary" />
           <span className={textClassName}>{tab.label}</span>
         </>
       );
