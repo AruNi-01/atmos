@@ -1065,8 +1065,8 @@ const CenterStage: React.FC = () => {
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem, isActive: boolean) => {
     const textClassName = cn(
       "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
-      tab.kind === "diff" && !isActive && "text-success-foreground",
-      tab.kind === "conflict" && !isActive && "text-warning-foreground",
+      tab.kind === "diff" && !isActive && "text-success",
+      tab.kind === "conflict" && !isActive && "text-warning",
       tab.file?.isPreview && "italic",
     );
 
@@ -1100,7 +1100,7 @@ const CenterStage: React.FC = () => {
     if (tab.kind === "code-review") {
       return (
         <>
-          <TerminalIcon className="size-3.5 shrink-0 text-primary-foreground" />
+          <TerminalIcon className="size-3.5 shrink-0 text-primary" />
           <span className={textClassName}>{tab.label}</span>
         </>
       );
@@ -1125,9 +1125,9 @@ const CenterStage: React.FC = () => {
     return (
       <>
         {tab.kind === "diff" ? (
-          <GitCompare className="size-3.5 shrink-0 text-success-foreground" />
+          <GitCompare className="size-3.5 shrink-0 text-success" />
         ) : tab.kind === "conflict" ? (
-          <GitMergeIcon className="size-3.5 shrink-0 text-warning-foreground" />
+          <GitMergeIcon className="size-3.5 shrink-0 text-warning" />
         ) : (
           <FileIcon name={tab.file.name} className="size-3.5 shrink-0" />
         )}
