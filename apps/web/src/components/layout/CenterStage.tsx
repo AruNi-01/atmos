@@ -1170,9 +1170,9 @@ const CenterStage: React.FC = () => {
     return (
       <>
         {tab.kind === "diff" ? (
-          <GitCompare className="size-3.5 shrink-0 text-success-foreground" />
+          <GitCompare className="size-3.5 shrink-0 text-success" />
         ) : tab.kind === "conflict" ? (
-          <GitMergeIcon className="size-3.5 shrink-0 text-warning-foreground" />
+          <GitMergeIcon className="size-3.5 shrink-0 text-warning" />
         ) : (
           <FileIcon name={tab.file.name} className="size-3.5 shrink-0" />
         )}
