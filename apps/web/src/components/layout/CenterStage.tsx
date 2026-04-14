@@ -22,6 +22,23 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  CSS,
+  arrayMove,
+  restrictToVerticalAxis,
+  sortableKeyboardCoordinates,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -31,7 +48,7 @@ import {
   getFileIconProps,
   LayoutDashboard,
 } from "@workspace/ui";
-import { GitMergeIcon } from "lucide-react";
+import { GitMergeIcon, GripVertical, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useEditorStore,
@@ -135,6 +152,73 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
 
 const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
 const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
+const TAB_GROUP_ORDER_STORAGE_KEY = "atmos-center-tab-group-order-by-context";
+type TabGroupItem = {
+  id: string;
+  label: string;
+  value: string;
+  kind: "overview" | "wiki" | "terminal" | "project-wiki" | "code-review" | "file" | "diff" | "conflict";
+  file?: OpenFile;
+};
+type TabGroupOrderByContext = Record<string, Record<string, string[]>>;
+
+function readTabGroupOrderStorage(): TabGroupOrderByContext {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.sessionStorage.getItem(TAB_GROUP_ORDER_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== "object") return {};
+
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).map(([contextId, groups]) => [
+        contextId,
+        groups && typeof groups === "object"
+          ? Object.fromEntries(
+              Object.entries(groups as Record<string, unknown>).map(([groupKey, savedOrder]) => [
+                groupKey,
+                Array.isArray(savedOrder)
+                  ? savedOrder.filter((item): item is string => typeof item === "string")
+                  : [],
+              ])
+            )
+          : {},
+      ])
+    ) as TabGroupOrderByContext;
+  } catch {
+    return {};
+  }
+}
+
+function writeTabGroupOrderStorage(orderByContext: TabGroupOrderByContext) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(TAB_GROUP_ORDER_STORAGE_KEY, JSON.stringify(orderByContext));
+  } catch {
+    // Ignore storage quota/privacy failures; ordering still works for this render.
+  }
+}
+
+function applySavedTabGroupOrder(group: { key: string; label: string; tabs: TabGroupItem[] }, savedOrder?: string[]) {
+  const normalizedSavedOrder = Array.isArray(savedOrder)
+    ? savedOrder.filter((item): item is string => typeof item === "string")
+    : [];
+  if (!normalizedSavedOrder.length) return group;
+
+  const orderIndex = new Map(normalizedSavedOrder.map((id, index) => [id, index]));
+  return {
+    ...group,
+    tabs: [...group.tabs].sort((left, right) => {
+      const leftIndex = orderIndex.get(left.id);
+      const rightIndex = orderIndex.get(right.id);
+      if (leftIndex === undefined && rightIndex === undefined) return 0;
+      if (leftIndex === undefined) return 1;
+      if (rightIndex === undefined) return -1;
+      return leftIndex - rightIndex;
+    }),
+  };
+}
 
 // Inner component: only subscribes to agent store, receives pane IDs as stable prop.
 function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] }) {
@@ -165,6 +249,94 @@ function TerminalTabAgentIndicatorWithPanes({ contextId, tabId }: { contextId: s
     })
   );
   return <TerminalTabAgentIndicator stablePaneIds={stablePaneIds} />;
+}
+
+function SortableTabGroupItem({
+  groupKey,
+  tab,
+  isActive,
+  children,
+  closable,
+  onSelect,
+  onClose,
+}: {
+  groupKey: string;
+  tab: TabGroupItem;
+  isActive: boolean;
+  children: React.ReactNode;
+  closable: boolean;
+  onSelect: () => void;
+  onClose: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: tab.id,
+    data: { groupKey },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelect();
+      }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn(
+        "group/tab-item relative flex h-10 w-full min-w-max cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors",
+        "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
+        isActive && "bg-muted/40 hover:bg-sidebar-accent/70",
+        isDragging && "z-10 opacity-70 shadow-md"
+      )}
+    >
+      <span
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        className="-ml-0.5 -mr-1.5 flex size-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground opacity-0 transition-colors hover:text-foreground active:cursor-grabbing group-hover/tab-item:opacity-100"
+        aria-label={`Drag ${tab.label}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <GripVertical className="size-3" />
+      </span>
+      {children}
+      {closable ? (
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`Close ${tab.label}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          }}
+          className="ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
+        >
+          <X className="size-3" />
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function isTerminalCenterTabValue(value: string | null | undefined): value is string {
@@ -201,6 +373,13 @@ const CenterStage: React.FC = () => {
     y: number;
     filePath: string;
   } | null>(null);
+  const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);
+  const [tabGroupOrderByContext, setTabGroupOrderByContext] =
+    React.useState<TabGroupOrderByContext>(() => readTabGroupOrderStorage());
+  const tabGroupDndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   // Agent dropdown state
   const [agentDropdownTabId, setAgentDropdownTabId] = React.useState<string | null>(null);
@@ -813,7 +992,212 @@ const CenterStage: React.FC = () => {
     }
   }, [activeValue, closeTerminalTab, effectiveContextId, setUrlParams]);
 
+  const handleCenterStageTabChange = React.useCallback((val: string) => {
+    if (isTerminalCenterTabValue(val)) {
+      if (effectiveContextId) {
+        setActiveTerminalTab(effectiveContextId, val);
+      }
+      setUrlParams({ tab: val, wikiPage: null });
+      setActiveFile(null, effectiveContextId || undefined);
+    } else if (FIXED_TABS.has(val)) {
+      setFixedTab(val as FixedTab);
+      setActiveFile(null, effectiveContextId || undefined);
+    } else {
+      setActiveFile(val, effectiveContextId || undefined);
+      // Clear tab param when opening a file
+      setUrlParams({ tab: null, wikiPage: null });
+    }
+  }, [effectiveContextId, setActiveFile, setActiveTerminalTab, setFixedTab, setUrlParams]);
+
+  const groupedTabItems = React.useMemo(() => {
+    const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
+
+    const fileTabsGroup = openFiles
+      .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
+      .map((file) => ({
+        id: file.path,
+        label: file.name,
+        value: file.path,
+        kind: "file" as const,
+        file,
+      }));
+    if (fileTabsGroup.length > 0) {
+      groups.push({ key: "file", label: "File", tabs: fileTabsGroup });
+    }
+
+    const diffTabsGroup = openFiles
+      .filter((file) => isDiffEditorPath(file.path))
+      .map((file) => ({
+        id: file.path,
+        label: file.name,
+        value: file.path,
+        kind: "diff" as const,
+        file,
+      }));
+    if (diffTabsGroup.length > 0) {
+      groups.push({ key: "diff", label: "Diff", tabs: diffTabsGroup });
+    }
+
+    const conflictTabsGroup = openFiles
+      .filter((file) => isConflictResolveEditorPath(file.path))
+      .map((file) => ({
+        id: file.path,
+        label: file.name,
+        value: file.path,
+        kind: "conflict" as const,
+        file,
+      }));
+    if (conflictTabsGroup.length > 0) {
+      groups.push({ key: "conflict", label: "Conflict Resolve", tabs: conflictTabsGroup });
+    }
+
+    return groups;
+  }, [codeReviewTabVisible, effectiveContextId, openFiles, projectWikiTabVisible, visibleTerminalTabs]);
+
+  const orderedGroupedTabItems = React.useMemo(() => {
+    const contextOrder = effectiveContextId ? tabGroupOrderByContext[effectiveContextId] : undefined;
+    return groupedTabItems.map((group) => applySavedTabGroupOrder(group, contextOrder?.[group.key]));
+  }, [effectiveContextId, groupedTabItems, tabGroupOrderByContext]);
+
   const { currentRepoPath } = useGitStore();
+
+  const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem, isActive: boolean) => {
+    const textClassName = cn(
+      "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
+      tab.kind === "diff" && "text-emerald-500",
+      tab.kind === "conflict" && "text-amber-500",
+      tab.file?.isPreview && "italic",
+    );
+
+    if (tab.kind === "overview") {
+      return (
+        <>
+          <LayoutDashboard className="size-3.5 shrink-0" />
+          <span className={textClassName}>{tab.label}</span>
+        </>
+      );
+    }
+
+    if (tab.kind === "wiki") {
+      return (
+        <>
+          <BookOpen className="size-3.5 shrink-0" />
+          <span className={textClassName}>{tab.label}</span>
+        </>
+      );
+    }
+
+    if (tab.kind === "project-wiki") {
+      return (
+        <>
+          <TerminalIcon className="size-3.5 shrink-0" />
+          <span className={textClassName}>{tab.label}</span>
+        </>
+      );
+    }
+
+    if (tab.kind === "code-review") {
+      return (
+        <>
+          <TerminalIcon className="size-3.5 shrink-0 text-primary" />
+          <span className={textClassName}>{tab.label}</span>
+        </>
+      );
+    }
+
+    if (tab.kind === "terminal") {
+      return (
+        <>
+          <TerminalIcon className="size-3.5 shrink-0" />
+          <span className={textClassName}>{tab.label}</span>
+          {effectiveContextId ? (
+            <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
+          ) : null}
+        </>
+      );
+    }
+
+    if (!tab.file) {
+      return <span className={textClassName}>{tab.label}</span>;
+    }
+
+    return (
+      <>
+        {tab.kind === "diff" ? (
+          <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+        ) : tab.kind === "conflict" ? (
+          <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+        ) : (
+          <FileIcon name={tab.file.name} className="size-3.5 shrink-0" />
+        )}
+        <span className={textClassName}>{tab.file.name}</span>
+        <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+          {tab.file.isDirty ? <Circle className="size-1.5 fill-current text-muted-foreground" /> : null}
+        </span>
+      </>
+    );
+  }, [effectiveContextId]);
+
+  const isTabGroupItemClosable = React.useCallback((tab: TabGroupItem) => {
+    return (
+      (tab.kind === "terminal" && tab.value !== FIXED_TERMINAL_TAB_VALUE) ||
+      tab.kind === "project-wiki" ||
+      tab.kind === "code-review" ||
+      tab.kind === "file" ||
+      tab.kind === "diff" ||
+      tab.kind === "conflict"
+    );
+  }, []);
+
+  const handleCloseTabGroupItem = React.useCallback((tab: TabGroupItem) => {
+    if (tab.kind === "terminal" && tab.value !== FIXED_TERMINAL_TAB_VALUE) {
+      handleCloseTerminalCenterTab(tab.value);
+      return;
+    }
+
+    if (tab.kind === "project-wiki") {
+      setProjectWikiCloseConfirmOpen(true);
+      return;
+    }
+
+    if (tab.kind === "code-review") {
+      setCodeReviewCloseConfirmOpen(true);
+      return;
+    }
+
+    if (tab.file) {
+      handleCloseFile(tab.file);
+    }
+  }, [handleCloseFile, handleCloseTerminalCenterTab]);
+
+  const handleTabGroupDragEnd = React.useCallback((event: DragEndEvent) => {
+    if (!effectiveContextId || !event.over || event.active.id === event.over.id) return;
+
+    const activeGroupKey = event.active.data.current?.groupKey;
+    const overGroupKey = event.over.data.current?.groupKey;
+    if (typeof activeGroupKey !== "string" || activeGroupKey !== overGroupKey) return;
+
+    const group = orderedGroupedTabItems.find((item) => item.key === activeGroupKey);
+    if (!group) return;
+
+    const ids = group.tabs.map((tab) => tab.id);
+    const oldIndex = ids.indexOf(String(event.active.id));
+    const newIndex = ids.indexOf(String(event.over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const nextOrder = arrayMove(ids, oldIndex, newIndex);
+    setTabGroupOrderByContext((current) => {
+      const next: TabGroupOrderByContext = {
+        ...current,
+        [effectiveContextId]: {
+          ...(current[effectiveContextId] ?? {}),
+          [activeGroupKey]: nextOrder,
+        },
+      };
+      writeTabGroupOrderStorage(next);
+      return next;
+    });
+  }, [effectiveContextId, orderedGroupedTabItems]);
 
   // Derive workspace and project info for OverviewTab
   const { currentProject, currentWorkspace } = (() => {
@@ -889,22 +1273,7 @@ const CenterStage: React.FC = () => {
     <main className="h-full flex flex-col overflow-hidden">
       <Tabs
         value={activeValue}
-        onValueChange={(val) => {
-          if (isTerminalCenterTabValue(val)) {
-            if (effectiveContextId) {
-              setActiveTerminalTab(effectiveContextId, val);
-            }
-            setUrlParams({ tab: val, wikiPage: null });
-            setActiveFile(null, effectiveContextId || undefined);
-          } else if (FIXED_TABS.has(val)) {
-            setFixedTab(val as FixedTab);
-            setActiveFile(null, effectiveContextId || undefined);
-          } else {
-            setActiveFile(val, effectiveContextId || undefined);
-            // Clear tab param when opening a file
-            setUrlParams({ tab: null, wikiPage: null });
-          }
-        }}
+        onValueChange={handleCenterStageTabChange}
         className="flex-1 flex flex-col gap-0 min-h-0 overflow-hidden"
       >
         {/* Top Tab Bar */}
@@ -1358,6 +1727,69 @@ const CenterStage: React.FC = () => {
               </Tooltip>
             );
           })}
+          </div>
+          <div className="sticky right-0 z-20 flex h-full shrink-0 items-stretch border-l border-sidebar-border/70 bg-background/95 backdrop-blur-sm">
+            <Popover open={tabGroupPopoverOpen} onOpenChange={setTabGroupPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="h-full rounded-none border-0 px-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                  aria-label="Open tab groups"
+                >
+                  <List className="size-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] border-border/70 bg-popover/68 p-2 shadow-xl backdrop-blur-2xl">
+                <div className="scrollbar-on-hover max-h-[420px] overflow-auto">
+                  <div className="grid min-w-max grid-flow-col auto-cols-max gap-2">
+                    {orderedGroupedTabItems.map((group) => (
+                      <section
+                        key={group.key}
+                        className="flex max-h-[396px] min-h-0 w-fit flex-col overflow-hidden rounded-md border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72"
+                      >
+                        <header className="sticky top-0 z-10 h-10 shrink-0 px-3">
+                          <div className="flex h-full items-center text-[11px] font-semibold tracking-wide text-muted-foreground">
+                            {group.label}
+                          </div>
+                        </header>
+                        <div className="scrollbar-on-hover min-h-0 flex-1 w-full space-y-1 overflow-y-auto p-2 pt-0">
+                          <DndContext
+                            sensors={tabGroupDndSensors}
+                            collisionDetection={closestCenter}
+                            modifiers={[restrictToVerticalAxis]}
+                            onDragEnd={handleTabGroupDragEnd}
+                          >
+                            <SortableContext
+                              items={group.tabs.map((tab) => tab.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <div className="w-fit">
+                                {group.tabs.map((tab) => (
+                                  <SortableTabGroupItem
+                                    key={tab.id}
+                                    groupKey={group.key}
+                                    tab={tab}
+                                    isActive={activeValue === tab.value}
+                                    closable={isTabGroupItemClosable(tab)}
+                                    onSelect={() => {
+                                      handleCenterStageTabChange(tab.value);
+                                      setTabGroupPopoverOpen(false);
+                                    }}
+                                    onClose={() => handleCloseTabGroupItem(tab)}
+                                  >
+                                    {renderTabGroupItemContent(tab, activeValue === tab.value)}
+                                  </SortableTabGroupItem>
+                                ))}
+                              </div>
+                            </SortableContext>
+                          </DndContext>
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </TabsList>
 
