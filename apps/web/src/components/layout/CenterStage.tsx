@@ -297,10 +297,9 @@ function SortableTabGroupItem({
         transition,
       }}
       className={cn(
-        "group/tab-item relative flex h-10 w-full min-w-max cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left transition-colors",
-        isActive
-          ? "bg-sidebar-accent text-sidebar-foreground shadow-xs hover:bg-sidebar-accent"
-          : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
+        "group/tab-item relative flex h-10 w-full min-w-max cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors",
+        "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
+        isActive && "bg-muted/40 hover:bg-sidebar-accent/70",
         isDragging && "z-10 opacity-70 shadow-md"
       )}
     >
@@ -1065,8 +1064,8 @@ const CenterStage: React.FC = () => {
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem, isActive: boolean) => {
     const textClassName = cn(
       "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
-      tab.kind === "diff" && !isActive && "text-success",
-      tab.kind === "conflict" && !isActive && "text-warning",
+      tab.kind === "diff" && "text-emerald-500",
+      tab.kind === "conflict" && "text-amber-500",
       tab.file?.isPreview && "italic",
     );
 
@@ -1125,9 +1124,9 @@ const CenterStage: React.FC = () => {
     return (
       <>
         {tab.kind === "diff" ? (
-          <GitCompare className="size-3.5 shrink-0 text-success" />
+          <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
         ) : tab.kind === "conflict" ? (
-          <GitMergeIcon className="size-3.5 shrink-0 text-warning" />
+          <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
         ) : (
           <FileIcon name={tab.file.name} className="size-3.5 shrink-0" />
         )}
