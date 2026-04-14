@@ -142,6 +142,8 @@ type TabGroupItem = {
   id: string;
   label: string;
   value: string;
+  kind: "overview" | "wiki" | "terminal" | "project-wiki" | "code-review" | "file" | "diff" | "conflict";
+  file?: OpenFile;
 };
 
 // Inner component: only subscribes to agent store, receives pane IDs as stable prop.
@@ -841,12 +843,23 @@ const CenterStage: React.FC = () => {
 
   const groupedTabItems = React.useMemo(() => {
     const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
+
+    const fixedTabsGroup: TabGroupItem[] = [];
+    if (effectiveContextId) {
+      fixedTabsGroup.push({ id: "overview", label: "Overview", value: "overview", kind: "overview" });
+      fixedTabsGroup.push({ id: "wiki", label: "Wiki", value: "wiki", kind: "wiki" });
+    }
+    if (fixedTabsGroup.length > 0) {
+      groups.push({ key: "fixed", label: "View", tabs: fixedTabsGroup });
+    }
+
     const terminalTabsGroup: TabGroupItem[] = [];
 
     terminalTabsGroup.push({
       id: FIXED_TERMINAL_TAB_VALUE,
       label: "Term",
       value: FIXED_TERMINAL_TAB_VALUE,
+      kind: "terminal",
     });
     visibleTerminalTabs
       .filter((tab) => tab.id !== FIXED_TERMINAL_TAB_VALUE)
@@ -855,6 +868,7 @@ const CenterStage: React.FC = () => {
           id: tab.id,
           label: tab.title,
           value: tab.id,
+          kind: "terminal",
         });
       });
     if (effectiveContextId && projectWikiTabVisible) {
@@ -862,6 +876,7 @@ const CenterStage: React.FC = () => {
         id: "project-wiki",
         label: "Project Wiki",
         value: "project-wiki",
+        kind: "project-wiki",
       });
     }
     if (effectiveContextId && codeReviewTabVisible) {
@@ -869,18 +884,10 @@ const CenterStage: React.FC = () => {
         id: "code-review",
         label: "Code Review",
         value: "code-review",
+        kind: "code-review",
       });
     }
-    groups.push({ key: "term", label: "term", tabs: terminalTabsGroup });
-
-    const fixedTabsGroup: TabGroupItem[] = [];
-    if (effectiveContextId) {
-      fixedTabsGroup.push({ id: "overview", label: "Overview", value: "overview" });
-      fixedTabsGroup.push({ id: "wiki", label: "Wiki", value: "wiki" });
-    }
-    if (fixedTabsGroup.length > 0) {
-      groups.push({ key: "fixed", label: "view", tabs: fixedTabsGroup });
-    }
+    groups.push({ key: "term", label: "Terminal", tabs: terminalTabsGroup });
 
     const fileTabsGroup = openFiles
       .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
@@ -888,26 +895,152 @@ const CenterStage: React.FC = () => {
         id: file.path,
         label: file.name,
         value: file.path,
+        kind: "file" as const,
+        file,
       }));
     if (fileTabsGroup.length > 0) {
-      groups.push({ key: "file", label: "file", tabs: fileTabsGroup });
+      groups.push({ key: "file", label: "File", tabs: fileTabsGroup });
     }
 
     const diffTabsGroup = openFiles
-      .filter((file) => isDiffEditorPath(file.path) || isConflictResolveEditorPath(file.path))
+      .filter((file) => isDiffEditorPath(file.path))
       .map((file) => ({
         id: file.path,
         label: file.name,
         value: file.path,
+        kind: "diff" as const,
+        file,
       }));
     if (diffTabsGroup.length > 0) {
-      groups.push({ key: "diff", label: "diff", tabs: diffTabsGroup });
+      groups.push({ key: "diff", label: "Diff", tabs: diffTabsGroup });
+    }
+
+    const conflictTabsGroup = openFiles
+      .filter((file) => isConflictResolveEditorPath(file.path))
+      .map((file) => ({
+        id: file.path,
+        label: file.name,
+        value: file.path,
+        kind: "conflict" as const,
+        file,
+      }));
+    if (conflictTabsGroup.length > 0) {
+      groups.push({ key: "conflict", label: "Conflict Resolve", tabs: conflictTabsGroup });
     }
 
     return groups;
   }, [codeReviewTabVisible, effectiveContextId, openFiles, projectWikiTabVisible, visibleTerminalTabs]);
 
   const { currentRepoPath } = useGitStore();
+
+  const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem, isActive: boolean) => {
+    const textClassName = cn(
+      "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
+      tab.kind === "diff" && !isActive && "text-emerald-500",
+      tab.kind === "conflict" && !isActive && "text-amber-500",
+      tab.file?.isPreview && "italic",
+    );
+
+    if (tab.kind === "overview") {
+      return (
+        <>
+          <LayoutDashboard className="size-3.5 shrink-0" />
+          <span className={textClassName}>{tab.label}</span>
+        </>
+      );
+    }
+
+    if (tab.kind === "wiki") {
+      return (
+        <>
+          <BookOpen className="size-3.5 shrink-0" />
+          <span className={textClassName}>{tab.label}</span>
+        </>
+      );
+    }
+
+    if (tab.kind === "project-wiki") {
+      return (
+        <>
+          <TerminalIcon className="size-3.5 shrink-0" />
+          <span className={textClassName}>{tab.label}</span>
+        </>
+      );
+    }
+
+    if (tab.kind === "code-review") {
+      return (
+        <>
+          <TerminalIcon className="size-3.5 shrink-0 text-blue-500" />
+          <span className={textClassName}>{tab.label}</span>
+        </>
+      );
+    }
+
+    if (tab.kind === "terminal") {
+      return (
+        <>
+          <TerminalIcon className="size-3.5 shrink-0" />
+          <span className={textClassName}>{tab.label}</span>
+          {effectiveContextId ? (
+            <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
+          ) : null}
+        </>
+      );
+    }
+
+    if (!tab.file) {
+      return <span className={textClassName}>{tab.label}</span>;
+    }
+
+    return (
+      <>
+        {tab.kind === "diff" ? (
+          <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+        ) : tab.kind === "conflict" ? (
+          <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+        ) : (
+          <FileIcon name={tab.file.name} className="size-3.5 shrink-0" />
+        )}
+        <span className={textClassName}>{tab.file.name}</span>
+        <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+          {tab.file.isDirty ? <Circle className="size-1.5 fill-current text-muted-foreground" /> : null}
+        </span>
+      </>
+    );
+  }, [effectiveContextId]);
+
+  const isTabGroupItemClosable = React.useCallback((tab: TabGroupItem) => {
+    return (
+      (tab.kind === "terminal" && tab.value !== FIXED_TERMINAL_TAB_VALUE) ||
+      tab.kind === "project-wiki" ||
+      tab.kind === "code-review" ||
+      tab.kind === "file" ||
+      tab.kind === "diff" ||
+      tab.kind === "conflict"
+    );
+  }, []);
+
+  const handleCloseTabGroupItem = React.useCallback((tab: TabGroupItem) => {
+    if (tab.kind === "terminal" && tab.value !== FIXED_TERMINAL_TAB_VALUE) {
+      handleCloseTerminalCenterTab(tab.value);
+      return;
+    }
+
+    if (tab.kind === "project-wiki") {
+      setProjectWikiCloseConfirmOpen(true);
+      return;
+    }
+
+    if (tab.kind === "code-review") {
+      setCodeReviewCloseConfirmOpen(true);
+      return;
+    }
+
+    if (tab.file) {
+      handleCloseFile(tab.file);
+    }
+  }, [handleCloseFile, handleCloseTerminalCenterTab]);
 
   // Derive workspace and project info for OverviewTab
   const { currentProject, currentWorkspace } = (() => {
@@ -1438,47 +1571,72 @@ const CenterStage: React.FC = () => {
             );
           })}
           </div>
-          <div className="sticky right-0 z-20 flex h-full shrink-0 items-center border-l border-sidebar-border/70 bg-background/95 px-1 backdrop-blur-sm">
+          <div className="sticky right-0 z-20 flex h-full shrink-0 items-stretch border-l border-sidebar-border/70 bg-background/95 backdrop-blur-sm">
             <Popover open={tabGroupPopoverOpen} onOpenChange={setTabGroupPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="size-8 text-muted-foreground hover:text-foreground"
+                  className="h-full rounded-none border-0 px-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
                   aria-label="Open tab groups"
                 >
                   <Rows4 className="size-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-[320px] p-2">
-                <div className="max-h-80 overflow-auto">
-                  <div className="flex min-w-[420px] flex-col gap-2">
+              <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] border-border/70 bg-popover/68 p-2 shadow-xl backdrop-blur-2xl">
+                <div className="scrollbar-on-hover max-h-[420px] overflow-auto">
+                  <div className="grid min-w-max grid-flow-col auto-cols-max gap-2">
                     {groupedTabItems.map((group) => (
-                      <div key={group.key} className="rounded-md border border-border/70 bg-muted/20">
-                        <div className="border-b border-border/60 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          {group.label}
-                        </div>
-                        <div className="flex flex-col gap-1 p-1">
+                      <section
+                        key={group.key}
+                        className="flex max-h-[396px] min-h-0 min-w-40 max-w-80 flex-col overflow-hidden rounded-md border border-border/45 bg-muted/45 backdrop-blur-md dark:bg-background/72"
+                      >
+                        <header className="sticky top-0 z-10 h-10 shrink-0 px-3">
+                          <div className="flex h-full items-center text-[11px] font-semibold tracking-wide text-muted-foreground">
+                            {group.label}
+                          </div>
+                        </header>
+                        <div className="scrollbar-on-hover min-h-0 flex-1 space-y-1 overflow-y-auto p-2 pt-0">
                           {group.tabs.map((tab) => (
-                            <button
+                            <div
                               key={tab.id}
-                              type="button"
+                              role="button"
+                              tabIndex={0}
                               onClick={() => {
                                 handleCenterStageTabChange(tab.value);
                                 setTabGroupPopoverOpen(false);
                               }}
+                              onKeyDown={(event) => {
+                                if (event.key !== "Enter" && event.key !== " ") return;
+                                event.preventDefault();
+                                handleCenterStageTabChange(tab.value);
+                                setTabGroupPopoverOpen(false);
+                              }}
                               className={cn(
-                                "w-full rounded-sm px-2 py-1.5 text-left text-xs transition-colors",
+                                "group/tab-item relative flex h-10 w-full min-w-max cursor-pointer items-center gap-2 rounded-md px-3 text-left transition-colors",
                                 activeValue === tab.value
-                                  ? "bg-accent text-accent-foreground"
-                                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                                  ? "bg-sidebar-accent text-sidebar-foreground shadow-xs hover:bg-sidebar-accent"
+                                  : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45"
                               )}
                             >
-                              {tab.label}
-                            </button>
+                              {renderTabGroupItemContent(tab, activeValue === tab.value)}
+                              {isTabGroupItemClosable(tab) ? (
+                                <span
+                                  role="button"
+                                  tabIndex={-1}
+                                  aria-label={`Close ${tab.label}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleCloseTabGroupItem(tab);
+                                  }}
+                                  className="ml-1 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
+                                >
+                                  <X className="size-3" />
+                                </span>
+                              ) : null}
+                            </div>
                           ))}
                         </div>
-                      </div>
+                      </section>
                     ))}
                   </div>
                 </div>
