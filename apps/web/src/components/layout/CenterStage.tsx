@@ -1013,31 +1013,6 @@ const CenterStage: React.FC = () => {
   const groupedTabItems = React.useMemo(() => {
     const groups: Array<{ key: string; label: string; tabs: TabGroupItem[] }> = [];
 
-    if (effectiveContextId && projectWikiTabVisible) {
-      groups.push({
-        key: "project-wiki",
-        label: "Project Wiki",
-        tabs: [{
-          id: "project-wiki",
-          label: "Project Wiki",
-          value: "project-wiki",
-          kind: "project-wiki",
-        }],
-      });
-    }
-    if (effectiveContextId && codeReviewTabVisible) {
-      groups.push({
-        key: "code-review",
-        label: "Code Review",
-        tabs: [{
-          id: "code-review",
-          label: "Code Review",
-          value: "code-review",
-          kind: "code-review",
-        }],
-      });
-    }
-
     const fileTabsGroup = openFiles
       .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
       .map((file) => ({
