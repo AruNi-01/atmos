@@ -2537,50 +2537,106 @@ set -x
         drop(pair.slave);
 
         let mut reader = pair.master.try_clone_reader()?;
+        // Drop the master after cloning the reader so the PTY fd is not held
+        // open longer than necessary. On macOS/Unix the reader already has its
+        // own dup'd fd and EOF is driven by the slave side closing.
+        drop(pair.master);
+
         let manager_clone = manager.clone();
         let conn_id_clone = conn_id.to_string();
         let workspace_id_clone = workspace_id.to_string();
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
 
-        // Reading task
+        // Reading task – streams PTY output into the channel.
         std::thread::spawn(move || {
             let mut buf = [0u8; 4096];
-            while let Ok(n) = reader.read(&mut buf) {
-                if n == 0 {
-                    break;
-                }
-                let s = String::from_utf8_lossy(&buf[..n]).to_string();
-                if tx.send(s).is_err() {
-                    break;
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        let s = String::from_utf8_lossy(&buf[..n]).to_string();
+                        if tx.send(s).is_err() {
+                            break;
+                        }
+                    }
+                    Err(_) => break,
                 }
             }
         });
 
-        while let Some(output) = rx.recv().await {
-            Self::send_workspace_setup_progress(
-                &manager_clone,
-                &conn_id_clone,
-                WorkspaceSetupProgressNotification {
-                    workspace_id: workspace_id_clone.clone(),
-                    status: "setting_up".to_string(),
-                    step_key: Some("run_setup_script".to_string()),
-                    failed_step_key: None,
-                    step_title: "Running Setup Script".to_string(),
-                    output: Some(output),
-                    replace_output: false,
-                    requires_confirmation: false,
-                    success: true,
-                    countdown: None,
-                    setup_context: None,
-                },
-            )
-            .await;
+        // Wait for the child process concurrently with streaming output.
+        // This avoids hanging forever if the PTY reader never gets EOF
+        // (e.g. a background process inherited the slave fd).
+        let mut wait_handle =
+            tokio::task::spawn_blocking(move || child.wait());
+
+        let exit_status = loop {
+            tokio::select! {
+                biased;
+                Some(output) = rx.recv() => {
+                    Self::send_workspace_setup_progress(
+                        &manager_clone,
+                        &conn_id_clone,
+                        WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id_clone.clone(),
+                            status: "setting_up".to_string(),
+                            step_key: Some("run_setup_script".to_string()),
+                            failed_step_key: None,
+                            step_title: "Running Setup Script".to_string(),
+                            output: Some(output),
+                            replace_output: false,
+                            requires_confirmation: false,
+                            success: true,
+                            countdown: None,
+                            setup_context: None,
+                        },
+                    )
+                    .await;
+                }
+                result = &mut wait_handle => {
+                    break result??;
+                }
+            }
+        };
+
+        // Best-effort drain: capture any remaining PTY output that was buffered
+        // between the last recv and the child exiting.
+        let drain_deadline =
+            tokio::time::Instant::now() + Duration::from_millis(500);
+        loop {
+            let remaining = drain_deadline
+                .saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            match tokio::time::timeout(remaining, rx.recv()).await {
+                Ok(Some(output)) => {
+                    Self::send_workspace_setup_progress(
+                        &manager_clone,
+                        &conn_id_clone,
+                        WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id_clone.clone(),
+                            status: "setting_up".to_string(),
+                            step_key: Some("run_setup_script".to_string()),
+                            failed_step_key: None,
+                            step_title: "Running Setup Script".to_string(),
+                            output: Some(output),
+                            replace_output: false,
+                            requires_confirmation: false,
+                            success: true,
+                            countdown: None,
+                            setup_context: None,
+                        },
+                    )
+                    .await;
+                }
+                Ok(None) | Err(_) => break,
+            }
         }
 
-        let status = child.wait()?;
-        if !status.success() {
-            anyhow::bail!("Script exited with status {}", status);
+        if !exit_status.success() {
+            anyhow::bail!("Script exited with status {}", exit_status);
         }
 
         Ok(())
