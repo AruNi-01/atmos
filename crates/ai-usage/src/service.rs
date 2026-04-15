@@ -14,8 +14,9 @@ use crate::models::{
 };
 use crate::refresh::{
     apply_provider_state, load_auto_refresh_interval_minutes, persist_all_provider_switch,
-    persist_auto_refresh_interval_minutes, persist_provider_state_for_overview,
-    persist_provider_state_for_provider, persist_provider_switch, provider_switch_enabled,
+    persist_auto_refresh_interval_minutes, persist_provider_footer_carousel_show,
+    persist_provider_state_for_overview, persist_provider_state_for_provider,
+    persist_provider_switch, provider_switch_enabled,
 };
 use crate::runtime::{default_providers, error_status, UsageProvider};
 use crate::support::{round_metric, unix_now};
@@ -159,6 +160,39 @@ impl UsageService {
             fetched_at: unix_now(),
             overview: overview.clone(),
         });
+        overview
+    }
+
+    pub async fn set_provider_footer_carousel_show(
+        &self,
+        provider_id: &str,
+        enabled: bool,
+    ) -> UsageOverview {
+        persist_provider_footer_carousel_show(provider_id, enabled);
+
+        let mut overview = if let Some(cached) = self.cache.read().await.clone() {
+            cached.overview
+        } else {
+            self.refresh_overview(None, false).await
+        };
+
+        if let Some(provider) = overview
+            .providers
+            .iter_mut()
+            .find(|provider| provider.id == provider_id)
+        {
+            provider.footer_carousel_show = enabled;
+        }
+
+        let overview = self
+            .with_auto_refresh_config(apply_provider_state_and_rebuild(overview))
+            .await;
+        let mut cache = self.cache.write().await;
+        *cache = Some(CachedOverview {
+            fetched_at: unix_now(),
+            overview: overview.clone(),
+        });
+        self.publish_overview_update(&overview);
         overview
     }
 

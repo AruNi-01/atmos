@@ -14,7 +14,6 @@ import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
 import { usageWsApi, type UsageOverviewResponse } from '@/api/ws-api';
-import { useUsageCarouselStore } from '@/hooks/use-usage-carousel-store';
 import { buildUsageCarouselItems } from '@/lib/usage-display';
 import {
   useAgentHooksStore,
@@ -366,9 +365,6 @@ const Footer: React.FC = () => {
   const [usageIndex, setUsageIndex] = useState(0);
   const [isUsageCarouselHovered, setIsUsageCarouselHovered] = useState(false);
   const [loading, setLoading] = useState(false);
-  const carouselProviderIds = useUsageCarouselStore((s) => s.providerIds);
-  const hydrateUsageCarousel = useUsageCarouselStore((s) => s.hydrate);
-  const reconcileCarouselProviders = useUsageCarouselStore((s) => s.reconcileProviders);
 
   const resolveContextName = useContextNameResolver();
 
@@ -379,29 +375,15 @@ const Footer: React.FC = () => {
   const hasPermission = activeSessions.some((s) => s.state === AGENT_STATE.PERMISSION_REQUEST);
   const tickerSession = useSessionTicker(activeSessions);
   const usageCarouselItems = useMemo(
-    () => buildUsageCarouselItems(usageOverview, carouselProviderIds),
-    [usageOverview, carouselProviderIds]
+    () => buildUsageCarouselItems(usageOverview),
+    [usageOverview]
   );
-  const carouselProviderKey = carouselProviderIds.join("\u0000");
   const usageCarouselItem = usageCarouselItems.length > 0
     ? usageCarouselItems[usageIndex % usageCarouselItems.length]
     : null;
 
   useEffect(() => {
-    hydrateUsageCarousel();
-  }, [hydrateUsageCarousel]);
-
-  useEffect(() => {
-    if (!usageOverview) return;
-    reconcileCarouselProviders(
-      usageOverview.providers
-        .filter((provider) => provider.switch_enabled)
-        .map((provider) => provider.id)
-    );
-  }, [usageOverview, reconcileCarouselProviders]);
-
-  useEffect(() => {
-    if (connectionState !== 'connected' || carouselProviderIds.length === 0) return;
+    if (connectionState !== 'connected') return;
 
     let cancelled = false;
     usageWsApi.getOverview(false)
@@ -415,7 +397,7 @@ const Footer: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [connectionState, carouselProviderIds.length, carouselProviderKey]);
+  }, [connectionState]);
 
   useEffect(() => {
     return useWebSocketStore

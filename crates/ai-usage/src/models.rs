@@ -5,6 +5,10 @@ fn default_switch_enabled() -> bool {
     true
 }
 
+fn default_footer_carousel_show() -> bool {
+    false
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderKind {
@@ -120,6 +124,8 @@ pub struct ProviderStatus {
     pub enabled: bool,
     #[serde(default = "default_switch_enabled")]
     pub switch_enabled: bool,
+    #[serde(default = "default_footer_carousel_show")]
+    pub footer_carousel_show: bool,
     pub healthy: bool,
     pub last_updated_at: Option<u64>,
     pub subscription_summary: Option<SubscriptionSummary>,

@@ -107,14 +107,12 @@ export function formatUsageCarouselText(provider: UsageProviderResponse): string
 }
 
 export function buildUsageCarouselItems(
-  overview: UsageOverviewResponse | null,
-  selectedProviderIds: string[]
+  overview: UsageOverviewResponse | null
 ): UsageCarouselItem[] {
-  if (!overview || selectedProviderIds.length === 0) return [];
+  if (!overview) return [];
 
-  const selected = new Set(selectedProviderIds);
   return overview.providers
-    .filter((provider) => provider.switch_enabled && selected.has(provider.id))
+    .filter((provider) => provider.switch_enabled && provider.footer_carousel_show)
     .map((provider) => ({
       providerId: provider.id,
       label: provider.label,

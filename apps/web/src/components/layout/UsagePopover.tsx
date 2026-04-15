@@ -65,7 +65,6 @@ import {
   type UsageProviderResponse,
 } from "@/api/ws-api";
 import { useWebSocketStore } from "@/hooks/use-websocket";
-import { useUsageCarouselStore } from "@/hooks/use-usage-carousel-store";
 
 const STALE_MS = 3 * 60 * 1000;
 const ALL_PROVIDER_ID = "all";
@@ -1206,10 +1205,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     canScrollRight: false,
   });
   const [providerOrder, setProviderOrder] = useState<string[]>([]);
-  const carouselProviderIds = useUsageCarouselStore((state) => state.providerIds);
-  const hydrateUsageCarousel = useUsageCarouselStore((state) => state.hydrate);
-  const toggleCarouselProvider = useUsageCarouselStore((state) => state.toggleProvider);
-  const reconcileCarouselProviders = useUsageCarouselStore((state) => state.reconcileProviders);
+  const [switchingFooterCarouselProviderId, setSwitchingFooterCarouselProviderId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1378,18 +1374,6 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     () => (overview?.providers ?? []).filter((provider) => provider.switch_enabled),
     [overview?.providers]
   );
-  const carouselProviderIdSet = useMemo(
-    () => new Set(carouselProviderIds),
-    [carouselProviderIds]
-  );
-
-  useEffect(() => {
-    hydrateUsageCarousel();
-  }, [hydrateUsageCarousel]);
-
-  useEffect(() => {
-    reconcileCarouselProviders(carouselProviders.map((provider) => provider.id));
-  }, [carouselProviders, reconcileCarouselProviders]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1575,6 +1559,22 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       );
     } finally {
       setIsUpdatingAutoRefresh(false);
+    }
+  }, []);
+
+  const toggleFooterCarouselProvider = useCallback(async (providerId: string, enabled: boolean) => {
+    setSwitchingFooterCarouselProviderId(providerId);
+    setError(null);
+
+    try {
+      const next = await usageWsApi.setProviderFooterCarousel(providerId, enabled);
+      setOverview(next);
+    } catch (toggleError) {
+      setError(
+        toggleError instanceof Error ? toggleError.message : "Failed to update footer carousel"
+      );
+    } finally {
+      setSwitchingFooterCarouselProviderId(null);
     }
   }, []);
 
@@ -1922,9 +1922,9 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                         aria-label="Configure footer AI Usage carousel"
                       >
                         <Gauge className="size-3.5" />
-                        {carouselProviderIds.length > 0 ? (
+                        {carouselProviders.filter((provider) => provider.footer_carousel_show).length > 0 ? (
                           <span className="min-w-3 text-[10px] font-medium leading-none">
-                            {carouselProviderIds.length}
+                            {carouselProviders.filter((provider) => provider.footer_carousel_show).length}
                           </span>
                         ) : null}
                       </button>
@@ -1944,13 +1944,15 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       {carouselProviders.length > 0 ? (
                         <div className="max-h-64 overflow-y-auto">
                           {carouselProviders.map((provider) => {
-                            const checked = carouselProviderIdSet.has(provider.id);
+                            const checked = provider.footer_carousel_show;
+                            const isSwitchingFooterCarousel = switchingFooterCarouselProviderId === provider.id;
                             return (
                               <button
                                 key={provider.id}
                                 type="button"
                                 aria-pressed={checked}
-                                onClick={() => toggleCarouselProvider(provider.id)}
+                                disabled={isSwitchingFooterCarousel}
+                                onClick={() => void toggleFooterCarouselProvider(provider.id, !checked)}
                                 className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/65"
                               >
                                 <span className="flex min-w-0 items-center gap-2">

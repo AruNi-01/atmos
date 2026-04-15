@@ -89,6 +89,12 @@ pub struct UsageProviderSwitchRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageProviderFooterCarouselRequest {
+    pub provider_id: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageAllProvidersSwitchRequest {
     pub enabled: bool,
 }
@@ -201,6 +207,8 @@ pub enum WsAction {
     UsageGetOverview,
     /// 更新单个 provider 的刷新开关
     UsageSetProviderSwitch,
+    /// 更新单个 provider 是否显示在 footer usage 轮播中
+    UsageSetProviderFooterCarousel,
     /// 更新全部 provider 的刷新开关
     UsageSetAllProvidersSwitch,
     /// 更新 provider 的手动配置
