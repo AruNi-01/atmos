@@ -389,17 +389,25 @@ impl TerminalService {
             .and_then(|dir| core_engine::shims::build_shell_command(dir, shell.as_deref()));
 
         // Now create or get tmux session for this workspace (protected by lock)
-        // Pass shell_command so the first window "1" also gets shim injection
+        // Pass shell_command so the first window "1" also gets shim injection.
+        // Pass ATMOS env vars so the default window "1" gets them too — otherwise
+        // the "window already exists → attach" shortcut below would skip injection.
+        let default_window_pane_id = format!("{}:1", workspace_id);
+        let session_env_vars: Vec<(&str, &str)> = vec![
+            ("ATMOS_MANAGED", "1"),
+            ("ATMOS_CONTEXT_ID", &workspace_id),
+            ("ATMOS_PANE_ID", &default_window_pane_id),
+        ];
         let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name)
         {
             self.tmux_engine
-                .create_session_with_names(proj, ws, cwd.as_deref(), shell_command.as_deref())
+                .create_session_with_names(proj, ws, cwd.as_deref(), shell_command.as_deref(), Some(&session_env_vars))
                 .map_err(|e| {
                     ServiceError::Processing(format!("Failed to create tmux session: {}", e))
                 })?
         } else {
             self.tmux_engine
-                .create_session(&workspace_id, cwd.as_deref(), shell_command.as_deref())
+                .create_session(&workspace_id, cwd.as_deref(), shell_command.as_deref(), Some(&session_env_vars))
                 .map_err(|e| {
                     ServiceError::Processing(format!("Failed to create tmux session: {}", e))
                 })?

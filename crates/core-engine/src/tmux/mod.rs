@@ -428,9 +428,10 @@ impl TmuxEngine {
         workspace_id: &str,
         cwd: Option<&str>,
         shell_command: Option<&[String]>,
+        env_vars: Option<&[(&str, &str)]>,
     ) -> Result<String> {
         let session_name = self.session_name(workspace_id);
-        self.create_session_internal(&session_name, cwd, shell_command)
+        self.create_session_internal(&session_name, cwd, shell_command, env_vars)
     }
 
     /// Create a new tmux session with human-readable names
@@ -441,9 +442,10 @@ impl TmuxEngine {
         workspace_name: &str,
         cwd: Option<&str>,
         shell_command: Option<&[String]>,
+        env_vars: Option<&[(&str, &str)]>,
     ) -> Result<String> {
         let session_name = self.session_name_from_names(project_name, workspace_name);
-        self.create_session_internal(&session_name, cwd, shell_command)
+        self.create_session_internal(&session_name, cwd, shell_command, env_vars)
     }
 
     /// Internal function to create tmux session
@@ -452,6 +454,7 @@ impl TmuxEngine {
         session_name: &str,
         cwd: Option<&str>,
         shell_command: Option<&[String]>,
+        env_vars: Option<&[(&str, &str)]>,
     ) -> Result<String> {
         if self.session_exists(session_name)? {
             self.sync_utf8_environment();
@@ -475,6 +478,13 @@ impl TmuxEngine {
         if let Some(dir) = cwd {
             args.push("-c".to_string());
             args.push(dir.to_string());
+        }
+
+        if let Some(vars) = env_vars {
+            for (key, value) in vars {
+                args.push("-e".to_string());
+                args.push(format!("{}={}", key, value));
+            }
         }
 
         if let Some(cmd) = shell_command {
