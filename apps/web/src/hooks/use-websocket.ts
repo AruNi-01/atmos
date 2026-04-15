@@ -109,6 +109,8 @@ export type WsAction =
   // Code Agent custom settings
   | "code_agent_custom_get"
   | "code_agent_custom_update"
+  | "agent_behaviour_settings_get"
+  | "agent_behaviour_settings_update"
   // Notification settings
   | "notification_settings_get"
   | "notification_settings_update"

@@ -139,7 +139,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         });
       } else if (terminalGridRef.current?.createAndRunTerminal) {
         terminalGridRef.current.createAndRunTerminal({
-          title: "Generate Project Wiki",
+          label: "Generate Project Wiki",
           command,
         });
         onSwitchToTerminal();

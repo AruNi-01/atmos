@@ -129,7 +129,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
         });
       } else if (terminalGridRef?.current?.createAndRunTerminal) {
         terminalGridRef.current.createAndRunTerminal({
-          title: "Specify Project Wiki",
+          label: "Specify Project Wiki",
           command,
         });
         onSwitchToTerminal?.();

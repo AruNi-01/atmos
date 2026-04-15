@@ -23,32 +23,15 @@ import {
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, cn } from "@workspace/ui";
 import { Terminal, TerminalRef } from "./Terminal";
+import type { TerminalPaneAgent } from "./types";
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
-import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
-
-// Hash map: normalized string → registry ID for O(1) lookup.
-// Covers both agent labels (pane.title from createAndRunTerminal) and
-// process names (pane.dynamicTitle from shell shim CMD_START sequences).
-const PANE_TITLE_TO_REGISTRY_ID: Record<string, string> = {
-  // Labels — set as pane.title when launching an agent terminal
-  ...Object.fromEntries(AGENT_OPTIONS.map((a) => [a.label.toLowerCase(), a.id])),
-  // Primary commands — reported by the shim as CMD_START when the agent runs
-  ...Object.fromEntries(AGENT_OPTIONS.map((a) => [a.cmd.toLowerCase(), a.id])),
-  // Additional command aliases not captured above
-  "cursor-agent": "cursor",
-};
-
-// Strip the "-N" uniqueness suffix added by getUniqueAgentName (e.g. "Claude Code-2" → "Claude Code")
-function getBasePaneTitle(title: string): string {
-  return title.replace(/-\d+$/, "");
-}
 
 type TerminalGridScope = "default" | "project-wiki" | "code-review";
 
@@ -67,10 +50,8 @@ interface TerminalGridProps {
   className?: string;
   terminalTabId?: string;
   quickOpenAgents?: Array<{
-    id: string;
-    label: string;
+    agent: TerminalPaneAgent;
     command: string;
-    iconType: "built-in" | "custom";
   }>;
   /** When "project-wiki", uses separate panes/layout (does not affect main Terminal tab) */
   scope?: TerminalGridScope;
@@ -81,15 +62,15 @@ interface TerminalGridProps {
 }
 
 export interface TerminalGridHandle {
-  addTerminal: (title?: string) => void;
+  addTerminal: (label?: string, agent?: TerminalPaneAgent) => void;
   /** Create a new terminal tab and run command after session is ready */
-  createAndRunTerminal: (options: { title: string; command: string }) => Promise<void>;
-  /** Create or focus terminal by title (e.g. "Generate Project Wiki") and run command. Reuses existing pane if found. */
-  createOrFocusAndRunTerminal: (options: { title: string; command: string }) => Promise<void>;
+  createAndRunTerminal: (options: { label: string; command: string; agent?: TerminalPaneAgent }) => Promise<void>;
+  /** Create or focus terminal by label/window name (e.g. "Generate Project Wiki") and run command. Reuses existing pane if found. */
+  createOrFocusAndRunTerminal: (options: { label: string; command: string; agent?: TerminalPaneAgent }) => Promise<void>;
   /** Remove terminal pane by tmux window name. Used when killing backend tmux window before replace. */
   removeTerminalByTmuxWindowName: (tmuxWindowName: string) => void;
   /** Create a new terminal and pre-fill command text without executing it */
-  prefillTerminal: (options: { title: string; command: string }) => void;
+  prefillTerminal: (options: { label: string; command: string; agent?: TerminalPaneAgent }) => void;
   destroyAllTerminals: () => void;
 }
 
@@ -98,6 +79,56 @@ const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
   maximize: true,
   close: true,
 };
+
+function normalizeAgentCommand(value: string): string {
+  const firstToken = value.trim().split(/\s+/)[0] ?? "";
+  const withoutPath = firstToken.split("/").filter(Boolean).pop() ?? firstToken;
+  return withoutPath.toLowerCase();
+}
+
+function isPathLikeTitle(value: string | undefined): boolean {
+  if (!value) return false;
+  const trimmed = value.trim();
+  return (
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("~/") ||
+    trimmed === "~" ||
+    trimmed === "." ||
+    trimmed === ".." ||
+    trimmed.startsWith("../") ||
+    trimmed.includes("/")
+  );
+}
+
+function isVersionLikeTitle(value: string | undefined): boolean {
+  if (!value) return false;
+  return /^v?\d+(?:\.\d+)+(?:[-+][\w.-]+)?$/i.test(value.trim());
+}
+
+function resolveAgentForTitle(
+  title: string | undefined,
+  agents: TerminalPaneAgent[],
+): TerminalPaneAgent | undefined {
+  if (!title || isPathLikeTitle(title)) return undefined;
+  const normalizedTitle = normalizeAgentCommand(title);
+  if (!normalizedTitle) return undefined;
+  return agents.find((agent) => {
+    const normalizedCommand = normalizeAgentCommand(agent.command);
+    return (
+      normalizedCommand !== "" &&
+      normalizedTitle.includes(normalizedCommand)
+    );
+  });
+}
+
+function resolveAgentForLabel(
+  label: string | undefined,
+  agents: TerminalPaneAgent[],
+): TerminalPaneAgent | undefined {
+  if (!label) return undefined;
+  const normalizedLabel = label.trim().toLowerCase();
+  return agents.find((agent) => agent.label.trim().toLowerCase() === normalizedLabel);
+}
 
 function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId: string }) {
   // Only show status for this specific pane – do NOT fall back to context-level
@@ -127,7 +158,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   const isProjectWiki = scope === "project-wiki";
   const isCodeReview = scope === "code-review";
-  const actions = { ...DEFAULT_TOOLBAR_ACTIONS, ...toolbarActions };
+  const actions = React.useMemo(
+    () => ({ ...DEFAULT_TOOLBAR_ACTIONS, ...toolbarActions }),
+    [toolbarActions],
+  );
+  const configuredAgents = React.useMemo(
+    () => quickOpenAgents.map(({ agent }) => agent),
+    [quickOpenAgents],
+  );
 
   const {
     getPanes,
@@ -142,6 +180,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     toggleMaximize,
     getMaximizedTerminalId,
     setDynamicTitle,
+    setPaneAgent,
     getProjectWikiPanes,
     getProjectWikiLayout,
     setProjectWikiLayout,
@@ -151,6 +190,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     initProjectWikiWorkspace,
     getProjectWikiPaneIdByTmuxWindowName,
     setProjectWikiDynamicTitle,
+    setProjectWikiPaneAgent,
     toggleProjectWikiMaximize,
     isProjectWikiReady,
     projectWikiMaximizedIds,
@@ -163,6 +203,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     initCodeReviewWorkspace,
     getCodeReviewPaneIdByTmuxWindowName,
     setCodeReviewDynamicTitle,
+    setCodeReviewPaneAgent,
     toggleCodeReviewMaximize,
     isCodeReviewReady,
     codeReviewMaximizedIds,
@@ -230,31 +271,50 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   const hasPanes = Object.keys(panes).length > 0;
 
-  const getPaneId = isCodeReview
-    ? getCodeReviewPaneIdByTmuxWindowName
-    : isProjectWiki
-    ? getProjectWikiPaneIdByTmuxWindowName
-    : (ctxWorkspaceId: string, tmuxWindowName: string) =>
-        getPaneIdByTmuxWindowName(ctxWorkspaceId, tmuxWindowName, terminalTabId);
-  const addTerminal = isCodeReview
-    ? (title?: string) => addCodeReviewTerminal(workspaceId, title)
-    : isProjectWiki
-    ? (title?: string) => addProjectWikiTerminal(workspaceId, title)
-    : (title?: string) => addTerminalToStore(workspaceId, title, terminalTabId);
-  const removeTerminalFromScope = isCodeReview
-    ? (id: string) => removeCodeReviewTerminal(workspaceId, id)
-    : isProjectWiki
-    ? (id: string) => removeProjectWikiTerminal(workspaceId, id)
-    : (id: string) => removeTerminalFromStore(workspaceId, id, terminalTabId);
+  const getPaneId = useCallback((ctxWorkspaceId: string, tmuxWindowName: string) => {
+    if (isCodeReview) {
+      return getCodeReviewPaneIdByTmuxWindowName(ctxWorkspaceId, tmuxWindowName);
+    }
+    if (isProjectWiki) {
+      return getProjectWikiPaneIdByTmuxWindowName(ctxWorkspaceId, tmuxWindowName);
+    }
+    return getPaneIdByTmuxWindowName(ctxWorkspaceId, tmuxWindowName, terminalTabId);
+  }, [getCodeReviewPaneIdByTmuxWindowName, getPaneIdByTmuxWindowName, getProjectWikiPaneIdByTmuxWindowName, isCodeReview, isProjectWiki, terminalTabId]);
+  const getPaneIdByLabelOrWindowName = useCallback((labelOrWindowName: string) => {
+    const entry = Object.entries(panes).find(([, pane]) =>
+      pane.label === labelOrWindowName || pane.tmuxWindowName === labelOrWindowName
+    );
+    return entry?.[0] ?? getPaneId(workspaceId, labelOrWindowName);
+  }, [getPaneId, panes, workspaceId]);
+  const addTerminal = useCallback((label?: string, agent?: TerminalPaneAgent) => {
+    if (isCodeReview) {
+      return addCodeReviewTerminal(workspaceId, label, agent);
+    }
+    if (isProjectWiki) {
+      return addProjectWikiTerminal(workspaceId, label, agent);
+    }
+    return addTerminalToStore(workspaceId, label, terminalTabId, agent);
+  }, [addCodeReviewTerminal, addProjectWikiTerminal, addTerminalToStore, isCodeReview, isProjectWiki, terminalTabId, workspaceId]);
+  const removeTerminalFromScope = useCallback((id: string) => {
+    if (isCodeReview) {
+      removeCodeReviewTerminal(workspaceId, id);
+      return;
+    }
+    if (isProjectWiki) {
+      removeProjectWikiTerminal(workspaceId, id);
+      return;
+    }
+    removeTerminalFromStore(workspaceId, id, terminalTabId);
+  }, [isCodeReview, isProjectWiki, removeCodeReviewTerminal, removeProjectWikiTerminal, removeTerminalFromStore, terminalTabId, workspaceId]);
 
   React.useImperativeHandle(ref, () => ({
-    addTerminal: (title?: string) => addTerminal(title),
-    createAndRunTerminal: async ({ title, command }) => {
-      const paneId = addTerminal(title);
+    addTerminal: (label?: string, agent?: TerminalPaneAgent) => addTerminal(label, agent),
+    createAndRunTerminal: async ({ label, command, agent }) => {
+      const paneId = addTerminal(label, agent);
       pendingCommandsRef.current.set(paneId, command + "\r");
     },
-    createOrFocusAndRunTerminal: async ({ title, command }) => {
-      const existingPaneId = getPaneId(workspaceId, title);
+    createOrFocusAndRunTerminal: async ({ label, command, agent }) => {
+      const existingPaneId = getPaneIdByLabelOrWindowName(label);
       const cmd = command.trim() + "\r";
       if (existingPaneId) {
         const termRef = terminalRefsMap.current.get(existingPaneId);
@@ -265,7 +325,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         }
         return;
       }
-      const paneId = addTerminal(title);
+      const paneId = addTerminal(label, agent);
       pendingCommandsRef.current.set(paneId, cmd);
     },
     removeTerminalByTmuxWindowName: (tmuxWindowName: string) => {
@@ -278,8 +338,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       }
       removeTerminalFromScope(paneId);
     },
-    prefillTerminal: ({ title, command }) => {
-      const paneId = addTerminal(title);
+    prefillTerminal: ({ label, command, agent }) => {
+      const paneId = addTerminal(label, agent);
       // Pre-fill without \r so the command is typed but not executed
       pendingCommandsRef.current.set(paneId, command);
     },
@@ -289,18 +349,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       }
       terminalRefsMap.current.clear();
     },
-  }), [workspaceId, addTerminal, getPaneId, removeTerminalFromScope]);
+  }), [workspaceId, addTerminal, getPaneId, getPaneIdByLabelOrWindowName, removeTerminalFromScope]);
 
   const setLayoutForScope = isCodeReview
     ? setCodeReviewLayout
     : isProjectWiki
     ? setProjectWikiLayout
     : setLayout;
-  const splitTerminalForScope = isCodeReview
-    ? splitCodeReviewTerminal
-    : isProjectWiki
-    ? splitProjectWikiTerminal
-    : splitTerminalInStore;
   const toggleMaximizeForScope = isCodeReview
     ? toggleCodeReviewMaximize
     : isProjectWiki
@@ -311,6 +366,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     : isProjectWiki
     ? setProjectWikiDynamicTitle
     : setDynamicTitle;
+  const setPaneAgentForScope = isCodeReview
+    ? setCodeReviewPaneAgent
+    : isProjectWiki
+    ? setProjectWikiPaneAgent
+    : setPaneAgent;
 
   const onChange = useCallback((newLayout: MosaicNode<string> | null) => {
     if (isCodeReview || isProjectWiki) {
@@ -327,17 +387,20 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       terminalRefsMap.current.delete(id);
     }
     removeTerminalFromScope(id);
-  }, [workspaceId, removeTerminalFromScope]);
+  }, [removeTerminalFromScope]);
 
-  const splitTerminal = useCallback((id: string, direction: "row" | "column") => {
-    if (isCodeReview || isProjectWiki) {
-      return splitTerminalForScope(workspaceId, id, direction);
+  const splitTerminal = useCallback((id: string, direction: "row" | "column", agent?: TerminalPaneAgent) => {
+    if (isCodeReview) {
+      return splitCodeReviewTerminal(workspaceId, id, direction, agent);
     }
-    return splitTerminalForScope(workspaceId, id, direction, terminalTabId);
-  }, [workspaceId, splitTerminalForScope, isCodeReview, isProjectWiki, terminalTabId]);
+    if (isProjectWiki) {
+      return splitProjectWikiTerminal(workspaceId, id, direction, agent);
+    }
+    return splitTerminalInStore(workspaceId, id, direction, terminalTabId, agent);
+  }, [workspaceId, isCodeReview, isProjectWiki, splitCodeReviewTerminal, splitProjectWikiTerminal, splitTerminalInStore, terminalTabId]);
 
-  const splitAndRunAgent = useCallback((id: string, direction: "row" | "column", command: string) => {
-    const newPaneId = splitTerminal(id, direction);
+  const splitAndRunAgent = useCallback((id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
+    const newPaneId = splitTerminal(id, direction, agent);
     if (!newPaneId) return;
     pendingCommandsRef.current.set(newPaneId, command.trim() + "\r");
     setSplitMenuKey(null);
@@ -368,8 +431,18 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
 
-    // label is the immutable user-visible name; fall back to title for legacy panes.
-    const displayTitle = pane.dynamicTitle || pane.label || pane.title;
+    const dynamicTitleIsVersion = isVersionLikeTitle(pane.dynamicTitle);
+    const matchedDynamicAgent = resolveAgentForTitle(pane.dynamicTitle, configuredAgents);
+    const labelAgent = dynamicTitleIsVersion
+      ? resolveAgentForLabel(pane.label, configuredAgents)
+      : undefined;
+    const fallbackAgent = !pane.dynamicTitle
+      ? pane.agent
+      : dynamicTitleIsVersion
+      ? labelAgent ?? pane.agent
+      : undefined;
+    const toolbarAgent = matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
+    const displayTitle = toolbarAgent?.label ?? (dynamicTitleIsVersion ? pane.label : pane.dynamicTitle) ?? pane.label;
 
     return (
       <MosaicWindow<string>
@@ -379,18 +452,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         onDragStart={() => setIsPaneDragging(true)}
         onDragEnd={() => setIsPaneDragging(false)}
         renderToolbar={() => {
-          // Check displayTitle first (reflects active process name from shim CMD_START),
-          // then fall back to pane.label (immutable user-visible name set at creation).
-          const staticLabel = pane.label || pane.title;
-          const agentRegistryId =
-            PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(displayTitle).toLowerCase()] ??
-            PANE_TITLE_TO_REGISTRY_ID[getBasePaneTitle(staticLabel).toLowerCase()];
-
           return (
             <div className="terminal-mosaic-toolbar group/toolbar">
               <div className="terminal-mosaic-toolbar-left">
-                {agentRegistryId ? (
-                  <AgentIcon registryId={agentRegistryId} name={staticLabel} size={14} />
+                {toolbarAgent?.iconType === "built-in" ? (
+                  <AgentIcon registryId={toolbarAgent.id} name={toolbarAgent.label} size={14} />
+                ) : toolbarAgent?.iconType === "custom" ? (
+                  <Bot className="size-3.5 text-muted-foreground" />
                 ) : (
                   <div className="size-2 rounded-full bg-emerald-500" />
                 )}
@@ -429,8 +497,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                               onMouseLeave={handleSplitMenuLeave}
                               onCloseAutoFocus={(e) => e.preventDefault()}
                             >
-                              {quickOpenAgents.map((agent) => (
-                                <DropdownMenuItem key={`row-${agent.id}`} onClick={() => splitAndRunAgent(id, "row", agent.command)}>
+                              {quickOpenAgents.map(({ agent, command }) => (
+                                <DropdownMenuItem key={`row-${agent.id}`} onClick={() => splitAndRunAgent(id, "row", command, agent)}>
                                   {agent.iconType === "built-in" ? (
                                     <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                                   ) : (
@@ -465,8 +533,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                               onMouseLeave={handleSplitMenuLeave}
                               onCloseAutoFocus={(e) => e.preventDefault()}
                             >
-                              {quickOpenAgents.map((agent) => (
-                                <DropdownMenuItem key={`column-${agent.id}`} onClick={() => splitAndRunAgent(id, "column", agent.command)}>
+                              {quickOpenAgents.map(({ agent, command }) => (
+                                <DropdownMenuItem key={`column-${agent.id}`} onClick={() => splitAndRunAgent(id, "column", command, agent)}>
                                   {agent.iconType === "built-in" ? (
                                     <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                                   ) : (
@@ -539,11 +607,18 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
               project.id === workspaceId || project.workspaces.some((workspace) => workspace.id === workspaceId)
             )?.mainFilePath}
             onTitleChange={(title) => {
+              const detectedAgent = resolveAgentForTitle(title, configuredAgents);
               if (isCodeReview || isProjectWiki) {
                 setDynamicTitleForScope(workspaceId, id, title);
+                if (detectedAgent) {
+                  setPaneAgentForScope(workspaceId, id, detectedAgent);
+                }
                 return;
               }
               setDynamicTitleForScope(workspaceId, id, title, terminalTabId);
+              if (detectedAgent) {
+                setPaneAgentForScope(workspaceId, id, detectedAgent, terminalTabId);
+              }
             }}
             onSessionReady={() => {
               const cmd = pendingCommandsRef.current.get(id);
@@ -566,7 +641,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     workspaceId,
     onToggleMaximize,
     setDynamicTitleForScope,
+    setPaneAgentForScope,
     actions,
+    configuredAgents,
     projects,
     isCodeReview,
     isProjectWiki,
