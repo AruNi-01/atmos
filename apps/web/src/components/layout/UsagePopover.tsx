@@ -1898,7 +1898,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
               </div>
 
               <TooltipProvider delayDuration={180}>
-                <div className="inline-flex items-center gap-2">
+                <div className="inline-flex items-center gap-4">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -1953,7 +1953,12 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                                 onClick={() => toggleCarouselProvider(provider.id)}
                                 className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/65"
                               >
-                                <span className="min-w-0 truncate">{provider.label}</span>
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-border/60 bg-background/75 text-foreground/85 [&_svg]:size-3.5 [&_span]:size-3.5">
+                                    <ProviderGlyph providerId={provider.id} />
+                                  </span>
+                                  <span className="min-w-0 truncate">{provider.label}</span>
+                                </span>
                                 <span
                                   className={cn(
                                     "flex size-4 shrink-0 items-center justify-center rounded-sm border border-border/80",

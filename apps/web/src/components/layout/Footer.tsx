@@ -292,12 +292,79 @@ function AcpChatButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+function HoverScrollText({ text, active }: { text: string; active: boolean }) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  const animRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopScroll = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (animRef.current) {
+      cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+    const el = textRef.current;
+    if (el) el.scrollLeft = 0;
+  }, []);
+
+  const startScroll = useCallback(() => {
+    const el = textRef.current;
+    if (!el) return;
+
+    const overflow = el.scrollWidth - el.clientWidth;
+    if (overflow <= 0) return;
+
+    stopScroll();
+    timeoutRef.current = setTimeout(() => {
+      const duration = overflow * 40;
+      const startTime = performance.now();
+
+      const step = (now: number) => {
+        const progress = Math.min((now - startTime) / duration, 1);
+        el.scrollLeft = overflow * progress;
+        if (progress < 1) {
+          animRef.current = requestAnimationFrame(step);
+        }
+      };
+
+      animRef.current = requestAnimationFrame(step);
+    }, 400);
+  }, [stopScroll]);
+
+  useEffect(() => {
+    stopScroll();
+    return stopScroll;
+  }, [text, stopScroll]);
+
+  useEffect(() => {
+    if (active) {
+      startScroll();
+      return;
+    }
+    stopScroll();
+  }, [active, startScroll, stopScroll]);
+
+  return (
+    <span
+      ref={textRef}
+      className="block overflow-hidden whitespace-nowrap font-medium text-muted-foreground"
+      title={text}
+    >
+      {text}
+    </span>
+  );
+}
+
 const Footer: React.FC = () => {
   const connectionState = useWebSocketStore(s => s.connectionState);
   const [, setAgentChatOpen] = useAgentChatUrl();
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [usageOverview, setUsageOverview] = useState<UsageOverviewResponse | null>(null);
   const [usageIndex, setUsageIndex] = useState(0);
+  const [isUsageCarouselHovered, setIsUsageCarouselHovered] = useState(false);
   const [loading, setLoading] = useState(false);
   const carouselProviderIds = useUsageCarouselStore((s) => s.providerIds);
   const hydrateUsageCarousel = useUsageCarouselStore((s) => s.hydrate);
@@ -360,12 +427,16 @@ const Footer: React.FC = () => {
 
   useEffect(() => {
     setUsageIndex(0);
+  }, [usageCarouselItems.length]);
+
+  useEffect(() => {
+    if (isUsageCarouselHovered) return;
     if (usageCarouselItems.length <= 1) return;
     const timer = window.setInterval(() => {
       setUsageIndex((index) => index + 1);
-    }, 4_000);
+    }, 5_000);
     return () => window.clearInterval(timer);
-  }, [usageCarouselItems.length]);
+  }, [isUsageCarouselHovered, usageCarouselItems.length]);
 
   const fetchConnections = useCallback(async () => {
     if (connectionState !== 'connected') return;
@@ -465,23 +536,28 @@ const Footer: React.FC = () => {
         <div className="h-3 w-px bg-border"></div>
         {usageCarouselItem ? (
           <>
-            <div className="flex min-w-0 max-w-[46vw] items-center gap-1.5 text-muted-foreground">
+            <div
+              className="flex min-w-0 w-[min(360px,38vw)] items-center gap-1.5 text-muted-foreground"
+              onMouseEnter={() => setIsUsageCarouselHovered(true)}
+              onMouseLeave={() => setIsUsageCarouselHovered(false)}
+            >
               <Gauge className="size-3 shrink-0" />
               <AnimatePresence mode="wait" initial={false}>
-                <motion.span
+                <motion.div
                   key={usageCarouselItem.providerId}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.18, ease: "easeOut" }}
-                  className="truncate whitespace-nowrap font-medium text-muted-foreground"
-                  title={usageCarouselItem.text}
+                  className="min-w-0 flex-1"
                 >
-                  {usageCarouselItem.text}
-                </motion.span>
+                  <HoverScrollText
+                    text={usageCarouselItem.text}
+                    active={isUsageCarouselHovered}
+                  />
+                </motion.div>
               </AnimatePresence>
             </div>
-            <div className="h-3 w-px bg-border"></div>
           </>
         ) : null}
       </div>
