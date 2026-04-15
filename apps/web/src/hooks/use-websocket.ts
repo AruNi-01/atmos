@@ -47,6 +47,7 @@ export type WsAction =
   // Usage 操作
   | "usage_get_overview"
   | "usage_set_provider_switch"
+  | "usage_set_provider_footer_carousel"
   | "usage_set_all_providers_switch"
   | "usage_set_provider_manual_setup"
   | "usage_add_provider_api_key"
@@ -118,6 +119,8 @@ export type WsAction =
   | "agent_install"
   | "agent_config_get"
   | "agent_config_set"
+  | "agent_behaviour_settings_get"
+  | "agent_behaviour_settings_update"
   | "agent_registry_list"
   | "agent_registry_install"
   | "agent_registry_remove"

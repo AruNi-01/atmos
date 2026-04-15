@@ -175,6 +175,7 @@ pub(crate) fn error_status(descriptor: &ProviderDescriptor, message: String) -> 
         kind: ProviderKind::Api,
         enabled: false,
         switch_enabled: true,
+        footer_carousel_show: false,
         healthy: false,
         last_updated_at: Some(unix_now()),
         subscription_summary: None,
@@ -370,6 +371,7 @@ pub(crate) fn snapshot_status(
     snapshot.label = spec.label.to_string();
     snapshot.kind = spec.kind.clone();
     snapshot.switch_enabled = true;
+    snapshot.footer_carousel_show = false;
     snapshot.auth_state = auth;
     snapshot
         .detail_sections
@@ -389,6 +391,7 @@ pub(crate) fn missing_status(
         kind: spec.kind.clone(),
         enabled: false,
         switch_enabled: true,
+        footer_carousel_show: false,
         healthy: false,
         last_updated_at: Some(unix_now()),
         subscription_summary: None,
@@ -455,6 +458,7 @@ fn live_status(
         kind: spec.kind.clone(),
         enabled: true,
         switch_enabled: true,
+        footer_carousel_show: false,
         healthy: true,
         last_updated_at: result.last_updated_at.or(Some(unix_now())),
         subscription_summary: Some(SubscriptionSummary {
@@ -488,6 +492,7 @@ fn unavailable_status(
         kind: spec.kind.clone(),
         enabled: auth.status == AuthStateStatus::Detected,
         switch_enabled: true,
+        footer_carousel_show: false,
         healthy: false,
         last_updated_at: Some(unix_now()),
         subscription_summary: None,

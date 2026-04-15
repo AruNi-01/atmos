@@ -25,6 +25,8 @@ pub(crate) struct ProviderStateEntry {
     pub(crate) updated_at_utc: Option<String>,
     #[serde(default = "default_provider_switch")]
     pub(crate) switch: bool,
+    #[serde(default)]
+    pub(crate) footer_carousel_show: bool,
 }
 
 impl Default for ProviderStateEntry {
@@ -32,6 +34,7 @@ impl Default for ProviderStateEntry {
         Self {
             updated_at_utc: None,
             switch: true,
+            footer_carousel_show: false,
         }
     }
 }
@@ -87,6 +90,7 @@ fn load_provider_state() -> ProviderStateFile {
                             ProviderStateEntry {
                                 updated_at_utc: Some(updated_at_utc),
                                 switch: true,
+                                footer_carousel_show: false,
                             },
                         )
                     })
@@ -166,6 +170,13 @@ pub(crate) fn persist_provider_switch(provider_id: &str, switch_enabled: bool) {
     save_provider_state(&state);
 }
 
+pub(crate) fn persist_provider_footer_carousel_show(provider_id: &str, enabled: bool) {
+    let mut state = load_provider_state();
+    let entry = state.providers.entry(provider_id.to_string()).or_default();
+    entry.footer_carousel_show = enabled;
+    save_provider_state(&state);
+}
+
 pub(crate) fn persist_all_provider_switch(provider_ids: &[String], switch_enabled: bool) {
     let mut state = load_provider_state();
     for provider_id in provider_ids {
@@ -190,6 +201,7 @@ pub(crate) fn apply_provider_state(mut overview: UsageOverview) -> UsageOverview
     for provider in &mut overview.providers {
         if let Some(entry) = state.providers.get(&provider.id) {
             provider.switch_enabled = entry.switch;
+            provider.footer_carousel_show = entry.footer_carousel_show;
             if let Some(updated_at) = entry
                 .updated_at_utc
                 .as_deref()
@@ -200,6 +212,7 @@ pub(crate) fn apply_provider_state(mut overview: UsageOverview) -> UsageOverview
             }
         } else {
             provider.switch_enabled = true;
+            provider.footer_carousel_show = false;
         }
     }
 

@@ -14,14 +14,15 @@ use ai_usage::UsageService;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
 use infra::{
-    AgentConfigGetRequest, AgentConfigSetRequest, AgentInstallRequest, AgentRegistryInstallRequest,
-    AgentRegistryListRequest, AgentRegistryRemoveRequest, AppOpenRequest,
-    AgentBehaviourSettingsUpdateRequest, CodeAgentCustomUpdateRequest, CustomAgentAddRequest, CustomAgentRemoveRequest,
-    CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest, FsDuplicatePathRequest,
-    FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest, FsRenamePathRequest,
-    FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest, FsWriteFileRequest,
-    FunctionSettingsUpdateRequest, GitChangedFilesRequest, GitCommitRequest,
-    GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
+    AgentBehaviourSettingsUpdateRequest, AgentConfigGetRequest, AgentConfigSetRequest,
+    AgentInstallRequest, AgentRegistryInstallRequest, AgentRegistryListRequest,
+    AgentRegistryRemoveRequest, AppOpenRequest, CodeAgentCustomUpdateRequest,
+    CustomAgentAddRequest, CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsCreateDirRequest,
+    FsDeletePathRequest, FsDuplicatePathRequest, FsListDirRequest, FsListProjectFilesRequest,
+    FsReadFileRequest, FsRenamePathRequest, FsSearchContentRequest, FsSearchDirsRequest,
+    FsValidateGitPathRequest, FsWriteFileRequest, FunctionSettingsUpdateRequest,
+    GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
+    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
     GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
     GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest,
     GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
@@ -36,17 +37,18 @@ use infra::{
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
     SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
     UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
-    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderManualSetupRequest,
-    UsageProviderSwitchRequest, WorkspaceArchiveRequest, WorkspaceConfirmTodosRequest,
-    WorkspaceCreateRequest, WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest,
-    WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest, WorkspaceListRequest,
-    WorkspaceMarkVisitedRequest, WorkspacePinRequest, WorkspaceRetrySetupRequest,
-    WorkspaceSetupContextNotification, WorkspaceSetupProgressNotification,
-    WorkspaceSkipSetupScriptRequest, WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest,
-    WorkspaceUnpinRequest, WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest,
-    WorkspaceUpdateNameRequest, WorkspaceUpdateOrderRequest, WorkspaceUpdatePinOrderRequest,
-    WorkspaceUpdatePriorityRequest, WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent,
-    WsMessage, WsMessageHandler, WsRequest,
+    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
+    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
+    WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
+    WorkspaceDeleteRequest, WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest,
+    WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
+    WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
+    WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest,
+    WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
+    WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest, WorkspaceUpdateNameRequest,
+    WorkspaceUpdateOrderRequest, WorkspaceUpdatePinOrderRequest, WorkspaceUpdatePriorityRequest,
+    WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent, WsMessage, WsMessageHandler,
+    WsRequest,
 };
 use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
@@ -368,6 +370,10 @@ impl WsMessageService {
             }
             WsAction::UsageSetProviderSwitch => {
                 self.handle_usage_set_provider_switch(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::UsageSetProviderFooterCarousel => {
+                self.handle_usage_set_provider_footer_carousel(parse_request(request.data)?)
                     .await
             }
             WsAction::UsageSetAllProvidersSwitch => {
@@ -1305,6 +1311,17 @@ impl WsMessageService {
         let overview = self
             .usage_service
             .set_provider_switch(&req.provider_id, req.enabled)
+            .await;
+        Ok(json!(overview))
+    }
+
+    async fn handle_usage_set_provider_footer_carousel(
+        &self,
+        req: UsageProviderFooterCarouselRequest,
+    ) -> Result<Value> {
+        let overview = self
+            .usage_service
+            .set_provider_footer_carousel_show(&req.provider_id, req.enabled)
             .await;
         Ok(json!(overview))
     }

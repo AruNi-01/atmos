@@ -309,6 +309,7 @@ export interface UsageProviderResponse {
   kind: UsageProviderKind;
   enabled: boolean;
   switch_enabled: boolean;
+  footer_carousel_show: boolean;
   healthy: boolean;
   last_updated_at: number | null;
   subscription_summary: UsageSubscriptionSummaryResponse | null;
@@ -548,6 +549,20 @@ export const usageWsApi = {
   ): Promise<UsageOverviewResponse> => {
     return wsRequest<UsageOverviewResponse>(
       "usage_set_provider_switch",
+      {
+        provider_id: providerId,
+        enabled,
+      },
+      45_000,
+    );
+  },
+
+  setProviderFooterCarousel: async (
+    providerId: string,
+    enabled: boolean,
+  ): Promise<UsageOverviewResponse> => {
+    return wsRequest<UsageOverviewResponse>(
+      "usage_set_provider_footer_carousel",
       {
         provider_id: providerId,
         enabled,

@@ -42,6 +42,7 @@ fn mock_status(id: &str, label: &str) -> ProviderStatus {
         kind: ProviderKind::Api,
         enabled: true,
         switch_enabled: true,
+        footer_carousel_show: false,
         healthy: true,
         last_updated_at: None,
         subscription_summary: None,
