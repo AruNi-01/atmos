@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   AlertCircle,
   Clock3,
-  BookMarked,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -65,6 +65,7 @@ import {
   type UsageProviderResponse,
 } from "@/api/ws-api";
 import { useWebSocketStore } from "@/hooks/use-websocket";
+import { useUsageCarouselStore } from "@/hooks/use-usage-carousel-store";
 
 const STALE_MS = 3 * 60 * 1000;
 const ALL_PROVIDER_ID = "all";
@@ -1205,6 +1206,10 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     canScrollRight: false,
   });
   const [providerOrder, setProviderOrder] = useState<string[]>([]);
+  const carouselProviderIds = useUsageCarouselStore((state) => state.providerIds);
+  const hydrateUsageCarousel = useUsageCarouselStore((state) => state.hydrate);
+  const toggleCarouselProvider = useUsageCarouselStore((state) => state.toggleProvider);
+  const reconcileCarouselProviders = useUsageCarouselStore((state) => state.reconcileProviders);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1368,6 +1373,23 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     },
     [overview, providerOrder]
   );
+
+  const carouselProviders = useMemo(
+    () => (overview?.providers ?? []).filter((provider) => provider.switch_enabled),
+    [overview?.providers]
+  );
+  const carouselProviderIdSet = useMemo(
+    () => new Set(carouselProviderIds),
+    [carouselProviderIds]
+  );
+
+  useEffect(() => {
+    hydrateUsageCarousel();
+  }, [hydrateUsageCarousel]);
+
+  useEffect(() => {
+    reconcileCarouselProviders(carouselProviders.map((provider) => provider.id));
+  }, [carouselProviders, reconcileCarouselProviders]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1892,20 +1914,65 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                     </TooltipContent>
                   </Tooltip>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                  <Popover>
+                    <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className="inline-flex items-center text-muted-foreground/80 transition-colors hover:text-foreground"
-                        aria-label="Reference sources"
+                        className="inline-flex items-center gap-1 text-muted-foreground/80 transition-colors hover:text-foreground"
+                        aria-label="Configure footer AI Usage carousel"
                       >
-                        <BookMarked className="size-3.5" />
+                        <Gauge className="size-3.5" />
+                        {carouselProviderIds.length > 0 ? (
+                          <span className="min-w-3 text-[10px] font-medium leading-none">
+                            {carouselProviderIds.length}
+                          </span>
+                        ) : null}
                       </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="center">
-                      Reference CodexBar &amp; OpenUsage
-                    </TooltipContent>
-                  </Tooltip>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="top"
+                      align="end"
+                      sideOffset={8}
+                      className="w-56 rounded-[16px] border-border/70 p-2"
+                    >
+                      <div className="px-2 pb-2 pt-1">
+                        <div className="text-xs font-medium text-foreground">Footer carousel</div>
+                        <div className="mt-0.5 text-[11px] text-foreground/75">
+                          Choose enabled AI Usage sources.
+                        </div>
+                      </div>
+                      {carouselProviders.length > 0 ? (
+                        <div className="max-h-64 overflow-y-auto">
+                          {carouselProviders.map((provider) => {
+                            const checked = carouselProviderIdSet.has(provider.id);
+                            return (
+                              <button
+                                key={provider.id}
+                                type="button"
+                                aria-pressed={checked}
+                                onClick={() => toggleCarouselProvider(provider.id)}
+                                className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/65"
+                              >
+                                <span className="min-w-0 truncate">{provider.label}</span>
+                                <span
+                                  className={cn(
+                                    "flex size-4 shrink-0 items-center justify-center rounded-sm border border-border/80",
+                                    checked && "border-foreground bg-foreground text-background"
+                                  )}
+                                >
+                                  {checked ? <Check className="size-3" /> : null}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="px-2 py-3 text-[11px] text-foreground/75">
+                          No enabled AI Usage sources yet.
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </TooltipProvider>
             </div>

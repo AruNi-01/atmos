@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { systemApi, type WsConnectionInfo } from '@/api/rest-api';
+import { usageWsApi, type UsageOverviewResponse } from '@/api/ws-api';
+import { useUsageCarouselStore } from '@/hooks/use-usage-carousel-store';
+import { buildUsageCarouselItems } from '@/lib/usage-display';
 import {
   useAgentHooksStore,
   type AgentHookSession,
@@ -23,7 +26,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjectStore } from '@/hooks/use-project-store';
-import { X } from 'lucide-react';
+import { Gauge, X } from 'lucide-react';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
 
@@ -191,8 +194,6 @@ function useContextNameResolver() {
 // Cycling ticker: rotates through active sessions, showing each for `intervalMs`.
 function useSessionTicker(sessions: AgentHookSession[], intervalMs = 3000) {
   const [index, setIndex] = useState(0);
-  const countRef = useRef(sessions.length);
-  countRef.current = sessions.length;
 
   useEffect(() => {
     if (sessions.length <= 1) return;
@@ -295,7 +296,12 @@ const Footer: React.FC = () => {
   const connectionState = useWebSocketStore(s => s.connectionState);
   const [, setAgentChatOpen] = useAgentChatUrl();
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
+  const [usageOverview, setUsageOverview] = useState<UsageOverviewResponse | null>(null);
+  const [usageIndex, setUsageIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+  const carouselProviderIds = useUsageCarouselStore((s) => s.providerIds);
+  const hydrateUsageCarousel = useUsageCarouselStore((s) => s.hydrate);
+  const reconcileCarouselProviders = useUsageCarouselStore((s) => s.reconcileProviders);
 
   const resolveContextName = useContextNameResolver();
 
@@ -305,6 +311,61 @@ const Footer: React.FC = () => {
   ));
   const hasPermission = activeSessions.some((s) => s.state === AGENT_STATE.PERMISSION_REQUEST);
   const tickerSession = useSessionTicker(activeSessions);
+  const usageCarouselItems = useMemo(
+    () => buildUsageCarouselItems(usageOverview, carouselProviderIds),
+    [usageOverview, carouselProviderIds]
+  );
+  const carouselProviderKey = carouselProviderIds.join("\u0000");
+  const usageCarouselItem = usageCarouselItems.length > 0
+    ? usageCarouselItems[usageIndex % usageCarouselItems.length]
+    : null;
+
+  useEffect(() => {
+    hydrateUsageCarousel();
+  }, [hydrateUsageCarousel]);
+
+  useEffect(() => {
+    if (!usageOverview) return;
+    reconcileCarouselProviders(
+      usageOverview.providers
+        .filter((provider) => provider.switch_enabled)
+        .map((provider) => provider.id)
+    );
+  }, [usageOverview, reconcileCarouselProviders]);
+
+  useEffect(() => {
+    if (connectionState !== 'connected' || carouselProviderIds.length === 0) return;
+
+    let cancelled = false;
+    usageWsApi.getOverview(false)
+      .then((overview) => {
+        if (!cancelled) setUsageOverview(overview);
+      })
+      .catch(() => {
+        if (!cancelled) setUsageOverview(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionState, carouselProviderIds.length, carouselProviderKey]);
+
+  useEffect(() => {
+    return useWebSocketStore
+      .getState()
+      .onEvent("usage_overview_updated", (data: unknown) => {
+        setUsageOverview(data as UsageOverviewResponse);
+      });
+  }, []);
+
+  useEffect(() => {
+    setUsageIndex(0);
+    if (usageCarouselItems.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setUsageIndex((index) => index + 1);
+    }, 4_000);
+    return () => window.clearInterval(timer);
+  }, [usageCarouselItems.length]);
 
   const fetchConnections = useCallback(async () => {
     if (connectionState !== 'connected') return;
@@ -402,6 +463,27 @@ const Footer: React.FC = () => {
           </TooltipContent>
         </Tooltip>
         <div className="h-3 w-px bg-border"></div>
+        {usageCarouselItem ? (
+          <>
+            <div className="flex min-w-0 max-w-[46vw] items-center gap-1.5 text-muted-foreground">
+              <Gauge className="size-3 shrink-0" />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={usageCarouselItem.providerId}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  className="truncate whitespace-nowrap font-medium text-muted-foreground"
+                  title={usageCarouselItem.text}
+                >
+                  {usageCarouselItem.text}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+            <div className="h-3 w-px bg-border"></div>
+          </>
+        ) : null}
       </div>
 
       {/* Right Status */}
