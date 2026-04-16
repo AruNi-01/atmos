@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import { MosaicNode, MosaicDirection, getLeaves } from "react-mosaic-component";
 import { workspaceLayoutApi, projectLayoutApi, systemApi, TmuxWindow } from "@/api/rest-api";
-import type { TerminalPaneProps } from "@/components/terminal/types";
+import type { TerminalPaneAgent, TerminalPaneProps } from "@/components/terminal/types";
 
 const SAVE_DEBOUNCE_MS = 500;
 export const FIXED_TERMINAL_TAB_VALUE = "terminal";
@@ -15,10 +15,6 @@ export interface TerminalCenterTab {
   id: string;
   title: string;
   closable: boolean;
-}
-
-interface PersistedTerminalPane {
-  panes: Record<string, Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">>;
 }
 
 interface PersistedTerminalTab {
@@ -94,9 +90,9 @@ interface TerminalStore {
   /** Check if workspace has been fully loaded and is ready for rendering */
   isWorkspaceReady: (workspaceId: string, terminalTabId?: string) => boolean;
   setLayout: (workspaceId: string, layout: MosaicNode<string> | null, terminalTabId?: string) => void;
-  addTerminal: (workspaceId: string, title?: string, terminalTabId?: string) => string;
+  addTerminal: (workspaceId: string, label?: string, terminalTabId?: string, agent?: TerminalPaneAgent) => string;
   removeTerminal: (workspaceId: string, id: string, terminalTabId?: string) => void;
-  splitTerminal: (workspaceId: string, id: string, direction: MosaicDirection, terminalTabId?: string) => string | null;
+  splitTerminal: (workspaceId: string, id: string, direction: MosaicDirection, terminalTabId?: string, agent?: TerminalPaneAgent) => string | null;
   toggleMaximize: (workspaceId: string, id: string, terminalTabId?: string) => void;
   
   // Initialization
@@ -114,19 +110,21 @@ interface TerminalStore {
   
   // Dynamic title (from shell shim OSC sequences)
   setDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string, terminalTabId?: string) => void;
+  setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent, terminalTabId?: string) => void;
 
   // Project Wiki scope (separate from main Terminal)
   getProjectWikiPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
   getProjectWikiLayout: (workspaceId: string) => MosaicNode<string> | null;
   isProjectWikiReady: (workspaceId: string) => boolean;
   setProjectWikiLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
-  addProjectWikiTerminal: (workspaceId: string, title?: string) => string;
+  addProjectWikiTerminal: (workspaceId: string, label?: string, agent?: TerminalPaneAgent) => string;
   removeProjectWikiTerminal: (workspaceId: string, id: string) => void;
-  splitProjectWikiTerminal: (workspaceId: string, id: string, direction: MosaicDirection) => string | null;
+  splitProjectWikiTerminal: (workspaceId: string, id: string, direction: MosaicDirection, agent?: TerminalPaneAgent) => string | null;
   initProjectWikiWorkspace: (workspaceId: string) => void;
   loadProjectWikiFromTmux: (workspaceId: string) => Promise<void>;
   getProjectWikiPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
   setProjectWikiDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
+  setProjectWikiPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   toggleProjectWikiMaximize: (workspaceId: string, id: string) => void;
 
   // Code Review scope (separate from main Terminal and Project Wiki)
@@ -139,22 +137,23 @@ interface TerminalStore {
   getCodeReviewLayout: (workspaceId: string) => MosaicNode<string> | null;
   isCodeReviewReady: (workspaceId: string) => boolean;
   setCodeReviewLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
-  addCodeReviewTerminal: (workspaceId: string, title?: string) => string;
+  addCodeReviewTerminal: (workspaceId: string, label?: string, agent?: TerminalPaneAgent) => string;
   removeCodeReviewTerminal: (workspaceId: string, id: string) => void;
   initCodeReviewWorkspace: (workspaceId: string) => void;
   loadCodeReviewFromTmux: (workspaceId: string) => Promise<void>;
   getCodeReviewPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
   setCodeReviewDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
+  setCodeReviewPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
   toggleCodeReviewMaximize: (workspaceId: string, id: string) => void;
-  splitCodeReviewTerminal: (workspaceId: string, id: string, direction: MosaicDirection) => string | null;
+  splitCodeReviewTerminal: (workspaceId: string, id: string, direction: MosaicDirection, agent?: TerminalPaneAgent) => string | null;
 }
 
 /** Generate next available window name (1, 2, 3, ...) for numeric names */
 function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): string {
   const values = Object.values(existingPanes);
   const usedNames = new Set([
-     ...values.map(p => p.tmuxWindowName),
-     ...values.map(p => p.title)
+    ...values.map(p => p.tmuxWindowName),
+    ...values.map(p => p.label),
   ].filter(Boolean));
   
   let num = 1;
@@ -179,10 +178,10 @@ function getUniqueAgentName(baseName: string, existingPanes: Record<string, Term
 
   const values = Object.values(existingPanes);
   const usedNames = new Set([
-     ...values.map(p => p.tmuxWindowName),
-     ...values.map(p => p.title)
+    ...values.map(p => p.tmuxWindowName),
+    ...values.map(p => p.label),
   ].filter(Boolean));
-  
+
   // If base name is not used, return it directly
   if (!usedNames.has(baseName)) {
     return baseName;
@@ -202,6 +201,36 @@ function createFixedTerminalTab(): TerminalCenterTab {
     title: "Term",
     closable: false,
   };
+}
+
+function createTerminalPane(
+  workspaceId: string,
+  label: string,
+  options: {
+    id?: string;
+    tmuxWindowName?: string;
+    isNewPane: boolean;
+    agent?: TerminalPaneAgent;
+  },
+): TerminalPaneProps {
+  return {
+    id: options.id ?? uuidv4(),
+    label,
+    sessionId: uuidv4(),
+    workspaceId,
+    tmuxWindowName: options.tmuxWindowName ?? label,
+    isNewPane: options.isNewPane,
+    agent: options.agent,
+  };
+}
+
+function samePaneAgent(left: TerminalPaneAgent | undefined, right: TerminalPaneAgent): boolean {
+  return (
+    left?.id === right.id &&
+    left?.label === right.label &&
+    left?.command === right.command &&
+    left?.iconType === right.iconType
+  );
 }
 
 function getScopeKey(workspaceId: string, terminalTabId: string = FIXED_TERMINAL_TAB_VALUE): string {
@@ -357,13 +386,17 @@ function hydratePersistedTab(
 
   const validatedPanes: Record<string, TerminalPaneProps> = {};
   for (const [id, pane] of Object.entries(tab.panes)) {
-    const windowName = pane.tmuxWindowName || pane.title || getNextWindowName(validatedPanes);
+    // `title` is the legacy field name (before the label/tmuxWindowName split).
+    // Fall back to it so old persisted layouts still resolve the correct window name.
+    const legacyTitle = (pane as unknown as { title?: string }).title;
+    const windowName = pane.tmuxWindowName || pane.label || legacyTitle || getNextWindowName(validatedPanes);
     const windowExists = existingWindowNames.has(windowName);
 
     validatedPanes[id] = {
       ...pane,
       workspaceId,
-      title: windowName,
+      // Ensure label is always set — old data only has `title`, not `label`.
+      label: pane.label || legacyTitle || windowName,
       tmuxWindowName: windowName,
       sessionId: uuidv4(),
       isNewPane: !windowExists,
@@ -389,14 +422,11 @@ function createInitialLayout(
     Object.keys(existingPanes).length > 0 ? getNextWindowName(existingPanes) : "1";
   return {
     panes: {
-      [initialId]: {
+      [initialId]: createTerminalPane(workspaceId, windowName, {
         id: initialId,
-        title: windowName,
-        sessionId: uuidv4(),
-        workspaceId,
         tmuxWindowName: windowName,
-        isNewPane: true, // Mark as new so Terminal creates instead of attaches
-      },
+        isNewPane: true,
+      }),
     },
     layout: initialId,
   };
@@ -761,28 +791,26 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     });
   },
 
-  addTerminal: (workspaceId, title, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+  addTerminal: (workspaceId, label, terminalTabId = FIXED_TERMINAL_TAB_VALUE, agent) => {
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
     const panes = get().workspacePanes[scopeKey] || {};
     const layout = get().workspaceLayouts[scopeKey];
     const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
     const newId = uuidv4();
     // For agent names (non-numeric), use unique suffix logic; otherwise use numeric names
-    const windowName = title 
-      ? getUniqueAgentName(title, allPanes) 
+    const windowName = label
+      ? getUniqueAgentName(label, allPanes)
       : getNextWindowName(allPanes);
-    
-    const newPane: TerminalPaneProps = {
+
+    const newPane = createTerminalPane(workspaceId, windowName, {
       id: newId,
-      title: windowName,
-      sessionId: uuidv4(),
-      workspaceId,
       tmuxWindowName: windowName,
-      isNewPane: true, // Mark as new so Terminal creates instead of attaches
-    };
+      isNewPane: true,
+      agent,
+    });
 
     const nextPanes = { ...panes, [newId]: newPane };
-    
+
     let nextLayout: MosaicNode<string>;
     if (!layout) {
       nextLayout = newId;
@@ -856,7 +884,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     }
   },
 
-  splitTerminal: (workspaceId, id, direction, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+  splitTerminal: (workspaceId, id, direction, terminalTabId = FIXED_TERMINAL_TAB_VALUE, agent) => {
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
     const layout = get().workspaceLayouts[scopeKey];
     const panes = get().workspacePanes[scopeKey] || {};
@@ -864,16 +892,16 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     if (!layout) return null;
 
     const newId = uuidv4();
-    const windowName = getNextWindowName(allPanes);
+    const windowName = agent
+      ? getUniqueAgentName(agent.label, allPanes)
+      : getNextWindowName(allPanes);
     
-    const newPane: TerminalPaneProps = {
+    const newPane = createTerminalPane(workspaceId, windowName, {
       id: newId,
-      title: windowName,
-      sessionId: uuidv4(),
-      workspaceId,
       tmuxWindowName: windowName,
-      isNewPane: true, // Mark as new so Terminal creates instead of attaches
-    };
+      isNewPane: true,
+      agent,
+    });
 
     const nextPanes = { ...panes, [newId]: newPane };
 
@@ -1137,14 +1165,11 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         for (const win of existingWindows) {
           const id = uuidv4();
           paneIds.push(id);
-          panes[id] = {
+          panes[id] = createTerminalPane(workspaceId, win.name, {
             id,
-            title: win.name,
-            sessionId: uuidv4(),
-            workspaceId,
             tmuxWindowName: win.name,
             isNewPane: false,
-          };
+          });
         }
 
         let layout: MosaicNode<string> = paneIds[0];
@@ -1252,9 +1277,10 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
           for (const [id, pane] of Object.entries(panes)) {
             cleanPanes[id] = {
               id: pane.id,
-              title: pane.title,
+              label: pane.label,
               workspaceId: pane.workspaceId,
               tmuxWindowName: pane.tmuxWindowName,
+              agent: pane.agent,
               projectName: pane.projectName,
               workspaceName: pane.workspaceName,
               isNewPane: pane.isNewPane,
@@ -1314,23 +1340,24 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
     const panes = get().workspacePanes[scopeKey];
     if (!panes || !panes[paneId]) return;
-    
+
     const updatedPanes = {
       ...panes,
       [paneId]: {
         ...panes[paneId],
+        // Keep tmux identifiers in sync with the actual window name.
+        // Do NOT touch `label` — it is the immutable user-visible display name.
         tmuxWindowName,
-        title: tmuxWindowName,
       },
     };
-    
+
     set((state) => ({
       workspacePanes: {
         ...state.workspacePanes,
         [scopeKey]: updatedPanes,
       },
     }));
-    
+
     get().saveToBackend(workspaceId);
   },
 
@@ -1355,6 +1382,27 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       },
     }));
     // NOTE: Do NOT call saveToBackend — dynamicTitle is transient display-only
+  },
+
+  setPaneAgent: (workspaceId, paneId, agent, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    const panes = get().workspacePanes[scopeKey];
+    if (!panes || !panes[paneId]) return;
+    if (samePaneAgent(panes[paneId].agent, agent)) return;
+
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [scopeKey]: {
+          ...panes,
+          [paneId]: {
+            ...panes[paneId],
+            agent,
+          },
+        },
+      },
+    }));
+    get().saveToBackend(workspaceId);
   },
 
   // --- Project Wiki scope (in-memory, does not affect main Terminal) ---
@@ -1389,18 +1437,16 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       },
     }));
   },
-  addProjectWikiTerminal: (workspaceId, title = PROJECT_WIKI_WINDOW_NAME) => {
+  addProjectWikiTerminal: (workspaceId, label = PROJECT_WIKI_WINDOW_NAME, agent) => {
     const panes = get().projectWikiPanes[workspaceId] || {};
     const layout = get().projectWikiLayouts[workspaceId];
     const newId = uuidv4();
-    const newPane: TerminalPaneProps = {
+    const newPane = createTerminalPane(workspaceId, label, {
       id: newId,
-      title,
-      sessionId: uuidv4(),
-      workspaceId,
-      tmuxWindowName: title,
+      tmuxWindowName: label,
       isNewPane: true,
-    };
+      agent,
+    });
     const nextPanes = { ...panes, [newId]: newPane };
     let nextLayout: MosaicNode<string>;
     if (!layout) {
@@ -1415,19 +1461,18 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     }));
     return newId;
   },
-  splitProjectWikiTerminal: (workspaceId, id, direction) => {
+  splitProjectWikiTerminal: (workspaceId, id, direction, agent) => {
     const layout = get().projectWikiLayouts[workspaceId];
     const panes = get().projectWikiPanes[workspaceId] || {};
     if (!layout) return null;
     const newId = uuidv4();
-    const newPane: TerminalPaneProps = {
+    const splitName = PROJECT_WIKI_WINDOW_NAME + "-2";
+    const newPane = createTerminalPane(workspaceId, splitName, {
       id: newId,
-      title: PROJECT_WIKI_WINDOW_NAME + "-2",
-      sessionId: uuidv4(),
-      workspaceId,
-      tmuxWindowName: PROJECT_WIKI_WINDOW_NAME + "-2",
+      tmuxWindowName: splitName,
       isNewPane: true,
-    };
+      agent,
+    });
     const nextPanes = { ...panes, [newId]: newPane };
     const splitById = (node: MosaicNode<string>, targetId: string): MosaicNode<string> => {
       if (typeof node === 'string') {
@@ -1493,14 +1538,11 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         const hasWikiPane = Object.values(panes).some(p => p.tmuxWindowName === PROJECT_WIKI_WINDOW_NAME);
         if (!hasWikiPane) {
           const newId = uuidv4();
-          const newPane: TerminalPaneProps = {
+          const newPane = createTerminalPane(workspaceId, PROJECT_WIKI_WINDOW_NAME, {
             id: newId,
-            title: PROJECT_WIKI_WINDOW_NAME,
-            sessionId: uuidv4(),
-            workspaceId,
             tmuxWindowName: PROJECT_WIKI_WINDOW_NAME,
-            isNewPane: false, // Attach to existing tmux window
-          };
+            isNewPane: false,
+          });
           set((state) => ({
             projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: { ...panes, [newId]: newPane } },
             projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: newId },
@@ -1540,6 +1582,20 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       },
     }));
   },
+  setProjectWikiPaneAgent: (workspaceId, paneId, agent) => {
+    const panes = get().projectWikiPanes[workspaceId];
+    if (!panes?.[paneId]) return;
+    if (samePaneAgent(panes[paneId].agent, agent)) return;
+    set((state) => ({
+      projectWikiPanes: {
+        ...state.projectWikiPanes,
+        [workspaceId]: {
+          ...panes,
+          [paneId]: { ...panes[paneId], agent },
+        },
+      },
+    }));
+  },
   toggleProjectWikiMaximize: (workspaceId, id) => {
     set((state) => {
       const current = state.projectWikiMaximizedIds[workspaceId];
@@ -1566,18 +1622,16 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: layout },
     }));
   },
-  addCodeReviewTerminal: (workspaceId, title = CODE_REVIEW_WINDOW_NAME) => {
+  addCodeReviewTerminal: (workspaceId, label = CODE_REVIEW_WINDOW_NAME, agent) => {
     const panes = get().codeReviewPanes[workspaceId] || {};
     const layout = get().codeReviewLayouts[workspaceId];
     const newId = uuidv4();
-    const newPane: TerminalPaneProps = {
+    const newPane = createTerminalPane(workspaceId, label, {
       id: newId,
-      title,
-      sessionId: uuidv4(),
-      workspaceId,
-      tmuxWindowName: title,
+      tmuxWindowName: label,
       isNewPane: true,
-    };
+      agent,
+    });
     const nextPanes = { ...panes, [newId]: newPane };
     let nextLayout: MosaicNode<string>;
     if (!layout) {
@@ -1631,14 +1685,11 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         const hasPane = Object.values(panes).some(p => p.tmuxWindowName === CODE_REVIEW_WINDOW_NAME);
         if (!hasPane) {
           const newId = uuidv4();
-          const newPane: TerminalPaneProps = {
+          const newPane = createTerminalPane(workspaceId, CODE_REVIEW_WINDOW_NAME, {
             id: newId,
-            title: CODE_REVIEW_WINDOW_NAME,
-            sessionId: uuidv4(),
-            workspaceId,
             tmuxWindowName: CODE_REVIEW_WINDOW_NAME,
             isNewPane: false,
-          };
+          });
           set((state) => ({
             codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: { ...panes, [newId]: newPane } },
             codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: newId },
@@ -1678,6 +1729,20 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       },
     }));
   },
+  setCodeReviewPaneAgent: (workspaceId, paneId, agent) => {
+    const panes = get().codeReviewPanes[workspaceId];
+    if (!panes?.[paneId]) return;
+    if (samePaneAgent(panes[paneId].agent, agent)) return;
+    set((state) => ({
+      codeReviewPanes: {
+        ...state.codeReviewPanes,
+        [workspaceId]: {
+          ...panes,
+          [paneId]: { ...panes[paneId], agent },
+        },
+      },
+    }));
+  },
   toggleCodeReviewMaximize: (workspaceId, id) => {
     set((state) => {
       const current = state.codeReviewMaximizedIds[workspaceId];
@@ -1690,19 +1755,18 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       };
     });
   },
-  splitCodeReviewTerminal: (workspaceId, id, direction) => {
+  splitCodeReviewTerminal: (workspaceId, id, direction, agent) => {
     const layout = get().codeReviewLayouts[workspaceId];
     const panes = get().codeReviewPanes[workspaceId] || {};
     if (!layout) return null;
     const newId = uuidv4();
-    const newPane: TerminalPaneProps = {
+    const splitName = CODE_REVIEW_WINDOW_NAME + "-2";
+    const newPane = createTerminalPane(workspaceId, splitName, {
       id: newId,
-      title: CODE_REVIEW_WINDOW_NAME + "-2",
-      sessionId: uuidv4(),
-      workspaceId,
-      tmuxWindowName: CODE_REVIEW_WINDOW_NAME + "-2",
+      tmuxWindowName: splitName,
       isNewPane: true,
-    };
+      agent,
+    });
     const nextPanes = { ...panes, [newId]: newPane };
     const splitById = (node: MosaicNode<string>, targetId: string): MosaicNode<string> => {
       if (typeof node === 'string') {

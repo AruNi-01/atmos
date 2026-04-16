@@ -58,22 +58,40 @@ export interface TerminalProps {
   onTitleChange?: (title: string) => void;
 }
 
+export interface TerminalPaneAgent {
+  id: string;
+  label: string;
+  command: string;
+  iconType: "built-in" | "custom";
+}
+
 export interface TerminalPaneProps {
   id: string;
-  title: string;
+  /**
+   * User-visible display name. Set once at creation (e.g., "Claude Code", "Codex", "1").
+   * NEVER overwritten by tmux window name changes after initial creation.
+   * Persisted to backend.
+   */
+  label: string;
+  /**
+   * tmux window identifier used for session attach/create operations. This is
+   * the only pane field that tracks tmux window renames.
+   */
+  tmuxWindowName?: string;
+  /** Code Agent metadata used for toolbar icon rendering. */
+  agent?: TerminalPaneAgent;
   sessionId: string;
   workspaceId: string;
-  tmuxWindowName?: string;
   /** Project name for human-readable tmux session naming */
   projectName?: string;
   /** Workspace name for human-readable tmux session naming */
   workspaceName?: string;
-  /** 
+  /**
    * If true, this is a newly created pane that doesn't have a tmux window yet.
    * The Terminal will send terminal_name (to create) instead of tmux_window_name (to attach).
    */
   isNewPane?: boolean;
-  /** 
+  /**
    * Dynamic title from shell shim (e.g., running command name or current directory).
    * This is transient and NOT persisted to backend — only used for tab display.
    */

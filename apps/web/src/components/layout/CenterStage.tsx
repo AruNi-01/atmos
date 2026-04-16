@@ -67,6 +67,7 @@ import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import { codeAgentCustomApi, type CodeAgentCustomEntry, functionSettingsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
+import type { TerminalPaneAgent } from "@/components/terminal/types";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { useQueryStates } from "nuqs";
 import { centerStageParams } from "@/lib/nuqs/searchParams";
@@ -784,7 +785,7 @@ const CenterStage: React.FC = () => {
     const cmd = projectWikiPendingCommand;
     setProjectWikiPendingCommand(null);
     projectWikiTerminalGridRef.current?.createOrFocusAndRunTerminal({
-      title: PROJECT_WIKI_WINDOW_NAME,
+      label: PROJECT_WIKI_WINDOW_NAME,
       command: cmd,
     });
     // Clear user-triggered ref after delay so check result can apply for future navigations
@@ -801,7 +802,7 @@ const CenterStage: React.FC = () => {
     const cmd = codeReviewPendingCommand;
     setCodeReviewPendingCommand(null);
     codeReviewTerminalGridRef.current?.createOrFocusAndRunTerminal({
-      title: CODE_REVIEW_WINDOW_NAME,
+      label: CODE_REVIEW_WINDOW_NAME,
       command: cmd,
     });
     const t = setTimeout(() => {
@@ -861,25 +862,56 @@ const CenterStage: React.FC = () => {
         const cmd = custom?.cmd?.trim() || agent.cmd;
         const flags = custom?.flags?.trim() || agent.yoloFlag || "";
         return {
-          id: agent.id,
-          label: agent.label,
+          agent: {
+            id: agent.id,
+            label: agent.label,
+            command: cmd,
+            iconType: "built-in",
+          } satisfies TerminalPaneAgent,
           command: flags ? `${cmd} ${flags}` : cmd,
-          iconType: "built-in" as const,
         };
       }),
       ...visibleCustomAgents.map((agent) => {
         const cmd = agent.cmd.trim();
         const flags = agent.flags?.trim() || "";
         return {
-          id: agent.id,
-          label: agent.label,
+          agent: {
+            id: agent.id,
+            label: agent.label,
+            command: cmd,
+            iconType: "custom",
+          } satisfies TerminalPaneAgent,
           command: flags ? `${cmd} ${flags}` : cmd,
-          iconType: "custom" as const,
         };
       }),
     ],
     [agentCustomSettings, visibleBuiltInAgents, visibleCustomAgents]
   );
+
+  function runWhenTerminalGridReady(
+    targetTerminalTabId: string,
+    callback: (grid: TerminalGridHandle) => void,
+    attemptsLeft = 20,
+  ) {
+    const targetGrid =
+      targetTerminalTabId === FIXED_TERMINAL_TAB_VALUE
+        ? terminalGridRef.current
+        : terminalGridRefs.current[targetTerminalTabId];
+
+    if (targetGrid) {
+      callback(targetGrid);
+      return;
+    }
+
+    if (attemptsLeft <= 0) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      runWhenTerminalGridReady(targetTerminalTabId, callback, attemptsLeft - 1);
+    }, 50);
+  }
+
   const handleAddAgent = (agentId: string, targetTerminalTabId: string = FIXED_TERMINAL_TAB_VALUE) => {
     if (!effectiveContextId) return;
 
@@ -899,7 +931,11 @@ const CenterStage: React.FC = () => {
       const flags = custom?.flags?.trim() || builtIn.yoloFlag || "";
       const command = flags ? `${cmd} ${flags}` : cmd;
       runWhenTerminalGridReady(targetTerminalTabId, (grid) => {
-        void grid.createAndRunTerminal({ title: builtIn.label, command });
+        void grid.createAndRunTerminal({
+          label: builtIn.label,
+          command,
+          agent: { id: builtIn.id, label: builtIn.label, command: cmd, iconType: "built-in" },
+        });
       });
       return;
     }
@@ -910,7 +946,11 @@ const CenterStage: React.FC = () => {
       const flags = customAgent.flags?.trim() || "";
       const command = flags ? `${cmd} ${flags}` : cmd;
       runWhenTerminalGridReady(targetTerminalTabId, (grid) => {
-        void grid.createAndRunTerminal({ title: customAgent.label, command });
+        void grid.createAndRunTerminal({
+          label: customAgent.label,
+          command,
+          agent: { id: customAgent.id, label: customAgent.label, command: cmd, iconType: "custom" },
+        });
       });
     }
   };
@@ -936,33 +976,6 @@ const CenterStage: React.FC = () => {
       setAgentDropdownTabId(null);
     }, 150);
   };
-
-  const runWhenTerminalGridReady = React.useCallback(
-    (
-      targetTerminalTabId: string,
-      callback: (grid: TerminalGridHandle) => void,
-      attemptsLeft = 20,
-    ) => {
-      const targetGrid =
-        targetTerminalTabId === FIXED_TERMINAL_TAB_VALUE
-          ? terminalGridRef.current
-          : terminalGridRefs.current[targetTerminalTabId];
-
-      if (targetGrid) {
-        callback(targetGrid);
-        return;
-      }
-
-      if (attemptsLeft <= 0) {
-        return;
-      }
-
-      window.setTimeout(() => {
-        runWhenTerminalGridReady(targetTerminalTabId, callback, attemptsLeft - 1);
-      }, 50);
-    },
-    [],
-  );
 
   const handleCreateTerminalCenterTab = React.useCallback(() => {
     if (!effectiveContextId) return;

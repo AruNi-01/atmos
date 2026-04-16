@@ -236,12 +236,14 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   // the backend may have finished silently (e.g. plan build failure, lost WS events).
   // Skip detection when waiting for user confirmation (requiresConfirmation).
   useEffect(() => {
-    if (status === "completed" || status === "error" || status === "setting_up" || progress.requiresConfirmation) {
+    if (status === "completed" || status === "error" || progress.requiresConfirmation) {
       setIsStale(false);
       return;
     }
     setIsStale(false);
-    const timer = setTimeout(() => setIsStale(true), 90_000);
+    // Allow a longer timeout for setup scripts which may take a while to run.
+    const timeoutMs = status === "setting_up" ? 120_000 : 90_000;
+    const timer = setTimeout(() => setIsStale(true), timeoutMs);
     return () => clearTimeout(timer);
   }, [status, stepKey, stepTitle, output, progress.requiresConfirmation]);
 
