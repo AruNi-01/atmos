@@ -1583,7 +1583,7 @@ const CenterStage: React.FC = () => {
                         "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center rounded-r-sm bg-linear-to-l from-muted/25 to-transparent pl-2.5 pr-1.5 backdrop-blur-[4px] transition-opacity duration-200",
                         activeValue === tab.id
                           ? "opacity-0 group-hover/term-tab:opacity-100"
-                          : "opacity-0"
+                          : "opacity-0 pointer-events-none"
                       )}
                     >
                       <span
