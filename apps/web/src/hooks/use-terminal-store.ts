@@ -1402,6 +1402,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         },
       },
     }));
+    get().saveToBackend(workspaceId);
   },
 
   // --- Project Wiki scope (in-memory, does not affect main Terminal) ---
