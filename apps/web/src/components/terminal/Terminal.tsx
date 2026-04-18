@@ -439,6 +439,8 @@ const Terminal = ({
   // Triggered on CMD_END to fix scrollback lost during tmux's redraw stream.
   const scrollbackResyncRef = useRef(false);
   const scrollbackDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Cooldown: skip resync shortly after resize to avoid restoring wrap artifacts
+  const resizeCooldownRef = useRef(false);
   const handleScrollback = useCallback((history: string) => {
     const term = terminalRef.current;
     if (!term || scrollbackResyncRef.current) return;
@@ -448,7 +450,9 @@ const Terminal = ({
     term.write(history, () => {
       term.scrollToBottom();
       suppressOutputRef.current = false;
-      sendResizeRef.current({ cols: term.cols, rows: term.rows });
+      // Do NOT call sendResize here — the captured history already contains
+      // the correct viewport state. Sending a resize would make tmux repaint
+      // the viewport a second time, causing duplicate prompts and lost spacing.
       scrollbackResyncRef.current = false;
     });
   }, []);
@@ -970,13 +974,16 @@ const Terminal = ({
         // than plain historical text, so xterm.js scrollback doesn't accumulate
         // properly during live output. Capture the clean pane history from tmux
         // and replace the buffer to restore correct scrollback.
-        if (scrollbackDebounceRef.current) {
-          clearTimeout(scrollbackDebounceRef.current);
+        // Skip during resize cooldown to avoid restoring line-wrap artifacts.
+        if (!resizeCooldownRef.current) {
+          if (scrollbackDebounceRef.current) {
+            clearTimeout(scrollbackDebounceRef.current);
+          }
+          scrollbackDebounceRef.current = setTimeout(() => {
+            scrollbackDebounceRef.current = null;
+            sendCaptureScrollbackRef.current();
+          }, 300);
         }
-        scrollbackDebounceRef.current = setTimeout(() => {
-          scrollbackDebounceRef.current = null;
-          sendCaptureScrollbackRef.current();
-        }, 300);
       }
 
       return true; // consumed — don't render the sequence
@@ -1086,6 +1093,7 @@ const Terminal = ({
     // For full-screen TUI apps, the backend detects alternate screen mode
     // and sends CSI 3J after tmux finishes redrawing (see terminal_handler).
     let resizeRafId = 0;
+    let resizeCooldownTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (resizeRafId) return; // Already scheduled for this frame
       resizeRafId = requestAnimationFrame(() => {
@@ -1097,6 +1105,14 @@ const Terminal = ({
         if (containerRef.current && containerRef.current.offsetParent === null) return;
 
         fit.fit();
+        // After resize, skip scrollback resync for 2s — tmux's buffer may
+        // contain line-wrap artifacts that the backend's CSI 3J already cleaned.
+        // A resync during this window would restore those artifacts.
+        resizeCooldownRef.current = true;
+        if (resizeCooldownTimer) clearTimeout(resizeCooldownTimer);
+        resizeCooldownTimer = setTimeout(() => {
+          resizeCooldownRef.current = false;
+        }, 2000);
       });
     });
 
@@ -1115,6 +1131,7 @@ const Terminal = ({
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
       if (scrollbackDebounceRef.current) clearTimeout(scrollbackDebounceRef.current);
+      resizeCooldownRef.current = false;
       searchResultsListenerRef.current?.dispose();
       searchResultsListenerRef.current = null;
       linkProvider?.dispose();
