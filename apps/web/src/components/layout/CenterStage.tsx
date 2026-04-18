@@ -48,7 +48,7 @@ import {
   getFileIconProps,
   LayoutDashboard,
 } from "@workspace/ui";
-import { GitMergeIcon, GripVertical, List } from "lucide-react";
+import { GitMergeIcon, GripVertical, Inbox, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   useEditorStore,
@@ -1757,6 +1757,15 @@ const CenterStage: React.FC = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-auto max-w-[calc(100vw-2rem)] border-border/70 bg-popover/68 p-2 shadow-xl backdrop-blur-2xl">
+                {orderedGroupedTabItems.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 px-6 py-5 text-center">
+                    <Inbox className="size-8 text-muted-foreground/50" />
+                    <div className="text-sm font-medium text-muted-foreground">No open tabs</div>
+                    <p className="max-w-[200px] text-xs text-muted-foreground/70">
+                      Only non-pinned tabs such as files, diffs, and conflict resolves will appear here.
+                    </p>
+                  </div>
+                ) : (
                 <div className="scrollbar-on-hover max-h-[420px] overflow-auto">
                   <div className="grid min-w-max grid-flow-col auto-cols-max gap-2">
                     {orderedGroupedTabItems.map((group) => (
@@ -1805,6 +1814,7 @@ const CenterStage: React.FC = () => {
                     ))}
                   </div>
                 </div>
+                )}
               </PopoverContent>
             </Popover>
           </div>
