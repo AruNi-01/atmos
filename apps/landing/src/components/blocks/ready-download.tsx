@@ -167,10 +167,10 @@ const ReadyDownload = () => {
               </Button>
             </div>
 
-            <div className='mt-8 max-w-md w-full'>
-              <div className='flex items-center justify-between overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group'>
-                <span className='opacity-50 select-none absolute left-4'>$</span>
-                <TextShimmer as='code' className='pl-6 overflow-x-auto whitespace-nowrap mr-4 py-1.5 flex-1 text-left '>brew install --cask AruNi-01/tap/atmos</TextShimmer>
+            <div className='mt-8'>
+              <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group'>
+                <img src='/icons/homebrew.svg' alt='Homebrew' className='size-4 opacity-60 select-none absolute left-4 top-1/2 -translate-y-1/2' />
+                <TextShimmer as='code' className='pl-7 overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>brew install --cask AruNi-01/tap/atmos</TextShimmer>
                 <Button
                   variant='ghost'
                   size='icon'
