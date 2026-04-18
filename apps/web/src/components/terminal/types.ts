@@ -163,6 +163,11 @@ export interface WsTmuxCheckCopyMode {
   session_id: string;
 }
 
+export interface WsTerminalCaptureScrollback {
+  type: "terminal_capture_scrollback";
+  session_id: string;
+}
+
 export type WsTerminalRequest =
   | WsTerminalCreate
   | WsTerminalAttach
@@ -171,7 +176,8 @@ export type WsTerminalRequest =
   | WsTerminalClose
   | WsTerminalDestroy
   | WsTmuxCancelCopyMode
-  | WsTmuxCheckCopyMode;
+  | WsTmuxCheckCopyMode
+  | WsTerminalCaptureScrollback;
 
 export interface WsTerminalCreated {
   type: "terminal_created";
@@ -214,6 +220,12 @@ export interface WsTmuxCopyModeStatus {
   in_copy_mode: boolean;
 }
 
+export interface WsTerminalScrollback {
+  type: "terminal_scrollback";
+  session_id: string;
+  history: string;
+}
+
 export type WsTerminalResponse =
   | WsTerminalCreated
   | WsTerminalAttached
@@ -221,4 +233,5 @@ export type WsTerminalResponse =
   | WsTerminalClosed
   | WsTerminalDestroyed
   | WsTerminalError
-  | WsTmuxCopyModeStatus;
+  | WsTmuxCopyModeStatus
+  | WsTerminalScrollback;

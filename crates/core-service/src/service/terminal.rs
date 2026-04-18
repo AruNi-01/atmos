@@ -138,6 +138,11 @@ pub enum TerminalResponse {
         session_id: String,
         in_copy_mode: bool,
     },
+    /// Scrollback history snapshot for resync
+    TerminalScrollback {
+        session_id: String,
+        history: String,
+    },
 }
 
 /// Parameters for creating a tmux-backed terminal session
@@ -1023,6 +1028,30 @@ impl TerminalService {
             .map_err(|_| ServiceError::Processing("Session thread has exited".to_string()))?;
 
         Ok(())
+    }
+
+    /// Capture scrollback history for a session's tmux pane.
+    /// Returns the captured pane content if the session is tmux-backed.
+    pub async fn capture_session_scrollback(&self, session_id: &str) -> Result<Option<String>> {
+        let sessions = self.sessions.lock().await;
+        let handle = sessions.get(session_id).ok_or_else(|| {
+            ServiceError::NotFound(format!("Session not found: {}", session_id))
+        })?;
+        let tmux_session = handle.tmux_session.clone();
+        let window_index = handle.tmux_window_index;
+        drop(sessions);
+
+        if let (Some(session), Some(index)) = (tmux_session, window_index) {
+            match self.tmux_engine.capture_pane(&session, index, Some(10000)) {
+                Ok(content) => Ok(Some(content)),
+                Err(e) => {
+                    debug!("Failed to capture scrollback for session {}: {}", session_id, e);
+                    Ok(None)
+                }
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     /// Resize a terminal session

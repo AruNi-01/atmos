@@ -16,6 +16,7 @@ interface UseTerminalWebSocketOptions {
   onError?: (error: string) => void;
   onAttached?: (history?: string) => void;
   onCopyModeStatus?: (inCopyMode: boolean) => void;
+  onScrollback?: (history: string) => void;
   reconnectAttempts?: number;
   reconnectDelay?: number;
   workspaceId?: string;
@@ -33,6 +34,8 @@ interface UseTerminalWebSocketReturn {
   sendCancelCopyMode: () => void;
   /** Check if tmux pane is currently in copy-mode */
   sendCheckCopyMode: () => void;
+  /** Request scrollback history capture for resync */
+  sendCaptureScrollback: () => void;
   /** Connect to WebSocket. Pass urlOverride to use a different URL (e.g. with cols/rows). */
   connect: (urlOverride?: string) => void;
   disconnect: () => void;
@@ -47,6 +50,7 @@ export function useTerminalWebSocket({
   onError,
   onAttached,
   onCopyModeStatus,
+  onScrollback,
   reconnectAttempts = 3,
   reconnectDelay = 1000,
   workspaceId,
@@ -135,6 +139,13 @@ export function useTerminalWebSocket({
   const sendCheckCopyMode = useCallback(() => {
     sendMessage({
       type: "tmux_check_copy_mode",
+      session_id: sessionId,
+    });
+  }, [sessionId, sendMessage]);
+
+  const sendCaptureScrollback = useCallback(() => {
+    sendMessage({
+      type: "terminal_capture_scrollback",
       session_id: sessionId,
     });
   }, [sessionId, sendMessage]);
@@ -230,6 +241,11 @@ export function useTerminalWebSocket({
                 onCopyModeStatus?.(message.in_copy_mode);
               }
               break;
+            case "terminal_scrollback":
+              if (message.session_id === sessionId) {
+                onScrollback?.(message.history);
+              }
+              break;
           }
         } catch {
           // Handle non-JSON messages (raw terminal output)
@@ -280,6 +296,7 @@ export function useTerminalWebSocket({
     onError,
     onAttached,
     onCopyModeStatus,
+    onScrollback,
     reconnectAttempts,
     reconnectDelay,
     disconnect,
@@ -315,6 +332,7 @@ export function useTerminalWebSocket({
     sendDestroy,
     sendCancelCopyMode,
     sendCheckCopyMode,
+    sendCaptureScrollback,
     connect,
     disconnect,
   };

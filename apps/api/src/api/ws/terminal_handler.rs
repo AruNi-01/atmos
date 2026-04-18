@@ -83,6 +83,8 @@ enum ClientTerminalMessage {
     TmuxCancelCopyMode,
     /// Check if tmux pane is currently in copy-mode
     TmuxCheckCopyMode,
+    /// Request scrollback history capture for resync
+    TerminalCaptureScrollback,
 }
 
 /// All session-level configuration extracted from query parameters.
@@ -587,6 +589,25 @@ async fn handle_terminal_message(
                         };
                         if let Ok(json) = serde_json::to_string(&response) {
                             let _ = ws_tx.send(json);
+                        }
+                    }
+                    ClientTerminalMessage::TerminalCaptureScrollback => {
+                        match terminal_service.capture_session_scrollback(session_id).await {
+                            Ok(Some(history)) => {
+                                let response = TerminalResponse::TerminalScrollback {
+                                    session_id: session_id.to_string(),
+                                    history,
+                                };
+                                if let Ok(json) = serde_json::to_string(&response) {
+                                    let _ = ws_tx.send(json);
+                                }
+                            }
+                            Ok(None) => {
+                                // No tmux session to capture from, ignore
+                            }
+                            Err(e) => {
+                                debug!("Scrollback capture failed for {}: {}", session_id, e);
+                            }
                         }
                     }
                 }

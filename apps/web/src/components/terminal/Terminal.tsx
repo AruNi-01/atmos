@@ -435,7 +435,25 @@ const Terminal = ({
     }, 1000);
   }, [scheduleInputReady]);
 
-  const { isConnected, isReconnecting, sendInput, sendResize, sendDestroy, connect, disconnect } =
+  // Scrollback resync: replace xterm buffer with clean tmux pane history.
+  // Triggered on CMD_END to fix scrollback lost during tmux's redraw stream.
+  const scrollbackResyncRef = useRef(false);
+  const scrollbackDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleScrollback = useCallback((history: string) => {
+    const term = terminalRef.current;
+    if (!term || scrollbackResyncRef.current) return;
+    scrollbackResyncRef.current = true;
+    suppressOutputRef.current = true;
+    term.clear();
+    term.write(history, () => {
+      term.scrollToBottom();
+      suppressOutputRef.current = false;
+      sendResizeRef.current({ cols: term.cols, rows: term.rows });
+      scrollbackResyncRef.current = false;
+    });
+  }, []);
+
+  const { isConnected, isReconnecting, sendInput, sendResize, sendDestroy, sendCaptureScrollback, connect, disconnect } =
     useTerminalWebSocket({
       url: wsUrl,
       sessionId,
@@ -445,11 +463,14 @@ const Terminal = ({
       onDisconnected: handleDisconnected,
       onError: handleError,
       onAttached: handleAttached,
+      onScrollback: handleScrollback,
     });
 
   // Keep refs in sync (breaks circular dependencies with handleConnected)
+  const sendCaptureScrollbackRef = useRef<() => void>(() => {});
   useEffect(() => {
     sendResizeRef.current = sendResize;
+    sendCaptureScrollbackRef.current = sendCaptureScrollback;
   });
 
   useEffect(() => {
@@ -944,6 +965,18 @@ const Terminal = ({
           lastTitleRef.current = title;
           onTitleChangeRef.current?.(title);
         }
+        // Resync scrollback after each command completes.
+        // tmux attach-session sends a redraw stream (cursor addressing) rather
+        // than plain historical text, so xterm.js scrollback doesn't accumulate
+        // properly during live output. Capture the clean pane history from tmux
+        // and replace the buffer to restore correct scrollback.
+        if (scrollbackDebounceRef.current) {
+          clearTimeout(scrollbackDebounceRef.current);
+        }
+        scrollbackDebounceRef.current = setTimeout(() => {
+          scrollbackDebounceRef.current = null;
+          sendCaptureScrollbackRef.current();
+        }, 300);
       }
 
       return true; // consumed — don't render the sequence
@@ -1081,6 +1114,7 @@ const Terminal = ({
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
+      if (scrollbackDebounceRef.current) clearTimeout(scrollbackDebounceRef.current);
       searchResultsListenerRef.current?.dispose();
       searchResultsListenerRef.current = null;
       linkProvider?.dispose();
