@@ -58,11 +58,3 @@ apps/docs/
 - Keep documentation content in MDX format
 - Use meta.json for navigation configuration
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Content location (`content/docs/`)
-2. Navigation via `meta.json`
-3. Source config location (`src/lib/source.ts`)

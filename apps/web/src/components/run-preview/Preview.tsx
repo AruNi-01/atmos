@@ -16,7 +16,7 @@ import {
   PanelTopClose,
   PanelTopOpen,
   Pencil,
-  RotateCw,
+  LoaderCircle,
   Search,
   SquareMousePointer,
   Smartphone,
@@ -55,10 +55,7 @@ import type {
 } from "./preview-bridge/types";
 import { connectSameOriginPreviewTransport } from "./preview-transports/same-origin-transport";
 import { connectExtensionPreviewTransport } from "./preview-transports/extension-transport";
-import {
-  connectDesktopPreviewTransport,
-  getPreviewViewportBounds,
-} from "./preview-transports/desktop-transport";
+import { connectDesktopPreviewTransport, getPreviewViewportBounds } from "./preview-transports/desktop-transport";
 
 type ViewMode = PreviewViewMode;
 
@@ -2125,7 +2122,7 @@ export const Preview: React.FC<PreviewProps> = ({
               className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               title="Refresh"
             >
-              <RotateCw className="size-3.5" />
+              <LoaderCircle className="size-3.5" />
             </button>
           </div>
 

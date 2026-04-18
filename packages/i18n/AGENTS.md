@@ -51,11 +51,3 @@ packages/i18n/
 - Use `@atmos/i18n/navigation` for type-safe routing
 - Import `routing` and types from this package for app-specific `request.ts`
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Middleware import pattern (`@atmos/i18n/middleware`)
-2. Navigation import pattern (`@atmos/i18n/navigation`)
-3. Config must be local to each app (Next.js static analysis requirement)

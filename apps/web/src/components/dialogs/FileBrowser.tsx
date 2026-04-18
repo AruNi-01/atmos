@@ -1,6 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +26,7 @@ import {
   Folder,
   FolderGit2,
   Home,
-  RefreshCw,
+  LoaderCircle,
   Search,
   X,
 } from '@workspace/ui';
@@ -294,7 +299,7 @@ export function FileBrowser({
                 title="Refresh"
                 className="cursor-pointer"
               >
-                <RefreshCw className="w-4 h-4" />
+                <LoaderCircle className="w-4 h-4" />
               </Button>
             </>
           )}

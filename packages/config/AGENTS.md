@@ -48,11 +48,3 @@ The following have moved to `@workspace/ui`:
 - Extend TypeScript config from `@atmos/config/typescript/nextjs`
 - Keep this package focused on base TypeScript configuration
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Extension pattern: `@atmos/config/typescript/nextjs`
-2. Migrated configs (PostCSS, styles, Tailwind) are in `@workspace/ui`
-3. ESLint is app-managed

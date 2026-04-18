@@ -50,11 +50,3 @@ crates/core-engine/
 - Keep modules focused on technical capabilities
 - Map OS errors to domain errors for clean abstraction
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Layer position: L2 (technical capabilities)
-2. No business logic rule
-3. Error mapping pattern (OS → domain)

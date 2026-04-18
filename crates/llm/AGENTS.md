@@ -77,12 +77,3 @@ pub use providers::{
 - Handle streaming and non-streaming consistently
 - Add new providers under `providers/` following existing patterns
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Trait pattern: `LLMClient` for all providers
-2. Provider organization: `providers/` with compatibility classes
-3. Common types in `types.rs` for abstraction
-4. Configuration via `config.rs` (no hardcoded keys)

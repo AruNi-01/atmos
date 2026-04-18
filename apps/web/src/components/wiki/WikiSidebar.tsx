@@ -16,7 +16,16 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
-import { ChevronRight, Clock, ExternalLink, FilePlus, Github, Gitlab, Info, RefreshCw } from "lucide-react";
+import {
+  ChevronRight,
+  Clock,
+  ExternalLink,
+  FilePlus,
+  Github,
+  Gitlab,
+  Info,
+  LoaderCircle,
+} from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
 import type { CatalogData, CatalogItem } from "./wiki-utils";
 import type { WikiUpdateStatus } from "@/hooks/use-wiki-store";
@@ -282,7 +291,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
           <div className="w-10 flex items-center justify-center">
             {checking ? (
               <span className="flex items-center justify-center text-muted-foreground animate-spin">
-                <RefreshCw className="size-4" />
+                <LoaderCircle className="size-4" />
               </span>
             ) : hasUpdate && onTriggerUpdate ? (
               <TooltipProvider>
@@ -294,7 +303,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                       className="relative size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
                       aria-label="Wiki is outdated. Click to update."
                     >
-                      <RefreshCw className="size-4" />
+                      <LoaderCircle className="size-4" />
                       <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />
                     </button>
                   </TooltipTrigger>
@@ -308,7 +317,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex items-center justify-center text-muted-foreground cursor-help size-10">
-                      <RefreshCw className="size-4" />
+                      <LoaderCircle className="size-4" />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px]">
@@ -321,7 +330,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex items-center justify-center text-muted-foreground cursor-default size-10">
-                      <RefreshCw className="size-4" />
+                      <LoaderCircle className="size-4" />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px]">

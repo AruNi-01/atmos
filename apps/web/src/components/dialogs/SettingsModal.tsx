@@ -37,7 +37,22 @@ import {
   MotionSidebarMenuItem,
   MotionSidebarProvider,
 } from '@workspace/ui';
-import { Bot, Building2, Check, ChevronDown, Download, ExternalLink, Languages, LoaderCircle, Plus, RefreshCw, Route, Save, SlidersHorizontal, Trash2, Webhook } from 'lucide-react';
+import {
+  Bot,
+  Building2,
+  Check,
+  ChevronDown,
+  Download,
+  ExternalLink,
+  Languages,
+  LoaderCircle,
+  Plus,
+  Route,
+  Save,
+  SlidersHorizontal,
+  Trash2,
+  Webhook,
+} from 'lucide-react';
 import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
 import TerminalIcon from '@workspace/ui/components/icons/terminal-icon';
 import { BotIcon } from '@workspace/ui/components/icons/bot-icon';
@@ -54,16 +69,16 @@ import {
   getUpdateReleaseNotesUrl,
   type UpdateStatus,
 } from '@/hooks/use-updater';
+import { useTerminalLinkSettings, type TerminalFileLinkOpenMode } from '@/hooks/use-terminal-link-settings';
+import { QUICK_OPEN_APP_MAP, QUICK_OPEN_APP_OPTIONS, QuickOpenAppIcon } from '@/components/layout/quick-open-apps';
 import {
-  useTerminalLinkSettings,
-  type TerminalFileLinkOpenMode,
-} from '@/hooks/use-terminal-link-settings';
-import {
-  QUICK_OPEN_APP_MAP,
-  QUICK_OPEN_APP_OPTIONS,
-  QuickOpenAppIcon,
-} from '@/components/layout/quick-open-apps';
-import { agentBehaviourSettingsApi, codeAgentCustomApi, type CodeAgentCustomEntry, llmProvidersApi, type LlmProvidersFile, type SessionTitleFormatConfig } from '@/api/ws-api';
+  agentBehaviourSettingsApi,
+  codeAgentCustomApi,
+  type CodeAgentCustomEntry,
+  llmProvidersApi,
+  type LlmProvidersFile,
+  type SessionTitleFormatConfig,
+} from '@/api/ws-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -1676,7 +1691,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               disabled={isChecking || isDownloading || isInstalling}
                               className="cursor-pointer"
                             >
-                              <RefreshCw className="mr-2 size-4" />
+                              <LoaderCircle className="mr-2 size-4" />
                               Check for Updates
                             </Button>
                           </div>

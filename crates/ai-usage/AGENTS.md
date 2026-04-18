@@ -73,12 +73,3 @@ crates/ai-usage/
 - Keep provider implementations isolated and modular
 - Use the factory pattern for provider instantiation
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Provider pattern: One file per AI platform in `providers/`
-2. Factory pattern for instantiation (`providers/factory/`)
-3. Service layer (`service.rs`) provides unified API
-4. Encrypted credential storage (never hardcode keys)

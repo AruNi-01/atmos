@@ -54,11 +54,3 @@ crates/infra/
 - Keep entities inheriting from `base.rs`
 - Use Repository pattern to abstract SeaORM
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Layer position: L1 (data access)
-2. Entity inheritance requirement (base.rs)
-3. Repository pattern for SeaORM abstraction

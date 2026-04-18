@@ -28,11 +28,12 @@ import {
   Badge,
 } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
-import type { DragEndEvent, DragStartEvent } from '@workspace/ui';
+import type { DragEndEvent,
+  DragStartEvent } from '@workspace/ui';
 import {
   GitBranch,
   Clock,
-  RefreshCw,
+  LoaderCircle,
   Pencil,
   Plus,
   CheckSquare,
@@ -403,7 +404,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             disabled={isRefreshing}
             className="h-8 gap-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
-            <RefreshCw className={cn("size-3.5", isRefreshing && "animate-spin")} />
+            <LoaderCircle className={cn("size-3.5", isRefreshing && "animate-spin")} />
             <span className="text-xs">Refresh</span>
           </Button>
         </div>

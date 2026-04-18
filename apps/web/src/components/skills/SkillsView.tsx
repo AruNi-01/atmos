@@ -41,7 +41,7 @@ import {
   Link2,
   Loader2,
   Puzzle,
-  RefreshCw,
+  LoaderCircle,
   Search,
   Store,
 } from "lucide-react";
@@ -621,7 +621,7 @@ export const SkillsView: React.FC = () => {
                     className="size-10 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm transition-all hover:bg-background cursor-pointer"
                     title="Refresh Skills"
                   >
-                    <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
+                    <LoaderCircle className={cn("size-4", isLoading && "animate-spin")} />
                   </Button>
                 </div>
               )}

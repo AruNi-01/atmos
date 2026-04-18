@@ -64,11 +64,3 @@ crates/core-service/
 - Orchestrate multiple L2 and L1 components to fulfill business goals
 - Use `ServiceError` for consistent error handling
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Layer position: L3 (business logic)
-2. Orchestration pattern (L2 + L1 → business goal)
-3. ServiceError from error.rs for error handling

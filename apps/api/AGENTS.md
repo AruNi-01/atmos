@@ -67,11 +67,3 @@ apps/api/
 - Keep handlers focused on request/response concerns
 - Update `dto.rs` when changing API contracts
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. AppState dependencies and service injection patterns
-2. DTO naming conventions (`BaseReq`, `BasePageReq`)
-3. WebSocket bridge location (`ws.rs` in terminal module)

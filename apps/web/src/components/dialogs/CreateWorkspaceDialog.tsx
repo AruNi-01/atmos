@@ -26,7 +26,16 @@ import {
   SelectValue,
 } from '@workspace/ui';
 import { cn } from '@/lib/utils';
-import { Check, ChevronDown, ExternalLink, GitBranch, Github, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ExternalLink,
+  GitBranch,
+  Github,
+  Loader2,
+  LoaderCircle,
+  Sparkles,
+} from 'lucide-react';
 import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/types/types';
 import {
   WorkspaceLabelDots,
@@ -809,7 +818,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                     disabled={isIssuesLoading}
                     title="Refresh issues"
                   >
-                    <RefreshCw className={`size-3.5 ${isIssuesLoading ? 'animate-spin' : ''}`} />
+                    <LoaderCircle className={`size-3.5 ${isIssuesLoading ? 'animate-spin' : ''}`} />
                   </Button>
                 )}
               </CardHeader>

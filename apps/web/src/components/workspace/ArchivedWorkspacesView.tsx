@@ -9,14 +9,14 @@ import {
   Archive,
   cn,
   Trash2,
-  RotateCcw,
+  LoaderCircle,
   Button,
   Loader2,
   toastManager,
   Skeleton,
   Tooltip,
   TooltipContent,
-  TooltipTrigger
+  TooltipTrigger,
 } from "@workspace/ui";
 import { ArchivedWorkspace, wsWorkspaceApi } from '@/api/ws-api';
 import { useQueryState } from "nuqs";
@@ -344,7 +344,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
                                       <Loader2 className="size-3.5 animate-spin" />
                                     ) : (
                                       <div className="flex items-center gap-1.5">
-                                        <RotateCcw className="size-3.5" />
+                                        <LoaderCircle className="size-3.5" />
                                         Restore
                                       </div>
                                     )}

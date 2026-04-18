@@ -60,7 +60,13 @@ import {
 } from "@/hooks/use-editor-store";
 import { useShallow } from "zustand/react/shallow";
 import { useGitStore } from "@/hooks/use-git-store";
-import { Plus, BookOpen, RefreshCw, Star, Bot } from "lucide-react";
+import {
+  Plus,
+  BookOpen,
+  LoaderCircle,
+  Star,
+  Bot,
+} from "lucide-react";
 import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
@@ -1320,13 +1326,11 @@ const CenterStage: React.FC = () => {
                       )}
                     />
                     {activeValue === "wiki" && (
-                      <RefreshCw
-                        className={cn(
-                          "size-3.5 absolute inset-0 transition-all duration-200",
+                      <LoaderCircle
+                        className={cn("size-3.5 absolute inset-0 transition-all duration-200",
                           "opacity-0 scale-50 rotate-60",
                           "group-hover/wiki:opacity-100 group-hover/wiki:scale-100 group-hover/wiki:rotate-0",
-                          wikiRefreshing && "animate-spin"
-                        )}
+                          wikiRefreshing && "animate-spin")}
                       />
                     )}
                   </span>

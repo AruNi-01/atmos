@@ -13,7 +13,7 @@ import {
   Loader2,
   ArrowDown,
   ChevronDown,
-  RefreshCw,
+  LoaderCircle,
 } from "@workspace/ui";
 import {
   DropdownMenu,
@@ -32,10 +32,7 @@ import {
 } from "@workspace/ui";
 import { CloudSync, MessageCircleReply, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  useEditorStore,
-  EDITOR_CONFLICT_RESOLVE_ALL_PATH,
-} from "@/hooks/use-editor-store";
+import { useEditorStore, EDITOR_CONFLICT_RESOLVE_ALL_PATH } from "@/hooks/use-editor-store";
 import { useGitStore } from "@/hooks/use-git-store";
 import {
   GitChangedFile,
@@ -815,7 +812,7 @@ Report back which files were resolved and whether any conflicts still need user 
                 <Upload className="mr-2 size-4" /> Push
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, "Failed to fetch changes")}>
-                <RefreshCw className="mr-2 size-4" /> Fetch
+                <LoaderCircle className="mr-2 size-4" /> Fetch
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, "Failed to sync with remote")}>
                 <CloudSync className="mr-2 size-4" /> Sync with Remote

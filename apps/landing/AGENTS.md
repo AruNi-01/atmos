@@ -76,11 +76,3 @@ apps/landing/
 - Use shared UI components from `@workspace/ui`
 - Keep content translations in sync
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Content location (`messages/` directory)
-2. Shared dependencies pattern
-3. Port: 3001

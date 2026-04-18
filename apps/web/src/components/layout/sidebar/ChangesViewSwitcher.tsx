@@ -6,7 +6,7 @@ import {
   Plus,
   GitPullRequest,
   FileCheck,
-  RefreshCw,
+  LoaderCircle,
 } from "lucide-react";
 import { Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -221,7 +221,7 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
                 className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
                 title="Refresh"
               >
-                <RefreshCw className="size-3.5" />
+                <LoaderCircle className="size-3.5" />
               </button>
             </div>
           </div>

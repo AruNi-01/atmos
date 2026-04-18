@@ -9,10 +9,9 @@ import {
   Button,
   ScrollArea,
   Archive,
-  RotateCcw,
+  LoaderCircle,
   Trash2,
   GitBranch,
-  cn,
   Loader2,
 } from '@workspace/ui';
 import { wsWorkspaceApi, ArchivedWorkspace } from '@/api/ws-api';
@@ -166,7 +165,7 @@ export const ArchivedWorkspacesModal: React.FC<ArchivedWorkspacesModalProps> = (
                             {restoringIds.has(ws.guid) ? (
                               <Loader2 className="size-4 animate-spin" />
                             ) : (
-                              <RotateCcw className="size-4" />
+                              <LoaderCircle className="size-4" />
                             )}
                             <span className="text-xs">Restore</span>
                           </Button>

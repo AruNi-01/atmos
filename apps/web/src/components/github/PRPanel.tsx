@@ -1,7 +1,28 @@
 import React, { useMemo, useState } from 'react';
 import { useGithubPRList } from '@/hooks/use-github';
-import { GitPullRequest, GitPullRequestCreate, GitPullRequestClosed, Loader2, GitBranch, MessageSquare, GitCommit, RefreshCcw, ArrowLeft } from 'lucide-react';
-import { Avatar, AvatarImage, AvatarFallback, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, Button, Tabs, TabsList } from '@workspace/ui';
+import {
+  GitPullRequest,
+  GitPullRequestCreate,
+  GitPullRequestClosed,
+  Loader2,
+  GitBranch,
+  MessageSquare,
+  GitCommit,
+  LoaderCircle,
+  ArrowLeft,
+} from 'lucide-react';
+import {
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+  Button,
+  Tabs,
+  TabsList,
+} from '@workspace/ui';
 import { formatDistanceToNow, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { RefreshableTabsTab } from '@/components/ui/RefreshableTabsTab';
@@ -115,7 +136,7 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
                 onClick={() => refresh()}
                 className="h-9 px-6 text-[11px] font-bold tracking-widest gap-2.5 shadow-sm cursor-pointer"
               >
-                <RefreshCcw className={cn("size-3.5", loading && "animate-spin")} />
+                <LoaderCircle className={cn("size-3.5", loading && "animate-spin")} />
                 {refreshLabel}
               </Button>
             </div>

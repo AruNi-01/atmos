@@ -19,7 +19,7 @@ import {
   ChartColumnBig,
   Coins,
   MessagesSquare,
-  RefreshCcw,
+  LoaderCircle,
   Sparkles,
   Wallet,
   X,
@@ -584,7 +584,7 @@ export function TokenUsageDialog({
                   onClick={handleRefresh}
                   disabled={loading || refreshing}
                 >
-                  <RefreshCcw className={refreshing ? "size-4 animate-spin" : "size-4"} />
+                  <LoaderCircle className={refreshing ? "size-4 animate-spin" : "size-4"} />
                 </Button>
                 <Button
                   variant="outline"

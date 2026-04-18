@@ -10,7 +10,12 @@ import {
 } from "@workspace/ui";
 import type { ImperativePanelHandle } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
-import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  LoaderCircle,
+} from "lucide-react";
 import { useWikiContext } from "@/hooks/use-wiki-store";
 import { WikiSidebar } from "./WikiSidebar";
 import { WikiContent } from "./WikiContent";
@@ -129,7 +134,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   if (catalogLoading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <RefreshCw className="size-4 animate-spin mr-2" />
+        <LoaderCircle className="size-4 animate-spin mr-2" />
         Loading catalog...
       </div>
     );
@@ -146,7 +151,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
           size="sm"
           onClick={() => loadCatalog(effectivePath)}
         >
-          <RefreshCw className="size-3.5 mr-1.5" />
+          <LoaderCircle className="size-3.5 mr-1.5" />
           Retry
         </Button>
       </div>

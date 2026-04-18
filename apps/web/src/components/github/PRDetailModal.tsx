@@ -32,7 +32,38 @@ import type { FileContents } from '@pierre/diffs';
 import { useTheme } from 'next-themes';
 import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { Github, ExternalLink, GitMerge, XCircle, Expand, Shrink, Loader2, MessageSquare, CheckCircle2, RotateCcw, AlertCircle, GitPullRequest, GitCommit, Rocket, X, ChevronRight, ChevronDown, Check, Eye, Tag, GitBranch, User, Milestone, Edit2, FileCode, Users, CircleDot, Code, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import {
+  Github,
+  ExternalLink,
+  GitMerge,
+  XCircle,
+  Expand,
+  Shrink,
+  Loader2,
+  MessageSquare,
+  CheckCircle2,
+  LoaderCircle,
+  AlertCircle,
+  GitPullRequest,
+  GitCommit,
+  Rocket,
+  X,
+  ChevronRight,
+  ChevronDown,
+  Check,
+  Eye,
+  Tag,
+  GitBranch,
+  User,
+  Milestone,
+  Edit2,
+  FileCode,
+  Users,
+  CircleDot,
+  Code,
+  PanelRightClose,
+  PanelRightOpen,
+} from 'lucide-react';
 import { getFileIconProps } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -838,7 +869,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                 actionText = "closed this";
                                 break;
                               case 'reopened':
-                                icon = <RotateCcw className="size-3.5 text-white" />;
+                                icon = <LoaderCircle className="size-3.5 text-white" />;
                                 colorClass = "bg-emerald-500";
                                 actionText = "reopened this";
                                 break;
@@ -1140,7 +1171,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             onClick={handleReopen}
                             disabled={!!actionLoading}
                           >
-                            <RotateCcw className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Reopen PR' : 'Reopen PR'}
+                            <LoaderCircle className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Reopen PR' : 'Reopen PR'}
                           </Button>
                         )}
                         <Button
@@ -1496,7 +1527,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 disabled={!!actionLoading}
                 className="shadow-sm hover:shadow-md transition-all font-semibold"
               >
-                {actionLoading === 'reopen' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <RotateCcw className="mr-2 size-4" />}
+                {actionLoading === 'reopen' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <LoaderCircle className="mr-2 size-4" />}
                 Reopen PR
               </Button>
             ) : pr?.state === 'MERGED' ? (

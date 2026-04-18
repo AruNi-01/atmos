@@ -107,6 +107,14 @@ The project has a ready-made debug logging infrastructure (Rust + TypeScript) th
 
 ---
 
+## Compact Instructions
+
+When compressing context, create a continuation-oriented coding handoff summary. Load the detailed rules only when context compression is needed.
+
+→ **[Full usage guide](agents/references/compact-instructions.md)**
+
+---
+
 **Next Steps**: Choose your working area from the table above and open its specific `AGENTS.md`.
 
 ---

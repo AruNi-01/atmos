@@ -19,7 +19,22 @@ import {
   cn,
   toastManager,
 } from '@workspace/ui';
-import { CalendarIcon, Check, Copy, Download, ExternalLink, KeyRound, LoaderCircle, Play, RefreshCw, RotateCcw, ShieldCheck, ShieldOff, Square, SquareTerminal, Wifi, X } from 'lucide-react';
+import {
+  CalendarIcon,
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  KeyRound,
+  LoaderCircle,
+  Play,
+  ShieldCheck,
+  ShieldOff,
+  Square,
+  SquareTerminal,
+  Wifi,
+  X,
+} from 'lucide-react';
 
 import { getRuntimeApiConfig, httpBase, isTauriRuntime } from '@/lib/desktop-runtime';
 import { Terminal, type TerminalRef } from '@/components/terminal/Terminal';
@@ -674,7 +689,7 @@ export function RenewSessionPopover({
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setError(null); }}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={cn('cursor-pointer', triggerCls)}>
-          <RotateCcw className="mr-1.5 size-3.5" />
+          <LoaderCircle className="mr-1.5 size-3.5" />
           {urgency === 'expired' ? 'Expired — Renew' : 'Renew'}
         </Button>
       </PopoverTrigger>
@@ -720,7 +735,7 @@ export function RenewSessionPopover({
             <p className="text-xs text-destructive">{error}</p>
           )}
           <Button className="w-full cursor-pointer" size="sm" onClick={() => void handleRenew()} disabled={isRenewing}>
-            {isRenewing ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 size-3.5" />}
+            {isRenewing ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <LoaderCircle className="mr-1.5 size-3.5" />}
             Renew Session
           </Button>
         </div>
@@ -972,7 +987,7 @@ function RemoteAccessContent() {
           {isLoading ? (
             <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
           ) : (
-            <RefreshCw className="mr-1.5 size-3.5" />
+            <LoaderCircle className="mr-1.5 size-3.5" />
           )}
           Refresh
         </Button>

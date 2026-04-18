@@ -65,12 +65,3 @@ pub use models::{
 - Maintain accuracy over performance when counting tokens
 - Keep vendor dependency isolated in service layer
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Vendor dependency: `tokscale-core` for tokenization
-2. Service pattern: `service.rs` provides all public APIs
-3. Model-specific tokenizers (not one-size-fits-all)
-4. Used by `core-service` for usage tracking

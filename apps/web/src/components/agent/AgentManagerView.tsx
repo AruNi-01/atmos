@@ -17,7 +17,16 @@ import {
   TooltipProvider,
 } from "@workspace/ui";
 import type { CustomAgent } from "@/api/ws-api";
-import { Bot, Search, RefreshCw, Plus, Terminal, Download, Globe, MessageSquare } from "lucide-react";
+import {
+  Bot,
+  Search,
+  LoaderCircle,
+  Plus,
+  Terminal,
+  Download,
+  Globe,
+  MessageSquare,
+} from "lucide-react";
 import { ChatSessionsManagementView } from "@/components/chat-sessions/ChatSessionsManagementView";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -166,7 +175,7 @@ export const AgentManagerView: React.FC = () => {
                     className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
                     title="Refresh Registry"
                   >
-                    <RefreshCw className={cn("size-4", mgr.refreshing && "animate-spin")} />
+                    <LoaderCircle className={cn("size-4", mgr.refreshing && "animate-spin")} />
                   </Button>
                 )}
               </div>

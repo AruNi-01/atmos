@@ -53,11 +53,3 @@ apps/desktop/
 - Run `prepare-sidecar.sh` before dev/build
 - Test native commands work correctly before integrating with React
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Sidecar preparation step (`prepare-sidecar.sh`)
-2. Commands bridge pattern (`src-tauri/src/commands/`)
-3. State management location (`src-tauri/src/state.rs`)

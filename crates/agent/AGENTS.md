@@ -114,12 +114,3 @@ pub use manager::AgentManager;
 - Maintain independence from core layered architecture
 - Support future extensibility to other agent protocols
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Architecture position: Independent vertical module (parallel to L1/L2/L3)
-2. No dependencies on `infra`/`core-engine`/`core-service`
-3. Module split: `manager/` (lifecycle) + `acp_client/` (protocol)
-4. Secure keyring storage for API keys

@@ -23,7 +23,7 @@ import {
   CheckSquare,
   Circle,
   XOctagon,
-  RotateCcw,
+  LoaderCircle,
   CircleDashed,
   ChevronRight,
 } from 'lucide-react';
@@ -43,7 +43,7 @@ function renderStatusIcon(status: TaskStatus) {
     case 'todo':
       return <Circle className="size-4 text-muted-foreground/60" />;
     case 'progress':
-      return <RotateCcw className="size-4 text-primary animate-spin-slow" />;
+      return <LoaderCircle className="size-4 animate-spin text-primary" />;
     case 'done':
       return <CheckSquare className="size-4 text-emerald-500 fill-emerald-500/10" />;
     case 'cancelled':
@@ -54,7 +54,7 @@ function renderStatusIcon(status: TaskStatus) {
 }
 
 const TASK_SECTIONS: { id: TaskStatus; label: string; icon: React.ReactNode }[] = [
-  { id: 'progress', label: 'In Progress', icon: <RotateCcw className="size-4" /> },
+  { id: 'progress', label: 'In Progress', icon: <LoaderCircle className="size-4" /> },
   { id: 'todo', label: 'To Do', icon: <CircleDashed className="size-4" /> },
   { id: 'done', label: 'Completed', icon: <CheckSquare className="size-4" /> },
   { id: 'cancelled', label: 'Cancelled', icon: <XOctagon className="size-4" /> },
@@ -235,7 +235,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
               To Do
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'progress')} className="text-xs cursor-pointer">
-              <RotateCcw className="size-3.5 mr-2" />
+              <LoaderCircle className="size-3.5 mr-2" />
               In Progress
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'done')} className="text-xs cursor-pointer">

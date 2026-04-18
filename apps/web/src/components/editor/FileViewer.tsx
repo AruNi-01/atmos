@@ -3,7 +3,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { OpenFile } from '@/hooks/use-editor-store';
-import { Loader2, FileWarning, Download, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import {
+  Loader2,
+  FileWarning,
+  Download,
+  ZoomIn,
+  ZoomOut,
+  LoaderCircle,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn, Button } from '@workspace/ui';
 import { getRuntimeApiConfig, httpBase } from '@/lib/desktop-runtime';
@@ -129,7 +136,7 @@ const ImageViewer: React.FC<{ uri: string; fileName: string; onError: () => void
               </Button>
               <div className="w-px h-4 bg-border mx-1" />
               <Button variant="ghost" size="icon" className="size-8 cursor-pointer" onClick={handleReset} title="Reset">
-                <RotateCcw className="size-4" />
+                <LoaderCircle className="size-4" />
               </Button>
             </>
           ) : (

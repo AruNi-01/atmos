@@ -12,7 +12,7 @@ import {
   Puzzle,
   Store,
   X,
-  RefreshCw,
+  LoaderCircle,
   Button,
 } from '@workspace/ui';
 import { skillsApi, SkillInfo } from '@/api/ws-api';
@@ -115,7 +115,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
             disabled={isLoading}
             className="gap-2"
           >
-            <RefreshCw className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <LoaderCircle className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <button

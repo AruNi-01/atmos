@@ -6,7 +6,13 @@ import { useQueryState, useQueryStates } from "nuqs";
 import { useTheme } from "next-themes";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useContextParams } from "@/hooks/use-context-params";
-import { llmProvidersModalParams, rightSidebarModalParams, settingsModalParams, skillsModalParams, tokenUsageParams } from "@/lib/nuqs/searchParams";
+import {
+  llmProvidersModalParams,
+  rightSidebarModalParams,
+  settingsModalParams,
+  skillsModalParams,
+  tokenUsageParams,
+} from "@/lib/nuqs/searchParams";
 import {
   ArrowRight,
   ArrowNarrowDownDashedIcon,
@@ -69,12 +75,34 @@ import { SkillsModal } from '@/components/skills';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { useRemoteAccess, type RemoteAccessStatus } from '@/hooks/use-remote-access';
-import { formatProvider, formatExpiry, getSessionUrgency, CopyableText, CopyableLabel, RenewSessionPopover } from '@/components/dialogs/RemoteAccessSection';
+import {
+  formatProvider,
+  formatExpiry,
+  getSessionUrgency,
+  CopyableText,
+  CopyableLabel,
+  RenewSessionPopover,
+} from '@/components/dialogs/RemoteAccessSection';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/hooks/use-agent-chat-url';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { ArrowBigUp, ChevronDown, ChevronLeft, ChevronRight, Command, ExternalLink, Globe, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, RefreshCw, Settings, SunMoon } from "lucide-react";
+import {
+  ArrowBigUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Command,
+  ExternalLink,
+  Globe,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  LoaderCircle,
+  Settings,
+  SunMoon,
+} from "lucide-react";
 import { UsagePopover } from './UsagePopover';
 import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/components/dialogs/SettingsModal';
@@ -870,7 +898,7 @@ const Header: React.FC = () => {
                   onClick={() => window.location.reload()}
                   className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 >
-                  <RefreshCw className="size-4" />
+                  <LoaderCircle className="size-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>

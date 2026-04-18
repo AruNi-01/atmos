@@ -54,6 +54,7 @@ apps/web/
 ### Component Organization
 - Generic UI components — consume from `@workspace/ui`
 - Business-specific components (`ProjectList`, `WorkspaceTerminal`) — live in `src/components/`
+- Loading icons — use `LoaderCircle` consistently for loading/refresh indicators. Add `animate-spin` only when the icon represents an actively loading state; keep non-loading action icons static.
 
 ### State Management
 - Prefer server components and `fetch` for data fetching
@@ -82,11 +83,3 @@ apps/web/
 - Check your UI changes in Light Mode before committing
 - Use semantic CSS variables for theming
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. API client location (`src/api/`) and DTO sync requirement
-2. Semantic color variables for theming
-3. Component organization: `@workspace/ui` vs app-specific

@@ -58,11 +58,3 @@ import { getDebugLogger } from "@atmos/shared/debug/debug-logger";
 // ❌ wrong — never re-export from utils/ or the root index
 ```
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Directory structure (hooks/, utils/, types/)
-2. Framework-agnostic requirement for utils
-3. Pure function requirement

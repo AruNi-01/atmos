@@ -40,11 +40,3 @@
 
 **Decentralized API Clients**: API clients and type definitions are co-located within individual applications. This allows apps to evolve their data requirements independently while maintaining a clear link to backend DTOs.
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Workspace protocol dependency rule (`workspace:*`)
-2. API client decentralization pattern
-3. `@workspace/ui` must remain pure UI

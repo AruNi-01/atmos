@@ -52,11 +52,3 @@ apps/cli/
 - Reuse existing services from `core-service` or `api-client`
 - Keep CLI output consistent and user-friendly
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Command structure (`src/commands/`)
-2. Integration pattern with `core-service`/`api-client`
-3. Configuration location (`src/config.rs`)

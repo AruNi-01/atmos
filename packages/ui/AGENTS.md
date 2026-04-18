@@ -62,12 +62,3 @@ packages/ui/
 - Use semantic CSS variables for theming
 - Keep icon placement consistent: reusable icon files live under `src/components/icons/`
 
----
-
-## Compact Instructions
-
-Preserve when compressing:
-1. Components must remain pure (no API calls)
-2. Theme tokens location (`src/styles/globals.css`)
-3. Atomic component pattern
-4. Animated and reusable icons belong in `src/components/icons/`

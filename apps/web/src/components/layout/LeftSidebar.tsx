@@ -7,44 +7,46 @@ import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/hooks/use-context-params';
 import { leftSidebarParams, type LeftSidebarTab } from '@/lib/nuqs/searchParams';
 import {
-    Plus,
-    Folder,
-    Layers,
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    DragEndEvent,
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
-    toastManager,
-    cn,
-    restrictToVerticalAxis,
-    restrictToWindowEdges,
-    MouseSensor,
-    DragOverlay,
-    defaultDropAnimationSideEffects,
-    Tabs,
-    TabsList,
-    TabsTab,
-    TabsPanel,
-    RefreshCw,
-    Eye,
-    EyeOff,
-    FolderKanban,
-    ArrowRight,
-    Puzzle,
-    SquareTerminal,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
+  Plus,
+  Folder,
+  Layers,
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  toastManager,
+  cn,
+  restrictToVerticalAxis,
+  restrictToWindowEdges,
+  MouseSensor,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
+  Tabs,
+  TabsList,
+  TabsTab,
+  TabsPanel,
+  LoaderCircle,
+  Eye,
+  EyeOff,
+  FolderKanban,
+  ArrowRight,
+  Puzzle,
+  SquareTerminal,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@workspace/ui";
-import type { Project, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
+import type { Project,
+  WorkspacePriority,
+  WorkspaceWorkflowStatus } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
@@ -56,27 +58,36 @@ import { useEditorStore } from '@/hooks/use-editor-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
-import { Bot, ChevronRight, Group, SquareKanban } from "lucide-react";
+import {
+  Bot,
+  ChevronRight,
+  Group,
+  SquareKanban,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ProjectItem } from '@/components/layout/sidebar/ProjectItem';
 import { SortableProject } from '@/components/layout/sidebar/SortableProject';
 import { WorkspaceContent } from '@/components/layout/sidebar/WorkspaceContent';
 import { WorkspaceItem } from '@/components/layout/sidebar/WorkspaceItem';
 import { WorkspaceKanbanView } from '@/components/layout/sidebar/WorkspaceKanbanView';
-import { flattenProjectWorkspaces, getWorkspaceTimeGroupLabel, groupWorkspaces } from '@/components/layout/sidebar/workspace-grouping';
 import {
-    SIDEBAR_GROUPING_OPTIONS,
-    WORKSPACE_WORKFLOW_STATUS_OPTIONS,
-    getWorkspaceWorkflowStatusMeta,
-    type SidebarGroupingMode,
+  flattenProjectWorkspaces,
+  getWorkspaceTimeGroupLabel,
+  groupWorkspaces,
+} from '@/components/layout/sidebar/workspace-grouping';
+import {
+  SIDEBAR_GROUPING_OPTIONS,
+  WORKSPACE_WORKFLOW_STATUS_OPTIONS,
+  getWorkspaceWorkflowStatusMeta,
+  type SidebarGroupingMode,
 } from '@/components/layout/sidebar/workspace-status';
 import { WORKSPACE_PRIORITY_OPTIONS } from '@/components/layout/sidebar/workspace-metadata-controls';
 import {
-    EMPTY_WORKSPACE_KANBAN_FILTERS,
-    WorkspaceKanbanFilterMenu,
-    filterWorkspaceKanbanEntries,
-    getActiveWorkspaceKanbanFilterCount,
-    type WorkspaceKanbanFilters,
+  EMPTY_WORKSPACE_KANBAN_FILTERS,
+  WorkspaceKanbanFilterMenu,
+  filterWorkspaceKanbanEntries,
+  getActiveWorkspaceKanbanFilterCount,
+  type WorkspaceKanbanFilters,
 } from '@/components/layout/sidebar/WorkspaceKanbanFilterMenu';
 import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
@@ -997,10 +1008,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                             title="Refresh files"
                                             disabled={isLoadingFiles}
                                         >
-                                            <RefreshCw className={cn(
-                                                "size-3.5 text-muted-foreground",
-                                                isLoadingFiles && "animate-spin"
-                                            )} />
+                                            <LoaderCircle className={cn("size-3.5 text-muted-foreground",
+                                                isLoadingFiles && "animate-spin")} />
                                         </button>
                                     </div>
                                 </div>
@@ -1020,7 +1029,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     </div>
                                 ) : shouldShowLoader ? (
                                     <div className="flex items-center justify-center py-8">
-                                        <RefreshCw className="size-5 animate-spin text-muted-foreground" />
+                                        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
                                     </div>
                                 ) : (
                                     <FileTree

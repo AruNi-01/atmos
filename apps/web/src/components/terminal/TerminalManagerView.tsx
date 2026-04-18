@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ScrollArea,
   Loader2,
-  RefreshCw,
+  LoaderCircle,
   Button,
   cn,
   SquareTerminal,
@@ -175,7 +175,7 @@ export const TerminalManagerView: React.FC = () => {
               className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
               title="Refresh Stats"
             >
-              <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
+              <LoaderCircle className={cn("size-4", isLoading && "animate-spin")} />
             </Button>
           </div>
         </div>
