@@ -139,10 +139,7 @@ pub enum TerminalResponse {
         in_copy_mode: bool,
     },
     /// Scrollback history snapshot for resync
-    TerminalScrollback {
-        session_id: String,
-        history: String,
-    },
+    TerminalScrollback { session_id: String, history: String },
 }
 
 /// Parameters for creating a tmux-backed terminal session
@@ -406,13 +403,24 @@ impl TerminalService {
         let tmux_session = if let (Some(ref proj), Some(ref ws)) = (&project_name, &workspace_name)
         {
             self.tmux_engine
-                .create_session_with_names(proj, ws, cwd.as_deref(), shell_command.as_deref(), Some(&session_env_vars))
+                .create_session_with_names(
+                    proj,
+                    ws,
+                    cwd.as_deref(),
+                    shell_command.as_deref(),
+                    Some(&session_env_vars),
+                )
                 .map_err(|e| {
                     ServiceError::Processing(format!("Failed to create tmux session: {}", e))
                 })?
         } else {
             self.tmux_engine
-                .create_session(&workspace_id, cwd.as_deref(), shell_command.as_deref(), Some(&session_env_vars))
+                .create_session(
+                    &workspace_id,
+                    cwd.as_deref(),
+                    shell_command.as_deref(),
+                    Some(&session_env_vars),
+                )
                 .map_err(|e| {
                     ServiceError::Processing(format!("Failed to create tmux session: {}", e))
                 })?
@@ -1034,9 +1042,9 @@ impl TerminalService {
     /// Returns the captured pane content if the session is tmux-backed.
     pub async fn capture_session_scrollback(&self, session_id: &str) -> Result<Option<String>> {
         let sessions = self.sessions.lock().await;
-        let handle = sessions.get(session_id).ok_or_else(|| {
-            ServiceError::NotFound(format!("Session not found: {}", session_id))
-        })?;
+        let handle = sessions
+            .get(session_id)
+            .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
         let tmux_session = handle.tmux_session.clone();
         let window_index = handle.tmux_window_index;
         drop(sessions);
@@ -1045,7 +1053,10 @@ impl TerminalService {
             match self.tmux_engine.capture_pane(&session, index, Some(10000)) {
                 Ok(content) => Ok(Some(content)),
                 Err(e) => {
-                    debug!("Failed to capture scrollback for session {}: {}", session_id, e);
+                    debug!(
+                        "Failed to capture scrollback for session {}: {}",
+                        session_id, e
+                    );
                     Ok(None)
                 }
             }
@@ -1947,5 +1958,4 @@ mod tests {
         let available = service.is_tmux_available();
         println!("tmux available: {}", available);
     }
-
 }

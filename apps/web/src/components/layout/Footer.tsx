@@ -133,9 +133,9 @@ function SessionRow({ session }: { session: AgentHookSession }) {
   const hoverAction = !hovered ? null : isIdle ? "clear" as const : "idle" as const;
   const handleAction = () => {
     if (isIdle) {
-      removeSession(session.session_id);
+      void removeSession(session.session_id);
     } else {
-      forceIdle(session.session_id);
+      void forceIdle(session.session_id);
     }
   };
 

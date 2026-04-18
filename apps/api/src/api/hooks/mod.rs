@@ -1,7 +1,8 @@
 use axum::{
-    extract::State,
-    http::HeaderMap,
-    routing::{get, post, put},
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode},
+    response::IntoResponse,
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use core_service::service::agent_hooks::AtmosContext;
@@ -32,6 +33,11 @@ pub fn routes() -> Router<AppState> {
         .route("/opencode", post(handle_opencode_hook))
         .route("/sessions", get(list_hook_sessions))
         .route("/sessions/clear-idle", post(clear_idle_sessions))
+        .route(
+            "/sessions/{session_id}/force-idle",
+            post(force_session_idle),
+        )
+        .route("/sessions/{session_id}", delete(remove_hook_session))
         .route("/notification/settings", get(get_notification_settings))
         .route("/notification/settings", put(update_notification_settings))
         .route("/notification/test", post(test_push_notification))
@@ -83,6 +89,45 @@ async fn list_hook_sessions(State(state): State<AppState>) -> Json<Value> {
 async fn clear_idle_sessions(State(state): State<AppState>) -> Json<Value> {
     let cleared = state.agent_hooks_service.clear_idle_sessions();
     Json(serde_json::json!({ "cleared": cleared }))
+}
+
+async fn force_session_idle(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+) -> impl IntoResponse {
+    match state.agent_hooks_service.force_session_idle(&session_id) {
+        Some(session) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "ok": true, "session": session })),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Agent hook session not found"
+            })),
+        ),
+    }
+}
+
+async fn remove_hook_session(
+    State(state): State<AppState>,
+    Path(session_id): Path<String>,
+) -> impl IntoResponse {
+    if state.agent_hooks_service.remove_session(&session_id) {
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({ "ok": true, "removed": session_id })),
+        )
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Agent hook session not found"
+            })),
+        )
+    }
 }
 
 async fn get_notification_settings(State(state): State<AppState>) -> Json<Value> {

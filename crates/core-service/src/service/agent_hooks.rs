@@ -133,8 +133,34 @@ impl AgentHooksService {
         self.sessions.read().values().cloned().collect()
     }
 
-    pub fn remove_session(&self, session_id: &str) {
-        self.sessions.write().remove(session_id);
+    pub fn remove_session(&self, session_id: &str) -> bool {
+        let removed = self.sessions.write().remove(session_id).is_some();
+        if removed {
+            self.broadcast_sessions_cleared(vec![session_id.to_string()]);
+        }
+        removed
+    }
+
+    pub fn force_session_idle(&self, session_id: &str) -> Option<AgentHookSession> {
+        let existing = {
+            let sessions = self.sessions.read();
+            sessions.get(session_id).cloned()
+        }?;
+
+        let ctx = AtmosContext {
+            context_id: existing.context_id.clone(),
+            pane_id: existing.pane_id.clone(),
+        };
+
+        self.update_state(
+            session_id,
+            existing.tool,
+            AgentHookState::Idle,
+            existing.project_path,
+            &ctx,
+        );
+
+        self.sessions.read().get(session_id).cloned()
     }
 
     pub fn clear_idle_sessions(&self) -> Vec<String> {
@@ -146,6 +172,10 @@ impl AgentHooksService {
             .collect();
         for id in &idle_ids {
             sessions.remove(id);
+        }
+        drop(sessions);
+        if !idle_ids.is_empty() {
+            self.broadcast_sessions_cleared(idle_ids.clone());
         }
         idle_ids
     }
@@ -179,21 +209,13 @@ impl AgentHooksService {
             return;
         }
 
-        info!("Cleared {} idle agent hook session(s) older than {} min", removed.len(), timeout_mins);
+        info!(
+            "Cleared {} idle agent hook session(s) older than {} min",
+            removed.len(),
+            timeout_mins
+        );
 
-        let ws = self.ws_manager.read();
-        if let Some(ref manager) = *ws {
-            let manager = Arc::clone(manager);
-            let msg = WsMessage::notification(
-                WsEvent::AgentHookSessionsCleared,
-                serde_json::json!({ "session_ids": removed }),
-            );
-            tokio::spawn(async move {
-                if let Err(e) = manager.broadcast(&msg).await {
-                    warn!("Failed to broadcast agent hook sessions cleared: {}", e);
-                }
-            });
-        }
+        self.broadcast_sessions_cleared(removed);
     }
 
     fn update_state(
@@ -260,6 +282,22 @@ impl AgentHooksService {
             });
         } else {
             warn!("Cannot broadcast: WsManager not set");
+        }
+    }
+
+    fn broadcast_sessions_cleared(&self, session_ids: Vec<String>) {
+        let ws = self.ws_manager.read();
+        if let Some(ref manager) = *ws {
+            let manager = Arc::clone(manager);
+            let msg = WsMessage::notification(
+                WsEvent::AgentHookSessionsCleared,
+                serde_json::json!({ "session_ids": session_ids }),
+            );
+            tokio::spawn(async move {
+                if let Err(e) = manager.broadcast(&msg).await {
+                    warn!("Failed to broadcast agent hook sessions cleared: {}", e);
+                }
+            });
         }
     }
 

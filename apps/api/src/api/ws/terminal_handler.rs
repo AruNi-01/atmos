@@ -592,7 +592,10 @@ async fn handle_terminal_message(
                         }
                     }
                     ClientTerminalMessage::TerminalCaptureScrollback => {
-                        match terminal_service.capture_session_scrollback(session_id).await {
+                        match terminal_service
+                            .capture_session_scrollback(session_id)
+                            .await
+                        {
                             Ok(Some(history)) => {
                                 let response = TerminalResponse::TerminalScrollback {
                                     session_id: session_id.to_string(),

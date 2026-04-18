@@ -97,6 +97,31 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   return result.data;
 }
 
+async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T> {
+  const cfg = await getRuntimeApiConfig();
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && !cfg.token) {
+    throw new Error('Desktop API token is missing in Tauri runtime');
+  }
+  const response = await fetch(`${httpBase(cfg)}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
+      ...options?.headers,
+    },
+  });
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = body?.error || body?.message || response.statusText;
+    throw new Error(
+      `API error: ${response.status} ${response.statusText}${detail ? ` — ${detail}` : ''}`
+    );
+  }
+
+  return body as T;
+}
+
 // ===== Terminal Overview Types =====
 
 export type SessionType = 'tmux' | 'simple';
@@ -441,6 +466,24 @@ export const systemApi = {
 
   listReviewSkills: async (): Promise<{ skills: { id: string; label: string; badge: string; description: string; bestFor: string }[] }> => {
     return fetchApi('/api/system/review-skills');
+  },
+};
+
+// ===== Agent Hooks API =====
+
+export const agentHooksApi = {
+  forceSessionIdle: async (sessionId: string): Promise<{ ok: boolean }> => {
+    return fetchHooksApi<{ ok: boolean }>(
+      `/hooks/sessions/${encodeURIComponent(sessionId)}/force-idle`,
+      { method: 'POST' },
+    );
+  },
+
+  removeSession: async (sessionId: string): Promise<{ ok: boolean }> => {
+    return fetchHooksApi<{ ok: boolean }>(
+      `/hooks/sessions/${encodeURIComponent(sessionId)}`,
+      { method: 'DELETE' },
+    );
   },
 };
 

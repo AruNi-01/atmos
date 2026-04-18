@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { useWebSocketStore } from "./use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/lib/desktop-runtime";
+import { agentHooksApi } from "@/api/rest-api";
 
 export const AGENT_STATE = {
   IDLE: "idle",
@@ -65,8 +66,8 @@ interface AgentHooksStore {
   hasRunningSession: () => boolean;
   hasPermissionRequest: () => boolean;
   getGlobalState: () => AgentHookState;
-  forceSessionIdle: (sessionId: string) => void;
-  removeSession: (sessionId: string) => void;
+  forceSessionIdle: (sessionId: string) => Promise<void>;
+  removeSession: (sessionId: string) => Promise<void>;
   clearIdleSessions: () => Promise<void>;
 }
 
@@ -214,23 +215,62 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     return AGENT_STATE.IDLE;
   },
 
-  forceSessionIdle: (sessionId: string) => {
+  forceSessionIdle: async (sessionId: string) => {
+    let previous: AgentHookSession | undefined;
+    let optimistic: AgentHookSession | undefined;
+
     set((state) => {
       const session = state.sessions.get(sessionId);
       if (!session || session.state === AGENT_STATE.IDLE) return state;
+      previous = session;
+      optimistic = { ...session, state: AGENT_STATE.IDLE };
       const sessions = new Map(state.sessions);
-      sessions.set(sessionId, { ...session, state: AGENT_STATE.IDLE });
+      sessions.set(sessionId, optimistic);
       return { sessions };
     });
+
+    if (!previous || !optimistic) return;
+    const previousSession = previous;
+    const optimisticSession = optimistic;
+
+    try {
+      await agentHooksApi.forceSessionIdle(sessionId);
+    } catch (error) {
+      console.warn("[AgentHooksStore] Failed to force session idle:", error);
+      set((state) => {
+        if (state.sessions.get(sessionId) !== optimisticSession) return state;
+        const sessions = new Map(state.sessions);
+        sessions.set(sessionId, previousSession);
+        return { sessions };
+      });
+    }
   },
 
-  removeSession: (sessionId: string) => {
+  removeSession: async (sessionId: string) => {
+    let previous: AgentHookSession | undefined;
+
     set((state) => {
-      if (!state.sessions.has(sessionId)) return state;
+      previous = state.sessions.get(sessionId);
+      if (!previous) return state;
       const sessions = new Map(state.sessions);
       sessions.delete(sessionId);
       return { sessions };
     });
+
+    if (!previous) return;
+    const previousSession = previous;
+
+    try {
+      await agentHooksApi.removeSession(sessionId);
+    } catch (error) {
+      console.warn("[AgentHooksStore] Failed to remove session:", error);
+      set((state) => {
+        if (state.sessions.has(sessionId)) return state;
+        const sessions = new Map(state.sessions);
+        sessions.set(sessionId, previousSession);
+        return { sessions };
+      });
+    }
   },
 
   clearIdleSessions: async () => {
