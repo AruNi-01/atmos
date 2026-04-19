@@ -136,6 +136,12 @@ export interface WsTerminalInput {
   data: string;
 }
 
+export interface WsTerminalReport {
+  type: "terminal_report";
+  session_id: string;
+  data: string;
+}
+
 export interface WsTerminalResize {
   type: "terminal_resize";
   session_id: string;
@@ -153,43 +159,36 @@ export interface WsTerminalDestroy {
   session_id: string;
 }
 
-export interface WsTmuxCancelCopyMode {
-  type: "tmux_cancel_copy_mode";
-  session_id: string;
-}
-
-export interface WsTmuxCheckCopyMode {
-  type: "tmux_check_copy_mode";
-  session_id: string;
-}
-
-export interface WsTerminalCaptureScrollback {
-  type: "terminal_capture_scrollback";
-  session_id: string;
-}
-
 export type WsTerminalRequest =
   | WsTerminalCreate
   | WsTerminalAttach
   | WsTerminalInput
+  | WsTerminalReport
   | WsTerminalResize
   | WsTerminalClose
-  | WsTerminalDestroy
-  | WsTmuxCancelCopyMode
-  | WsTmuxCheckCopyMode
-  | WsTerminalCaptureScrollback;
+  | WsTerminalDestroy;
+
+export interface TerminalSnapshot {
+  data: string;
+  cursor_x: number;
+  cursor_y: number;
+  cols: number;
+  rows: number;
+  alternate?: boolean;
+}
 
 export interface WsTerminalCreated {
   type: "terminal_created";
   session_id: string;
   workspace_id: string;
+  snapshot?: TerminalSnapshot | null;
 }
 
 export interface WsTerminalAttached {
   type: "terminal_attached";
   session_id: string;
   workspace_id: string;
-  history?: string;
+  snapshot?: TerminalSnapshot | null;
 }
 
 export interface WsTerminalOutput {
@@ -214,24 +213,10 @@ export interface WsTerminalError {
   error: string;
 }
 
-export interface WsTmuxCopyModeStatus {
-  type: "tmux_copy_mode_status";
-  session_id: string;
-  in_copy_mode: boolean;
-}
-
-export interface WsTerminalScrollback {
-  type: "terminal_scrollback";
-  session_id: string;
-  history: string;
-}
-
 export type WsTerminalResponse =
   | WsTerminalCreated
   | WsTerminalAttached
   | WsTerminalOutput
   | WsTerminalClosed
   | WsTerminalDestroyed
-  | WsTerminalError
-  | WsTmuxCopyModeStatus
-  | WsTerminalScrollback;
+  | WsTerminalError;

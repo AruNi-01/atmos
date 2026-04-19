@@ -92,13 +92,19 @@ export const terminalFont = {
 // Default terminal options
 export const defaultTerminalOptions = {
   allowProposedApi: true,
-  allowTransparency: true,
-  convertEol: true,
+  allowTransparency: false,
+  // Keep real terminal semantics for tmux control-mode output. PTYs already
+  // emit CRLF where needed, and forcing LF to CRLF corrupts some full-screen
+  // TUI redraw paths.
+  convertEol: false,
   cursorBlink: true,
   cursorStyle: "underline" as const,
   cursorWidth: 1,
+  customGlyphs: true,
   fontFamily: terminalFont.family,
   fontSize: terminalFont.size,
+  fontWeight: "400" as const,
+  fontWeightBold: "700" as const,
   lineHeight: terminalFont.lineHeight,
   letterSpacing: terminalFont.letterSpacing,
   // Local xterm.js scrollback — scroll is handled natively by xterm.js,
@@ -106,7 +112,8 @@ export const defaultTerminalOptions = {
   // no longer used for scrolling (avoids ugly status bar and flickering).
   scrollback: 10000,
   theme: atmosDarkTheme,
-  minimumContrastRatio: 4.5,
+  minimumContrastRatio: 1,
+  rescaleOverlappingGlyphs: true,
 };
 
 // Scrollbar colors for dark theme (add to theme object)

@@ -8,12 +8,14 @@
 //! - Each terminal pane maps to a tmux window
 //! - Uses a custom socket path (~/.atmos/tmux.sock) for isolation
 
+pub mod control;
+
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
 use tracing::{debug, info, warn};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::{EngineError, Result};
 
@@ -66,6 +68,17 @@ pub struct TmuxWindowInfo {
     pub name: String,
     pub active: bool,
     pub panes: u32,
+}
+
+/// Snapshot of a tmux pane for initial terminal hydration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TmuxPaneSnapshot {
+    pub data: String,
+    pub cursor_x: u32,
+    pub cursor_y: u32,
+    pub cols: u32,
+    pub rows: u32,
+    pub alternate: bool,
 }
 
 /// Tmux version information
@@ -302,6 +315,16 @@ impl TmuxEngine {
 
     /// Execute a tmux command and return output
     fn run_tmux(&self, args: &[&str]) -> Result<String> {
+        self.run_tmux_output(args)
+            .map(|stdout| stdout.trim().to_string())
+    }
+
+    /// Execute a tmux command and return raw stdout without trimming.
+    fn run_tmux_raw(&self, args: &[&str]) -> Result<String> {
+        self.run_tmux_output(args)
+    }
+
+    fn run_tmux_output(&self, args: &[&str]) -> Result<String> {
         self.ensure_socket_dir()?;
 
         let mut cmd = Command::new("tmux");
@@ -318,7 +341,7 @@ impl TmuxEngine {
             .map_err(|e| EngineError::Tmux(format!("Failed to execute tmux: {}", e)))?;
 
         if output.status.success() {
-            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
             // Some "errors" are expected (e.g., "no server running" when listing empty sessions)
@@ -344,10 +367,15 @@ impl TmuxEngine {
     /// Apply the standard tmux configuration options for Atmos sessions.
     ///
     /// Key design decisions:
-    /// - **Alternate screen disabled** (smcup@:rmcup@): tmux renders to the normal
-    ///   buffer so xterm.js scrollback works natively (scroll, scrollbar, selection).
-    ///   TUI apps (vim, htop) still use alternate screen internally within tmux —
-    ///   this override only affects tmux→xterm.js, not programs inside tmux.
+    /// - **Control mode transport**: tmux sends raw pane output via `%output`,
+    ///   so xterm.js receives the application's real terminal stream and builds
+    ///   scrollback naturally.
+    /// - **xterm TERM inside panes**: applications target xterm.js semantics.
+    ///   Several modern full-screen TUIs rely on xterm's background-color erase
+    ///   behavior for sparse redraws; `tmux-256color` lacks that capability on
+    ///   macOS and leaves stale cells behind in tmux's own pane state.
+    /// - **Alternate screen enabled**: TUI apps use the alternate buffer
+    ///   normally instead of leaking frames into scrollback.
     /// - **Mouse OFF**: xterm.js handles all scrolling locally (native scrollbar,
     ///   smooth scroll, 10K line buffer). TUI apps that enable their own mouse
     ///   tracking still work because they send escape sequences directly.
@@ -356,19 +384,27 @@ impl TmuxEngine {
         let _ = self.run_tmux(&["set-option", "-g", "default-terminal", "xterm-256color"]);
         let _ = self.run_tmux(&["set-option", "-g", "allow-passthrough", "on"]);
         let _ = self.run_tmux(&["set-option", "-g", "mouse", "off"]);
-        // Disable alternate screen for the outer terminal (xterm.js) so content
-        // flows into the normal buffer where xterm.js scrollback works natively.
-        let _ = self.run_tmux(&[
-            "set-option",
-            "-g",
-            "terminal-overrides",
-            "xterm*:smcup@:rmcup@",
-        ]);
+        let _ = self.run_tmux(&["set-option", "-gu", "terminal-features"]);
+        let _ = self.run_tmux(&["set-option", "-ga", "terminal-features", "xterm*:RGB"]);
+        let _ = self.run_tmux(&["set-option", "-gu", "terminal-overrides"]);
         let _ = self.run_tmux(&["set-option", "-g", "history-limit", "10000"]);
-        let _ = self.run_tmux(&["set-option", "-g", "aggressive-resize", "on"]);
+        // Keep automatic sizing enabled for tmux window creation. tmux 3.6a can
+        // exit unexpectedly when `new-window` runs with global `window-size
+        // manual`; Atmos still pins real browser sizes explicitly after attach.
+        let _ = self.run_tmux(&["set-option", "-g", "aggressive-resize", "off"]);
         let _ = self.run_tmux(&["set-option", "-g", "window-size", "latest"]);
         let _ = self.run_tmux(&["set-option", "-g", "allow-rename", "off"]);
         let _ = self.run_tmux(&["set-option", "-g", "automatic-rename", "off"]);
+    }
+
+    /// Re-apply Atmos' tmux server/session defaults to an existing server.
+    ///
+    /// This is intentionally idempotent and is called before attach as well as
+    /// create, because development sessions may have been created by an older
+    /// binary with stale terminal-overrides.
+    pub fn ensure_standard_config(&self) {
+        self.sync_utf8_environment();
+        self.apply_standard_config();
     }
 
     /// Check if tmux is installed on the system
@@ -457,7 +493,7 @@ impl TmuxEngine {
         env_vars: Option<&[(&str, &str)]>,
     ) -> Result<String> {
         if self.session_exists(session_name)? {
-            self.sync_utf8_environment();
+            self.ensure_standard_config();
             info!("Tmux session already exists: {}", session_name);
             return Ok(session_name.to_string());
         }
@@ -499,8 +535,7 @@ impl TmuxEngine {
 
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         self.run_tmux(&args_refs)?;
-        self.sync_utf8_environment();
-        self.apply_standard_config();
+        self.ensure_standard_config();
 
         info!("Created tmux session: {} (with window '1')", session_name);
         Ok(session_name.to_string())
@@ -518,6 +553,50 @@ impl TmuxEngine {
         debug!(
             "Created grouped tmux session '{}' linked to '{}'",
             new_session, target_session
+        );
+        Ok(())
+    }
+
+    /// Create a per-client session containing only one linked master window.
+    ///
+    /// This keeps each browser/control client from participating in the sizing
+    /// of every tmux window in the workspace. The linked window remains owned by
+    /// the master session; killing the client session only removes this view.
+    pub fn create_window_client_session(
+        &self,
+        target_session: &str,
+        window_index: u32,
+        new_session: &str,
+        cols: u16,
+        rows: u16,
+    ) -> Result<()> {
+        if self.session_exists(new_session)? {
+            return Ok(());
+        }
+
+        let cols = cols.to_string();
+        let rows = rows.to_string();
+        self.run_tmux(&[
+            "new-session",
+            "-d",
+            "-s",
+            new_session,
+            "-n",
+            "__atmos_placeholder__",
+            "-x",
+            &cols,
+            "-y",
+            &rows,
+        ])?;
+
+        let source = format!("{}:{}", target_session, window_index);
+        let target = format!("{}:0", new_session);
+        self.run_tmux(&["link-window", "-k", "-s", &source, "-t", &target])?;
+        self.run_tmux(&["select-window", "-t", &target])?;
+
+        debug!(
+            "Created tmux client session '{}' linked to '{}'",
+            new_session, source
         );
         Ok(())
     }
@@ -568,11 +647,10 @@ impl TmuxEngine {
             }
             let session_args_refs: Vec<&str> = session_args.iter().map(|s| s.as_str()).collect();
             self.run_tmux(&session_args_refs)?;
-            self.sync_utf8_environment();
-            self.apply_standard_config();
+            self.ensure_standard_config();
         }
 
-        self.sync_utf8_environment();
+        self.ensure_standard_config();
 
         let mut args: Vec<String> = vec![
             "new-window".to_string(),
@@ -688,7 +766,10 @@ impl TmuxEngine {
 
     /// Capture pane content (scrollback + visible) for reconnection.
     ///
-    /// Uses `-e` to preserve ANSI escape sequences (colors, formatting).
+    /// Uses `-e` to preserve ANSI escape sequences (colors, formatting) and
+    /// `-N` to preserve trailing spaces. The trailing spaces matter for TUIs:
+    /// many of them paint panels by writing background-coloured spaces all the
+    /// way to the end of a row.
     /// Returns both scrollback history and visible pane content as a single
     /// string, used by the frontend to restore terminal state after reconnect.
     pub fn capture_pane(
@@ -696,23 +777,112 @@ impl TmuxEngine {
         session_name: &str,
         window_index: u32,
         lines: Option<i32>,
+        alternate: bool,
     ) -> Result<String> {
         let target = format!("{}:{}.0", session_name, window_index);
-        let start_line = lines
-            .map(|l| format!("-{}", l))
-            .unwrap_or_else(|| "-".to_string());
+        let start_line = if alternate {
+            // Even when #{alternate_on}=1, capture the pane's current visible
+            // screen without `capture-pane -a`. In tmux 3.6, `-a` can return a
+            // stale alternate buffer for modern TUIs after a control-mode attach,
+            // while the default capture returns the actual client-visible grid.
+            "0".to_string()
+        } else {
+            lines
+                .map(|l| format!("-{}", l))
+                .unwrap_or_else(|| "-".to_string())
+        };
 
-        let content = self.run_tmux(&[
-            "capture-pane",
-            "-t",
-            &target,
-            "-p", // print to stdout
-            "-e", // include ANSI escape sequences
-            "-S",
-            &start_line,
-        ])?;
+        let mut args = vec![
+            "capture-pane".to_string(),
+            "-t".to_string(),
+            target,
+            "-p".to_string(), // print to stdout
+            "-e".to_string(), // include ANSI escape sequences
+            "-N".to_string(), // preserve trailing spaces/background cells
+        ];
+        args.extend([
+            "-S".to_string(),
+            start_line,
+            "-E".to_string(),
+            "-".to_string(),
+        ]);
+        let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+
+        let mut content = self.run_tmux_raw(&arg_refs)?;
+        if content.ends_with('\n') {
+            content.pop();
+        }
 
         Ok(content)
+    }
+
+    /// Capture pane content and cursor metadata for initial hydration.
+    pub fn capture_pane_snapshot(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        lines: Option<i32>,
+    ) -> Result<TmuxPaneSnapshot> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let metadata = self.run_tmux(&[
+            "display-message",
+            "-t",
+            &target,
+            "-p",
+            "#{cursor_x}|#{cursor_y}|#{pane_width}|#{pane_height}|#{alternate_on}",
+        ])?;
+        let parts = metadata.split('|').collect::<Vec<_>>();
+        let parse_part = |idx: usize| -> u32 {
+            parts
+                .get(idx)
+                .and_then(|value| value.parse::<u32>().ok())
+                .unwrap_or(0)
+        };
+        let rows = parse_part(3);
+        let alternate = parts.get(4).is_some_and(|value| value.trim() == "1");
+        let capture_lines = if alternate {
+            Some(rows.max(1) as i32)
+        } else {
+            lines
+        };
+        let data = self.capture_pane(session_name, window_index, capture_lines, alternate)?;
+
+        Ok(TmuxPaneSnapshot {
+            data,
+            cursor_x: parse_part(0),
+            cursor_y: parse_part(1),
+            cols: parse_part(2),
+            rows,
+            alternate,
+        })
+    }
+
+    /// Return the stable tmux pane id (for example `%0`) for a window's first pane.
+    pub fn get_pane_id(&self, session_name: &str, window_index: u32) -> Result<String> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        self.run_tmux(&["display-message", "-t", &target, "-p", "#{pane_id}"])
+    }
+
+    /// Return the current pane grid size for a window's first pane.
+    pub fn get_pane_size(&self, session_name: &str, window_index: u32) -> Result<(u16, u16)> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let output = self.run_tmux(&[
+            "display-message",
+            "-t",
+            &target,
+            "-p",
+            "#{pane_width}|#{pane_height}",
+        ])?;
+        let mut parts = output.split('|');
+        let cols = parts
+            .next()
+            .and_then(|value| value.parse::<u16>().ok())
+            .unwrap_or(120);
+        let rows = parts
+            .next()
+            .and_then(|value| value.parse::<u16>().ok())
+            .unwrap_or(30);
+        Ok((cols, rows))
     }
 
     /// Resize a window's pane

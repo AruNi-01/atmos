@@ -18,4 +18,6 @@ pub use git::{
 pub use github::GithubEngine;
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
-pub use tmux::{TmuxEngine, TmuxInstallPlan, TmuxSessionInfo, TmuxVersion, TmuxWindowInfo};
+pub use tmux::{
+    TmuxEngine, TmuxInstallPlan, TmuxPaneSnapshot, TmuxSessionInfo, TmuxVersion, TmuxWindowInfo,
+};

@@ -2585,8 +2585,7 @@ set -x
         // Wait for the child process concurrently with streaming output.
         // This avoids hanging forever if the PTY reader never gets EOF
         // (e.g. a background process inherited the slave fd).
-        let mut wait_handle =
-            tokio::task::spawn_blocking(move || child.wait());
+        let mut wait_handle = tokio::task::spawn_blocking(move || child.wait());
 
         let exit_status = loop {
             tokio::select! {
@@ -2619,11 +2618,9 @@ set -x
 
         // Best-effort drain: capture any remaining PTY output that was buffered
         // between the last recv and the child exiting.
-        let drain_deadline =
-            tokio::time::Instant::now() + Duration::from_millis(500);
+        let drain_deadline = tokio::time::Instant::now() + Duration::from_millis(500);
         loop {
-            let remaining = drain_deadline
-                .saturating_duration_since(tokio::time::Instant::now());
+            let remaining = drain_deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
                 break;
             }

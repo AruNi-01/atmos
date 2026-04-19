@@ -48,7 +48,7 @@ import "@xterm/xterm/css/xterm.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "./theme";
 import { useTerminalWebSocket } from "./use-terminal-websocket";
-import type { TerminalProps } from "./types";
+import type { TerminalProps, TerminalSnapshot } from "./types";
 import { getRuntimeApiConfig, isTauriRuntime } from "@/lib/desktop-runtime";
 import { openDesktopExternalUrl } from "@/lib/desktop-external-url";
 import { useEditorStore } from "@/hooks/use-editor-store";
@@ -66,7 +66,92 @@ const TERMINAL_FONT_BOLD_PATH = "/fonts/HackNerdFontMono-Bold.ttf";
 const NERD_FONT_TEST_GLYPH = "\uE0B6";
 const TERMINAL_INPUT_READY_DEBOUNCE_MS = 180;
 const TERMINAL_INPUT_READY_FALLBACK_MS = 1200;
+const MIN_TERMINAL_COLS = 20;
+const MIN_TERMINAL_ROWS = 8;
+const ENABLE_TUI_MOUSE_TRACKING = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
+const DISABLE_TUI_MOUSE_TRACKING = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l";
 let terminalFontLoadPromise: Promise<void> | null = null;
+
+function normalizeSnapshotData(data: string): string {
+  return data.replace(/\r?\n/g, "\r\n");
+}
+
+type TerminalWriteChunk = string | Uint8Array;
+
+function cloneTerminalWriteChunk(data: TerminalWriteChunk): TerminalWriteChunk {
+  return typeof data === "string" ? data : data.slice();
+}
+
+function coalesceTerminalWriteChunks(chunks: TerminalWriteChunk[]): TerminalWriteChunk[] {
+  const coalesced: TerminalWriteChunk[] = [];
+  let text = "";
+  let byteLength = 0;
+  let byteChunks: Uint8Array[] = [];
+
+  const flushText = () => {
+    if (!text) return;
+    coalesced.push(text);
+    text = "";
+  };
+
+  const flushBytes = () => {
+    if (byteLength === 0) return;
+    if (byteChunks.length === 1) {
+      coalesced.push(byteChunks[0]);
+    } else {
+      const merged = new Uint8Array(byteLength);
+      let offset = 0;
+      for (const chunk of byteChunks) {
+        merged.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      coalesced.push(merged);
+    }
+    byteLength = 0;
+    byteChunks = [];
+  };
+
+  for (const chunk of chunks) {
+    if (typeof chunk === "string") {
+      flushBytes();
+      text += chunk;
+    } else {
+      flushText();
+      byteLength += chunk.byteLength;
+      byteChunks.push(chunk);
+    }
+  }
+
+  flushText();
+  flushBytes();
+
+  return coalesced;
+}
+
+function isUsableTerminalGrid(cols: number, rows: number): boolean {
+  return cols >= MIN_TERMINAL_COLS && rows >= MIN_TERMINAL_ROWS;
+}
+
+function isTerminalContainerVisible(element: HTMLElement | null): boolean {
+  if (!element || element.offsetParent === null) return false;
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+function isTerminalEmulatorReport(data: string): boolean {
+  if (!data.startsWith("\x1b")) return false;
+
+  // xterm.js emits these through onData when the pane asks the terminal
+  // emulator for state. They are not user keystrokes and tmux control mode has
+  // a dedicated `refresh-client -r` path for them.
+  if (data.startsWith("\x1b]")) return true; // OSC colour/title reports.
+  if (/^\x1b\[\??[\d;]*c$/.test(data)) return true; // DA / secondary DA.
+  if (/^\x1b\[\d+;\d+R$/.test(data)) return true; // Cursor position report.
+  if (/^\x1b\[\?[\d;]+;\d+\$y$/.test(data)) return true; // DECRQM report.
+  if (/^\x1b\[\d+(?:;\d+)*t$/.test(data)) return true; // Window size report.
+
+  return false;
+}
 
 function toAbsoluteAssetUrl(path: string): string {
   if (typeof window === "undefined") return path;
@@ -312,16 +397,15 @@ const Terminal = ({
   }
   const wsUrl = `${baseWsUrl}?${wsParams.toString()}`;
 
-  // Batch terminal writes via rAF to reduce xterm.js render passes
-  const pendingWriteRef = useRef("");
+  // Batch terminal writes via rAF to reduce render passes. Keep websocket
+  // binary frames as bytes so xterm.js owns the streaming UTF-8 parser; tmux
+  // control mode can split multi-byte glyphs across arbitrary notifications.
+  const pendingWriteRef = useRef<TerminalWriteChunk[]>([]);
   const rafScheduledRef = useRef(false);
+  const outputTextDecoderRef = useRef(new TextDecoder());
   const inputReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputReadyFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputReadyNotifiedRef = useRef(false);
-  // When true, suppress writing PTY output to xterm.js (used during reconnect
-  // to discard tmux's initial redraw — we replace it with the captured snapshot).
-  const suppressOutputRef = useRef(false);
-
   const notifyInputReady = useCallback(() => {
     if (inputReadyNotifiedRef.current) return;
     inputReadyNotifiedRef.current = true;
@@ -350,29 +434,39 @@ const Terminal = ({
     }, TERMINAL_INPUT_READY_FALLBACK_MS);
   }, [notifyInputReady]);
 
-  const handleOutput = useCallback((data: string) => {
-    if (data && !suppressOutputRef.current) {
-      pendingWriteRef.current += data;
+  const handleOutput = useCallback((data: string | Uint8Array) => {
+    if (data.length > 0) {
+      pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
       if (!rafScheduledRef.current) {
         rafScheduledRef.current = true;
         requestAnimationFrame(() => {
           rafScheduledRef.current = false;
           const pending = pendingWriteRef.current;
-          pendingWriteRef.current = "";
-          if (pending && terminalRef.current) {
-            terminalRef.current.write(pending);
+          pendingWriteRef.current = [];
+          const term = terminalRef.current;
+          if (pending.length > 0 && term) {
+            for (const chunk of coalesceTerminalWriteChunks(pending)) {
+              term.write(chunk);
+            }
           }
         });
       }
     }
-    if (data && status === "connected") {
+    if (data.length > 0 && status === "connected") {
       scheduleInputReady();
     }
-    onData?.(data); // Forward original for parent (e.g. URL detection)
+    const text =
+      typeof data === "string"
+        ? data
+        : outputTextDecoderRef.current.decode(data, { stream: true });
+    if (text) {
+      onData?.(text); // Forward decoded text for parent features (e.g. URL detection)
+    }
   }, [onData, scheduleInputReady, status]);
 
   const handleConnected = useCallback(() => {
     setStatus("connected");
+    outputTextDecoderRef.current = new TextDecoder();
     inputReadyNotifiedRef.current = false;
     if (inputReadyTimerRef.current) {
       clearTimeout(inputReadyTimerRef.current);
@@ -383,13 +477,12 @@ const Terminal = ({
       inputReadyFallbackTimerRef.current = null;
     }
 
-    // Belt-and-suspenders: send current terminal dimensions immediately after WS opens.
-    // This ensures the backend PTY has the correct size even if URL params were not processed.
+    // Re-fit before sending the post-connect size so full-screen TUIs see the
+    // browser's current grid, not the constructor's default 80x24 grid.
+    fitAddonRef.current?.fit();
     if (terminalRef.current) {
       sendResizeRef.current({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
     }
-    // Re-fit to ensure terminal matches current container dimensions
-    fitAddonRef.current?.fit();
     scheduleInputReadyFallback();
   }, [scheduleInputReadyFallback]);
 
@@ -416,48 +509,42 @@ const Terminal = ({
     [sessionId, onSessionError]
   );
 
-  const handleAttached = useCallback((history?: string) => {
-    // Session attached (reconnected) to existing tmux window.
-    // Suppress tmux's initial redraw output — we'll display the captured
-    // snapshot instead, which includes full scrollback history.
+  const handleAttached = useCallback((snapshot?: TerminalSnapshot | null) => {
     setStatus("connected");
-    if (!history) return;
-    suppressOutputRef.current = true;
-    setTimeout(() => {
-      const term = terminalRef.current;
-      if (!term) return;
-      term.write(history);
-      term.scrollToBottom();
-      suppressOutputRef.current = false;
-      // Force tmux to redraw the live viewport, resyncing cursor state.
-      sendResizeRef.current({ cols: term.cols, rows: term.rows });
+    const term = terminalRef.current;
+    if (!term || !snapshot) {
       scheduleInputReady();
-    }, 1000);
+      return;
+    }
+
+    pendingWriteRef.current = [];
+    outputTextDecoderRef.current = new TextDecoder();
+    const useAlternateScreen = snapshot.alternate === true;
+    const screenMode = useAlternateScreen ? "\x1b[?1049h" : "\x1b[?1049l";
+    const clearScrollback = useAlternateScreen ? "" : "\x1b[3J";
+    const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
+    const data = normalizeSnapshotData(snapshot.data);
+    const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
+    const mouseRestore = useAlternateScreen ? ENABLE_TUI_MOUSE_TRACKING : "";
+    term.reset();
+    if (
+      isUsableTerminalGrid(snapshot.cols, snapshot.rows) &&
+      (term.cols !== snapshot.cols || term.rows !== snapshot.rows)
+    ) {
+      term.resize(snapshot.cols, snapshot.rows);
+    }
+    // tmux `capture-pane -N` preserves trailing spaces so background-coloured
+    // TUI panels survive reconnect. Replay them with autowrap disabled so a
+    // full-width captured row does not create an extra wrapped line in xterm.js.
+    term.write(`${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${mouseRestore}`, () => {
+      if (!useAlternateScreen) {
+        term.scrollToBottom();
+      }
+      scheduleInputReady();
+    });
   }, [scheduleInputReady]);
 
-  // Scrollback resync: replace xterm buffer with clean tmux pane history.
-  // Triggered on CMD_END to fix scrollback lost during tmux's redraw stream.
-  const scrollbackResyncRef = useRef(false);
-  const scrollbackDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Cooldown: skip resync shortly after resize to avoid restoring wrap artifacts
-  const resizeCooldownRef = useRef(false);
-  const handleScrollback = useCallback((history: string) => {
-    const term = terminalRef.current;
-    if (!term || scrollbackResyncRef.current) return;
-    scrollbackResyncRef.current = true;
-    suppressOutputRef.current = true;
-    term.clear();
-    term.write(history, () => {
-      term.scrollToBottom();
-      suppressOutputRef.current = false;
-      // Do NOT call sendResize here — the captured history already contains
-      // the correct viewport state. Sending a resize would make tmux repaint
-      // the viewport a second time, causing duplicate prompts and lost spacing.
-      scrollbackResyncRef.current = false;
-    });
-  }, []);
-
-  const { isConnected, isReconnecting, sendInput, sendResize, sendDestroy, sendCaptureScrollback, connect, disconnect } =
+  const { isConnected, isReconnecting, sendInput, sendTerminalReport, sendResize, sendDestroy, connect, disconnect } =
     useTerminalWebSocket({
       url: wsUrl,
       sessionId,
@@ -467,14 +554,11 @@ const Terminal = ({
       onDisconnected: handleDisconnected,
       onError: handleError,
       onAttached: handleAttached,
-      onScrollback: handleScrollback,
     });
 
   // Keep refs in sync (breaks circular dependencies with handleConnected)
-  const sendCaptureScrollbackRef = useRef<() => void>(() => {});
   useEffect(() => {
     sendResizeRef.current = sendResize;
-    sendCaptureScrollbackRef.current = sendCaptureScrollback;
   });
 
   useEffect(() => {
@@ -876,6 +960,7 @@ const Terminal = ({
 
     let cancelled = false;
     let linkProvider: { dispose: () => void } | null = null;
+    let visibilityPollTimer: ReturnType<typeof setTimeout> | null = null;
 
     const initTerminal = async () => {
       try {
@@ -959,6 +1044,7 @@ const Terminal = ({
           }
         }, CMD_START_DELAY_MS);
       } else if (metaType === "CMD_END") {
+        terminal.write(DISABLE_TUI_MOUSE_TRACKING);
         // Cancel any pending CMD_START — the command finished fast
         if (cmdStartTimerRef.current) {
           clearTimeout(cmdStartTimerRef.current);
@@ -969,27 +1055,12 @@ const Terminal = ({
           lastTitleRef.current = title;
           onTitleChangeRef.current?.(title);
         }
-        // Resync scrollback after each command completes.
-        // tmux attach-session sends a redraw stream (cursor addressing) rather
-        // than plain historical text, so xterm.js scrollback doesn't accumulate
-        // properly during live output. Capture the clean pane history from tmux
-        // and replace the buffer to restore correct scrollback.
-        // Skip during resize cooldown to avoid restoring line-wrap artifacts.
-        if (!resizeCooldownRef.current) {
-          if (scrollbackDebounceRef.current) {
-            clearTimeout(scrollbackDebounceRef.current);
-          }
-          scrollbackDebounceRef.current = setTimeout(() => {
-            scrollbackDebounceRef.current = null;
-            sendCaptureScrollbackRef.current();
-          }, 300);
-        }
       }
 
       return true; // consumed — don't render the sequence
     });
 
-    // Try to load WebGL addon for better performance
+    // Try to load WebGL addon for better performance and crisp text rendering.
     try {
       const webglAddon = new WebglAddon();
       terminal.loadAddon(webglAddon);
@@ -1015,11 +1086,17 @@ const Terminal = ({
 
     // Handle terminal input
     terminal.onData((data) => {
+      if (!data) return;
+
       if (readOnlyRef.current) {
         onInputWhileReadOnly?.();
         return;
       }
-      sendInput(data);
+      if (isTerminalEmulatorReport(data)) {
+        sendTerminalReport(data);
+      } else {
+        sendInput(data);
+      }
       onData?.(data); // Notify parent
     });
 
@@ -1029,19 +1106,11 @@ const Terminal = ({
       sendResize({ cols, rows });
     });
 
-    // Fit terminal to container (now onResize handler is registered to capture this)
-    fitAddon.fit();
-
-    // Connect with runtime token in desktop mode, then include initial cols/rows.
-    // cancelled is set to true by the cleanup function below. In desktop (Tauri) mode,
-    // getRuntimeApiConfig() needs ~50ms for IPC. React Strict Mode double-mounts the
-    // component, so two async IIFEs may be in flight simultaneously. The cancelled flag
-    // ensures only the IIFE belonging to the live mount actually calls connect().
-    void (async () => {
+    let connectStarted = false;
+    const buildRuntimeWsUrl = async () => {
       let runtimeWsUrl = wsUrl;
       try {
         const { host, port, token } = await getRuntimeApiConfig();
-        if (cancelled) return;
         const urlObj = new URL(wsUrl);
         if (port) {
           urlObj.host = `${host}:${port}`;
@@ -1052,13 +1121,45 @@ const Terminal = ({
         }
         runtimeWsUrl = urlObj.toString();
       } catch {
-        if (cancelled) return;
         // Fallback to original URL in non-desktop environments.
       }
-      const separator = runtimeWsUrl.includes("?") ? "&" : "?";
-      const connectUrl = `${runtimeWsUrl}${separator}cols=${terminal.cols}&rows=${terminal.rows}`;
-      connect(connectUrl);
-    })();
+      return runtimeWsUrl;
+    };
+    const connectWhenVisible = () => {
+      if (cancelled || connectStarted) return;
+      if (!isTerminalContainerVisible(containerRef.current)) return;
+
+      fitAddon.fit();
+      if (!isUsableTerminalGrid(terminal.cols, terminal.rows)) return;
+
+      connectStarted = true;
+      // Connect with runtime token in desktop mode, then include initial cols/rows.
+      // cancelled is set to true by the cleanup function below. In desktop (Tauri) mode,
+      // getRuntimeApiConfig() needs ~50ms for IPC. React Strict Mode double-mounts the
+      // component, so two async IIFEs may be in flight simultaneously. The cancelled flag
+      // ensures only the IIFE belonging to the live mount actually calls connect().
+      void (async () => {
+        const runtimeWsUrl = await buildRuntimeWsUrl();
+        if (cancelled) return;
+        const separator = runtimeWsUrl.includes("?") ? "&" : "?";
+        const connectUrl = `${runtimeWsUrl}${separator}cols=${terminal.cols}&rows=${terminal.rows}`;
+        connect(connectUrl);
+      })();
+    };
+    const scheduleVisibilityPoll = () => {
+      if (cancelled || connectStarted || visibilityPollTimer) return;
+      visibilityPollTimer = setTimeout(() => {
+        visibilityPollTimer = null;
+        connectWhenVisible();
+        scheduleVisibilityPoll();
+      }, 250);
+    };
+
+    // Only connect once the pane is visible and FitAddon can produce a real grid.
+    // Hidden terminal tabs often measure as 10x5; hydrating a 148-column tmux
+    // snapshot into that tiny xterm buffer permanently wraps and corrupts TUIs.
+    connectWhenVisible();
+    scheduleVisibilityPoll();
 
     // ── Cmd/Ctrl+C: copy selection to clipboard ──────────────────────
     terminal.attachCustomKeyEventHandler((event) => {
@@ -1089,11 +1190,9 @@ const Terminal = ({
 
     // ── Resize observer ────────────────────────────────────────────
     // Uses rAF to coalesce multiple ResizeObserver fires within one frame.
-    // Scrollback is preserved across resize for normal terminal use.
-    // For full-screen TUI apps, the backend detects alternate screen mode
-    // and sends CSI 3J after tmux finishes redrawing (see terminal_handler).
+    // Control mode sends raw pane output, so xterm.js owns scrollback and TUI
+    // alternate-screen transitions without backend cleanup hacks.
     let resizeRafId = 0;
-    let resizeCooldownTimer: ReturnType<typeof setTimeout> | null = null;
     const resizeObserver = new ResizeObserver(() => {
       if (resizeRafId) return; // Already scheduled for this frame
       resizeRafId = requestAnimationFrame(() => {
@@ -1102,17 +1201,10 @@ const Terminal = ({
         const fit = fitAddonRef.current;
         if (!term || !fit) return;
         // Skip when terminal container is hidden (e.g. tab not visible)
-        if (containerRef.current && containerRef.current.offsetParent === null) return;
+        if (!isTerminalContainerVisible(containerRef.current)) return;
 
         fit.fit();
-        // After resize, skip scrollback resync for 2s — tmux's buffer may
-        // contain line-wrap artifacts that the backend's CSI 3J already cleaned.
-        // A resync during this window would restore those artifacts.
-        resizeCooldownRef.current = true;
-        if (resizeCooldownTimer) clearTimeout(resizeCooldownTimer);
-        resizeCooldownTimer = setTimeout(() => {
-          resizeCooldownRef.current = false;
-        }, 2000);
+        connectWhenVisible();
       });
     });
 
@@ -1127,11 +1219,10 @@ const Terminal = ({
 
     return () => {
       cancelled = true;
+      if (visibilityPollTimer) clearTimeout(visibilityPollTimer);
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
-      if (scrollbackDebounceRef.current) clearTimeout(scrollbackDebounceRef.current);
-      resizeCooldownRef.current = false;
       searchResultsListenerRef.current?.dispose();
       searchResultsListenerRef.current = null;
       linkProvider?.dispose();
