@@ -73,18 +73,15 @@ enum ClientTerminalMessage {
     TerminalInput {
         data: String,
     },
+    TerminalReport {
+        data: String,
+    },
     TerminalResize {
         cols: u16,
         rows: u16,
     },
     TerminalClose,
     TerminalDestroy,
-    /// Exit tmux copy-mode safely via `send-keys -X cancel`
-    TmuxCancelCopyMode,
-    /// Check if tmux pane is currently in copy-mode
-    TmuxCheckCopyMode,
-    /// Request scrollback history capture for resync
-    TerminalCaptureScrollback,
 }
 
 /// All session-level configuration extracted from query parameters.
@@ -199,7 +196,7 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
 
     info!("Terminal session cwd: {:?}", cwd);
 
-    let (output_rx, history) = if mode.as_deref() == Some("shell") {
+    let (output_rx, snapshot) = if mode.as_deref() == Some("shell") {
         match terminal_service
             .create_simple_session(CreateSimpleSessionParams {
                 session_id: session_id.clone(),
@@ -243,9 +240,9 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
             })
             .await
         {
-            Ok((rx, hist)) => {
+            Ok((rx, snapshot)) => {
                 actually_attached = true;
-                (rx, hist)
+                (rx, snapshot)
             }
             Err(e) => {
                 warn!(
@@ -266,9 +263,9 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
                     })
                     .await
                 {
-                    Ok(rx) => {
+                    Ok((rx, snapshot)) => {
                         actually_attached = false;
-                        (rx, None)
+                        (rx, snapshot)
                     }
                     Err(e) => {
                         error!(
@@ -304,7 +301,7 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
             })
             .await
         {
-            Ok(rx) => (rx, None),
+            Ok((rx, snapshot)) => (rx, snapshot),
             Err(e) => {
                 error!("Failed to create terminal session: {}", e);
                 let error_response = TerminalResponse::TerminalError {
@@ -326,7 +323,7 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
         let attached_response = TerminalResponse::TerminalAttached {
             session_id: session_id.clone(),
             workspace_id: workspace_id.clone(),
-            history: history.clone(),
+            snapshot: snapshot.clone(),
         };
         if let Ok(json) = serde_json::to_string(&attached_response) {
             let _ = ws_sender.send(Message::Text(json.into())).await;
@@ -335,68 +332,34 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
         let created_response = TerminalResponse::TerminalCreated {
             session_id: session_id.clone(),
             workspace_id: workspace_id.clone(),
+            snapshot: snapshot.clone(),
         };
         if let Ok(json) = serde_json::to_string(&created_response) {
             let _ = ws_sender.send(Message::Text(json.into())).await;
         }
     }
 
-    // Create channel for WebSocket outgoing messages
-    let (ws_tx, mut ws_rx) = mpsc::unbounded_channel::<String>();
+    // Create channel for WebSocket outgoing messages.
+    let (ws_tx, mut ws_rx) = mpsc::unbounded_channel::<Message>();
 
-    // Task: Forward PTY output to WebSocket
-    // Uses a streaming UTF-8 decoder to avoid splitting multi-byte characters
-    // (e.g. emoji, CJK) across chunk boundaries, which would produce ��� via
-    // from_utf8_lossy.
+    // Task: Forward terminal output to WebSocket as binary frames. Terminal
+    // streams are byte protocols, not UTF-8 text; forcing them through JSON
+    // can drop 8-bit control bytes used by full-screen TUIs.
     let session_id_output = session_id.clone();
     let ws_tx_clone = ws_tx.clone();
     let output_task = tokio::spawn(async move {
         let mut output_rx = output_rx;
-        let mut carry: Vec<u8> = Vec::new();
         while let Some(data) = output_rx.recv().await {
-            carry.extend_from_slice(&data);
-
-            let valid_up_to = match std::str::from_utf8(&carry) {
-                Ok(_) => carry.len(),
-                Err(e) => {
-                    let up_to = e.valid_up_to();
-                    // Check if the trailing bytes are an incomplete (but
-                    // potentially valid) multi-byte sequence rather than truly
-                    // invalid bytes. Keep at most 3 trailing bytes (max
-                    // continuation length in UTF-8).
-                    let remaining = carry.len() - up_to;
-                    if remaining <= 3 && e.error_len().is_none() {
-                        // Incomplete sequence at the end — keep it for the
-                        // next chunk.
-                        up_to
-                    } else {
-                        // Genuinely invalid bytes — skip past the bad byte(s)
-                        // so we don't get stuck.
-                        up_to + e.error_len().unwrap_or(1)
-                    }
-                }
-            };
-
-            if valid_up_to == 0 {
+            if data.is_empty() {
                 continue;
             }
 
-            // SAFETY: we just verified the bytes up to `valid_up_to` are valid
-            // UTF-8.
-            let text = unsafe { std::str::from_utf8_unchecked(&carry[..valid_up_to]) }.to_owned();
-            carry.drain(..valid_up_to);
-            let response = TerminalResponse::TerminalOutput {
-                session_id: session_id_output.clone(),
-                data: text,
-            };
-            if let Ok(json) = serde_json::to_string(&response) {
-                if ws_tx_clone.send(json).is_err() {
-                    debug!(
-                        "WebSocket channel closed for session: {}",
-                        session_id_output
-                    );
-                    break;
-                }
+            if ws_tx_clone.send(Message::Binary(data.into())).is_err() {
+                debug!(
+                    "WebSocket channel closed for session: {}",
+                    session_id_output
+                );
+                break;
             }
         }
     });
@@ -405,7 +368,7 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
     let session_id_send = session_id.clone();
     let send_task = tokio::spawn(async move {
         while let Some(msg) = ws_rx.recv().await {
-            if ws_sender.send(Message::Text(msg.into())).await.is_err() {
+            if ws_sender.send(msg).await.is_err() {
                 warn!(
                     "Failed to send to WebSocket for session: {}",
                     session_id_send
@@ -468,7 +431,7 @@ async fn handle_terminal_message(
     session_id: &str,
     workspace_id: &str,
     terminal_service: &Arc<TerminalService>,
-    ws_tx: &mpsc::UnboundedSender<String>,
+    ws_tx: &mpsc::UnboundedSender<Message>,
     destroy_requested: &std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> bool {
     match msg {
@@ -483,9 +446,10 @@ async fn handle_terminal_message(
                         let created_response = TerminalResponse::TerminalCreated {
                             session_id: session_id.to_string(),
                             workspace_id: workspace_id.to_string(),
+                            snapshot: None,
                         };
                         if let Ok(json) = serde_json::to_string(&created_response) {
-                            let _ = ws_tx.send(json);
+                            let _ = ws_tx.send(Message::Text(json.into()));
                         }
                     }
                     ClientTerminalMessage::TerminalAttach {
@@ -502,10 +466,10 @@ async fn handle_terminal_message(
                         let attached_response = TerminalResponse::TerminalAttached {
                             session_id: session_id.to_string(),
                             workspace_id: ws_id,
-                            history: None,
+                            snapshot: None,
                         };
                         if let Ok(json) = serde_json::to_string(&attached_response) {
-                            let _ = ws_tx.send(json);
+                            let _ = ws_tx.send(Message::Text(json.into()));
                         }
                     }
                     ClientTerminalMessage::TerminalInput { data } => {
@@ -516,34 +480,31 @@ async fn handle_terminal_message(
                                 error: e.to_string(),
                             };
                             if let Ok(json) = serde_json::to_string(&error_response) {
-                                let _ = ws_tx.send(json);
+                                let _ = ws_tx.send(Message::Text(json.into()));
+                            }
+                        }
+                    }
+                    ClientTerminalMessage::TerminalReport { data } => {
+                        if let Err(e) = terminal_service
+                            .send_terminal_report(session_id, &data)
+                            .await
+                        {
+                            error!(
+                                "Failed to send terminal report to session {}: {}",
+                                session_id, e
+                            );
+                            let error_response = TerminalResponse::TerminalError {
+                                session_id: Some(session_id.to_string()),
+                                error: e.to_string(),
+                            };
+                            if let Ok(json) = serde_json::to_string(&error_response) {
+                                let _ = ws_tx.send(Message::Text(json.into()));
                             }
                         }
                     }
                     ClientTerminalMessage::TerminalResize { cols, rows } => {
                         if let Err(e) = terminal_service.resize(session_id, cols, rows).await {
                             error!("Failed to resize session {}: {}", session_id, e);
-                        } else if terminal_service
-                            .is_alternate_screen_active(session_id)
-                            .await
-                        {
-                            // Full-screen TUI app is active (alternate screen buffer).
-                            // With smcup@:rmcup@ disabled, tmux draws TUI content into the
-                            // normal buffer. On resize, old TUI frames leak into xterm.js
-                            // scrollback. Send CSI 3J after a short delay to let tmux
-                            // finish redrawing before clearing the stale scrollback.
-                            let ws_tx_clone = ws_tx.clone();
-                            let sid = session_id.to_string();
-                            tokio::spawn(async move {
-                                tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-                                let clear_msg = TerminalResponse::TerminalOutput {
-                                    session_id: sid,
-                                    data: "\x1b[3J".to_string(),
-                                };
-                                if let Ok(json) = serde_json::to_string(&clear_msg) {
-                                    let _ = ws_tx_clone.send(json);
-                                }
-                            });
                         }
                     }
                     ClientTerminalMessage::TerminalClose => {
@@ -552,7 +513,7 @@ async fn handle_terminal_message(
                             session_id: session_id.to_string(),
                         };
                         if let Ok(json) = serde_json::to_string(&close_response) {
-                            let _ = ws_tx.send(json);
+                            let _ = ws_tx.send(Message::Text(json.into()));
                         }
                         return false;
                     }
@@ -566,52 +527,9 @@ async fn handle_terminal_message(
                             session_id: session_id.to_string(),
                         };
                         if let Ok(json) = serde_json::to_string(&destroy_response) {
-                            let _ = ws_tx.send(json);
+                            let _ = ws_tx.send(Message::Text(json.into()));
                         }
                         return false;
-                    }
-                    ClientTerminalMessage::TmuxCancelCopyMode => {
-                        // Safely exit tmux copy-mode via `send-keys -X cancel`.
-                        // No-op if not in copy-mode — completely safe.
-                        if let Err(e) = terminal_service.tmux_cancel_copy_mode(session_id).await {
-                            debug!("Failed to cancel copy-mode for {}: {}", session_id, e);
-                        }
-                    }
-                    ClientTerminalMessage::TmuxCheckCopyMode => {
-                        // Query tmux for copy-mode status and respond
-                        let in_copy_mode = terminal_service
-                            .tmux_check_copy_mode(session_id)
-                            .await
-                            .unwrap_or(false);
-                        let response = TerminalResponse::TmuxCopyModeStatus {
-                            session_id: session_id.to_string(),
-                            in_copy_mode,
-                        };
-                        if let Ok(json) = serde_json::to_string(&response) {
-                            let _ = ws_tx.send(json);
-                        }
-                    }
-                    ClientTerminalMessage::TerminalCaptureScrollback => {
-                        match terminal_service
-                            .capture_session_scrollback(session_id)
-                            .await
-                        {
-                            Ok(Some(history)) => {
-                                let response = TerminalResponse::TerminalScrollback {
-                                    session_id: session_id.to_string(),
-                                    history,
-                                };
-                                if let Ok(json) = serde_json::to_string(&response) {
-                                    let _ = ws_tx.send(json);
-                                }
-                            }
-                            Ok(None) => {
-                                // No tmux session to capture from, ignore
-                            }
-                            Err(e) => {
-                                debug!("Scrollback capture failed for {}: {}", session_id, e);
-                            }
-                        }
                     }
                 }
             } else {

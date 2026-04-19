@@ -452,16 +452,18 @@
 
 .atmos-terminal .xterm {
   padding: 0 !important;
+  background-color: #09090b !important;
 }
 
 .atmos-terminal .xterm-viewport {
-  background-color: transparent !important;
+  background-color: #09090b !important;
   /* Hide native scrollbar - xterm uses custom overlay scrollbar */
   overflow-y: hidden !important;
 }
 
 .atmos-terminal .xterm-screen {
   padding: 0 !important;
+  background-color: #09090b !important;
 }
 
 /* xterm-scrollable-element: scrollbar overlays but FitAddon reserves space — compensate with left padding */

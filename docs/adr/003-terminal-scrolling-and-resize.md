@@ -1,6 +1,6 @@
 # ADR-003: 终端滚动与 Resize 架构优化
 
-**状态**: ✅ 已采纳
+**状态**: 🔄 已替代（由 [ADR-004](./004-terminal-tmux-control-mode.md) 替代）
 **日期**: 2026-03-17
 
 ## 背景 (Context)
@@ -223,3 +223,4 @@ terminal.onScroll(() => {
 
 - 2026-03-17: 初始版本，已采纳并实施
 - 2026-03-17: 优化 scrollback 清除策略 — 从无条件清除改为仅在全屏 TUI 活跃时清除（通过后端 `#{alternate_on}` 检测）
+- 2026-04-19: 被 [ADR-004](./004-terminal-tmux-control-mode.md) 替代；禁用 alternate screen + capture-pane resync 被证明无法稳定支持 OpenCode/Amp/Droid 等全屏 TUI。
