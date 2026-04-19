@@ -29,15 +29,6 @@ type DownloadLinks = {
   linux: string
 }
 
-type GitHubReleaseAsset = {
-  name: string
-  browser_download_url: string
-}
-
-type GitHubLatestRelease = {
-  assets?: GitHubReleaseAsset[]
-}
-
 const createDefaultDownloadLinks = (): DownloadLinks => ({
   macAppleSilicon: RELEASES_LATEST_URL,
   macIntel: RELEASES_LATEST_URL,
@@ -50,31 +41,15 @@ const ReadyDownload = () => {
   const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(createDefaultDownloadLinks)
 
   useEffect(() => {
-    fetch('https://api.github.com/repos/AruNi-01/atmos/releases/latest')
+    fetch('/api/download-links')
       .then(res => res.json())
-      .then((data: GitHubLatestRelease) => {
-        if (Array.isArray(data.assets)) {
-          const links = createDefaultDownloadLinks()
-          data.assets.forEach((asset) => {
-            const name = asset.name.toLowerCase()
-            if (name.endsWith('.dmg')) {
-              if (name.includes('aarch64') || name.includes('arm64') || name.includes('m1')) {
-                links.macAppleSilicon = asset.browser_download_url
-              } else if (name.includes('x64') || name.includes('x86_64') || name.includes('intel')) {
-                links.macIntel = asset.browser_download_url
-              } else {
-                // Fallback for single dmg
-                links.macAppleSilicon = asset.browser_download_url
-                links.macIntel = asset.browser_download_url
-              }
-            } else if (name.endsWith('.exe') || name.endsWith('.msi')) {
-              links.windows = asset.browser_download_url
-            } else if (name.endsWith('.appimage') || name.endsWith('.deb')) {
-              links.linux = asset.browser_download_url
-            }
-          })
-          setDownloadLinks(links)
-        }
+      .then((data: Partial<DownloadLinks>) => {
+        setDownloadLinks({
+          macAppleSilicon: data.macAppleSilicon ?? RELEASES_LATEST_URL,
+          macIntel: data.macIntel ?? RELEASES_LATEST_URL,
+          windows: data.windows ?? RELEASES_LATEST_URL,
+          linux: data.linux ?? RELEASES_LATEST_URL
+        })
       })
       .catch(console.error)
   }, [])
