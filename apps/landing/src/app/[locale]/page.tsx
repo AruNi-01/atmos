@@ -48,16 +48,16 @@ export default async function LandingPage({ params }: Props) {
 
 const faqItems = [
   {
-    question: "What is Atmos?",
-    answer: "Atmos is an AI-native coding workspace combining a Rust backend, a Next.js web app, and a Tauri desktop shell to keep your full development loop in one place."
+    question: "Is Atmos free and open source?",
+    answer: "Yes. Atmos is fully open source under the MIT license. You can download it for free, self-host it, or build from source."
   },
   {
-    question: "What LLMs or Agents are supported?",
-    answer: "Atmos supports custom ACP agents, lightweight LLM providers (OpenAI, Anthropic compatible), and local BYOK config for automation tasks."
+    question: "Will I lose my terminal sessions if Atmos crashes?",
+    answer: "No. All terminal sessions are backed by tmux and persist independently of Atmos. If the app crashes or you close it, your sessions keep running and can be reattached when you return."
   },
   {
-    question: "How does terminal orchestration work?",
-    answer: "Terminals run on a WebSocket transport backed by tmux. They detach cleanly on close and can be reattached to existing sessions without losing underlying context."
+    question: "Can multiple agents work in parallel?",
+    answer: "Yes. Atmos uses Git worktree isolation to give each agent its own independent workspace. Multiple agents can run side-by-side without interfering with each other's file changes."
   }
 ]
 
