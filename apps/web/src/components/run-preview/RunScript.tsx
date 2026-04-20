@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Play, Settings, Plus, X, Command, Lock, Unlock, Square, CircleOff, Skull, Loader2 } from "lucide-react";
+import { Play, Settings, Plus, X, Command, Lock, Unlock, Square, Skull, Loader2 } from "lucide-react";
 import { Terminal } from "@/components/terminal/Terminal";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTab, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@workspace/ui";
@@ -10,8 +10,74 @@ import { useEditorStore } from '@/hooks/use-editor-store';
 import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
 import { wsScriptApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
-import { TerminalRef } from "@/components/terminal/Terminal";
+import type { TerminalRef } from "@/components/terminal/Terminal";
 
+type RunTerminalTab = {
+  id: string;
+  name: string;
+};
+
+const RUN_TAB_ID = "1";
+const RUN_TERMINAL_STORAGE_PREFIX = "atmos:run-terminal-tabs:";
+const DEFAULT_RUN_TABS: RunTerminalTab[] = [{ id: RUN_TAB_ID, name: "Run" }];
+
+function createSessionNonce(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getRunTerminalStorageKey(contextId: string): string {
+  return `${RUN_TERMINAL_STORAGE_PREFIX}${contextId}`;
+}
+
+function getRunTerminalWindowName(tabId: string): string {
+  return tabId === RUN_TAB_ID ? "run-main" : `run-${tabId}`;
+}
+
+function normalizeStoredTabs(value: unknown): RunTerminalTab[] {
+  if (!Array.isArray(value)) return DEFAULT_RUN_TABS;
+
+  const normalized = value
+    .filter((tab): tab is RunTerminalTab => {
+      return (
+        !!tab &&
+        typeof tab === "object" &&
+        typeof (tab as RunTerminalTab).id === "string" &&
+        typeof (tab as RunTerminalTab).name === "string"
+      );
+    })
+    .filter((tab) => tab.id.trim() && tab.name.trim());
+
+  const withoutRun = normalized.filter((tab) => tab.id !== RUN_TAB_ID);
+  return [...DEFAULT_RUN_TABS, ...withoutRun];
+}
+
+function loadStoredTabs(contextId: string): RunTerminalTab[] {
+  if (typeof window === "undefined") return DEFAULT_RUN_TABS;
+
+  try {
+    const raw = window.localStorage.getItem(getRunTerminalStorageKey(contextId));
+    if (!raw) return DEFAULT_RUN_TABS;
+    return normalizeStoredTabs(JSON.parse(raw));
+  } catch {
+    return DEFAULT_RUN_TABS;
+  }
+}
+
+function saveStoredTabs(contextId: string, tabs: RunTerminalTab[]) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      getRunTerminalStorageKey(contextId),
+      JSON.stringify(normalizeStoredTabs(tabs)),
+    );
+  } catch {
+    // localStorage may be unavailable in restricted browser modes.
+  }
+}
 
 interface RunScriptProps {
   workspaceId: string | null;
@@ -25,9 +91,11 @@ interface RunScriptProps {
 export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, isActive, projectName, workspaceName, onDetectedUrl }) => {
 
   // Initial tab
-  const [tabs, setTabs] = useState([{ id: '1', name: 'Run' }]);
-  const [activeTabId, setActiveTabId] = useState('1');
+  const [tabs, setTabs] = useState<RunTerminalTab[]>(DEFAULT_RUN_TABS);
+  const [activeTabId, setActiveTabId] = useState(RUN_TAB_ID);
   const currentProjectPath = useEditorStore(s => s.currentProjectPath);
+  const terminalContextId = workspaceId || projectId || "";
+  const sessionNonceRef = React.useRef(createSessionNonce());
 
   // Lazy initialization state
   const [hasBeenActive, setHasBeenActive] = React.useState(false);
@@ -35,6 +103,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   const [runningScripts, setRunningScripts] = useState<Record<string, boolean>>({});
   const [isLocked, setIsLocked] = useState(true);
   const [sessionVersions, setSessionVersions] = useState<Record<string, number>>({});
+  const [loadedTabsContextId, setLoadedTabsContextId] = useState<string | null>(null);
   const terminalRefs = React.useRef<Record<string, TerminalRef | null>>({});
   const lastLockedToastTime = React.useRef<number>(0);
 
@@ -43,6 +112,31 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
       setHasBeenActive(true);
     }
   }, [isActive, hasBeenActive]);
+
+  React.useEffect(() => {
+    setLoadedTabsContextId(null);
+    terminalRefs.current = {};
+    setRunningScripts({});
+    setSessionVersions({});
+
+    if (!terminalContextId) {
+      setTabs(DEFAULT_RUN_TABS);
+      setActiveTabId(RUN_TAB_ID);
+      return;
+    }
+
+    const storedTabs = loadStoredTabs(terminalContextId);
+    setTabs(storedTabs);
+    setActiveTabId((current) =>
+      storedTabs.some((tab) => tab.id === current) ? current : RUN_TAB_ID,
+    );
+    setLoadedTabsContextId(terminalContextId);
+  }, [terminalContextId]);
+
+  React.useEffect(() => {
+    if (!terminalContextId || loadedTabsContextId !== terminalContextId) return;
+    saveStoredTabs(terminalContextId, tabs);
+  }, [loadedTabsContextId, terminalContextId, tabs]);
 
   const handleStopScript = () => {
     const term = terminalRefs.current[activeTabId];
@@ -78,7 +172,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     }));
   };
 
-  const handleRunScript = async (force: boolean = false) => {
+  const handleRunScript = React.useCallback(async (force: boolean = false) => {
     if (!workspaceId || !projectId) {
       if (!projectId) {
         console.error("No projectId available for scripts");
@@ -154,7 +248,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
         type: "error"
       });
     }
-  };
+  }, [activeTabId, projectId, runningScripts, workspaceId]);
 
   // Keyboard shortcut Cmd+R
   React.useEffect(() => {
@@ -169,7 +263,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, workspaceId, activeTabId, runningScripts]); // Dependencies important for handleRunScript closure
+  }, [handleRunScript, isActive]);
 
   const handleTerminalData = (tabId: string, data: string) => {
     // If user presses Ctrl+C, assume they killed the process and mark as idle
@@ -184,7 +278,6 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
 
     // Attempt to detect localhost URL
     // Strip ANSI codes first to ensure clean matching
-    // eslint-disable-next-line no-control-regex
     const cleanData = data.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
 
     // Log for debugging
@@ -213,19 +306,21 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     }
     const newName = `Terminal-${suffix}`;
 
-    setTabs([...tabs, { id: newId, name: newName }]);
+    setTabs((currentTabs) => [...currentTabs, { id: newId, name: newName }]);
     setActiveTabId(newId);
   };
 
   const removeTab = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    terminalRefs.current[id]?.destroy();
     const newTabs = tabs.filter(t => t.id !== id);
     if (newTabs.length === 0) return; // Keep at least one
     setTabs(newTabs);
 
     // Clean up running state
-    const { [id]: _removed, ...rest } = runningScripts;
-    setRunningScripts(rest);
+    const nextRunningScripts = { ...runningScripts };
+    delete nextRunningScripts[id];
+    setRunningScripts(nextRunningScripts);
 
     // Clean up ref
     if (terminalRefs.current[id]) {
@@ -262,7 +357,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                     </span>
 
                     {/* Tab Actions: Close (for new tabs) or Lock (for Run tab) */}
-                    {tab.id === '1' ? (
+                    {tab.id === RUN_TAB_ID ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div
@@ -316,7 +411,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
             <div className="flex items-center gap-2 shrink-0">
 
               {/* Run/Stop Button - Only visible in Run tab */}
-              {activeTabId === '1' && (
+              {activeTabId === RUN_TAB_ID && (
                 <div className="flex items-center h-6 bg-background border border-border rounded-sm shadow-sm overflow-hidden cursor-pointer hover:border-primary/50 transition-colors group/run">
                   {runningScripts[activeTabId] ? (
                     <Tooltip>
@@ -358,7 +453,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
               )}
 
               {/* Hard Stop Button - To handle background processes */}
-              {activeTabId === '1' && (
+              {activeTabId === RUN_TAB_ID && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -403,15 +498,16 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
               >
                 <Terminal
                   ref={(el) => { terminalRefs.current[tab.id] = el; }}
-                  sessionId={`run-script-${workspaceId || projectId}-${tab.id}-${sessionVersions[tab.id] || 0}`}
-                  workspaceId={workspaceId || projectId || ""}
+                  sessionId={`${sessionNonceRef.current}-run-script-${terminalContextId}-${tab.id}-${sessionVersions[tab.id] || 0}`}
+                  workspaceId={terminalContextId}
                   projectName={projectName}
                   workspaceName={workspaceName || "Main"}
-                  terminalName={`run-script`}
-                  noTmux={true}
+                  terminalName={getRunTerminalWindowName(tab.id)}
+                  tmuxWindowName={getRunTerminalWindowName(tab.id)}
+                  isNewPane={true}
                   cwd={currentProjectPath}
                   onData={(data) => handleTerminalData(tab.id, data)}
-                  readOnly={tab.id === '1' ? isLocked : false}
+                  readOnly={tab.id === RUN_TAB_ID ? isLocked : false}
                   onInputWhileReadOnly={() => {
                     const now = Date.now();
                     if (now - lastLockedToastTime.current >= 3000) {
