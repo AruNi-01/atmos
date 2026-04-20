@@ -20,6 +20,7 @@ from pathlib import Path
 
 REQUIRED_ITEMS = [
     "Git metadata collected",
+    "AST artifacts loaded/verified",
     "Deep codebase research done",
     "Core concepts extracted",
     "_catalog.json created (schema-compliant)",

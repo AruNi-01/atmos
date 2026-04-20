@@ -9,6 +9,7 @@ Unlike documentation generators that skim README files, this skill instructs age
 ## Key Features
 
 - **Deep Research** -- Agents read actual source code, not just README files
+- **AST-Aware (Optional but Recommended)** -- Agents can consume backend-generated AST artifacts (built by Atmos backend embedded Tree-sitter parser) in `.atmos/wiki/_ast/` with file-level shard indexes for progressive disclosure
 - **Two-Part Structure** -- "Getting Started" for newcomers + "Deep Dive" for contributors
 - **Content Depth Standards** -- Minimum word counts, source references, code snippets, and diagrams per article
 - **Reading Time & Difficulty** -- Each article tagged with estimated reading time and difficulty level

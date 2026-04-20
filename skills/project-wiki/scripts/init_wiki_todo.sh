@@ -17,6 +17,7 @@ cat > "$WIKI_DIR/_todo.md" << 'TODOMD'
 # Project Wiki Generation Checklist
 
 - [ ] Git metadata collected (_metadata/)
+- [ ] AST artifacts loaded/verified (_ast/)
 - [ ] Deep codebase research done
 - [ ] Core concepts extracted (_concepts.json)
 - [ ] _catalog.json created (schema-compliant)

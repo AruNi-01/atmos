@@ -66,6 +66,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 }) => {
   const [agentId, setAgentId] = useState<AgentId>("claude");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isBuildingAst, setIsBuildingAst] = useState(false);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
   const [language, setLanguage] = useState("en");
@@ -174,6 +175,29 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
     setIsGenerating(true);
     try {
+      if (workspaceId) {
+        setIsBuildingAst(true);
+        try {
+          const astResult = await systemApi.buildProjectWikiAst(workspaceId, effectivePath);
+          toastManager.add({
+            title: "AST indexing completed",
+            description: `Indexed ${astResult.indexed_files} files, ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
+            type: "success",
+          });
+        } catch (err) {
+          toastManager.add({
+            title: "AST indexing skipped",
+            description:
+              err instanceof Error
+                ? `${err.message}. Wiki generation will continue in degraded mode.`
+                : "Wiki generation will continue in degraded mode.",
+            type: "warning",
+          });
+        } finally {
+          setIsBuildingAst(false);
+        }
+      }
+
       if (workspaceId) {
         const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
         if (exists) {
@@ -319,9 +343,14 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           <Button
             className="flex-1"
             onClick={handleGenerate}
-            disabled={isGenerating || skillMissing}
+            disabled={isGenerating || isBuildingAst || skillMissing}
           >
-            {isGenerating ? (
+            {isBuildingAst ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-2" />
+                Building AST...
+              </>
+            ) : isGenerating ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-2" />
                 Starting...

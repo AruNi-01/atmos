@@ -27,6 +27,10 @@ pub fn routes() -> Router<AppState> {
             post(handlers::kill_project_wiki_window),
         )
         .route(
+            "/project-wiki-ast/{workspace_id}",
+            post(handlers::build_project_wiki_ast),
+        )
+        .route(
             "/code-review-window/{workspace_id}",
             get(handlers::check_code_review_window),
         )
