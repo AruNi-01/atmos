@@ -430,7 +430,7 @@ export const systemApi = {
   buildProjectWikiAst: async (
     workspaceId: string,
     projectPath: string
-  ): Promise<{ success: boolean; indexed_files: number; symbol_count: number; relation_count: number; ast_dir: string; commit_hash?: string }> => {
+  ): Promise<{ success: boolean; discovered_files: number; indexed_files: number; skipped_files: number; symbol_count: number; relation_count: number; ast_dir: string; commit_hash?: string }> => {
     return fetchApi(`/api/system/project-wiki-ast/${workspaceId}`, {
       method: 'POST',
       body: JSON.stringify({ project_path: projectPath }),

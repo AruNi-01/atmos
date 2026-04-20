@@ -1,5 +1,6 @@
 pub mod agent_hooks;
 pub mod app;
+pub mod code_ast;
 pub mod error;
 pub mod fs;
 pub mod git;
@@ -10,6 +11,7 @@ pub mod test_engine;
 pub mod tmux;
 
 pub use app::AppEngine;
+pub use code_ast::{build_code_ast_artifacts, CodeAstBuildResult};
 pub use error::EngineError;
 pub use fs::{FileTreeItem, FsEngine, FsEntry, GitValidationResult};
 pub use git::{

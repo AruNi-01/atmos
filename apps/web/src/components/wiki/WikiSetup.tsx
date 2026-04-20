@@ -176,6 +176,16 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     setIsGenerating(true);
     try {
       if (workspaceId) {
+        const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
+        if (exists) {
+          setPendingCommand(command);
+          setConflictDialogOpen(true);
+          setIsGenerating(false);
+          return;
+        }
+      }
+
+      if (workspaceId) {
         setIsBuildingAst(true);
         try {
           const astResult = await systemApi.buildProjectWikiAst(workspaceId, effectivePath);
@@ -198,15 +208,6 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         }
       }
 
-      if (workspaceId) {
-        const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
-        if (exists) {
-          setPendingCommand(command);
-          setConflictDialogOpen(true);
-          setIsGenerating(false);
-          return;
-        }
-      }
       doRunGenerate(command);
     } catch (_err) {
       setPendingCommand(command);
