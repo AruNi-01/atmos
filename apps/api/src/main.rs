@@ -180,6 +180,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_connection = DbConnection::new().await?;
     info!("Database connected");
 
+    Migrator::clean_stale_migrations(db_connection.connection()).await?;
     Migrator::up(db_connection.connection(), None).await?;
     info!("Database migrations completed");
 

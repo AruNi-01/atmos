@@ -1,5 +1,10 @@
 pub use sea_orm_migration::prelude::*;
 
+use std::collections::HashSet;
+
+use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use tracing::{info, warn};
+
 mod m20260117_000001_create_test_message_table;
 mod m20260118_000002_create_project_tables;
 mod m20260120_000003_add_workspace_pin_archive;
@@ -44,6 +49,53 @@ impl MigratorTrait for Migrator {
             Box::new(m20260411_000016_backfill_workspace_label_guids::Migration),
             Box::new(m20260412_000017_add_workspace_pin_order::Migration),
         ]
+    }
+}
+
+impl Migrator {
+    /// Remove migration records from `seaql_migrations` that no longer exist
+    /// in the current binary. This prevents SeaORM from erroring out when a
+    /// user downgrades (or switches between release channels) and the new
+    /// binary ships fewer migrations than the old one had applied.
+    pub async fn clean_stale_migrations(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+        // Collect the canonical set of migration names known to this binary.
+        let known: HashSet<String> = <Self as MigratorTrait>::migrations()
+            .iter()
+            .map(|m| m.name().to_string())
+            .collect();
+
+        // Query all applied versions from the tracking table.
+        // The table may not exist yet (fresh install) – that is fine, just skip.
+        let rows = match db
+            .query_all(Statement::from_string(
+                DbBackend::Sqlite,
+                "SELECT version FROM seaql_migrations".to_owned(),
+            ))
+            .await
+        {
+            Ok(rows) => rows,
+            Err(_) => return Ok(()), // table doesn't exist yet
+        };
+
+        let mut removed = 0u32;
+        for row in &rows {
+            let version: String = row.try_get("", "version")?;
+            if !known.contains(&version) {
+                warn!("Removing stale migration record: {version}");
+                db.execute(Statement::from_string(
+                    DbBackend::Sqlite,
+                    format!("DELETE FROM seaql_migrations WHERE version = '{version}'"),
+                ))
+                .await?;
+                removed += 1;
+            }
+        }
+
+        if removed > 0 {
+            info!("Cleaned {removed} stale migration record(s)");
+        }
+
+        Ok(())
     }
 }
 
