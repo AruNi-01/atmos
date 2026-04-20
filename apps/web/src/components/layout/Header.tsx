@@ -487,6 +487,7 @@ const Header: React.FC = () => {
     "llmProvidersModal",
     llmProvidersModalParams.llmProvidersModal
   );
+  const [isRemoteAccessSettingsOpen, setRemoteAccessSettingsOpen] = useState(false);
   useEffect(() => {
     if (isLlmProvidersOpen) {
       void setIsSettingsOpen(true);
@@ -1170,18 +1171,33 @@ const Header: React.FC = () => {
                       </div>
                     ) : null}
 
-                    <Button
-                      onClick={() => void handleOpenDesktopWeb()}
-                      disabled={isOpeningDesktopWeb}
-                      className="w-full cursor-pointer"
-                    >
-                      {isOpeningDesktopWeb
-                        ? 'Starting...'
-                        : desktopWebStatus === 'ready'
-                          ? 'Open In Web'
-                          : 'Start Web'}
-                      <ExternalLink className="size-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {!isRemoteAccessRunning && (
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setDesktopWebPopoverOpen(false);
+                            setRemoteAccessSettingsOpen(true);
+                            void setIsSettingsOpen(true);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          Remote Access
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => void handleOpenDesktopWeb()}
+                        disabled={isOpeningDesktopWeb}
+                        className="flex-1 cursor-pointer"
+                      >
+                        {isOpeningDesktopWeb
+                          ? 'Starting...'
+                          : desktopWebStatus === 'ready'
+                            ? 'Open In Web'
+                            : 'Start Web'}
+                        <ExternalLink className="size-4" />
+                      </Button>
+                    </div>
 
                     {isRemoteAccessRunning && activeRemoteTunnels.length > 0 && (
                       <>
@@ -1472,8 +1488,11 @@ const Header: React.FC = () => {
             if (isLlmProvidersOpen) {
               void setLlmProvidersOpen(false);
             }
+            if (isRemoteAccessSettingsOpen) {
+              setRemoteAccessSettingsOpen(false);
+            }
           }}
-          activeSectionOverride={isLlmProvidersOpen ? 'ai' : null}
+          activeSectionOverride={isLlmProvidersOpen ? 'ai' : isRemoteAccessSettingsOpen ? 'remote-access' : null}
         />
       </header>
     </TooltipProvider>
