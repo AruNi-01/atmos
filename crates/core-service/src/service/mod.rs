@@ -5,6 +5,7 @@ pub mod git_commit_message;
 pub mod message_push;
 pub mod notification;
 pub mod project;
+pub mod project_ast;
 pub mod session_title;
 pub mod skill;
 pub mod terminal;

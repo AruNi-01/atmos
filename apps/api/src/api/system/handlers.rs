@@ -5,11 +5,11 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use core_engine::build_code_ast_artifacts;
+use core_service::project_wiki_ast_dir;
 use infra::utils::debug_logging::DebugLogger;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{collections::HashSet, path::PathBuf};
+use std::collections::HashSet;
 use tokio_util::io::ReaderStream;
 use tracing::{info, warn};
 
@@ -19,8 +19,6 @@ use crate::{app_state::AppState, error::ApiResult};
 
 use super::diagnostics;
 use super::skills;
-
-const PROJECT_WIKI_AST_DIR: &str = ".atmos/wiki/_ast";
 
 #[derive(Deserialize)]
 pub struct KillTmuxSessionPayload {
@@ -185,25 +183,17 @@ pub async fn build_project_wiki_ast(
     axum::extract::Path(workspace_id): axum::extract::Path<String>,
     Json(payload): Json<BuildProjectWikiAstPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let project_path =
-        resolve_project_wiki_ast_root(&state, &workspace_id, PathBuf::from(payload.project_path))
-            .await?;
-
-    let project_path_for_worker = project_path.clone();
-    let ast_dir_for_worker = project_path.join(PROJECT_WIKI_AST_DIR);
-    let result = tokio::task::spawn_blocking(move || {
-        build_code_ast_artifacts(&project_path_for_worker, &ast_dir_for_worker)
-    })
-    .await
-    .map_err(|e| ApiError::InternalError(format!("AST worker join failed: {}", e)))?
-    .map_err(|e| ApiError::InternalError(e.to_string()))?;
+    let result = state
+        .project_ast_service
+        .build_project_wiki_ast(workspace_id, payload.project_path)
+        .await?;
 
     let logger = DebugLogger::new("project_wiki");
     logger.log(
         "project_wiki",
         "ast_index_built",
         Some(json!({
-            "projectPath": project_path.display().to_string(),
+            "artifactDir": &result.artifact_dir,
             "discoveredFiles": result.discovered_files,
             "indexedFiles": result.indexed_files,
             "skippedFiles": result.skipped_files,
@@ -220,86 +210,9 @@ pub async fn build_project_wiki_ast(
         "skipped_files": result.skipped_files,
         "symbol_count": result.symbol_count,
         "relation_count": result.relation_count,
-        "ast_dir": PROJECT_WIKI_AST_DIR,
+        "ast_dir": project_wiki_ast_dir().to_string_lossy().to_string(),
         "commit_hash": result.commit_hash,
     }))))
-}
-
-async fn resolve_project_wiki_ast_root(
-    state: &AppState,
-    context_id: &str,
-    requested_path: PathBuf,
-) -> ApiResult<PathBuf> {
-    let requested_path = canonical_project_dir(requested_path)?;
-    let mut allowed_roots = Vec::new();
-
-    if let Some(workspace) = state
-        .workspace_service
-        .get_workspace(context_id.to_string())
-        .await
-        .map_err(|e| ApiError::InternalError(e.to_string()))?
-    {
-        if !workspace.local_path.is_empty() {
-            allowed_roots.push(PathBuf::from(workspace.local_path));
-        }
-        if let Some(project) = state
-            .project_service
-            .get_project(workspace.model.project_guid)
-            .await
-            .map_err(|e| ApiError::InternalError(e.to_string()))?
-        {
-            allowed_roots.push(PathBuf::from(project.main_file_path));
-        }
-    }
-
-    if let Some(project) = state
-        .project_service
-        .get_project(context_id.to_string())
-        .await
-        .map_err(|e| ApiError::InternalError(e.to_string()))?
-    {
-        allowed_roots.push(PathBuf::from(project.main_file_path));
-    }
-
-    if allowed_roots.is_empty() {
-        return Err(ApiError::BadRequest(format!(
-            "Unknown workspace or project: {}",
-            context_id
-        )));
-    }
-
-    for allowed_root in allowed_roots {
-        if let Ok(allowed_root) = canonical_project_dir(allowed_root) {
-            if requested_path == allowed_root {
-                return Ok(requested_path);
-            }
-            if requested_path.starts_with(&allowed_root) {
-                return Ok(allowed_root);
-            }
-        }
-    }
-
-    Err(ApiError::BadRequest(
-        "Project path is outside the resolved workspace/project root".to_string(),
-    ))
-}
-
-fn canonical_project_dir(path: PathBuf) -> ApiResult<PathBuf> {
-    let trimmed = path.to_string_lossy().trim().to_string();
-    let path = PathBuf::from(trimmed);
-    if !path.is_dir() {
-        return Err(ApiError::BadRequest(format!(
-            "Invalid project path: {}",
-            path.display()
-        )));
-    }
-    std::fs::canonicalize(&path).map_err(|e| {
-        ApiError::BadRequest(format!(
-            "Failed to resolve project path {}: {}",
-            path.display(),
-            e
-        ))
-    })
 }
 
 /// GET /api/system/code-review-window/:workspace_id

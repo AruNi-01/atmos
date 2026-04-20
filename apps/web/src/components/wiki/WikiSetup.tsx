@@ -160,6 +160,31 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     [terminalGridRef, onSwitchToTerminal, onSwitchToProjectWikiAndRun]
   );
 
+  const buildAstArtifacts = useCallback(async () => {
+    if (!workspaceId || !effectivePath) return;
+
+    setIsBuildingAst(true);
+    try {
+      const astResult = await systemApi.buildProjectWikiAst(workspaceId, effectivePath);
+      toastManager.add({
+        title: "AST indexing completed",
+        description: `Indexed ${astResult.indexed_files} files, ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
+        type: "success",
+      });
+    } catch (err) {
+      toastManager.add({
+        title: "AST indexing skipped",
+        description:
+          err instanceof Error
+            ? `${err.message}. Wiki generation will continue in degraded mode.`
+            : "Wiki generation will continue in degraded mode.",
+        type: "warning",
+      });
+    } finally {
+      setIsBuildingAst(false);
+    }
+  }, [effectivePath, workspaceId]);
+
   const handleGenerate = useCallback(async () => {
     if (!effectivePath) {
       toastManager.add({
@@ -185,29 +210,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         }
       }
 
-      if (workspaceId) {
-        setIsBuildingAst(true);
-        try {
-          const astResult = await systemApi.buildProjectWikiAst(workspaceId, effectivePath);
-          toastManager.add({
-            title: "AST indexing completed",
-            description: `Indexed ${astResult.indexed_files} files, ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
-            type: "success",
-          });
-        } catch (err) {
-          toastManager.add({
-            title: "AST indexing skipped",
-            description:
-              err instanceof Error
-                ? `${err.message}. Wiki generation will continue in degraded mode.`
-                : "Wiki generation will continue in degraded mode.",
-            type: "warning",
-          });
-        } finally {
-          setIsBuildingAst(false);
-        }
-      }
-
+      await buildAstArtifacts();
       doRunGenerate(command);
     } catch (_err) {
       setPendingCommand(command);
@@ -215,7 +218,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [effectivePath, workspaceId, agentId, language, customLanguage, doRunGenerate]);
+  }, [effectivePath, workspaceId, agentId, language, customLanguage, buildAstArtifacts, doRunGenerate]);
 
   const handleConfirmReplaceAndGenerate = useCallback(async () => {
     const cmd = pendingCommand;
@@ -225,12 +228,14 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
     setIsGenerating(true);
     try {
+      if (workspaceId) {
+        await systemApi.killProjectWikiWindow(workspaceId);
+      }
+      await buildAstArtifacts();
+
       if (onProjectWikiReplaceAndRun) {
         await onProjectWikiReplaceAndRun(cmd);
       } else {
-        if (workspaceId) {
-          await systemApi.killProjectWikiWindow(workspaceId);
-        }
         doRunGenerate(cmd);
       }
     } catch (err) {
@@ -242,7 +247,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [workspaceId, pendingCommand, doRunGenerate, onProjectWikiReplaceAndRun]);
+  }, [workspaceId, pendingCommand, buildAstArtifacts, doRunGenerate, onProjectWikiReplaceAndRun]);
 
   // 仅当明确检测到已安装时才隐藏；加载中或检测失败时都显示安装入口
   const skillMissing = systemHasSkill !== true;

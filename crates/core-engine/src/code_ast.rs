@@ -83,19 +83,21 @@ pub fn build_code_ast_artifacts(
         };
 
         for symbol in &symbols {
+            let record = source_scoped_record(symbol, &rel, source_file.language.as_str())?;
             writeln!(
                 symbols_file,
                 "{}",
-                serde_json::to_string(symbol).map_err(map_json)?
+                serde_json::to_string(&record).map_err(map_json)?
             )
             .map_err(map_io)?;
             symbol_count += 1;
         }
         for relation in &relations {
+            let record = source_scoped_record(relation, &rel, source_file.language.as_str())?;
             writeln!(
                 relations_file,
                 "{}",
-                serde_json::to_string(relation).map_err(map_json)?
+                serde_json::to_string(&record).map_err(map_json)?
             )
             .map_err(map_io)?;
             relation_count += 1;
@@ -243,7 +245,18 @@ fn is_oversized_file(path: &Path) -> Result<bool> {
 fn should_skip_dir(name: &str) -> bool {
     matches!(
         name,
-        ".git" | "node_modules" | "target" | "dist" | "build" | ".next" | ".turbo" | ".atmos"
+        ".git"
+            | "node_modules"
+            | "target"
+            | "dist"
+            | "build"
+            | ".next"
+            | ".turbo"
+            | ".atmos"
+            | "vendor"
+            | "venv"
+            | ".venv"
+            | "__pycache__"
     )
 }
 
@@ -309,6 +322,10 @@ fn parse_with_embedded_parser(
     let tree = parser
         .parse(content, None)
         .ok_or_else(|| "parser returned no tree".to_string())?;
+    let parser_warning = tree
+        .root_node()
+        .has_error()
+        .then(|| "tree-sitter reported syntax errors".to_string());
 
     let mut symbols = Vec::new();
     let mut relations = Vec::new();
@@ -356,7 +373,23 @@ fn parse_with_embedded_parser(
         parse_line_fallback(content, &mut symbols, &mut relations);
     }
 
-    Ok((symbols, relations, None))
+    Ok((symbols, relations, parser_warning))
+}
+
+fn source_scoped_record(record: &Value, file: &str, language: &str) -> Result<Value> {
+    let mut record = serde_json::to_value(record).map_err(map_json)?;
+    match &mut record {
+        Value::Object(map) => {
+            map.insert("file".to_string(), Value::String(file.to_string()));
+            map.insert("language".to_string(), Value::String(language.to_string()));
+            Ok(record)
+        }
+        _ => Ok(json!({
+            "file": file,
+            "language": language,
+            "value": record
+        })),
+    }
 }
 
 fn is_symbol_node(kind: &str) -> bool {
