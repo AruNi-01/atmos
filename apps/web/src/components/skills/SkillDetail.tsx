@@ -320,12 +320,16 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
   const isMarkdown = selectedFile?.name.endsWith('.md') || selectedFile?.name.endsWith('.mdx');
   const language = selectedFile ? getLanguageFromFileName(selectedFile.name) : 'plaintext';
 
-  // Strip YAML frontmatter for markdown preview only; editor shows full raw content
+  // Convert YAML frontmatter into a fenced yaml code block for markdown preview
   const previewContent = useMemo(() => {
     if (!isMarkdown) return fileContent;
-    return fileContent.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+    const m = fileContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+    if (!m) return fileContent;
+    const yaml = m[1];
+    const body = fileContent.slice(m[0].length);
+    return '```yaml\n' + yaml + '\n```\n\n' + body;
   }, [fileContent, isMarkdown]);
-  
+
   // Dirty check: compare current content with the content in the selectedFile object
   // Note: We need to make sure selectedFile.content is up to date when we save.
   const hasUnsavedChanges = selectedFile ? fileContent !== (selectedFile.content || '') : false;
