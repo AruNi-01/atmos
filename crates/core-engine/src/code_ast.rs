@@ -44,15 +44,31 @@ pub fn build_code_ast_artifacts(
     project_root: &Path,
     artifact_dir: &Path,
 ) -> Result<CodeAstBuildResult> {
-    let shard_dir = artifact_dir.join("files");
-    fs::create_dir_all(artifact_dir).map_err(map_io)?;
-    if shard_dir.exists() {
-        fs::remove_dir_all(&shard_dir).map_err(map_io)?;
+    let staging_dir = create_staging_artifact_dir(artifact_dir)?;
+    let build_result = write_code_ast_artifacts(project_root, artifact_dir, &staging_dir);
+
+    match build_result {
+        Ok(result) => {
+            publish_artifact_dir(&staging_dir, artifact_dir)?;
+            Ok(result)
+        }
+        Err(error) => {
+            remove_dir_if_exists(&staging_dir)?;
+            Err(error)
+        }
     }
+}
+
+fn write_code_ast_artifacts(
+    project_root: &Path,
+    artifact_dir: &Path,
+    output_dir: &Path,
+) -> Result<CodeAstBuildResult> {
+    let shard_dir = output_dir.join("files");
     fs::create_dir_all(&shard_dir).map_err(map_io)?;
 
-    let mut symbols_file = File::create(artifact_dir.join("symbols.jsonl")).map_err(map_io)?;
-    let mut relations_file = File::create(artifact_dir.join("relations.jsonl")).map_err(map_io)?;
+    let mut symbols_file = File::create(output_dir.join("symbols.jsonl")).map_err(map_io)?;
+    let mut relations_file = File::create(output_dir.join("relations.jsonl")).map_err(map_io)?;
 
     let source_files = collect_source_files(project_root)?;
     let discovered_files = source_files.len();
@@ -164,12 +180,12 @@ pub fn build_code_ast_artifacts(
         "generator": "core_engine.code_ast.tree_sitter_embedded"
     });
     fs::write(
-        artifact_dir.join("_status.json"),
+        output_dir.join("_status.json"),
         serde_json::to_string_pretty(&status).map_err(map_json)?,
     )
     .map_err(map_io)?;
     fs::write(
-        artifact_dir.join("index.json"),
+        output_dir.join("index.json"),
         serde_json::to_string_pretty(&json!({
             "generated_at_unix": now_unix,
             "commit_hash": commit_hash,
@@ -185,7 +201,7 @@ pub fn build_code_ast_artifacts(
     )
     .map_err(map_io)?;
     fs::write(
-        artifact_dir.join("hierarchy.json"),
+        output_dir.join("hierarchy.json"),
         serde_json::to_string_pretty(&hierarchy).map_err(map_json)?,
     )
     .map_err(map_io)?;
@@ -199,6 +215,79 @@ pub fn build_code_ast_artifacts(
         commit_hash,
         artifact_dir: artifact_dir.to_string_lossy().to_string(),
     })
+}
+
+fn create_staging_artifact_dir(artifact_dir: &Path) -> Result<PathBuf> {
+    let parent = artifact_dir.parent().ok_or_else(|| {
+        EngineError::FileSystem(format!(
+            "Artifact dir {} has no parent",
+            artifact_dir.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(map_io)?;
+
+    let file_name = artifact_dir.file_name().ok_or_else(|| {
+        EngineError::FileSystem(format!(
+            "Artifact dir {} has no terminal component",
+            artifact_dir.display()
+        ))
+    })?;
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let staging_name = format!(
+        ".{}.tmp-{}-{}",
+        file_name.to_string_lossy(),
+        std::process::id(),
+        nonce
+    );
+    let staging_dir = parent.join(staging_name);
+    remove_dir_if_exists(&staging_dir)?;
+    fs::create_dir_all(&staging_dir).map_err(map_io)?;
+    Ok(staging_dir)
+}
+
+fn publish_artifact_dir(staging_dir: &Path, artifact_dir: &Path) -> Result<()> {
+    let backup_dir = artifact_dir.with_file_name(format!(
+        ".{}.backup-{}-{}",
+        artifact_dir
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy(),
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default()
+    ));
+
+    let had_existing_dir = artifact_dir.exists();
+    if had_existing_dir {
+        fs::rename(artifact_dir, &backup_dir).map_err(map_io)?;
+    }
+
+    if let Err(error) = fs::rename(staging_dir, artifact_dir) {
+        if had_existing_dir {
+            let _ = fs::rename(&backup_dir, artifact_dir);
+        }
+        let _ = remove_dir_if_exists(staging_dir);
+        return Err(map_io(error));
+    }
+
+    if had_existing_dir {
+        remove_dir_if_exists(&backup_dir)?;
+    }
+
+    Ok(())
+}
+
+fn remove_dir_if_exists(path: &Path) -> Result<()> {
+    match fs::remove_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(map_io(error)),
+    }
 }
 
 fn collect_source_files(root: &Path) -> Result<Vec<SourceFile>> {

@@ -1,17 +1,21 @@
 use crate::error::{Result, ServiceError};
 use core_engine::{build_code_ast_artifacts, CodeAstBuildResult, GitEngine};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
+use parking_lot::Mutex;
 use sea_orm::DatabaseConnection;
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
+use tokio::sync::Mutex as AsyncMutex;
 
 const PROJECT_WIKI_AST_DIR: &str = ".atmos/wiki/_ast";
 
 pub struct ProjectAstService {
     db: Arc<DatabaseConnection>,
     git_engine: GitEngine,
+    build_locks: Mutex<HashMap<PathBuf, Arc<AsyncMutex<()>>>>,
 }
 
 impl ProjectAstService {
@@ -19,6 +23,7 @@ impl ProjectAstService {
         Self {
             db,
             git_engine: GitEngine::new(),
+            build_locks: Mutex::new(HashMap::new()),
         }
     }
 
@@ -31,6 +36,8 @@ impl ProjectAstService {
             .resolve_project_ast_root(&context_id, PathBuf::from(project_path))
             .await?;
         let artifact_dir = project_root.join(PROJECT_WIKI_AST_DIR);
+        let build_lock = self.build_lock_for(&artifact_dir);
+        let _build_guard = build_lock.lock().await;
 
         Ok(tokio::task::spawn_blocking(move || {
             build_code_ast_artifacts(&project_root, &artifact_dir)
@@ -85,6 +92,15 @@ impl ProjectAstService {
         Err(ServiceError::Validation(
             "Project path is outside the resolved workspace/project root".to_string(),
         ))
+    }
+
+    fn build_lock_for(&self, artifact_dir: &Path) -> Arc<AsyncMutex<()>> {
+        let mut locks = self.build_locks.lock();
+        Arc::clone(
+            locks
+                .entry(artifact_dir.to_path_buf())
+                .or_insert_with(|| Arc::new(AsyncMutex::new(()))),
+        )
     }
 }
 
