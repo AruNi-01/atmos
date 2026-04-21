@@ -394,6 +394,43 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
     setIsPreview(file.name.endsWith('.md') || file.name.endsWith('.mdx'));
   }, []);
 
+  // Handle relative link clicks in markdown preview — navigate to the target file within the skill
+  const handleRelativeLinkClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const anchor = (e.target as HTMLElement).closest('a');
+    if (!anchor) return;
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) return;
+
+    e.preventDefault();
+
+    // Resolve relative path against current file's directory
+    const currentDir = selectedFile?.relative_path
+      ? selectedFile.relative_path.split('/').slice(0, -1).join('/')
+      : '';
+    const segments = (currentDir ? currentDir + '/' + href : href).split('/');
+    const resolved: string[] = [];
+    for (const seg of segments) {
+      if (seg === '.' || seg === '') continue;
+      if (seg === '..') { resolved.pop(); continue; }
+      resolved.push(seg);
+    }
+    const targetPath = resolved.join('/');
+
+    const targetFile = skill.files?.find(f => f.relative_path === targetPath);
+    if (targetFile) {
+      handleSelectFile(targetFile);
+      // Expand parent dirs so the file is visible in the tree
+      const parts = targetPath.split('/');
+      setExpandedDirs(prev => {
+        const next = new Set(prev);
+        for (let i = 1; i < parts.length; i++) {
+          next.add(parts.slice(0, i).join('/'));
+        }
+        return next;
+      });
+    }
+  }, [selectedFile, skill.files, handleSelectFile]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -607,7 +644,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                   isMarkdown && isPreview ? (
                     <>
                       <ScrollArea className="h-full">
-                        <div id="skill-content-root" className="px-8 py-6">
+                        <div id="skill-content-root" className="px-8 py-6" onClick={handleRelativeLinkClick}>
                           <MarkdownRenderer>
                             {previewContent}
                           </MarkdownRenderer>
