@@ -76,9 +76,17 @@ fn write_code_ast_artifacts(
     let mut symbols_file = File::create(output_dir.join("symbols.jsonl")).map_err(map_io)?;
     let mut relations_file = File::create(output_dir.join("relations.jsonl")).map_err(map_io)?;
 
-    let source_files = collect_source_files(project_root)?;
-    let discovered_files = source_files.len();
-    let mut skipped_files = Vec::new();
+    let collected = collect_source_files(project_root)?;
+    let source_files = collected.source_files;
+    let discovered_files = source_files.len() + collected.oversized.len();
+    let mut skipped_files: Vec<SkippedFile> = collected
+        .oversized
+        .iter()
+        .map(|p| SkippedFile {
+            file: relative_path(project_root, p),
+            reason: format!("oversized (>{} bytes)", MAX_SOURCE_FILE_BYTES),
+        })
+        .collect();
     let mut symbol_count = 0usize;
     let mut relation_count = 0usize;
     let mut indexed_files = 0usize;
@@ -298,7 +306,12 @@ fn remove_dir_if_exists(path: &Path) -> Result<()> {
     }
 }
 
-fn collect_source_files(root: &Path) -> Result<Vec<SourceFile>> {
+struct CollectedFiles {
+    source_files: Vec<SourceFile>,
+    oversized: Vec<PathBuf>,
+}
+
+fn collect_source_files(root: &Path) -> Result<CollectedFiles> {
     let walker = WalkBuilder::new(root)
         .standard_filters(true)
         .filter_entry(|entry| {
@@ -310,6 +323,7 @@ fn collect_source_files(root: &Path) -> Result<Vec<SourceFile>> {
         .build();
 
     let mut source_files = Vec::new();
+    let mut oversized = Vec::new();
     for entry in walker {
         let entry = entry.map_err(|error| EngineError::FileSystem(error.to_string()))?;
         if !is_regular_source_file(&entry) {
@@ -317,6 +331,7 @@ fn collect_source_files(root: &Path) -> Result<Vec<SourceFile>> {
         }
         let path = entry.into_path();
         if is_oversized_file(&path)? {
+            oversized.push(path);
             continue;
         }
         if let Some(language) = language_kind_for_file(&path) {
@@ -324,7 +339,11 @@ fn collect_source_files(root: &Path) -> Result<Vec<SourceFile>> {
         }
     }
     source_files.sort_by(|a, b| a.path.cmp(&b.path));
-    Ok(source_files)
+    oversized.sort();
+    Ok(CollectedFiles {
+        source_files,
+        oversized,
+    })
 }
 
 fn is_regular_source_file(entry: &DirEntry) -> bool {
@@ -457,10 +476,12 @@ fn parse_with_embedded_parser(
 
         if is_relation_node(kind) {
             let point = node.start_position();
+            let target = extract_relation_target(content, node);
             relations.push(json!({
                 "kind": kind,
                 "line": point.row + 1,
                 "column": point.column + 1,
+                "target": target,
                 "snippet": short_node_preview(content, node)
             }));
         }
@@ -540,6 +561,32 @@ fn short_node_preview(source: &str, node: Node) -> String {
         .chars()
         .take(140)
         .collect()
+}
+
+/// Try to extract a stable, machine-readable target identifier from a relation
+/// node.  Falls back to `None` when no recognisable child field is found.
+fn extract_relation_target(source: &str, node: Node) -> Option<String> {
+    // Field names vary across grammars.  Try the most common ones in priority
+    // order so we get the most specific identifier available.
+    const CANDIDATE_FIELDS: &[&str] = &[
+        "source",       // Rust use_declaration
+        "module_name",  // Python import_from_statement
+        "path",         // Go import_declaration
+        "name",         // generic
+        "argument",     // Rust use_declaration argument
+        "function",     // call_expression
+        "trait",        // Rust impl_item
+        "type",         // extends_clause / implements_clause
+    ];
+
+    for field in CANDIDATE_FIELDS {
+        if let Some(child) = node.child_by_field_name(field) {
+            if let Some(text) = node_text(source, child) {
+                return Some(text);
+            }
+        }
+    }
+    None
 }
 
 fn parse_line_fallback(content: &str, symbols: &mut Vec<Value>, relations: &mut Vec<Value>) {

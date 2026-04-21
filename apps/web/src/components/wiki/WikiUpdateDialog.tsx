@@ -150,11 +150,19 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
     setIsBuildingAst(true);
     try {
       const astResult = await systemApi.buildProjectWikiAst(workspaceId, effectivePath);
-      toastManager.add({
-        title: "AST indexing completed",
-        description: `Indexed ${astResult.indexed_files} files, ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
-        type: "success",
-      });
+      if (astResult.skipped_files > 0) {
+        toastManager.add({
+          title: "AST indexing completed with warnings",
+          description: `Indexed ${astResult.indexed_files} files, skipped ${astResult.skipped_files}. ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
+          type: "warning",
+        });
+      } else {
+        toastManager.add({
+          title: "AST indexing completed",
+          description: `Indexed ${astResult.indexed_files} files, ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
+          type: "success",
+        });
+      }
     } catch (err) {
       toastManager.add({
         title: "AST indexing skipped",

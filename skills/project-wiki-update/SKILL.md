@@ -15,7 +15,7 @@ This skill guides a Code Agent to **incrementally update** an existing Project W
    - **Content & formatting**: `~/.atmos/skills/.system/project-wiki/references/output_structure.md`
    - **Research briefing template**: `~/.atmos/skills/.system/project-wiki/references/briefing_template.md`
    - **Catalog schema**: `~/.atmos/skills/.system/project-wiki/references/catalog.schema.json`
-3. If backend generated AST artifacts exist at `./.atmos/wiki/_ast/`, load them first and use them as primary structural evidence (symbols/relations). These artifacts should be refreshed to the current `HEAD` before the incremental update begins; if `_status.json.commit_hash` does not match current `git rev-parse HEAD`, rebuild AST first. Start from `hierarchy.json` + `index.json`, then fetch only needed per-file shards under `files/*.json` (progressive disclosure). If absent, continue in degraded mode with source-driven analysis.
+3. If backend-generated AST artifacts exist at `./.atmos/wiki/_ast/`, load them first and use them as primary structural evidence (symbols/relations). These artifacts should be refreshed to the current `HEAD` before the incremental update begins; if `_status.json.commit_hash` does not match current `git rev-parse HEAD`, rebuild AST first. Start from `hierarchy.json` + `index.json`, then fetch only needed per-file shards under `files/*.json` (progressive disclosure). If absent, continue in degraded mode with source-driven analysis.
 
 All updated content MUST meet the same **content depth requirements** as project-wiki: 800+ words (Getting Started), 1500+ words (Deep Dive), 2–3+ Mermaid diagrams, 4–6+ H2 sections, sufficient sources and cross-references. Run `~/.atmos/skills/.system/project-wiki/scripts/validate_content.py` to verify.
 
@@ -46,7 +46,7 @@ For each uncovered changed file, reason about it:
 ### Phase 3: Cross-Cutting Impact Check
 
 Review whether any changed file is a widely-used shared utility, base type, or core abstraction. If so, update wiki pages that describe behavior depending on it, even if they do not directly list it in `sources`.
-If AST artifacts are available, prioritize relation graph checks (callers/callees, module deps, shared type hubs) to discover indirect impact pages.
+If AST artifacts are available, use `relations.jsonl` and per-file shard references as candidate evidence for indirect impact (e.g. import/use references, call sites, shared type hubs). These are syntactic references, not a resolved call graph — confirm transitive caller/callee or module-impact edges against source before treating them as definitive.
 
 ## Execution Steps
 
@@ -65,13 +65,13 @@ If the old commit is no longer in history (force push/rebase), fall back to sugg
 ### Step 2: Map Sources to Pages
 
 For each leaf item in the catalog, read its Markdown file and extract the `sources` frontmatter. Build a mapping: `file_path -> [wiki_page_paths]`.
-If `.atmos/wiki/_ast/relations.jsonl` is available, also build `symbol/module -> [wiki_page_paths]` mapping for relation-based impact expansion.
+If `.atmos/wiki/_ast/relations.jsonl` is available, also build a tentative `symbol/module -> [wiki_page_paths]` mapping from syntactic references for candidate impact expansion. Verify candidates against source before committing to page updates.
 
 ### Step 3: Identify Affected Pages
 
 - Pages whose `sources` overlap with changed files → **must update**
 - For uncovered changed files, use AI reasoning to decide: add to existing, create new, or skip.
-- If AST is available, include pages that are transitively impacted through changed symbols/modules (not only direct file overlap).
+- If AST is available, consider pages that may be transitively impacted through changed symbols/modules (not only direct file overlap). AST-derived references are syntactic — confirm against source before treating as definitive impact.
 
 ### Step 4: Regenerate Affected Pages Only
 

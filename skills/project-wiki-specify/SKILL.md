@@ -16,7 +16,7 @@ This skill guides a Code Agent to **add a specified topic** to an existing Proje
    - **Research briefing template**: `~/.atmos/skills/.system/project-wiki/references/briefing_template.md`
    - **Sample briefing**: `~/.atmos/skills/.system/project-wiki/examples/sample_briefing.md`
    - **Catalog schema**: `~/.atmos/skills/.system/project-wiki/references/catalog.schema.json`
-3. If backend generated AST artifacts exist at `./.atmos/wiki/_ast/`, load them first and use them as primary structural evidence (symbols/relations). Start from `hierarchy.json` + `index.json`, then fetch only needed per-file shards under `files/*.json` (progressive disclosure). If absent, continue in degraded mode with source-driven analysis.
+3. If backend-generated AST artifacts exist at `./.atmos/wiki/_ast/`, load them first and use them as primary structural evidence (symbols/relations). Start from `hierarchy.json` + `index.json`, then fetch only needed per-file shards under `files/*.json` (progressive disclosure). If absent, continue in degraded mode with source-driven analysis.
 
 The generated article MUST meet **specify-wiki** content depth requirements: 1500+ words, 3+ Mermaid diagrams, 6+ H2 sections, 5+ source files, 4+ cross-references. Run `~/.atmos/skills/.system/project-wiki/scripts/validate_content.py` to verify.
 
