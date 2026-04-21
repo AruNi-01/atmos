@@ -319,6 +319,12 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
   const isMarkdown = selectedFile?.name.endsWith('.md') || selectedFile?.name.endsWith('.mdx');
   const language = selectedFile ? getLanguageFromFileName(selectedFile.name) : 'plaintext';
+
+  // Strip YAML frontmatter for markdown preview only; editor shows full raw content
+  const previewContent = useMemo(() => {
+    if (!isMarkdown) return fileContent;
+    return fileContent.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+  }, [fileContent, isMarkdown]);
   
   // Dirty check: compare current content with the content in the selectedFile object
   // Note: We need to make sure selectedFile.content is up to date when we save.
@@ -599,11 +605,11 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                       <ScrollArea className="h-full">
                         <div id="skill-content-root" className="px-8 py-6">
                           <MarkdownRenderer>
-                            {fileContent}
+                            {previewContent}
                           </MarkdownRenderer>
                         </div>
                       </ScrollArea>
-                      <MarkdownToc markdown={fileContent} scrollContainerId="skill-content-root" />
+                      <MarkdownToc markdown={previewContent} scrollContainerId="skill-content-root" />
                     </>
                   ) : (
                     <CodeMirrorEditor

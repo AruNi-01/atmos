@@ -701,13 +701,6 @@ impl SkillScanner {
             .and_then(|_| fs::read_to_string(path).ok())
             .filter(|c| c.len() < 100_000);
 
-        if is_main {
-            if let Some(c) = content {
-                let (rest, _) = Self::strip_frontmatter(&c);
-                content = Some(rest.to_string());
-            }
-        }
-
         Some(SkillFile {
             name: file_name,
             relative_path,
