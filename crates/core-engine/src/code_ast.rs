@@ -315,6 +315,9 @@ fn collect_source_files(root: &Path) -> Result<CollectedFiles> {
     let walker = WalkBuilder::new(root)
         .standard_filters(true)
         .filter_entry(|entry| {
+            if entry.depth() == 0 {
+                return true;
+            }
             entry
                 .file_name()
                 .to_str()
