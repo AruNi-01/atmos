@@ -1991,6 +1991,7 @@ const CenterStage: React.FC = () => {
           <TabsPanel
             key={file.path}
             value={file.path}
+            keepMounted
             className="flex-1 min-h-0 min-w-0"
           >
             {isDiffEditorPath(file.path) && currentRepoPath ? (

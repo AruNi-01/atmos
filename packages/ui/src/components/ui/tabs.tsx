@@ -70,7 +70,7 @@ function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props) {
 function TabsPanel({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
-      className={cn("flex-1 outline-none flex flex-col", className)}
+      className={cn("flex-1 outline-none flex flex-col data-[hidden]:hidden", className)}
       data-slot="tabs-content"
       {...props}
     />
