@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
@@ -10,7 +11,19 @@ import {
   indentOnInput,
   syntaxHighlighting,
 } from '@codemirror/language';
-import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import {
+  closeSearchPanel,
+  findNext,
+  findPrevious,
+  getSearchQuery,
+  highlightSelectionMatches,
+  replaceAll,
+  replaceNext,
+  search,
+  SearchQuery,
+  searchKeymap,
+  setSearchQuery,
+} from '@codemirror/search';
 import { Compartment, EditorSelection, EditorState, Extension } from '@codemirror/state';
 import {
   crosshairCursor,
@@ -22,9 +35,11 @@ import {
   highlightSpecialChars,
   keymap,
   lineNumbers,
+  Panel,
   rectangularSelection,
 } from '@codemirror/view';
 import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
+import { ArrowLeftRight, CaseSensitive, ChevronLeft, ChevronRight, Regex, Replace, ReplaceAll, WholeWord, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
 import { loadCodeLanguageSupport } from '@/lib/code-language';
@@ -44,6 +59,383 @@ export interface BaseCodeMirrorEditorProps {
   onNavigationTargetApplied?: () => void;
 }
 
+function createSearchCount(view: EditorView, query: SearchQuery): string {
+  if (!query.valid || !query.search) return '';
+
+  const cursor = query.getCursor(view.state);
+  let total = 0;
+  let activeIndex = 0;
+  const selection = view.state.selection.main;
+
+  for (let next = cursor.next(); !next.done; next = cursor.next()) {
+    total += 1;
+
+    if (next.value.from === selection.from && next.value.to === selection.to) {
+      activeIndex = total;
+    }
+  }
+
+  if (!total) return '';
+  if (!activeIndex) return `0/${total}`;
+
+  return `${activeIndex}/${total}`;
+}
+
+function createLucideIcon(icon: React.ComponentType<{ className?: string }>) {
+  const markup = renderToStaticMarkup(React.createElement(icon, { className: 'cm-atmos-search__icon' }));
+  const wrapper = document.createElement('span');
+  wrapper.className = 'cm-atmos-search__icon-wrap';
+  wrapper.innerHTML = markup;
+  return wrapper;
+}
+
+class AtmosSearchPanel implements Panel {
+  dom: HTMLElement;
+
+  private readonly view: EditorView;
+  private query: SearchQuery;
+  private replaceExpanded: boolean;
+  private readonly searchField: HTMLInputElement;
+  private readonly replaceField: HTMLInputElement;
+  private readonly caseField: HTMLInputElement;
+  private readonly regexpField: HTMLInputElement;
+  private readonly wordField: HTMLInputElement;
+  private readonly counter: HTMLSpanElement;
+  private readonly replaceSection: HTMLDivElement;
+  private readonly replaceToggle: HTMLButtonElement;
+  private readonly queryRow: HTMLDivElement;
+  private readonly prevButton: HTMLButtonElement;
+  private readonly nextButton: HTMLButtonElement;
+  private replaceRow: HTMLDivElement | null = null;
+
+  constructor(view: EditorView) {
+    this.view = view;
+    this.query = getSearchQuery(view.state);
+    this.replaceExpanded = !!this.query.replace;
+    this.commit = this.commit.bind(this);
+    this.keydown = this.keydown.bind(this);
+
+    this.searchField = this.createInput({
+      value: this.query.search,
+      placeholder: 'Find in file',
+      ariaLabel: 'Find in file',
+      name: 'search',
+      mainField: true,
+    });
+    this.replaceField = this.createInput({
+      value: this.query.replace,
+      placeholder: 'Replace with',
+      ariaLabel: 'Replace with',
+      name: 'replace',
+    });
+    this.caseField = this.createCheckbox(this.query.caseSensitive);
+    this.regexpField = this.createCheckbox(this.query.regexp);
+    this.wordField = this.createCheckbox(this.query.wholeWord);
+    this.counter = document.createElement('span');
+    this.counter.className = 'cm-atmos-search__counter';
+
+    const header = document.createElement('div');
+    header.className = 'cm-atmos-search__header';
+
+    const titleGroup = document.createElement('div');
+    titleGroup.className = 'cm-atmos-search__title-group';
+
+    this.replaceToggle = this.createIconButton(
+      this.replaceExpanded ? 'Hide replace' : 'Show replace',
+      '',
+      () => {
+        this.replaceExpanded = !this.replaceExpanded;
+        this.syncReplaceState();
+      }
+    );
+    this.replaceToggle.classList.add('cm-atmos-search__disclosure');
+    this.replaceToggle.append(createLucideIcon(ArrowLeftRight));
+
+    const title = document.createElement('span');
+    title.className = 'cm-atmos-search__title';
+    title.textContent = 'Find';
+    this.prevButton = this.createIconButton('Previous match', createLucideIcon(ChevronLeft), () => {
+      findPrevious(this.view);
+      this.refreshCounter();
+    }, 'cm-atmos-search__nav-button');
+    this.nextButton = this.createIconButton('Next match', createLucideIcon(ChevronRight), () => {
+      findNext(this.view);
+      this.refreshCounter();
+    }, 'cm-atmos-search__nav-button');
+
+    titleGroup.append(title, this.counter, this.prevButton, this.nextButton);
+
+    const headerActions = document.createElement('div');
+    headerActions.className = 'cm-atmos-search__header-actions';
+    headerActions.append(
+      this.createIconButton('Close search', createLucideIcon(X), () => closeSearchPanel(this.view), 'cm-atmos-search__close-button')
+    );
+
+    header.append(titleGroup, headerActions);
+
+    const fields = document.createElement('div');
+    fields.className = 'cm-atmos-search__fields';
+    this.queryRow = document.createElement('div');
+    this.queryRow.className = 'cm-atmos-search__row';
+    this.queryRow.append(
+      this.wrapField(
+        this.searchField,
+        this.createInlineOptions(
+          this.createToggle(createLucideIcon(CaseSensitive), 'Match case', this.caseField),
+          this.createToggle(createLucideIcon(WholeWord), 'Whole word', this.wordField),
+          this.createToggle(createLucideIcon(Regex), 'Regexp', this.regexpField)
+        )
+      )
+    );
+    this.queryRow.append(this.replaceToggle);
+    fields.append(this.queryRow);
+
+    this.replaceSection = document.createElement('div');
+    this.replaceSection.className = 'cm-atmos-search__replace-section';
+    if (!this.view.state.readOnly) {
+      this.replaceRow = document.createElement('div');
+      this.replaceRow.className = 'cm-atmos-search__row';
+      this.replaceRow.append(
+        this.wrapField(this.replaceField),
+        this.wrapReplaceActions(
+          this.createButton(createLucideIcon(Replace), 'Replace', () => {
+            replaceNext(this.view);
+            this.refreshCounter();
+          }, 'outline', true),
+          this.createButton(createLucideIcon(ReplaceAll), 'Replace all', () => {
+            replaceAll(this.view);
+            this.refreshCounter();
+          }, 'outline', true)
+        )
+      );
+      this.replaceSection.append(this.replaceRow);
+      fields.append(this.replaceSection);
+    }
+
+    this.dom = document.createElement('div');
+    this.dom.className = 'cm-atmos-search';
+    this.dom.setAttribute('data-selection-popover-ignore', 'true');
+    this.dom.addEventListener('keydown', this.keydown);
+    this.dom.append(header, fields);
+
+    this.refreshCounter();
+    this.syncReplaceState();
+  }
+
+  private createInput({
+    value,
+    placeholder,
+    ariaLabel,
+    name,
+    mainField = false,
+  }: {
+    value: string;
+    placeholder: string;
+    ariaLabel: string;
+    name: string;
+    mainField?: boolean;
+  }) {
+    const input = document.createElement('input');
+    input.className = 'cm-atmos-search__input';
+    input.value = value;
+    input.placeholder = placeholder;
+    input.setAttribute('aria-label', ariaLabel);
+    input.name = name;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    if (mainField) input.setAttribute('main-field', 'true');
+    input.addEventListener('input', this.commit);
+    input.addEventListener('change', this.commit);
+    return input;
+  }
+
+  private createCheckbox(checked: boolean) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.className = 'cm-atmos-search__toggle-input';
+    input.checked = checked;
+    input.addEventListener('change', this.commit);
+    return input;
+  }
+
+  private createButton(
+    content: string | HTMLElement,
+    title: string,
+    onClick: () => void,
+    variant: 'primary' | 'secondary' | 'ghost' | 'outline',
+    iconOnly = false
+  ) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `cm-atmos-search__button cm-atmos-search__button--${variant}`;
+    button.title = title;
+    button.setAttribute('aria-label', title);
+    if (iconOnly) button.classList.add('cm-atmos-search__button--icon');
+    if (typeof content === 'string') {
+      button.textContent = content;
+    } else {
+      button.append(content);
+    }
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  private createIconButton(
+    ariaLabel: string,
+    content: string | HTMLElement,
+    onClick: () => void,
+    extraClassName?: string
+  ) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cm-atmos-search__icon-button';
+    button.setAttribute('aria-label', ariaLabel);
+    button.title = ariaLabel;
+    if (extraClassName) button.classList.add(extraClassName);
+    if (typeof content === 'string') {
+      button.textContent = content;
+    } else {
+      button.append(content);
+    }
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
+  private createToggle(content: string | HTMLElement, title: string, input: HTMLInputElement) {
+    const toggle = document.createElement('label');
+    toggle.className = 'cm-atmos-search__toggle';
+    toggle.title = title;
+    toggle.setAttribute('aria-label', title);
+
+    const text = document.createElement('span');
+    text.className = 'cm-atmos-search__toggle-label';
+    if (typeof content === 'string') {
+      text.textContent = content;
+    } else {
+      text.append(content);
+    }
+
+    toggle.append(input, text);
+    return toggle;
+  }
+
+  private createInlineOptions(...children: HTMLElement[]) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cm-atmos-search__inline-options';
+    wrapper.append(...children);
+    return wrapper;
+  }
+
+  private wrapReplaceActions(...children: HTMLElement[]) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cm-atmos-search__replace-actions';
+    wrapper.append(...children);
+    return wrapper;
+  }
+
+  private wrapField(input: HTMLInputElement, trailing?: HTMLElement) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cm-atmos-search__field';
+    wrapper.append(input);
+    if (trailing) wrapper.append(trailing);
+    return wrapper;
+  }
+
+  private syncToggleState() {
+    for (const input of [this.caseField, this.regexpField, this.wordField]) {
+      input.parentElement?.classList.toggle('is-active', input.checked);
+    }
+  }
+
+  private syncReplaceState() {
+    this.replaceSection.classList.toggle('is-collapsed', !this.replaceExpanded);
+    this.replaceToggle.setAttribute('aria-label', this.replaceExpanded ? 'Hide replace' : 'Show replace');
+    this.replaceToggle.setAttribute('title', this.replaceExpanded ? 'Hide replace' : 'Show replace');
+    this.replaceToggle.classList.toggle('is-active', this.replaceExpanded);
+  }
+
+  private refreshCounter() {
+    const countText = createSearchCount(this.view, this.query);
+    const hasMatches = !!countText && countText !== 'No matches';
+
+    this.counter.textContent = countText;
+    this.prevButton.classList.toggle('is-hidden', !hasMatches);
+    this.nextButton.classList.toggle('is-hidden', !hasMatches);
+    this.syncToggleState();
+  }
+
+  commit() {
+    const query = new SearchQuery({
+      search: this.searchField.value,
+      caseSensitive: this.caseField.checked,
+      regexp: this.regexpField.checked,
+      wholeWord: this.wordField.checked,
+      replace: this.replaceField.value,
+    });
+
+    if (!query.eq(this.query)) {
+      this.query = query;
+      this.view.dispatch({ effects: setSearchQuery.of(query) });
+    }
+
+    this.refreshCounter();
+  }
+
+  keydown(event: KeyboardEvent) {
+    if (event.key === 'Enter' && event.target === this.searchField) {
+      event.preventDefault();
+      (event.shiftKey ? findPrevious : findNext)(this.view);
+      this.refreshCounter();
+      return;
+    }
+
+    if (event.key === 'Enter' && event.target === this.replaceField) {
+      event.preventDefault();
+      replaceNext(this.view);
+      this.refreshCounter();
+    }
+  }
+
+  update() {
+    const query = getSearchQuery(this.view.state);
+    if (!query.eq(this.query)) {
+      this.query = query;
+      this.searchField.value = query.search;
+      this.replaceField.value = query.replace;
+      this.caseField.checked = query.caseSensitive;
+      this.regexpField.checked = query.regexp;
+      this.wordField.checked = query.wholeWord;
+      if (query.replace && !this.replaceExpanded) {
+        this.replaceExpanded = true;
+      }
+    }
+
+    this.refreshCounter();
+    this.syncReplaceState();
+  }
+
+  mount() {
+    this.searchField.select();
+    this.refreshCounter();
+    this.syncReplaceState();
+  }
+
+  get pos() {
+    return 120;
+  }
+
+  get top() {
+    return true;
+  }
+}
+
+function createSearchExtension(): Extension {
+  return search({
+    top: true,
+    createPanel: (view) => new AtmosSearchPanel(view),
+  });
+}
+
 function createEditorTheme(isDark: boolean): Extension {
   return EditorView.theme(
     {
@@ -52,6 +444,7 @@ function createEditorTheme(isDark: boolean): Extension {
         backgroundColor: isDark ? '#09090b' : '#ffffff',
         color: isDark ? '#f4f4f5' : '#111827',
         fontSize: '13px',
+        position: 'relative',
       },
       '&.cm-focused': {
         outline: 'none',
@@ -117,8 +510,292 @@ function createEditorTheme(isDark: boolean): Extension {
         backgroundColor: isDark ? '#09090b' : '#ffffff',
       },
       '.cm-panels': {
-        backgroundColor: isDark ? '#09090b' : '#ffffff',
+        position: 'absolute',
+        top: '0',
+        right: '16px',
+        left: 'auto',
+        width: 'min(calc(100% - 32px), 420px)',
+        backgroundColor: 'transparent',
         color: isDark ? '#f4f4f5' : '#111827',
+        border: 'none',
+        zIndex: '30',
+        pointerEvents: 'none',
+      },
+      '.cm-panels-top': {
+        borderBottom: 'none',
+        transform: 'translateY(44px)',
+      },
+      '.cm-panel': {
+        backgroundColor: 'transparent',
+        pointerEvents: 'auto',
+      },
+      '.cm-atmos-search': {
+        display: 'grid',
+        gap: '10px',
+        padding: '12px',
+        borderRadius: '8px',
+        border: `1px solid ${isDark ? 'rgba(113, 113, 122, 0.34)' : 'rgba(212, 212, 216, 0.96)'}`,
+        background: isDark
+          ? 'linear-gradient(180deg, rgba(24, 24, 27, 0.56), rgba(9, 9, 11, 0.64))'
+          : 'linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(250, 250, 250, 0.72))',
+        boxShadow: isDark
+          ? '0 18px 50px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+          : '0 18px 44px rgba(24, 24, 27, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.82)',
+        backdropFilter: 'blur(14px)',
+      },
+      '.cm-atmos-search__header': {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+      },
+      '.cm-atmos-search__title-group': {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        minWidth: '0',
+      },
+      '.cm-atmos-search__title': {
+        fontSize: '12px',
+        fontWeight: '600',
+        color: isDark ? '#a1a1aa' : '#71717a',
+      },
+      '.cm-atmos-search__counter': {
+        minWidth: '0',
+        fontSize: '12px',
+        color: isDark ? '#d4d4d8' : '#52525b',
+      },
+      '.cm-atmos-search__nav-button': {
+        width: '20px',
+        minWidth: '20px',
+        height: '20px',
+        borderRadius: '4px',
+        backgroundColor: 'transparent',
+        border: 'none',
+        boxShadow: 'none',
+        padding: '0',
+      },
+      '.cm-atmos-search__icon-button.cm-atmos-search__nav-button': {
+        border: 'none',
+        backgroundColor: 'transparent',
+        boxShadow: 'none',
+      },
+      '.cm-atmos-search__nav-button:hover': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.72)' : 'rgba(244, 244, 245, 0.78)',
+      },
+      '.cm-atmos-search__nav-button.is-hidden': {
+        display: 'none',
+      },
+      '.cm-atmos-search__header-actions': {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        flexWrap: 'wrap',
+      },
+      '.cm-atmos-search__fields': {
+        display: 'grid',
+        gap: '8px',
+      },
+      '.cm-atmos-search__row': {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) 32px',
+        alignItems: 'center',
+        gap: '8px',
+      },
+      '.cm-atmos-search__replace-section .cm-atmos-search__row': {
+        gridTemplateColumns: 'minmax(0, 1fr) auto',
+        minHeight: '0',
+        overflow: 'hidden',
+      },
+      '.cm-atmos-search__field': {
+        position: 'relative',
+        minWidth: '0',
+      },
+      '.cm-atmos-search__input': {
+        width: '100%',
+        height: '40px',
+        paddingLeft: '16px',
+        paddingRight: '12px',
+        border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+        borderRadius: '8px',
+        outline: 'none',
+        boxSizing: 'border-box',
+        backgroundColor: isDark ? 'rgba(9, 9, 11, 0.42)' : 'rgba(250, 250, 250, 0.56)',
+        color: isDark ? '#fafafa' : '#111827',
+        textAlign: 'left',
+        textIndent: '0',
+        transition: 'border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease',
+      },
+      '.cm-atmos-search__input::placeholder': {
+        color: isDark ? '#52525b' : '#a1a1aa',
+      },
+      '.cm-atmos-search__input:focus': {
+        borderColor: isDark ? '#f4f4f5' : '#111827',
+        boxShadow: isDark ? '0 0 0 3px rgba(244, 244, 245, 0.08)' : '0 0 0 3px rgba(17, 24, 39, 0.08)',
+      },
+      '.cm-atmos-search__button, .cm-atmos-search__icon-button, .cm-atmos-search__toggle': {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        height: '32px',
+        borderRadius: '8px',
+        border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+        backgroundColor: isDark ? 'rgba(24, 24, 27, 0.76)' : 'rgba(255, 255, 255, 0.76)',
+        color: isDark ? '#e4e4e7' : '#27272a',
+        fontSize: '12px',
+        fontWeight: '600',
+        lineHeight: '1',
+        transition: 'border-color 140ms ease, background-color 140ms ease, color 140ms ease',
+        appearance: 'none',
+      },
+      '.cm-atmos-search__button': {
+        padding: '0 12px',
+      },
+      '.cm-atmos-search__button--icon': {
+        width: '32px',
+        minWidth: '32px',
+        padding: '0',
+      },
+      '.cm-atmos-search__icon-button': {
+        width: '32px',
+        padding: '0',
+      },
+      '.cm-atmos-search__icon-button[aria-label=\"Close search\"]': {
+        fontSize: '20px',
+        lineHeight: '1',
+      },
+      '.cm-atmos-search__button:hover, .cm-atmos-search__icon-button:hover, .cm-atmos-search__toggle:hover': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.84)' : 'rgba(244, 244, 245, 0.84)',
+      },
+      '.cm-atmos-search__button--primary': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.96)' : 'rgba(244, 244, 245, 0.96)',
+        color: isDark ? '#e4e4e7' : '#27272a',
+        borderColor: isDark ? '#27272a' : '#e4e4e7',
+      },
+      '.cm-atmos-search__button--secondary': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.96)' : 'rgba(244, 244, 245, 0.96)',
+      },
+      '.cm-atmos-search__button--outline': {
+        backgroundColor: 'transparent',
+        borderColor: isDark ? '#3f3f46' : '#d4d4d8',
+        color: isDark ? '#e4e4e7' : '#27272a',
+      },
+      '.cm-atmos-search__button--outline:hover': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.52)' : 'rgba(244, 244, 245, 0.72)',
+      },
+      '.cm-atmos-search__button--ghost': {
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+      },
+      '.cm-atmos-search__button--ghost:hover': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.68)' : 'rgba(244, 244, 245, 0.72)',
+      },
+      '.cm-atmos-search__toggle': {
+        position: 'relative',
+        padding: '0 12px',
+        cursor: 'pointer',
+      },
+      '.cm-atmos-search__toggle-input': {
+        position: 'absolute',
+        opacity: '0',
+        pointerEvents: 'none',
+      },
+      '.cm-atmos-search__toggle.is-active': {
+        backgroundColor: isDark ? 'rgba(244, 244, 245, 0.08)' : 'rgba(24, 24, 27, 0.06)',
+        borderColor: 'transparent',
+        color: isDark ? '#fafafa' : '#111827',
+      },
+      '.cm-atmos-search__toggle-label': {
+        fontSize: '11px',
+        fontWeight: '600',
+      },
+      '.cm-atmos-search__disclosure': {
+        width: '32px',
+        minWidth: '32px',
+        height: '32px',
+        padding: '0',
+      },
+      '.cm-atmos-search__disclosure.is-active': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.84)' : 'rgba(244, 244, 245, 0.84)',
+      },
+      '.cm-atmos-search__inline-options': {
+        position: 'absolute',
+        top: '50%',
+        right: '8px',
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+      },
+      '.cm-atmos-search__row:first-child .cm-atmos-search__field .cm-atmos-search__input': {
+        paddingRight: '124px',
+      },
+      '.cm-atmos-search__inline-options .cm-atmos-search__toggle': {
+        height: '24px',
+        minWidth: '24px',
+        padding: '0 7px',
+        borderRadius: '6px',
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+      },
+      '.cm-atmos-search__inline-options .cm-atmos-search__toggle:hover': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.72)' : 'rgba(244, 244, 245, 0.78)',
+      },
+      '.cm-atmos-search__inline-options .cm-atmos-search__toggle.is-active': {
+        backgroundColor: isDark ? 'rgba(244, 244, 245, 0.1)' : 'rgba(24, 24, 27, 0.08)',
+        borderColor: 'transparent',
+      },
+      '.cm-atmos-search__inline-options .cm-atmos-search__toggle-label': {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '10px',
+      },
+      '.cm-atmos-search__icon-wrap': {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      '.cm-atmos-search__icon': {
+        width: '14px',
+        height: '14px',
+        strokeWidth: '2',
+      },
+      '.cm-atmos-search__nav-button .cm-atmos-search__icon': {
+        width: '12px',
+        height: '12px',
+      },
+      '.cm-atmos-search__close-button': {
+        backgroundColor: 'transparent',
+        border: 'none',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: 'none',
+      },
+      '.cm-atmos-search__close-button:hover': {
+        backgroundColor: isDark ? 'rgba(39, 39, 42, 0.68)' : 'rgba(244, 244, 245, 0.72)',
+      },
+      '.cm-atmos-search__close-button .cm-atmos-search__icon': {
+        width: '18px',
+        height: '18px',
+      },
+      '.cm-atmos-search__replace-section': {
+        display: 'grid',
+        gridTemplateRows: '1fr',
+        opacity: '1',
+        transition: 'grid-template-rows 180ms ease, opacity 180ms ease',
+      },
+      '.cm-atmos-search__replace-section.is-collapsed': {
+        gridTemplateRows: '0fr',
+        opacity: '0',
+        pointerEvents: 'none',
+      },
+      '.cm-atmos-search__replace-actions': {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
       },
       '.cm-searchMatch': {
         backgroundColor: isDark ? '#854d0e55' : '#fef08a99',
@@ -185,6 +862,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   const [readOnlyCompartment] = useState(() => new Compartment());
   const [themeCompartment] = useState(() => new Compartment());
   const [lineWrapCompartment] = useState(() => new Compartment());
+  const [searchCompartment] = useState(() => new Compartment());
   const onChangeRef = useRef(onChange);
   const onCreateEditorRef = useRef(onCreateEditor);
   const onSaveRef = useRef(onSave);
@@ -231,6 +909,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
           highlightSelectionMatches(),
           EditorState.tabSize.of(2),
           lineWrapCompartment.of(initialState.lineWrap ? EditorView.lineWrapping : []),
+          searchCompartment.of(createSearchExtension()),
           EditorView.contentAttributes.of({
             spellcheck: 'false',
             autocorrect: 'off',
@@ -286,7 +965,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       editorRef.current = null;
       view.destroy();
     };
-  }, [languageCompartment, lineWrapCompartment, readOnlyCompartment, themeCompartment]);
+  }, [languageCompartment, lineWrapCompartment, readOnlyCompartment, searchCompartment, themeCompartment]);
 
   useEffect(() => {
     const view = editorRef.current;
@@ -330,7 +1009,11 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
         }),
       ]),
     });
-  }, [isDark, themeCompartment]);
+
+    view.dispatch({
+      effects: searchCompartment.reconfigure(createSearchExtension()),
+    });
+  }, [isDark, searchCompartment, themeCompartment]);
 
   useEffect(() => {
     const view = editorRef.current;
