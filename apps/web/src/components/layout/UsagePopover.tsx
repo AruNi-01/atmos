@@ -16,6 +16,7 @@ import {
   Gauge,
   Plus,
   LoaderCircle,
+  RotateCw,
   Trash2,
 } from "lucide-react";
 import {
@@ -1854,10 +1855,9 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                           disabled={isRefreshing}
                           aria-label="Refresh usage"
                         >
-                          <LoaderCircle
-                            className={cn("block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center]",
-                              isRefreshing && "animate-spin")}
-                          />
+                          {isRefreshing
+                            ? <LoaderCircle className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center] animate-spin" />
+                            : <RotateCw className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center]" />}
                           <span className="text-[10px] font-medium">Refresh</span>
                         </button>
                       </motion.div>

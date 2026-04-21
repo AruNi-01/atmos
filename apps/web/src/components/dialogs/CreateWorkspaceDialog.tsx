@@ -34,6 +34,7 @@ import {
   Github,
   Loader2,
   LoaderCircle,
+  RotateCw,
   Sparkles,
 } from 'lucide-react';
 import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/types/types';
@@ -818,7 +819,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                     disabled={isIssuesLoading}
                     title="Refresh issues"
                   >
-                    <LoaderCircle className={`size-3.5 ${isIssuesLoading ? 'animate-spin' : ''}`} />
+                    {isIssuesLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
                   </Button>
                 )}
               </CardHeader>

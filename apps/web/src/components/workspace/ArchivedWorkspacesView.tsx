@@ -9,7 +9,7 @@ import {
   Archive,
   cn,
   Trash2,
-  LoaderCircle,
+  RotateCw,
   Button,
   Loader2,
   toastManager,
@@ -344,7 +344,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
                                       <Loader2 className="size-3.5 animate-spin" />
                                     ) : (
                                       <div className="flex items-center gap-1.5">
-                                        <LoaderCircle className="size-3.5" />
+                                        <RotateCw className="size-3.5" />
                                         Restore
                                       </div>
                                     )}

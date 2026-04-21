@@ -24,6 +24,7 @@ import {
   Circle,
   XOctagon,
   LoaderCircle,
+  RotateCw,
   CircleDashed,
   ChevronRight,
 } from 'lucide-react';
@@ -54,7 +55,7 @@ function renderStatusIcon(status: TaskStatus) {
 }
 
 const TASK_SECTIONS: { id: TaskStatus; label: string; icon: React.ReactNode }[] = [
-  { id: 'progress', label: 'In Progress', icon: <LoaderCircle className="size-4" /> },
+  { id: 'progress', label: 'In Progress', icon: <RotateCw className="size-4" /> },
   { id: 'todo', label: 'To Do', icon: <CircleDashed className="size-4" /> },
   { id: 'done', label: 'Completed', icon: <CheckSquare className="size-4" /> },
   { id: 'cancelled', label: 'Cancelled', icon: <XOctagon className="size-4" /> },
@@ -235,7 +236,7 @@ export const TaskListPanel: React.FC<TaskListPanelProps> = ({
               To Do
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'progress')} className="text-xs cursor-pointer">
-              <LoaderCircle className="size-3.5 mr-2" />
+              <RotateCw className="size-3.5 mr-2" />
               In Progress
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetStatus(task.index, 'done')} className="text-xs cursor-pointer">

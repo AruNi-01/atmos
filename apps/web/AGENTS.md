@@ -54,7 +54,7 @@ apps/web/
 ### Component Organization
 - Generic UI components — consume from `@workspace/ui`
 - Business-specific components (`ProjectList`, `WorkspaceTerminal`) — live in `src/components/`
-- Loading icons — use `LoaderCircle` consistently for loading/refresh indicators. Add `animate-spin` only when the icon represents an actively loading state; keep non-loading action icons static.
+- Loading icons — use `RotateCw` for static refresh/action icons; use `LoaderCircle` with `animate-spin` only for actively loading/spinning states.
 
 ### State Management
 - Prefer server components and `fetch` for data fetching

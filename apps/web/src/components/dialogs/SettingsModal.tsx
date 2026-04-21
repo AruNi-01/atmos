@@ -46,6 +46,7 @@ import {
   ExternalLink,
   Languages,
   LoaderCircle,
+  RotateCw,
   Plus,
   Route,
   Save,
@@ -1691,7 +1692,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               disabled={isChecking || isDownloading || isInstalling}
                               className="cursor-pointer"
                             >
-                              <LoaderCircle className="mr-2 size-4" />
+                              <RotateCw className="mr-2 size-4" />
                               Check for Updates
                             </Button>
                           </div>

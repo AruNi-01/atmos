@@ -34,6 +34,7 @@ import {
   GitBranch,
   Clock,
   LoaderCircle,
+  RotateCw,
   Pencil,
   Plus,
   CheckSquare,
@@ -404,7 +405,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             disabled={isRefreshing}
             className="h-8 gap-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
           >
-            <LoaderCircle className={cn("size-3.5", isRefreshing && "animate-spin")} />
+            {isRefreshing ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
             <span className="text-xs">Refresh</span>
           </Button>
         </div>

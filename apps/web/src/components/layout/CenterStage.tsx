@@ -64,6 +64,7 @@ import {
   Plus,
   BookOpen,
   LoaderCircle,
+  RotateCw,
   Star,
   Bot,
 } from "lucide-react";
@@ -1326,12 +1327,15 @@ const CenterStage: React.FC = () => {
                       )}
                     />
                     {activeValue === "wiki" && (
-                      <LoaderCircle
-                        className={cn("size-3.5 absolute inset-0 transition-all duration-200",
-                          "opacity-0 scale-50 rotate-60",
-                          "group-hover/wiki:opacity-100 group-hover/wiki:scale-100 group-hover/wiki:rotate-0",
-                          wikiRefreshing && "animate-spin")}
-                      />
+                      wikiRefreshing
+                        ? <LoaderCircle
+                            className="size-3.5 absolute inset-0 animate-spin"
+                          />
+                        : <RotateCw
+                            className={cn("size-3.5 absolute inset-0 transition-all duration-200",
+                              "opacity-0 scale-50 rotate-60",
+                              "group-hover/wiki:opacity-100 group-hover/wiki:scale-100 group-hover/wiki:rotate-0")}
+                          />
                     )}
                   </span>
                   {activeValue === "wiki" && (

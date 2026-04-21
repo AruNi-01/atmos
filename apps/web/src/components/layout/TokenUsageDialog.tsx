@@ -20,6 +20,7 @@ import {
   Coins,
   MessagesSquare,
   LoaderCircle,
+  RotateCw,
   Sparkles,
   Wallet,
   X,
@@ -584,7 +585,7 @@ export function TokenUsageDialog({
                   onClick={handleRefresh}
                   disabled={loading || refreshing}
                 >
-                  <LoaderCircle className={refreshing ? "size-4 animate-spin" : "size-4"} />
+                  {refreshing ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
                 </Button>
                 <Button
                   variant="outline"

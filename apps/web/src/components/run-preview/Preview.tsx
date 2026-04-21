@@ -16,7 +16,7 @@ import {
   PanelTopClose,
   PanelTopOpen,
   Pencil,
-  LoaderCircle,
+  RotateCw,
   Search,
   SquareMousePointer,
   Smartphone,
@@ -2122,7 +2122,7 @@ export const Preview: React.FC<PreviewProps> = ({
               className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               title="Refresh"
             >
-              <LoaderCircle className="size-3.5" />
+              <RotateCw className="size-3.5" />
             </button>
           </div>
 

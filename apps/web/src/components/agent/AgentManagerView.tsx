@@ -21,6 +21,7 @@ import {
   Bot,
   Search,
   LoaderCircle,
+  RotateCw,
   Plus,
   Terminal,
   Download,
@@ -175,7 +176,7 @@ export const AgentManagerView: React.FC = () => {
                     className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
                     title="Refresh Registry"
                   >
-                    <LoaderCircle className={cn("size-4", mgr.refreshing && "animate-spin")} />
+                    {mgr.refreshing ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
                   </Button>
                 )}
               </div>

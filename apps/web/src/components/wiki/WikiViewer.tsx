@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
+  RotateCw,
 } from "lucide-react";
 import { useWikiContext } from "@/hooks/use-wiki-store";
 import { WikiSidebar } from "./WikiSidebar";
@@ -151,7 +152,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
           size="sm"
           onClick={() => loadCatalog(effectivePath)}
         >
-          <LoaderCircle className="size-3.5 mr-1.5" />
+          <RotateCw className="size-3.5 mr-1.5" />
           Retry
         </Button>
       </div>

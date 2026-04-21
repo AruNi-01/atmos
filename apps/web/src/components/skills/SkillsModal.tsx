@@ -13,6 +13,7 @@ import {
   Store,
   X,
   LoaderCircle,
+  RotateCw,
   Button,
 } from '@workspace/ui';
 import { skillsApi, SkillInfo } from '@/api/ws-api';
@@ -115,7 +116,7 @@ export const SkillsModal: React.FC<SkillsModalProps> = ({ isOpen, onClose }) => 
             disabled={isLoading}
             className="gap-2"
           >
-            <LoaderCircle className={`size-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
             Refresh
           </Button>
           <button

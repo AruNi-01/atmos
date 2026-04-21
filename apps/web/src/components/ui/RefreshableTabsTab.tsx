@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, RotateCw } from "lucide-react";
 import { TabsTab } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +86,7 @@ export function RefreshableTabsTab({
             : "translate-y-7 opacity-0 pointer-events-none",
         )}
       >
-        <LoaderCircle className={cn("size-3.5", isSpinning && "animate-spin")} />
+        {isSpinning ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
         <span className="text-xs font-medium">Refresh</span>
       </div>
     </TabsTab>

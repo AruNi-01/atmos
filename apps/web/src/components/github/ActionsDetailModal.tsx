@@ -32,6 +32,7 @@ import {
   Clock,
   PlayCircle,
   LoaderCircle,
+  RotateCw,
   Box,
   HelpCircle,
 } from 'lucide-react';
@@ -397,14 +398,14 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
           <div className="flex gap-2.5">
             {isFailure && (
               <Button variant="outline" size="sm" onClick={handleRerunFailed} disabled={actionLoading} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
-                {actionLoading ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <LoaderCircle className="mr-1.5 size-3.5" />}
+                {actionLoading ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
                 Re-run failed jobs
               </Button>
             )}
 
             {(isCompleted) && (
               <Button variant="default" size="sm" onClick={handleRerunAll} disabled={actionLoading} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
-                {actionLoading ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <LoaderCircle className="mr-1.5 size-3.5" />}
+                {actionLoading ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
                 Re-run all jobs
               </Button>
             )}

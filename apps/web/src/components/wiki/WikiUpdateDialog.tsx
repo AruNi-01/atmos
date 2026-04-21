@@ -11,7 +11,7 @@ import {
   DialogFooter,
   toastManager,
 } from "@workspace/ui";
-import { Download, Loader2, LoaderCircle } from "lucide-react";
+import { Download, Loader2, LoaderCircle, RotateCw } from "lucide-react";
 import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
@@ -198,7 +198,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <LoaderCircle className="size-5 text-foreground" />
+              <RotateCw className="size-5 text-foreground" />
               Update Project Wiki
             </DialogTitle>
             <DialogDescription asChild>
@@ -263,8 +263,8 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
                 </>
               ) : (
                 <>
-                  <LoaderCircle className="size-4 mr-2" />
-                  Update Wiki
+                  <RotateCw className="size-4 mr-2" />
+                                     Update Wiki
                 </>
               )}
             </Button>

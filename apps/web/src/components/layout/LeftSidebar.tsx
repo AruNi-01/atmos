@@ -33,6 +33,7 @@ import {
   TabsTab,
   TabsPanel,
   LoaderCircle,
+  RotateCw,
   Eye,
   EyeOff,
   FolderKanban,
@@ -1008,8 +1009,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                             title="Refresh files"
                                             disabled={isLoadingFiles}
                                         >
-                                            <LoaderCircle className={cn("size-3.5 text-muted-foreground",
-                                                isLoadingFiles && "animate-spin")} />
+                                            {isLoadingFiles ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCw className="size-3.5 text-muted-foreground" />}
                                         </button>
                                     </div>
                                 </div>
