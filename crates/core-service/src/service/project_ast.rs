@@ -6,7 +6,7 @@ use sea_orm::DatabaseConnection;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Weak},
 };
 use tokio::sync::Mutex as AsyncMutex;
 
@@ -15,7 +15,7 @@ const PROJECT_WIKI_AST_DIR: &str = ".atmos/wiki/_ast";
 pub struct ProjectAstService {
     db: Arc<DatabaseConnection>,
     git_engine: GitEngine,
-    build_locks: Mutex<HashMap<PathBuf, Arc<AsyncMutex<()>>>>,
+    build_locks: Mutex<HashMap<PathBuf, Weak<AsyncMutex<()>>>>,
 }
 
 impl ProjectAstService {
@@ -96,11 +96,14 @@ impl ProjectAstService {
 
     fn build_lock_for(&self, artifact_dir: &Path) -> Arc<AsyncMutex<()>> {
         let mut locks = self.build_locks.lock();
-        Arc::clone(
-            locks
-                .entry(artifact_dir.to_path_buf())
-                .or_insert_with(|| Arc::new(AsyncMutex::new(()))),
-        )
+        locks.retain(|_, lock| lock.strong_count() > 0);
+        if let Some(lock) = locks.get(artifact_dir).and_then(Weak::upgrade) {
+            return lock;
+        }
+
+        let lock = Arc::new(AsyncMutex::new(()));
+        locks.insert(artifact_dir.to_path_buf(), Arc::downgrade(&lock));
+        lock
     }
 }
 

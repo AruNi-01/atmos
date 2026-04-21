@@ -53,7 +53,13 @@ pub fn build_code_ast_artifacts(
             Ok(result)
         }
         Err(error) => {
-            remove_dir_if_exists(&staging_dir)?;
+            if let Err(cleanup_error) = remove_dir_if_exists(&staging_dir) {
+                tracing::warn!(
+                    "Failed to clean up AST staging dir {} after build error: {}",
+                    staging_dir.display(),
+                    cleanup_error
+                );
+            }
             Err(error)
         }
     }
