@@ -57,13 +57,24 @@ def validate(todo_path: Path) -> tuple[list[str], list[str]]:
             text = m.group(1).strip()
             found_items[text] = bool(CHECKED_PATTERN.match(line))
 
+    # Some required items accept alternate wording (e.g. degraded-mode variant).
+    ALTERNATE_ITEMS: dict[str, list[str]] = {
+        "AST artifacts loaded/verified": [
+            "AST unavailable, degraded mode acknowledged",
+        ],
+    }
+
     for item in REQUIRED_ITEMS:
         matched = False
         checked = False
+        candidates = [item] + ALTERNATE_ITEMS.get(item, [])
         for found_text, is_checked in found_items.items():
-            if item.lower() in found_text.lower() or found_text in item:
-                matched = True
-                checked = is_checked
+            for candidate in candidates:
+                if candidate.lower() in found_text.lower() or found_text in candidate:
+                    matched = True
+                    checked = is_checked
+                    break
+            if matched:
                 break
         if not matched:
             errors.append(f"Missing checklist item: {item}")

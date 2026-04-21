@@ -222,10 +222,14 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
       await buildAstArtifacts();
       if (onProjectWikiReplaceAndRun) {
         await onProjectWikiReplaceAndRun(cmd);
-      } else if (workspaceId) {
-        await systemApi.killProjectWikiWindow(workspaceId);
+        onComplete?.();
+        onOpenChange(false);
+      } else {
+        if (workspaceId) {
+          await systemApi.killProjectWikiWindow(workspaceId);
+        }
+        doRunUpdate(cmd);
       }
-      doRunUpdate(cmd);
     } catch (err) {
       toastManager.add({
         title: "Failed to close previous terminal",
@@ -240,6 +244,8 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
     workspaceId,
     pendingCommand,
     doRunUpdate,
+    onComplete,
+    onOpenChange,
     onProjectWikiReplaceAndRun,
   ]);
 
