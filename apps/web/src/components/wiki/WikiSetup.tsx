@@ -228,14 +228,14 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
     setIsGenerating(true);
     try {
-      if (workspaceId) {
-        await systemApi.killProjectWikiWindow(workspaceId);
-      }
       await buildAstArtifacts();
 
       if (onProjectWikiReplaceAndRun) {
         await onProjectWikiReplaceAndRun(cmd);
       } else {
+        if (workspaceId) {
+          await systemApi.killProjectWikiWindow(workspaceId);
+        }
         doRunGenerate(cmd);
       }
     } catch (err) {
