@@ -643,7 +643,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 {selectedFile.content !== null ? (
                   isMarkdown && isPreview ? (
                     <>
-                      <ScrollArea className="h-full">
+                      <ScrollArea key={selectedFile.relative_path} className="h-full">
                         <div id="skill-content-root" className="px-8 py-6" onClick={handleRelativeLinkClick}>
                           <MarkdownRenderer>
                             {previewContent}
