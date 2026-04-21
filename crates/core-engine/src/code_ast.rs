@@ -282,7 +282,9 @@ fn publish_artifact_dir(staging_dir: &Path, artifact_dir: &Path) -> Result<()> {
     }
 
     if had_existing_dir {
-        remove_dir_if_exists(&backup_dir)?;
+        if let Err(e) = remove_dir_if_exists(&backup_dir) {
+            tracing::warn!("Failed to remove AST backup dir {}: {}", backup_dir.display(), e);
+        }
     }
 
     Ok(())
