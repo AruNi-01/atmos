@@ -56,6 +56,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
 }) => {
   const [agentId, setAgentId] = useState<AgentId>("claude");
   const [isRunning, setIsRunning] = useState(false);
+  const [isBuildingAst, setIsBuildingAst] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingCommand, setPendingCommand] = useState<string | null>(null);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
@@ -143,7 +144,41 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
     ]
   );
 
+  const buildAstArtifacts = useCallback(async () => {
+    if (!workspaceId || !effectivePath) return;
+
+    setIsBuildingAst(true);
+    try {
+      const astResult = await systemApi.buildProjectWikiAst(workspaceId, effectivePath);
+      toastManager.add({
+        title: "AST indexing completed",
+        description: `Indexed ${astResult.indexed_files} files, ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
+        type: "success",
+      });
+    } catch (err) {
+      toastManager.add({
+        title: "AST indexing skipped",
+        description:
+          err instanceof Error
+            ? `${err.message}. Wiki update will continue in degraded mode.`
+            : "Wiki update will continue in degraded mode.",
+        type: "warning",
+      });
+    } finally {
+      setIsBuildingAst(false);
+    }
+  }, [effectivePath, workspaceId]);
+
   const handleRunUpdate = useCallback(async () => {
+    if (!effectivePath) {
+      toastManager.add({
+        title: "Cannot update",
+        description: "Project path not available.",
+        type: "error",
+      });
+      return;
+    }
+
     const prompt = buildUpdatePrompt(catalogCommit, currentCommit);
     const command = buildCommand(agentId, prompt, true);
 
@@ -158,6 +193,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
           return;
         }
       }
+      await buildAstArtifacts();
       doRunUpdate(command);
     } catch {
       setPendingCommand(command);
@@ -165,7 +201,15 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
     } finally {
       setIsRunning(false);
     }
-  }, [agentId, catalogCommit, currentCommit, workspaceId, doRunUpdate]);
+  }, [
+    agentId,
+    buildAstArtifacts,
+    catalogCommit,
+    currentCommit,
+    doRunUpdate,
+    effectivePath,
+    workspaceId,
+  ]);
 
   const handleConfirmReplaceAndRun = useCallback(async () => {
     const cmd = pendingCommand;
@@ -175,6 +219,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
 
     setIsRunning(true);
     try {
+      await buildAstArtifacts();
       if (onProjectWikiReplaceAndRun) {
         await onProjectWikiReplaceAndRun(cmd);
       } else if (workspaceId) {
@@ -190,7 +235,13 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
     } finally {
       setIsRunning(false);
     }
-  }, [workspaceId, pendingCommand, doRunUpdate, onProjectWikiReplaceAndRun]);
+  }, [
+    buildAstArtifacts,
+    workspaceId,
+    pendingCommand,
+    doRunUpdate,
+    onProjectWikiReplaceAndRun,
+  ]);
 
   return (
     <>
@@ -206,6 +257,9 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
                 <p>
                   Code has changed since the wiki was generated. Run an incremental update to regenerate
                   only the affected pages.
+                </p>
+                <p>
+                  AST artifacts will be rebuilt for the current HEAD before the update starts.
                 </p>
                 {typeof commitCount === "number" && commitCount > 0 && (
                   <p className="rounded-md bg-muted/60 px-3 py-2 text-muted-foreground">
@@ -254,9 +308,14 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
             </Button>
             <Button
               onClick={handleRunUpdate}
-              disabled={isRunning || systemHasSkill !== true}
+              disabled={isRunning || isBuildingAst || systemHasSkill !== true}
             >
-              {isRunning ? (
+              {isBuildingAst ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                  Building AST...
+                </>
+              ) : isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
                   Starting...
@@ -289,7 +348,12 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
               Cancel
             </Button>
             <Button onClick={handleConfirmReplaceAndRun} disabled={isRunning}>
-              {isRunning ? (
+              {isBuildingAst ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                  Building AST...
+                </>
+              ) : isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
                   Starting...
