@@ -2990,6 +2990,7 @@ set -x
                 skill_ok("project-wiki")
                     && skill_ok("project-wiki-update")
                     && skill_ok("project-wiki-specify")
+                    && skill_ok("project-wiki-ask")
             })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))

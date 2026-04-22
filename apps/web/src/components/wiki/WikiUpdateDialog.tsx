@@ -16,6 +16,7 @@ import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
+import { useEditorStore } from "@/hooks/use-editor-store";
 
 const PROJECT_WIKI_UPDATE_SKILL_PATH = "~/.atmos/skills/.system/project-wiki-update";
 
@@ -54,6 +55,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
   onProjectWikiReplaceAndRun,
   onComplete,
 }) => {
+  const requestFileTreeRefresh = useEditorStore((s) => s.requestFileTreeRefresh);
   const [agentId, setAgentId] = useState<AgentId>("claude");
   const [isRunning, setIsRunning] = useState(false);
   const [isBuildingAst, setIsBuildingAst] = useState(false);
@@ -150,6 +152,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
     setIsBuildingAst(true);
     try {
       const astResult = await systemApi.buildProjectWikiAst(workspaceId, effectivePath);
+      requestFileTreeRefresh(workspaceId);
       if (astResult.skipped_files > 0) {
         toastManager.add({
           title: "AST indexing completed with warnings",
@@ -175,7 +178,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
     } finally {
       setIsBuildingAst(false);
     }
-  }, [effectivePath, workspaceId]);
+  }, [effectivePath, workspaceId, requestFileTreeRefresh]);
 
   const handleRunUpdate = useCallback(async () => {
     if (!effectivePath) {
