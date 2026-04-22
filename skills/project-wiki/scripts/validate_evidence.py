@@ -66,12 +66,21 @@ def load_ast_paths(wiki_dir: Path) -> set[str] | None:
         return None
     try:
         data = json.loads(hierarchy.read_text(encoding="utf-8"))
-        # hierarchy.json is a dict keyed by file path
-        if isinstance(data, dict):
-            return set(data.keys())
-        return None
+        paths: set[str] = set()
+        _collect_paths(data, paths)
+        return paths if paths else None
     except Exception:
         return None
+
+
+def _collect_paths(node: dict, out: set[str]) -> None:
+    """Recursively walk the hierarchy tree {path, files, children} and collect full file paths."""
+    node_path = node.get("path", ".")
+    for f in node.get("files", []):
+        out.add(f if node_path == "." else f"{node_path}/{f}")
+    for child in node.get("children", []):
+        if isinstance(child, dict):
+            _collect_paths(child, out)
 
 
 def validate_page(page_id: str, kind: str, wiki_dir: Path, ast_paths: set[str] | None) -> list[str]:
