@@ -337,7 +337,7 @@ fn extract_archive(file_name: &str, bytes: &[u8], destination: &Path) -> anyhow:
         let mut archive = zip::ZipArchive::new(reader)?;
         for idx in 0..archive.len() {
             let mut file = archive.by_index(idx)?;
-            let output = destination.join(file.name());
+            let output = safe_join(destination, file.name())?;
             if file.is_dir() {
                 std::fs::create_dir_all(&output)?;
                 continue;
@@ -375,6 +375,22 @@ fn is_likely_executable(path: &Path) -> bool {
             )
         })
         .unwrap_or(false)
+}
+
+fn safe_join(destination: &Path, entry_name: &str) -> anyhow::Result<PathBuf> {
+    let mut output = destination.to_path_buf();
+    for part in Path::new(entry_name).components() {
+        match part {
+            std::path::Component::Normal(segment) => output.push(segment),
+            std::path::Component::CurDir => {}
+            _ => {
+                return Err(anyhow!(
+                    "zip entry contains unsafe path traversal segment: {entry_name}"
+                ));
+            }
+        }
+    }
+    Ok(output)
 }
 
 #[cfg(unix)]

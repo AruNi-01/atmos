@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 
-use tokio::process::{Child, Command};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::RwLock;
 
 use crate::installer::Installer;
@@ -39,9 +39,10 @@ struct RuntimeState {
     last_error: Option<String>,
 }
 
-#[derive(Debug)]
 struct RunningLsp {
     child: Child,
+    #[allow(dead_code)]
+    transport: LspTransport<ChildStdout, ChildStdin>,
 }
 
 pub struct LspManager {
@@ -169,6 +170,15 @@ impl LspManager {
             return self.snapshot_for_file(file_path, Some(&root)).await;
         }
 
+        if let Some(existing_state) = self.state.read().await.get(&key) {
+            if matches!(
+                existing_state.status,
+                LspRuntimeStatus::Installing | LspRuntimeStatus::Starting
+            ) {
+                return self.snapshot_for_file(file_path, Some(&root)).await;
+            }
+        }
+
         self.update_state(
             &key,
             RuntimeState {
@@ -280,21 +290,28 @@ impl LspManager {
             }
         };
 
-        if let (Some(stdout), Some(stdin)) = (child.stdout.take(), child.stdin.take()) {
-            let root_uri = format!("file://{}", workspace_root);
-            let mut transport = LspTransport::new(stdout, stdin);
-            let initialize =
-                initialize_request_with_options(&root_uri, definition.initialization_options)?;
-            if let Err(error) = transport.send(&initialize).await {
-                self.mark_error(&key, error.to_string()).await;
-                return Err(error);
+        let (stdout, stdin) = match (child.stdout.take(), child.stdin.take()) {
+            (Some(stdout), Some(stdin)) => (stdout, stdin),
+            _ => {
+                let message = format!("failed to acquire stdio pipes for {}", definition.id);
+                self.mark_error(&key, message.clone()).await;
+                return Err(anyhow::anyhow!(message));
             }
+        };
+
+        let root_uri = format!("file://{}", workspace_root);
+        let mut transport = LspTransport::new(stdout, stdin);
+        let initialize =
+            initialize_request_with_options(&root_uri, definition.initialization_options)?;
+        if let Err(error) = transport.send(&initialize).await {
+            self.mark_error(&key, error.to_string()).await;
+            return Err(error);
         }
 
         self.active
             .write()
             .await
-            .insert(key.clone(), RunningLsp { child });
+            .insert(key.clone(), RunningLsp { child, transport });
         self.update_state(
             &key,
             RuntimeState {
