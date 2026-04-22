@@ -61,6 +61,8 @@ import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import {
   Bot,
+  ChevronDown,
+  ChevronUp,
   ChevronRight,
   Group,
   SquareKanban,
@@ -171,6 +173,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
         currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents'
     );
+    const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
+    const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
     const [activeId, setActiveId] = useState<string | null>(null);
 
     const [fileTreeData, setFileTreeData] = useState<FileTreeNode[]>([]);
@@ -608,7 +612,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
             >
                 <SortableContext items={pinnedWorkspaces.map(e => e.workspace.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-0.5 px-2 pb-1">
+                    <div className={cn(
+                        'grid transition-[grid-template-rows] duration-300 ease-in-out',
+                        isPinnedSectionCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+                    )}>
+                        <div className="overflow-hidden">
+                            <div className="space-y-0.5 px-2 pb-1">
                         {pinnedWorkspaces.map((entry) => (
                             (() => {
                                 const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
@@ -653,10 +662,42 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                 );
                             })()
                         ))}
+                            </div>
+                        </div>
                     </div>
                 </SortableContext>
             </DndContext>
-            <div className="mx-4 my-1.5 border-t border-dashed border-sidebar-border" />
+            <div
+                onClick={() => setIsPinnedSectionCollapsed(!isPinnedSectionCollapsed)}
+                className="group/divider relative mx-4 my-1.5 flex items-center cursor-pointer"
+            >
+                <div className='flex-1 border-t border-dashed border-sidebar-border' />
+                <div
+                    onMouseEnter={() => setIsPinnedDividerHovered(true)}
+                    onMouseLeave={() => setIsPinnedDividerHovered(false)}
+                    className={cn(
+                        'relative flex items-center gap-1 cursor-pointer pl-2 transition-colors duration-200',
+                        isPinnedDividerHovered ? 'text-sidebar-foreground' : 'text-muted-foreground'
+                    )}
+                >
+                    {isPinnedSectionCollapsed ? (
+                        <ChevronDown className='size-3.5 shrink-0' />
+                    ) : (
+                        <ChevronUp className='size-3.5 shrink-0' />
+                    )}
+                    {isPinnedSectionCollapsed ? (
+                        <span className='text-[11px] relative pr-1'>
+                            <span className={cn('transition-opacity duration-200', isPinnedDividerHovered ? 'opacity-0' : 'opacity-100')}>Pinned</span>
+                            <span className={cn('absolute left-0 top-0 transition-opacity duration-200', isPinnedDividerHovered ? 'opacity-100' : 'opacity-0')}>Expand</span>
+                        </span>
+                    ) : (
+                        <span className='text-[11px] overflow-hidden max-w-0 opacity-0 group-hover/divider:max-w-[60px] group-hover/divider:opacity-100 group-hover/divider:pr-1 transition-all duration-300 whitespace-nowrap'>
+                            Collapse
+                        </span>
+                    )}
+                </div>
+                <div className='flex-1 border-t border-dashed border-sidebar-border' />
+            </div>
         </>
     ) : null;
 
