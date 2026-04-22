@@ -1,18 +1,39 @@
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tokio::process::Command;
+use tokio::sync::Mutex;
+use tokio::time::timeout;
 
 use crate::registry::{InstallMethod, LspDefinition};
+
+/// Total reqwest request timeout (covers connect + headers + body). Downloads
+/// for language-server release assets can be tens of MB, so the ceiling is
+/// generous; the connect-only timeout below keeps lookup failures fast.
+const HTTP_TOTAL_TIMEOUT: Duration = Duration::from_secs(600);
+/// Connect-phase timeout for reqwest — guards against DNS or TCP stalls.
+const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+/// Upper bound on a single external package-manager install invocation
+/// (`npm install`, `pip install`, `go install`). Installs with large
+/// dependency trees on cold caches can easily take several minutes, so the
+/// ceiling is intentionally loose; the point is only to prevent an
+/// indefinitely hanging child from wedging the LSP manager.
+const INSTALL_COMMAND_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Clone)]
 pub struct Installer {
     client: reqwest::Client,
     home: PathBuf,
+    /// Serializes writes to the shared `~/.atmos/lsp/registry.json` cache so
+    /// concurrent `ensure_installed` calls for different definitions cannot
+    /// lose updates via a read-modify-write race.
+    registry_lock: Arc<Mutex<()>>,
 }
 
 impl Default for Installer {
@@ -26,6 +47,7 @@ impl Installer {
         Self {
             client: build_client(),
             home,
+            registry_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -33,7 +55,11 @@ impl Installer {
         let target_dir = self.home.join(definition.id);
         let marker = target_dir.join(".installed");
 
-        if marker.exists() {
+        // The marker is version-aware: its content must match `definition.version`.
+        // If the marker is missing, unreadable, or pinned to a different version,
+        // we treat the target as not installed and fall through to a fresh install.
+        // This prevents stale binaries from being reused after a version bump.
+        if marker.exists() && marker_matches_version(&marker, definition.version).await {
             if let Some(existing) = self.resolve_executable(definition, &target_dir) {
                 self.update_registry_cache(definition, &existing).await?;
                 return Ok(existing);
@@ -66,7 +92,7 @@ impl Installer {
             }
             InstallMethod::SystemBinary { bin } => {
                 let binary = self.find_in_path(bin)?;
-                fs::write(&marker, binary.to_string_lossy().as_bytes())
+                write_version_marker(&marker, definition.version)
                     .await
                     .context("failed to persist system-binary marker")?;
                 self.update_registry_cache(definition, &binary).await?;
@@ -75,7 +101,7 @@ impl Installer {
         }
 
         if let Some(path) = self.resolve_executable(definition, &target_dir) {
-            fs::write(&marker, path.to_string_lossy().as_bytes())
+            write_version_marker(&marker, definition.version)
                 .await
                 .context("failed to persist installation marker")?;
             self.update_registry_cache(definition, &path).await?;
@@ -163,8 +189,18 @@ impl Installer {
             .await
             .context("failed to read release asset bytes")?;
 
-        extract_archive(&asset.name, &bytes, destination)
-            .with_context(|| format!("failed to extract {}", asset.name))?;
+        // `extract_archive` does synchronous decompression + `std::fs` writes,
+        // which would otherwise block a tokio worker thread for the duration
+        // of the extraction. Offload it to the blocking thread pool.
+        let asset_name = asset.name.clone();
+        let bytes = bytes.to_vec();
+        let destination_owned = destination.to_path_buf();
+        tokio::task::spawn_blocking(move || {
+            extract_archive(&asset_name, &bytes, &destination_owned)
+        })
+        .await
+        .context("extract task panicked or was cancelled")?
+        .with_context(|| format!("failed to extract {}", asset.name))?;
 
         Ok(())
     }
@@ -175,11 +211,19 @@ impl Installer {
         version: &str,
         destination: &Path,
     ) -> anyhow::Result<()> {
-        let status = Command::new("npm")
+        let fut = Command::new("npm")
             .args(["install", "-g", &format!("{package}@{version}"), "--prefix"])
             .arg(destination)
-            .status()
+            .status();
+
+        let status = timeout(INSTALL_COMMAND_TIMEOUT, fut)
             .await
+            .with_context(|| {
+                format!(
+                    "npm install for {package} timed out after {:?}",
+                    INSTALL_COMMAND_TIMEOUT
+                )
+            })?
             .context("failed to spawn npm")?;
 
         if !status.success() {
@@ -194,7 +238,7 @@ impl Installer {
         version: &str,
         destination: &Path,
     ) -> anyhow::Result<()> {
-        let status = Command::new("python3")
+        let fut = Command::new("python3")
             .args([
                 "-m",
                 "pip",
@@ -203,8 +247,16 @@ impl Installer {
                 "--prefix",
             ])
             .arg(destination)
-            .status()
+            .status();
+
+        let status = timeout(INSTALL_COMMAND_TIMEOUT, fut)
             .await
+            .with_context(|| {
+                format!(
+                    "pip install for {package} timed out after {:?}",
+                    INSTALL_COMMAND_TIMEOUT
+                )
+            })?
             .context("failed to spawn python3")?;
 
         if !status.success() {
@@ -249,11 +301,19 @@ impl Installer {
     ) -> anyhow::Result<()> {
         let go_bin = destination.join("bin");
         fs::create_dir_all(&go_bin).await?;
-        let status = Command::new("go")
+        let fut = Command::new("go")
             .env("GOBIN", &go_bin)
             .args(["install", &format!("{package}@{version}")])
-            .status()
+            .status();
+
+        let status = timeout(INSTALL_COMMAND_TIMEOUT, fut)
             .await
+            .with_context(|| {
+                format!(
+                    "go install for {package} timed out after {:?}",
+                    INSTALL_COMMAND_TIMEOUT
+                )
+            })?
             .context("failed to spawn go install")?;
 
         if !status.success() {
@@ -267,7 +327,16 @@ impl Installer {
         definition: &LspDefinition,
         binary_path: &Path,
     ) -> anyhow::Result<()> {
+        // Serialize concurrent writers against a shared async mutex so the
+        // read-modify-write on `registry.json` cannot lose updates, and
+        // perform the actual file replacement atomically via rename so a
+        // crash mid-write cannot leave the cache truncated.
+        let _guard = self.registry_lock.lock().await;
+
+        fs::create_dir_all(&self.home).await?;
         let cache_path = self.home.join("registry.json");
+        let tmp_path = self.home.join("registry.json.tmp");
+
         let mut entries = if cache_path.exists() {
             let existing = fs::read_to_string(&cache_path).await.unwrap_or_default();
             serde_json::from_str::<Vec<LocalRegistryEntry>>(&existing).unwrap_or_default()
@@ -283,10 +352,31 @@ impl Installer {
             updated_at_unix_ms: chrono::Utc::now().timestamp_millis(),
         });
 
-        fs::create_dir_all(&self.home).await?;
-        fs::write(cache_path, serde_json::to_string_pretty(&entries)?).await?;
+        let serialized = serde_json::to_string_pretty(&entries)?;
+        fs::write(&tmp_path, serialized)
+            .await
+            .with_context(|| format!("failed to write {}", tmp_path.display()))?;
+        fs::rename(&tmp_path, &cache_path).await.with_context(|| {
+            format!(
+                "failed to atomically replace {} with {}",
+                cache_path.display(),
+                tmp_path.display()
+            )
+        })?;
         Ok(())
     }
+}
+
+async fn marker_matches_version(marker: &Path, expected_version: &str) -> bool {
+    match fs::read_to_string(marker).await {
+        Ok(contents) => contents.trim() == expected_version,
+        Err(_) => false,
+    }
+}
+
+async fn write_version_marker(marker: &Path, version: &str) -> anyhow::Result<()> {
+    fs::write(marker, version.as_bytes()).await?;
+    Ok(())
 }
 
 pub async fn ensure_installed(definition: &LspDefinition) -> anyhow::Result<PathBuf> {
@@ -317,6 +407,11 @@ fn build_client() -> reqwest::Client {
 
     reqwest::Client::builder()
         .default_headers(headers)
+        // Bound both the connect phase and the overall request so a hung
+        // GitHub API call or stalled release-asset download cannot wedge an
+        // installer task indefinitely.
+        .connect_timeout(HTTP_CONNECT_TIMEOUT)
+        .timeout(HTTP_TOTAL_TIMEOUT)
         .build()
         .expect("failed to build reqwest client")
 }

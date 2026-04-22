@@ -323,7 +323,10 @@ impl LspManager {
         let root_uri = match Url::from_file_path(&workspace_root) {
             Ok(url) => url.to_string(),
             Err(_) => {
-                let message = format!("failed to build file:// url from workspace_root: {}", workspace_root);
+                let message = format!(
+                    "failed to build file:// url from workspace_root: {}",
+                    workspace_root
+                );
                 self.mark_error(&key, message.clone()).await;
                 let _ = child.kill().await;
                 return Err(anyhow::anyhow!(message));
@@ -417,19 +420,14 @@ impl LspManager {
         // this key (e.g. due to a previously racing start), kill its child and
         // stderr task before replacing it so we never silently orphan a
         // subprocess.
-        if let Some(mut previous) = self
-            .active
-            .write()
-            .await
-            .insert(
-                key.clone(),
-                RunningLsp {
-                    child,
-                    transport,
-                    stderr_task,
-                },
-            )
-        {
+        if let Some(mut previous) = self.active.write().await.insert(
+            key.clone(),
+            RunningLsp {
+                child,
+                transport,
+                stderr_task,
+            },
+        ) {
             if let Some(task) = previous.stderr_task.take() {
                 task.abort();
             }
