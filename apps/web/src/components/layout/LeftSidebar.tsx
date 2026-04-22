@@ -207,6 +207,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 if (groupingModeSetting === 'project' || groupingModeSetting === 'status' || groupingModeSetting === 'time') {
                     setGroupingMode(groupingModeSetting);
                 }
+                const pinnedSectionCollapsed = settings.workspace_sidebar?.pinned_section_collapsed;
+                if (typeof pinnedSectionCollapsed === 'boolean') {
+                    setIsPinnedSectionCollapsed(pinnedSectionCollapsed);
+                }
             })
             .finally(() => {
                 setIsGroupingSettingsReady(true);
@@ -217,6 +221,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         if (!isGroupingSettingsReady) return;
         void functionSettingsApi.update('workspace_sidebar', 'grouping_mode', groupingMode);
     }, [groupingMode, isGroupingSettingsReady]);
+
+    useEffect(() => {
+        if (!isGroupingSettingsReady) return;
+        void functionSettingsApi.update('workspace_sidebar', 'pinned_section_collapsed', isPinnedSectionCollapsed);
+    }, [isPinnedSectionCollapsed, isGroupingSettingsReady]);
 
     useEffect(() => {
         const availableStatusSet = new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value));
