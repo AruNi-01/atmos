@@ -67,9 +67,16 @@ export const useWikiStore = create<WikiStore>()((set) => ({
 
   checkWikiExists: async (contextId, effectivePath) => {
     try {
-      const catalogPath = `${effectivePath}/.atmos/wiki/_catalog.json`;
-      const response = await fsApi.readFile(catalogPath);
-      const exists = response.exists && !!response.content;
+      const registryPath = `${effectivePath}/.atmos/wiki/page_registry.json`;
+      const legacyCatalogPath = `${effectivePath}/.atmos/wiki/_catalog.json`;
+      const registryResponse = await fsApi.readFile(registryPath);
+      const legacyResponse =
+        registryResponse.exists && registryResponse.content
+          ? null
+          : await fsApi.readFile(legacyCatalogPath);
+      const exists =
+        (registryResponse.exists && !!registryResponse.content) ||
+        !!(legacyResponse?.exists && legacyResponse.content);
 
       set((state) => ({
         contextStates: {
@@ -112,8 +119,13 @@ export const useWikiStore = create<WikiStore>()((set) => ({
     }));
 
     try {
-      const catalogPath = `${effectivePath}/.atmos/wiki/_catalog.json`;
-      const response = await fsApi.readFile(catalogPath);
+      const registryPath = `${effectivePath}/.atmos/wiki/page_registry.json`;
+      const legacyCatalogPath = `${effectivePath}/.atmos/wiki/_catalog.json`;
+      const registryResponse = await fsApi.readFile(registryPath);
+      const response =
+        registryResponse.exists && registryResponse.content
+          ? registryResponse
+          : await fsApi.readFile(legacyCatalogPath);
 
       if (requestId !== _loadCatalogId) return;
 
@@ -125,10 +137,11 @@ export const useWikiStore = create<WikiStore>()((set) => ({
           const raw = JSON.parse(response.content) as CatalogData;
           catalog = normalizeCatalog(raw);
         } catch {
-          catalogError = "Invalid _catalog.json format. Please regenerate the wiki.";
+          catalogError =
+            "Invalid wiki registry format. Please regenerate the wiki.";
         }
       } else {
-        catalogError = "Catalog file not found.";
+        catalogError = "Wiki registry file not found.";
       }
 
       set((state) => ({

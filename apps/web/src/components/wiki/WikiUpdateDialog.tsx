@@ -21,7 +21,7 @@ const PROJECT_WIKI_UPDATE_SKILL_PATH = "~/.atmos/skills/.system/project-wiki-upd
 
 function buildUpdatePrompt(catalogCommit: string, currentCommit: string): string {
   const skillRef = `${PROJECT_WIKI_UPDATE_SKILL_PATH}/SKILL.md`;
-  return `Read the skill instructions at ${skillRef} and follow them to incrementally update the project wiki at ./.atmos/wiki/. The wiki was generated at commit ${catalogCommit}. Current HEAD is ${currentCommit}.`;
+  return `Read the skill instructions at ${skillRef} and follow them to incrementally update the evidence-driven project wiki at ./.atmos/wiki/. Treat page_registry.json and _coverage/coverage_map.json as the primary update contracts. The wiki was generated at commit ${catalogCommit}. Current HEAD is ${currentCommit}.`;
 }
 
 interface WikiUpdateDialogProps {

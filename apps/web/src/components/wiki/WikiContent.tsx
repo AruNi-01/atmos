@@ -20,7 +20,7 @@ import { useDialogStore } from "@/hooks/use-dialog-store";
 import { writeToActiveAgentComposer } from "@/lib/agent/active-composer";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useContextParams } from "@/hooks/use-context-params";
-import { parseFrontmatter, type WikiLevel } from "./wiki-utils";
+import { parseFrontmatter, type WikiAudience, type WikiLevel, type WikiPageKind } from "./wiki-utils";
 import { fsApi } from "@/api/ws-api";
 
 const CodeMirrorEditor = dynamic(
@@ -48,6 +48,15 @@ function getLevelConfig(level?: WikiLevel | string): { label: string; icon: Reac
     default:
       return null;
   }
+}
+
+function formatLabel(value?: string): string | null {
+  if (!value) return null;
+  return value
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 interface WikiContentProps {
@@ -295,7 +304,10 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const { frontmatter, body } = parseFrontmatter(contentToRender);
   const title = (frontmatter.title as string) ?? activePage ?? "Untitled";
   const sources = (frontmatter.sources as string[]) ?? [];
+  const evidenceRefs = (frontmatter.evidence_refs as string[]) ?? [];
   const levelConfig = getLevelConfig(frontmatter.level);
+  const kindLabel = formatLabel(frontmatter.kind as WikiPageKind | undefined);
+  const audienceLabel = formatLabel(frontmatter.audience as WikiAudience | undefined);
   const readingTime = frontmatter.reading_time
     ? Number(frontmatter.reading_time)
     : undefined;
@@ -319,6 +331,16 @@ export const WikiContent: React.FC<WikiContentProps> = ({
             <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none shrink-0 bg-muted text-muted-foreground">
               <levelConfig.icon className="size-2.5" />
               {levelConfig.label}
+            </span>
+          )}
+          {kindLabel && (
+            <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none shrink-0 bg-muted text-muted-foreground">
+              {kindLabel}
+            </span>
+          )}
+          {audienceLabel && (
+            <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-[2px] leading-none shrink-0 bg-muted/60 text-muted-foreground">
+              {audienceLabel}
             </span>
           )}
           {readingTime && (
@@ -396,6 +418,26 @@ export const WikiContent: React.FC<WikiContentProps> = ({
                             className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono"
                           >
                             {src}
+                          </span>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+                {evidenceRefs.length > 0 && (
+                  <Collapsible defaultOpen={false} className="rounded-lg border border-border">
+                    <CollapsibleTrigger className="group flex items-center gap-2 w-full px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-accent/30 cursor-pointer transition-colors">
+                      <ChevronRight className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                      <span>Evidence bundles</span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="flex flex-wrap gap-1.5 px-3 pt-2 pb-3 border-t border-border">
+                        {evidenceRefs.map((ref) => (
+                          <span
+                            key={ref}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono"
+                          >
+                            {ref}
                           </span>
                         ))}
                       </div>

@@ -35,6 +35,8 @@ interface WikiViewerProps {
   onWikiPageChange: (page: string) => void;
   /** Whether Wiki tab is active (prevents auto-switching tab when loading first page) */
   isWikiTabActive?: boolean;
+  /** True when viewing from a Workspace context (read-only: no update/specify) */
+  isWorkspaceContext?: boolean;
   terminalGridRef?: React.RefObject<TerminalGridHandle | null>;
   onSwitchToTerminal?: () => void;
   onSwitchToProjectWikiAndRun?: (command: string) => void;
@@ -48,6 +50,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
   wikiPage,
   onWikiPageChange,
   isWikiTabActive = false,
+  isWorkspaceContext = false,
   terminalGridRef,
   onSwitchToTerminal,
   onSwitchToProjectWikiAndRun,
@@ -145,7 +148,7 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
         <AlertTriangle className="size-5 text-destructive" />
-        <p className="text-sm">{catalogError || "Failed to load wiki catalog."}</p>
+        <p className="text-sm">{catalogError || "Failed to load wiki registry."}</p>
         <Button
           variant="outline"
           size="sm"
@@ -189,8 +192,9 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
             activePage={activePage}
             onSelectPage={handleSelectPage}
             updateStatus={updateStatus ?? null}
-            onTriggerUpdate={handleTriggerUpdate}
-            onTriggerSpecify={handleTriggerSpecify}
+            onTriggerUpdate={isWorkspaceContext ? undefined : handleTriggerUpdate}
+            onTriggerSpecify={isWorkspaceContext ? undefined : handleTriggerSpecify}
+            isWorkspaceContext={isWorkspaceContext}
           />
         </Panel>
 
@@ -239,18 +243,20 @@ export const WikiViewer: React.FC<WikiViewerProps> = ({
       {/* Notion-style floating TOC on right edge */}
       <WikiToc contextId={contextId} />
 
-      <WikiSpecifyDialog
-        open={specifyDialogOpen}
-        onOpenChange={setSpecifyDialogOpen}
-        effectivePath={effectivePath}
-        workspaceId={contextId}
-        terminalGridRef={terminalGridRef}
-        onSwitchToTerminal={onSwitchToTerminal}
-        onSwitchToProjectWikiAndRun={onSwitchToProjectWikiAndRun}
-        onProjectWikiReplaceAndRun={onProjectWikiReplaceAndRun}
-        onComplete={handleSpecifyComplete}
-      />
-      {catalog.commit_hash && updateStatus?.currentCommit && (
+      {!isWorkspaceContext && (
+        <WikiSpecifyDialog
+          open={specifyDialogOpen}
+          onOpenChange={setSpecifyDialogOpen}
+          effectivePath={effectivePath}
+          workspaceId={contextId}
+          terminalGridRef={terminalGridRef}
+          onSwitchToTerminal={onSwitchToTerminal}
+          onSwitchToProjectWikiAndRun={onSwitchToProjectWikiAndRun}
+          onProjectWikiReplaceAndRun={onProjectWikiReplaceAndRun}
+          onComplete={handleSpecifyComplete}
+        />
+      )}
+      {!isWorkspaceContext && catalog.commit_hash && updateStatus?.currentCommit && (
         <WikiUpdateDialog
           open={updateDialogOpen}
           onOpenChange={setUpdateDialogOpen}

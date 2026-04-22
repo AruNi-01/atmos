@@ -1943,7 +1943,9 @@ const CenterStage: React.FC = () => {
               contextId={effectiveContextId}
               effectivePath={currentProject?.mainFilePath || ""}
               projectName={currentProject?.name}
+              projectId={currentProject?.id}
               refreshTrigger={wikiRefreshTrigger}
+              isWorkspaceContext={!!currentWorkspace}
               terminalGridRef={terminalGridRef}
               onSwitchToTerminal={() => setFixedTab("terminal")}
               onSwitchToProjectWikiAndRun={(command) => {

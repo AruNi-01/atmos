@@ -38,6 +38,8 @@ interface WikiSidebarProps {
   updateStatus?: WikiUpdateStatus | null;
   onTriggerUpdate?: () => void;
   onTriggerSpecify?: () => void;
+  /** True when viewing from a Workspace context (read-only hints) */
+  isWorkspaceContext?: boolean;
 }
 
 function getRepoIcon(repoUrl: string): React.ComponentType<{ className?: string }> {
@@ -255,6 +257,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
   updateStatus,
   onTriggerUpdate,
   onTriggerSpecify,
+  isWorkspaceContext = false,
 }) => {
   const [infoOpen, setInfoOpen] = useState(false);
   const sorted = [...catalog.catalog].sort((a, b) => a.order - b.order);
@@ -293,6 +296,23 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
               <span className="flex items-center justify-center text-muted-foreground animate-spin">
                 <LoaderCircle className="size-4" />
               </span>
+            ) : hasUpdate && isWorkspaceContext ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="relative size-10 flex items-center justify-center text-muted-foreground cursor-help"
+                      aria-label="Wiki is outdated. Update from the parent Project."
+                    >
+                      <LoaderCircle className="size-4" />
+                      <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px]">
+                    <p>Wiki is outdated. Update from the parent Project.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : hasUpdate && onTriggerUpdate ? (
               <TooltipProvider>
                 <Tooltip>
@@ -341,23 +361,25 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
             )}
           </div>
           {/* Specify Wiki icon button */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={onTriggerSpecify}
-                  className="size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer transition-colors border-l border-border"
-                  aria-label="Specify Wiki"
-                >
-                  <FilePlus className="size-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Specify Wiki</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {!isWorkspaceContext && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onTriggerSpecify}
+                    className="size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer transition-colors border-l border-border"
+                    aria-label="Specify Wiki"
+                  >
+                    <FilePlus className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Specify Wiki</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
 
