@@ -60,6 +60,10 @@ impl Installer {
                 self.install_via_pip(package, definition.version, &target_dir)
                     .await?;
             }
+            InstallMethod::GoInstall { package, .. } => {
+                self.install_via_go(package, definition.version, &target_dir)
+                    .await?;
+            }
             InstallMethod::SystemBinary { bin } => {
                 let binary = self.find_in_path(bin)?;
                 fs::write(&marker, binary.to_string_lossy().as_bytes())
@@ -90,7 +94,9 @@ impl Installer {
         }
 
         match &definition.install {
-            InstallMethod::Npm { bin, .. } | InstallMethod::Pip { bin, .. } => {
+            InstallMethod::Npm { bin, .. }
+            | InstallMethod::Pip { bin, .. }
+            | InstallMethod::GoInstall { bin, .. } => {
                 let candidate = target_dir.join("bin").join(bin);
                 if candidate.exists() {
                     return Some(candidate);
@@ -122,23 +128,26 @@ impl Installer {
         destination: &Path,
     ) -> anyhow::Result<()> {
         let release = self.fetch_release(repo, version).await?;
-        let os = current_os();
-        let arch = current_arch();
+        let os = current_os_for_repo(repo);
+        let arch = current_arch_for_repo(repo);
 
         let pattern = asset_pattern
             .replace("{os}", &os)
             .replace("{arch}", &arch)
             .replace("{version}", release.tag_name.trim_start_matches('v'));
 
+        let os_aliases = os_aliases();
+        let arch_aliases = arch_aliases();
+
         let asset = release
             .assets
             .iter()
             .find(|asset| asset.name.contains(&pattern))
             .or_else(|| {
-                release
-                    .assets
-                    .iter()
-                    .find(|asset| asset.name.contains(&os) && asset.name.contains(&arch))
+                release.assets.iter().find(|asset| {
+                    os_aliases.iter().any(|os| asset.name.contains(os))
+                        && arch_aliases.iter().any(|arch| asset.name.contains(arch))
+                })
             })
             .ok_or_else(|| anyhow!("no release asset matched pattern {pattern} in {repo}"))?;
 
@@ -216,10 +225,7 @@ impl Installer {
     }
 
     async fn fetch_release(&self, repo: &str, version: &str) -> anyhow::Result<GitHubRelease> {
-        let url = format!(
-            "https://api.github.com/repos/{repo}/releases/tags/{}",
-            version.trim_start_matches('v')
-        );
+        let url = format!("https://api.github.com/repos/{repo}/releases/tags/{version}");
         let response = self
             .client
             .get(url)
@@ -233,6 +239,27 @@ impl Installer {
             .json::<GitHubRelease>()
             .await
             .context("failed to deserialize GitHub release payload")
+    }
+
+    async fn install_via_go(
+        &self,
+        package: &str,
+        version: &str,
+        destination: &Path,
+    ) -> anyhow::Result<()> {
+        let go_bin = destination.join("bin");
+        fs::create_dir_all(&go_bin).await?;
+        let status = Command::new("go")
+            .env("GOBIN", &go_bin)
+            .args(["install", &format!("{package}@{version}")])
+            .status()
+            .await
+            .context("failed to spawn go install")?;
+
+        if !status.success() {
+            return Err(anyhow!("go install failed for package {package}"));
+        }
+        Ok(())
     }
 
     async fn update_registry_cache(
@@ -318,7 +345,15 @@ fn extract_archive(file_name: &str, bytes: &[u8], destination: &Path) -> anyhow:
     if file_name.ends_with(".tar.gz") {
         let decoder = flate2::read::GzDecoder::new(Cursor::new(bytes));
         let mut archive = tar::Archive::new(decoder);
-        archive.unpack(destination)?;
+        for entry in archive.entries()? {
+            let mut entry = entry?;
+            let entry_path = entry.path()?.into_owned();
+            let output = safe_join(destination, entry_path.as_path())?;
+            if let Some(parent) = output.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            entry.unpack(&output)?;
+        }
         return Ok(());
     }
 
@@ -337,7 +372,7 @@ fn extract_archive(file_name: &str, bytes: &[u8], destination: &Path) -> anyhow:
         let mut archive = zip::ZipArchive::new(reader)?;
         for idx in 0..archive.len() {
             let mut file = archive.by_index(idx)?;
-            let output = safe_join(destination, file.name())?;
+            let output = safe_join(destination, Path::new(file.name()))?;
             if file.is_dir() {
                 std::fs::create_dir_all(&output)?;
                 continue;
@@ -377,15 +412,16 @@ fn is_likely_executable(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-fn safe_join(destination: &Path, entry_name: &str) -> anyhow::Result<PathBuf> {
+fn safe_join(destination: &Path, entry_path: &Path) -> anyhow::Result<PathBuf> {
     let mut output = destination.to_path_buf();
-    for part in Path::new(entry_name).components() {
+    for part in entry_path.components() {
         match part {
             std::path::Component::Normal(segment) => output.push(segment),
             std::path::Component::CurDir => {}
             _ => {
                 return Err(anyhow!(
-                    "zip entry contains unsafe path traversal segment: {entry_name}"
+                    "archive entry contains unsafe path traversal segment: {}",
+                    entry_path.display()
                 ));
             }
         }
@@ -408,25 +444,86 @@ fn set_executable(_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn current_arch() -> String {
-    if cfg!(target_arch = "aarch64") {
-        "aarch64".to_string()
-    } else if cfg!(target_arch = "x86_64") {
-        "x86_64".to_string()
-    } else {
-        std::env::consts::ARCH.to_string()
+fn current_arch_for_repo(repo: &str) -> String {
+    match repo {
+        "LuaLS/lua-language-server" => {
+            if cfg!(target_arch = "aarch64") {
+                "arm64".to_string()
+            } else if cfg!(target_arch = "x86_64") {
+                "x64".to_string()
+            } else {
+                std::env::consts::ARCH.to_string()
+            }
+        }
+        _ => {
+            if cfg!(target_arch = "aarch64") {
+                "aarch64".to_string()
+            } else if cfg!(target_arch = "x86_64") {
+                "x86_64".to_string()
+            } else {
+                std::env::consts::ARCH.to_string()
+            }
+        }
     }
 }
 
-fn current_os() -> String {
+fn current_os_for_repo(repo: &str) -> String {
+    match repo {
+        "clangd/clangd" => {
+            if cfg!(target_os = "macos") {
+                "mac".to_string()
+            } else if cfg!(target_os = "linux") {
+                "linux".to_string()
+            } else if cfg!(target_os = "windows") {
+                "windows".to_string()
+            } else {
+                std::env::consts::OS.to_string()
+            }
+        }
+        "LuaLS/lua-language-server" => {
+            if cfg!(target_os = "macos") {
+                "darwin".to_string()
+            } else if cfg!(target_os = "linux") {
+                "linux".to_string()
+            } else if cfg!(target_os = "windows") {
+                "win32".to_string()
+            } else {
+                std::env::consts::OS.to_string()
+            }
+        }
+        _ => {
+            if cfg!(target_os = "macos") {
+                "apple-darwin".to_string()
+            } else if cfg!(target_os = "linux") {
+                "unknown-linux-gnu".to_string()
+            } else if cfg!(target_os = "windows") {
+                "pc-windows-msvc".to_string()
+            } else {
+                std::env::consts::OS.to_string()
+            }
+        }
+    }
+}
+
+fn os_aliases() -> Vec<&'static str> {
     if cfg!(target_os = "macos") {
-        "apple-darwin".to_string()
+        vec!["mac", "darwin", "apple-darwin", "osx"]
     } else if cfg!(target_os = "linux") {
-        "unknown-linux-gnu".to_string()
+        vec!["linux", "unknown-linux-gnu"]
     } else if cfg!(target_os = "windows") {
-        "pc-windows-msvc".to_string()
+        vec!["windows", "win32", "pc-windows-msvc"]
     } else {
-        std::env::consts::OS.to_string()
+        vec![std::env::consts::OS]
+    }
+}
+
+fn arch_aliases() -> Vec<&'static str> {
+    if cfg!(target_arch = "aarch64") {
+        vec!["aarch64", "arm64"]
+    } else if cfg!(target_arch = "x86_64") {
+        vec!["x86_64", "x64", "amd64"]
+    } else {
+        vec![std::env::consts::ARCH]
     }
 }
 
@@ -442,8 +539,8 @@ mod tests {
 
     #[test]
     fn pattern_matches_arch_os() {
-        let os = current_os();
-        let arch = current_arch();
+        let os = current_os_for_repo("rust-lang/rust-analyzer");
+        let arch = current_arch_for_repo("rust-lang/rust-analyzer");
         assert!(!os.is_empty());
         assert!(!arch.is_empty());
     }

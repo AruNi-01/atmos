@@ -108,6 +108,14 @@ pub fn initialize_request(root_uri: &str) -> JsonRpcMessage {
         .expect("default initialize options should be valid json")
 }
 
+pub fn initialized_notification() -> JsonRpcMessage {
+    JsonRpcMessage::Notification {
+        jsonrpc: "2.0".to_string(),
+        method: "initialized".to_string(),
+        params: Some(serde_json::json!({})),
+    }
+}
+
 pub fn initialize_request_with_options(
     root_uri: &str,
     initialization_options: &str,

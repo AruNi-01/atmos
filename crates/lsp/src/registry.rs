@@ -23,6 +23,10 @@ pub enum InstallMethod {
         package: &'static str,
         bin: &'static str,
     },
+    GoInstall {
+        package: &'static str,
+        bin: &'static str,
+    },
     SystemBinary {
         bin: &'static str,
     },
@@ -73,9 +77,9 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             extensions: &["go"],
             launch_args: &[],
             initialization_options: "{}",
-            install: InstallMethod::GitHubRelease {
-                repo: "golang/tools",
-                asset_pattern: "gopls_{os}_{arch}.tar.gz",
+            install: InstallMethod::GoInstall {
+                package: "golang.org/x/tools/gopls",
+                bin: "gopls",
             },
         },
         LspDefinition {

@@ -1527,19 +1527,22 @@ export const functionSettingsApi = {
 };
 
 export const lspWsApi = {
-  activateForFile: async (filePath: string): Promise<LspStatusResponse> => {
+  activateForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
     return wsRequest<LspStatusResponse>("lsp_activate_for_file", {
       file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
     });
   },
-  statusForFile: async (filePath: string): Promise<LspStatusResponse> => {
+  statusForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
     return wsRequest<LspStatusResponse>("lsp_status_for_file", {
       file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
     });
   },
-  restartForFile: async (filePath: string): Promise<LspStatusResponse> => {
+  restartForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
     return wsRequest<LspStatusResponse>("lsp_restart_for_file", {
       file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
     });
   },
 };

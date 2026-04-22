@@ -8,7 +8,9 @@ use tokio::sync::RwLock;
 
 use crate::installer::Installer;
 use crate::registry::{builtin_lsp_registry, find_by_extension, LspDefinition};
-use crate::transport::{initialize_request_with_options, LspTransport};
+use crate::transport::{
+    initialize_request_with_options, initialized_notification, JsonRpcMessage, LspTransport,
+};
 
 #[derive(Debug, Clone)]
 pub enum LspRuntimeStatus {
@@ -173,7 +175,9 @@ impl LspManager {
         if let Some(existing_state) = self.state.read().await.get(&key) {
             if matches!(
                 existing_state.status,
-                LspRuntimeStatus::Installing | LspRuntimeStatus::Starting
+                LspRuntimeStatus::Installing
+                    | LspRuntimeStatus::Starting
+                    | LspRuntimeStatus::Running
             ) {
                 return self.snapshot_for_file(file_path, Some(&root)).await;
             }
@@ -304,6 +308,24 @@ impl LspManager {
         let initialize =
             initialize_request_with_options(&root_uri, definition.initialization_options)?;
         if let Err(error) = transport.send(&initialize).await {
+            self.mark_error(&key, error.to_string()).await;
+            return Err(error);
+        }
+
+        match transport.read().await {
+            Ok(JsonRpcMessage::Response { error, .. }) if error.is_none() => {}
+            Ok(_) => {
+                let message = format!("invalid initialize response for {}", definition.id);
+                self.mark_error(&key, message.clone()).await;
+                return Err(anyhow::anyhow!(message));
+            }
+            Err(error) => {
+                self.mark_error(&key, error.to_string()).await;
+                return Err(error);
+            }
+        }
+
+        if let Err(error) = transport.send(&initialized_notification()).await {
             self.mark_error(&key, error.to_string()).await;
             return Err(error);
         }

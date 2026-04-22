@@ -41,6 +41,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
+  const currentProjectPath = useEditorStore(s => s.currentProjectPath);
   const navigationTarget = useEditorStore((state) =>
     effectiveContextId ? state.navigationTargets[effectiveContextId]?.[file.path] ?? null : null
   );
@@ -83,21 +84,29 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
+    const schedulePoll = () => {
+      pollTimer = setTimeout(async () => {
+        try {
+          const latest = await lspWsApi.statusForFile(file.path, currentProjectPath);
+          if (cancelled) return;
+          setLspStatus(latest);
+          if (latest.status === "installing" || latest.status === "starting") {
+            schedulePoll();
+          }
+        } catch {
+          // ignore transient polling failure
+        }
+      }, 1500);
+    };
+
     const syncLspStatus = async () => {
       try {
-        const activated = await lspWsApi.activateForFile(file.path);
+        const activated = await lspWsApi.activateForFile(file.path, currentProjectPath);
         if (cancelled) return;
         setLspStatus(activated);
 
         if (activated.status === "installing" || activated.status === "starting") {
-          pollTimer = setTimeout(async () => {
-            try {
-              const latest = await lspWsApi.statusForFile(file.path);
-              if (!cancelled) setLspStatus(latest);
-            } catch {
-              // ignore transient polling failure
-            }
-          }, 1500);
+          schedulePoll();
         }
       } catch {
         if (!cancelled) {
@@ -117,7 +126,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [file.path]);
+  }, [currentProjectPath, file.path]);
 
   // Selection popover for copying code to AI
   const getSelectionInfo = useCallback(() => {
@@ -314,7 +323,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                     type="button"
                     className="h-8 rounded-md border border-border px-2 text-xs hover:bg-accent"
                     onClick={() => {
-                      void lspWsApi.restartForFile(file.path).then(setLspStatus).catch(() => {});
+                      void lspWsApi.restartForFile(file.path, currentProjectPath).then(setLspStatus).catch(() => {});
                     }}
                   >
                     Restart LSP
