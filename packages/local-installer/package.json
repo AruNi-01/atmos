@@ -1,0 +1,23 @@
+{
+  "name": "@atmos/local",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Install and launch the local Atmos web runtime on your machine.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AruNi-01/atmos.git"
+  },
+  "homepage": "https://github.com/AruNi-01/atmos",
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "atmos-local": "./bin/atmos-local.mjs"
+  }
+}

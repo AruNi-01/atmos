@@ -1,0 +1,315 @@
+name: Local Runtime Release
+
+permissions:
+  contents: write
+  id-token: write
+
+on:
+  push:
+    tags:
+      - "local-v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (branch, tag or SHA)"
+        required: false
+        default: "main"
+      platform:
+        description: "Target platform"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "macos-14"
+          - "macos-15-intel"
+          - "ubuntu-22.04"
+      create_release:
+        description: "Create GitHub Release"
+        required: true
+        default: true
+        type: boolean
+      release_tag:
+        description: "Release tag when create_release=true (example: local-v0.1.0)"
+        required: false
+      publish_npm:
+        description: "Publish @atmos/local to npm"
+        required: true
+        default: true
+        type: boolean
+      prerelease:
+        description: "Mark release as prerelease"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: local-runtime-${{ github.workflow }}-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  resolve-release-config:
+    runs-on: ubuntu-latest
+    outputs:
+      create_release: ${{ steps.resolve.outputs.create_release }}
+      publish_npm: ${{ steps.resolve.outputs.publish_npm }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      release_version: ${{ steps.resolve.outputs.release_version }}
+      checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      build_matrix: ${{ steps.resolve.outputs.build_matrix }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve values
+        id: resolve
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          matrix_for_platform() {
+            case "$1" in
+              "all" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin"},{"platform":"macos-15-intel","target":"x86_64-apple-darwin"},{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"}]}'
+                ;;
+              "macos-14" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin"}]}'
+                ;;
+              "macos-15-intel" )
+                printf '%s\n' '{"include":[{"platform":"macos-15-intel","target":"x86_64-apple-darwin"}]}'
+                ;;
+              "ubuntu-22.04" )
+                printf '%s\n' '{"include":[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"}]}'
+                ;;
+              * )
+                echo "Unsupported platform: $1" >&2
+                exit 1
+                ;;
+            esac
+          }
+
+          validate_checkout_ref() {
+            local ref="$1"
+            local encoded_ref
+            encoded_ref="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ref")"
+            local status
+            status="$(
+              curl -sS -o /dev/null -w "%{http_code}" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${encoded_ref}"
+            )"
+            if [ "$status" != "200" ]; then
+              echo "Invalid Git ref to build: $ref" >&2
+              exit 1
+            fi
+          }
+
+          EVENT="${{ github.event_name }}"
+          if [ "$EVENT" = "push" ]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            if [[ ! "$RELEASE_TAG" =~ ^local-v.+$ ]]; then
+              echo "Unexpected release tag: $RELEASE_TAG" >&2
+              exit 1
+            fi
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+            echo "publish_npm=true" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            echo "release_version=${RELEASE_TAG#local-v}" >> "$GITHUB_OUTPUT"
+            echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "build_matrix=$(matrix_for_platform all)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CREATE_RELEASE="${{ github.event.inputs.create_release }}"
+          PUBLISH_NPM="${{ github.event.inputs.publish_npm }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+          PRERELEASE="${{ github.event.inputs.prerelease }}"
+          CHECKOUT_REF="${{ github.event.inputs.ref }}"
+          PLATFORM="${{ github.event.inputs.platform }}"
+
+          if [ -z "$CHECKOUT_REF" ]; then
+            CHECKOUT_REF="main"
+          fi
+          validate_checkout_ref "$CHECKOUT_REF"
+
+          if [ "$CREATE_RELEASE" = "true" ] && [ -z "$RELEASE_TAG" ]; then
+            echo "release_tag is required when create_release=true" >&2
+            exit 1
+          fi
+
+          if [ -n "$RELEASE_TAG" ] && [[ ! "$RELEASE_TAG" =~ ^local-v.+$ ]]; then
+            echo "release_tag must match local-v<version>" >&2
+            exit 1
+          fi
+
+          if [ -n "$RELEASE_TAG" ]; then
+            RELEASE_VERSION="${RELEASE_TAG#local-v}"
+          else
+            RELEASE_VERSION="$(python3 - <<'PY'
+import json
+from pathlib import Path
+
+package = json.loads(Path("packages/local-installer/package.json").read_text())
+print(package["version"])
+PY
+)"
+          fi
+
+          echo "create_release=${CREATE_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "publish_npm=${PUBLISH_NPM}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "checkout_ref=${CHECKOUT_REF}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
+          echo "build_matrix=$(matrix_for_platform "$PLATFORM")" >> "$GITHUB_OUTPUT"
+
+  verify-versions:
+    runs-on: ubuntu-latest
+    needs: resolve-release-config
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
+      - name: Verify local runtime versions
+        env:
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: node ./scripts/release/check-local-runtime-version.mjs
+
+  create-release:
+    if: needs.resolve-release-config.outputs.create_release == 'true'
+    runs-on: ubuntu-latest
+    needs: [resolve-release-config, verify-versions]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
+      - name: Create draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.resolve-release-config.outputs.release_version }}
+          PRERELEASE: ${{ needs.resolve-release-config.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists"
+            exit 0
+          fi
+
+          NOTES_FILE="$(mktemp)"
+          cat > "$NOTES_FILE" <<EOF
+          Atmos local runtime ${RELEASE_VERSION}
+
+          Assets:
+          - prebuilt local runtime archives for each supported platform
+          - npm installer package: \`@atmos/local\`
+          EOF
+
+          EXTRA_ARGS=()
+          if [ "$PRERELEASE" = "true" ]; then
+            EXTRA_ARGS+=(--prerelease)
+          fi
+
+          gh release create "$RELEASE_TAG" \
+            --title "Atmos Local Runtime ${RELEASE_VERSION}" \
+            --draft \
+            "${EXTRA_ARGS[@]}" \
+            --notes-file "$NOTES_FILE"
+
+  build-runtime:
+    name: Build local runtime (${{ matrix.target }})
+    runs-on: ${{ matrix.platform }}
+    needs: [resolve-release-config, verify-versions, create-release]
+    if: always() && needs.verify-versions.result == 'success' && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-release-config.outputs.build_matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: local-runtime-${{ matrix.target }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build local runtime
+        run: node ./scripts/local-runtime/build-runtime.mjs --target ${{ matrix.target }} --version ${{ needs.resolve-release-config.outputs.release_version }} --output-dir ${{ runner.temp }}/local-runtime
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: local-runtime-${{ matrix.target }}
+          path: ${{ runner.temp }}/local-runtime/atmos-local-runtime-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+      - name: Upload release asset
+        if: needs.resolve-release-config.outputs.create_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" \
+            "${RUNNER_TEMP}/local-runtime/atmos-local-runtime-${{ matrix.target }}.tar.gz" \
+            --clobber
+
+  publish-npm:
+    if: needs.resolve-release-config.outputs.publish_npm == 'true'
+    runs-on: ubuntu-latest
+    needs: [resolve-release-config, verify-versions, build-runtime]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish @atmos/local
+        working-directory: packages/local-installer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_VERSION: ${{ needs.resolve-release-config.outputs.release_version }}
+        run: |
+          set -euo pipefail
+
+          CURRENT_VERSION="$(npm view @atmos/local version 2>/dev/null || true)"
+          if [ "$CURRENT_VERSION" = "$RELEASE_VERSION" ]; then
+            echo "@atmos/local ${RELEASE_VERSION} is already published"
+            exit 0
+          fi
+
+          npm publish --access public
+
+  publish-release:
+    if: always() && needs.resolve-release-config.outputs.create_release == 'true' && needs.build-runtime.result == 'success' && (needs.publish-npm.result == 'success' || needs.publish-npm.result == 'skipped')
+    runs-on: ubuntu-latest
+    needs: [resolve-release-config, build-runtime, publish-npm]
+    steps:
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --draft=false

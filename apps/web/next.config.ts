@@ -5,8 +5,10 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const isDev = process.env.NODE_ENV === "development";
 const isDesktop = process.env.BUILD_TARGET === "desktop";
+const isLocalRuntime = process.env.BUILD_TARGET === "local-web";
+const isStaticExportTarget = isDesktop || isLocalRuntime;
 
-const devHeadersConfig = !isDesktop
+const devHeadersConfig = !isStaticExportTarget
   ? {
       async headers() {
         if (!isDev) return [];
@@ -25,11 +27,11 @@ const devHeadersConfig = !isDesktop
   : {};
 
 const nextConfig: NextConfig = {
-  output: isDesktop ? "export" : undefined,
+  output: isStaticExportTarget ? "export" : undefined,
   // Generate en/index.html instead of en.html so static file servers
   // can resolve /en/ correctly (ServeDir append_index_html).
-  trailingSlash: isDesktop,
-  images: { unoptimized: isDesktop },
+  trailingSlash: isStaticExportTarget,
+  images: { unoptimized: isStaticExportTarget },
   allowedDevOrigins: ["*"],
   experimental: { viewTransition: true },
   ...devHeadersConfig,
