@@ -29,6 +29,7 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     "project-wiki",
     "project-wiki-update",
     "project-wiki-specify",
+    "project-wiki-ask",
     // Code review skills
     "fullstack-reviewer",
     "code-review-expert",
@@ -156,6 +157,7 @@ fn repo_skill_root(skill_name: &str) -> Option<&'static str> {
         "project-wiki" => Some("skills/project-wiki"),
         "project-wiki-update" => Some("skills/project-wiki-update"),
         "project-wiki-specify" => Some("skills/project-wiki-specify"),
+        "project-wiki-ask" => Some("skills/project-wiki-ask"),
         "fullstack-reviewer" => Some("skills/code_review_skills/fullstack-reviewer"),
         "code-review-expert" => Some("skills/code_review_skills/code-review-expert"),
         "typescript-react-reviewer" => Some("skills/code_review_skills/typescript-react-reviewer"),
