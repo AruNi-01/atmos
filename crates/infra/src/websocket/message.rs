@@ -128,6 +128,27 @@ pub struct UsageAutoRefreshRequest {
     pub interval_minutes: Option<u64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LspActivateForFileRequest {
+    pub file_path: String,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LspStatusForFileRequest {
+    pub file_path: String,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LspRestartForFileRequest {
+    pub file_path: String,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+}
+
 /// 操作类型枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -412,6 +433,12 @@ pub enum WsAction {
     NotificationSettingsUpdate,
     /// Send a test push notification
     NotificationTestPush,
+    /// Activate language server for an opened file path
+    LspActivateForFile,
+    /// Query language server status for a file path
+    LspStatusForFile,
+    /// Restart language server for a file path
+    LspRestartForFile,
 }
 
 /// 服务端主动推送的事件类型

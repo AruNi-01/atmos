@@ -116,6 +116,10 @@ export type WsAction =
   | "notification_settings_get"
   | "notification_settings_update"
   | "notification_test_push"
+  // LSP 操作
+  | "lsp_activate_for_file"
+  | "lsp_status_for_file"
+  | "lsp_restart_for_file"
   // Agent 操作
   | "agent_list"
   | "agent_install"

@@ -24,10 +24,16 @@ import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorSettings } from '@/hooks/use-editor-settings';
+import { lspWsApi, type LspStatusResponse } from '@/api/ws-api';
 
 interface CodeMirrorEditorProps {
   file: OpenFile;
   className?: string;
+}
+
+function toBadgeState(status: LspStatusResponse["status"]): 'success' | 'warning' {
+  if (status === "running") return "success";
+  return "warning";
 }
 
 export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, className }) => {
@@ -51,6 +57,11 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [lspStatus, setLspStatus] = useState<LspStatusResponse>({
+    server_id: null,
+    server_name: null,
+    status: "unavailable",
+  });
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
   const isPreview = isMarkdown && previewFilePath === file.path;
@@ -67,6 +78,46 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const syncLspStatus = async () => {
+      try {
+        const activated = await lspWsApi.activateForFile(file.path);
+        if (cancelled) return;
+        setLspStatus(activated);
+
+        if (activated.status === "installing" || activated.status === "starting") {
+          pollTimer = setTimeout(async () => {
+            try {
+              const latest = await lspWsApi.statusForFile(file.path);
+              if (!cancelled) setLspStatus(latest);
+            } catch {
+              // ignore transient polling failure
+            }
+          }, 1500);
+        }
+      } catch {
+        if (!cancelled) {
+          setLspStatus({
+            server_id: null,
+            server_name: null,
+            status: "error",
+            error: "failed to activate lsp",
+          });
+        }
+      }
+    };
+
+    void syncLspStatus();
+
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, [file.path]);
 
   // Selection popover for copying code to AI
   const getSelectionInfo = useCallback(() => {
@@ -194,6 +245,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     enableOnContentEditable: true,
   }, [handleSave]);
 
+  const lspBadgeState = toBadgeState(lspStatus.status);
+  const lspLabel = lspStatus.server_name || "LSP unavailable";
+  const shouldShowLspBadge = lspStatus.status !== "unavailable";
+
   return (
     <div ref={containerRef} className={cn('h-full w-full relative flex flex-col', className)}>
       {file.isLoading ? (
@@ -225,6 +280,47 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
               >
                 {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
               </button>
+            )}
+
+            {shouldShowLspBadge && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-muted/80 px-2 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-sm"
+                    title={lspBadgeState === 'success' ? `LSP active: ${lspLabel}` : (lspStatus.error || 'LSP is not ready')}
+                    aria-live="polite"
+                  >
+                    <span
+                      className={cn(
+                        "text-sm leading-none",
+                        lspBadgeState === 'success' ? "text-emerald-500" : "text-amber-500",
+                        lspStatus.status === "installing" && "animate-pulse"
+                      )}
+                      aria-hidden="true"
+                    >
+                      ·
+                    </span>
+                    <span className="truncate max-w-[190px]">{lspLabel}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" sideOffset={8} className="w-80 space-y-2 p-3">
+                  <div className="text-xs text-muted-foreground">Version: {lspStatus.version || "unknown"}</div>
+                  <div className="text-xs text-muted-foreground break-all">Install: {lspStatus.install_path || "N/A"}</div>
+                  {lspStatus.last_error && (
+                    <div className="text-xs text-amber-600 break-all">Last error: {lspStatus.last_error}</div>
+                  )}
+                  <button
+                    type="button"
+                    className="h-8 rounded-md border border-border px-2 text-xs hover:bg-accent"
+                    onClick={() => {
+                      void lspWsApi.restartForFile(file.path).then(setLspStatus).catch(() => {});
+                    }}
+                  >
+                    Restart LSP
+                  </button>
+                </PopoverContent>
+              </Popover>
             )}
 
             <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
