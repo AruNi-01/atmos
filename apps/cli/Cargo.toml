@@ -1,0 +1,11 @@
+[package]
+name = "atmos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { workspace = true }
+serde_json = "1.0"
+tokio = { workspace = true }
+core-service = { path = "../../crates/core-service" }
+infra = { path = "../../crates/infra" }

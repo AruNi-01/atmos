@@ -90,6 +90,23 @@ export type WsAction =
   | "workspace_confirm_todos"
   // Project 检查操作
   | "project_check_can_delete"
+  // Review 操作
+  | "review_session_list"
+  | "review_session_get"
+  | "review_session_create"
+  | "review_session_close"
+  | "review_session_archive"
+  | "review_file_list"
+  | "review_file_content_get"
+  | "review_file_set_reviewed"
+  | "review_thread_list"
+  | "review_thread_create"
+  | "review_thread_update_status"
+  | "review_message_add"
+  | "review_fix_run_list"
+  | "review_fix_run_create"
+  | "review_fix_run_artifact_get"
+  | "review_fix_run_finalize"
   // Skills 操作
   | "skills_list"
   | "skills_get"

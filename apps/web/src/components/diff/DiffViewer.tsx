@@ -10,16 +10,24 @@ import type {
   FileDiffMetadata,
 } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
-import { gitApi } from '@/api/ws-api';
+import { gitApi, reviewWsApi } from '@/api/ws-api';
 import { Loader2 } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
+import { ReviewSessionPanel } from '@/components/diff/ReviewSessionPanel';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
+import { useContextParams } from '@/hooks/use-context-params';
 
 interface DiffViewerProps {
   repoPath: string;
   filePath: string;
+  onRunReviewInTerminal?: (command: string, label: string) => Promise<void> | void;
+}
+
+interface ReviewSnapshotView {
+  snapshotGuid: string;
+  label: string;
 }
 
 const SCROLLBAR_CSS = `
@@ -42,13 +50,19 @@ const SCROLLBAR_CSS = `
   }
 `;
 
-export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
+export const DiffViewer = ({
+  repoPath,
+  filePath,
+  onRunReviewInTerminal,
+}: DiffViewerProps) => {
+  const { workspaceId } = useContextParams();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [oldFile, setOldFile] = useState<FileContents | null>(null);
   const [newFile, setNewFile] = useState<FileContents | null>(null);
   const [workingDiff, setWorkingDiff] = useState<FileDiffMetadata | null>(null);
   const [diffCompareRef, setDiffCompareRef] = useState<string | null>(null);
+  const [reviewSnapshotView, setReviewSnapshotView] = useState<ReviewSnapshotView | null>(null);
   const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
   const [wordWrap, setWordWrap] = useState(false);
   const [disableBackground, setDisableBackground] = useState(false);
@@ -217,6 +231,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       endLine,
       selectedText: selectedText || `Lines ${startLine}-${endLine}`,
       changeType,
+      diffSide: side === 'deletions' ? 'old' : 'new',
       beforeText,
       afterText,
     });
@@ -282,14 +297,24 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
       setDiffCompareRef(null);
 
       try {
-        const diff = await gitApi.getFileDiff(repoPath, filePath);
         const fileName = filePath.split('/').pop() || filePath;
-        const nextOldFile = { name: fileName, contents: diff.old_content };
-        const nextNewFile = { name: fileName, contents: diff.new_content };
-        setOldFile(nextOldFile);
-        setNewFile(nextNewFile);
-        setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
-        setDiffCompareRef(diff.compare_ref);
+        if (reviewSnapshotView) {
+          const diff = await reviewWsApi.getFileContent(reviewSnapshotView.snapshotGuid);
+          const nextOldFile = { name: fileName, contents: diff.old_content };
+          const nextNewFile = { name: fileName, contents: diff.new_content };
+          setOldFile(nextOldFile);
+          setNewFile(nextNewFile);
+          setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
+          setDiffCompareRef(reviewSnapshotView.label);
+        } else {
+          const diff = await gitApi.getFileDiff(repoPath, filePath);
+          const nextOldFile = { name: fileName, contents: diff.old_content };
+          const nextNewFile = { name: fileName, contents: diff.new_content };
+          setOldFile(nextOldFile);
+          setNewFile(nextNewFile);
+          setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
+          setDiffCompareRef(diff.compare_ref);
+        }
       } catch (err) {
         console.error('Failed to load diff:', err);
         setError(err instanceof Error ? err.message : 'Failed to load diff');
@@ -300,7 +325,7 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
     };
 
     loadDiff();
-  }, [repoPath, filePath, compareMode]);
+  }, [repoPath, filePath, compareMode, reviewSnapshotView]);
 
   const diffOptions = useMemo(() => ({
     theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
@@ -354,6 +379,11 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
           >
             <span className="text-sm font-medium text-foreground truncate">{filePath}</span>
             {diffCompareRef && <span className="text-xs text-muted-foreground shrink-0">vs {diffCompareRef}</span>}
+            {reviewSnapshotView ? (
+              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                Snapshot View
+              </span>
+            ) : null}
             {diffStats && (diffStats.additions > 0 || diffStats.deletions > 0) && (
               <span className="text-xs font-mono shrink-0">
                 {diffStats.additions > 0 && <span className="text-green-500">+{diffStats.additions}</span>}
@@ -408,26 +438,40 @@ export const DiffViewer = ({ repoPath, filePath }: DiffViewerProps) => {
         </div>
       </div>
 
-      <div
-        ref={containerRef}
-        className="diff-viewer-container flex-1 min-h-0 w-full overflow-scroll bg-background relative"
-        style={{ height: '100%', scrollbarGutter: 'stable' }}
-      >
-        <SelectionPopover
-          isVisible={isPopoverVisible}
-          position={popoverPosition}
+      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div
+          ref={containerRef}
+          className="diff-viewer-container min-h-0 w-full overflow-scroll bg-background relative"
+          style={{ height: '100%', scrollbarGutter: 'stable' }}
+        >
+          <SelectionPopover
+            isVisible={isPopoverVisible}
+            position={popoverPosition}
+            selectionInfo={selectionInfo}
+            isExpanded={isPopoverExpanded}
+            onExpand={() => setIsPopoverExpanded(true)}
+            onDismiss={dismissPopover}
+            type="diff"
+            popoverRef={popoverRef}
+            positioning="absolute"
+          />
+          <FileDiff
+            fileDiff={workingDiff}
+            options={diffOptions}
+            style={{ minHeight: '100%', width: '100%' }}
+          />
+        </div>
+        <ReviewSessionPanel
+          workspaceId={workspaceId}
+          filePath={filePath}
           selectionInfo={selectionInfo}
-          isExpanded={isPopoverExpanded}
-          onExpand={() => setIsPopoverExpanded(true)}
-          onDismiss={dismissPopover}
-          type="diff"
-          popoverRef={popoverRef}
-          positioning="absolute"
-        />
-        <FileDiff
-          fileDiff={workingDiff}
-          options={diffOptions}
-          style={{ minHeight: '100%', width: '100%' }}
+          onSelectionConsumed={dismissPopover}
+          selectedSnapshotGuid={reviewSnapshotView?.snapshotGuid ?? null}
+          onSelectSnapshotView={(snapshotGuid, label) =>
+            setReviewSnapshotView({ snapshotGuid, label })
+          }
+          onSelectLiveView={() => setReviewSnapshotView(null)}
+          onRunInTerminal={onRunReviewInTerminal}
         />
       </div>
     </div>

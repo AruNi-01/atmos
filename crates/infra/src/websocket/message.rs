@@ -292,6 +292,40 @@ pub enum WsAction {
     /// 检查项目是否可以删除（从归档模态）
     ProjectCheckCanDelete,
 
+    // ===== Review 操作 =====
+    /// 列出 Workspace 下的 review sessions
+    ReviewSessionList,
+    /// 获取单个 review session
+    ReviewSessionGet,
+    /// 创建 review session
+    ReviewSessionCreate,
+    /// 关闭 review session
+    ReviewSessionClose,
+    /// 归档 review session
+    ReviewSessionArchive,
+    /// 列出 revision 下的 review files
+    ReviewFileList,
+    /// 读取 review file snapshot 内容
+    ReviewFileContentGet,
+    /// 更新文件 reviewed 状态
+    ReviewFileSetReviewed,
+    /// 列出 review threads
+    ReviewThreadList,
+    /// 创建 review thread
+    ReviewThreadCreate,
+    /// 更新 review thread 状态
+    ReviewThreadUpdateStatus,
+    /// 添加 review message
+    ReviewMessageAdd,
+    /// 列出 review fix runs
+    ReviewFixRunList,
+    /// 创建 review fix run
+    ReviewFixRunCreate,
+    /// 读取 review fix run artifact
+    ReviewFixRunArtifactGet,
+    /// finalize review fix run into a new revision
+    ReviewFixRunFinalize,
+
     // ===== Skills 操作 =====
     /// 获取已安装的 Skills 列表
     SkillsList,
@@ -438,6 +472,14 @@ pub enum WsEvent {
     AgentNotification,
     /// Current branch PR status should be refreshed
     GithubBranchPrStatusRefreshed,
+    /// Review thread changed
+    ReviewThreadUpdated,
+    /// Review message created
+    ReviewMessageCreated,
+    /// Review file state updated
+    ReviewFileUpdated,
+    /// Review fix run changed
+    ReviewFixRunUpdated,
 }
 
 // ===== 消息通知数据结构 =====
@@ -483,6 +525,124 @@ pub struct WorkspaceDeleteProgressNotification {
     pub step: String,
     pub message: String,
     pub success: bool,
+}
+
+// ===== Review 操作数据结构 =====
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewSessionListRequest {
+    pub workspace_guid: String,
+    #[serde(default)]
+    pub include_archived: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewSessionGetRequest {
+    pub session_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewSessionCreateRequest {
+    pub workspace_guid: String,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub created_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewSessionCloseRequest {
+    pub session_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewSessionArchiveRequest {
+    pub session_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFileListRequest {
+    pub revision_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFileContentGetRequest {
+    pub file_snapshot_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFileSetReviewedRequest {
+    pub file_state_guid: String,
+    pub reviewed: bool,
+    #[serde(default)]
+    pub reviewed_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewThreadListRequest {
+    pub session_guid: String,
+    #[serde(default)]
+    pub revision_guid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewThreadCreateRequest {
+    pub session_guid: String,
+    pub revision_guid: String,
+    pub file_snapshot_guid: String,
+    pub anchor: Value,
+    pub body: String,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub created_by: Option<String>,
+    #[serde(default)]
+    pub parent_thread_guid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewThreadUpdateStatusRequest {
+    pub thread_guid: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewMessageAddRequest {
+    pub thread_guid: String,
+    pub author_type: String,
+    pub kind: String,
+    pub body: String,
+    #[serde(default)]
+    pub fix_run_guid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFixRunListRequest {
+    pub session_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFixRunCreateRequest {
+    pub session_guid: String,
+    pub base_revision_guid: String,
+    pub execution_mode: String,
+    #[serde(default)]
+    pub selected_thread_guids: Vec<String>,
+    #[serde(default)]
+    pub created_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFixRunArtifactGetRequest {
+    pub run_guid: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFixRunFinalizeRequest {
+    pub run_guid: String,
+    #[serde(default)]
+    pub title: Option<String>,
 }
 
 // ===== 文件系统操作数据结构 =====

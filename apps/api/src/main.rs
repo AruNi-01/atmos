@@ -15,7 +15,7 @@ use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
     AgentHooksService, AgentService, MessagePushService, NotificationService, ProjectService,
-    TerminalService, TestService, WorkspaceService, WsMessageService,
+    ReviewService, TerminalService, TestService, WorkspaceService, WsMessageService,
 };
 use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
@@ -177,6 +177,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting ATMOS API Server...");
 
+    if let Err(error) = infra::utils::atmos_cli::ensure_atmos_cli_on_startup() {
+        warn!("Non-critical startup task failed: Atmos CLI install: {}", error);
+    }
+
     let db_connection = DbConnection::new().await?;
     info!("Database connected");
 
@@ -193,6 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test_service = Arc::new(TestService::new(Arc::clone(&test_engine), (*db).clone()));
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
+    let review_service = Arc::new(ReviewService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
     let agent_service_for_startup = Arc::clone(&agent_service);
     let usage_service = Arc::new(UsageService::default());
@@ -207,6 +212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&workspace_service),
         Arc::clone(&terminal_service),
         Arc::clone(&agent_service),
+        Arc::clone(&review_service),
         Arc::clone(&usage_service),
     ));
 

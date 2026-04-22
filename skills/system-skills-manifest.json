@@ -51,6 +51,9 @@
     ],
     "git-commit": [
       "skills/git-commit/SKILL.md"
+    ],
+    "atmos-review-fix": [
+      "skills/atmos-review-fix/SKILL.md"
     ]
   }
 }

@@ -27,3 +27,4 @@ libc = "0.2"
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 urlencoding = "2.1"
+similar = "2.7"
