@@ -100,6 +100,20 @@ export interface FsSearchDirsResponse {
   entries: FsEntry[];
 }
 
+export type LspRuntimeStatus = "installing" | "starting" | "running" | "error" | "unavailable";
+
+export interface LspStatusResponse {
+  server_id: string | null;
+  server_name: string | null;
+  status: LspRuntimeStatus;
+  version?: string | null;
+  install_path?: string | null;
+  workspace_root?: string | null;
+  restart_count?: number;
+  last_error?: string | null;
+  error?: string | null;
+}
+
 // Project 类型（后端返回格式）
 export interface ProjectModel {
   guid: string;
@@ -1508,6 +1522,27 @@ export const functionSettingsApi = {
       function_name: functionName,
       key,
       value,
+    });
+  },
+};
+
+export const lspWsApi = {
+  activateForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
+    return wsRequest<LspStatusResponse>("lsp_activate_for_file", {
+      file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
+    });
+  },
+  statusForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
+    return wsRequest<LspStatusResponse>("lsp_status_for_file", {
+      file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
+    });
+  },
+  restartForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
+    return wsRequest<LspStatusResponse>("lsp_restart_for_file", {
+      file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
     });
   },
 };

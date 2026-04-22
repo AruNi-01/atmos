@@ -32,7 +32,8 @@ use infra::{
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
     GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest,
-    LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
+    LlmProvidersUpdateRequest, LspActivateForFileRequest, LspRestartForFileRequest,
+    LspStatusForFileRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
     SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
@@ -54,6 +55,7 @@ use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
     LlmProviderEntry, LlmProvidersFile, ResponseFormat,
 };
+use lsp::{Installer as LspInstaller, LspActivationSnapshot, LspManager, LspRuntimeStatus};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
 use tokio::sync::OnceCell;
@@ -73,6 +75,7 @@ pub struct WsMessageService {
     terminal_service: Arc<TerminalService>,
     agent_service: Arc<AgentService>,
     usage_service: Arc<UsageService>,
+    lsp_manager: Arc<LspManager>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
 }
 
@@ -271,6 +274,7 @@ impl WsMessageService {
             terminal_service,
             agent_service,
             usage_service,
+            lsp_manager: Arc::new(LspManager::new(LspInstaller::default())),
             ws_manager: OnceCell::new(),
         }
     }
@@ -698,7 +702,41 @@ impl WsMessageService {
             | WsAction::NotificationTestPush => Err(ServiceError::Processing(
                 "Notification settings are managed via REST API at /hooks/notification/*".into(),
             )),
+            WsAction::LspActivateForFile => {
+                self.handle_lsp_activate_for_file(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LspStatusForFile => {
+                self.handle_lsp_status_for_file(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LspRestartForFile => {
+                self.handle_lsp_restart_for_file(parse_request(request.data)?)
+                    .await
+            }
         }
+    }
+
+    async fn handle_lsp_activate_for_file(&self, req: LspActivateForFileRequest) -> Result<Value> {
+        let snapshot = Arc::clone(&self.lsp_manager)
+            .activate_for_file(&req.file_path, req.workspace_root.as_deref())
+            .await;
+        Ok(lsp_snapshot_to_json(snapshot))
+    }
+
+    async fn handle_lsp_status_for_file(&self, req: LspStatusForFileRequest) -> Result<Value> {
+        let snapshot = self
+            .lsp_manager
+            .snapshot_for_file(&req.file_path, req.workspace_root.as_deref())
+            .await;
+        Ok(lsp_snapshot_to_json(snapshot))
+    }
+
+    async fn handle_lsp_restart_for_file(&self, req: LspRestartForFileRequest) -> Result<Value> {
+        let snapshot = Arc::clone(&self.lsp_manager)
+            .restart_for_file(&req.file_path, req.workspace_root.as_deref())
+            .await;
+        Ok(lsp_snapshot_to_json(snapshot))
     }
 
     // ===== File System Handlers =====
@@ -4002,6 +4040,28 @@ fn terminal_code_agent_path() -> std::path::PathBuf {
         .join(".atmos")
         .join("agent")
         .join("terminal_code_agent.json")
+}
+
+fn lsp_snapshot_to_json(snapshot: LspActivationSnapshot) -> Value {
+    let (status, error) = match snapshot.status {
+        LspRuntimeStatus::Installing => ("installing", None),
+        LspRuntimeStatus::Starting => ("starting", None),
+        LspRuntimeStatus::Running => ("running", None),
+        LspRuntimeStatus::Error(message) => ("error", Some(message)),
+        LspRuntimeStatus::Unavailable => ("unavailable", None),
+    };
+
+    json!({
+        "server_id": snapshot.server_id,
+        "server_name": snapshot.server_name,
+        "status": status,
+        "error": error,
+        "version": snapshot.version,
+        "install_path": snapshot.install_path,
+        "workspace_root": snapshot.workspace_root,
+        "restart_count": snapshot.restart_count,
+        "last_error": snapshot.last_error,
+    })
 }
 
 /// Parse request data from JSON Value.
