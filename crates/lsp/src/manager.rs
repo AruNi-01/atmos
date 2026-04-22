@@ -3,8 +3,11 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
+use url::Url;
 
 use crate::installer::Installer;
 use crate::registry::{builtin_lsp_registry, find_by_extension, LspDefinition};
@@ -45,6 +48,7 @@ struct RunningLsp {
     child: Child,
     #[allow(dead_code)]
     transport: LspTransport<ChildStdout, ChildStdin>,
+    stderr_task: Option<JoinHandle<()>>,
 }
 
 pub struct LspManager {
@@ -214,6 +218,9 @@ impl LspManager {
         let key = Self::runtime_key(definition.id, &root);
 
         if let Some(mut running) = self.active.write().await.remove(&key) {
+            if let Some(task) = running.stderr_task.take() {
+                task.abort();
+            }
             let _ = running.child.kill().await;
         }
 
@@ -304,7 +311,9 @@ impl LspManager {
             }
         };
 
-        let root_uri = format!("file://{}", workspace_root);
+        let root_uri = Url::from_file_path(&workspace_root)
+            .map_err(|_| anyhow::anyhow!("failed to build file:// url from workspace_root"))?
+            .to_string();
         let mut transport = LspTransport::new(stdout, stdin);
         let initialize =
             match initialize_request_with_options(&root_uri, definition.initialization_options) {
@@ -321,18 +330,33 @@ impl LspManager {
             return Err(error);
         }
 
-        match transport.read().await {
-            Ok(JsonRpcMessage::Response { error, .. }) if error.is_none() => {}
-            Ok(_) => {
-                let message = format!("invalid initialize response for {}", definition.id);
-                self.mark_error(&key, message.clone()).await;
-                let _ = child.kill().await;
-                return Err(anyhow::anyhow!(message));
-            }
-            Err(error) => {
-                self.mark_error(&key, error.to_string()).await;
-                let _ = child.kill().await;
-                return Err(error);
+        let initialize_id = match &initialize {
+            JsonRpcMessage::Request { id, .. } => id.clone(),
+            _ => serde_json::Value::from(1),
+        };
+
+        loop {
+            match transport.read().await {
+                Ok(JsonRpcMessage::Response { id, error, .. }) if id == initialize_id => {
+                    if error.is_some() {
+                        let message =
+                            format!("initialize response returned error for {}", definition.id);
+                        self.mark_error(&key, message.clone()).await;
+                        let _ = child.kill().await;
+                        return Err(anyhow::anyhow!(message));
+                    }
+                    break;
+                }
+                Ok(JsonRpcMessage::Response { .. })
+                | Ok(JsonRpcMessage::Notification { .. })
+                | Ok(JsonRpcMessage::Request { .. }) => {
+                    continue;
+                }
+                Err(error) => {
+                    self.mark_error(&key, error.to_string()).await;
+                    let _ = child.kill().await;
+                    return Err(error);
+                }
             }
         }
 
@@ -342,10 +366,46 @@ impl LspManager {
             return Err(error);
         }
 
-        self.active
-            .write()
-            .await
-            .insert(key.clone(), RunningLsp { child, transport });
+        let stderr_task = child.stderr.take().map(|stderr| {
+            let server_id = definition.id.to_string();
+            let workspace = workspace_root.clone();
+            tokio::spawn(async move {
+                let mut reader = BufReader::new(stderr).lines();
+                loop {
+                    match reader.next_line().await {
+                        Ok(Some(line)) => {
+                            tracing::warn!(
+                                target: "logs_debug_lsp_stderr",
+                                server_id = %server_id,
+                                workspace_root = %workspace,
+                                message = %line,
+                                "lsp stderr"
+                            );
+                        }
+                        Ok(None) => break,
+                        Err(error) => {
+                            tracing::error!(
+                                target: "logs_debug_lsp_stderr",
+                                server_id = %server_id,
+                                workspace_root = %workspace,
+                                error = %error,
+                                "failed to read lsp stderr"
+                            );
+                            break;
+                        }
+                    }
+                }
+            })
+        });
+
+        self.active.write().await.insert(
+            key.clone(),
+            RunningLsp {
+                child,
+                transport,
+                stderr_task,
+            },
+        );
         self.update_state(
             &key,
             RuntimeState {
@@ -390,6 +450,9 @@ impl LspManager {
     pub async fn shutdown(&self) {
         let mut active = self.active.write().await;
         for (_, mut process) in active.drain() {
+            if let Some(task) = process.stderr_task.take() {
+                task.abort();
+            }
             let _ = process.child.start_kill();
         }
     }

@@ -15,6 +15,7 @@ serde_json = "1"
 tar = "0.4"
 tokio = { workspace = true }
 tracing = "0.1"
+url = "2"
 zip = "2"
 
 [dev-dependencies]

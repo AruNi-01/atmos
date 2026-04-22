@@ -200,7 +200,7 @@ impl Installer {
                 "pip",
                 "install",
                 &format!("{package}=={version}"),
-                "--target",
+                "--prefix",
             ])
             .arg(destination)
             .status()
