@@ -311,9 +311,15 @@ impl LspManager {
             }
         };
 
-        let root_uri = Url::from_file_path(&workspace_root)
-            .map_err(|_| anyhow::anyhow!("failed to build file:// url from workspace_root"))?
-            .to_string();
+        let root_uri = match Url::from_file_path(&workspace_root) {
+            Ok(url) => url.to_string(),
+            Err(_) => {
+                let message = format!("failed to build file:// url from workspace_root: {}", workspace_root);
+                self.mark_error(&key, message.clone()).await;
+                let _ = child.kill().await;
+                return Err(anyhow::anyhow!(message));
+            }
+        };
         let mut transport = LspTransport::new(stdout, stdin);
         let initialize =
             match initialize_request_with_options(&root_uri, definition.initialization_options) {
