@@ -359,7 +359,7 @@ fn extract_archive(file_name: &str, bytes: &[u8], destination: &Path) -> anyhow:
 
     if file_name.ends_with(".gz") {
         let mut decoder = flate2::read::GzDecoder::new(Cursor::new(bytes));
-        let output_name = file_name.trim_end_matches(".gz");
+        let output_name = canonical_binary_name_from_asset(file_name);
         let output = destination.join(output_name);
         let mut writer = std::fs::File::create(&output)?;
         std::io::copy(&mut decoder, &mut writer)?;
@@ -427,6 +427,17 @@ fn safe_join(destination: &Path, entry_path: &Path) -> anyhow::Result<PathBuf> {
         }
     }
     Ok(output)
+}
+
+fn canonical_binary_name_from_asset(file_name: &str) -> String {
+    let raw = file_name.trim_end_matches(".gz");
+    if raw.starts_with("rust-analyzer") {
+        return "rust-analyzer".to_string();
+    }
+    if raw.starts_with("taplo") {
+        return "taplo".to_string();
+    }
+    raw.to_string()
 }
 
 #[cfg(unix)]

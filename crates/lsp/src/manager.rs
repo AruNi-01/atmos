@@ -299,6 +299,7 @@ impl LspManager {
             _ => {
                 let message = format!("failed to acquire stdio pipes for {}", definition.id);
                 self.mark_error(&key, message.clone()).await;
+                let _ = child.kill().await;
                 return Err(anyhow::anyhow!(message));
             }
         };
@@ -306,9 +307,17 @@ impl LspManager {
         let root_uri = format!("file://{}", workspace_root);
         let mut transport = LspTransport::new(stdout, stdin);
         let initialize =
-            initialize_request_with_options(&root_uri, definition.initialization_options)?;
+            match initialize_request_with_options(&root_uri, definition.initialization_options) {
+                Ok(request) => request,
+                Err(error) => {
+                    self.mark_error(&key, error.to_string()).await;
+                    let _ = child.kill().await;
+                    return Err(error);
+                }
+            };
         if let Err(error) = transport.send(&initialize).await {
             self.mark_error(&key, error.to_string()).await;
+            let _ = child.kill().await;
             return Err(error);
         }
 
@@ -317,16 +326,19 @@ impl LspManager {
             Ok(_) => {
                 let message = format!("invalid initialize response for {}", definition.id);
                 self.mark_error(&key, message.clone()).await;
+                let _ = child.kill().await;
                 return Err(anyhow::anyhow!(message));
             }
             Err(error) => {
                 self.mark_error(&key, error.to_string()).await;
+                let _ = child.kill().await;
                 return Err(error);
             }
         }
 
         if let Err(error) = transport.send(&initialized_notification()).await {
             self.mark_error(&key, error.to_string()).await;
+            let _ = child.kill().await;
             return Err(error);
         }
 
