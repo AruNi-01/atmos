@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Project Wiki Page Plan",
+  "type": "object",
+  "required": [
+    "page_id",
+    "title",
+    "kind",
+    "audience",
+    "questions",
+    "required_evidence",
+    "scope"
+  ],
+  "properties": {
+    "page_id": { "type": "string" },
+    "title": { "type": "string" },
+    "kind": { "type": "string" },
+    "audience": { "type": "string" },
+    "questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "required_evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "scope": {
+      "type": "object",
+      "required": ["in", "out"],
+      "properties": {
+        "in": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "out": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

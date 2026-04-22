@@ -1,17 +1,6 @@
 #!/usr/bin/env python3
 """
 Validate _todo.md for Project Wiki generation.
-
-Checks:
-1. File exists
-2. All required checklist items are present
-3. All items are checked [x] (not [ ])
-
-Usage:
-    python3 validate_todo.py <path-to-_todo.md>
-    python3 validate_todo.py .atmos/wiki/_todo.md
-
-Exit: 0 if valid, 1 if invalid.
 """
 
 import re
@@ -21,15 +10,16 @@ from pathlib import Path
 REQUIRED_ITEMS = [
     "Git metadata collected",
     "AST artifacts loaded/verified",
-    "Deep codebase research done",
-    "Core concepts extracted",
-    "_catalog.json created (schema-compliant)",
-    "validate_catalog passes",
-    "_mindmap.md created",
-    "Research briefings generated",
-    "All Markdown articles generated",
+    "Repository index created",
+    "Concept graph created",
+    "Page registry created",
+    "Page plans created",
+    "Evidence bundles created",
+    "Coverage map created",
+    "Final Markdown pages generated",
+    "validate_page_registry passes",
     "validate_frontmatter passes",
-    "validate_content passes",
+    "validate_page_quality passes",
     "validate_todo passes",
     "Final verification complete",
 ]
@@ -39,7 +29,6 @@ UNCHECKED_PATTERN = re.compile(r"^-\s+\[\s*\]\s+(.+)$")
 
 
 def validate(todo_path: Path) -> tuple[list[str], list[str]]:
-    """Returns (errors, warnings)."""
     errors = []
     warnings = []
 
@@ -48,33 +37,25 @@ def validate(todo_path: Path) -> tuple[list[str], list[str]]:
         return errors, warnings
 
     content = todo_path.read_text(encoding="utf-8")
-    lines = content.splitlines()
-
     found_items: dict[str, bool] = {}
-    for line in lines:
+
+    for line in content.splitlines():
         m = CHECKED_PATTERN.match(line) or UNCHECKED_PATTERN.match(line)
         if m:
-            text = m.group(1).strip()
-            found_items[text] = bool(CHECKED_PATTERN.match(line))
+            found_items[m.group(1).strip()] = bool(CHECKED_PATTERN.match(line))
 
-    # Some required items accept alternate wording (e.g. degraded-mode variant).
-    ALTERNATE_ITEMS: dict[str, list[str]] = {
-        "AST artifacts loaded/verified": [
-            "AST unavailable, degraded mode acknowledged",
-        ],
+    alternate_items = {
+        "AST artifacts loaded/verified": ["AST unavailable, degraded mode acknowledged"],
     }
 
     for item in REQUIRED_ITEMS:
         matched = False
         checked = False
-        candidates = [item] + ALTERNATE_ITEMS.get(item, [])
         for found_text, is_checked in found_items.items():
-            for candidate in candidates:
-                if candidate.lower() in found_text.lower() or found_text in candidate:
-                    matched = True
-                    checked = is_checked
-                    break
-            if matched:
+            candidates = [item] + alternate_items.get(item, [])
+            if any(candidate.lower() in found_text.lower() or found_text in candidate for candidate in candidates):
+                matched = True
+                checked = is_checked
                 break
         if not matched:
             errors.append(f"Missing checklist item: {item}")
@@ -87,22 +68,18 @@ def validate(todo_path: Path) -> tuple[list[str], list[str]]:
 def main() -> int:
     if len(sys.argv) < 2:
         print("Usage: python3 validate_todo.py <path-to-_todo.md>", file=sys.stderr)
-        print("Example: python3 validate_todo.py .atmos/wiki/_todo.md", file=sys.stderr)
         return 1
 
-    todo_path = Path(sys.argv[1])
-    errors, warnings = validate(todo_path)
-
+    errors, warnings = validate(Path(sys.argv[1]))
     if not errors:
         print("✅ _todo.md is valid! All items checked.")
-        if warnings:
-            for w in warnings:
-                print(f"  ⚠️  {w}")
+        for warning in warnings:
+            print(f"  ⚠️  {warning}")
         return 0
 
     print(f"❌ _todo.md validation failed ({len(errors)} errors):", file=sys.stderr)
-    for i, e in enumerate(errors, 1):
-        print(f"  {i}. {e}", file=sys.stderr)
+    for index, error in enumerate(errors, 1):
+        print(f"  {index}. {error}", file=sys.stderr)
     return 1
 
 
