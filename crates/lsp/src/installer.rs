@@ -211,25 +211,12 @@ impl Installer {
         version: &str,
         destination: &Path,
     ) -> anyhow::Result<()> {
-        let fut = Command::new("npm")
+        let mut command = Command::new("npm");
+        command
             .args(["install", "-g", &format!("{package}@{version}"), "--prefix"])
-            .arg(destination)
-            .status();
+            .arg(destination);
 
-        let status = timeout(INSTALL_COMMAND_TIMEOUT, fut)
-            .await
-            .with_context(|| {
-                format!(
-                    "npm install for {package} timed out after {:?}",
-                    INSTALL_COMMAND_TIMEOUT
-                )
-            })?
-            .context("failed to spawn npm")?;
-
-        if !status.success() {
-            return Err(anyhow!("npm install failed for package {package}"));
-        }
-        Ok(())
+        run_install_command_with_timeout(command, "npm", package).await
     }
 
     async fn install_via_pip(
@@ -238,7 +225,8 @@ impl Installer {
         version: &str,
         destination: &Path,
     ) -> anyhow::Result<()> {
-        let fut = Command::new("python3")
+        let mut command = Command::new("python3");
+        command
             .args([
                 "-m",
                 "pip",
@@ -246,23 +234,9 @@ impl Installer {
                 &format!("{package}=={version}"),
                 "--prefix",
             ])
-            .arg(destination)
-            .status();
+            .arg(destination);
 
-        let status = timeout(INSTALL_COMMAND_TIMEOUT, fut)
-            .await
-            .with_context(|| {
-                format!(
-                    "pip install for {package} timed out after {:?}",
-                    INSTALL_COMMAND_TIMEOUT
-                )
-            })?
-            .context("failed to spawn python3")?;
-
-        if !status.success() {
-            return Err(anyhow!("pip install failed for package {package}"));
-        }
-        Ok(())
+        run_install_command_with_timeout(command, "python3", package).await
     }
 
     fn find_in_path(&self, bin: &str) -> anyhow::Result<PathBuf> {
@@ -301,25 +275,12 @@ impl Installer {
     ) -> anyhow::Result<()> {
         let go_bin = destination.join("bin");
         fs::create_dir_all(&go_bin).await?;
-        let fut = Command::new("go")
+        let mut command = Command::new("go");
+        command
             .env("GOBIN", &go_bin)
-            .args(["install", &format!("{package}@{version}")])
-            .status();
+            .args(["install", &format!("{package}@{version}")]);
 
-        let status = timeout(INSTALL_COMMAND_TIMEOUT, fut)
-            .await
-            .with_context(|| {
-                format!(
-                    "go install for {package} timed out after {:?}",
-                    INSTALL_COMMAND_TIMEOUT
-                )
-            })?
-            .context("failed to spawn go install")?;
-
-        if !status.success() {
-            return Err(anyhow!("go install failed for package {package}"));
-        }
-        Ok(())
+        run_install_command_with_timeout(command, "go install", package).await
     }
 
     async fn update_registry_cache(
@@ -364,6 +325,43 @@ impl Installer {
             )
         })?;
         Ok(())
+    }
+}
+
+/// Spawns an installer subprocess and waits for it with a bounded timeout.
+/// On timeout, the child is explicitly SIGKILL-ed and reaped so the install
+/// process cannot keep running in the background after this function returns.
+/// On spawn failure, non-zero exit, or I/O error while waiting, a descriptive
+/// `anyhow::Error` is returned.
+async fn run_install_command_with_timeout(
+    mut command: Command,
+    tool: &str,
+    package: &str,
+) -> anyhow::Result<()> {
+    let mut child = command
+        .spawn()
+        .with_context(|| format!("failed to spawn {tool}"))?;
+
+    match timeout(INSTALL_COMMAND_TIMEOUT, child.wait()).await {
+        Ok(Ok(status)) => {
+            if !status.success() {
+                return Err(anyhow!("{tool} install failed for package {package}"));
+            }
+            Ok(())
+        }
+        Ok(Err(error)) => Err(anyhow::Error::new(error)
+            .context(format!("failed to wait on {tool} install for {package}"))),
+        Err(_) => {
+            // Timeout: kill the child so it does not continue running in the
+            // background. `kill()` sends SIGKILL and `wait()` reaps it; both
+            // are awaited so we do not leave a zombie behind on Unix.
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+            Err(anyhow!(
+                "{tool} install for {package} timed out after {:?}",
+                INSTALL_COMMAND_TIMEOUT
+            ))
+        }
     }
 }
 
