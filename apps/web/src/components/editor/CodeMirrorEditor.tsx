@@ -42,6 +42,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const saveFile = useEditorStore(s => s.saveFile);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
   const currentProjectPath = useEditorStore(s => s.currentProjectPath);
+  const hasHydrated = useEditorStore(s => s._hasHydrated);
   const navigationTarget = useEditorStore((state) =>
     effectiveContextId ? state.navigationTargets[effectiveContextId]?.[file.path] ?? null : null
   );
@@ -81,6 +82,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   }, [loadSettings]);
 
   useEffect(() => {
+    // Wait for the editor store to rehydrate from persistent storage before
+    // activating the LSP. Otherwise `currentProjectPath` is `null` on the
+    // initial render and the backend falls back to the file's parent
+    // directory as the workspace root, starting an LSP under a runtime key
+    // that will never be queried again once hydration populates the real
+    // project path and the effect re-runs with it — leaking a heavy LSP
+    // process (e.g. rust-analyzer) for the server's lifetime.
+    if (!hasHydrated) return;
+
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -126,7 +136,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [currentProjectPath, file.path]);
+  }, [hasHydrated, currentProjectPath, file.path]);
 
   // Selection popover for copying code to AI
   const getSelectionInfo = useCallback(() => {

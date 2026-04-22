@@ -151,52 +151,56 @@ impl LspManager {
         let root = Self::normalize_workspace_root(file_path, workspace_root);
         let key = Self::runtime_key(definition.id, &root);
 
-        if self.active.read().await.contains_key(&key) {
-            self.update_state(
-                &key,
-                RuntimeState {
-                    status: LspRuntimeStatus::Running,
-                    install_path: self
-                        .state
-                        .read()
-                        .await
-                        .get(&key)
-                        .and_then(|state| state.install_path.clone()),
-                    restart_count: self
-                        .state
-                        .read()
-                        .await
-                        .get(&key)
-                        .map(|state| state.restart_count)
-                        .unwrap_or_default(),
-                    last_error: None,
-                },
-            )
-            .await;
-            return self.snapshot_for_file(file_path, Some(&root)).await;
-        }
-
-        if let Some(existing_state) = self.state.read().await.get(&key) {
-            if matches!(
-                existing_state.status,
-                LspRuntimeStatus::Installing
-                    | LspRuntimeStatus::Starting
-                    | LspRuntimeStatus::Running
-            ) {
+        // Atomically check whether a runtime for this (workspace, definition) is
+        // already installing/starting/running and, if not, reserve the slot by
+        // writing `Installing` state under the same write lock. Holding a single
+        // write lock across the check-and-insert is required to prevent two
+        // concurrent activations from both passing the "not active yet" check
+        // and each spawning a `start_runtime` task; if that happened, the
+        // second task's insert into `self.active` would drop (and orphan)
+        // the first task's child process.
+        {
+            let mut state_guard = self.state.write().await;
+            if self.active.read().await.contains_key(&key) {
+                let previous = state_guard.get(&key).cloned();
+                state_guard.insert(
+                    key.clone(),
+                    RuntimeState {
+                        status: LspRuntimeStatus::Running,
+                        install_path: previous.as_ref().and_then(|s| s.install_path.clone()),
+                        restart_count: previous
+                            .as_ref()
+                            .map(|s| s.restart_count)
+                            .unwrap_or_default(),
+                        last_error: None,
+                    },
+                );
+                drop(state_guard);
                 return self.snapshot_for_file(file_path, Some(&root)).await;
             }
-        }
 
-        self.update_state(
-            &key,
-            RuntimeState {
-                status: LspRuntimeStatus::Installing,
-                install_path: None,
-                restart_count: 0,
-                last_error: None,
-            },
-        )
-        .await;
+            if let Some(existing_state) = state_guard.get(&key) {
+                if matches!(
+                    existing_state.status,
+                    LspRuntimeStatus::Installing
+                        | LspRuntimeStatus::Starting
+                        | LspRuntimeStatus::Running
+                ) {
+                    drop(state_guard);
+                    return self.snapshot_for_file(file_path, Some(&root)).await;
+                }
+            }
+
+            state_guard.insert(
+                key.clone(),
+                RuntimeState {
+                    status: LspRuntimeStatus::Installing,
+                    install_path: None,
+                    restart_count: 0,
+                    last_error: None,
+                },
+            );
+        }
 
         let manager = Arc::clone(self);
         tokio::spawn(async move {
@@ -291,7 +295,12 @@ impl LspManager {
             .args(definition.launch_args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::piped())
+            // Ensure the child is SIGKILLed if the `Child` handle is dropped
+            // without explicit cleanup (e.g. if `RunningLsp` is ever displaced
+            // in `self.active` or the manager is dropped), preventing orphan
+            // LSP processes.
+            .kill_on_drop(true);
 
         let mut child = match command.spawn() {
             Ok(child) => child,
@@ -404,14 +413,28 @@ impl LspManager {
             })
         });
 
-        self.active.write().await.insert(
-            key.clone(),
-            RunningLsp {
-                child,
-                transport,
-                stderr_task,
-            },
-        );
+        // Defensive cleanup: if some prior `RunningLsp` somehow still occupies
+        // this key (e.g. due to a previously racing start), kill its child and
+        // stderr task before replacing it so we never silently orphan a
+        // subprocess.
+        if let Some(mut previous) = self
+            .active
+            .write()
+            .await
+            .insert(
+                key.clone(),
+                RunningLsp {
+                    child,
+                    transport,
+                    stderr_task,
+                },
+            )
+        {
+            if let Some(task) = previous.stderr_task.take() {
+                task.abort();
+            }
+            let _ = previous.child.start_kill();
+        }
         self.update_state(
             &key,
             RuntimeState {
