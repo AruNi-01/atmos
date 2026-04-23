@@ -465,10 +465,13 @@ export function ReviewSessionPanel({
       line_range_kind:
         selectionInfo.startLine === selectionInfo.endLine ? "single" : "range",
       selected_text: selectionInfo.selectedText,
-      before_context: selectionInfo.beforeText
-        ? selectionInfo.beforeText.split("\n")
-        : [],
-      after_context: selectionInfo.afterText ? selectionInfo.afterText.split("\n") : [],
+      // `selectionInfo.beforeText` / `afterText` are the old and new file
+      // content for the selected lines themselves, not the surrounding
+      // context. The anchor's `before_context` / `after_context` fields are
+      // reserved for lines preceding/following the selection (used by
+      // re-anchoring, not yet implemented), so leave them empty here.
+      before_context: [],
+      after_context: [],
       hunk_header: null,
     };
 

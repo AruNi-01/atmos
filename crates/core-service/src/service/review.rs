@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use core_engine::GitEngine;
@@ -369,7 +369,7 @@ impl ReviewService {
         session: &review_session::Model,
         revision_guid: &str,
         revision_storage_root: &str,
-        workspace_root: &PathBuf,
+        workspace_root: &Path,
         ordered_paths: Vec<(String, String)>,
         base_branch: &str,
         created_by: Option<String>,
@@ -953,22 +953,21 @@ impl ReviewService {
         write_text_atomic(&workspace_root, &summary_rel_path, &body)
             .await
             .map_err(ServiceError::Infra)?;
+        // Persist only the summary artifact path. The run's lifecycle status
+        // must remain the caller's current status (typically "running") — only
+        // `finalize_fix_run` is allowed to transition the run to a terminal
+        // state (`succeeded` / `failed`), and only once the result revision
+        // and patch artifact are also persisted.
         review_repo
-            .update_fix_run_status(
+            .update_fix_run_summary_path(
                 &run.guid,
-                "succeeded",
-                None,
-                None,
-                None,
-                Some(summary_rel_path.to_string_lossy().to_string()),
+                summary_rel_path.to_string_lossy().to_string(),
                 if run.started_at.is_none() {
                     Some(chrono::Utc::now().naive_utc())
                 } else {
                     None
                 },
                 Some(chrono::Utc::now().naive_utc()),
-                None,
-                false,
             )
             .await
             .map_err(ServiceError::Infra)?;

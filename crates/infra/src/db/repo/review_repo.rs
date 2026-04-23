@@ -670,4 +670,47 @@ impl<'a> ReviewRepo<'a> {
         }
         Ok(())
     }
+
+    /// Persist the summary artifact path (and optionally the run's finish
+    /// timestamp / start timestamp) without touching the lifecycle status.
+    /// Intended for "summary written, not yet finalized" transitions — the
+    /// terminal status must only be set by `finalize_fix_run` once all
+    /// artifacts have been persisted.
+    pub async fn update_fix_run_summary_path(
+        &self,
+        guid: &str,
+        summary_rel_path: String,
+        started_at: Option<chrono::NaiveDateTime>,
+        finished_at: Option<chrono::NaiveDateTime>,
+    ) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let mut update = review_fix_run::Entity::update_many()
+            .col_expr(review_fix_run::Column::UpdatedAt, Expr::value(now))
+            .col_expr(
+                review_fix_run::Column::SummaryRelPath,
+                Expr::value(Some(summary_rel_path)),
+            );
+        if let Some(value) = started_at {
+            update = update.col_expr(
+                review_fix_run::Column::StartedAt,
+                Expr::value(Some(value)),
+            );
+        }
+        if let Some(value) = finished_at {
+            update = update.col_expr(
+                review_fix_run::Column::FinishedAt,
+                Expr::value(Some(value)),
+            );
+        }
+
+        let result = update
+            .filter(review_fix_run::Column::Guid.eq(guid))
+            .filter(review_fix_run::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review fix run not found".into()));
+        }
+        Ok(())
+    }
 }
