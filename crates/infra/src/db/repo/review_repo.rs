@@ -99,6 +99,17 @@ impl<'a> ReviewRepo<'a> {
             .await?)
     }
 
+    pub async fn soft_delete_session(&self, guid: &str) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        review_session::Entity::update_many()
+            .col_expr(review_session::Column::IsDeleted, Expr::value(true))
+            .col_expr(review_session::Column::UpdatedAt, Expr::value(now))
+            .filter(review_session::Column::Guid.eq(guid))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_session_current_revision(
         &self,
         guid: &str,

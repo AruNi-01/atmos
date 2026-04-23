@@ -10,7 +10,7 @@ use infra::db::entities::{
 use infra::db::repo::{ProjectRepo, ReviewRepo, WorkspaceRepo};
 use infra::utils::review_artifacts::{
     anchor_file_snapshot_paths, manifest_rel_path, revision_root_rel_path,
-    revisions_manifest_rel_path, run_root_rel_path, session_root_rel_path, sha256_like_hex,
+    revisions_manifest_rel_path, run_root_rel_path, session_root_rel_path, sha256_hex,
     write_json_atomic, write_text_atomic,
 };
 use sea_orm::DatabaseConnection;
@@ -328,17 +328,65 @@ impl ReviewService {
             )
             .await?;
 
+        // From this point the `review_session` row already references a
+        // `current_revision_guid` that does not yet exist on disk or in the DB.
+        // If any step below fails we must soft-delete the session to avoid
+        // leaving an orphaned row with a dangling forward reference.
+        let build_result = self
+            .populate_initial_session(
+                &review_repo,
+                &session,
+                &revision_guid,
+                &revision_storage_root,
+                &workspace_root,
+                ordered_paths,
+                &workspace.base_branch,
+                input.created_by.clone(),
+                &project.main_file_path,
+                &head_commit,
+            )
+            .await;
+
+        match build_result {
+            Ok(dto) => Ok(dto),
+            Err(err) => {
+                if let Err(cleanup_err) = review_repo.soft_delete_session(&session.guid).await {
+                    tracing::warn!(
+                        session_guid = %session.guid,
+                        error = %cleanup_err,
+                        "Failed to soft-delete review session after initial population error",
+                    );
+                }
+                Err(err)
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn populate_initial_session(
+        &self,
+        review_repo: &ReviewRepo<'_>,
+        session: &review_session::Model,
+        revision_guid: &str,
+        revision_storage_root: &str,
+        workspace_root: &PathBuf,
+        ordered_paths: Vec<(String, String)>,
+        base_branch: &str,
+        created_by: Option<String>,
+        repo_path: &str,
+        head_commit: &str,
+    ) -> Result<ReviewSessionDto> {
         let revision = review_repo
             .create_revision(
-                Some(revision_guid.clone()),
+                Some(revision_guid.to_string()),
                 session.guid.clone(),
                 None,
                 "initial".to_string(),
                 None,
                 Some("Initial Review".to_string()),
-                revision_storage_root,
+                revision_storage_root.to_string(),
                 None,
-                input.created_by.clone(),
+                created_by.clone(),
             )
             .await?;
 
@@ -346,7 +394,7 @@ impl ReviewService {
         for (index, (file_path, status)) in ordered_paths.into_iter().enumerate() {
             let diff = self
                 .git_engine
-                .get_file_diff(&workspace_root, &file_path, Some(&workspace.base_branch))
+                .get_file_diff(workspace_root, &file_path, Some(base_branch))
                 .map_err(ServiceError::Engine)?;
             let file_identity = review_repo
                 .find_or_create_file_identity(session.guid.clone(), file_path.clone())
@@ -355,10 +403,10 @@ impl ReviewService {
             let (old_rel_path, new_rel_path, meta_rel_path) =
                 anchor_file_snapshot_paths(&session.guid, &revision.guid, &file_snapshot_guid);
 
-            write_text_atomic(&workspace_root, &old_rel_path, &diff.old_content)
+            write_text_atomic(workspace_root, &old_rel_path, &diff.old_content)
                 .await
                 .map_err(ServiceError::Infra)?;
-            write_text_atomic(&workspace_root, &new_rel_path, &diff.new_content)
+            write_text_atomic(workspace_root, &new_rel_path, &diff.new_content)
                 .await
                 .map_err(ServiceError::Infra)?;
 
@@ -369,12 +417,12 @@ impl ReviewService {
                 is_binary: false,
                 old_rel_path: old_rel_path.to_string_lossy().to_string(),
                 new_rel_path: new_rel_path.to_string_lossy().to_string(),
-                old_sha256: sha256_like_hex(&diff.old_content),
-                new_sha256: sha256_like_hex(&diff.new_content),
+                old_sha256: sha256_hex(&diff.old_content),
+                new_sha256: sha256_hex(&diff.new_content),
                 old_size: diff.old_content.len(),
                 new_size: diff.new_content.len(),
             };
-            write_json_atomic(&workspace_root, &meta_rel_path, &meta)
+            write_json_atomic(workspace_root, &meta_rel_path, &meta)
                 .await
                 .map_err(ServiceError::Infra)?;
 
@@ -415,14 +463,14 @@ impl ReviewService {
             schema_version: 1,
             session_guid: session.guid.clone(),
             workspace_guid: session.workspace_guid.clone(),
-            repo_path: project.main_file_path.clone(),
+            repo_path: repo_path.to_string(),
             base_ref: session.base_ref.clone(),
             base_commit: session.base_commit.clone(),
-            head_commit: head_commit.clone(),
+            head_commit: head_commit.to_string(),
             created_at: session.created_at.to_string(),
             file_count,
         };
-        write_json_atomic(&workspace_root, &manifest_rel_path(&session.guid), &manifest)
+        write_json_atomic(workspace_root, &manifest_rel_path(&session.guid), &manifest)
             .await
             .map_err(ServiceError::Infra)?;
         let revisions_manifest = vec![RevisionManifestItem {
@@ -434,14 +482,14 @@ impl ReviewService {
             created_at: revision.created_at.to_string(),
         }];
         write_json_atomic(
-            &workspace_root,
+            workspace_root,
             &revisions_manifest_rel_path(&session.guid),
             &revisions_manifest,
         )
         .await
         .map_err(ServiceError::Infra)?;
 
-        self.build_session_dto(session).await
+        self.build_session_dto(session.clone()).await
     }
 
     pub async fn close_session(&self, session_guid: String) -> Result<()> {
@@ -1071,8 +1119,8 @@ impl ReviewService {
                 is_binary: false,
                 old_rel_path: old_rel_path.to_string_lossy().to_string(),
                 new_rel_path: new_rel_path.to_string_lossy().to_string(),
-                old_sha256: sha256_like_hex(&prior_content),
-                new_sha256: sha256_like_hex(&current_content),
+                old_sha256: sha256_hex(&prior_content),
+                new_sha256: sha256_hex(&current_content),
                 old_size: prior_content.len(),
                 new_size: current_content.len(),
             };

@@ -238,7 +238,11 @@ All review artifacts live under the workspace root:
           prompt.md
           result.json
           summary.md
+          fix.patch
 ```
+
+`fix.patch` is generated and persisted once a fix run is finalized; it is the
+source of truth for the fix-diff view and for the finalize-commit flow.
 
 ### Path Rules
 
@@ -621,19 +625,23 @@ Rules:
 
 - unchanged file carried into `R(n+1)`:
   - inherit `reviewed`, `reviewed_at`, and `reviewed_by`
-  - keep `changed_after_review = false` unless already true
+  - `last_code_change_at` is unchanged
 - file touched by the fix run:
   - inherit `reviewed`, `reviewed_at`, and `reviewed_by`
   - set `last_code_change_at` to the run completion time
-  - derive `changed_after_review = reviewed_at != null && last_code_change_at > reviewed_at`
 - newly introduced file:
   - initialize with `reviewed = false`
-  - `changed_after_review = false`
 - removed file:
   - preserve the historical state in older revisions
   - in the new revision, mark the snapshot as removed and keep the file state only for replay and lineage
 
-AI changes must not reset `reviewed` to `false`. The user-reviewed fact is durable; “changed after review” is the derived signal.
+AI changes must not reset `reviewed` to `false`. The user-reviewed fact is durable; “changed after review” is the derived signal (see the persistence rules below).
+
+Persistence rule for `changed_after_review`:
+
+- Only `reviewed`, `reviewed_at`, `reviewed_by`, and `last_code_change_at` are persisted on the file state row.
+- `changed_after_review` is **derived, not persisted**: it is computed on read as
+  `reviewed_at != null && last_code_change_at > reviewed_at` in both the backend DTO and the UI.
 
 ### Commenting on Fix Results
 

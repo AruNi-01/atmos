@@ -303,7 +303,11 @@ async fn collect_status(layout_override: Option<&RuntimeLayout>) -> Result<Local
     };
     let installed = layout
         .as_ref()
-        .map(|resolved| resolved.api_bin_path.is_file() && resolved.web_dir.is_dir())
+        .map(|resolved| {
+            resolved.api_bin_path.is_file()
+                && resolved.cli_bin_path.is_file()
+                && resolved.web_dir.is_dir()
+        })
         .unwrap_or(false);
 
     let state = read_state_file()?;

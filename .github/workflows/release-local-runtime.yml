@@ -149,14 +149,17 @@ jobs:
           if [ -n "$RELEASE_TAG" ]; then
             RELEASE_VERSION="${RELEASE_TAG#local-v}"
           else
-            RELEASE_VERSION="$(python3 - <<'PY'
-import json
-from pathlib import Path
-
-package = json.loads(Path("packages/local-installer/package.json").read_text())
-print(package["version"])
-PY
-)"
+            # Read the installer version from CHECKOUT_REF (not the default-checked-out
+            # workspace) so manual dispatches against non-default refs publish the correct
+            # version.
+            encoded_ref="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$CHECKOUT_REF")"
+            RELEASE_VERSION="$(
+              curl -fsSL \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github.raw+json" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/packages/local-installer/package.json?ref=${encoded_ref}" \
+                | python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])'
+            )"
           fi
 
           echo "create_release=${CREATE_RELEASE}" >> "$GITHUB_OUTPUT"

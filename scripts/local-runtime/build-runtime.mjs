@@ -20,7 +20,11 @@ function run(command, args, options = {}) {
   });
 
   if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+    const error = new Error(
+      `${command} ${args.join(" ")} failed with exit code ${result.status ?? 1}`,
+    );
+    error.exitCode = result.status ?? 1;
+    throw error;
   }
 }
 
@@ -146,7 +150,12 @@ const targetTriple = detectTargetTriple(options.targetTriple);
 const version = resolveVersion(options.version);
 const binExt = targetTriple.includes("windows") ? ".exe" : "";
 
-buildStaticWebExport();
+try {
+  buildStaticWebExport();
+} catch (error) {
+  console.error(error.message ?? error);
+  process.exit(error?.exitCode ?? 1);
+}
 
 run("cargo", ["build", "--release", "--bin", "api", "--target", targetTriple], {
   env: {

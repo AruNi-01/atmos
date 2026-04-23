@@ -74,6 +74,10 @@ fn prepend_bin_dir_to_process_path(bin_dir: &Path) -> Result<(), String> {
     next_paths.append(&mut paths);
     let joined = std::env::join_paths(next_paths)
         .map_err(|error| format!("failed to join PATH entries: {}", error))?;
+    // SAFETY: `ensure_atmos_cli_on_startup` is only called once, synchronously from the top of
+    // `main()` in `apps/api` before any task, server handler, or child process that reads `PATH`
+    // is spawned. No concurrent readers/writers of the environment exist at this point, so the
+    // thread-safety preconditions of `std::env::set_var` (Rust 2024) are upheld.
     unsafe {
         std::env::set_var("PATH", joined);
     }

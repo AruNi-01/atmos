@@ -24,21 +24,35 @@ Options:
 EOF
 }
 
+require_value() {
+  local flag="$1"
+  local value="${2-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    echo "Missing value for ${flag}" >&2
+    usage >&2
+    exit 1
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version)
+      require_value "$1" "${2-}"
       VERSION="$2"
       shift 2
       ;;
     --archive)
+      require_value "$1" "${2-}"
       ARCHIVE_PATH="$2"
       shift 2
       ;;
     --install-dir)
+      require_value "$1" "${2-}"
       INSTALL_ROOT="$2"
       shift 2
       ;;
     --port)
+      require_value "$1" "${2-}"
       PORT="$2"
       shift 2
       ;;

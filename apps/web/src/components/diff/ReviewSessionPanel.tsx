@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parsePatchFiles } from "@pierre/diffs";
 import { PatchDiff } from "@pierre/diffs/react";
 import { useTheme } from "next-themes";
@@ -368,14 +368,16 @@ export function ReviewSessionPanel({
     [currentSession],
   );
 
+  const autoLoadedSummaryRunRef = useRef<string | null>(null);
   useEffect(() => {
     if (!latestSummaryRun || panelTab !== "summary") return;
-    if (
-      artifactPreview?.runGuid === latestSummaryRun.guid &&
-      artifactPreview.kind === "summary"
-    ) {
+    // Only auto-load the latest-run summary once per distinct latestSummaryRun.
+    // Depending on `artifactPreview` would cause this effect to re-fire and overwrite
+    // the user's explicit selection (e.g. clicking "Summary" on an older run).
+    if (autoLoadedSummaryRunRef.current === latestSummaryRun.guid) {
       return;
     }
+    autoLoadedSummaryRunRef.current = latestSummaryRun.guid;
     void (async () => {
       setArtifactLoading(true);
       try {
@@ -394,7 +396,7 @@ export function ReviewSessionPanel({
         setArtifactLoading(false);
       }
     })();
-  }, [artifactPreview, latestSummaryRun, panelTab]);
+  }, [latestSummaryRun, panelTab]);
 
   const handleCreateSession = useCallback(async () => {
     if (!workspaceId) return;

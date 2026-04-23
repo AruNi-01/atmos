@@ -1,9 +1,14 @@
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::Result;
+
+static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub const REVIEW_ROOT_DIR: &str = ".atmos/review";
 
@@ -86,10 +91,40 @@ pub async fn ensure_parent_dir(workspace_root: &Path, rel_path: &Path) -> Result
 pub async fn write_bytes_atomic(workspace_root: &Path, rel_path: &Path, bytes: &[u8]) -> Result<()> {
     ensure_parent_dir(workspace_root, rel_path).await?;
     let full_path = workspace_root.join(rel_path);
-    let tmp_path = full_path.with_extension("tmp");
-    tokio::fs::write(&tmp_path, bytes).await?;
-    tokio::fs::rename(&tmp_path, &full_path).await?;
+    let tmp_path = unique_tmp_path(&full_path);
+    let write_result = tokio::fs::write(&tmp_path, bytes).await;
+    if let Err(err) = write_result {
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(err.into());
+    }
+    if let Err(err) = tokio::fs::rename(&tmp_path, &full_path).await {
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(err.into());
+    }
     Ok(())
+}
+
+fn unique_tmp_path(full_path: &Path) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    let counter = TMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let pid = std::process::id();
+    let suffix = format!("tmp.{pid}.{nanos}.{counter}");
+    let file_name = match full_path.file_name() {
+        Some(name) => {
+            let mut n = name.to_os_string();
+            n.push(".");
+            n.push(&suffix);
+            n
+        }
+        None => std::ffi::OsString::from(suffix),
+    };
+    match full_path.parent() {
+        Some(parent) => parent.join(file_name),
+        None => PathBuf::from(file_name),
+    }
 }
 
 pub async fn write_text_atomic(workspace_root: &Path, rel_path: &Path, text: &str) -> Result<()> {
@@ -105,8 +140,8 @@ pub async fn write_json_atomic<T: Serialize>(
     write_text_atomic(workspace_root, rel_path, &text).await
 }
 
-pub fn sha256_like_hex(content: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    content.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+pub fn sha256_hex(content: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    hex::encode(hasher.finalize())
 }
