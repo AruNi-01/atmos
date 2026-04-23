@@ -119,31 +119,18 @@ impl Installer {
             return self.find_in_path(bin).ok();
         }
 
-        match &definition.install {
-            InstallMethod::Npm { bin, .. }
-            | InstallMethod::Pip { bin, .. }
-            | InstallMethod::GoInstall { bin, .. } => {
-                let candidate = target_dir.join("bin").join(bin);
-                if candidate.exists() {
-                    return Some(candidate);
-                }
-            }
-            _ => {}
-        }
-
-        let known_candidates = [
-            target_dir.join(definition.id),
-            target_dir.join("bin").join(definition.id),
-            target_dir.join("rust-analyzer"),
-            target_dir.join("gopls"),
-            target_dir.join("clangd"),
-            target_dir.join("taplo"),
-            target_dir.join("bin").join("lua-language-server"),
+        let explicit_candidates = [
+            target_dir.join(definition.executable_name),
+            target_dir.join("bin").join(definition.executable_name),
         ];
 
-        known_candidates
-            .into_iter()
-            .find(|candidate| candidate.exists())
+        for candidate in explicit_candidates {
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+
+        find_executable_recursive(target_dir, definition.executable_name)
     }
 
     async fn install_from_github(
@@ -499,10 +486,43 @@ fn is_likely_executable(path: &Path) -> bool {
                     | "pyright-langserver"
                     | "typescript-language-server"
                     | "yaml-language-server"
+                    | "kotlin-language-server"
                     | "lua-language-server"
             )
         })
         .unwrap_or(false)
+}
+
+fn find_executable_recursive(root: &Path, file_name: &str) -> Option<PathBuf> {
+    let mut stack = vec![root.to_path_buf()];
+
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+
+            if file_type.is_dir() {
+                stack.push(path);
+                continue;
+            }
+
+            if file_type.is_file()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name == file_name)
+            {
+                return Some(path);
+            }
+        }
+    }
+
+    None
 }
 
 fn safe_join(destination: &Path, entry_path: &Path) -> anyhow::Result<PathBuf> {
@@ -634,6 +654,8 @@ fn arch_aliases() -> Vec<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::registry::InstallMethod;
+    use tempfile::tempdir;
 
     #[test]
     fn smoke_home_dir() {
@@ -647,5 +669,35 @@ mod tests {
         let arch = current_arch_for_repo("rust-lang/rust-analyzer");
         assert!(!os.is_empty());
         assert!(!arch.is_empty());
+    }
+
+    #[test]
+    fn resolves_nested_archive_executable_from_definition() {
+        let dir = tempdir().expect("temp dir");
+        let install_root = dir.path().join("clangd");
+        let nested_bin = install_root.join("clangd_19.1.2").join("bin");
+        std::fs::create_dir_all(&nested_bin).expect("nested bin dir");
+        std::fs::write(nested_bin.join("clangd"), b"binary").expect("clangd binary");
+
+        let definition = LspDefinition {
+            id: "clangd",
+            name: "C / C++",
+            version: "19.1.2",
+            extensions: &["cpp"],
+            executable_name: "clangd",
+            install: InstallMethod::GitHubRelease {
+                repo: "clangd/clangd",
+                asset_pattern: "clangd-{os}-{version}.zip",
+            },
+            launch_args: &[],
+            initialization_options: "{}",
+        };
+
+        let installer = Installer::new(dir.path().to_path_buf());
+        let resolved = installer
+            .resolve_executable(&definition, &install_root)
+            .expect("nested executable should resolve");
+
+        assert_eq!(resolved, nested_bin.join("clangd"));
     }
 }

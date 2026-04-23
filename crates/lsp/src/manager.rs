@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::ExitStatus;
 use std::process::Stdio;
 use std::sync::Arc;
 
@@ -113,6 +114,7 @@ impl LspManager {
 
         let root = Self::normalize_workspace_root(file_path, workspace_root);
         let key = Self::runtime_key(definition.id, &root);
+        self.reconcile_runtime_health(&key).await;
         let state = self.state.read().await.get(&key).cloned();
 
         LspActivationSnapshot {
@@ -150,6 +152,7 @@ impl LspManager {
 
         let root = Self::normalize_workspace_root(file_path, workspace_root);
         let key = Self::runtime_key(definition.id, &root);
+        self.reconcile_runtime_health(&key).await;
 
         // Atomically check whether a runtime for this (workspace, definition) is
         // already installing/starting/running and, if not, reserve the slot by
@@ -470,6 +473,44 @@ impl LspManager {
         .await;
     }
 
+    async fn reconcile_runtime_health(&self, key: &str) {
+        let exit_observation = {
+            let mut active = self.active.write().await;
+            let Some(outcome) = active.get_mut(key).map(|running| running.child.try_wait()) else {
+                return;
+            };
+
+            match outcome {
+                Ok(None) => None,
+                Ok(Some(status)) => {
+                    let mut running = active
+                        .remove(key)
+                        .expect("active runtime should still exist while reconciling");
+                    if let Some(task) = running.stderr_task.take() {
+                        task.abort();
+                    }
+                    Some(format!(
+                        "lsp process exited unexpectedly with {}",
+                        format_exit_status(status)
+                    ))
+                }
+                Err(error) => {
+                    let mut running = active
+                        .remove(key)
+                        .expect("active runtime should still exist while reconciling");
+                    if let Some(task) = running.stderr_task.take() {
+                        task.abort();
+                    }
+                    Some(format!("failed to query lsp process status: {error}"))
+                }
+            }
+        };
+
+        if let Some(message) = exit_observation {
+            self.mark_error(key, message).await;
+        }
+    }
+
     async fn update_state(&self, key: &str, state: RuntimeState) {
         self.state.write().await.insert(key.to_string(), state);
     }
@@ -482,5 +523,94 @@ impl LspManager {
             }
             let _ = process.child.start_kill();
         }
+    }
+}
+
+fn format_exit_status(status: ExitStatus) -> String {
+    match status.code() {
+        Some(code) => format!("exit code {code}"),
+        None => status.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::registry::{InstallMethod, LspDefinition};
+    use tempfile::tempdir;
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn snapshot_marks_exited_runtime_as_error() {
+        let temp = tempdir().expect("temp dir");
+        let manager = LspManager::with_registry(
+            Installer::new(temp.path().join("home")),
+            vec![LspDefinition {
+                id: "test-lsp",
+                name: "Test LSP",
+                version: "1.0.0",
+                extensions: &["txt"],
+                executable_name: "test-lsp",
+                install: InstallMethod::SystemBinary { bin: "true" },
+                launch_args: &[],
+                initialization_options: "{}",
+            }],
+        );
+
+        let workspace_root = temp.path().join("workspace");
+        let workspace_root_str = workspace_root.to_string_lossy().to_string();
+        let file_path = workspace_root.join("file.txt").to_string_lossy().to_string();
+        let key = LspManager::runtime_key("test-lsp", &workspace_root_str);
+
+        let mut command = Command::new("sh");
+        command
+            .args(["-c", "exit 0"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = command.spawn().expect("spawn child");
+        let stdout = child.stdout.take().expect("stdout");
+        let stdin = child.stdin.take().expect("stdin");
+        let stderr = child.stderr.take();
+        let _ = child.wait().await.expect("wait child");
+
+        manager
+            .update_state(
+                &key,
+                RuntimeState {
+                    status: LspRuntimeStatus::Running,
+                    install_path: Some("/tmp/test-lsp".to_string()),
+                    restart_count: 0,
+                    last_error: None,
+                },
+            )
+            .await;
+
+        manager.active.write().await.insert(
+            key.clone(),
+            RunningLsp {
+                child,
+                transport: LspTransport::new(stdout, stdin),
+                stderr_task: stderr.map(|stderr| {
+                    tokio::spawn(async move {
+                        let mut reader = BufReader::new(stderr).lines();
+                        while reader.next_line().await.ok().flatten().is_some() {}
+                    })
+                }),
+            },
+        );
+
+        let snapshot = manager
+            .snapshot_for_file(&file_path, Some(&workspace_root_str))
+            .await;
+
+        assert!(matches!(snapshot.status, LspRuntimeStatus::Error(_)));
+        assert!(
+            snapshot
+                .last_error
+                .as_deref()
+                .is_some_and(|message| message.contains("exited unexpectedly"))
+        );
+        assert!(!manager.active.read().await.contains_key(&key));
     }
 }
