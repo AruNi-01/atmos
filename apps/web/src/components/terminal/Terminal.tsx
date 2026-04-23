@@ -592,12 +592,15 @@ const Terminal = ({
       sendText: (data: string) => sendInput(data),
       scrollToBottom: () => terminalRef.current?.scrollToBottom(),
       destroy: () => {
-        // Send destroy message to kill tmux window before disconnecting
+        // sendDestroy() marks the connection as destroy-requested, sends the
+        // terminal_destroy WS message, and schedules a safety-net ws.close().
+        // The unmount cleanup in use-terminal-websocket skips immediate
+        // ws.close() when destroy is in flight, giving the backend time to
+        // process the kill before the connection drops.
         sendDestroy();
-        disconnect();
       },
     }),
-    [sendDestroy, disconnect, sendInput]
+    [sendDestroy, sendInput]
   );
 
   const runSearch = useCallback((direction: "next" | "previous", queryOverride?: string) => {

@@ -1,10 +1,14 @@
 ---
 name: project-wiki
-version: "2.2.0"
-description: Generate or regenerate a project wiki as an evidence-driven knowledge base in `./.atmos/wiki/`. Use when Codex needs to document a codebase, build repo wiki pages from source, AST, and git history, or create a structured wiki pipeline with page plans, evidence bundles, page registry, and final Markdown pages instead of template-driven articles.
+version: "2.3.0"
+description: Generate or regenerate a project wiki as an evidence-driven knowledge base in `./.atmos/wiki/`. Produces deep, how/why-focused documentation by running parallel research agents that investigate code mechanisms and design rationale, not just list what exists. Uses AST, source, and git history as evidence through a structured pipeline of page plans, evidence bundles, and final Markdown pages.
 ---
 
 # Project Wiki
+
+You are building a **codebase knowledge base** — a wiki that helps developers understand how a project works, why it was designed this way, and how to navigate and modify it. This is not a summary or a README. It is a deep, evidence-backed research artifact.
+
+The goal of every page is to answer: **How does this work? Why is it built this way? How do I work with it?** — not merely "what exists."
 
 Generate a project wiki as a research pipeline, not as a Markdown templating task.
 
@@ -17,6 +21,7 @@ Generate a project wiki as a research pipeline, not as a Markdown templating tas
 - Do not optimize for fixed word counts, fixed heading counts, or fixed Mermaid counts.
 - Do not force every page into the same section layout. Let page structure follow the topic.
 - Keep compatibility exports optional. If a legacy consumer still needs `_catalog.json`, derive it from `page_registry.json`; do not design the workflow around `_catalog.json`.
+- **Focus on how and why, not what.** A page that lists classes without explaining how they collaborate or why they are structured this way is a failed page. Every section should teach the reader something they cannot learn from a file listing alone.
 
 Read these references before doing substantial work:
 
@@ -27,7 +32,11 @@ Read these references before doing substantial work:
 - `references/page-plan.schema.json`
 - `references/evidence-bundle.schema.json`
 
-If the runtime supports spawning subagents (e.g., a Task tool is available), you MUST use the role briefs in `agents/` as independent subagent invocations. Serial execution is only allowed when subagent spawning is technically unavailable.
+## Subagent Usage
+
+**You MUST attempt to spawn subagents for the research, evidence, and writing phases.** Try the Task tool, subagent tool, or any equivalent multi-agent mechanism available in your runtime. Only fall back to serial execution after confirming that no subagent mechanism is available.
+
+When subagents are available, use the role briefs in `agents/` as independent subagent invocations:
 
 - `agents/repo-analyst.md`
 - `agents/domain-researcher.md`
@@ -39,7 +48,7 @@ If the runtime supports spawning subagents (e.g., a Task tool is available), you
 - `agents/wiki-writer.md`
 - `agents/wiki-auditor.md`
 
-If subagent spawning is unavailable, execute the same roles serially yourself, but still produce all phase gate artifacts as if each role were a separate agent.
+**Serial fallback discipline:** If subagent spawning is truly unavailable, you must still treat each role as a separate, focused pass. Complete one research report fully — reading AST shards, opening source files, writing the investigation log — before starting the next. Do not compress multiple roles into a single scan. The depth of each role's output must be the same whether it runs as a subagent or serially.
 
 ## Required Output
 
@@ -137,10 +146,10 @@ If using the `subagent` tool, the DAG looks like:
 ```json
 {
   "stages": [
-    { "name": "domain",      "role": "domain-researcher",      "prompt_template": "Research domain modules for {task}" },
-    { "name": "workflows",   "role": "workflow-researcher",    "prompt_template": "Research runtime workflows for {task}" },
-    { "name": "integrations","role": "integration-researcher", "prompt_template": "Research external integrations for {task}" },
-    { "name": "boundaries",  "role": "boundary-researcher",    "prompt_template": "Research API surface and cross-cutting concerns for {task}" }
+    { "name": "domain",      "role": "domain-researcher",      "prompt_template": "You are a codebase researcher. Read agents/domain-researcher.md for your full brief. Deeply research domain modules for {task}. Focus on HOW modules are structured internally and WHY boundaries are drawn where they are. You must open AST shards and source files, and include an Investigation Log listing every file you examined." },
+    { "name": "workflows",   "role": "workflow-researcher",    "prompt_template": "You are a codebase researcher. Read agents/workflow-researcher.md for your full brief. Deeply trace runtime workflows for {task}. Focus on HOW requests flow step-by-step through the code and WHY certain flows are async. Trace complete paths from entry point to storage. Include an Investigation Log." },
+    { "name": "integrations","role": "integration-researcher", "prompt_template": "You are a codebase researcher. Read agents/integration-researcher.md for your full brief. Deeply research external integrations for {task}. Focus on HOW each integration is wired (config → auth → request → response → error handling) not just what systems exist. Include an Investigation Log." },
+    { "name": "boundaries",  "role": "boundary-researcher",    "prompt_template": "You are a codebase researcher. Read agents/boundary-researcher.md for your full brief. Deeply research API surface and cross-cutting concerns for {task}. Focus on HOW aspects intercept requests and WHY certain cross-cutting patterns were chosen. Include an Investigation Log." }
   ]
 }
 ```
@@ -229,13 +238,20 @@ The audit standard is:
 Run all of these before considering the wiki complete:
 
 ```bash
-python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_page_registry.py .atmos/wiki/page_registry.json
-python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.py .atmos/wiki
-python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_evidence.py .atmos/wiki
-python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_page_quality.py .atmos/wiki
-python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_phase_gate.py .atmos/wiki
-python3 ~/.atmos/skills/.system/project-wiki/scripts/validate_todo.py .atmos/wiki/_todo.md
+bash ~/.atmos/skills/.system/project-wiki/scripts/validate_page_registry.sh .atmos/wiki/page_registry.json
+bash ~/.atmos/skills/.system/project-wiki/scripts/validate_frontmatter.sh .atmos/wiki
+bash ~/.atmos/skills/.system/project-wiki/scripts/validate_evidence.sh .atmos/wiki
+bash ~/.atmos/skills/.system/project-wiki/scripts/validate_page_quality.sh .atmos/wiki
+bash ~/.atmos/skills/.system/project-wiki/scripts/validate_phase_gate.sh .atmos/wiki
+bash ~/.atmos/skills/.system/project-wiki/scripts/validate_todo.sh .atmos/wiki/_todo.md
 ```
+
+**No Python? No problem.** Each `.sh` script auto-detects the runtime:
+
+- If `python3` is available → delegates to the `.py` script for full-fidelity validation.
+- If `python3` is **not** installed → runs a built-in pure bash implementation (no `jq` or other dependencies required).
+
+Always call the `.sh` wrappers above, never the `.py` files directly.
 
 Compatibility wrappers also exist:
 
@@ -255,6 +271,6 @@ Do not finish until all of the following are true:
 - `_coverage/coverage_map.json` exists
 - `_phase_done/` contains `<page-id>.plan.json`, `<page-id>.evidence.json`, and `<page-id>.write.json` for every page
 - every page referenced by `page_registry.json` exists on disk
-- `validate_evidence.py`, `validate_frontmatter.py`, `validate_page_quality.py`, `validate_phase_gate.py`, and `validate_todo.py` all pass
+- `validate_evidence.sh`, `validate_frontmatter.sh`, `validate_page_quality.sh`, `validate_phase_gate.sh`, and `validate_todo.sh` all pass
 
 If a legacy consumer explicitly requires `_catalog.json`, generate it as a derived compatibility artifact after the primary outputs are valid.

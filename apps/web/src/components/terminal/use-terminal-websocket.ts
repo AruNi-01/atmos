@@ -54,6 +54,10 @@ export function useTerminalWebSocket({
   /** Once disconnect() is called, this ref prevents any further reconnection
    *  attempts even from stale onclose handlers of previous WebSocket instances. */
   const disconnectedRef = useRef(false);
+  /** Set when sendDestroy() is called — prevents unmount cleanup from closing
+   *  the WS before the backend has processed the destroy request. */
+  const destroyRequestedRef = useRef(false);
+  const destroyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
 
@@ -68,7 +72,7 @@ export function useTerminalWebSocket({
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     }
-  }, [sessionId]);
+  }, []);
 
   const sendInput = useCallback(
     (data: string) => {
@@ -126,10 +130,23 @@ export function useTerminalWebSocket({
   );
 
   const sendDestroy = useCallback(() => {
+    destroyRequestedRef.current = true;
+    disconnectedRef.current = true;
     sendMessage({
       type: "terminal_destroy",
       session_id: sessionId,
     });
+    // Safety-net: if the backend never responds with TerminalDestroyed
+    // (e.g. network issue), force-close the WS after a timeout.
+    if (!destroyTimeoutRef.current) {
+      destroyTimeoutRef.current = setTimeout(() => {
+        destroyTimeoutRef.current = null;
+        if (wsRef.current) {
+          wsRef.current.close();
+          wsRef.current = null;
+        }
+      }, 2000);
+    }
   }, [sessionId, sendMessage]);
 
   const disconnect = useCallback(() => {
@@ -137,6 +154,10 @@ export function useTerminalWebSocket({
     // attempts, even from stale onclose handlers of previous WebSocket instances
     disconnectedRef.current = true;
     clearReconnectTimeout();
+    if (destroyTimeoutRef.current) {
+      clearTimeout(destroyTimeoutRef.current);
+      destroyTimeoutRef.current = null;
+    }
     reconnectCountRef.current = reconnectAttempts; // Prevent reconnection
     if (wsRef.current) {
       wsRef.current.close();
@@ -303,6 +324,12 @@ export function useTerminalWebSocket({
     return () => {
       disconnectedRef.current = true;
       clearReconnectTimeout();
+      // If destroy was requested, the WS must stay open long enough for the
+      // backend to receive and process the terminal_destroy message.
+      // The safety-net timeout in sendDestroy will close it later.
+      if (destroyRequestedRef.current) {
+        return;
+      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

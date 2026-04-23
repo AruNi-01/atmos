@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
-#
-# Validate _todo.md for Project Wiki generation (Bash version, no Python).
-# Checks that file exists and all checklist items are checked [x].
+# Validate _todo.md for Project Wiki generation.
+# Tries python3 first; falls back to pure bash.
 #
 # Usage:
 #   bash scripts/validate_todo.sh <path-to-_todo.md>
 #   bash scripts/validate_todo.sh .atmos/wiki/_todo.md
 
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if command -v python3 &>/dev/null && [[ -f "$SCRIPT_DIR/validate_todo.py" ]]; then
+  exec python3 "$SCRIPT_DIR/validate_todo.py" "$@"
+fi
+
+# ── Pure bash fallback ──────────────────────────────────────────────
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

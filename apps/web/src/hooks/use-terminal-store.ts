@@ -69,6 +69,8 @@ interface TerminalStore {
   persistedTerminalLayouts: Record<string, PersistedTerminalWorkspaceLayout | null>;
   /** Track whether each workspaceId is actually a project context (used for API selection) */
   workspaceContexts: Record<string, boolean>;
+  /** Window names pending backend destroy — prevents name reuse during the race window */
+  pendingDestroyWindowNames: Record<string, Set<string>>;
 
   /** Project Wiki tab: separate panes/layout, does not affect main Terminal (Code workspace) */
   projectWikiPanes: Record<string, Record<string, TerminalPaneProps>>;
@@ -149,11 +151,12 @@ interface TerminalStore {
 }
 
 /** Generate next available window name (1, 2, 3, ...) for numeric names */
-function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): string {
+function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>, pendingNames?: Set<string>): string {
   const values = Object.values(existingPanes);
   const usedNames = new Set([
     ...values.map(p => p.tmuxWindowName),
     ...values.map(p => p.label),
+    ...(pendingNames ?? []),
   ].filter(Boolean));
   
   let num = 1;
@@ -170,7 +173,7 @@ export const PROJECT_WIKI_WINDOW_NAME = "Generate Project Wiki";
 export const CODE_REVIEW_WINDOW_NAME = "Code Review";
 
 /** Generate unique window name with suffix for agent windows (e.g., "Claude Code", "Claude Code-2") */
-function getUniqueAgentName(baseName: string, existingPanes: Record<string, TerminalPaneProps>): string {
+function getUniqueAgentName(baseName: string, existingPanes: Record<string, TerminalPaneProps>, pendingNames?: Set<string>): string {
   // Project Wiki and Code Review use fixed names - always return as-is for attach/reuse
   if (baseName === PROJECT_WIKI_WINDOW_NAME || baseName === CODE_REVIEW_WINDOW_NAME) {
     return baseName;
@@ -180,6 +183,7 @@ function getUniqueAgentName(baseName: string, existingPanes: Record<string, Term
   const usedNames = new Set([
     ...values.map(p => p.tmuxWindowName),
     ...values.map(p => p.label),
+    ...(pendingNames ?? []),
   ].filter(Boolean));
 
   // If base name is not used, return it directly
@@ -413,13 +417,16 @@ function hydratePersistedTab(
 function createInitialLayout(
   workspaceId: string,
   existingPanes: Record<string, TerminalPaneProps> = {},
+  pendingNames?: Set<string>,
 ): {
   panes: Record<string, TerminalPaneProps>, 
   layout: MosaicNode<string> 
 } {
   const initialId = uuidv4();
   const windowName =
-    Object.keys(existingPanes).length > 0 ? getNextWindowName(existingPanes) : "1";
+    Object.keys(existingPanes).length > 0 || (pendingNames && pendingNames.size > 0)
+      ? getNextWindowName(existingPanes, pendingNames)
+      : "1";
   return {
     panes: {
       [initialId]: createTerminalPane(workspaceId, windowName, {
@@ -449,6 +456,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   // Track whether each workspaceId is actually a project context
   // (when on /project?id=xxx, workspaceId holds the project ID)
   workspaceContexts: {},
+  pendingDestroyWindowNames: {},
   projectWikiPanes: {},
   projectWikiLayouts: {},
   projectWikiMaximizedIds: {},
@@ -489,7 +497,8 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       closable: true,
     };
     const allPanes = getAllDefaultPanesForWorkspace(state, workspaceId);
-    const { panes, layout } = createInitialLayout(workspaceId, allPanes);
+    const pendingNames = state.pendingDestroyWindowNames[workspaceId];
+    const { panes, layout } = createInitialLayout(workspaceId, allPanes, pendingNames);
     const scopeKey = getScopeKey(workspaceId, newTab.id);
 
     set((currentState) => ({
@@ -524,6 +533,15 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     if (terminalTabId === FIXED_TERMINAL_TAB_VALUE) return;
 
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
+
+    // Collect tmux window names being destroyed so getNextWindowName avoids reusing them
+    // while the backend is still processing the kill.
+    const closingPanes = get().workspacePanes[scopeKey] || {};
+    const destroyingNames = new Set<string>();
+    for (const pane of Object.values(closingPanes)) {
+      if (pane.tmuxWindowName) destroyingNames.add(pane.tmuxWindowName);
+    }
+
     set((state) => {
       const nextTabs = getWorkspaceTerminalTabs(state, workspaceId).filter((tab) => tab.id !== terminalTabId);
       const restPanes = { ...state.workspacePanes };
@@ -536,6 +554,12 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       delete restMaximized[scopeKey];
       nextHydratedScopes.delete(scopeKey);
       nextInitializingScopes.delete(scopeKey);
+
+      // Merge with any existing pending names for this workspace
+      const existingPending = state.pendingDestroyWindowNames[workspaceId];
+      const mergedPending = existingPending
+        ? new Set([...existingPending, ...destroyingNames])
+        : destroyingNames;
 
       return {
         workspaceTerminalTabs: {
@@ -554,8 +578,29 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         workspaceMaximizedIds: restMaximized,
         hydratedTerminalScopes: nextHydratedScopes,
         initializingTerminalScopes: nextInitializingScopes,
+        pendingDestroyWindowNames: mergedPending.size > 0
+          ? { ...state.pendingDestroyWindowNames, [workspaceId]: mergedPending }
+          : state.pendingDestroyWindowNames,
       };
     });
+
+    // Clear pending names after backend has had time to process the destroy
+    if (destroyingNames.size > 0) {
+      setTimeout(() => {
+        set((state) => {
+          const current = state.pendingDestroyWindowNames[workspaceId];
+          if (!current) return state;
+          const remaining = new Set([...current].filter((n) => !destroyingNames.has(n)));
+          const next = { ...state.pendingDestroyWindowNames };
+          if (remaining.size === 0) {
+            delete next[workspaceId];
+          } else {
+            next[workspaceId] = remaining;
+          }
+          return { pendingDestroyWindowNames: next };
+        });
+      }, 3000);
+    }
 
     get().saveToBackend(workspaceId);
   },
@@ -701,6 +746,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       const nextTmuxWindowsCache = { ...currentState.tmuxWindowsCache };
       const nextPersistedTerminalLayouts = { ...currentState.persistedTerminalLayouts };
       const nextWorkspaceContexts = { ...currentState.workspaceContexts };
+      const nextPendingDestroyWindowNames = { ...currentState.pendingDestroyWindowNames };
       const nextProjectWikiPanes = { ...currentState.projectWikiPanes };
       const nextProjectWikiLayouts = { ...currentState.projectWikiLayouts };
       const nextProjectWikiMaximizedIds = { ...currentState.projectWikiMaximizedIds };
@@ -722,6 +768,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       delete nextTmuxWindowsCache[workspaceId];
       delete nextPersistedTerminalLayouts[workspaceId];
       delete nextWorkspaceContexts[workspaceId];
+      delete nextPendingDestroyWindowNames[workspaceId];
       delete nextProjectWikiPanes[workspaceId];
       delete nextProjectWikiLayouts[workspaceId];
       delete nextProjectWikiMaximizedIds[workspaceId];
@@ -777,6 +824,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         tmuxWindowsCache: nextTmuxWindowsCache,
         persistedTerminalLayouts: nextPersistedTerminalLayouts,
         workspaceContexts: nextWorkspaceContexts,
+        pendingDestroyWindowNames: nextPendingDestroyWindowNames,
         projectWikiPanes: nextProjectWikiPanes,
         projectWikiLayouts: nextProjectWikiLayouts,
         projectWikiMaximizedIds: nextProjectWikiMaximizedIds,
@@ -796,11 +844,12 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const panes = get().workspacePanes[scopeKey] || {};
     const layout = get().workspaceLayouts[scopeKey];
     const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+    const pendingNames = get().pendingDestroyWindowNames[workspaceId];
     const newId = uuidv4();
     // For agent names (non-numeric), use unique suffix logic; otherwise use numeric names
     const windowName = label
-      ? getUniqueAgentName(label, allPanes)
-      : getNextWindowName(allPanes);
+      ? getUniqueAgentName(label, allPanes, pendingNames)
+      : getNextWindowName(allPanes, pendingNames);
 
     const newPane = createTerminalPane(workspaceId, windowName, {
       id: newId,
@@ -863,11 +912,12 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     if (!updatedLayout) {
       // If no terminals left, create a fresh one
       const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+      const pendingNames = get().pendingDestroyWindowNames[workspaceId];
       const currentPanes = get().workspacePanes[scopeKey] || {};
       const remainingPanes = Object.fromEntries(
         Object.entries(allPanes).filter(([paneId]) => !currentPanes[paneId])
       );
-      const { panes, layout: initialLayout } = createInitialLayout(workspaceId, remainingPanes);
+      const { panes, layout: initialLayout } = createInitialLayout(workspaceId, remainingPanes, pendingNames);
       set((state) => ({
         workspacePanes: {
           ...state.workspacePanes,
@@ -889,12 +939,13 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const layout = get().workspaceLayouts[scopeKey];
     const panes = get().workspacePanes[scopeKey] || {};
     const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+    const pendingNames = get().pendingDestroyWindowNames[workspaceId];
     if (!layout) return null;
 
     const newId = uuidv4();
     const windowName = agent
-      ? getUniqueAgentName(agent.label, allPanes)
-      : getNextWindowName(allPanes);
+      ? getUniqueAgentName(agent.label, allPanes, pendingNames)
+      : getNextWindowName(allPanes, pendingNames);
     
     const newPane = createTerminalPane(workspaceId, windowName, {
       id: newId,
@@ -1207,7 +1258,8 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       }
 
       const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
-      const { panes: initialPanes, layout: initialLayout } = createInitialLayout(workspaceId, allPanes);
+      const pendingNames = get().pendingDestroyWindowNames[workspaceId];
+      const { panes: initialPanes, layout: initialLayout } = createInitialLayout(workspaceId, allPanes, pendingNames);
 
       set((currentState) => ({
         workspacePanes: {

@@ -83,7 +83,7 @@ def _collect_paths(node: dict, out: set[str]) -> None:
             _collect_paths(child, out)
 
 
-def validate_page(page_id: str, kind: str, wiki_dir: Path, ast_paths: set[str] | None) -> list[str]:
+def validate_page(page_id: str, kind: str, wiki_dir: Path, ast_paths: set[str] | None, page_file: str | None = None) -> list[str]:
     errors: list[str] = []
 
     evidence_path = wiki_dir / "_evidence" / f"{page_id}.json"
@@ -162,7 +162,7 @@ def main():
         kind = page.get("kind", "module")
         if not page_id:
             continue
-        errs = validate_page(page_id, kind, wiki_dir, ast_paths)
+        errs = validate_page(page_id, kind, wiki_dir, ast_paths, page.get("file", f"pages/{page_id}.md"))
         if errs:
             failures.append((page_id, errs))
 
