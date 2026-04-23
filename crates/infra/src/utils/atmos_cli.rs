@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use tracing::{info, warn};
 
@@ -24,32 +23,6 @@ pub fn installed_cli_path() -> Option<PathBuf> {
     home_bin_dir().map(|dir| dir.join(binary_name()))
 }
 
-fn source_workspace_root() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let target_dir = exe.parent()?;
-    let build_kind_dir = target_dir.parent()?;
-    let workspace_root = build_kind_dir.parent()?;
-    if workspace_root.join("skills").is_dir() && workspace_root.join("apps").is_dir() {
-        Some(workspace_root.to_path_buf())
-    } else {
-        None
-    }
-}
-
-fn build_cli_from_source_workspace() -> Option<PathBuf> {
-    let workspace_root = source_workspace_root()?;
-    let status = Command::new("cargo")
-        .args(["build", "--bin", "atmos"])
-        .current_dir(&workspace_root)
-        .status()
-        .ok()?;
-    if !status.success() {
-        return None;
-    }
-    let candidate = workspace_root.join("target").join("debug").join(binary_name());
-    candidate.is_file().then_some(candidate)
-}
-
 fn source_cli_candidate() -> Option<PathBuf> {
     if let Some(path) = std::env::var_os(ATMOS_CLI_BIN_ENV).map(PathBuf::from) {
         if path.is_file() {
@@ -66,7 +39,7 @@ fn source_cli_candidate() -> Option<PathBuf> {
         }
     }
 
-    build_cli_from_source_workspace()
+    None
 }
 
 fn set_executable_if_needed(path: &Path) -> Result<(), String> {
@@ -135,7 +108,8 @@ pub fn ensure_atmos_cli_on_startup() -> Result<Option<PathBuf>, String> {
         }
     } else if !installed.is_file() {
         warn!(
-            "Atmos CLI source binary was not found; review-fix terminal flows may be unavailable"
+            "Atmos CLI source binary was not found; review-fix terminal flows may be unavailable. \
+             Build it with `just build-cli` (or `cargo build --bin atmos`) and restart the API."
         );
         return Ok(None);
     }

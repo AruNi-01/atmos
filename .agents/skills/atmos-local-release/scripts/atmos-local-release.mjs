@@ -253,7 +253,7 @@ function main() {
     "node",
     ["./scripts/release/check-local-runtime-version.mjs", "--release-tag", tag],
     {
-      dryRun: args.dryRun,
+      dryRun: false,
       description: "Validating local runtime version alignment",
     },
   );

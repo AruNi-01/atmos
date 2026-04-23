@@ -1203,19 +1203,29 @@ impl ReviewService {
     ) -> Result<String> {
         let mut output = String::new();
         output.push_str("<review-fix-run>\n");
-        output.push_str(&format!("  <session guid=\"{}\" current_revision_guid=\"{}\" />\n", session.guid, session.current_revision_guid));
-        output.push_str(&format!("  <run guid=\"{}\" execution_mode=\"{}\" />\n", run.guid, run.execution_mode));
+        output.push_str(&format!(
+            "  <session guid=\"{}\" current_revision_guid=\"{}\" />\n",
+            xml_escape(&session.guid),
+            xml_escape(&session.current_revision_guid)
+        ));
+        output.push_str(&format!(
+            "  <run guid=\"{}\" execution_mode=\"{}\" />\n",
+            xml_escape(&run.guid),
+            xml_escape(&run.execution_mode)
+        ));
         for thread in threads {
             output.push_str(&format!(
                 "  <thread guid=\"{}\" revision_guid=\"{}\" file_snapshot_guid=\"{}\">\n",
-                thread.model.guid, thread.model.revision_guid, thread.model.file_snapshot_guid
+                xml_escape(&thread.model.guid),
+                xml_escape(&thread.model.revision_guid),
+                xml_escape(&thread.model.file_snapshot_guid)
             ));
             output.push_str(&format!(
                 "    <anchor side=\"{}\" start_line=\"{}\" end_line=\"{}\" line_range_kind=\"{}\" />\n",
-                thread.model.anchor_side,
+                xml_escape(&thread.model.anchor_side),
                 thread.model.anchor_start_line,
                 thread.model.anchor_end_line,
-                thread.model.anchor_line_range_kind
+                xml_escape(&thread.model.anchor_line_range_kind)
             ));
             if let Some(message) = thread.messages.first() {
                 output.push_str("    <comment>\n");
@@ -1348,4 +1358,6 @@ fn xml_escape(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
 }
