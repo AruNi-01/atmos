@@ -49,7 +49,6 @@ import type { Project,
   WorkspacePriority,
   WorkspaceWorkflowStatus } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
-import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
@@ -190,8 +189,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const {
         isCreateProjectOpen,
         setCreateProjectOpen,
-        isCreateWorkspaceOpen,
-        setCreateWorkspaceOpen,
         selectedProjectId,
         setSelectedProjectId
     } = useDialogStore();
@@ -507,7 +504,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const handleAddWorkspace = (projectId: string) => {
         setSelectedProjectId(projectId);
-        setCreateWorkspaceOpen(true);
+        router.push('/');
     };
 
     const handleQuickAddWorkspace = async (projectId: string) => {
@@ -1170,12 +1167,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     </div>
                 )}
             </aside >
-
-            <CreateWorkspaceDialog
-                isOpen={isCreateWorkspaceOpen}
-                onClose={() => setCreateWorkspaceOpen(false)}
-                defaultProjectId={selectedProjectId}
-            />
             <CreateProjectDialog
                 isOpen={isCreateProjectOpen}
                 onClose={() => setCreateProjectOpen(false)}

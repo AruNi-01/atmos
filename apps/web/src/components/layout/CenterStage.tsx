@@ -101,6 +101,7 @@ import {
 import { CodeReviewDialog } from "@/components/code-review";
 import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/hooks/use-app-router";
+import { useWorkspaceCreationStore } from "@/hooks/use-workspace-creation-store";
 
 const WikiTab = dynamic(
   () => import("@/components/wiki").then((m) => m.WikiTab),
@@ -226,6 +227,10 @@ function applySavedTabGroupOrder(group: { key: string; label: string; tabs: TabG
       return leftIndex - rightIndex;
     }),
   };
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 // Inner component: only subscribes to agent store, receives pane IDs as stable prop.
@@ -401,6 +406,8 @@ const CenterStage: React.FC = () => {
   const codeReviewUserTriggeredRef = React.useRef(false);
   const [codeReviewCloseConfirmOpen, setCodeReviewCloseConfirmOpen] = React.useState(false);
   // codeReviewDialogOpen is managed via useDialogStore for cross-component access
+  const pendingWorkspaceAgentRun = useWorkspaceCreationStore((s) => s.pendingAgentRun);
+  const consumeWorkspaceAgentRun = useWorkspaceCreationStore((s) => s.consumeAgentRun);
 
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
@@ -895,29 +902,81 @@ const CenterStage: React.FC = () => {
     [agentCustomSettings, visibleBuiltInAgents, visibleCustomAgents]
   );
 
-  function runWhenTerminalGridReady(
+  const runWhenTerminalGridReady = React.useCallback((
     targetTerminalTabId: string,
     callback: (grid: TerminalGridHandle) => void,
     attemptsLeft = 20,
-  ) {
-    const targetGrid =
-      targetTerminalTabId === FIXED_TERMINAL_TAB_VALUE
-        ? terminalGridRef.current
-        : terminalGridRefs.current[targetTerminalTabId];
+  ) => {
+    const attempt = (remaining: number) => {
+      const targetGrid =
+        targetTerminalTabId === FIXED_TERMINAL_TAB_VALUE
+          ? terminalGridRef.current
+          : terminalGridRefs.current[targetTerminalTabId];
 
-    if (targetGrid) {
-      callback(targetGrid);
+      if (targetGrid) {
+        callback(targetGrid);
+        return;
+      }
+
+      if (remaining <= 0) {
+        return;
+      }
+
+      window.setTimeout(() => {
+        attempt(remaining - 1);
+      }, 50);
+    };
+
+    attempt(attemptsLeft);
+  }, []);
+
+  React.useEffect(() => {
+    if (
+      !effectiveContextId ||
+      currentView !== "workspace" ||
+      isSetupBlocking ||
+      pendingWorkspaceAgentRun?.workspaceId !== effectiveContextId
+    ) {
       return;
     }
 
-    if (attemptsLeft <= 0) {
-      return;
-    }
+    const pending = consumeWorkspaceAgentRun(effectiveContextId);
+    if (!pending) return;
+    const selectedAgent =
+      pending.agent
+        ? { agent: pending.agent, command: pending.agent.command }
+        : terminalQuickOpenAgents.find(({ agent }) => agent.id === defaultAgentId) ??
+          terminalQuickOpenAgents[0];
+    if (!selectedAgent) return;
 
-    window.setTimeout(() => {
-      runWhenTerminalGridReady(targetTerminalTabId, callback, attemptsLeft - 1);
-    }, 50);
-  }
+    const prompt = pending.prompt.trim();
+    const command = prompt
+      ? `${selectedAgent.command.trim()} ${shellQuote(prompt)}`
+      : selectedAgent.command.trim();
+
+    setActiveFile(null, effectiveContextId);
+    setActiveTerminalTab(effectiveContextId, FIXED_TERMINAL_TAB_VALUE);
+    setUrlParams({ tab: FIXED_TERMINAL_TAB_VALUE, wikiPage: null });
+    runWhenTerminalGridReady(FIXED_TERMINAL_TAB_VALUE, (grid) => {
+      void grid.createAndRunTerminal({
+        label: selectedAgent.agent.label,
+        command,
+        agent: selectedAgent.agent,
+      });
+    }, 40);
+  }, [
+    consumeWorkspaceAgentRun,
+    currentView,
+    defaultAgentId,
+    effectiveContextId,
+    isSetupBlocking,
+    pendingWorkspaceAgentRun,
+    setActiveFile,
+    setActiveTerminalTab,
+    setUrlParams,
+    runWhenTerminalGridReady,
+    terminalQuickOpenAgents,
+  ]);
 
   const handleAddAgent = (agentId: string, targetTerminalTabId: string = FIXED_TERMINAL_TAB_VALUE) => {
     if (!effectiveContextId) return;

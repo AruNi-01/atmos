@@ -4,9 +4,10 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Checkbox,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -613,10 +614,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       : todoProviderLabel
         ? `Uses ${todoProviderLabel} to extract an initial task checklist from the issue description.`
         : 'Configure LLM Providers > Routing > Workspace issue TODO extraction first.';
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[720px] h-[80vh] max-h-[720px] overflow-hidden">
+      <DialogContent className="sm:max-w-[720px] max-h-[80vh] overflow-y-auto [scrollbar-gutter:stable] gap-4 bg-background p-6 pt-7">
         <DialogHeader className="flex flex-row items-start justify-between gap-4 pr-8">
           <DialogTitle>Create New Workspace</DialogTitle>
           <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
@@ -637,9 +637,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
             )}
           </div>
         </DialogHeader>
+        <div className="-mx-6 border-b border-border/60" />
 
-        <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
-          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-5">
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <div className="pr-1 pt-2 space-y-5">
             {!defaultProjectId && projectSelectionInHeader && (
               <div className="grid gap-2">
                 <Label htmlFor="project-inline">Project</Label>
@@ -806,171 +807,192 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               </div>
             </div>
 
-            <Card className="border-border bg-background">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-medium">GitHub Issue</CardTitle>
-                {repoContext && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7"
-                    onClick={handleRefreshIssues}
-                    disabled={isIssuesLoading}
-                    title="Refresh issues"
+            <Card className="mt-1 border-border bg-background">
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <div
+                    className="group flex w-full cursor-pointer items-center gap-2 px-6 py-4 text-left text-sm font-medium text-foreground"
+                    role="button"
+                    tabIndex={0}
                   >
-                    {isIssuesLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
-                  </Button>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {repoContext ? (
-                  <>
-                    <div className="grid gap-2">
-                      <Label htmlFor="issue-select">Select from repository</Label>
-                      <Select
-                        value={selectedIssueNumber}
-                        onValueChange={handleSelectIssue}
-                        disabled={!isIssuesLoading && issues.length === 0}
-                      >
-                        <SelectTrigger id="issue-select">
-                          <SelectValue
-                            placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
-                          />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-80">
-                          {issues.length === 0 ? (
-                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                              No GitHub issues found
-                            </div>
-                          ) : (
-                            issues.map((issue) => (
-                              <SelectItem key={issue.number} value={String(issue.number)}>
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="font-mono text-xs text-muted-foreground">
-                                    #{issue.number}
-                                  </span>
-                                  <span className="truncate">{issue.title}</span>
+                  <span className="relative size-4 shrink-0">
+                    <Github className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
+                    <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                  </span>
+                  GitHub Issue
+                  <span className="text-xs font-normal text-muted-foreground">
+                    Pull title and branch seed from a repository issue.
+                  </span>
+                  {repoContext && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="ml-auto size-7"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void handleRefreshIssues();
+                      }}
+                      disabled={isIssuesLoading}
+                      title="Refresh issues"
+                    >
+                      {isIssuesLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
+                    </Button>
+                  )}
+                  </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 pt-0 pb-5">
+                    {repoContext ? (
+                      <>
+                        <div className="grid gap-2">
+                          <Label htmlFor="issue-select">Select from repository</Label>
+                          <Select
+                            value={selectedIssueNumber}
+                            onValueChange={handleSelectIssue}
+                            disabled={!isIssuesLoading && issues.length === 0}
+                          >
+                            <SelectTrigger id="issue-select">
+                              <SelectValue
+                                placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
+                              />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-80">
+                              {issues.length === 0 ? (
+                                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                  No GitHub issues found
                                 </div>
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                              ) : (
+                                issues.map((issue) => (
+                                  <SelectItem key={issue.number} value={String(issue.number)}>
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <span className="font-mono text-xs text-muted-foreground">
+                                        #{issue.number}
+                                      </span>
+                                      <span className="truncate">{issue.title}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="issue-url">Or paste issue URL</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="issue-url"
-                          value={issueUrl}
-                          onChange={(event) => {
-                            setIssuePreview(null);
-                            setIssueError(null);
-                            setIssueUrl(event.target.value);
-                          }}
-                          placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/issues/40`}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleLoadIssueFromUrl}
-                          disabled={isIssuePreviewLoading || !issueUrl.trim()}
-                        >
-                          {isIssuePreviewLoading ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            'Load'
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                ) : selectedProjectId ? (
-                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    This project does not expose a GitHub remote, so issue import is unavailable.
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    Select a project first to load GitHub issue sync.
-                  </div>
-                )}
-
-                {issueError && (
-                  <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                    {issueError}
-                  </div>
-                )}
-                {isIssuePreviewLoading ? (
-                  <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" />
-                    Loading issue preview
-                  </div>
-                ) : issuePreview ? (
-                  <Card className="border-border bg-muted/20">
-                    <CardContent className="space-y-3 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-xs text-muted-foreground">
-                            {issuePreview.owner}/{issuePreview.repo}#{issuePreview.number}
+                        <div className="grid gap-2">
+                          <Label htmlFor="issue-url">Or paste issue URL</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="issue-url"
+                              value={issueUrl}
+                              onChange={(event) => {
+                                setIssuePreview(null);
+                                setIssueError(null);
+                                setIssueUrl(event.target.value);
+                              }}
+                              placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/issues/40`}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleLoadIssueFromUrl}
+                              disabled={isIssuePreviewLoading || !issueUrl.trim()}
+                            >
+                              {isIssuePreviewLoading ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                'Load'
+                              )}
+                            </Button>
                           </div>
-                          <h3 className="mt-1 truncate text-sm font-medium text-foreground">
-                            {issuePreview.title}
-                          </h3>
                         </div>
-                        <Badge variant="secondary" className="capitalize shrink-0">
-                          {issuePreview.state}
-                        </Badge>
+                      </>
+                    ) : selectedProjectId ? (
+                      <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                        This project does not expose a GitHub remote, so issue import is unavailable.
                       </div>
+                    ) : (
+                      <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                        Select a project first to load GitHub issue sync.
+                      </div>
+                    )}
 
-                      {issuePreview.labels.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {issuePreview.labels.map((label) => (
-                            <Badge key={label.name} variant="outline">
-                              {label.name}
+                    {issueError && (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                        {issueError}
+                      </div>
+                    )}
+                    {isIssuePreviewLoading ? (
+                      <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" />
+                        Loading issue preview
+                      </div>
+                    ) : issuePreview ? (
+                      <Card className="border-border bg-muted/20">
+                        <CardContent className="space-y-3 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-xs text-muted-foreground">
+                                {issuePreview.owner}/{issuePreview.repo}#{issuePreview.number}
+                              </div>
+                              <h3 className="mt-1 truncate text-sm font-medium text-foreground">
+                                {issuePreview.title}
+                              </h3>
+                            </div>
+                            <Badge variant="secondary" className="capitalize shrink-0">
+                              {issuePreview.state}
                             </Badge>
-                          ))}
+                          </div>
+
+                          {issuePreview.labels.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {issuePreview.labels.map((label) => (
+                                <Badge key={label.name} variant="outline">
+                                  {label.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
+                            {issueBodyPreview}
+                          </p>
+
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1.5"
+                              onClick={() =>
+                                window.open(issuePreview.url, '_blank', 'noopener,noreferrer')
+                              }
+                            >
+                              <ExternalLink className="size-3.5" />
+                              Open on GitHub
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : null}
+
+                    <label className="flex items-center gap-3 rounded-md border border-border px-3 py-3 text-sm">
+                      <Checkbox
+                        checked={autoExtractTodos}
+                        onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
+                        disabled={!canAutoExtractTodos}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 font-medium text-foreground">
+                          <Sparkles className="size-4 text-muted-foreground" />
+                          Auto-extract TODOs with LLM
                         </div>
-                      )}
-
-                      <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
-                        {issueBodyPreview}
-                      </p>
-
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 gap-1.5"
-                          onClick={() =>
-                            window.open(issuePreview.url, '_blank', 'noopener,noreferrer')
-                          }
-                        >
-                          <ExternalLink className="size-3.5" />
-                          Open on GitHub
-                        </Button>
+                        <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ) : null}
-
-                <label className="flex items-center gap-3 rounded-md border border-border px-3 py-3 text-sm">
-                  <Checkbox
-                    checked={autoExtractTodos}
-                    onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
-                    disabled={!canAutoExtractTodos}
-                  />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 font-medium text-foreground">
-                      <Sparkles className="size-4 text-muted-foreground" />
-                      Auto-extract TODOs with LLM
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
-                  </div>
-                </label>
-              </CardContent>
+                    </label>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
 
             {submitError && (
@@ -980,7 +1002,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
             )}
           </div>
 
-          <DialogFooter className="mt-5 flex w-full flex-row items-center justify-between sm:justify-between">
+          <div className="mx-1 mt-4 border-b border-border/60" />
+          <DialogFooter className="mt-4 flex w-full flex-row items-center justify-between sm:justify-between">
             <div className="flex items-center gap-2">
               <WorkspacePrioritySelect
                 value={priority}
