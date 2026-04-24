@@ -17,7 +17,6 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  Textarea,
   toastManager,
 } from "@workspace/ui";
 import {
@@ -40,18 +39,22 @@ import { AgentSelect, buildCommand, type AgentId } from "@/components/wiki/Agent
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useWebSocketStore } from "@/hooks/use-websocket";
-import type { SelectionInfo } from "@/lib/format-selection-for-ai";
 import { cn } from "@/lib/utils";
 
 interface ReviewSessionPanelProps {
   workspaceId: string | null;
   filePath: string;
-  selectionInfo: SelectionInfo | null;
-  onSelectionConsumed: () => void;
   selectedSnapshotGuid: string | null;
   onSelectSnapshotView: (snapshotGuid: string, label: string) => void;
   onSelectLiveView: () => void;
   onRunInTerminal?: (command: string, label: string) => Promise<void> | void;
+  onReviewContextChange?: (context: {
+    session: ReviewSessionDto | null;
+    revision: ReviewSessionDto["revisions"][number] | null;
+    file: ReviewFileDto | null;
+    threads: ReviewThreadDto[];
+    canEdit: boolean;
+  }) => void;
 }
 
 type PanelTab = "threads" | "files" | "runs" | "summary";
@@ -146,12 +149,11 @@ function sortThreads(threads: ReviewThreadDto[], currentFileSnapshotGuid: string
 export function ReviewSessionPanel({
   workspaceId,
   filePath,
-  selectionInfo,
-  onSelectionConsumed,
   selectedSnapshotGuid,
   onSelectSnapshotView,
   onSelectLiveView,
   onRunInTerminal,
+  onReviewContextChange,
 }: ReviewSessionPanelProps) {
   const { resolvedTheme } = useTheme();
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
@@ -162,10 +164,8 @@ export function ReviewSessionPanel({
   const [, setAgentChatOpen] = useAgentChatUrl();
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isCreatingFixRun, setIsCreatingFixRun] = useState(false);
   const [isFinalizingRun, setIsFinalizingRun] = useState<string | null>(null);
-  const [commentBody, setCommentBody] = useState("");
   const [sessions, setSessions] = useState<ReviewSessionDto[]>([]);
   const [selectedSessionGuid, setSelectedSessionGuid] = useState<string | null>(null);
   const [selectedRevisionGuid, setSelectedRevisionGuid] = useState<string | null>(null);
@@ -346,6 +346,23 @@ export function ReviewSessionPanel({
     [currentFile?.snapshot.guid, threads],
   );
 
+  useEffect(() => {
+    onReviewContextChange?.({
+      session: currentSession,
+      revision: currentRevision,
+      file: currentFile,
+      threads: currentFileThreads,
+      canEdit,
+    });
+  }, [
+    canEdit,
+    currentFile,
+    currentFileThreads,
+    currentRevision,
+    currentSession,
+    onReviewContextChange,
+  ]);
+
   const fileRevisionEntries = useMemo(() => {
     if (!currentSession) return [];
     return currentSession.revisions
@@ -442,74 +459,6 @@ export function ReviewSessionPanel({
     },
     [loadSessions],
   );
-
-  const handleCreateComment = useCallback(async () => {
-    if (!currentSession || !currentRevision || !currentFile || !selectionInfo) return;
-    const body = commentBody.trim();
-    if (!body) {
-      toastManager.add({
-        title: "Comment is empty",
-        description: "Write a short review note before creating a thread.",
-        type: "error",
-      });
-      return;
-    }
-
-    const anchor = {
-      file_path: filePath,
-      side:
-        selectionInfo.diffSide ??
-        (selectionInfo.changeType === "deletion" ? "old" : "new"),
-      start_line: selectionInfo.startLine,
-      end_line: selectionInfo.endLine,
-      line_range_kind:
-        selectionInfo.startLine === selectionInfo.endLine ? "single" : "range",
-      selected_text: selectionInfo.selectedText,
-      // `selectionInfo.beforeText` / `afterText` are the old and new file
-      // content for the selected lines themselves, not the surrounding
-      // context. The anchor's `before_context` / `after_context` fields are
-      // reserved for lines preceding/following the selection (used by
-      // re-anchoring, not yet implemented), so leave them empty here.
-      before_context: [],
-      after_context: [],
-      hunk_header: null,
-    };
-
-    setIsSubmittingComment(true);
-    try {
-      await reviewWsApi.createThread({
-        sessionGuid: currentSession.guid,
-        revisionGuid: currentRevision.guid,
-        fileSnapshotGuid: currentFile.snapshot.guid,
-        anchor,
-        body,
-      });
-      setCommentBody("");
-      onSelectionConsumed();
-      setPanelTab("threads");
-      await loadThreads();
-      await loadSessions();
-    } catch (error) {
-      toastManager.add({
-        title: "Failed to create review comment",
-        description:
-          error instanceof Error ? error.message : "Unknown review comment error",
-        type: "error",
-      });
-    } finally {
-      setIsSubmittingComment(false);
-    }
-  }, [
-    commentBody,
-    currentFile,
-    currentRevision,
-    currentSession,
-    filePath,
-    loadSessions,
-    loadThreads,
-    onSelectionConsumed,
-    selectionInfo,
-  ]);
 
   const handleUpdateThreadStatus = useCallback(
     async (threadGuid: string, status: string) => {
@@ -714,9 +663,9 @@ export function ReviewSessionPanel({
   if (!workspaceId) return null;
 
   return (
-    <div className="w-full border-l border-border bg-muted/20 xl:w-[420px]">
-      <div className="flex h-full flex-col">
-        <div className="border-b border-border px-4 py-3">
+    <div className="h-full min-h-0 w-full bg-muted/20">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="shrink-0 border-b border-border px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-foreground">Review Session</p>
@@ -728,664 +677,615 @@ export function ReviewSessionPanel({
               <Loader2 className="size-4 animate-spin text-muted-foreground" />
             ) : null}
           </div>
-
-          {sessions.length > 0 ? (
-            <div className="mt-3">
-              <Select
-                value={currentSession?.guid ?? undefined}
-                onValueChange={(value) => {
-                  setSelectedSessionGuid(value);
-                  setSelectedRevisionGuid(null);
-                  setArtifactPreview(null);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select review session" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessions.map((session) => (
-                    <SelectItem key={session.guid} value={session.guid}>
-                      {(session.title?.trim() || "Review Session") +
-                        ` · ${session.status.replaceAll("_", " ")}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          {!currentSession ? (
-            <div className="mt-3 rounded-lg border border-dashed border-border bg-background/70 p-3">
-              <p className="text-sm text-foreground">
-                No review session for this workspace yet.
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Start one to persist comments against a stable review snapshot.
-              </p>
-              <Button
-                size="sm"
-                className="mt-3"
-                onClick={handleCreateSession}
-                disabled={isCreating}
-              >
-                {isCreating ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <MessageSquarePlus className="mr-2 size-4" />
-                )}
-                New Review Session
-              </Button>
-            </div>
-          ) : (
-            <div className="mt-3 space-y-3">
-              <div className="rounded-lg border border-border bg-background/80 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {currentSession.title?.trim() || "Current Review Session"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Started {formatDate(currentSession.created_at)}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      "rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
-                      statusTone(currentSession.status),
-                    )}
-                  >
-                    {currentSession.status.replaceAll("_", " ")}
-                  </span>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                  <span>{currentSession.open_thread_count} open threads</span>
-                  <span>{currentSession.reviewed_file_count} reviewed files</span>
-                  {currentSession.reviewed_then_changed_count > 0 ? (
-                    <span>
-                      {currentSession.reviewed_then_changed_count} changed after review
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCreateSession}
-                    disabled={isCreating}
-                  >
-                    New Session
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      await reviewWsApi.closeSession(currentSession.guid);
-                      await loadSessions();
-                    }}
-                    disabled={currentSession.status !== "active"}
-                  >
-                    Close
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      await reviewWsApi.archiveSession(currentSession.guid);
-                      await loadSessions();
-                    }}
-                  >
-                    Archive
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border bg-background/80 p-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Revision Timeline</p>
-                    <p className="text-xs text-muted-foreground">
-                      Switch between live workspace diff and saved review snapshots.
-                    </p>
-                  </div>
-                  <History className="size-4 text-muted-foreground" />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant={selectedSnapshotGuid ? "outline" : "default"}
-                    onClick={onSelectLiveView}
-                  >
-                    Live Diff
-                  </Button>
-                  {fileRevisionEntries.map(({ revision, file }) => (
-                    <Button
-                      key={revision.guid}
-                      size="sm"
-                      variant={
-                        selectedSnapshotGuid === file.snapshot.guid ? "default" : "outline"
-                      }
-                      onClick={() => {
-                        setSelectedRevisionGuid(revision.guid);
-                        onSelectSnapshotView(
-                          file.snapshot.guid,
-                          revision.title?.trim() || revision.guid.slice(0, 8),
-                        );
-                      }}
-                    >
-                      {revision.title?.trim() || revision.guid.slice(0, 8)}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border bg-background/80 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {filePath}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {currentRevision
-                        ? `Revision ${currentRevision.title || currentRevision.guid.slice(0, 8)}${canEdit ? "" : " (read-only)"}`
-                        : "No active revision"}
-                    </p>
-                  </div>
-                  {currentFile ? (
-                    <label className="flex items-center gap-2 text-xs text-foreground">
-                      <Checkbox
-                        checked={currentFile.state.reviewed}
-                        disabled={!canEdit}
-                        onCheckedChange={(value) =>
-                          handleToggleReviewed(currentFile, Boolean(value))
-                        }
-                      />
-                      Reviewed
-                    </label>
-                  ) : null}
-                </div>
-
-                {currentFile ? (
-                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                    <span>{currentFile.open_thread_count} open file threads</span>
-                    {currentFile.changed_after_review ? (
-                      <span className="text-amber-600">Reviewed, changed after review</span>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    This file is not part of the selected review revision.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-border bg-background/80 p-3">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Fix Execution</p>
-                    <p className="text-xs text-muted-foreground">
-                      Create a run for current-file comments or all open threads in this revision.
-                    </p>
-                  </div>
-                  <WandSparkles className="size-4 text-muted-foreground" />
-                </div>
-
-                <AgentSelect
-                  value={terminalAgentId}
-                  onValueChange={(value) => {
-                    setTerminalAgentId(value);
-                    if (typeof window !== "undefined") {
-                      window.localStorage.setItem(REVIEW_AGENT_STORAGE_KEY, value);
-                    }
-                  }}
-                  className="mb-3"
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={
-                      !canEdit ||
-                      !currentFile ||
-                      openCurrentFileThreads.length === 0 ||
-                      isCreatingFixRun
-                    }
-                    onClick={() =>
-                      handleCopyFixPrompt(openCurrentFileThreads.map((thread) => thread.guid))
-                    }
-                  >
-                    {isCreatingFixRun ? (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    ) : (
-                      <Copy className="mr-2 size-4" />
-                    )}
-                    Copy File Prompt
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!canEdit || openRevisionThreads.length === 0 || isCreatingFixRun}
-                    onClick={() => handleCopyFixPrompt()}
-                  >
-                    Copy Revision Prompt
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!canEdit || openRevisionThreads.length === 0 || isCreatingFixRun}
-                    onClick={() => handleSendFixRunToAgentChat()}
-                  >
-                    Send To Agent
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!canEdit || openRevisionThreads.length === 0 || isCreatingFixRun}
-                    onClick={() => handleRunFixInTerminal()}
-                  >
-                    <Terminal className="mr-2 size-4" />
-                    Run In Terminal
-                  </Button>
-                </div>
-              </div>
-
-              {selectionInfo && currentFile ? (
-                <div className="rounded-lg border border-border bg-background/80 p-3">
-                  <p className="text-sm font-medium text-foreground">New Comment</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {selectionInfo.startLine === selectionInfo.endLine
-                      ? `Line ${selectionInfo.startLine}`
-                      : `Lines ${selectionInfo.startLine}-${selectionInfo.endLine}`}
-                  </p>
-                  <Textarea
-                    value={commentBody}
-                    onChange={(event) => setCommentBody(event.target.value)}
-                    placeholder="Describe the issue or expected change..."
-                    className="mt-3 min-h-24"
-                    disabled={!canEdit}
-                  />
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleCreateComment}
-                      disabled={!canEdit || isSubmittingComment}
-                    >
-                      {isSubmittingComment ? (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                      ) : null}
-                      Add Comment
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={onSelectionConsumed}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden px-4 py-3">
-          {currentSession ? (
-            <Tabs
-              value={panelTab}
-              onValueChange={(value) => setPanelTab(value as PanelTab)}
-              className="h-full min-h-0"
-            >
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="threads">Threads</TabsTrigger>
-                <TabsTrigger value="files">Files</TabsTrigger>
-                <TabsTrigger value="runs">Runs</TabsTrigger>
-                <TabsTrigger value="summary">Summary</TabsTrigger>
-              </TabsList>
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-4 py-3">
+          <div className="min-w-0 space-y-3 pb-6">
+            {sessions.length > 0 ? (
+              <div>
+                <Select
+                  value={currentSession?.guid ?? undefined}
+                  onValueChange={(value) => {
+                    setSelectedSessionGuid(value);
+                    setSelectedRevisionGuid(null);
+                    setArtifactPreview(null);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select review session" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sessions.map((session) => (
+                      <SelectItem key={session.guid} value={session.guid}>
+                        {(session.title?.trim() || "Review Session") +
+                          ` · ${session.status.replaceAll("_", " ")}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
 
-              <TabsContent value="threads" className="mt-3 min-h-0 overflow-y-auto">
-                {sortedThreads.length > 0 ? (
-                  <div className="space-y-3">
-                    {sortedThreads.map((thread) => {
-                      const threadCanEdit =
-                        canEdit && thread.revision_guid === currentSession.current_revision_guid;
-                      return (
-                        <div
-                          key={thread.guid}
-                          className="rounded-lg border border-border bg-background/80 p-3"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-foreground">
-                                {threadTitle(thread)}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {thread.anchor.file_path || filePath} · {formatDate(thread.created_at)}
-                              </p>
-                            </div>
-                            <span
-                              className={cn(
-                                "rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
-                                statusTone(thread.status),
-                              )}
-                            >
-                              {thread.status.replaceAll("_", " ")}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 space-y-2">
-                            {thread.messages.map((message) => (
-                              <div
-                                key={message.guid}
-                                className={cn(
-                                  "rounded-md border px-3 py-2 text-sm",
-                                  message.author_type === "user"
-                                    ? "border-border bg-muted/50"
-                                    : "border-sky-500/20 bg-sky-500/5",
-                                )}
-                              >
-                                <div className="mb-1 flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                                  <span>{message.author_type}</span>
-                                  <span>{formatDate(message.created_at)}</span>
-                                </div>
-                                <p className="whitespace-pre-wrap break-words text-foreground">
-                                  {message.body_full}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!threadCanEdit}
-                              onClick={() =>
-                                handleUpdateThreadStatus(thread.guid, "needs_user_check")
-                              }
-                            >
-                              Needs Check
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!threadCanEdit}
-                              onClick={() => handleUpdateThreadStatus(thread.guid, "fixed")}
-                            >
-                              Mark Fixed
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!threadCanEdit}
-                              onClick={() => handleUpdateThreadStatus(thread.guid, "dismissed")}
-                            >
-                              Dismiss
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+            {!currentSession ? (
+              <div className="rounded-lg border border-dashed border-border bg-background/70 p-3">
+                <p className="text-sm text-foreground">
+                  No review session for this workspace yet.
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Start one to persist comments against a stable review snapshot.
+                </p>
+                <Button
+                  size="sm"
+                  className="mt-3"
+                  onClick={handleCreateSession}
+                  disabled={isCreating}
+                >
+                  {isCreating ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <MessageSquarePlus className="mr-2 size-4" />
+                  )}
+                  New Review Session
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-lg border border-border bg-background/80 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {currentSession.title?.trim() || "Current Review Session"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Started {formatDate(currentSession.created_at)}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
+                        statusTone(currentSession.status),
+                      )}
+                    >
+                      {currentSession.status.replaceAll("_", " ")}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No review threads in this revision yet.
-                  </p>
-                )}
-              </TabsContent>
 
-              <TabsContent value="files" className="mt-3 min-h-0 overflow-y-auto">
-                {currentRevision ? (
-                  <div className="space-y-2">
-                    {currentRevision.files.map((file) => (
-                      <div
-                        key={file.snapshot.guid}
-                        className={cn(
-                          "rounded-lg border bg-background/80 p-3",
-                          file.snapshot.file_path === filePath
-                            ? "border-primary/30"
-                            : "border-border",
-                        )}
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                    <span>{currentSession.open_thread_count} open threads</span>
+                    <span>{currentSession.reviewed_file_count} reviewed files</span>
+                    {currentSession.reviewed_then_changed_count > 0 ? (
+                      <span>
+                        {currentSession.reviewed_then_changed_count} changed after review
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCreateSession}
+                      disabled={isCreating}
+                    >
+                      New Session
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        await reviewWsApi.closeSession(currentSession.guid);
+                        await loadSessions();
+                      }}
+                      disabled={currentSession.status !== "active"}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        await reviewWsApi.archiveSession(currentSession.guid);
+                        await loadSessions();
+                      }}
+                    >
+                      Archive
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-background/80 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Revision Timeline</p>
+                      <p className="text-xs text-muted-foreground">
+                        Switch between live workspace diff and saved review snapshots.
+                      </p>
+                    </div>
+                    <History className="size-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant={selectedSnapshotGuid ? "outline" : "default"}
+                      onClick={onSelectLiveView}
+                    >
+                      Live Diff
+                    </Button>
+                    {fileRevisionEntries.map(({ revision, file }) => (
+                      <Button
+                        key={revision.guid}
+                        size="sm"
+                        variant={
+                          selectedSnapshotGuid === file.snapshot.guid ? "default" : "outline"
+                        }
+                        onClick={() => {
+                          setSelectedRevisionGuid(revision.guid);
+                          onSelectSnapshotView(
+                            file.snapshot.guid,
+                            revision.title?.trim() || revision.guid.slice(0, 8),
+                          );
+                        }}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-foreground">
-                              {file.snapshot.file_path}
-                            </p>
-                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                              <span>{file.snapshot.git_status}</span>
-                              <span>{file.open_thread_count} open threads</span>
-                              {file.changed_after_review ? (
-                                <span className="text-amber-600">
-                                  Reviewed, changed after review
-                                </span>
-                              ) : null}
-                              {file.snapshot.file_path === filePath ? (
-                                <span className="text-primary">Current file</span>
-                              ) : null}
-                            </div>
-                          </div>
-                          <label className="flex items-center gap-2 text-xs text-foreground">
-                            <Checkbox
-                              checked={file.state.reviewed}
-                              disabled={!canEdit}
-                              onCheckedChange={(value) =>
-                                handleToggleReviewed(file, Boolean(value))
-                              }
-                            />
-                            Reviewed
-                          </label>
-                        </div>
-                      </div>
+                        {revision.title?.trim() || revision.guid.slice(0, 8)}
+                      </Button>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No revision selected.
-                  </p>
-                )}
-              </TabsContent>
-
-              <TabsContent value="runs" className="mt-3 min-h-0 overflow-y-auto">
-                <div className="space-y-3">
-                  {currentSession.runs.length > 0 ? (
-                    currentSession.runs.map((run) => {
-                      const resultRevision = currentSession.revisions.find(
-                        (revision) => revision.guid === run.result_revision_guid,
-                      );
-                      const resultFile = resultRevision?.files.find(
-                        (file) => file.snapshot.file_path === filePath,
-                      );
-                      const isActivePreview = artifactPreview?.runGuid === run.guid;
-
-                      return (
-                        <div
-                          key={run.guid}
-                          className="rounded-lg border border-border bg-background/80 p-3"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-foreground">
-                                {run.execution_mode.replaceAll("_", " ")}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDate(run.created_at)}
-                              </p>
-                            </div>
-                            <span
-                              className={cn(
-                                "rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
-                                statusTone(run.status),
-                              )}
-                            >
-                              {run.status.replaceAll("_", " ")}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {resultFile ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedRevisionGuid(resultRevision?.guid ?? null);
-                                  onSelectSnapshotView(
-                                    resultFile.snapshot.guid,
-                                    resultRevision?.title?.trim() ||
-                                      resultRevision?.guid.slice(0, 8) ||
-                                      "Fix Result",
-                                  );
-                                }}
-                              >
-                                View Result Snapshot
-                              </Button>
-                            ) : null}
-                            {run.patch_rel_path ? (
-                              <Button
-                                size="sm"
-                                variant={isActivePreview && artifactPreview?.kind === "patch" ? "default" : "outline"}
-                                onClick={() => handlePreviewArtifact(run.guid, "patch")}
-                              >
-                                View Fix Diff
-                              </Button>
-                            ) : null}
-                            {run.prompt_rel_path ? (
-                              <Button
-                                size="sm"
-                                variant={isActivePreview && artifactPreview?.kind === "prompt" ? "default" : "outline"}
-                                onClick={() => handlePreviewArtifact(run.guid, "prompt")}
-                              >
-                                Prompt
-                              </Button>
-                            ) : null}
-                            {run.summary_rel_path ? (
-                              <Button
-                                size="sm"
-                                variant={isActivePreview && artifactPreview?.kind === "summary" ? "default" : "outline"}
-                                onClick={() => handlePreviewArtifact(run.guid, "summary")}
-                              >
-                                Summary
-                              </Button>
-                            ) : null}
-                            {!run.result_revision_guid ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={isFinalizingRun === run.guid}
-                                onClick={() => handleFinalizeRun(run)}
-                              >
-                                {isFinalizingRun === run.guid ? (
-                                  <Loader2 className="mr-2 size-4 animate-spin" />
-                                ) : null}
-                                Finalize Run
-                              </Button>
-                            ) : null}
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No fix runs yet for this session.
-                    </p>
-                  )}
-
-                  {artifactPreview && panelTab === "runs" ? (
-                    <div className="rounded-lg border border-border bg-background/80 p-3">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {artifactPreview.kind === "patch"
-                              ? "Fix Diff"
-                              : artifactPreview.kind === "prompt"
-                                ? "Run Prompt"
-                                : "Run Summary"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {artifactPreview.runGuid.slice(0, 8)}
-                          </p>
-                        </div>
-                        {artifactLoading ? (
-                          <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                        ) : null}
-                      </div>
-
-                      {artifactPreview.kind === "patch" &&
-                      isPatchRenderable(artifactPreview.content) ? (
-                        <div className="max-h-[420px] overflow-auto rounded-md border border-border/70">
-                          <PatchDiff patch={artifactPreview.content} options={patchOptions} />
-                        </div>
-                      ) : (
-                        <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-foreground">
-                          {artifactPreview.content}
-                        </pre>
-                      )}
-                    </div>
-                  ) : null}
                 </div>
-              </TabsContent>
 
-              <TabsContent value="summary" className="mt-3 min-h-0 overflow-y-auto">
-                <div className="space-y-3">
-                  <div className="rounded-lg border border-border bg-background/80 p-3">
-                    <p className="text-sm font-medium text-foreground">Current Revision Overview</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                      <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-                        <div className="text-[11px] uppercase tracking-wide">Files</div>
-                        <div className="mt-1 text-sm font-medium text-foreground">
-                          {currentRevision?.files.length ?? 0}
-                        </div>
-                      </div>
-                      <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
-                        <div className="text-[11px] uppercase tracking-wide">Open Threads</div>
-                        <div className="mt-1 text-sm font-medium text-foreground">
-                          {openRevisionThreads.length}
-                        </div>
-                      </div>
+                <div className="rounded-lg border border-border bg-background/80 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {filePath}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {currentRevision
+                          ? `Revision ${currentRevision.title || currentRevision.guid.slice(0, 8)}${canEdit ? "" : " (read-only)"}`
+                          : "No active revision"}
+                      </p>
                     </div>
                   </div>
 
-                  {latestSummaryRun ? (
-                    <div className="rounded-lg border border-border bg-background/80 p-3">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Latest Run Summary</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(latestSummaryRun.finished_at || latestSummaryRun.updated_at)}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handlePreviewArtifact(latestSummaryRun.guid, "summary")}
-                        >
-                          <FileCode2 className="mr-2 size-4" />
-                          Reload
-                        </Button>
+                  {currentFile ? (
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                      <span>{currentFile.open_thread_count} open file threads</span>
+                      {currentFile.changed_after_review ? (
+                        <span className="text-amber-600">Reviewed, changed after review</span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      This file is not part of the selected review revision.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border bg-background/80 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Fix Execution</p>
+                      <p className="text-xs text-muted-foreground">
+                        Create a run for current-file comments or all open threads in this revision.
+                      </p>
+                    </div>
+                    <WandSparkles className="size-4 text-muted-foreground" />
+                  </div>
+
+                  <AgentSelect
+                    value={terminalAgentId}
+                    onValueChange={(value) => {
+                      setTerminalAgentId(value);
+                      if (typeof window !== "undefined") {
+                        window.localStorage.setItem(REVIEW_AGENT_STORAGE_KEY, value);
+                      }
+                    }}
+                    className="mb-3"
+                  />
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={
+                        !canEdit ||
+                        !currentFile ||
+                        openCurrentFileThreads.length === 0 ||
+                        isCreatingFixRun
+                      }
+                      onClick={() =>
+                        handleCopyFixPrompt(openCurrentFileThreads.map((thread) => thread.guid))
+                      }
+                    >
+                      {isCreatingFixRun ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : (
+                        <Copy className="mr-2 size-4" />
+                      )}
+                      Copy File Prompt
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canEdit || openRevisionThreads.length === 0 || isCreatingFixRun}
+                      onClick={() => handleCopyFixPrompt()}
+                    >
+                      Copy Revision Prompt
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canEdit || openRevisionThreads.length === 0 || isCreatingFixRun}
+                      onClick={() => handleSendFixRunToAgentChat()}
+                    >
+                      Send To Agent
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canEdit || openRevisionThreads.length === 0 || isCreatingFixRun}
+                      onClick={() => handleRunFixInTerminal()}
+                    >
+                      <Terminal className="mr-2 size-4" />
+                      Run In Terminal
+                    </Button>
+                  </div>
+                </div>
+
+                <Tabs
+                  value={panelTab}
+                  onValueChange={(value) => setPanelTab(value as PanelTab)}
+                  className="min-h-0 min-w-0"
+                >
+                  <TabsList className="grid w-full grid-cols-4 shrink-0">
+                    <TabsTrigger value="threads">Threads</TabsTrigger>
+                    <TabsTrigger value="files">Files</TabsTrigger>
+                    <TabsTrigger value="runs">Runs</TabsTrigger>
+                    <TabsTrigger value="summary">Summary</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="threads" className="mt-3 min-w-0">
+                    {sortedThreads.length > 0 ? (
+                      <div className="space-y-3">
+                        {sortedThreads.map((thread) => {
+                          const threadCanEdit =
+                            canEdit && thread.revision_guid === currentSession.current_revision_guid;
+                          return (
+                            <div
+                              key={thread.guid}
+                              className="rounded-lg border border-border bg-background/80 p-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {threadTitle(thread)}
+                                  </p>
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    {thread.anchor.file_path || filePath} · {formatDate(thread.created_at)}
+                                  </p>
+                                </div>
+                                <span
+                                  className={cn(
+                                    "rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
+                                    statusTone(thread.status),
+                                  )}
+                                >
+                                  {thread.status.replaceAll("_", " ")}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 space-y-2">
+                                {thread.messages.map((message) => (
+                                  <div
+                                    key={message.guid}
+                                    className={cn(
+                                      "rounded-md border px-3 py-2 text-sm",
+                                      message.author_type === "user"
+                                        ? "border-border bg-muted/50"
+                                        : "border-sky-500/20 bg-sky-500/5",
+                                    )}
+                                  >
+                                    <div className="mb-1 flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                                      <span>{message.author_type}</span>
+                                      <span>{formatDate(message.created_at)}</span>
+                                    </div>
+                                    <p className="whitespace-pre-wrap break-words text-foreground">
+                                      {message.body_full}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!threadCanEdit}
+                                  onClick={() =>
+                                    handleUpdateThreadStatus(thread.guid, "needs_user_check")
+                                  }
+                                >
+                                  Needs Check
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!threadCanEdit}
+                                  onClick={() => handleUpdateThreadStatus(thread.guid, "fixed")}
+                                >
+                                  Mark Fixed
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!threadCanEdit}
+                                  onClick={() => handleUpdateThreadStatus(thread.guid, "dismissed")}
+                                >
+                                  Dismiss
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                      {artifactLoading && artifactPreview?.kind !== "summary" ? (
-                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                      ) : artifactPreview?.kind === "summary" ? (
-                        <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-foreground">
-                          {artifactPreview.content}
-                        </pre>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No review threads in this revision yet.
+                      </p>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="files" className="mt-3 min-w-0">
+                    {currentRevision ? (
+                      <div className="space-y-2">
+                        {currentRevision.files.map((file) => (
+                          <div
+                            key={file.snapshot.guid}
+                            className={cn(
+                              "rounded-lg border bg-background/80 p-3",
+                              file.snapshot.file_path === filePath
+                                ? "border-primary/30"
+                                : "border-border",
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-foreground">
+                                  {file.snapshot.file_path}
+                                </p>
+                                <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                                  <span>{file.snapshot.git_status}</span>
+                                  <span>{file.open_thread_count} open threads</span>
+                                  {file.changed_after_review ? (
+                                    <span className="text-amber-600">
+                                      Reviewed, changed after review
+                                    </span>
+                                  ) : null}
+                                  {file.snapshot.file_path === filePath ? (
+                                    <span className="text-primary">Current file</span>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <label className="flex items-center gap-2 text-xs text-foreground">
+                                <Checkbox
+                                  checked={file.state.reviewed}
+                                  disabled={!canEdit}
+                                  onCheckedChange={(value: boolean) =>
+                                    handleToggleReviewed(file, Boolean(value))
+                                  }
+                                />
+                                Reviewed
+                              </label>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No revision selected.
+                      </p>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="runs" className="mt-3 min-w-0">
+                    <div className="space-y-3">
+                      {currentSession.runs.length > 0 ? (
+                        currentSession.runs.map((run) => {
+                          const resultRevision = currentSession.revisions.find(
+                            (revision) => revision.guid === run.result_revision_guid,
+                          );
+                          const resultFile = resultRevision?.files.find(
+                            (file) => file.snapshot.file_path === filePath,
+                          );
+                          const isActivePreview = artifactPreview?.runGuid === run.guid;
+
+                          return (
+                            <div
+                              key={run.guid}
+                              className="rounded-lg border border-border bg-background/80 p-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {run.execution_mode.replaceAll("_", " ")}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatDate(run.created_at)}
+                                  </p>
+                                </div>
+                                <span
+                                  className={cn(
+                                    "rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
+                                    statusTone(run.status),
+                                  )}
+                                >
+                                  {run.status.replaceAll("_", " ")}
+                                </span>
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {resultFile ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedRevisionGuid(resultRevision?.guid ?? null);
+                                      onSelectSnapshotView(
+                                        resultFile.snapshot.guid,
+                                        resultRevision?.title?.trim() ||
+                                          resultRevision?.guid.slice(0, 8) ||
+                                          "Fix Result",
+                                      );
+                                    }}
+                                  >
+                                    View Result Snapshot
+                                  </Button>
+                                ) : null}
+                                {run.patch_rel_path ? (
+                                  <Button
+                                    size="sm"
+                                    variant={isActivePreview && artifactPreview?.kind === "patch" ? "default" : "outline"}
+                                    onClick={() => handlePreviewArtifact(run.guid, "patch")}
+                                  >
+                                    View Fix Diff
+                                  </Button>
+                                ) : null}
+                                {run.prompt_rel_path ? (
+                                  <Button
+                                    size="sm"
+                                    variant={isActivePreview && artifactPreview?.kind === "prompt" ? "default" : "outline"}
+                                    onClick={() => handlePreviewArtifact(run.guid, "prompt")}
+                                  >
+                                    Prompt
+                                  </Button>
+                                ) : null}
+                                {run.summary_rel_path ? (
+                                  <Button
+                                    size="sm"
+                                    variant={isActivePreview && artifactPreview?.kind === "summary" ? "default" : "outline"}
+                                    onClick={() => handlePreviewArtifact(run.guid, "summary")}
+                                  >
+                                    Summary
+                                  </Button>
+                                ) : null}
+                                {!run.result_revision_guid ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={isFinalizingRun === run.guid}
+                                    onClick={() => handleFinalizeRun(run)}
+                                  >
+                                    {isFinalizingRun === run.guid ? (
+                                      <Loader2 className="mr-2 size-4 animate-spin" />
+                                    ) : null}
+                                    Finalize Run
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </div>
+                          );
+                        })
                       ) : (
                         <p className="text-sm text-muted-foreground">
-                          No summary preview loaded yet.
+                          No fix runs yet for this session.
+                        </p>
+                      )}
+
+                      {artifactPreview && panelTab === "runs" ? (
+                        <div className="rounded-lg border border-border bg-background/80 p-3">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-foreground">
+                                {artifactPreview.kind === "patch"
+                                  ? "Fix Diff"
+                                  : artifactPreview.kind === "prompt"
+                                    ? "Run Prompt"
+                                    : "Run Summary"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {artifactPreview.runGuid.slice(0, 8)}
+                              </p>
+                            </div>
+                            {artifactLoading ? (
+                              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                            ) : null}
+                          </div>
+
+                          {artifactPreview.kind === "patch" &&
+                          isPatchRenderable(artifactPreview.content) ? (
+                            <div className="max-h-[420px] overflow-auto rounded-md border border-border/70">
+                              <PatchDiff patch={artifactPreview.content} options={patchOptions} />
+                            </div>
+                          ) : (
+                            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-foreground">
+                              {artifactPreview.content}
+                            </pre>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="summary" className="mt-3 min-w-0">
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-border bg-background/80 p-3">
+                        <p className="text-sm font-medium text-foreground">Current Revision Overview</p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+                            <div className="text-[11px] uppercase tracking-wide">Files</div>
+                            <div className="mt-1 text-sm font-medium text-foreground">
+                              {currentRevision?.files.length ?? 0}
+                            </div>
+                          </div>
+                          <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+                            <div className="text-[11px] uppercase tracking-wide">Open Threads</div>
+                            <div className="mt-1 text-sm font-medium text-foreground">
+                              {openRevisionThreads.length}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {latestSummaryRun ? (
+                        <div className="rounded-lg border border-border bg-background/80 p-3">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-foreground">Latest Run Summary</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDate(latestSummaryRun.finished_at || latestSummaryRun.updated_at)}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handlePreviewArtifact(latestSummaryRun.guid, "summary")}
+                            >
+                              <FileCode2 className="mr-2 size-4" />
+                              Reload
+                            </Button>
+                          </div>
+                          {artifactLoading && artifactPreview?.kind !== "summary" ? (
+                            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                          ) : artifactPreview?.kind === "summary" ? (
+                            <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md border border-border/70 bg-muted/40 p-3 text-xs text-foreground">
+                              {artifactPreview.content}
+                            </pre>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              No summary preview loaded yet.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No run summary available yet. Once the agent writes a summary, it will appear here.
                         </p>
                       )}
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No run summary available yet. Once the agent writes a summary, it will appear here.
-                    </p>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Create a session to start reviewing this file.
-            </p>
-          )}
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

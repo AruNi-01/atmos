@@ -210,6 +210,13 @@
         "react": "^18 || ^19",
       },
     },
+    "packages/local-installer": {
+      "name": "@atmos/local",
+      "version": "0.1.0",
+      "bin": {
+        "atmos-local": "./bin/atmos-local.mjs",
+      },
+    },
     "packages/shared": {
       "name": "@atmos/shared",
       "version": "0.0.1",
@@ -321,6 +328,8 @@
     "@atmos/config": ["@atmos/config@workspace:packages/config"],
 
     "@atmos/i18n": ["@atmos/i18n@workspace:packages/i18n"],
+
+    "@atmos/local": ["@atmos/local@workspace:packages/local-installer"],
 
     "@atmos/shared": ["@atmos/shared@workspace:packages/shared"],
 

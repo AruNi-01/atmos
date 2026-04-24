@@ -3,7 +3,9 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { FileDiff } from '@pierre/diffs/react';
 import type {
+  DiffLineAnnotation,
   FileContents,
+  FileDiffOptions,
   SelectedLineRange,
   ContextContent,
   ChangeContent,
@@ -11,13 +13,16 @@ import type {
 } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
-import { Loader2 } from '@workspace/ui';
+import type { ReviewFileDto, ReviewSessionDto, ReviewThreadDto } from '@/api/ws-api';
+import { Button, Checkbox, Loader2, PanelRightClose, PanelRightOpen, Textarea, toastManager } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { ReviewSessionPanel } from '@/components/diff/ReviewSessionPanel';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
+import { cn } from '@/lib/utils';
+import { MessageSquarePlus, X } from 'lucide-react';
 
 interface DiffViewerProps {
   repoPath: string;
@@ -28,6 +33,24 @@ interface DiffViewerProps {
 interface ReviewSnapshotView {
   snapshotGuid: string;
   label: string;
+}
+
+interface ReviewContextState {
+  session: ReviewSessionDto | null;
+  revision: ReviewSessionDto['revisions'][number] | null;
+  file: ReviewFileDto | null;
+  threads: ReviewThreadDto[];
+  canEdit: boolean;
+}
+
+interface InlineCommentDraft {
+  side: 'old' | 'new';
+  startLine: number;
+  endLine: number;
+  selectedText: string;
+  beforeContext: string[];
+  afterContext: string[];
+  diffSide: 'old' | 'new';
 }
 
 const SCROLLBAR_CSS = `
@@ -63,6 +86,17 @@ export const DiffViewer = ({
   const [workingDiff, setWorkingDiff] = useState<FileDiffMetadata | null>(null);
   const [diffCompareRef, setDiffCompareRef] = useState<string | null>(null);
   const [reviewSnapshotView, setReviewSnapshotView] = useState<ReviewSnapshotView | null>(null);
+  const [isReviewDrawerOpen, setIsReviewDrawerOpen] = useState(false);
+  const [reviewContext, setReviewContext] = useState<ReviewContextState>({
+    session: null,
+    revision: null,
+    file: null,
+    threads: [],
+    canEdit: false,
+  });
+  const [inlineCommentDraft, setInlineCommentDraft] = useState<InlineCommentDraft | null>(null);
+  const [inlineCommentBody, setInlineCommentBody] = useState('');
+  const [isSubmittingInlineComment, setIsSubmittingInlineComment] = useState(false);
   const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
   const [wordWrap, setWordWrap] = useState(false);
   const [disableBackground, setDisableBackground] = useState(false);
@@ -150,18 +184,15 @@ export const DiffViewer = ({
     setSelectionInfo(null);
   }, []);
 
-  const handleLineSelectionEnd = useCallback((range: SelectedLineRange | null) => {
-    if (!range || !containerRef.current) return;
-
-    const startLine = Math.min(range.start, range.end);
-    const endLine = Math.max(range.start, range.end);
-    const side = range.side;
+  const buildSelectionInfo = useCallback((startLine: number, endLine: number, side: 'deletions' | 'additions'): SelectionInfo => {
+    const normalizedStart = Math.min(startLine, endLine);
+    const normalizedEnd = Math.max(startLine, endLine);
     const sourceContent = side === 'deletions' ? oldFile?.contents : newFile?.contents;
 
     let selectedText = '';
     if (sourceContent) {
       const lines = sourceContent.split('\n');
-      selectedText = lines.slice(startLine - 1, endLine).join('\n');
+      selectedText = lines.slice(normalizedStart - 1, normalizedEnd).join('\n');
     }
 
     const oldLines = oldFile?.contents?.split('\n') || [];
@@ -169,7 +200,7 @@ export const DiffViewer = ({
     const sideMap = side === 'deletions' ? lineTypeMap.oldMap : lineTypeMap.newMap;
 
     const lineTypes = new Set<string>();
-    for (let ln = startLine; ln <= endLine; ln++) {
+    for (let ln = normalizedStart; ln <= normalizedEnd; ln++) {
       const info = sideMap.get(ln);
       lineTypes.add(info?.type || 'context');
     }
@@ -188,21 +219,21 @@ export const DiffViewer = ({
 
     if (onlyContext) {
       changeType = 'context';
-      beforeText = oldLines.slice(startLine - 1, endLine).join('\n');
-      afterText = newLines.slice(startLine - 1, endLine).join('\n');
+      beforeText = oldLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
+      afterText = newLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
     } else if (onlyPureAddition) {
       changeType = 'addition';
       beforeText = undefined;
-      afterText = newLines.slice(startLine - 1, endLine).join('\n');
+      afterText = newLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
     } else if (onlyPureDeletion) {
       changeType = 'deletion';
-      beforeText = oldLines.slice(startLine - 1, endLine).join('\n');
+      beforeText = oldLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
       afterText = undefined;
     } else {
       changeType = 'mixed';
       let minOtherLine = Infinity;
       let maxOtherLine = -Infinity;
-      for (let ln = startLine; ln <= endLine; ln++) {
+      for (let ln = normalizedStart; ln <= normalizedEnd; ln++) {
         const info = sideMap.get(ln);
         if (info) {
           const otherLine = side === 'deletions' ? info.newLine : info.oldLine;
@@ -213,28 +244,44 @@ export const DiffViewer = ({
         }
       }
       if (side === 'deletions') {
-        beforeText = oldLines.slice(startLine - 1, endLine).join('\n');
+        beforeText = oldLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
         afterText = minOtherLine <= maxOtherLine
           ? newLines.slice(minOtherLine - 1, maxOtherLine).join('\n')
           : undefined;
       } else {
-        afterText = newLines.slice(startLine - 1, endLine).join('\n');
+        afterText = newLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
         beforeText = minOtherLine <= maxOtherLine
           ? oldLines.slice(minOtherLine - 1, maxOtherLine).join('\n')
           : undefined;
       }
     }
 
-    setSelectionInfo({
+    return {
       filePath: filePath,
-      startLine,
-      endLine,
-      selectedText: selectedText || `Lines ${startLine}-${endLine}`,
+      startLine: normalizedStart,
+      endLine: normalizedEnd,
+      selectedText: selectedText || `Lines ${normalizedStart}-${normalizedEnd}`,
       changeType,
       diffSide: side === 'deletions' ? 'old' : 'new',
       beforeText,
       afterText,
-    });
+    };
+  }, [filePath, lineTypeMap, newFile?.contents, oldFile?.contents]);
+
+  const openInlineCommentDraft = useCallback((draft: InlineCommentDraft) => {
+    dismissPopover();
+    setInlineCommentBody('');
+    setInlineCommentDraft(draft);
+  }, [dismissPopover]);
+
+  const handleLineSelectionEnd = useCallback((range: SelectedLineRange | null) => {
+    if (!range || !containerRef.current) return;
+
+    const startLine = Math.min(range.start, range.end);
+    const endLine = Math.max(range.start, range.end);
+    const side = range.side;
+    if (!side) return;
+    setSelectionInfo(buildSelectionInfo(startLine, endLine, side));
 
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
@@ -260,7 +307,7 @@ export const DiffViewer = ({
     setPopoverPosition({ x: popX, y: popY });
     setIsPopoverVisible(true);
     setIsPopoverExpanded(false);
-  }, [filePath, oldFile, newFile, lineTypeMap]);
+  }, [buildSelectionInfo]);
 
   useEffect(() => {
     if (!isPopoverVisible) return;
@@ -331,12 +378,277 @@ export const DiffViewer = ({
     theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
     diffStyle: diffStyle,
     disableBackground: disableBackground,
-    disableFileHeader: true,
+    disableFileHeader: false,
     overflow: (wordWrap ? 'wrap' : 'scroll') as 'wrap' | 'scroll',
     unsafeCSS: SCROLLBAR_CSS,
     enableLineSelection: true,
     onLineSelectionEnd: handleLineSelectionEnd,
-  }), [resolvedTheme, diffStyle, disableBackground, wordWrap, handleLineSelectionEnd]);
+  }) satisfies FileDiffOptions<{
+    kind: 'thread';
+    thread: ReviewThreadDto;
+  } | {
+    kind: 'composer';
+  }>, [resolvedTheme, diffStyle, disableBackground, wordWrap, handleLineSelectionEnd]);
+
+  const threadAnnotations = useMemo<DiffLineAnnotation<{
+    kind: 'thread';
+    thread: ReviewThreadDto;
+  }>[]>(() => {
+    return reviewContext.threads.map((thread) => ({
+      side: thread.anchor_side === 'old' ? 'deletions' : 'additions',
+      lineNumber: thread.anchor_start_line,
+      metadata: {
+        kind: 'thread',
+        thread,
+      },
+    }));
+  }, [reviewContext.threads]);
+
+  const inlineComposerAnnotation = useMemo<DiffLineAnnotation<{
+    kind: 'composer';
+  }>[]>(
+    () =>
+      inlineCommentDraft
+        ? [{
+            side: inlineCommentDraft.side === 'old' ? 'deletions' : 'additions',
+            lineNumber: inlineCommentDraft.startLine,
+            metadata: { kind: 'composer' },
+          }]
+        : [],
+    [inlineCommentDraft],
+  );
+
+  const lineAnnotations = useMemo(
+    () => [...threadAnnotations, ...inlineComposerAnnotation],
+    [inlineComposerAnnotation, threadAnnotations],
+  );
+
+  const handleInlineCommentSubmit = useCallback(async () => {
+    if (!reviewContext.session || !reviewContext.revision || !reviewContext.file || !inlineCommentDraft) {
+      return;
+    }
+
+    const body = inlineCommentBody.trim();
+    if (!body) {
+      toastManager.add({
+        title: 'Comment is empty',
+        description: 'Write a short review note before creating a thread.',
+        type: 'error',
+      });
+      return;
+    }
+
+    setIsSubmittingInlineComment(true);
+    try {
+      await reviewWsApi.createThread({
+        sessionGuid: reviewContext.session.guid,
+        revisionGuid: reviewContext.revision.guid,
+        fileSnapshotGuid: reviewContext.file.snapshot.guid,
+        anchor: {
+          file_path: filePath,
+          side: inlineCommentDraft.diffSide,
+          start_line: inlineCommentDraft.startLine,
+          end_line: inlineCommentDraft.endLine,
+          line_range_kind:
+            inlineCommentDraft.startLine === inlineCommentDraft.endLine ? 'single' : 'range',
+          selected_text: inlineCommentDraft.selectedText,
+          before_context: inlineCommentDraft.beforeContext,
+          after_context: inlineCommentDraft.afterContext,
+          hunk_header: null,
+        },
+        body,
+      });
+      setInlineCommentBody('');
+      setInlineCommentDraft(null);
+      setIsReviewDrawerOpen(false);
+    } catch (error) {
+      toastManager.add({
+        title: 'Failed to create review comment',
+        description:
+          error instanceof Error ? error.message : 'Unknown review comment error',
+        type: 'error',
+      });
+    } finally {
+      setIsSubmittingInlineComment(false);
+    }
+  }, [filePath, inlineCommentBody, inlineCommentDraft, reviewContext.file, reviewContext.revision, reviewContext.session]);
+
+  const handleToggleReviewed = useCallback(async (reviewed: boolean) => {
+    if (!reviewContext.file) return;
+    try {
+      await reviewWsApi.setFileReviewed({
+        fileStateGuid: reviewContext.file.state.guid,
+        reviewed,
+      });
+    } catch (error) {
+      toastManager.add({
+        title: 'Failed to update file review state',
+        description:
+          error instanceof Error ? error.message : 'Unknown review state error',
+        type: 'error',
+      });
+    }
+  }, [reviewContext.file]);
+
+  const renderDiffHeader = useCallback((_fileDiff: FileDiffMetadata) => {
+    const file = reviewContext.file;
+    if (!file) return null;
+
+    return (
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <label className="flex items-center gap-2 rounded-md border border-border bg-background/80 px-2 py-1 text-foreground">
+          <Checkbox
+            checked={file.state.reviewed}
+            disabled={!reviewContext.canEdit}
+            onCheckedChange={(value) => handleToggleReviewed(Boolean(value))}
+          />
+          <span>Reviewed</span>
+        </label>
+        <span>{file.open_thread_count} open thread{file.open_thread_count === 1 ? '' : 's'}</span>
+        {file.changed_after_review ? (
+          <span className="text-amber-600">Changed after review</span>
+        ) : null}
+      </div>
+    );
+  }, [handleToggleReviewed, reviewContext.canEdit, reviewContext.file]);
+
+  const renderGutterUtility = useCallback((getHoveredLine: () => { lineNumber: number; side: 'deletions' | 'additions' } | undefined) => {
+    if (!reviewContext.canEdit || !reviewContext.file) return null;
+    const hoveredLine = getHoveredLine();
+    if (!hoveredLine) return null;
+
+    return (
+      <button
+        type="button"
+        className="flex size-6 items-center justify-center rounded-md border border-border bg-background/95 text-muted-foreground shadow-sm transition hover:text-foreground"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          event.preventDefault();
+          if (!hoveredLine.side) return;
+          const info = buildSelectionInfo(hoveredLine.lineNumber, hoveredLine.lineNumber, hoveredLine.side);
+          openInlineCommentDraft({
+            side: info.diffSide === 'old' ? 'old' : 'new',
+            diffSide: info.diffSide === 'old' ? 'old' : 'new',
+            startLine: info.startLine,
+            endLine: info.endLine,
+            selectedText: info.selectedText,
+            beforeContext: [],
+            afterContext: [],
+          });
+        }}
+        aria-label={`Add review comment on line ${hoveredLine.lineNumber}`}
+      >
+        <MessageSquarePlus className="size-3.5" />
+      </button>
+    );
+  }, [buildSelectionInfo, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file]);
+
+  const renderAnnotation = useCallback((annotation: DiffLineAnnotation<{
+    kind: 'thread';
+    thread: ReviewThreadDto;
+  } | {
+    kind: 'composer';
+  }>) => {
+    if (annotation.metadata?.kind === 'composer') {
+      if (!inlineCommentDraft) return null;
+      return (
+        <div className="mx-3 my-2 rounded-lg border border-primary/20 bg-background/95 p-3 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Comment on {inlineCommentDraft.startLine === inlineCommentDraft.endLine ? `L${inlineCommentDraft.startLine}` : `L${inlineCommentDraft.startLine}-L${inlineCommentDraft.endLine}`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Add a review comment directly on this diff.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => {
+                setInlineCommentDraft(null);
+                setInlineCommentBody('');
+              }}
+              aria-label="Cancel comment"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <Textarea
+            value={inlineCommentBody}
+            onChange={(event) => setInlineCommentBody(event.target.value)}
+            placeholder="Describe the issue or expected change..."
+            className="mt-3 min-h-24 bg-background"
+            autoFocus
+          />
+          <div className="mt-3 flex items-center gap-2">
+            <Button size="sm" onClick={() => void handleInlineCommentSubmit()} disabled={isSubmittingInlineComment}>
+              {isSubmittingInlineComment ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Add Comment
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setInlineCommentDraft(null);
+                setInlineCommentBody('');
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    const thread = annotation.metadata?.thread;
+    if (!thread) return null;
+    return (
+      <div className={cn(
+        'mx-3 my-2 rounded-lg border p-3 shadow-sm',
+        thread.status === 'fixed'
+          ? 'border-emerald-500/25 bg-emerald-500/5'
+          : thread.status === 'needs_user_check'
+            ? 'border-amber-500/25 bg-amber-500/5'
+            : 'border-border bg-background/95',
+      )}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">
+              {thread.title?.trim() || `Comment on L${thread.anchor_start_line}${thread.anchor_start_line === thread.anchor_end_line ? '' : `-${thread.anchor_end_line}`}`}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {thread.status.replaceAll('_', ' ')}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 space-y-2">
+          {thread.messages.map((message) => (
+            <div
+              key={message.guid}
+              className={cn(
+                'rounded-md border px-3 py-2 text-sm',
+                message.author_type === 'user'
+                  ? 'border-border bg-muted/50'
+                  : 'border-sky-500/20 bg-sky-500/5',
+              )}
+            >
+              <div className="mb-1 flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <span>{message.author_type}</span>
+                <span>{new Intl.DateTimeFormat(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }).format(new Date(message.created_at))}</span>
+              </div>
+              <p className="whitespace-pre-wrap break-words text-foreground">{message.body_full}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }, [handleInlineCommentSubmit, inlineCommentBody, inlineCommentDraft, isSubmittingInlineComment]);
 
   if (isLoading) {
     return (
@@ -435,13 +747,22 @@ export const DiffViewer = ({
               BG
             </span>
           </button>
+          <button
+            onClick={() => setIsReviewDrawerOpen((open) => !open)}
+            aria-expanded={isReviewDrawerOpen}
+            aria-label={isReviewDrawerOpen ? 'Hide review session drawer' : 'Show review session drawer'}
+            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 cursor-pointer"
+          >
+            {isReviewDrawerOpen ? <PanelRightClose className="size-3.5" /> : <PanelRightOpen className="size-3.5" />}
+            <span>Review</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <div
           ref={containerRef}
-          className="diff-viewer-container min-h-0 w-full overflow-scroll bg-background relative"
+          className="diff-viewer-container min-h-0 h-full w-full overflow-auto bg-background relative"
           style={{ height: '100%', scrollbarGutter: 'stable' }}
         >
           <SelectionPopover
@@ -458,21 +779,37 @@ export const DiffViewer = ({
           <FileDiff
             fileDiff={workingDiff}
             options={diffOptions}
+            lineAnnotations={lineAnnotations}
+            renderAnnotation={renderAnnotation}
+            renderCustomHeader={renderDiffHeader}
+            renderGutterUtility={renderGutterUtility}
             style={{ minHeight: '100%', width: '100%' }}
           />
         </div>
-        <ReviewSessionPanel
-          workspaceId={workspaceId}
-          filePath={filePath}
-          selectionInfo={selectionInfo}
-          onSelectionConsumed={dismissPopover}
-          selectedSnapshotGuid={reviewSnapshotView?.snapshotGuid ?? null}
-          onSelectSnapshotView={(snapshotGuid, label) =>
-            setReviewSnapshotView({ snapshotGuid, label })
-          }
-          onSelectLiveView={() => setReviewSnapshotView(null)}
-          onRunInTerminal={onRunReviewInTerminal}
-        />
+
+        <div
+          className={`absolute inset-y-0 right-0 z-20 flex w-full justify-end overflow-hidden ${isReviewDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+          aria-hidden={!isReviewDrawerOpen}
+        >
+          <div
+            className="pointer-events-auto h-full w-full max-w-[min(92vw,460px)] border-l border-border bg-background/95 shadow-[-20px_0_40px_rgba(0,0,0,0.22)] backdrop-blur transition-transform duration-300 ease-out"
+            style={{
+              transform: isReviewDrawerOpen ? 'translateX(0)' : 'translateX(100%)',
+            }}
+          >
+            <ReviewSessionPanel
+              workspaceId={workspaceId}
+              filePath={filePath}
+              selectedSnapshotGuid={reviewSnapshotView?.snapshotGuid ?? null}
+              onSelectSnapshotView={(snapshotGuid, label) =>
+                setReviewSnapshotView({ snapshotGuid, label })
+              }
+              onSelectLiveView={() => setReviewSnapshotView(null)}
+              onRunInTerminal={onRunReviewInTerminal}
+              onReviewContextChange={setReviewContext}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
