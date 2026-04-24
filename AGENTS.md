@@ -145,6 +145,6 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 
 ---
 
-**Next Steps**: Choose your working area from the table above and open its specific `AGENTS.md`.
+**Next Steps**: Remember Behavioral Guidelines, then choose your working area from the table above and open its specific `AGENTS.md`.
 
 ---
