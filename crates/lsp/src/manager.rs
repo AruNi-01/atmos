@@ -1,20 +1,20 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::process::ExitStatus;
-use std::process::Stdio;
+use std::process::{ExitStatus, Stdio};
 use std::sync::Arc;
+use std::time::Duration;
 
+use anyhow::Context;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
-use tokio::sync::RwLock;
+use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio::task::JoinHandle;
-use url::Url;
 
 use crate::installer::Installer;
 use crate::registry::{builtin_lsp_registry, find_by_extension, LspDefinition};
-use crate::transport::{
-    initialize_request_with_options, initialized_notification, JsonRpcMessage, LspTransport,
-};
+use crate::transport::{read_message_from, send_message_to, JsonRpcMessage};
+
+const IDLE_RUNTIME_GRACE_PERIOD: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone)]
 pub enum LspRuntimeStatus {
@@ -38,6 +38,19 @@ pub struct LspActivationSnapshot {
 }
 
 #[derive(Debug, Clone)]
+pub struct LspConnectionSnapshot {
+    pub channel_id: Option<String>,
+    pub snapshot: LspActivationSnapshot,
+}
+
+#[derive(Debug, Clone)]
+pub struct LspServerMessage {
+    pub channel_id: String,
+    pub conn_id: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone)]
 struct RuntimeState {
     status: LspRuntimeStatus,
     install_path: Option<String>,
@@ -47,9 +60,9 @@ struct RuntimeState {
 
 struct RunningLsp {
     child: Child,
-    #[allow(dead_code)]
-    transport: LspTransport<ChildStdout, ChildStdin>,
+    writer: Arc<Mutex<ChildStdin>>,
     stderr_task: Option<JoinHandle<()>>,
+    reader_task: Option<JoinHandle<()>>,
 }
 
 pub struct LspManager {
@@ -57,19 +70,40 @@ pub struct LspManager {
     installer: Installer,
     state: RwLock<HashMap<String, RuntimeState>>,
     active: RwLock<HashMap<String, RunningLsp>>,
+    subscriptions: RwLock<HashMap<String, HashSet<String>>>,
+    idle_shutdowns: RwLock<HashMap<String, JoinHandle<()>>>,
+    events_tx: Option<mpsc::UnboundedSender<LspServerMessage>>,
 }
 
 impl LspManager {
     pub fn new(installer: Installer) -> Self {
-        Self::with_registry(installer, builtin_lsp_registry())
+        Self::with_registry_and_events(installer, builtin_lsp_registry(), None)
+    }
+
+    pub fn with_event_sender(
+        installer: Installer,
+        events_tx: mpsc::UnboundedSender<LspServerMessage>,
+    ) -> Self {
+        Self::with_registry_and_events(installer, builtin_lsp_registry(), Some(events_tx))
     }
 
     pub fn with_registry(installer: Installer, registry: Vec<LspDefinition>) -> Self {
+        Self::with_registry_and_events(installer, registry, None)
+    }
+
+    pub fn with_registry_and_events(
+        installer: Installer,
+        registry: Vec<LspDefinition>,
+        events_tx: Option<mpsc::UnboundedSender<LspServerMessage>>,
+    ) -> Self {
         Self {
             registry,
             installer,
             state: RwLock::new(HashMap::new()),
             active: RwLock::new(HashMap::new()),
+            subscriptions: RwLock::new(HashMap::new()),
+            idle_shutdowns: RwLock::new(HashMap::new()),
+            events_tx,
         }
     }
 
@@ -92,6 +126,16 @@ impl LspManager {
             .unwrap_or_else(|| Path::new("."))
             .to_string_lossy()
             .to_string()
+    }
+
+    pub fn channel_id_for_file(
+        &self,
+        file_path: &str,
+        workspace_root: Option<&str>,
+    ) -> Option<String> {
+        let definition = self.definition_for_file_path(file_path)?;
+        let root = Self::normalize_workspace_root(file_path, workspace_root);
+        Some(Self::runtime_key(definition.id, &root))
     }
 
     pub async fn snapshot_for_file(
@@ -132,6 +176,29 @@ impl LspManager {
         }
     }
 
+    pub async fn connect_for_file(
+        self: &Arc<Self>,
+        conn_id: &str,
+        file_path: &str,
+        workspace_root: Option<&str>,
+    ) -> LspConnectionSnapshot {
+        let Some(channel_id) = self.channel_id_for_file(file_path, workspace_root) else {
+            return LspConnectionSnapshot {
+                channel_id: None,
+                snapshot: self.snapshot_for_file(file_path, workspace_root).await,
+            };
+        };
+
+        self.cancel_idle_shutdown(&channel_id).await;
+        self.add_subscription(&channel_id, conn_id).await;
+        let snapshot = self.activate_for_file(file_path, workspace_root).await;
+
+        LspConnectionSnapshot {
+            channel_id: Some(channel_id),
+            snapshot,
+        }
+    }
+
     pub async fn activate_for_file(
         self: &Arc<Self>,
         file_path: &str,
@@ -154,56 +221,46 @@ impl LspManager {
         let key = Self::runtime_key(definition.id, &root);
         self.reconcile_runtime_health(&key).await;
 
-        // Atomically check whether a runtime for this (workspace, definition) is
-        // already installing/starting/running and, if not, reserve the slot by
-        // writing `Installing` state under the same write lock. Holding a single
-        // write lock across the check-and-insert is required to prevent two
-        // concurrent activations from both passing the "not active yet" check
-        // and each spawning a `start_runtime` task; if that happened, the
-        // second task's insert into `self.active` would drop (and orphan)
-        // the first task's child process.
-        {
-            let mut state_guard = self.state.write().await;
-            if self.active.read().await.contains_key(&key) {
-                let previous = state_guard.get(&key).cloned();
-                state_guard.insert(
-                    key.clone(),
-                    RuntimeState {
-                        status: LspRuntimeStatus::Running,
-                        install_path: previous.as_ref().and_then(|s| s.install_path.clone()),
-                        restart_count: previous
-                            .as_ref()
-                            .map(|s| s.restart_count)
-                            .unwrap_or_default(),
-                        last_error: None,
-                    },
-                );
-                drop(state_guard);
-                return self.snapshot_for_file(file_path, Some(&root)).await;
-            }
-
-            if let Some(existing_state) = state_guard.get(&key) {
-                if matches!(
-                    existing_state.status,
-                    LspRuntimeStatus::Installing
-                        | LspRuntimeStatus::Starting
-                        | LspRuntimeStatus::Running
-                ) {
-                    drop(state_guard);
-                    return self.snapshot_for_file(file_path, Some(&root)).await;
-                }
-            }
-
-            state_guard.insert(
-                key.clone(),
+        if self.active.read().await.contains_key(&key) {
+            let previous = self.state.read().await.get(&key).cloned();
+            self.update_state(
+                &key,
                 RuntimeState {
-                    status: LspRuntimeStatus::Installing,
-                    install_path: None,
-                    restart_count: 0,
+                    status: LspRuntimeStatus::Running,
+                    install_path: previous.as_ref().and_then(|s| s.install_path.clone()),
+                    restart_count: previous
+                        .as_ref()
+                        .map(|s| s.restart_count)
+                        .unwrap_or_default(),
                     last_error: None,
                 },
-            );
+            )
+            .await;
+            return self.snapshot_for_file(file_path, Some(&root)).await;
         }
+
+        let existing_state = self.state.read().await.get(&key).cloned();
+        if let Some(existing_state) = existing_state {
+            if matches!(
+                existing_state.status,
+                LspRuntimeStatus::Installing
+                    | LspRuntimeStatus::Starting
+                    | LspRuntimeStatus::Running
+            ) {
+                return self.snapshot_for_file(file_path, Some(&root)).await;
+            }
+        }
+
+        self.update_state(
+            &key,
+            RuntimeState {
+                status: LspRuntimeStatus::Installing,
+                install_path: None,
+                restart_count: 0,
+                last_error: None,
+            },
+        )
+        .await;
 
         let manager = Arc::clone(self);
         tokio::spawn(async move {
@@ -224,28 +281,16 @@ impl LspManager {
         let root = Self::normalize_workspace_root(file_path, workspace_root);
         let key = Self::runtime_key(definition.id, &root);
 
-        if let Some(mut running) = self.active.write().await.remove(&key) {
-            if let Some(task) = running.stderr_task.take() {
-                task.abort();
-            }
-            let _ = running.child.kill().await;
-        }
+        self.stop_runtime(&key, false).await;
+        let previous = self.state.read().await.get(&key).cloned();
 
         self.update_state(
             &key,
             RuntimeState {
                 status: LspRuntimeStatus::Starting,
-                install_path: self
-                    .state
-                    .read()
-                    .await
-                    .get(&key)
-                    .and_then(|s| s.install_path.clone()),
-                restart_count: self
-                    .state
-                    .read()
-                    .await
-                    .get(&key)
+                install_path: previous.as_ref().and_then(|s| s.install_path.clone()),
+                restart_count: previous
+                    .as_ref()
                     .map(|s| s.restart_count + 1)
                     .unwrap_or(1),
                 last_error: None,
@@ -261,6 +306,61 @@ impl LspManager {
         self.snapshot_for_file(file_path, workspace_root).await
     }
 
+    pub async fn send_client_message(
+        &self,
+        conn_id: &str,
+        channel_id: &str,
+        raw_message: &str,
+    ) -> anyhow::Result<()> {
+        self.reconcile_runtime_health(channel_id).await;
+        self.add_subscription(channel_id, conn_id).await;
+
+        let message: JsonRpcMessage =
+            serde_json::from_str(raw_message).context("failed to parse lsp json-rpc message")?;
+
+        let writer = {
+            let active = self.active.read().await;
+            active
+                .get(channel_id)
+                .map(|runtime| Arc::clone(&runtime.writer))
+        }
+        .ok_or_else(|| anyhow::anyhow!("lsp runtime is not active for channel {channel_id}"))?;
+
+        let mut writer = writer.lock().await;
+        send_message_to(&mut *writer, &message).await
+    }
+
+    pub async fn disconnect_channel(self: &Arc<Self>, conn_id: &str, channel_id: &str) {
+        self.remove_subscription(channel_id, conn_id).await;
+        if !self.has_subscribers(channel_id).await {
+            self.schedule_idle_shutdown(channel_id.to_string()).await;
+        }
+    }
+
+    pub async fn disconnect_connection(self: &Arc<Self>, conn_id: &str) {
+        let idle_channels = {
+            let mut subscriptions = self.subscriptions.write().await;
+            let mut idle = Vec::new();
+            let keys: Vec<String> = subscriptions.keys().cloned().collect();
+
+            for key in keys {
+                if let Some(listeners) = subscriptions.get_mut(&key) {
+                    listeners.remove(conn_id);
+                    if listeners.is_empty() {
+                        subscriptions.remove(&key);
+                        idle.push(key);
+                    }
+                }
+            }
+
+            idle
+        };
+
+        for channel_id in idle_channels {
+            self.schedule_idle_shutdown(channel_id).await;
+        }
+    }
+
     async fn start_runtime(
         self: Arc<Self>,
         key: String,
@@ -274,17 +374,15 @@ impl LspManager {
                 return Err(error);
             }
         };
+        let previous = self.state.read().await.get(&key).cloned();
 
         self.update_state(
             &key,
             RuntimeState {
                 status: LspRuntimeStatus::Starting,
                 install_path: Some(binary.to_string_lossy().to_string()),
-                restart_count: self
-                    .state
-                    .read()
-                    .await
-                    .get(&key)
+                restart_count: previous
+                    .as_ref()
                     .map(|s| s.restart_count)
                     .unwrap_or_default(),
                 last_error: None,
@@ -299,10 +397,6 @@ impl LspManager {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            // Ensure the child is SIGKILLed if the `Child` handle is dropped
-            // without explicit cleanup (e.g. if `RunningLsp` is ever displaced
-            // in `self.active` or the manager is dropped), preventing orphan
-            // LSP processes.
             .kill_on_drop(true);
 
         let mut child = match command.spawn() {
@@ -322,70 +416,6 @@ impl LspManager {
                 return Err(anyhow::anyhow!(message));
             }
         };
-
-        let root_uri = match Url::from_file_path(&workspace_root) {
-            Ok(url) => url.to_string(),
-            Err(_) => {
-                let message = format!(
-                    "failed to build file:// url from workspace_root: {}",
-                    workspace_root
-                );
-                self.mark_error(&key, message.clone()).await;
-                let _ = child.kill().await;
-                return Err(anyhow::anyhow!(message));
-            }
-        };
-        let mut transport = LspTransport::new(stdout, stdin);
-        let initialize =
-            match initialize_request_with_options(&root_uri, definition.initialization_options) {
-                Ok(request) => request,
-                Err(error) => {
-                    self.mark_error(&key, error.to_string()).await;
-                    let _ = child.kill().await;
-                    return Err(error);
-                }
-            };
-        if let Err(error) = transport.send(&initialize).await {
-            self.mark_error(&key, error.to_string()).await;
-            let _ = child.kill().await;
-            return Err(error);
-        }
-
-        let initialize_id = match &initialize {
-            JsonRpcMessage::Request { id, .. } => id.clone(),
-            _ => serde_json::Value::from(1),
-        };
-
-        loop {
-            match transport.read().await {
-                Ok(JsonRpcMessage::Response { id, error, .. }) if id == initialize_id => {
-                    if error.is_some() {
-                        let message =
-                            format!("initialize response returned error for {}", definition.id);
-                        self.mark_error(&key, message.clone()).await;
-                        let _ = child.kill().await;
-                        return Err(anyhow::anyhow!(message));
-                    }
-                    break;
-                }
-                Ok(JsonRpcMessage::Response { .. })
-                | Ok(JsonRpcMessage::Notification { .. })
-                | Ok(JsonRpcMessage::Request { .. }) => {
-                    continue;
-                }
-                Err(error) => {
-                    self.mark_error(&key, error.to_string()).await;
-                    let _ = child.kill().await;
-                    return Err(error);
-                }
-            }
-        }
-
-        if let Err(error) = transport.send(&initialized_notification()).await {
-            self.mark_error(&key, error.to_string()).await;
-            let _ = child.kill().await;
-            return Err(error);
-        }
 
         let stderr_task = child.stderr.take().map(|stderr| {
             let server_id = definition.id.to_string();
@@ -419,33 +449,44 @@ impl LspManager {
             })
         });
 
-        // Defensive cleanup: if some prior `RunningLsp` somehow still occupies
-        // this key (e.g. due to a previously racing start), kill its child and
-        // stderr task before replacing it so we never silently orphan a
-        // subprocess.
+        let writer = Arc::new(Mutex::new(stdin));
+        let manager = Arc::clone(&self);
+        let reader_key = key.clone();
+        let reader_task = tokio::spawn(async move {
+            manager.read_runtime_messages(reader_key, stdout).await;
+        });
+
         if let Some(mut previous) = self.active.write().await.insert(
             key.clone(),
             RunningLsp {
                 child,
-                transport,
+                writer,
                 stderr_task,
+                reader_task: Some(reader_task),
             },
         ) {
             if let Some(task) = previous.stderr_task.take() {
                 task.abort();
             }
+            if let Some(task) = previous.reader_task.take() {
+                task.abort();
+            }
             let _ = previous.child.start_kill();
         }
+
+        if !self.has_subscribers(&key).await {
+            self.schedule_idle_shutdown(key.clone()).await;
+            return Ok(());
+        }
+        let previous = self.state.read().await.get(&key).cloned();
+
         self.update_state(
             &key,
             RuntimeState {
                 status: LspRuntimeStatus::Running,
                 install_path: Some(binary.to_string_lossy().to_string()),
-                restart_count: self
-                    .state
-                    .read()
-                    .await
-                    .get(&key)
+                restart_count: previous
+                    .as_ref()
                     .map(|s| s.restart_count)
                     .unwrap_or_default(),
                 last_error: None,
@@ -454,6 +495,70 @@ impl LspManager {
         .await;
 
         Ok(())
+    }
+
+    async fn read_runtime_messages(self: Arc<Self>, key: String, stdout: ChildStdout) {
+        let mut reader = BufReader::new(stdout);
+        loop {
+            match read_message_from(&mut reader).await {
+                Ok(message) => {
+                    if let Err(error) = self.dispatch_server_message(&key, &message).await {
+                        tracing::error!(
+                            target: "logs_debug_lsp_bridge",
+                            channel_id = %key,
+                            error = %error,
+                            "failed to dispatch lsp server message"
+                        );
+                    }
+                }
+                Err(error) => {
+                    self.handle_reader_exit(&key, error.to_string()).await;
+                    break;
+                }
+            }
+        }
+    }
+
+    async fn dispatch_server_message(
+        &self,
+        channel_id: &str,
+        message: &JsonRpcMessage,
+    ) -> anyhow::Result<()> {
+        let Some(events_tx) = &self.events_tx else {
+            return Ok(());
+        };
+
+        let raw = serde_json::to_string(message).context("failed to serialize lsp json-rpc")?;
+        let subscribers = self
+            .subscriptions
+            .read()
+            .await
+            .get(channel_id)
+            .cloned()
+            .unwrap_or_default();
+
+        for conn_id in subscribers {
+            let _ = events_tx.send(LspServerMessage {
+                channel_id: channel_id.to_string(),
+                conn_id,
+                message: raw.clone(),
+            });
+        }
+
+        Ok(())
+    }
+
+    async fn handle_reader_exit(&self, channel_id: &str, error: String) {
+        let mut active = self.active.write().await;
+        if let Some(mut runtime) = active.remove(channel_id) {
+            if let Some(task) = runtime.stderr_task.take() {
+                task.abort();
+            }
+            let _ = runtime.child.start_kill();
+        }
+        drop(active);
+        self.mark_error(channel_id, format!("lsp transport closed: {error}"))
+            .await;
     }
 
     async fn mark_error(&self, key: &str, message: String) {
@@ -489,6 +594,9 @@ impl LspManager {
                     if let Some(task) = running.stderr_task.take() {
                         task.abort();
                     }
+                    if let Some(task) = running.reader_task.take() {
+                        task.abort();
+                    }
                     Some(format!(
                         "lsp process exited unexpectedly with {}",
                         format_exit_status(status)
@@ -501,6 +609,9 @@ impl LspManager {
                     if let Some(task) = running.stderr_task.take() {
                         task.abort();
                     }
+                    if let Some(task) = running.reader_task.take() {
+                        task.abort();
+                    }
                     Some(format!("failed to query lsp process status: {error}"))
                 }
             }
@@ -511,8 +622,82 @@ impl LspManager {
         }
     }
 
+    async fn add_subscription(&self, channel_id: &str, conn_id: &str) {
+        let mut subscriptions = self.subscriptions.write().await;
+        subscriptions
+            .entry(channel_id.to_string())
+            .or_default()
+            .insert(conn_id.to_string());
+    }
+
+    async fn cancel_idle_shutdown(&self, channel_id: &str) {
+        let mut idle_shutdowns = self.idle_shutdowns.write().await;
+        if let Some(task) = idle_shutdowns.remove(channel_id) {
+            task.abort();
+        }
+    }
+
+    async fn remove_subscription(&self, channel_id: &str, conn_id: &str) {
+        let mut subscriptions = self.subscriptions.write().await;
+        if let Some(listeners) = subscriptions.get_mut(channel_id) {
+            listeners.remove(conn_id);
+            if listeners.is_empty() {
+                subscriptions.remove(channel_id);
+            }
+        }
+    }
+
+    async fn has_subscribers(&self, channel_id: &str) -> bool {
+        self.subscriptions
+            .read()
+            .await
+            .get(channel_id)
+            .is_some_and(|listeners| !listeners.is_empty())
+    }
+
     async fn update_state(&self, key: &str, state: RuntimeState) {
         self.state.write().await.insert(key.to_string(), state);
+    }
+
+    async fn schedule_idle_shutdown(self: &Arc<Self>, channel_id: String) {
+        self.cancel_idle_shutdown(&channel_id).await;
+
+        let manager = Arc::clone(self);
+        let shutdown_channel_id = channel_id.clone();
+        let task = tokio::spawn(async move {
+            tokio::time::sleep(IDLE_RUNTIME_GRACE_PERIOD).await;
+            if manager.has_subscribers(&shutdown_channel_id).await {
+                return;
+            }
+            manager
+                .idle_shutdowns
+                .write()
+                .await
+                .remove(&shutdown_channel_id);
+            manager.stop_runtime(&shutdown_channel_id, true).await;
+        });
+
+        self.idle_shutdowns.write().await.insert(channel_id, task);
+    }
+
+    async fn stop_runtime(&self, channel_id: &str, clear_state: bool) {
+        self.cancel_idle_shutdown(channel_id).await;
+
+        let mut active = self.active.write().await;
+        if let Some(mut runtime) = active.remove(channel_id) {
+            if let Some(task) = runtime.stderr_task.take() {
+                task.abort();
+            }
+            if let Some(task) = runtime.reader_task.take() {
+                task.abort();
+            }
+            let _ = runtime.child.start_kill();
+        }
+        drop(active);
+
+        if clear_state {
+            self.state.write().await.remove(channel_id);
+        }
     }
 
     pub async fn shutdown(&self) {
@@ -521,7 +706,16 @@ impl LspManager {
             if let Some(task) = process.stderr_task.take() {
                 task.abort();
             }
+            if let Some(task) = process.reader_task.take() {
+                task.abort();
+            }
             let _ = process.child.start_kill();
+        }
+        drop(active);
+        self.subscriptions.write().await.clear();
+        let mut idle_shutdowns = self.idle_shutdowns.write().await;
+        for (_, task) in idle_shutdowns.drain() {
+            task.abort();
         }
     }
 }
@@ -551,6 +745,7 @@ mod tests {
                 version: "1.0.0",
                 extensions: &["txt"],
                 executable_name: "test-lsp",
+                required_relative_paths: &[],
                 install: InstallMethod::SystemBinary { bin: "true" },
                 launch_args: &[],
                 initialization_options: "{}",
@@ -572,6 +767,10 @@ mod tests {
         let stdout = child.stdout.take().expect("stdout");
         let stdin = child.stdin.take().expect("stdin");
         let stderr = child.stderr.take();
+        let reader_task = tokio::spawn(async move {
+            let mut reader = BufReader::new(stdout);
+            let _ = read_message_from(&mut reader).await;
+        });
         let _ = child.wait().await.expect("wait child");
 
         manager
@@ -590,13 +789,14 @@ mod tests {
             key.clone(),
             RunningLsp {
                 child,
-                transport: LspTransport::new(stdout, stdin),
+                writer: Arc::new(Mutex::new(stdin)),
                 stderr_task: stderr.map(|stderr| {
                     tokio::spawn(async move {
                         let mut reader = BufReader::new(stderr).lines();
                         while reader.next_line().await.ok().flatten().is_some() {}
                     })
                 }),
+                reader_task: Some(reader_task),
             },
         );
 
@@ -612,5 +812,77 @@ mod tests {
                 .is_some_and(|message| message.contains("exited unexpectedly"))
         );
         assert!(!manager.active.read().await.contains_key(&key));
+    }
+
+    #[tokio::test]
+    async fn channel_id_matches_runtime_key() {
+        let manager = LspManager::with_registry(
+            Installer::new(PathBuf::from(".")),
+            vec![LspDefinition {
+                id: "rust-analyzer",
+                name: "Rust Analyzer",
+                version: "1.0.0",
+                extensions: &["rs"],
+                executable_name: "rust-analyzer",
+                required_relative_paths: &[],
+                install: InstallMethod::SystemBinary {
+                    bin: "rust-analyzer",
+                },
+                launch_args: &[],
+                initialization_options: "{}",
+            }],
+        );
+
+        let channel = manager
+            .channel_id_for_file("/tmp/project/src/lib.rs", Some("/tmp/project"))
+            .expect("channel id");
+
+        assert_eq!(channel, "/tmp/project::rust-analyzer");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn status_after_connect_does_not_deadlock_while_runtime_starts() {
+        let temp = tempdir().expect("temp dir");
+        let manager = Arc::new(LspManager::with_registry(
+            Installer::new(temp.path().join("home")),
+            vec![LspDefinition {
+                id: "test-lsp",
+                name: "Test LSP",
+                version: "1.0.0",
+                extensions: &["txt"],
+                executable_name: "sh",
+                required_relative_paths: &[],
+                install: InstallMethod::SystemBinary { bin: "sh" },
+                launch_args: &["-c", "sleep 5"],
+                initialization_options: "{}",
+            }],
+        ));
+
+        let workspace_root = temp.path().join("workspace");
+        let workspace_root_str = workspace_root.to_string_lossy().to_string();
+        let file_path = workspace_root.join("file.txt");
+        std::fs::create_dir_all(&workspace_root).expect("workspace dir");
+        std::fs::write(&file_path, "hello").expect("file");
+        let file_path_str = file_path.to_string_lossy().to_string();
+
+        let connection = tokio::time::timeout(
+            Duration::from_secs(1),
+            manager.connect_for_file("conn-1", &file_path_str, Some(&workspace_root_str)),
+        )
+        .await
+        .expect("connect should not hang");
+        assert!(connection.channel_id.is_some());
+
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        let snapshot = tokio::time::timeout(
+            Duration::from_secs(1),
+            manager.snapshot_for_file(&file_path_str, Some(&workspace_root_str)),
+        )
+        .await
+        .expect("status poll should not hang");
+
+        assert_eq!(snapshot.server_id.as_deref(), Some("test-lsp"));
     }
 }

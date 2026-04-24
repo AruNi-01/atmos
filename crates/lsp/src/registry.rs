@@ -5,6 +5,7 @@ pub struct LspDefinition {
     pub version: &'static str,
     pub extensions: &'static [&'static str],
     pub executable_name: &'static str,
+    pub required_relative_paths: &'static [&'static str],
     pub install: InstallMethod,
     pub launch_args: &'static [&'static str],
     pub initialization_options: &'static str,
@@ -19,6 +20,7 @@ pub enum InstallMethod {
     Npm {
         package: &'static str,
         bin: &'static str,
+        extra_packages: &'static [&'static str],
     },
     Pip {
         package: &'static str,
@@ -41,6 +43,7 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "2025-01-13",
             extensions: &["rs"],
             executable_name: "rust-analyzer",
+            required_relative_paths: &[],
             launch_args: &[],
             initialization_options: "{}",
             install: InstallMethod::GitHubRelease {
@@ -54,11 +57,13 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "1.1.390",
             extensions: &["py"],
             executable_name: "pyright-langserver",
+            required_relative_paths: &[],
             launch_args: &["--stdio"],
             initialization_options: "{}",
             install: InstallMethod::Npm {
                 package: "pyright",
                 bin: "pyright-langserver",
+                extra_packages: &[],
             },
         },
         LspDefinition {
@@ -67,11 +72,13 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "4.3.4",
             extensions: &["ts", "tsx", "js", "jsx"],
             executable_name: "typescript-language-server",
+            required_relative_paths: &["lib/node_modules/typescript/package.json"],
             launch_args: &["--stdio"],
             initialization_options: "{}",
             install: InstallMethod::Npm {
                 package: "typescript-language-server",
                 bin: "typescript-language-server",
+                extra_packages: &["typescript@5"],
             },
         },
         LspDefinition {
@@ -80,6 +87,7 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "v0.16.2",
             extensions: &["go"],
             executable_name: "gopls",
+            required_relative_paths: &[],
             launch_args: &[],
             initialization_options: "{}",
             install: InstallMethod::GoInstall {
@@ -93,6 +101,7 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "19.1.2",
             extensions: &["c", "cpp", "h", "hpp"],
             executable_name: "clangd",
+            required_relative_paths: &[],
             launch_args: &["--background-index"],
             initialization_options: "{}",
             install: InstallMethod::GitHubRelease {
@@ -106,6 +115,7 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "1.3.13",
             extensions: &["kt", "kts"],
             executable_name: "kotlin-language-server",
+            required_relative_paths: &[],
             launch_args: &[],
             initialization_options: "{}",
             install: InstallMethod::GitHubRelease {
@@ -119,6 +129,7 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "system",
             extensions: &["swift"],
             executable_name: "sourcekit-lsp",
+            required_relative_paths: &[],
             launch_args: &[],
             initialization_options: "{}",
             install: InstallMethod::SystemBinary {
@@ -131,6 +142,7 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "3.13.6",
             extensions: &["lua"],
             executable_name: "lua-language-server",
+            required_relative_paths: &[],
             launch_args: &[],
             initialization_options: "{}",
             install: InstallMethod::GitHubRelease {
@@ -144,11 +156,13 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "1.17.0",
             extensions: &["yaml", "yml"],
             executable_name: "yaml-language-server",
+            required_relative_paths: &[],
             launch_args: &["--stdio"],
             initialization_options: "{}",
             install: InstallMethod::Npm {
                 package: "yaml-language-server",
                 bin: "yaml-language-server",
+                extra_packages: &[],
             },
         },
         LspDefinition {
@@ -157,6 +171,7 @@ pub fn builtin_lsp_registry() -> Vec<LspDefinition> {
             version: "0.9.3",
             extensions: &["toml"],
             executable_name: "taplo",
+            required_relative_paths: &[],
             launch_args: &["lsp", "stdio"],
             initialization_options: "{}",
             install: InstallMethod::GitHubRelease {

@@ -49,56 +49,77 @@ where
         }
     }
 
+    pub fn into_parts(self) -> (BufReader<R>, W) {
+        (self.reader, self.writer)
+    }
+
     pub async fn send(&mut self, message: &JsonRpcMessage) -> anyhow::Result<()> {
-        let payload = serde_json::to_vec(message).context("failed to encode json-rpc message")?;
-        let header = format!("Content-Length: {}\r\n\r\n", payload.len());
-        self.writer
-            .write_all(header.as_bytes())
-            .await
-            .context("failed to write json-rpc header")?;
-        self.writer
-            .write_all(&payload)
-            .await
-            .context("failed to write json-rpc payload")?;
-        self.writer
-            .flush()
-            .await
-            .context("failed to flush json-rpc stream")?;
-        Ok(())
+        send_message_to(&mut self.writer, message).await
     }
 
     pub async fn read(&mut self) -> anyhow::Result<JsonRpcMessage> {
-        let headers = self.read_headers().await?;
-        let len = headers
-            .get("content-length")
-            .and_then(|value| value.parse::<usize>().ok())
-            .ok_or_else(|| anyhow::anyhow!("missing content-length header"))?;
-
-        let mut payload = vec![0_u8; len];
-        self.reader
-            .read_exact(&mut payload)
-            .await
-            .context("failed to read json-rpc payload")?;
-
-        serde_json::from_slice(&payload).context("failed to decode json-rpc payload")
+        read_message_from(&mut self.reader).await
     }
+}
 
-    async fn read_headers(&mut self) -> anyhow::Result<HashMap<String, String>> {
-        let mut headers = HashMap::new();
-        loop {
-            let mut line = String::new();
-            let bytes = self.reader.read_line(&mut line).await?;
-            if bytes == 0 {
-                return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected EOF").into());
-            }
+pub async fn send_message_to<W>(writer: &mut W, message: &JsonRpcMessage) -> anyhow::Result<()>
+where
+    W: AsyncWrite + Unpin,
+{
+    let payload = serde_json::to_vec(message).context("failed to encode json-rpc message")?;
+    let header = format!("Content-Length: {}\r\n\r\n", payload.len());
+    writer
+        .write_all(header.as_bytes())
+        .await
+        .context("failed to write json-rpc header")?;
+    writer
+        .write_all(&payload)
+        .await
+        .context("failed to write json-rpc payload")?;
+    writer
+        .flush()
+        .await
+        .context("failed to flush json-rpc stream")?;
+    Ok(())
+}
 
-            if line == "\r\n" {
-                return Ok(headers);
-            }
+pub async fn read_message_from<R>(reader: &mut BufReader<R>) -> anyhow::Result<JsonRpcMessage>
+where
+    R: AsyncRead + Unpin,
+{
+    let headers = read_headers_from(reader).await?;
+    let len = headers
+        .get("content-length")
+        .and_then(|value| value.parse::<usize>().ok())
+        .ok_or_else(|| anyhow::anyhow!("missing content-length header"))?;
 
-            if let Some((key, value)) = line.split_once(':') {
-                headers.insert(key.trim().to_ascii_lowercase(), value.trim().to_string());
-            }
+    let mut payload = vec![0_u8; len];
+    reader
+        .read_exact(&mut payload)
+        .await
+        .context("failed to read json-rpc payload")?;
+
+    serde_json::from_slice(&payload).context("failed to decode json-rpc payload")
+}
+
+async fn read_headers_from<R>(reader: &mut BufReader<R>) -> anyhow::Result<HashMap<String, String>>
+where
+    R: AsyncRead + Unpin,
+{
+    let mut headers = HashMap::new();
+    loop {
+        let mut line = String::new();
+        let bytes = reader.read_line(&mut line).await?;
+        if bytes == 0 {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected EOF").into());
+        }
+
+        if line == "\r\n" {
+            return Ok(headers);
+        }
+
+        if let Some((key, value)) = line.split_once(':') {
+            headers.insert(key.trim().to_ascii_lowercase(), value.trim().to_string());
         }
     }
 }

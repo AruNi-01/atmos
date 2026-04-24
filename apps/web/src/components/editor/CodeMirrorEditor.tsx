@@ -1,10 +1,16 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { useHotkeys } from 'react-hotkeys-hook';
 import {
   cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -24,7 +30,16 @@ import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorSettings } from '@/hooks/use-editor-settings';
-import { lspWsApi, type LspStatusResponse } from '@/api/ws-api';
+import { type LspStatusResponse } from '@/api/ws-api';
+import { useCodeMirrorLsp } from '@/hooks/use-codemirror-lsp';
+import {
+  createLspInteractionExtension,
+  lspActionLabel,
+  lspActionShortcut,
+  runLspEditorAction,
+  type LspContextMenuRequest,
+  type LspEditorActionId,
+} from '@/lib/codemirror-lsp-interactions';
 
 interface CodeMirrorEditorProps {
   file: OpenFile;
@@ -59,14 +74,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [lspStatus, setLspStatus] = useState<LspStatusResponse>({
-    server_id: null,
-    server_name: null,
-    status: "unavailable",
-  });
+  const [editorReady, setEditorReady] = useState(false);
+  const [lspContextMenu, setLspContextMenu] = useState<LspContextMenuRequest | null>(null);
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
   const isPreview = isMarkdown && previewFilePath === file.path;
+  const { extension: lspExtension, status: lspStatus, restart: restartLsp } = useCodeMirrorLsp({
+    filePath: file.path,
+    language: file.language,
+    workspaceRoot: currentProjectPath,
+    hasHydrated,
+    enabled: !file.isLoading && !isPreview && editorReady,
+  });
 
   // Auto-enable preview for .atmos/reviews/ markdown files
   useEffect(() => {
@@ -80,63 +99,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
-
-  useEffect(() => {
-    // Wait for the editor store to rehydrate from persistent storage before
-    // activating the LSP. Otherwise `currentProjectPath` is `null` on the
-    // initial render and the backend falls back to the file's parent
-    // directory as the workspace root, starting an LSP under a runtime key
-    // that will never be queried again once hydration populates the real
-    // project path and the effect re-runs with it — leaking a heavy LSP
-    // process (e.g. rust-analyzer) for the server's lifetime.
-    if (!hasHydrated) return;
-
-    let cancelled = false;
-    let pollTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const schedulePoll = () => {
-      pollTimer = setTimeout(async () => {
-        try {
-          const latest = await lspWsApi.statusForFile(file.path, currentProjectPath);
-          if (cancelled) return;
-          setLspStatus(latest);
-          if (latest.status === "installing" || latest.status === "starting") {
-            schedulePoll();
-          }
-        } catch {
-          // ignore transient polling failure
-        }
-      }, 1500);
-    };
-
-    const syncLspStatus = async () => {
-      try {
-        const activated = await lspWsApi.activateForFile(file.path, currentProjectPath);
-        if (cancelled) return;
-        setLspStatus(activated);
-
-        if (activated.status === "installing" || activated.status === "starting") {
-          schedulePoll();
-        }
-      } catch {
-        if (!cancelled) {
-          setLspStatus({
-            server_id: null,
-            server_name: null,
-            status: "error",
-            error: "failed to activate lsp",
-          });
-        }
-      }
-    };
-
-    void syncLspStatus();
-
-    return () => {
-      cancelled = true;
-      if (pollTimer) clearTimeout(pollTimer);
-    };
-  }, [hasHydrated, currentProjectPath, file.path]);
 
   // Selection popover for copying code to AI
   const getSelectionInfo = useCallback(() => {
@@ -248,12 +210,43 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
   const handleEditorCreate = useCallback((editor: EditorView) => {
     editorRef.current = editor;
+    setEditorReady(true);
     editor.focus();
   }, []);
+
+  useEffect(() => {
+    editorRef.current = null;
+    setEditorReady(false);
+    setLspContextMenu(null);
+  }, [file.path]);
+
+  useEffect(() => {
+    if (file.isLoading || isPreview) {
+      setEditorReady(false);
+    }
+  }, [file.isLoading, isPreview]);
 
   const handleEditorChange = useCallback((value: string) => {
     updateFileContent(file.path, value, effectiveContextId || undefined);
   }, [effectiveContextId, file.path, updateFileContent]);
+
+  const handleLspContextMenu = useCallback((request: LspContextMenuRequest) => {
+    setLspContextMenu(request);
+  }, []);
+
+  const runEditorLspAction = useCallback((action: LspEditorActionId, pos?: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const success = runLspEditorAction(editor, action, pos);
+    if (success) return;
+
+    toastManager.add({
+      title: 'LSP Action Unavailable',
+      description: `${lspActionLabel(action)} is not available for the current symbol or language server.`,
+      type: 'error',
+    });
+  }, []);
 
   // Global save hotkey (Cmd/Ctrl + S)
   useHotkeys('mod+s', (e) => {
@@ -264,9 +257,33 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     enableOnContentEditable: true,
   }, [handleSave]);
 
+  const lspInteractive = lspStatus.status === 'running';
   const lspBadgeState = toBadgeState(lspStatus.status);
-  const lspLabel = lspStatus.server_name || "LSP unavailable";
+  const lspLabel = lspStatus.server_name || (
+    lspStatus.status === 'error'
+      ? 'LSP error'
+      : lspStatus.status === 'installing'
+        ? 'LSP installing'
+        : lspStatus.status === 'starting'
+          ? 'LSP starting'
+        : 'LSP unavailable'
+  );
   const shouldShowLspBadge = lspStatus.status !== "unavailable";
+
+  const lspInteractionExtension = useMemo(
+    () => (lspInteractive ? createLspInteractionExtension({ onContextMenu: handleLspContextMenu }) : []),
+    [handleLspContextMenu, lspInteractive]
+  );
+
+  const editorExtensions = useMemo(
+    () => [lspExtension, lspInteractionExtension],
+    [lspExtension, lspInteractionExtension]
+  );
+
+  const contextHasSymbol = useMemo(() => {
+    if (!lspContextMenu || !editorRef.current) return false;
+    return !!editorRef.current.state.wordAt(lspContextMenu.pos);
+  }, [lspContextMenu]);
 
   return (
     <div ref={containerRef} className={cn('h-full w-full relative flex flex-col', className)}>
@@ -326,6 +343,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                 <PopoverContent align="end" sideOffset={8} className="w-80 space-y-2 p-3">
                   <div className="text-xs text-muted-foreground">Version: {lspStatus.version || "unknown"}</div>
                   <div className="text-xs text-muted-foreground break-all">Install: {lspStatus.install_path || "N/A"}</div>
+                  {lspStatus.error && (
+                    <div className="text-xs text-destructive break-all">Error: {lspStatus.error}</div>
+                  )}
                   {lspStatus.last_error && (
                     <div className="text-xs text-amber-600 break-all">Last error: {lspStatus.last_error}</div>
                   )}
@@ -333,7 +353,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                     type="button"
                     className="h-8 rounded-md border border-border px-2 text-xs hover:bg-accent"
                     onClick={() => {
-                      void lspWsApi.restartForFile(file.path, currentProjectPath).then(setLspStatus).catch(() => {});
+                      void restartLsp().catch(() => {});
                     }}
                   >
                     Restart LSP
@@ -415,6 +435,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
               <BaseCodeMirrorEditor
                 language={file.language}
                 value={file.content}
+                extraExtensions={editorExtensions}
                 lineWrap={lineWrap}
                 navigationTarget={navigationTarget}
                 onChange={handleEditorChange}
@@ -436,6 +457,88 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
               </>
             )}
           </div>
+
+          <DropdownMenu
+            open={!!lspContextMenu}
+            onOpenChange={(open) => {
+              if (!open) setLspContextMenu(null);
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-hidden
+                className="fixed size-0 pointer-events-none"
+                style={{
+                  left: lspContextMenu?.x ?? -9999,
+                  top: lspContextMenu?.y ?? -9999,
+                }}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" sideOffset={4} className="w-60">
+              <DropdownMenuItem
+                disabled={!lspInteractive || !contextHasSymbol}
+                onClick={() => {
+                  runEditorLspAction('definition', lspContextMenu?.pos);
+                  setLspContextMenu(null);
+                }}
+              >
+                {lspActionLabel('definition')}
+                <DropdownMenuShortcut>{lspActionShortcut('definition')}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!lspInteractive || !contextHasSymbol}
+                onClick={() => {
+                  runEditorLspAction('implementation', lspContextMenu?.pos);
+                  setLspContextMenu(null);
+                }}
+              >
+                {lspActionLabel('implementation')}
+                <DropdownMenuShortcut>{lspActionShortcut('implementation')}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!lspInteractive || !contextHasSymbol}
+                onClick={() => {
+                  runEditorLspAction('references', lspContextMenu?.pos);
+                  setLspContextMenu(null);
+                }}
+              >
+                {lspActionLabel('references')}
+                <DropdownMenuShortcut>{lspActionShortcut('references')}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!lspInteractive || !contextHasSymbol}
+                onClick={() => {
+                  runEditorLspAction('rename', lspContextMenu?.pos);
+                  setLspContextMenu(null);
+                }}
+              >
+                {lspActionLabel('rename')}
+                <DropdownMenuShortcut>{lspActionShortcut('rename')}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={!lspInteractive}
+                onClick={() => {
+                  runEditorLspAction('completion', lspContextMenu?.pos);
+                  setLspContextMenu(null);
+                }}
+              >
+                {lspActionLabel('completion')}
+                <DropdownMenuShortcut>{lspActionShortcut('completion')}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!lspInteractive}
+                onClick={() => {
+                  runEditorLspAction('format', lspContextMenu?.pos);
+                  setLspContextMenu(null);
+                }}
+              >
+                {lspActionLabel('format')}
+                <DropdownMenuShortcut>{lspActionShortcut('format')}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>
       )}
     </div>

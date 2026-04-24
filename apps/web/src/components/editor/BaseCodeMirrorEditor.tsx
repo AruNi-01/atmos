@@ -52,6 +52,7 @@ export interface BaseCodeMirrorEditorProps {
   isReadOnly?: boolean;
   autoFocus?: boolean;
   lineWrap?: boolean;
+  extraExtensions?: Extension | readonly Extension[];
   navigationTarget?: { line: number; column?: number } | null;
   onChange?: (value: string) => void;
   onCreateEditor?: (view: EditorView) => void;
@@ -839,6 +840,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   isReadOnly,
   autoFocus,
   lineWrap = false,
+  extraExtensions,
   navigationTarget,
   onChange,
   onCreateEditor,
@@ -863,6 +865,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   const [themeCompartment] = useState(() => new Compartment());
   const [lineWrapCompartment] = useState(() => new Compartment());
   const [searchCompartment] = useState(() => new Compartment());
+  const [extraExtensionsCompartment] = useState(() => new Compartment());
   const onChangeRef = useRef(onChange);
   const onCreateEditorRef = useRef(onCreateEditor);
   const onSaveRef = useRef(onSave);
@@ -937,6 +940,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
               onChangeRef.current?.(update.state.doc.toString());
             }
           }),
+          extraExtensionsCompartment.of(extraExtensions ?? []),
           languageCompartment.of([]),
           readOnlyCompartment.of([
             EditorState.readOnly.of(!!initialState.isReadOnly),
@@ -965,7 +969,14 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       editorRef.current = null;
       view.destroy();
     };
-  }, [languageCompartment, lineWrapCompartment, readOnlyCompartment, searchCompartment, themeCompartment]);
+  }, [
+    extraExtensionsCompartment,
+    languageCompartment,
+    lineWrapCompartment,
+    readOnlyCompartment,
+    searchCompartment,
+    themeCompartment,
+  ]);
 
   useEffect(() => {
     const view = editorRef.current;
@@ -1023,6 +1034,15 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       effects: lineWrapCompartment.reconfigure(lineWrap ? EditorView.lineWrapping : []),
     });
   }, [lineWrap, lineWrapCompartment]);
+
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view) return;
+
+    view.dispatch({
+      effects: extraExtensionsCompartment.reconfigure(extraExtensions ?? []),
+    });
+  }, [extraExtensions, extraExtensionsCompartment]);
 
   useEffect(() => {
     const view = editorRef.current;

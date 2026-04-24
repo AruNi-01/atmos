@@ -37,6 +37,7 @@ pub use message::{
     GithubPrDraftRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
     GithubPrReadyRequest, GithubPrReopenRequest, GithubPrTimelinePageRequest,
     LlmProviderTestRequest, LlmProvidersUpdateRequest, LspActivateForFileRequest,
+    LspChannelDisconnectRequest, LspChannelSendRequest, LspConnectForFileRequest,
     LspRestartForFileRequest, LspStatusForFileRequest, MessagePayload,
     ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteRequest,
     ProjectUpdateOrderRequest, ProjectUpdateRequest, ProjectUpdateTargetBranchRequest,

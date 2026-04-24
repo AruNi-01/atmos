@@ -61,8 +61,10 @@ impl Installer {
         // This prevents stale binaries from being reused after a version bump.
         if marker.exists() && marker_matches_version(&marker, definition.version).await {
             if let Some(existing) = self.resolve_executable(definition, &target_dir) {
-                self.update_registry_cache(definition, &existing).await?;
-                return Ok(existing);
+                if self.installation_layout_valid(definition, &target_dir) {
+                    self.update_registry_cache(definition, &existing).await?;
+                    return Ok(existing);
+                }
             }
         }
 
@@ -78,8 +80,12 @@ impl Installer {
                 self.install_from_github(definition.version, repo, asset_pattern, &target_dir)
                     .await?;
             }
-            InstallMethod::Npm { package, .. } => {
-                self.install_via_npm(package, definition.version, &target_dir)
+            InstallMethod::Npm {
+                package,
+                extra_packages,
+                ..
+            } => {
+                self.install_via_npm(package, definition.version, extra_packages, &target_dir)
                     .await?;
             }
             InstallMethod::Pip { package, .. } => {
@@ -101,17 +107,26 @@ impl Installer {
         }
 
         if let Some(path) = self.resolve_executable(definition, &target_dir) {
-            write_version_marker(&marker, definition.version)
-                .await
-                .context("failed to persist installation marker")?;
-            self.update_registry_cache(definition, &path).await?;
-            return Ok(path);
+            if self.installation_layout_valid(definition, &target_dir) {
+                write_version_marker(&marker, definition.version)
+                    .await
+                    .context("failed to persist installation marker")?;
+                self.update_registry_cache(definition, &path).await?;
+                return Ok(path);
+            }
         }
 
         Err(anyhow!(
             "installed {}, but failed to resolve executable",
             definition.id
         ))
+    }
+
+    fn installation_layout_valid(&self, definition: &LspDefinition, target_dir: &Path) -> bool {
+        definition
+            .required_relative_paths
+            .iter()
+            .all(|relative_path| target_dir.join(relative_path).exists())
     }
 
     fn resolve_executable(&self, definition: &LspDefinition, target_dir: &Path) -> Option<PathBuf> {
@@ -196,12 +211,16 @@ impl Installer {
         &self,
         package: &str,
         version: &str,
+        extra_packages: &[&str],
         destination: &Path,
     ) -> anyhow::Result<()> {
+        let package_spec = format!("{package}@{version}");
         let mut command = Command::new("npm");
-        command
-            .args(["install", "-g", &format!("{package}@{version}"), "--prefix"])
-            .arg(destination);
+        command.args(["install", "-g", &package_spec]);
+        for extra_package in extra_packages {
+            command.arg(extra_package);
+        }
+        command.args(["--prefix"]).arg(destination);
 
         run_install_command_with_timeout(command, "npm", package).await
     }
@@ -685,6 +704,7 @@ mod tests {
             version: "19.1.2",
             extensions: &["cpp"],
             executable_name: "clangd",
+            required_relative_paths: &[],
             install: InstallMethod::GitHubRelease {
                 repo: "clangd/clangd",
                 asset_pattern: "clangd-{os}-{version}.zip",
@@ -699,5 +719,39 @@ mod tests {
             .expect("nested executable should resolve");
 
         assert_eq!(resolved, nested_bin.join("clangd"));
+    }
+
+    #[test]
+    fn installation_layout_can_require_companion_files() {
+        let dir = tempdir().expect("temp dir");
+        let install_root = dir.path().join("typescript-language-server");
+        let bin_dir = install_root.join("bin");
+        std::fs::create_dir_all(&bin_dir).expect("bin dir");
+        std::fs::write(bin_dir.join("typescript-language-server"), b"binary").expect("binary");
+
+        let definition = LspDefinition {
+            id: "typescript-language-server",
+            name: "TypeScript / JavaScript",
+            version: "4.3.4",
+            extensions: &["ts"],
+            executable_name: "typescript-language-server",
+            required_relative_paths: &["lib/node_modules/typescript/package.json"],
+            install: InstallMethod::Npm {
+                package: "typescript-language-server",
+                bin: "typescript-language-server",
+                extra_packages: &["typescript@5"],
+            },
+            launch_args: &["--stdio"],
+            initialization_options: "{}",
+        };
+
+        let installer = Installer::new(dir.path().to_path_buf());
+        assert!(!installer.installation_layout_valid(&definition, &install_root));
+
+        let companion_dir = install_root.join("lib").join("node_modules").join("typescript");
+        std::fs::create_dir_all(&companion_dir).expect("companion dir");
+        std::fs::write(companion_dir.join("package.json"), b"{}").expect("package.json");
+
+        assert!(installer.installation_layout_valid(&definition, &install_root));
     }
 }
