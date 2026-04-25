@@ -125,12 +125,28 @@ const PLACEHOLDER_TEMPLATES = [
 
 const PROMPT_CARD_NOTCH_WIDTH_PX = 32;
 const PROMPT_CARD_NOTCH_HEIGHT_PX = 26;
+// 25px ≈ rounded-[1.55rem]; approximated with 3 midpoints per corner (θ≈20°, 45°, 70°)
 const promptCardNotchClipPath = [
-  `polygon(${PROMPT_CARD_NOTCH_WIDTH_PX}px 0`,
-  "100% 0",
-  "100% 100%",
-  "0 100%",
-  `0 ${PROMPT_CARD_NOTCH_HEIGHT_PX}px`,
+  `polygon(${PROMPT_CARD_NOTCH_WIDTH_PX}px 0px`,
+  // top-right corner
+  "calc(100% - 25px) 0px",
+  "calc(100% - 16px) 2px",
+  "calc(100% - 7px) 7px",
+  "calc(100% - 2px) 16px",
+  "100% 25px",
+  // bottom-right corner
+  "100% calc(100% - 25px)",
+  "calc(100% - 2px) calc(100% - 16px)",
+  "calc(100% - 7px) calc(100% - 7px)",
+  "calc(100% - 16px) calc(100% - 2px)",
+  "calc(100% - 25px) 100%",
+  // bottom-left corner
+  "25px 100%",
+  "16px calc(100% - 2px)",
+  "7px calc(100% - 7px)",
+  "2px calc(100% - 16px)",
+  "0px calc(100% - 25px)",
+  `0px ${PROMPT_CARD_NOTCH_HEIGHT_PX}px`,
   "10.0px 26.0px",
   "11.5px 26.0px",
   "12.9px 25.9px",
