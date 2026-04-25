@@ -43,8 +43,12 @@ export function PanelLayout({
     setToggleRightSidebar,
   } = useSidebarLayout();
   const [isDragging, setIsDragging] = useState(false);
+  const [leftPanelSize, setLeftPanelSize] = useState(20);
   const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
   const [isWelcomeClosing, setIsWelcomeClosing] = useState(false);
+  const showOverlay = newWorkspace || isWelcomeClosing;
+  const [welcomeAnimState, setWelcomeAnimState] = useState<"idle" | "entering" | "visible">("idle");
+  const prevNewWorkspaceRef = useRef(false);
   const setCreateProjectOpen = useDialogStore((s) => s.setCreateProjectOpen);
   const router = useAppRouter();
 
@@ -97,7 +101,11 @@ export function PanelLayout({
       minSize={10}
       maxSize={30}
       collapsedSize={0}
-      onCollapse={() => setIsLeftCollapsed(true)}
+      onResize={(size) => setLeftPanelSize(size)}
+      onCollapse={() => {
+        setIsLeftCollapsed(true);
+        setLeftPanelSize(0);
+      }}
       onExpand={() => setIsLeftCollapsed(false)}
       className={cn(
         "h-full flex flex-col",
@@ -108,10 +116,6 @@ export function PanelLayout({
       {leftSidebar}
     </Panel>
   );
-
-  const showOverlay = newWorkspace || isWelcomeClosing;
-  const [welcomeAnimState, setWelcomeAnimState] = useState<"idle" | "entering" | "visible">("idle");
-  const prevNewWorkspaceRef = useRef(false);
 
   React.useEffect(() => {
     if (newWorkspace && !prevNewWorkspaceRef.current) {
@@ -129,6 +133,7 @@ export function PanelLayout({
     });
     return () => cancelAnimationFrame(raf);
   }, [welcomeAnimState]);
+  const shouldHideLeftDivider = showOverlay && welcomeAnimState === "visible" && !isWelcomeClosing;
 
   return (
     <div className="relative flex-1 flex min-h-0 overflow-hidden">
@@ -143,6 +148,7 @@ export function PanelLayout({
 
         <ResizeHandle
           onDragging={setIsDragging}
+          className={shouldHideLeftDivider ? "bg-transparent hover:bg-transparent" : undefined}
         />
 
         {/* Center Stage */}
@@ -201,9 +207,7 @@ export function PanelLayout({
                 : "translate-y-full",
           )}
           style={{
-            left: leftPanelRef.current
-              ? `${leftPanelRef.current.getSize()}%`
-              : "20%",
+            left: `${leftPanelSize}%`,
           }}
         >
           <WelcomePage
