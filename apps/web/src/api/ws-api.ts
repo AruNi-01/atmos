@@ -387,6 +387,12 @@ async function wsRequest<T>(
   return send<T>(action, data, timeoutMs);
 }
 
+function emitUsageOverviewUpdated(overview: UsageOverviewResponse): void {
+  const listeners = useWebSocketStore.getState().eventListeners.get("usage_overview_updated");
+  if (!listeners) return;
+  listeners.forEach((listener) => listener(overview));
+}
+
 // ===== 文件系统 API =====
 
 export const fsApi = {
@@ -533,7 +539,7 @@ export const usageWsApi = {
     refresh = false,
     providerId?: string | null,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_get_overview",
       {
         refresh,
@@ -541,13 +547,15 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setProviderSwitch: async (
     providerId: string,
     enabled: boolean,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_provider_switch",
       {
         provider_id: providerId,
@@ -555,13 +563,15 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setProviderFooterCarousel: async (
     providerId: string,
     enabled: boolean,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_provider_footer_carousel",
       {
         provider_id: providerId,
@@ -569,16 +579,20 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setAllProvidersSwitch: async (
     enabled: boolean,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_all_providers_switch",
       { enabled },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setProviderManualSetup: async (
@@ -586,7 +600,7 @@ export const usageWsApi = {
     region: string | null,
     apiKey?: string | null,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_provider_manual_setup",
       {
         provider_id: providerId,
@@ -595,6 +609,8 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   addProviderApiKey: async (
@@ -602,7 +618,7 @@ export const usageWsApi = {
     region: string | null,
     apiKey: string,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_add_provider_api_key",
       {
         provider_id: providerId,
@@ -611,13 +627,15 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   deleteProviderApiKey: async (
     providerId: string,
     keyId: string,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_delete_provider_api_key",
       {
         provider_id: providerId,
@@ -625,18 +643,22 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setAutoRefresh: async (
     intervalMinutes?: number | null,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_auto_refresh",
       {
         interval_minutes: intervalMinutes ?? null,
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 };
 
