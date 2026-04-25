@@ -672,8 +672,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   }, [issuePreview, todoProviderLabel]);
 
   const composerPlaceholder = React.useMemo(() => {
-    const projectName = selectedProject?.name?.trim() || "这个项目";
-    const agentName = selectedAgent?.label?.trim() || "当前 Agent";
+    const projectName = selectedProject?.name?.trim() || "Specified Project";
+    const agentName = selectedAgent?.label?.trim() || "Code Agent";
     const templateIndex =
       hashString(`${projectName}:${agentName}`) % PLACEHOLDER_TEMPLATES.length;
 
@@ -1006,7 +1006,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="absolute -left-3 -top-3 z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-xl border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
+                  className="absolute -left-3 -top-3 z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
                   aria-label="Select agent"
                 >
                   {selectedAgent?.iconType === "built-in" ? (
