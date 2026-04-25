@@ -1,5 +1,4 @@
 use reqwest::Client;
-use reqwest::Response;
 use serde::Deserialize;
 use serde_json::Value;
 use std::env;
@@ -7,32 +6,17 @@ use std::env;
 mod session;
 pub(crate) mod storage;
 
-use self::session::{
-    clear_factory_session_state, load_factory_session_state, store_factory_session_state,
-    FactorySessionState,
-};
-use self::storage::load_factory_local_storage_tokens;
+use self::session::{load_factory_session_state, store_factory_session_state, FactorySessionState};
+use self::storage::{load_factory_cli_auth_access_token, load_factory_local_storage_tokens};
 use crate::constants::{
     FACTORY_API_URL, FACTORY_APP_URL, FACTORY_AUTH_ME_PATH, FACTORY_USAGE_PATH,
-    FACTORY_WORKOS_AUTH_URL, FACTORY_WORKOS_CLIENT_IDS,
 };
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
     build_percent_usage_summary, format_tokens, load_factory_session_cookie_source,
-    load_workos_browser_cookie_source, normalize_fraction_percent, parse_i64_string, round_metric,
-    unix_now,
+    normalize_fraction_percent, parse_i64_string, round_metric, unix_now,
 };
-
-#[derive(Debug, Clone, Deserialize)]
-struct WorkOsAuthResponse {
-    #[serde(default, rename = "access_token")]
-    access_token: Option<String>,
-    #[serde(default, rename = "refresh_token")]
-    refresh_token: Option<String>,
-    #[serde(default, rename = "organization_id")]
-    organization_id: Option<String>,
-}
 
 #[derive(Debug, Clone, Deserialize)]
 struct FactoryAuthResponse {
@@ -110,120 +94,10 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
         .as_ref()
         .map(|source| source.cookie_header.clone())
         .unwrap_or_default();
-    let workos_cookie_source = load_workos_browser_cookie_source().ok().flatten();
-    let workos_cookie_header = workos_cookie_source
-        .as_ref()
-        .map(|source| source.cookie_header.clone())
-        .unwrap_or_default();
+    let cli_auth_token = load_factory_cli_auth_access_token().ok().flatten();
     let mut last_error = None::<String>;
 
-    if let Some(token) = env::var("FACTORY_BEARER_TOKEN")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-    {
-        match fetch_factory_with_bearer(
-            client,
-            &cookie_header,
-            &token,
-            Some("FACTORY_BEARER_TOKEN"),
-        )
-        .await
-        {
-            Ok(result) => {
-                persist_factory_bearer(&token, None, Some("FACTORY_BEARER_TOKEN".to_string()))?;
-                return Ok(result);
-            }
-            Err(error) => last_error = Some(error.to_string()),
-        }
-    }
-
-    if let Some(session) = load_factory_session_state()? {
-        if let Some(token) = session
-            .bearer_token
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-        {
-            match fetch_factory_with_bearer(
-                client,
-                &cookie_header,
-                token,
-                session.source_label.as_deref(),
-            )
-            .await
-            {
-                Ok(result) => {
-                    persist_factory_bearer(
-                        token,
-                        session.refresh_token.clone(),
-                        session.source_label.clone(),
-                    )?;
-                    return Ok(result);
-                }
-                Err(error) => last_error = Some(error.to_string()),
-            }
-        }
-
-        if let Some(refresh_token) = session
-            .refresh_token
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-        {
-            match refresh_factory_auth(client, refresh_token, session.organization_id.as_deref())
-                .await
-            {
-                Ok(auth) => {
-                    let state = persist_factory_auth(
-                        auth,
-                        session
-                            .source_label
-                            .clone()
-                            .unwrap_or_else(|| "stored Factory session".to_string()),
-                    )?;
-                    match fetch_factory_with_bearer(
-                        client,
-                        &cookie_header,
-                        state.bearer_token.as_deref().unwrap_or_default(),
-                        state.source_label.as_deref(),
-                    )
-                    .await
-                    {
-                        Ok(result) => return Ok(result),
-                        Err(error) => last_error = Some(error.to_string()),
-                    }
-                }
-                Err(error) => {
-                    let _ = clear_factory_session_state();
-                    last_error = Some(error.to_string());
-                }
-            }
-        }
-    }
-
-    if let Some(refresh_token) = env::var("FACTORY_REFRESH_TOKEN")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-    {
-        match refresh_factory_auth(client, &refresh_token, None).await {
-            Ok(auth) => {
-                let state = persist_factory_auth(auth, "FACTORY_REFRESH_TOKEN".to_string())?;
-                match fetch_factory_with_bearer(
-                    client,
-                    &cookie_header,
-                    state.bearer_token.as_deref().unwrap_or_default(),
-                    state.source_label.as_deref(),
-                )
-                .await
-                {
-                    Ok(result) => return Ok(result),
-                    Err(error) => last_error = Some(error.to_string()),
-                }
-            }
-            Err(error) => last_error = Some(error.to_string()),
-        }
-    }
-
     for token in load_factory_local_storage_tokens()? {
-        let mut access_error = None::<String>;
         if let Some(access_token) = token
             .access_token
             .as_deref()
@@ -238,92 +112,11 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
             .await
             {
                 Ok(result) => {
-                    persist_factory_bearer(
-                        access_token,
-                        Some(token.refresh_token.clone()),
-                        Some(token.source_label.clone()),
-                    )?;
+                    persist_factory_bearer(access_token, None, Some(token.source_label.clone()))?;
                     return Ok(result);
                 }
-                Err(error) => access_error = Some(error.to_string()),
+                Err(error) => last_error = Some(error.to_string()),
             }
-        }
-
-        match refresh_factory_auth(
-            client,
-            &token.refresh_token,
-            token.organization_id.as_deref(),
-        )
-        .await
-        {
-            Ok(auth) => {
-                let state = persist_factory_auth(auth, token.source_label.clone())?;
-                match fetch_factory_with_bearer(
-                    client,
-                    &cookie_header,
-                    state.bearer_token.as_deref().unwrap_or_default(),
-                    state.source_label.as_deref(),
-                )
-                .await
-                {
-                    Ok(result) => return Ok(result),
-                    Err(error) => last_error = Some(error.to_string()),
-                }
-            }
-            Err(error) => {
-                last_error = Some(error.to_string());
-                if let Some(access_error) = access_error {
-                    last_error = Some(access_error);
-                }
-            }
-        }
-    }
-
-    if !cookie_header.is_empty() {
-        match fetch_workos_auth_with_cookies(client, &cookie_header, None).await {
-            Ok(auth) => {
-                let source_label = cookie_source
-                    .as_ref()
-                    .map(|source| source.source_label.clone())
-                    .unwrap_or_else(|| "Factory browser cookies".to_string());
-                let state = persist_factory_auth(auth, source_label)?;
-                match fetch_factory_with_bearer(
-                    client,
-                    &cookie_header,
-                    state.bearer_token.as_deref().unwrap_or_default(),
-                    state.source_label.as_deref(),
-                )
-                .await
-                {
-                    Ok(result) => return Ok(result),
-                    Err(error) => last_error = Some(error.to_string()),
-                }
-            }
-            Err(error) => last_error = Some(error.to_string()),
-        }
-    }
-
-    if !workos_cookie_header.is_empty() {
-        match fetch_workos_auth_with_cookies(client, &workos_cookie_header, None).await {
-            Ok(auth) => {
-                let source_label = workos_cookie_source
-                    .as_ref()
-                    .map(|source| source.source_label.clone())
-                    .unwrap_or_else(|| "WorkOS browser cookies".to_string());
-                let state = persist_factory_auth(auth, source_label)?;
-                match fetch_factory_with_bearer(
-                    client,
-                    &cookie_header,
-                    state.bearer_token.as_deref().unwrap_or_default(),
-                    state.source_label.as_deref(),
-                )
-                .await
-                {
-                    Ok(result) => return Ok(result),
-                    Err(error) => last_error = Some(error.to_string()),
-                }
-            }
-            Err(error) => last_error = Some(error.to_string()),
         }
     }
 
@@ -352,145 +145,79 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
         }
     }
 
+    if let Some(session) = load_factory_session_state()? {
+        if let Some(token) = session
+            .bearer_token
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
+            match fetch_factory_with_bearer(
+                client,
+                &cookie_header,
+                token,
+                session.source_label.as_deref(),
+            )
+            .await
+            {
+                Ok(result) => {
+                    persist_factory_bearer(token, None, session.source_label.clone())?;
+                    return Ok(result);
+                }
+                Err(error) => last_error = Some(error.to_string()),
+            }
+        }
+    }
+
+    if let Some(token) = env::var("FACTORY_BEARER_TOKEN")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+    {
+        match fetch_factory_with_bearer(
+            client,
+            &cookie_header,
+            &token,
+            Some("FACTORY_BEARER_TOKEN"),
+        )
+        .await
+        {
+            Ok(result) => {
+                persist_factory_bearer(&token, None, Some("FACTORY_BEARER_TOKEN".to_string()))?;
+                return Ok(result);
+            }
+            Err(error) => last_error = Some(error.to_string()),
+        }
+    }
+
+    if let Some(cli_auth_token) = cli_auth_token {
+        match fetch_factory_with_bearer(
+            client,
+            &cookie_header,
+            &cli_auth_token.access_token,
+            Some(cli_auth_token.source_label.as_str()),
+        )
+        .await
+        {
+            Ok(result) => {
+                persist_factory_bearer(
+                    &cli_auth_token.access_token,
+                    None,
+                    Some(cli_auth_token.source_label),
+                )?;
+                return Ok(result);
+            }
+            Err(error) => last_error = Some(error.to_string()),
+        }
+    }
+
     if cookie_header.is_empty() {
         return Err(ProviderError::Fetch(last_error.unwrap_or_else(|| {
-            "Factory session cookie, WorkOS token, or bearer token not found".to_string()
+            "Factory browser token, Droid CLI token, or bearer token not found".to_string()
         })));
     }
 
     Err(ProviderError::Fetch(last_error.unwrap_or_else(|| {
         "Factory usage request failed".to_string()
     })))
-}
-
-async fn refresh_factory_auth(
-    client: &Client,
-    refresh_token: &str,
-    organization_id: Option<&str>,
-) -> Result<WorkOsAuthResponse, ProviderError> {
-    let mut last_error = None::<ProviderError>;
-
-    for client_id in FACTORY_WORKOS_CLIENT_IDS {
-        let response = client
-            .post(FACTORY_WORKOS_AUTH_URL)
-            .header("Accept", "application/json")
-            .header("Content-Type", "application/json")
-            .json(&serde_json::json!({
-                "client_id": client_id,
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-                "organization_id": organization_id,
-            }))
-            .send()
-            .await
-            .map_err(|error| {
-                ProviderError::Fetch(format!("Factory WorkOS auth failed: {error}"))
-            })?;
-        if !response.status().is_success() {
-            last_error = Some(
-                workos_response_error("Factory WorkOS refresh token exchange failed", response)
-                    .await,
-            );
-            continue;
-        }
-        let payload = response
-            .json::<WorkOsAuthResponse>()
-            .await
-            .map_err(|error| {
-                ProviderError::Fetch(format!("Invalid Factory WorkOS payload: {error}"))
-            })?;
-        if payload
-            .access_token
-            .as_ref()
-            .is_some_and(|value| !value.trim().is_empty())
-        {
-            return Ok(payload);
-        }
-        last_error = Some(ProviderError::Fetch(
-            "Factory WorkOS refresh token exchange failed: access token missing in response"
-                .to_string(),
-        ));
-    }
-    Err(last_error.unwrap_or_else(|| {
-        ProviderError::Fetch("Factory WorkOS refresh token exchange failed".to_string())
-    }))
-}
-
-async fn fetch_workos_auth_with_cookies(
-    client: &Client,
-    cookie_header: &str,
-    organization_id: Option<&str>,
-) -> Result<WorkOsAuthResponse, ProviderError> {
-    let mut last_error = None::<ProviderError>;
-
-    for client_id in FACTORY_WORKOS_CLIENT_IDS {
-        let response = client
-            .post(FACTORY_WORKOS_AUTH_URL)
-            .header("Accept", "application/json")
-            .header("Content-Type", "application/json")
-            .header("Cookie", cookie_header)
-            .json(&serde_json::json!({
-                "client_id": client_id,
-                "grant_type": "refresh_token",
-                "useCookie": true,
-                "organization_id": organization_id,
-            }))
-            .send()
-            .await
-            .map_err(|error| {
-                ProviderError::Fetch(format!("Factory WorkOS cookie auth failed: {error}"))
-            })?;
-        if !response.status().is_success() {
-            last_error =
-                Some(workos_response_error("Factory WorkOS cookie auth failed", response).await);
-            continue;
-        }
-        let payload = response
-            .json::<WorkOsAuthResponse>()
-            .await
-            .map_err(|error| {
-                ProviderError::Fetch(format!("Invalid Factory WorkOS cookie payload: {error}"))
-            })?;
-        if payload
-            .access_token
-            .as_ref()
-            .is_some_and(|value| !value.trim().is_empty())
-        {
-            return Ok(payload);
-        }
-        last_error = Some(ProviderError::Fetch(
-            "Factory WorkOS cookie auth failed: access token missing in response".to_string(),
-        ));
-    }
-    Err(last_error.unwrap_or_else(|| {
-        ProviderError::Fetch(
-            "Factory WorkOS cookie auth did not return an access token".to_string(),
-        )
-    }))
-}
-
-fn persist_factory_auth(
-    auth: WorkOsAuthResponse,
-    source_label: String,
-) -> Result<FactorySessionState, ProviderError> {
-    let bearer_token = auth
-        .access_token
-        .clone()
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| {
-            ProviderError::Fetch("Factory WorkOS auth missing access token".to_string())
-        })?;
-    let state = FactorySessionState {
-        bearer_token: Some(bearer_token),
-        refresh_token: auth.refresh_token.filter(|value| !value.trim().is_empty()),
-        organization_id: auth
-            .organization_id
-            .filter(|value| !value.trim().is_empty()),
-        source_label: Some(source_label),
-        updated_at: Some(unix_now()),
-    };
-    store_factory_session_state(&state)?;
-    Ok(state)
 }
 
 fn persist_factory_bearer(
@@ -553,15 +280,23 @@ async fn fetch_factory_payloads(
         None,
     )
     .await?;
-    let usage_payload = factory_request(
+    let usage_url = format!("{FACTORY_API_URL}{FACTORY_USAGE_PATH}");
+    let usage_payload = match factory_request(
         client,
-        &format!("{FACTORY_API_URL}{FACTORY_USAGE_PATH}"),
+        &usage_url,
         "POST",
         cookie_header,
         bearer_token,
         Some(serde_json::json!({ "useCache": true })),
     )
-    .await?;
+    .await
+    {
+        Ok(payload) => payload,
+        Err(error) if is_method_not_allowed_error(&error) => {
+            factory_request(client, &usage_url, "GET", cookie_header, bearer_token, None).await?
+        }
+        Err(error) => return Err(error),
+    };
     Ok((auth_payload, usage_payload))
 }
 
@@ -793,56 +528,6 @@ fn cookie_header_pairs(cookie_header: &str) -> impl Iterator<Item = (&str, &str)
     })
 }
 
-async fn workos_response_error(prefix: &str, response: Response) -> ProviderError {
-    let status = response.status();
-    let body = response.text().await.unwrap_or_default();
-    let detail = summarize_workos_error_body(&body);
-
-    ProviderError::Fetch(match detail {
-        Some(detail) => format!("{prefix}: HTTP {status} ({detail})"),
-        None => format!("{prefix}: HTTP {status}"),
-    })
-}
-
-fn summarize_workos_error_body(body: &str) -> Option<String> {
-    let trimmed = body.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    if let Ok(payload) = serde_json::from_str::<Value>(trimmed) {
-        let error = payload
-            .get("error")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        let description = payload
-            .get("error_description")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        let combined = format!("{error} {description}").trim().to_string();
-
-        if combined.is_empty() {
-            return Some(trimmed.chars().take(200).collect());
-        }
-        if combined.to_ascii_lowercase().contains("invalid_grant") {
-            return Some(format!(
-                "{combined}; refresh token is likely expired or revoked"
-            ));
-        }
-        if combined
-            .to_ascii_lowercase()
-            .contains("missing refresh token")
-        {
-            return Some(format!(
-                "{combined}; browser WorkOS session is missing or stale"
-            ));
-        }
-        return Some(combined);
-    }
-
-    Some(trimmed.chars().take(200).collect())
-}
-
 fn usage_percent_from_bucket(bucket: Option<&FactoryTokenUsage>) -> Option<f64> {
     usage_percent_from_values(
         bucket.and_then(primary_used_tokens),
@@ -940,8 +625,9 @@ fn normalize_factory_timestamp(raw: i64) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::{
-        factory_bearer_from_cookie_header, filter_cookie_header, summarize_workos_error_body,
+        factory_bearer_from_cookie_header, filter_cookie_header, is_method_not_allowed_error,
     };
+    use crate::models::ProviderError;
 
     #[test]
     fn extracts_factory_bearer_from_cookie_header() {
@@ -962,19 +648,9 @@ mod tests {
     }
 
     #[test]
-    fn summarizes_invalid_grant_workos_errors() {
-        let body = r#"{"error":"invalid_grant","error_description":"Refresh token is invalid."}"#;
-        let summary = summarize_workos_error_body(body).unwrap();
-        assert!(summary.contains("invalid_grant"));
-        assert!(summary.contains("expired or revoked"));
-    }
-
-    #[test]
-    fn summarizes_missing_refresh_token_workos_errors() {
-        let body = r#"{"error":"invalid_request","error_description":"Missing refresh token."}"#;
-        let summary = summarize_workos_error_body(body).unwrap();
-        assert!(summary.contains("Missing refresh token."));
-        assert!(summary.contains("missing or stale"));
+    fn detects_method_not_allowed_error() {
+        let error = ProviderError::Fetch("Factory endpoint returned 405 Method Not Allowed".into());
+        assert!(is_method_not_allowed_error(&error));
     }
 }
 
@@ -1011,4 +687,8 @@ fn titleize(raw: String) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn is_method_not_allowed_error(error: &ProviderError) -> bool {
+    error.to_string().contains("405 Method Not Allowed")
 }

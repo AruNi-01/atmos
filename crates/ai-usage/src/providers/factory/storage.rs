@@ -1,3 +1,8 @@
+use aes_gcm::aead::{consts::U16, generic_array::GenericArray, Aead, KeyInit};
+use aes_gcm::AesGcm;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use base64::Engine;
+use serde::Deserialize;
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,6 +15,12 @@ pub(crate) struct FactoryWorkOsToken {
     pub(crate) refresh_token: String,
     pub(crate) access_token: Option<String>,
     pub(crate) organization_id: Option<String>,
+    pub(crate) source_label: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct FactoryCliAuthToken {
+    pub(crate) access_token: String,
     pub(crate) source_label: String,
 }
 
@@ -53,11 +64,110 @@ pub(crate) fn load_factory_local_storage_tokens() -> Result<Vec<FactoryWorkOsTok
     Ok(tokens)
 }
 
+pub(crate) fn load_factory_cli_auth_access_token(
+) -> Result<Option<FactoryCliAuthToken>, ProviderError> {
+    let Some(home) = dirs::home_dir() else {
+        return Ok(None);
+    };
+
+    let auth_payload_path = home.join(".factory").join("auth.v2.file");
+    let auth_key_path = home.join(".factory").join("auth.v2.key");
+    if !auth_payload_path.exists() || !auth_key_path.exists() {
+        return Ok(None);
+    }
+
+    let auth_payload = fs::read_to_string(&auth_payload_path).map_err(|error| {
+        ProviderError::Fetch(format!("{}: {error}", auth_payload_path.display()))
+    })?;
+    let auth_key = fs::read_to_string(&auth_key_path)
+        .map_err(|error| ProviderError::Fetch(format!("{}: {error}", auth_key_path.display())))?;
+
+    let decrypted = match decrypt_droid_auth_v2_payload(&auth_payload, &auth_key) {
+        Ok(value) => value,
+        Err(_) => return Ok(None),
+    };
+    let parsed = match serde_json::from_str::<DroidCliAuthPayload>(&decrypted) {
+        Ok(value) => value,
+        Err(_) => return Ok(None),
+    };
+
+    let Some(access_token) = parsed.access_token.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+
+    Ok(Some(FactoryCliAuthToken {
+        access_token,
+        source_label: "Droid CLI auth.v2".to_string(),
+    }))
+}
+
 #[derive(Debug)]
 struct WorkOsTokenMatch {
     refresh_token: String,
     access_token: Option<String>,
     organization_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DroidCliAuthPayload {
+    #[serde(default)]
+    access_token: Option<String>,
+}
+
+fn decrypt_droid_auth_v2_payload(payload: &str, key_b64: &str) -> Result<String, ProviderError> {
+    let mut parts = payload.trim().split(':');
+    let nonce_b64 = parts.next().unwrap_or_default();
+    let tag_b64 = parts.next().unwrap_or_default();
+    let cipher_b64 = parts.next().unwrap_or_default();
+    if nonce_b64.is_empty() || tag_b64.is_empty() || cipher_b64.is_empty() || parts.next().is_some()
+    {
+        return Err(ProviderError::Fetch(
+            "Invalid Droid auth.v2 payload format".to_string(),
+        ));
+    }
+
+    let decoded_bytes = BASE64_STANDARD
+        .decode(key_b64.trim())
+        .map_err(|error| ProviderError::Fetch(format!("Invalid Droid auth.v2 key: {error}")))?;
+    if decoded_bytes.len() != 32 {
+        return Err(ProviderError::Fetch(
+            "Invalid Droid auth.v2 key length".to_string(),
+        ));
+    }
+
+    let nonce = BASE64_STANDARD
+        .decode(nonce_b64)
+        .map_err(|error| ProviderError::Fetch(format!("Invalid Droid auth.v2 nonce: {error}")))?;
+    if nonce.len() != 16 {
+        return Err(ProviderError::Fetch(
+            "Invalid Droid auth.v2 nonce length".to_string(),
+        ));
+    }
+
+    let tag = BASE64_STANDARD
+        .decode(tag_b64)
+        .map_err(|error| ProviderError::Fetch(format!("Invalid Droid auth.v2 tag: {error}")))?;
+    if tag.len() != 16 {
+        return Err(ProviderError::Fetch(
+            "Invalid Droid auth.v2 tag length".to_string(),
+        ));
+    }
+
+    let mut ciphertext = BASE64_STANDARD.decode(cipher_b64).map_err(|error| {
+        ProviderError::Fetch(format!("Invalid Droid auth.v2 ciphertext: {error}"))
+    })?;
+    ciphertext.extend_from_slice(&tag);
+
+    type Aes256GcmWithU16Nonce = AesGcm<aes::Aes256, U16>;
+    let cipher = Aes256GcmWithU16Nonce::new_from_slice(&decoded_bytes).map_err(|error| {
+        ProviderError::Fetch(format!("Invalid Droid auth.v2 cipher key: {error}"))
+    })?;
+    let plaintext = cipher
+        .decrypt(GenericArray::from_slice(&nonce), ciphertext.as_ref())
+        .map_err(|error| ProviderError::Fetch(format!("Droid auth.v2 decrypt failed: {error}")))?;
+
+    String::from_utf8(plaintext)
+        .map_err(|error| ProviderError::Fetch(format!("Droid auth.v2 utf8 decode failed: {error}")))
 }
 
 fn chromium_leveldb_candidates() -> Vec<(String, PathBuf)> {

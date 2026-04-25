@@ -15,12 +15,6 @@ pub(crate) const FACTORY_APP_URL: &str = "https://app.factory.ai";
 pub(crate) const FACTORY_API_URL: &str = "https://api.factory.ai";
 pub(crate) const FACTORY_AUTH_ME_PATH: &str = "/api/app/auth/me";
 pub(crate) const FACTORY_USAGE_PATH: &str = "/api/organization/subscription/usage";
-pub(crate) const FACTORY_WORKOS_AUTH_URL: &str =
-    "https://api.workos.com/user_management/authenticate";
-pub(crate) const FACTORY_WORKOS_CLIENT_IDS: [&str; 2] = [
-    "client_01HXRMBQ9BJ3E7QSTQ9X2PHVB7",
-    "client_01HNM792M5G5G1A2THWPXKFMXB",
-];
 pub(crate) const ZED_BILLING_USAGE_URL: &str = "https://cloud.zed.dev/frontend/billing/usage";
 pub(crate) const ZED_SUBSCRIPTION_URL: &str =
     "https://cloud.zed.dev/frontend/billing/subscriptions/current";
