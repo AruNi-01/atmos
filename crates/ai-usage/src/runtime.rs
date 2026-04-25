@@ -252,6 +252,25 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
         }
     }
 
+    if spec.id == "opencode" {
+        if opencode::opencode_go_auth_available() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: opencode::opencode_go_auth_source(),
+                detail: Some("Detected OpenCode Go local auth".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+        if opencode::opencode_go_db_exists() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some("~/.local/share/opencode/opencode.db".to_string()),
+                detail: Some("Detected OpenCode Go local history".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+    }
+
     if spec.id == "amp" {
         if let Ok(Some(source)) = load_amp_browser_cookie_source() {
             return AuthState {
@@ -595,15 +614,11 @@ fn provider_specs() -> Vec<ProviderSpec> {
         ProviderSpec {
             id: "opencode",
             label: "OpenCode",
-            kind: ProviderKind::Api,
+            kind: ProviderKind::Cli,
             live_kind: Some(LiveProviderKind::OpenCode),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Sign in to opencode.ai, or add OPENCODE_COOKIE_HEADER / ~/.atmos/ai-usage/opencode.cookie.",
-            auth_env_keys: &[
-                "OPENCODE_COOKIE_HEADER",
-                "ATMOS_USAGE_OPENCODE_COOKIE_HEADER",
-                "OPENCODE_AUTH_COOKIE",
-            ],
+            setup_hint: "Log in with OpenCode Go and use it locally first.",
+            auth_env_keys: &[],
             auth_paths: &[],
         },
         ProviderSpec {
