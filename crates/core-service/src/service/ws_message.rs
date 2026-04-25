@@ -32,7 +32,9 @@ use infra::{
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
     GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest,
-    LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
+    LlmProvidersUpdateRequest, LspActivateForFileRequest, LspChannelDisconnectRequest,
+    LspChannelSendRequest, LspConnectForFileRequest, LspRestartForFileRequest,
+    LspStatusForFileRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
     SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
@@ -50,13 +52,18 @@ use infra::{
     WorkspaceUpdateWorkflowStatusRequest, WsAction, WsEvent, WsMessage, WsMessageHandler,
     WsRequest,
 };
+use infra::utils::debug_logging::DebugLogger;
 use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
     LlmProviderEntry, LlmProvidersFile, ResponseFormat,
 };
+use lsp::{
+    Installer as LspInstaller, LspActivationSnapshot, LspConnectionSnapshot, LspManager,
+    LspRuntimeStatus, LspServerMessage,
+};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
-use tokio::sync::OnceCell;
+use tokio::sync::{mpsc, Mutex, OnceCell};
 
 use crate::error::{Result, ServiceError};
 use crate::service::git_commit_message::GitCommitMessageGenerator;
@@ -73,7 +80,13 @@ pub struct WsMessageService {
     terminal_service: Arc<TerminalService>,
     agent_service: Arc<AgentService>,
     usage_service: Arc<UsageService>,
+    lsp_manager: Arc<LspManager>,
+    lsp_events_rx: Mutex<Option<mpsc::UnboundedReceiver<LspServerMessage>>>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
+}
+
+fn dbg() -> DebugLogger {
+    DebugLogger::new("backend-lsp-flow")
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -261,6 +274,7 @@ impl WsMessageService {
         agent_service: Arc<AgentService>,
         usage_service: Arc<UsageService>,
     ) -> Self {
+        let (lsp_events_tx, lsp_events_rx) = mpsc::unbounded_channel();
         Self {
             fs_engine: FsEngine::new(),
             git_engine: GitEngine::new(),
@@ -271,6 +285,11 @@ impl WsMessageService {
             terminal_service,
             agent_service,
             usage_service,
+            lsp_manager: Arc::new(LspManager::with_event_sender(
+                LspInstaller::default(),
+                lsp_events_tx,
+            )),
+            lsp_events_rx: Mutex::new(Some(lsp_events_rx)),
             ws_manager: OnceCell::new(),
         }
     }
@@ -279,6 +298,29 @@ impl WsMessageService {
         self.ws_manager
             .set(manager)
             .map_err(|_| ServiceError::Processing("WS Manager already set".to_string()))?;
+
+        if let Ok(mut guard) = self.lsp_events_rx.try_lock() {
+            if let Some(mut rx) = guard.take() {
+                let ws_manager = Arc::clone(
+                    self.ws_manager
+                        .get()
+                        .expect("ws manager should be set before spawning lsp bridge"),
+                );
+                tokio::spawn(async move {
+                    while let Some(event) = rx.recv().await {
+                        let notification = infra::WsMessage::notification(
+                            infra::WsEvent::LspChannelMessage,
+                            json!({
+                                "channel_id": event.channel_id,
+                                "message": event.message,
+                            }),
+                        );
+                        let _ = ws_manager.send_to(&event.conn_id, &notification).await;
+                    }
+                });
+            }
+        }
+
         Ok(())
     }
 
@@ -698,7 +740,123 @@ impl WsMessageService {
             | WsAction::NotificationTestPush => Err(ServiceError::Processing(
                 "Notification settings are managed via REST API at /hooks/notification/*".into(),
             )),
+            WsAction::LspActivateForFile => {
+                self.handle_lsp_activate_for_file(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LspConnectForFile => {
+                self.handle_lsp_connect_for_file(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LspStatusForFile => {
+                self.handle_lsp_status_for_file(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LspRestartForFile => {
+                self.handle_lsp_restart_for_file(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LspChannelSend => {
+                self.handle_lsp_channel_send(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LspChannelDisconnect => {
+                self.handle_lsp_channel_disconnect(conn_id, parse_request(request.data)?)
+                    .await
+            }
         }
+    }
+
+    async fn handle_lsp_activate_for_file(&self, req: LspActivateForFileRequest) -> Result<Value> {
+        let snapshot = Arc::clone(&self.lsp_manager)
+            .activate_for_file(&req.file_path, req.workspace_root.as_deref())
+            .await;
+        Ok(lsp_snapshot_to_json(snapshot))
+    }
+
+    async fn handle_lsp_connect_for_file(
+        &self,
+        conn_id: &str,
+        req: LspConnectForFileRequest,
+    ) -> Result<Value> {
+        dbg().log(
+            "LSP_CONNECT_START",
+            "handle_lsp_connect_for_file start",
+            Some(json!({
+                "conn_id": conn_id,
+                "file_path": req.file_path,
+                "workspace_root": req.workspace_root,
+            })),
+        );
+        let connection = Arc::clone(&self.lsp_manager)
+            .connect_for_file(conn_id, &req.file_path, req.workspace_root.as_deref())
+            .await;
+        dbg().log(
+            "LSP_CONNECT_DONE",
+            "handle_lsp_connect_for_file done",
+            Some(json!({
+                "conn_id": conn_id,
+                "file_path": req.file_path,
+                "channel_id": connection.channel_id,
+                "status": format!("{:?}", connection.snapshot.status),
+            })),
+        );
+        Ok(lsp_connection_to_json(connection))
+    }
+
+    async fn handle_lsp_status_for_file(&self, req: LspStatusForFileRequest) -> Result<Value> {
+        dbg().log(
+            "LSP_STATUS_START",
+            "handle_lsp_status_for_file start",
+            Some(json!({
+                "file_path": req.file_path,
+                "workspace_root": req.workspace_root,
+            })),
+        );
+        let snapshot = self
+            .lsp_manager
+            .snapshot_for_file(&req.file_path, req.workspace_root.as_deref())
+            .await;
+        dbg().log(
+            "LSP_STATUS_DONE",
+            "handle_lsp_status_for_file done",
+            Some(json!({
+                "file_path": req.file_path,
+                "server_id": snapshot.server_id,
+                "status": format!("{:?}", snapshot.status),
+            })),
+        );
+        Ok(lsp_snapshot_to_json(snapshot))
+    }
+
+    async fn handle_lsp_restart_for_file(&self, req: LspRestartForFileRequest) -> Result<Value> {
+        let snapshot = Arc::clone(&self.lsp_manager)
+            .restart_for_file(&req.file_path, req.workspace_root.as_deref())
+            .await;
+        Ok(lsp_snapshot_to_json(snapshot))
+    }
+
+    async fn handle_lsp_channel_send(
+        &self,
+        conn_id: &str,
+        req: LspChannelSendRequest,
+    ) -> Result<Value> {
+        self.lsp_manager
+            .send_client_message(conn_id, &req.channel_id, &req.message)
+            .await
+            .map_err(|error| ServiceError::Processing(error.to_string()))?;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_lsp_channel_disconnect(
+        &self,
+        conn_id: &str,
+        req: LspChannelDisconnectRequest,
+    ) -> Result<Value> {
+        self.lsp_manager
+            .disconnect_channel(conn_id, &req.channel_id)
+            .await;
+        Ok(json!({ "ok": true }))
     }
 
     // ===== File System Handlers =====
@@ -4004,6 +4162,36 @@ fn terminal_code_agent_path() -> std::path::PathBuf {
         .join("terminal_code_agent.json")
 }
 
+fn lsp_snapshot_to_json(snapshot: LspActivationSnapshot) -> Value {
+    let (status, error) = match snapshot.status {
+        LspRuntimeStatus::Installing => ("installing", None),
+        LspRuntimeStatus::Starting => ("starting", None),
+        LspRuntimeStatus::Running => ("running", None),
+        LspRuntimeStatus::Error(message) => ("error", Some(message)),
+        LspRuntimeStatus::Unavailable => ("unavailable", None),
+    };
+
+    json!({
+        "server_id": snapshot.server_id,
+        "server_name": snapshot.server_name,
+        "status": status,
+        "error": error,
+        "version": snapshot.version,
+        "install_path": snapshot.install_path,
+        "workspace_root": snapshot.workspace_root,
+        "restart_count": snapshot.restart_count,
+        "last_error": snapshot.last_error,
+    })
+}
+
+fn lsp_connection_to_json(connection: LspConnectionSnapshot) -> Value {
+    let mut payload = lsp_snapshot_to_json(connection.snapshot);
+    if let Value::Object(ref mut object) = payload {
+        object.insert("channel_id".to_string(), json!(connection.channel_id));
+    }
+    payload
+}
+
 /// Parse request data from JSON Value.
 fn parse_request<T: serde::de::DeserializeOwned>(data: Value) -> Result<T> {
     serde_json::from_value(data)
@@ -4022,6 +4210,15 @@ fn parse_agent_id(raw: &str) -> Result<AgentId> {
     }
 }
 
+fn extract_request_id_from_raw_ws_message(message: &str) -> Option<String> {
+    let value: Value = serde_json::from_str(message).ok()?;
+    let payload = value.get("payload")?;
+    payload
+        .get("request_id")?
+        .as_str()
+        .map(ToOwned::to_owned)
+}
+
 /// Implement WsMessageHandler trait for dependency inversion.
 #[async_trait]
 impl WsMessageHandler for WsMessageService {
@@ -4031,7 +4228,10 @@ impl WsMessageHandler for WsMessageService {
             Ok(msg) => msg,
             Err(e) => {
                 tracing::warn!("[WsMessageService] Invalid message from {}: {}", conn_id, e);
-                return None;
+                let request_id = extract_request_id_from_raw_ws_message(message)?;
+                return WsMessage::error(request_id, "invalid_request", e.to_string())
+                    .to_json()
+                    .ok();
             }
         };
 
@@ -4063,5 +4263,6 @@ impl WsMessageHandler for WsMessageService {
 
     async fn on_disconnect(&self, conn_id: &str) {
         tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
+        self.lsp_manager.disconnect_connection(conn_id).await;
     }
 }

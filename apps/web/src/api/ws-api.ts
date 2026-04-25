@@ -100,6 +100,26 @@ export interface FsSearchDirsResponse {
   entries: FsEntry[];
 }
 
+export type LspRuntimeStatus = "installing" | "starting" | "running" | "error" | "unavailable";
+
+export interface LspStatusResponse {
+  server_id: string | null;
+  server_name: string | null;
+  status: LspRuntimeStatus;
+  channel_id?: string | null;
+  version?: string | null;
+  install_path?: string | null;
+  workspace_root?: string | null;
+  restart_count?: number;
+  last_error?: string | null;
+  error?: string | null;
+}
+
+export interface LspChannelMessageEvent {
+  channel_id: string;
+  message: string;
+}
+
 // Project 类型（后端返回格式）
 export interface ProjectModel {
   guid: string;
@@ -1508,6 +1528,44 @@ export const functionSettingsApi = {
       function_name: functionName,
       key,
       value,
+    });
+  },
+};
+
+export const lspWsApi = {
+  activateForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
+    return wsRequest<LspStatusResponse>("lsp_activate_for_file", {
+      file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
+    });
+  },
+  connectForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
+    return wsRequest<LspStatusResponse>("lsp_connect_for_file", {
+      file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
+    }, 8_000);
+  },
+  statusForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
+    return wsRequest<LspStatusResponse>("lsp_status_for_file", {
+      file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
+    }, 5_000);
+  },
+  restartForFile: async (filePath: string, workspaceRoot?: string | null): Promise<LspStatusResponse> => {
+    return wsRequest<LspStatusResponse>("lsp_restart_for_file", {
+      file_path: filePath,
+      workspace_root: workspaceRoot ?? undefined,
+    });
+  },
+  sendChannelMessage: async (channelId: string, message: string): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("lsp_channel_send", {
+      channel_id: channelId,
+      message,
+    }, 120_000);
+  },
+  disconnectChannel: async (channelId: string): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("lsp_channel_disconnect", {
+      channel_id: channelId,
     });
   },
 };

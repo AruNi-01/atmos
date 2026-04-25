@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
 import { buildWsUrl, buildWsUrlSync } from "@/lib/ws-url";
 import { debugLog } from "@/lib/desktop-logger";
+import { getDebugLogger } from "@atmos/shared/debug/debug-logger";
 
 // ===== 类型定义 =====
 
@@ -116,6 +117,13 @@ export type WsAction =
   | "notification_settings_get"
   | "notification_settings_update"
   | "notification_test_push"
+  // LSP 操作
+  | "lsp_activate_for_file"
+  | "lsp_connect_for_file"
+  | "lsp_status_for_file"
+  | "lsp_restart_for_file"
+  | "lsp_channel_send"
+  | "lsp_channel_disconnect"
   // Agent 操作
   | "agent_list"
   | "agent_install"
@@ -206,6 +214,8 @@ type ConnectionState =
   | "reconnecting";
 
 interface PendingRequest {
+  action: WsAction;
+  startedAt: number;
   resolve: (data: unknown) => void;
   reject: (error: Error) => void;
   timeout: ReturnType<typeof setTimeout>;
@@ -248,6 +258,7 @@ interface WebSocketStore {
 }
 
 const getWsUrl = (): string => buildWsUrlSync("/ws");
+const wsDebugLogger = getDebugLogger("ws-main", "http://127.0.0.1:30303");
 
 export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   // 初始状态
@@ -411,6 +422,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
       }
 
       const requestId = uuidv4();
+      const startedAt = Date.now();
 
       const request: WsRequest = {
         type: "request",
@@ -426,16 +438,38 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         const pending = pendingRequests.get(requestId);
         if (pending) {
           pendingRequests.delete(requestId);
+          wsDebugLogger.log("WS_REQUEST_TIMEOUT", "WebSocket request timed out", {
+            action,
+            requestId,
+            elapsedMs: Date.now() - startedAt,
+            connectionState: get().connectionState,
+            pendingCount: pendingRequests.size,
+          });
           pending.reject(new Error(`Request timeout: ${action}`));
         }
       }, timeoutMs ?? requestTimeout);
 
       // 存储待处理请求
       pendingRequests.set(requestId, {
+        action,
+        startedAt,
         resolve: resolve as (data: unknown) => void,
         reject,
         timeout,
       });
+
+      if (
+        action === "lsp_status_for_file" ||
+        action === "lsp_connect_for_file" ||
+        action === "lsp_restart_for_file" ||
+        action === "fs_read_file"
+      ) {
+        wsDebugLogger.log("WS_REQUEST_SEND", "Sending WebSocket request", {
+          action,
+          requestId,
+          pendingCount: pendingRequests.size,
+        });
+      }
 
       // 发送请求
       try {
@@ -516,6 +550,21 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           clearTimeout(pending.timeout);
           pendingRequests.delete(request_id);
 
+          if (
+            pending.action === "lsp_status_for_file" ||
+            pending.action === "lsp_connect_for_file" ||
+            pending.action === "lsp_restart_for_file" ||
+            pending.action === "fs_read_file"
+          ) {
+            wsDebugLogger.log("WS_RESPONSE", "Received WebSocket response", {
+              action: pending.action,
+              requestId: request_id,
+              success,
+              elapsedMs: Date.now() - pending.startedAt,
+              pendingCount: pendingRequests.size,
+            });
+          }
+
           if (success) {
             pending.resolve(data);
           } else {
@@ -545,6 +594,14 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         if (pending) {
           clearTimeout(pending.timeout);
           pendingRequests.delete(request_id);
+          wsDebugLogger.log("WS_ERROR_RESPONSE", "Received WebSocket error response", {
+            action: pending.action,
+            requestId: request_id,
+            code,
+            errorMessage,
+            elapsedMs: Date.now() - pending.startedAt,
+            pendingCount: pendingRequests.size,
+          });
           pending.reject(new Error(`[${code}] ${errorMessage}`));
         }
         return;
