@@ -29,6 +29,7 @@ import { X } from 'lucide-react';
 import { ProviderGlyph } from '@/components/layout/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
+import { NappingBotIcon } from '@/components/layout/NappingBotIcon';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -605,9 +606,14 @@ const Footer: React.FC = () => {
                   {hasPermission && <PermissionBellFooter />}
                 </>
               ) : (
-                <span className="text-muted-foreground whitespace-nowrap">
-                  {activeSessions.length === 0 ? "No active agents" : "Agent: Idle"}
-                </span>
+                activeSessions.length === 0 ? (
+                  <span className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1.5">
+                    <NappingBotIcon />
+                    <span>Napping ~</span>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground whitespace-nowrap">Agent: Idle</span>
+                )
               )}
             </button>
           </PopoverTrigger>
