@@ -422,7 +422,7 @@ export function ReviewSessionPanel({
       const session = await reviewWsApi.createSession({ workspaceGuid: workspaceId });
       setSelectedSessionGuid(session.guid);
       setSelectedRevisionGuid(session.current_revision_guid);
-      await loadSessions();
+      setSessions((prev) => [session, ...prev]);
       toastManager.add({
         title: "Review session started",
         description: "Comments and reviewed file state are now tracked for this workspace.",
@@ -438,7 +438,7 @@ export function ReviewSessionPanel({
     } finally {
       setIsCreating(false);
     }
-  }, [loadSessions, workspaceId]);
+  }, [workspaceId]);
 
   const handleToggleReviewed = useCallback(
     async (file: ReviewFileDto, checked: boolean) => {

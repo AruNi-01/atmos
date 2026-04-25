@@ -22,7 +22,7 @@ import { ReviewSessionPanel } from '@/components/diff/ReviewSessionPanel';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
 import { cn } from '@/lib/utils';
-import { MessageSquarePlus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface DiffViewerProps {
   repoPath: string;
@@ -381,6 +381,7 @@ export const DiffViewer = ({
     disableFileHeader: false,
     overflow: (wordWrap ? 'wrap' : 'scroll') as 'wrap' | 'scroll',
     unsafeCSS: SCROLLBAR_CSS,
+    enableGutterUtility: true,
     enableLineSelection: true,
     onLineSelectionEnd: handleLineSelectionEnd,
   }) satisfies FileDiffOptions<{
@@ -514,17 +515,32 @@ export const DiffViewer = ({
 
   const renderGutterUtility = useCallback((getHoveredLine: () => { lineNumber: number; side: 'deletions' | 'additions' } | undefined) => {
     if (!reviewContext.canEdit || !reviewContext.file) return null;
-    const hoveredLine = getHoveredLine();
-    if (!hoveredLine) return null;
 
     return (
       <button
         type="button"
-        className="flex size-6 items-center justify-center rounded-md border border-border bg-background/95 text-muted-foreground shadow-sm transition hover:text-foreground"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: 'none',
+          width: '1lh',
+          height: '1lh',
+          marginRight: 'calc((1lh - 1ch) * -1)',
+          padding: 0,
+          cursor: 'pointer',
+          borderRadius: 4,
+          backgroundColor: 'var(--diffs-modified-base, #0969da)',
+          color: 'var(--diffs-bg, #fff)',
+          fill: 'currentColor',
+          position: 'relative',
+          zIndex: 4,
+        }}
         onMouseDown={(event) => event.preventDefault()}
         onClick={(event) => {
           event.preventDefault();
-          if (!hoveredLine.side) return;
+          const hoveredLine = getHoveredLine();
+          if (!hoveredLine || !hoveredLine.side) return;
           const info = buildSelectionInfo(hoveredLine.lineNumber, hoveredLine.lineNumber, hoveredLine.side);
           openInlineCommentDraft({
             side: info.diffSide === 'old' ? 'old' : 'new',
@@ -536,9 +552,11 @@ export const DiffViewer = ({
             afterContext: [],
           });
         }}
-        aria-label={`Add review comment on line ${hoveredLine.lineNumber}`}
+        aria-label="Add review comment"
       >
-        <MessageSquarePlus className="size-3.5" />
+        <svg width={14} height={14} viewBox="0 0 16 16" fill="none">
+          <path d="M8 3a.75.75 0 0 1 .75.75v3.5h3.5a.75.75 0 0 1 0 1.5h-3.5v3.5a.75.75 0 0 1-1.5 0v-3.5h-3.5a.75.75 0 0 1 0-1.5h3.5v-3.5A.75.75 0 0 1 8 3" fill="currentColor" />
+        </svg>
       </button>
     );
   }, [buildSelectionInfo, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file]);
