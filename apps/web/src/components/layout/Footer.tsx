@@ -25,7 +25,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjectStore } from '@/hooks/use-project-store';
-import { Gauge, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { ProviderGlyph } from '@/components/layout/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
 
@@ -523,7 +524,18 @@ const Footer: React.FC = () => {
               onMouseEnter={() => setIsUsageCarouselHovered(true)}
               onMouseLeave={() => setIsUsageCarouselHovered(false)}
             >
-              <Gauge className="size-3 shrink-0" />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={usageCarouselItem.providerId}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="flex shrink-0 items-center justify-center text-foreground/85"
+                >
+                  <ProviderGlyph providerId={usageCarouselItem.providerId} size={12} />
+                </motion.span>
+              </AnimatePresence>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={usageCarouselItem.providerId}

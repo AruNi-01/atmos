@@ -21,6 +21,7 @@ export type FixedTab = "overview" | "terminal" | "wiki" | "project-wiki" | "code
 export const centerStageParams = {
   tab: parseAsString.withDefault("terminal"),
   wikiPage: parseAsString,
+  newWorkspace: parseAsBoolean.withDefault(false),
 };
 
 // ---------------------------------------------------------------------------

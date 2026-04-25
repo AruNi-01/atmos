@@ -366,37 +366,37 @@ function providerIdentity(provider: UsageProviderResponse) {
   return { accountLabel, planLabel, periodLabel };
 }
 
-function ProviderGlyph({ providerId }: { providerId: string }) {
-  const iconClass = "size-[26px] stroke-[1.8]";
+export const PROVIDER_ICON_IDS = new Set([
+  "claude",
+  "codex",
+  "cursor",
+  "opencode",
+  "factory",
+  "gemini",
+  "antigravity",
+  "zai",
+  "minimax",
+  "kimi",
+  "amp",
+  "zed",
+]);
 
+export function ProviderGlyph({ providerId, size = 26, className }: { providerId: string; size?: number; className?: string }) {
   if (providerId === ALL_PROVIDER_ID) {
-    return <Blocks className={iconClass} />;
+    return <Blocks className={cn(`size-[${size}px] stroke-[1.8]`, className)} />;
   }
 
-  const iconIds = new Set([
-    "claude",
-    "codex",
-    "cursor",
-    "opencode",
-    "factory",
-    "gemini",
-    "antigravity",
-    "zai",
-    "minimax",
-    "kimi",
-    "amp",
-    "zed",
-  ]);
-
-  if (!iconIds.has(providerId)) {
-    return <Coins className={iconClass} />;
+  if (!PROVIDER_ICON_IDS.has(providerId)) {
+    return <Coins className={cn(`size-[${size}px] stroke-[1.8]`, className)} />;
   }
 
   return (
     <span
       aria-hidden="true"
-      className="size-6.5 shrink-0 select-none bg-current"
+      className={cn("shrink-0 select-none bg-current", className)}
       style={{
+        width: size,
+        height: size,
         WebkitMaskImage: `url(/ai-provider/${providerId}.svg)`,
         maskImage: `url(/ai-provider/${providerId}.svg)`,
         WebkitMaskRepeat: "no-repeat",

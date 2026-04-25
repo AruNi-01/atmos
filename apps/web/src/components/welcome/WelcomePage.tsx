@@ -41,7 +41,13 @@ import {
   RotateCw,
   Sparkles,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { AtmosWordmark } from "@/components/ui/AtmosWordmark";
+
+const PixelBlast = dynamic(
+  () => import("@workspace/ui/components/ui/pixel-blast"),
+  { ssr: false },
+);
 import {
   codeAgentCustomApi,
   functionSettingsApi,
@@ -74,6 +80,7 @@ import { AgentIcon } from "@/components/agent/AgentIcon";
 interface WelcomePageProps {
   onAddProject?: () => void;
   onConnectAgent?: () => void;
+  onClose?: () => void;
   className?: string;
 }
 
@@ -115,6 +122,46 @@ const PLACEHOLDER_TEMPLATES = [
   (project: string, agent: string) => `What should come to life in ${project}?`,
   (project: string, agent: string) => `Begin with ${agent}. Build in ${project}.`,
 ] as const;
+
+const PROMPT_CARD_NOTCH_WIDTH_PX = 32;
+const PROMPT_CARD_NOTCH_HEIGHT_PX = 26;
+const promptCardNotchClipPath = [
+  `polygon(${PROMPT_CARD_NOTCH_WIDTH_PX}px 0`,
+  "100% 0",
+  "100% 100%",
+  "0 100%",
+  `0 ${PROMPT_CARD_NOTCH_HEIGHT_PX}px`,
+  "10.0px 26.0px",
+  "11.5px 26.0px",
+  "12.9px 25.9px",
+  "14.2px 25.8px",
+  "15.5px 25.6px",
+  "16.7px 25.4px",
+  "17.9px 25.1px",
+  "18.9px 24.7px",
+  "20.0px 24.3px",
+  "20.9px 23.8px",
+  "21.8px 23.3px",
+  "22.5px 22.6px",
+  "23.2px 21.9px",
+  "23.9px 21.1px",
+  "24.4px 20.2px",
+  "24.9px 19.3px",
+  "25.3px 18.2px",
+  "25.6px 17.0px",
+  "25.8px 15.8px",
+  "26.0px 14.4px",
+  "26.0px 13.0px",
+  "26px 9px",
+  "26px 5px",
+  "26px 0",
+  `${PROMPT_CARD_NOTCH_WIDTH_PX}px 0)`,
+].join(", ");
+const promptCardNotchSurfaceStyle: React.CSSProperties = {
+  clipPath: promptCardNotchClipPath,
+  filter:
+    "drop-shadow(0 0 0.8px color-mix(in srgb, var(--border) 58%, transparent)) drop-shadow(0 14px 34px rgba(0,0,0,0.14))",
+};
 
 function hashString(value: string): number {
   let hash = 0;
@@ -291,6 +338,7 @@ function renderHeadline(headline: WelcomeHeadline) {
 const WelcomePage: React.FC<WelcomePageProps> = ({
   onAddProject,
   onConnectAgent,
+  onClose,
   className,
 }) => {
   const [isMounted, setIsMounted] = React.useState(false);
@@ -376,15 +424,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   }, [isAdvancedOpen]);
 
   React.useEffect(() => {
-    if (!selectedProjectIdFromLauncher) return;
-    if (!projects.some((project) => project.id === selectedProjectIdFromLauncher)) return;
-    setProjectId(selectedProjectIdFromLauncher);
-  }, [projects, selectedProjectIdFromLauncher]);
-
-  React.useEffect(() => {
-    if (projectId || projects.length === 0) return;
-    setProjectId(projects[0].id);
-  }, [projectId, projects]);
+    if (selectedProjectIdFromLauncher && projects.some((project) => project.id === selectedProjectIdFromLauncher)) {
+      setProjectId(selectedProjectIdFromLauncher);
+      return;
+    }
+    if (!projectId && projects.length > 0) {
+      setProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectIdFromLauncher, projectId]);
 
   React.useEffect(() => {
     const previousIds = prevProjectIdsRef.current;
@@ -896,11 +943,41 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   return (
     <div
       className={cn(
-        "min-h-full overflow-y-auto bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
+        "relative min-h-full overflow-y-auto bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
         className,
       )}
     >
-      <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8 md:translate-y-8">
+      <div className="absolute inset-0 z-0">
+        <PixelBlast
+          variant="circle"
+          pixelSize={6}
+          color="#999999"
+          patternScale={3}
+          patternDensity={1}
+          pixelSizeJitter={0.5}
+          enableRipples
+          rippleSpeed={0.2}
+          rippleThickness={0.12}
+          rippleIntensityScale={1}
+          speed={0.2}
+          edgeFade={0.25}
+          centerFade={0.85}
+          centerRadius={0.45}
+          transparent
+        />
+      </div>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 flex cursor-pointer flex-col items-center gap-0 px-6 py-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+          aria-label="Close"
+        >
+          <ChevronDown className="h-5 w-9 animate-[bounce-down_1.6s_ease-in-out_infinite]" strokeWidth={1.2} />
+          <ChevronDown className="h-5 w-9 -mt-2.5 animate-[bounce-down_1.6s_ease-in-out_0.15s_infinite]" strokeWidth={1.2} />
+        </button>
+      )}
+      <div className="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8 md:translate-y-8">
         <div className="mb-10 flex w-full max-w-4xl flex-col items-center">
           <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-4xl font-semibold tracking-tight text-foreground sm:text-5xl md:text-6xl">
             {renderHeadline(headline)}
@@ -908,7 +985,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="w-full max-w-4xl">
-          <div className="relative overflow-visible rounded-[2rem] border border-border/50 bg-muted/20 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-md">
+          <div className="relative">
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button
@@ -956,142 +1033,149 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <div className="relative">
-              <div className="space-y-4 rounded-[1.55rem] border border-border/55 bg-background/90 p-4 shadow-[0_14px_34px_rgba(0,0,0,0.14)] sm:p-5">
+            <div className="relative overflow-visible p-1.5">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 rounded-[2rem] border border-border/50 bg-muted/20 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-md"
+              />
               <div className="relative">
-                {!initialRequirement ? (
-                  <div className="pointer-events-none absolute inset-x-2 top-2 overflow-hidden text-base leading-7 text-muted-foreground/65">
-                    {exitingPlaceholder ? (
-                      <span className="welcome-placeholder-exit block truncate">
-                        {exitingPlaceholder}
-                      </span>
-                    ) : null}
-                    <span
-                      key={visiblePlaceholder}
-                      className={cn(
-                        "block truncate",
-                        exitingPlaceholder
-                          ? "welcome-placeholder-enter absolute inset-x-0 top-0"
-                          : "welcome-placeholder-enter",
-                      )}
-                    >
-                      {visiblePlaceholder}
-                    </span>
-                  </div>
-                ) : null}
-                <textarea
-                  value={initialRequirement}
-                  onChange={(event) => {
-                    setInitialRequirement(event.target.value);
-                    setSubmitError(null);
-                  }}
-                  placeholder=""
-                  className="min-h-[88px] w-full resize-none rounded-xl border border-transparent bg-transparent px-2 py-2 text-base leading-7 text-foreground outline-none transition-colors"
-                />
-              </div>
-
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
-                  <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className={cn(
-                          "inline-flex h-9 min-w-[160px] items-center gap-2 rounded-md border px-3 text-sm backdrop-blur-sm transition-colors",
-                          projects.length === 0
-                            ? "border-dashed border-border bg-muted/25 text-muted-foreground hover:bg-muted/35"
-                            : "border-border/60 bg-background/40 text-foreground/90 hover:bg-background/55",
-                        )}
-                      >
-                        {projects.length === 0 ? (
-                          <>
-                            <Plus className="size-3.5 shrink-0" />
-                            <span className="truncate font-medium">Add a project first</span>
-                          </>
-                        ) : (
-                          <span className="truncate font-medium">
-                            {selectedProject?.name ?? "Select project"}
+                <div
+                  className="space-y-4 rounded-[1.55rem] bg-background/90 p-4 sm:p-5"
+                  style={promptCardNotchSurfaceStyle}
+                >
+                  <div className="relative">
+                    {!initialRequirement ? (
+                      <div className="pointer-events-none absolute inset-y-auto right-2 top-2 left-0 overflow-hidden text-base leading-7 text-muted-foreground/65">
+                        {exitingPlaceholder ? (
+                          <span className="welcome-placeholder-exit block truncate">
+                            {exitingPlaceholder}
                           </span>
-                        )}
-                        <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-56">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          waitingForNewProjectRef.current = true;
-                          onAddProject?.();
-                        }}
-                        className="cursor-pointer font-medium"
-                      >
-                        Add Project
-                      </DropdownMenuItem>
-                      {projects.length > 0 ? (
-                        <>
-                          <div className="my-1 h-px bg-border/70" />
-                          {projects.map((project) => (
-                            <DropdownMenuItem
-                              key={project.id}
-                              onClick={() => setProjectId(project.id)}
-                              className="cursor-pointer justify-between gap-3"
-                            >
-                              <span className="truncate">{project.name}</span>
-                              {project.id === projectId ? (
-                                <Check className="size-4 text-foreground" />
-                              ) : null}
-                            </DropdownMenuItem>
-                          ))}
-                        </>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <WorkspacePrioritySelect
-                    value={priority}
-                    onChange={setPriority}
-                    contentSide="top"
-                    surface
-                    triggerClassName="h-9 rounded-md border border-border/60 bg-background/25 px-3 text-muted-foreground"
-                    labelClassName="font-medium text-foreground/88"
-                  />
-                  <WorkspaceStatusSelect
-                    value={workflowStatus}
-                    onChange={setWorkflowStatus}
-                    contentSide="top"
-                    surface
-                    triggerClassName="h-9 rounded-md border border-border/60 bg-background/25 px-3 text-muted-foreground"
-                    labelClassName="font-medium text-foreground/88"
-                  />
-                  <div className="flex items-center gap-2">
-                    <WorkspaceLabelPicker
-                      labels={selectedLabels}
-                      availableLabels={workspaceLabels}
-                      onChange={setSelectedLabels}
-                      onCreateLabel={createWorkspaceLabel}
-                      contentSide="top"
-                      editorSide="top"
-                      surface
-                      triggerClassName="h-9 rounded-md border border-border/60 bg-background/25 px-3 text-muted-foreground"
+                        ) : null}
+                        <span
+                          key={visiblePlaceholder}
+                          className={cn(
+                            "block truncate",
+                            exitingPlaceholder
+                              ? "welcome-placeholder-enter absolute inset-x-0 top-0"
+                              : "welcome-placeholder-enter",
+                          )}
+                        >
+                          {visiblePlaceholder}
+                        </span>
+                      </div>
+                    ) : null}
+                    <textarea
+                      value={initialRequirement}
+                      onChange={(event) => {
+                        setInitialRequirement(event.target.value);
+                        setSubmitError(null);
+                      }}
+                      placeholder=""
+                      className="min-h-[88px] w-full resize-none rounded-xl border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-7 text-foreground outline-none transition-colors"
                     />
-                    <WorkspaceLabelDots labels={selectedLabels} overlap className="pl-1" />
+                  </div>
+
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+                      <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className={cn(
+                              "inline-flex h-9 min-w-[160px] items-center gap-2 rounded-md border px-3 text-sm backdrop-blur-sm transition-colors",
+                              projects.length === 0
+                                ? "border-dashed border-border bg-muted/25 text-muted-foreground hover:bg-muted/35"
+                                : "border-border/60 bg-background/40 text-foreground/90 hover:bg-background/55",
+                            )}
+                          >
+                            {projects.length === 0 ? (
+                              <>
+                                <Plus className="size-3.5 shrink-0" />
+                                <span className="truncate font-medium">Add a project first</span>
+                              </>
+                            ) : (
+                              <span className="truncate font-medium">
+                                {selectedProject?.name ?? "Select project"}
+                              </span>
+                            )}
+                            <ChevronDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="min-w-56">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              waitingForNewProjectRef.current = true;
+                              onAddProject?.();
+                            }}
+                            className="cursor-pointer font-medium"
+                          >
+                            Add Project
+                          </DropdownMenuItem>
+                          {projects.length > 0 ? (
+                            <>
+                              <div className="my-1 h-px bg-border/70" />
+                              {projects.map((project) => (
+                                <DropdownMenuItem
+                                  key={project.id}
+                                  onClick={() => setProjectId(project.id)}
+                                  className="cursor-pointer justify-between gap-3"
+                                >
+                                  <span className="truncate">{project.name}</span>
+                                  {project.id === projectId ? (
+                                    <Check className="size-4 text-foreground" />
+                                  ) : null}
+                                </DropdownMenuItem>
+                              ))}
+                            </>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <WorkspacePrioritySelect
+                        value={priority}
+                        onChange={setPriority}
+                        contentSide="top"
+                        surface
+                        triggerClassName="h-9 rounded-md border border-border/60 bg-background/25 px-3 text-muted-foreground"
+                        labelClassName="font-medium text-foreground/88"
+                      />
+                      <WorkspaceStatusSelect
+                        value={workflowStatus}
+                        onChange={setWorkflowStatus}
+                        contentSide="top"
+                        surface
+                        triggerClassName="h-9 rounded-md border border-border/60 bg-background/25 px-3 text-muted-foreground"
+                        labelClassName="font-medium text-foreground/88"
+                      />
+                      <div className="flex items-center gap-2">
+                        <WorkspaceLabelPicker
+                          labels={selectedLabels}
+                          availableLabels={workspaceLabels}
+                          onChange={setSelectedLabels}
+                          onCreateLabel={createWorkspaceLabel}
+                          contentSide="top"
+                          editorSide="top"
+                          surface
+                          triggerClassName="h-9 rounded-md border border-border/60 bg-background/25 px-3 text-muted-foreground"
+                        />
+                        <WorkspaceLabelDots labels={selectedLabels} overlap className="pl-1" />
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      size="icon"
+                      className="size-9 shrink-0 rounded-md self-end md:self-auto"
+                      disabled={disabledSubmit}
+                      aria-label={isSubmitting ? "Creating workspace" : "Create workspace and run agent"}
+                    >
+                      {isSubmitting ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : (
+                        <Clapperboard className="size-4" />
+                      )}
+                    </Button>
                   </div>
                 </div>
-
-                <Button
-                  type="submit"
-                  size="icon"
-                  className="size-9 shrink-0 rounded-md self-end md:self-auto"
-                  disabled={disabledSubmit}
-                  aria-label={isSubmitting ? "Creating workspace" : "Create workspace and run agent"}
-                >
-                  {isSubmitting ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : (
-                    <Clapperboard className="size-4" />
-                  )}
-                </Button>
-              </div>
-              </div>
-
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <div ref={advancedPopoverRef} className="relative">
@@ -1462,6 +1546,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                     </div>
                   ) : null}
                 </div>
+              </div>
               </div>
             </div>
           </div>

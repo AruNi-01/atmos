@@ -5,7 +5,7 @@ import type { DragStartEvent } from '@workspace/ui';
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/hooks/use-context-params';
-import { leftSidebarParams, type LeftSidebarTab } from '@/lib/nuqs/searchParams';
+import { centerStageParams, leftSidebarParams, type LeftSidebarTab } from '@/lib/nuqs/searchParams';
 import {
   Plus,
   Folder,
@@ -164,6 +164,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const { setCurrentContext } = useGitInfoStore();
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
+    const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
@@ -504,7 +505,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const handleAddWorkspace = (projectId: string) => {
         setSelectedProjectId(projectId);
-        router.push('/');
+        void setNewWorkspace(true);
     };
 
     const handleQuickAddWorkspace = async (projectId: string) => {

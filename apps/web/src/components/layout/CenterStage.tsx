@@ -2311,6 +2311,7 @@ const CenterStage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </main>
   );
 };
