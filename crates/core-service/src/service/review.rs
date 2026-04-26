@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use core_engine::GitEngine;
@@ -9,8 +9,8 @@ use infra::db::entities::{
 };
 use infra::db::repo::{ProjectRepo, ReviewRepo, WorkspaceRepo};
 use infra::utils::review_artifacts::{
-    anchor_file_snapshot_paths, manifest_rel_path, revision_root_rel_path,
-    revisions_manifest_rel_path, run_root_rel_path, session_root_rel_path, sha256_hex,
+    anchor_file_snapshot_abs_paths, manifest_abs_path, revision_root_abs_path,
+    revisions_manifest_abs_path, run_root_abs_path, session_root_abs_path, sha256_hex,
     write_json_atomic, write_text_atomic,
 };
 use sea_orm::DatabaseConnection;
@@ -300,10 +300,12 @@ impl ReviewService {
 
         let session_guid = Uuid::new_v4().to_string();
         let revision_guid = Uuid::new_v4().to_string();
-        let session_storage_root = session_root_rel_path(&session_guid)
+        let session_storage_root = session_root_abs_path(&session_guid)
+            .map_err(ServiceError::Infra)?
             .to_string_lossy()
             .to_string();
-        let revision_storage_root = revision_root_rel_path(&session_guid, &revision_guid)
+        let revision_storage_root = revision_root_abs_path(&session_guid, &revision_guid)
+            .map_err(ServiceError::Infra)?
             .to_string_lossy()
             .to_string();
         let head_commit = self
@@ -400,13 +402,14 @@ impl ReviewService {
                 .find_or_create_file_identity(session.guid.clone(), file_path.clone())
                 .await?;
             let file_snapshot_guid = Uuid::new_v4().to_string();
-            let (old_rel_path, new_rel_path, meta_rel_path) =
-                anchor_file_snapshot_paths(&session.guid, &revision.guid, &file_snapshot_guid);
+            let (old_abs_path, new_abs_path, meta_abs_path) =
+                anchor_file_snapshot_abs_paths(&session.guid, &revision.guid, &file_snapshot_guid)
+                    .map_err(ServiceError::Infra)?;
 
-            write_text_atomic(workspace_root, &old_rel_path, &diff.old_content)
+            write_text_atomic(&old_abs_path, &diff.old_content)
                 .await
                 .map_err(ServiceError::Infra)?;
-            write_text_atomic(workspace_root, &new_rel_path, &diff.new_content)
+            write_text_atomic(&new_abs_path, &diff.new_content)
                 .await
                 .map_err(ServiceError::Infra)?;
 
@@ -415,14 +418,14 @@ impl ReviewService {
                 file_path: file_path.clone(),
                 git_status: status.clone(),
                 is_binary: false,
-                old_rel_path: old_rel_path.to_string_lossy().to_string(),
-                new_rel_path: new_rel_path.to_string_lossy().to_string(),
+                old_rel_path: old_abs_path.to_string_lossy().to_string(),
+                new_rel_path: new_abs_path.to_string_lossy().to_string(),
                 old_sha256: sha256_hex(&diff.old_content),
                 new_sha256: sha256_hex(&diff.new_content),
                 old_size: diff.old_content.len(),
                 new_size: diff.new_content.len(),
             };
-            write_json_atomic(workspace_root, &meta_rel_path, &meta)
+            write_json_atomic(&meta_abs_path, &meta)
                 .await
                 .map_err(ServiceError::Infra)?;
 
@@ -432,9 +435,9 @@ impl ReviewService {
                     file_identity.guid.clone(),
                     file_path.clone(),
                     status,
-                    old_rel_path.to_string_lossy().to_string(),
-                    new_rel_path.to_string_lossy().to_string(),
-                    meta_rel_path.to_string_lossy().to_string(),
+                    old_abs_path.to_string_lossy().to_string(),
+                    new_abs_path.to_string_lossy().to_string(),
+                    meta_abs_path.to_string_lossy().to_string(),
                     Some(meta.old_sha256.clone()),
                     Some(meta.new_sha256.clone()),
                     meta.old_size as i64,
@@ -470,7 +473,8 @@ impl ReviewService {
             created_at: session.created_at.to_string(),
             file_count,
         };
-        write_json_atomic(workspace_root, &manifest_rel_path(&session.guid), &manifest)
+        let manifest_path = manifest_abs_path(&session.guid).map_err(ServiceError::Infra)?;
+        write_json_atomic(&manifest_path, &manifest)
             .await
             .map_err(ServiceError::Infra)?;
         let revisions_manifest = vec![RevisionManifestItem {
@@ -481,13 +485,11 @@ impl ReviewService {
             storage_root_rel_path: revision.storage_root_rel_path.clone(),
             created_at: revision.created_at.to_string(),
         }];
-        write_json_atomic(
-            workspace_root,
-            &revisions_manifest_rel_path(&session.guid),
-            &revisions_manifest,
-        )
-        .await
-        .map_err(ServiceError::Infra)?;
+        let revisions_manifest_path =
+            revisions_manifest_abs_path(&session.guid).map_err(ServiceError::Infra)?;
+        write_json_atomic(&revisions_manifest_path, &revisions_manifest)
+            .await
+            .map_err(ServiceError::Infra)?;
 
         self.build_session_dto(session.clone()).await
     }
@@ -646,7 +648,6 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| ServiceError::NotFound(format!("Review thread {} not found", input.thread_guid)))?;
-        let workspace_root = self.workspace_root_for_session(&thread.session_guid).await?;
         if let Some(run_guid) = input.fix_run_guid.as_deref() {
             if let Some(run) = review_repo
                 .find_fix_run_by_guid(run_guid)
@@ -673,16 +674,17 @@ impl ReviewService {
             }
         }
         let (body_storage_kind, body, body_rel_path, body_full) = if input.body.len() > MESSAGE_INLINE_LIMIT {
-            let rel_path = run_root_rel_path(&thread.session_guid, input.fix_run_guid.as_deref().unwrap_or("message"))
+            let abs_path = run_root_abs_path(&thread.session_guid, input.fix_run_guid.as_deref().unwrap_or("message"))
+                .map_err(ServiceError::Infra)?
                 .join("messages")
                 .join(format!("{}.md", Uuid::new_v4()));
-            write_text_atomic(&workspace_root, &rel_path, &input.body)
+            write_text_atomic(&abs_path, &input.body)
                 .await
                 .map_err(ServiceError::Infra)?;
             (
                 "file".to_string(),
                 input.body.chars().take(500).collect(),
-                Some(rel_path.to_string_lossy().to_string()),
+                Some(abs_path.to_string_lossy().to_string()),
                 input.body,
             )
         } else {
@@ -728,7 +730,6 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| ServiceError::NotFound(format!("Review session {} not found", input.session_guid)))?;
-        let workspace_root = self.workspace_root_for_session(&session.guid).await?;
         let threads = self
             .list_threads(
                 session.guid.clone(),
@@ -763,14 +764,16 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?;
         let prompt = self.render_fix_prompt(&session, &run, &selected_threads)?;
-        let prompt_rel_path = run_root_rel_path(&session.guid, &run.guid).join("prompt.md");
-        write_text_atomic(&workspace_root, &prompt_rel_path, &prompt)
+        let prompt_abs_path = run_root_abs_path(&session.guid, &run.guid)
+            .map_err(ServiceError::Infra)?
+            .join("prompt.md");
+        write_text_atomic(&prompt_abs_path, &prompt)
             .await
             .map_err(ServiceError::Infra)?;
         review_repo
             .update_fix_run_prompt_rel_path(
                 &run.guid,
-                &prompt_rel_path.to_string_lossy().to_string(),
+                &prompt_abs_path.to_string_lossy().to_string(),
             )
             .await
             .map_err(ServiceError::Infra)?;
@@ -844,17 +847,10 @@ impl ReviewService {
         let thread = self
             .to_thread_dto(thread, messages, Some(session.guid.clone()))
             .await?;
-        let workspace_root = self.workspace_root_for_session(&session.guid).await?;
         Ok(ReviewThreadContextDto {
-            old_file_abs_path: workspace_root
-                .join(&file_snapshot.old_rel_path)
-                .to_string_lossy()
-                .to_string(),
-            new_file_abs_path: workspace_root
-                .join(&file_snapshot.new_rel_path)
-                .to_string_lossy()
-                .to_string(),
-            workspace_root: workspace_root.to_string_lossy().to_string(),
+            old_file_abs_path: file_snapshot.old_rel_path.clone(),
+            new_file_abs_path: file_snapshot.new_rel_path.clone(),
+            workspace_root: "".to_string(), // No longer needed as paths are absolute
             session,
             revision,
             file_snapshot,
@@ -877,22 +873,11 @@ impl ReviewService {
                     file_snapshot_guid
                 ))
             })?;
-        let revision = review_repo
-            .find_revision_by_guid(&file_snapshot.revision_guid)
-            .await
-            .map_err(ServiceError::Infra)?
-            .ok_or_else(|| {
-                ServiceError::NotFound(format!(
-                    "Review revision {} not found",
-                    file_snapshot.revision_guid
-                ))
-            })?;
-        let workspace_root = self.workspace_root_for_session(&revision.session_guid).await?;
         let old_content =
-            std::fs::read_to_string(workspace_root.join(&file_snapshot.old_rel_path))
+            std::fs::read_to_string(&file_snapshot.old_rel_path)
                 .map_err(|error| ServiceError::Infra(infra::InfraError::Io(error)))?;
         let new_content =
-            std::fs::read_to_string(workspace_root.join(&file_snapshot.new_rel_path))
+            std::fs::read_to_string(&file_snapshot.new_rel_path)
                 .map_err(|error| ServiceError::Infra(infra::InfraError::Io(error)))?;
 
         Ok(ReviewFileContentDto {
@@ -913,8 +898,7 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run_guid)))?;
-        let workspace_root = self.workspace_root_for_session(&run.session_guid).await?;
-        let rel_path = match kind.as_str() {
+        let abs_path = match kind.as_str() {
             "prompt" => run.prompt_rel_path.clone(),
             "patch" => run.patch_rel_path.clone(),
             "summary" => run.summary_rel_path.clone(),
@@ -931,7 +915,7 @@ impl ReviewService {
                 run.guid, kind
             ))
         })?;
-        let content = std::fs::read_to_string(workspace_root.join(&rel_path))
+        let content = std::fs::read_to_string(&abs_path)
             .map_err(|error| ServiceError::Infra(infra::InfraError::Io(error)))?;
 
         Ok(ReviewRunArtifactDto { run, kind, content })
@@ -948,9 +932,10 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run_guid)))?;
-        let workspace_root = self.workspace_root_for_session(&run.session_guid).await?;
-        let summary_rel_path = run_root_rel_path(&run.session_guid, &run.guid).join("summary.md");
-        write_text_atomic(&workspace_root, &summary_rel_path, &body)
+        let summary_abs_path = run_root_abs_path(&run.session_guid, &run.guid)
+            .map_err(ServiceError::Infra)?
+            .join("summary.md");
+        write_text_atomic(&summary_abs_path, &body)
             .await
             .map_err(ServiceError::Infra)?;
         // Persist only the summary artifact path. The run's lifecycle status
@@ -961,7 +946,7 @@ impl ReviewService {
         review_repo
             .update_fix_run_summary_path(
                 &run.guid,
-                summary_rel_path.to_string_lossy().to_string(),
+                summary_abs_path.to_string_lossy().to_string(),
                 if run.started_at.is_none() {
                     Some(chrono::Utc::now().naive_utc())
                 } else {
@@ -1006,7 +991,6 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| ServiceError::NotFound(format!("Review revision {} not found", run.base_revision_guid)))?;
-        let workspace_root = self.workspace_root_for_session(&session.guid).await?;
 
         review_repo
             .update_fix_run_status(
@@ -1042,7 +1026,8 @@ impl ReviewService {
             .collect();
 
         let revision_guid = Uuid::new_v4().to_string();
-        let revision_storage_root = revision_root_rel_path(&session.guid, &revision_guid)
+        let revision_storage_root = revision_root_abs_path(&session.guid, &revision_guid)
+            .map_err(ServiceError::Infra)?
             .to_string_lossy()
             .to_string();
         let revisions_before = review_repo
@@ -1067,21 +1052,22 @@ impl ReviewService {
         let change_time = chrono::Utc::now().naive_utc();
         let mut patch_chunks = Vec::new();
         for (index, snapshot) in base_snapshots.into_iter().enumerate() {
-            let prior_content = std::fs::read_to_string(workspace_root.join(&snapshot.new_rel_path))
+            let prior_content = std::fs::read_to_string(&snapshot.new_rel_path)
                 .unwrap_or_default();
-            let current_file_path = workspace_root.join(&snapshot.file_path);
+            let current_file_path = Path::new(&snapshot.file_path);
             let current_content = if current_file_path.exists() {
                 std::fs::read_to_string(&current_file_path).unwrap_or_default()
             } else {
                 String::new()
             };
             let file_snapshot_guid = Uuid::new_v4().to_string();
-            let (old_rel_path, new_rel_path, meta_rel_path) =
-                anchor_file_snapshot_paths(&session.guid, &revision.guid, &file_snapshot_guid);
-            write_text_atomic(&workspace_root, &old_rel_path, &prior_content)
+            let (old_abs_path, new_abs_path, meta_abs_path) =
+                anchor_file_snapshot_abs_paths(&session.guid, &revision.guid, &file_snapshot_guid)
+                    .map_err(ServiceError::Infra)?;
+            write_text_atomic(&old_abs_path, &prior_content)
                 .await
                 .map_err(ServiceError::Infra)?;
-            write_text_atomic(&workspace_root, &new_rel_path, &current_content)
+            write_text_atomic(&new_abs_path, &current_content)
                 .await
                 .map_err(ServiceError::Infra)?;
 
@@ -1116,14 +1102,14 @@ impl ReviewService {
                 file_path: snapshot.file_path.clone(),
                 git_status: git_status.clone(),
                 is_binary: false,
-                old_rel_path: old_rel_path.to_string_lossy().to_string(),
-                new_rel_path: new_rel_path.to_string_lossy().to_string(),
+                old_rel_path: old_abs_path.to_string_lossy().to_string(),
+                new_rel_path: new_abs_path.to_string_lossy().to_string(),
                 old_sha256: sha256_hex(&prior_content),
                 new_sha256: sha256_hex(&current_content),
                 old_size: prior_content.len(),
                 new_size: current_content.len(),
             };
-            write_json_atomic(&workspace_root, &meta_rel_path, &meta)
+            write_json_atomic(&meta_abs_path, &meta)
                 .await
                 .map_err(ServiceError::Infra)?;
 
@@ -1133,9 +1119,9 @@ impl ReviewService {
                     snapshot.file_identity_guid.clone(),
                     snapshot.file_path.clone(),
                     git_status,
-                    old_rel_path.to_string_lossy().to_string(),
-                    new_rel_path.to_string_lossy().to_string(),
-                    meta_rel_path.to_string_lossy().to_string(),
+                    old_abs_path.to_string_lossy().to_string(),
+                    new_abs_path.to_string_lossy().to_string(),
+                    meta_abs_path.to_string_lossy().to_string(),
                     Some(meta.old_sha256.clone()),
                     Some(meta.new_sha256.clone()),
                     meta.old_size as i64,
@@ -1193,21 +1179,24 @@ impl ReviewService {
                 created_at: item.created_at.to_string(),
             })
             .collect::<Vec<_>>();
+        let revisions_manifest_path =
+            revisions_manifest_abs_path(&session.guid).map_err(ServiceError::Infra)?;
         write_json_atomic(
-            &workspace_root,
-            &revisions_manifest_rel_path(&session.guid),
+            &revisions_manifest_path,
             &revisions_manifest,
         )
         .await
         .map_err(ServiceError::Infra)?;
 
-        let patch_rel_path = run_root_rel_path(&session.guid, &run.guid).join("fix.patch");
+        let patch_abs_path = run_root_abs_path(&session.guid, &run.guid)
+            .map_err(ServiceError::Infra)?
+            .join("fix.patch");
         let patch_text = if patch_chunks.is_empty() {
             String::new()
         } else {
             patch_chunks.join("\n")
         };
-        write_text_atomic(&workspace_root, &patch_rel_path, &patch_text)
+        write_text_atomic(&patch_abs_path, &patch_text)
             .await
             .map_err(ServiceError::Infra)?;
 
@@ -1217,7 +1206,7 @@ impl ReviewService {
                 "succeeded",
                 Some(revision.guid.clone()),
                 Some(revision_storage_root),
-                Some(patch_rel_path.to_string_lossy().to_string()),
+                Some(patch_abs_path.to_string_lossy().to_string()),
                 None,
                 if run.started_at.is_none() {
                     Some(change_time)
@@ -1344,24 +1333,17 @@ impl ReviewService {
         &self,
         thread: review_thread::Model,
         messages: Vec<review_message::Model>,
-        session_guid: Option<String>,
+        _session_guid: Option<String>,
     ) -> Result<ReviewThreadDto> {
         let anchor = serde_json::from_str::<Value>(&thread.anchor_json)
             .unwrap_or_else(|_| json!({}));
-        let workspace_root = if let Some(session_guid) = session_guid.as_deref() {
-            Some(self.workspace_root_for_session(session_guid).await?)
-        } else {
-            None
-        };
         let messages = messages
             .into_iter()
             .map(|message| {
                 let body_full = if message.body_storage_kind == "inline" {
                     message.body.clone()
-                } else if let (Some(root), Some(rel_path)) =
-                    (workspace_root.as_ref(), message.body_rel_path.as_ref())
-                {
-                    std::fs::read_to_string(root.join(rel_path))
+                } else if let Some(abs_path) = message.body_rel_path.as_ref() {
+                    std::fs::read_to_string(abs_path)
                         .unwrap_or_else(|_| message.body.clone())
                 } else {
                     message.body.clone()
@@ -1377,27 +1359,6 @@ impl ReviewService {
             messages,
             model: thread,
         })
-    }
-
-    async fn workspace_root_for_session(&self, session_guid: &str) -> Result<PathBuf> {
-        let review_repo = ReviewRepo::new(&self.db);
-        let session = review_repo
-            .find_session_by_guid(session_guid)
-            .await
-            .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review session {} not found", session_guid)))?;
-        self.workspace_root_for_workspace_guid(&session.workspace_guid).await
-    }
-
-    async fn workspace_root_for_workspace_guid(&self, workspace_guid: &str) -> Result<PathBuf> {
-        let workspace = WorkspaceRepo::new(&self.db)
-            .find_by_guid(workspace_guid)
-            .await
-            .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Workspace {} not found", workspace_guid)))?;
-        self.git_engine
-            .get_worktree_path(&workspace.name)
-            .map_err(ServiceError::Engine)
     }
 }
 

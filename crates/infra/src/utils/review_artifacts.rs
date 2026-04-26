@@ -10,7 +10,16 @@ use crate::error::Result;
 
 static TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-pub const REVIEW_ROOT_DIR: &str = ".atmos/review";
+/// Returns the global review root directory: `~/.atmos/review`
+pub fn global_review_root() -> Result<PathBuf> {
+    let home = dirs::home_dir().ok_or_else(|| {
+        crate::error::InfraError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Cannot determine home directory",
+        ))
+    })?;
+    Ok(home.join(".atmos").join("review"))
+}
 
 fn safe_short_dir_id(id: &str) -> String {
     let safe_prefix: String = id
@@ -36,68 +45,67 @@ pub fn run_dir_id(run_guid: &str) -> String {
     safe_short_dir_id(run_guid)
 }
 
-pub fn session_root_rel_path(session_guid: &str) -> PathBuf {
-    PathBuf::from(REVIEW_ROOT_DIR)
+pub fn session_root_abs_path(session_guid: &str) -> Result<PathBuf> {
+    Ok(global_review_root()?
         .join("sessions")
-        .join(session_dir_id(session_guid))
+        .join(session_dir_id(session_guid)))
 }
 
-pub fn revision_root_rel_path(session_guid: &str, revision_guid: &str) -> PathBuf {
-    session_root_rel_path(session_guid)
+pub fn revision_root_abs_path(session_guid: &str, revision_guid: &str) -> Result<PathBuf> {
+    Ok(session_root_abs_path(session_guid)?
         .join("revisions")
-        .join(revision_dir_id(revision_guid))
+        .join(revision_dir_id(revision_guid)))
 }
 
-pub fn run_root_rel_path(session_guid: &str, run_guid: &str) -> PathBuf {
-    session_root_rel_path(session_guid)
+pub fn run_root_abs_path(session_guid: &str, run_guid: &str) -> Result<PathBuf> {
+    Ok(session_root_abs_path(session_guid)?
         .join("runs")
-        .join(run_dir_id(run_guid))
+        .join(run_dir_id(run_guid)))
 }
 
-pub fn file_snapshot_root_rel_path(
+pub fn file_snapshot_root_abs_path(
     session_guid: &str,
     revision_guid: &str,
     file_snapshot_guid: &str,
-) -> PathBuf {
-    revision_root_rel_path(session_guid, revision_guid)
+) -> Result<PathBuf> {
+    Ok(revision_root_abs_path(session_guid, revision_guid)?
         .join("diff-files")
-        .join(safe_short_dir_id(file_snapshot_guid))
+        .join(safe_short_dir_id(file_snapshot_guid)))
 }
 
-pub fn anchor_file_snapshot_paths(
+pub fn anchor_file_snapshot_abs_paths(
     session_guid: &str,
     revision_guid: &str,
     file_snapshot_guid: &str,
-) -> (PathBuf, PathBuf, PathBuf) {
-    let root = file_snapshot_root_rel_path(session_guid, revision_guid, file_snapshot_guid);
-    (root.join("old"), root.join("new"), root.join("meta.json"))
+) -> Result<(PathBuf, PathBuf, PathBuf)> {
+    let root = file_snapshot_root_abs_path(session_guid, revision_guid, file_snapshot_guid)?;
+    Ok((root.join("old"), root.join("new"), root.join("meta.json")))
 }
 
-pub fn manifest_rel_path(session_guid: &str) -> PathBuf {
-    session_root_rel_path(session_guid).join("manifest.json")
+pub fn manifest_abs_path(session_guid: &str) -> Result<PathBuf> {
+    Ok(session_root_abs_path(session_guid)?.join("manifest.json"))
 }
 
-pub fn revisions_manifest_rel_path(session_guid: &str) -> PathBuf {
-    session_root_rel_path(session_guid).join("revisions.json")
+pub fn revisions_manifest_abs_path(session_guid: &str) -> Result<PathBuf> {
+    Ok(session_root_abs_path(session_guid)?.join("revisions.json"))
 }
 
-pub async fn ensure_parent_dir(workspace_root: &Path, rel_path: &Path) -> Result<()> {
-    if let Some(parent) = workspace_root.join(rel_path).parent() {
+pub async fn ensure_parent_dir(abs_path: &Path) -> Result<()> {
+    if let Some(parent) = abs_path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
     Ok(())
 }
 
-pub async fn write_bytes_atomic(workspace_root: &Path, rel_path: &Path, bytes: &[u8]) -> Result<()> {
-    ensure_parent_dir(workspace_root, rel_path).await?;
-    let full_path = workspace_root.join(rel_path);
-    let tmp_path = unique_tmp_path(&full_path);
+pub async fn write_bytes_atomic(abs_path: &Path, bytes: &[u8]) -> Result<()> {
+    ensure_parent_dir(abs_path).await?;
+    let tmp_path = unique_tmp_path(abs_path);
     let write_result = tokio::fs::write(&tmp_path, bytes).await;
     if let Err(err) = write_result {
         let _ = tokio::fs::remove_file(&tmp_path).await;
         return Err(err.into());
     }
-    if let Err(err) = tokio::fs::rename(&tmp_path, &full_path).await {
+    if let Err(err) = tokio::fs::rename(&tmp_path, abs_path).await {
         let _ = tokio::fs::remove_file(&tmp_path).await;
         return Err(err.into());
     }
@@ -127,17 +135,13 @@ fn unique_tmp_path(full_path: &Path) -> PathBuf {
     }
 }
 
-pub async fn write_text_atomic(workspace_root: &Path, rel_path: &Path, text: &str) -> Result<()> {
-    write_bytes_atomic(workspace_root, rel_path, text.as_bytes()).await
+pub async fn write_text_atomic(abs_path: &Path, text: &str) -> Result<()> {
+    write_bytes_atomic(abs_path, text.as_bytes()).await
 }
 
-pub async fn write_json_atomic<T: Serialize>(
-    workspace_root: &Path,
-    rel_path: &Path,
-    value: &T,
-) -> Result<()> {
+pub async fn write_json_atomic<T: Serialize>(abs_path: &Path, value: &T) -> Result<()> {
     let text = serde_json::to_string_pretty(value)?;
-    write_text_atomic(workspace_root, rel_path, &text).await
+    write_text_atomic(abs_path, &text).await
 }
 
 pub fn sha256_hex(content: &str) -> String {
