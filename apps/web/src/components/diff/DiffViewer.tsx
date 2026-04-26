@@ -14,7 +14,7 @@ import type {
 import { parseDiffFromFile } from '@pierre/diffs';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
 import type { ReviewFileDto, ReviewSessionDto, ReviewThreadDto } from '@/api/ws-api';
-import { Button, Checkbox, Loader2, PanelRightClose, PanelRightOpen, Textarea, toastManager } from '@workspace/ui';
+import { Button, Loader2, PanelRightClose, PanelRightOpen, Textarea, toastManager } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
@@ -102,6 +102,7 @@ export const DiffViewer = ({
   const [disableBackground, setDisableBackground] = useState(false);
   const [showTip, setShowTip] = useState(false);
   const [tipPaused, setTipPaused] = useState(false);
+  const [fileCollapsed, setFileCollapsed] = useState(false);
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -378,7 +379,7 @@ export const DiffViewer = ({
     theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
     diffStyle: diffStyle,
     disableBackground: disableBackground,
-    disableFileHeader: false,
+    disableFileHeader: true,
     overflow: (wordWrap ? 'wrap' : 'scroll') as 'wrap' | 'scroll',
     unsafeCSS: SCROLLBAR_CSS,
     enableGutterUtility: true,
@@ -491,27 +492,7 @@ export const DiffViewer = ({
     }
   }, [reviewContext.file]);
 
-  const renderDiffHeader = useCallback((_fileDiff: FileDiffMetadata) => {
-    const file = reviewContext.file;
-    if (!file) return null;
 
-    return (
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <label className="flex items-center gap-2 rounded-md border border-border bg-background/80 px-2 py-1 text-foreground">
-          <Checkbox
-            checked={file.state.reviewed}
-            disabled={!reviewContext.canEdit}
-            onCheckedChange={(value) => handleToggleReviewed(Boolean(value))}
-          />
-          <span>Reviewed</span>
-        </label>
-        <span>{file.open_thread_count} open thread{file.open_thread_count === 1 ? '' : 's'}</span>
-        {file.changed_after_review ? (
-          <span className="text-amber-600">Changed after review</span>
-        ) : null}
-      </div>
-    );
-  }, [handleToggleReviewed, reviewContext.canEdit, reviewContext.file]);
 
   const renderGutterUtility = useCallback((getHoveredLine: () => { lineNumber: number; side: 'deletions' | 'additions' } | undefined) => {
     if (!reviewContext.canEdit || !reviewContext.file) return null;
@@ -698,6 +679,22 @@ export const DiffViewer = ({
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0">
+        <button
+          type="button"
+          onClick={() => setFileCollapsed(!fileCollapsed)}
+          className="flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer shrink-0 mr-2"
+          aria-label={fileCollapsed ? 'Expand file' : 'Collapse file'}
+        >
+          {fileCollapsed ? (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </button>
         <div
           className="relative h-5 flex-1 min-w-0 overflow-hidden mr-3"
           onMouseEnter={() => setTipPaused(true)}
@@ -765,6 +762,35 @@ export const DiffViewer = ({
               BG
             </span>
           </button>
+          {(() => {
+            const file = reviewContext.file;
+            if (!file) return null;
+            const reviewed = file.state.reviewed;
+            return (
+              <button
+                type="button"
+                onClick={() => handleToggleReviewed(!reviewed)}
+                disabled={!reviewContext.canEdit}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0',
+                  reviewed
+                    ? 'border-blue-500/50 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25'
+                    : 'border-border bg-background/80 text-foreground hover:bg-muted/50'
+                )}
+              >
+                {reviewed ? (
+                  <span className="flex items-center justify-center w-3.5 h-3.5 rounded-sm bg-blue-500">
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                      <path d="M3 8L6.5 11.5L13 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center w-3.5 h-3.5 rounded-sm border border-muted-foreground/40" />
+                )}
+                <span>Reviewed</span>
+              </button>
+            );
+          })()}
           <button
             onClick={() => setIsReviewDrawerOpen((open) => !open)}
             aria-expanded={isReviewDrawerOpen}
@@ -794,15 +820,21 @@ export const DiffViewer = ({
             popoverRef={popoverRef}
             positioning="absolute"
           />
-          <FileDiff
-            fileDiff={workingDiff}
-            options={diffOptions}
-            lineAnnotations={lineAnnotations}
-            renderAnnotation={renderAnnotation}
-            renderCustomHeader={renderDiffHeader}
-            renderGutterUtility={renderGutterUtility}
-            style={{ minHeight: '100%', width: '100%' }}
-          />
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+            style={{ gridTemplateRows: fileCollapsed ? '0fr' : '1fr' }}
+          >
+            <div className="overflow-hidden">
+              <FileDiff
+                fileDiff={workingDiff}
+                options={diffOptions}
+                lineAnnotations={lineAnnotations}
+                renderAnnotation={renderAnnotation}
+                renderGutterUtility={renderGutterUtility}
+                style={{ minHeight: '100%', width: '100%' }}
+              />
+            </div>
+          </div>
         </div>
 
         <div
