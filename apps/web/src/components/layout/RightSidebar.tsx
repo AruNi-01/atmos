@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useGitStore } from "@/hooks/use-git-store";
@@ -17,11 +18,9 @@ import {
   TabsTab,
 } from "@workspace/ui";
 import {
-  GitBranch,
   Play,
   GitPullRequest,
   FolderOpen,
-  GitCommit as GitCommitIcon,
 } from "lucide-react";
 import { Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,12 +36,11 @@ import type { ActionRun } from "@/components/github/ActionsPanel";
 import dynamic from "next/dynamic";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
-import { PRPanel } from "@/components/github/PRPanel";
+import { PRPanel, type PRPanelHandle } from "@/components/github/PRPanel";
 import { CommitsPanel } from "@/components/github/CommitsPanel";
 import { ActionsPanel } from "@/components/github/ActionsPanel";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
-import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
 import { isWorkspaceSetupBlocking } from "@/utils/workspace-setup";
 
 import { ChangeSection } from '@/components/layout/sidebar/ChangeSection';
@@ -58,6 +56,9 @@ const RunPreviewPanel = dynamic(
   () => import("@/components/run-preview/RunPreviewPanel").then((m) => m.RunPreviewPanel),
   { ssr: false },
 );
+const ReviewView = dynamic(() => import("@/components/diff/ReviewView"), {
+  ssr: false,
+});
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -69,7 +70,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const currentProjectPath = useEditorStore(s => s.currentProjectPath);
   const projects = useProjectStore(s => s.projects);
   const {
-    setCodeReviewDialogOpen,
     enqueueAgentChatPrompt,
     setPendingAgentChatMode,
   } = useDialogStore();
@@ -142,13 +142,17 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
     "changes",
   );
+  const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
+  const [reviewSubTab, setReviewSubTab] = useState<"files" | "threads">("files");
   const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
   const [refreshCommitsPanel, setRefreshCommitsPanel] = useState<
     (() => Promise<unknown> | void) | null
   >(null);
   const [isCommitsLoading, setIsCommitsLoading] = useState(false);
-  const [prRefreshKey, setPrRefreshKey] = useState(0);
-  const [actionsRefreshKey, setActionsRefreshKey] = useState(0);
+  const [prRefreshKey] = useState(0);
+  const [actionsRefreshKey] = useState(0);
+  const [reviewRefreshKey] = useState(0);
+  const prPanelRef = useRef<PRPanelHandle>(null);
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
 
@@ -264,70 +268,43 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             activeTab !== "changes" && "hidden",
           )}
         >
-          {/* Changes / PR / Actions Header */}
-          <ChangesViewSwitcher
-            changesView={changesView}
-            onViewChange={(view) => setSidebarParams({ rsView: view })}
-            hasWorkingContext={hasWorkingContext}
-            onCodeReview={() => setCodeReviewDialogOpen(true)}
-            onCreatePr={() => setModalParams({ rsCreatePr: true })}
-            onRefreshActions={() => setActionsRefreshKey(Date.now())}
-          />
-
-          {/* Changes / Commits sub-tab bar - sticky, only shown in 'changes' view */}
-          {changesView === "changes" && hasWorkingContext && (
-            <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm relative z-[1]">
-              <span className="text-xs font-bold text-muted-foreground tracking-wider leading-none">
-                Changes
-              </span>
-              <Tabs
-                value={changesSubTab}
-                onValueChange={(v) => {
-                  const nextTab = v as "changes" | "commits";
-                  setChangesSubTab(nextTab);
-                  if (nextTab === "commits") {
-                    setHasVisitedCommits(true);
-                  }
-                }}
-                className="h-full"
-              >
-                <TabsList variant="underline" className="h-full !py-0">
-                  <RefreshableTabsTab
-                    value="changes"
-                    activeValue={changesSubTab}
-                    refreshTitle="Refresh changes"
-                    onRefresh={handleChangesRefresh}
-                    isRefreshing={
-                      changesSubTab === "changes" && isLoading
-                    }
-                  >
-                    <GitBranch className="size-3" />
-                    <span className="text-xs">Changes</span>
-                  </RefreshableTabsTab>
-                  <RefreshableTabsTab
-                    value="commits"
-                    activeValue={changesSubTab}
-                    refreshTitle="Refresh commits"
-                    onRefresh={() => refreshCommitsPanel?.()}
-                    isRefreshing={
-                      changesSubTab === "commits" && isCommitsLoading
-                    }
-                  >
-                    <GitCommitIcon className="size-3" />
-                    <span className="text-xs">Commits</span>
-                  </RefreshableTabsTab>
-                </TabsList>
-              </Tabs>
-            </div>
+          {/* Changes / PR / Actions / Review Header */}
+          {activeTab === "changes" && (
+            <ChangesViewSwitcher
+              changesView={changesView}
+              onViewChange={(view) => setSidebarParams({ rsView: view })}
+              hasWorkingContext={hasWorkingContext}
+              changesSubTab={changesSubTab}
+              onChangesSubTabChange={(tab) => {
+                setChangesSubTab(tab);
+                if (tab === "commits") {
+                  setHasVisitedCommits(true);
+                }
+              }}
+              onRefreshChanges={handleChangesRefresh}
+              onRefreshCommits={async () => { await refreshCommitsPanel?.(); }}
+              isChangesRefreshing={changesSubTab === "changes" && isLoading}
+              isCommitsRefreshing={changesSubTab === "commits" && isCommitsLoading}
+              prSubTab={prSubTab}
+              onPRSubTabChange={setPRSubTab}
+              onRefreshOpenPRs={() => prPanelRef.current?.refreshOpen()}
+              onRefreshClosedPRs={() => prPanelRef.current?.refreshClosed()}
+              isOpenPRsLoading={prPanelRef.current?.isOpenLoading ?? false}
+              isClosedPRsLoading={prPanelRef.current?.isClosedLoading ?? false}
+              reviewSubTab={reviewSubTab}
+              onReviewSubTabChange={setReviewSubTab}
+            />
           )}
 
           {/* Content Area */}
           <div
             className={cn(
-              "flex-1 overflow-y-auto no-scrollbar",
-              changesView === "changes" && changesSubTab !== "commits"
-                ? "p-2"
-                : "pt-0 px-2 pb-2",
+              "flex-1 min-h-0 no-scrollbar",
+              changesView !== "review" && "overflow-y-auto",
+              changesView === "changes" && changesSubTab !== "commits" && "p-2",
+              changesView !== "changes" &&
+                changesView !== "review" &&
+                "pt-0 px-2 pb-2",
               changesView === "changes" &&
                 changesSubTab !== "commits" &&
                 hasWorkingContext &&
@@ -338,6 +315,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 !hasWorkingContext &&
                 "flex items-center justify-center",
               changesView !== "changes" &&
+                changesView !== "review" &&
                 !hasWorkingContext &&
                 "flex items-center justify-center",
             )}
@@ -352,11 +330,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             ) : changesView === "pr" ? (
               githubOwner && githubRepo && currentBranch ? (
                 <PRPanel
-                  key={prRefreshKey}
+                  ref={prPanelRef}
                   owner={githubOwner}
                   repo={githubRepo}
                   branch={currentBranch}
                   onPrClick={(num) => setModalParams({ rsPr: num })}
+                  prSubTab={prSubTab}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
@@ -366,6 +345,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   </span>
                 </div>
               )
+            ) : changesView === "review" ? (
+              <ReviewView key={reviewRefreshKey} reviewSubTab={reviewSubTab} />
             ) : changesView === "actions" ? (
               githubOwner && githubRepo && currentBranch ? (
                 <ActionsPanel
@@ -547,7 +528,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         }}
         rsCreatePr={!!rsCreatePr}
         onCloseCreatePr={() => setModalParams({ rsCreatePr: false })}
-        onPrCreated={() => setPrRefreshKey(Date.now())}
+        onPrCreated={() => prPanelRef.current?.refreshOpen()}
       />
       </div>
     </aside>

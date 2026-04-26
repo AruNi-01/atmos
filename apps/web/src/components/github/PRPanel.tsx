@@ -1,9 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useGithubPRList } from '@/hooks/use-github';
 import {
   GitPullRequest,
-  GitPullRequestCreate,
-  GitPullRequestClosed,
   Loader2,
   GitBranch,
   MessageSquare,
@@ -20,28 +18,42 @@ import {
   TooltipContent,
   TooltipProvider,
   Button,
-  Tabs,
-  TabsList,
 } from '@workspace/ui';
 import { formatDistanceToNow, format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { RefreshableTabsTab } from '@/components/ui/RefreshableTabsTab';
 
 interface PRPanelProps {
   owner: string;
   repo: string;
   branch: string;
   onPrClick?: (prNumber: number) => void;
+  prSubTab?: 'open' | 'closed';
+  refreshRef?: React.Ref<PRPanelHandle>;
+}
+
+export interface PRPanelHandle {
+  refreshOpen: () => void;
+  refreshClosed: () => void;
+  isOpenLoading: boolean;
+  isClosedLoading: boolean;
 }
 
 type PRState = 'OPEN' | 'CLOSED';
 
-export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
-  const [stateFilter, setStateFilter] = useState<PRState>('OPEN');
+export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PRPanel({ owner, repo, branch, onPrClick, prSubTab }, ref) {
   const [loadedStates, setLoadedStates] = useState<Record<PRState, boolean>>({
     OPEN: true,
     CLOSED: false,
   });
+
+  const stateFilter: PRState = prSubTab === 'closed' ? 'CLOSED' : 'OPEN';
+
+  useEffect(() => {
+    const target: PRState = prSubTab === 'closed' ? 'CLOSED' : 'OPEN';
+    if (!loadedStates[target]) {
+      setLoadedStates((prev) => ({ ...prev, [target]: true }));
+    }
+  }, [prSubTab, loadedStates]);
 
   const openPrList = useGithubPRList({
     owner,
@@ -60,6 +72,13 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
     enabled: loadedStates.CLOSED,
   });
 
+  React.useImperativeHandle(ref, () => ({
+    refreshOpen: () => void openPrList.refresh(),
+    refreshClosed: () => void closedPrList.refresh(),
+    isOpenLoading: openPrList.loading,
+    isClosedLoading: closedPrList.loading,
+  }), [openPrList.refresh, openPrList.loading, closedPrList.refresh, closedPrList.loading]);
+
   const activePrList = stateFilter === 'OPEN' ? openPrList : closedPrList;
   const prs = activePrList.data;
   const loading = activePrList.loading;
@@ -75,45 +94,6 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
   return (
     <TooltipProvider delayDuration={400}>
       <div className="flex flex-col h-full w-full overflow-hidden">
-        {/* Header */}
-        <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm relative z-[1]">
-          <span className="text-xs font-bold text-muted-foreground tracking-wider leading-none">Pull Requests</span>
-          <Tabs
-            value={stateFilter}
-            onValueChange={(v) => {
-              const nextState = v as PRState;
-              setStateFilter(nextState);
-              setLoadedStates((prev) =>
-                prev[nextState] ? prev : { ...prev, [nextState]: true },
-              );
-            }}
-            className="h-full"
-          >
-            <TabsList variant='underline' className="h-full !py-0">
-              <RefreshableTabsTab
-                value="OPEN"
-                activeValue={stateFilter}
-                refreshTitle="Refresh open pull requests"
-                onRefresh={openPrList.refresh}
-                isRefreshing={stateFilter === 'OPEN' && openPrList.loading}
-              >
-                <GitPullRequestCreate className="size-3 shrink-0" />
-                <span className="text-xs">Open</span>
-              </RefreshableTabsTab>
-              <RefreshableTabsTab
-                value="CLOSED"
-                activeValue={stateFilter}
-                refreshTitle="Refresh closed pull requests"
-                onRefresh={closedPrList.refresh}
-                isRefreshing={stateFilter === 'CLOSED' && closedPrList.loading}
-              >
-                <GitPullRequestClosed className="size-3 shrink-0" />
-                <span className="text-xs">Closed</span>
-              </RefreshableTabsTab>
-            </TabsList>
-          </Tabs>
-        </div>
-
         <div className="flex-1 overflow-y-auto no-scrollbar p-2">
           {loading && !prs ? (
             <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3">
@@ -248,4 +228,4 @@ export function PRPanel({ owner, repo, branch, onPrClick }: PRPanelProps) {
       </div>
     </TooltipProvider>
   );
-}
+});

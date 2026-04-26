@@ -7,40 +7,28 @@ import type {
   FileContents,
   FileDiffOptions,
   SelectedLineRange,
-  ContextContent,
   ChangeContent,
   FileDiffMetadata,
 } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
-import type { ReviewFileDto, ReviewSessionDto, ReviewThreadDto } from '@/api/ws-api';
-import { Button, Loader2, PanelRightClose, PanelRightOpen, Textarea, toastManager } from '@workspace/ui';
+import type { ReviewThreadDto } from '@/api/ws-api';
+import { Button, Loader2, Textarea, toastManager } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
-import { ReviewSessionPanel } from '@/components/diff/ReviewSessionPanel';
+import { useReviewContext } from '@/hooks/use-review-context';
+import { useReviewSnapshotStore } from '@/hooks/use-review-snapshot-store';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
+import { useQueryStates } from 'nuqs';
+import { rightSidebarParams } from '@/lib/nuqs/searchParams';
 import { cn } from '@/lib/utils';
-import { X } from 'lucide-react';
+import { X, FileCheck } from 'lucide-react';
 
 interface DiffViewerProps {
   repoPath: string;
   filePath: string;
-  onRunReviewInTerminal?: (command: string, label: string) => Promise<void> | void;
-}
-
-interface ReviewSnapshotView {
-  snapshotGuid: string;
-  label: string;
-}
-
-interface ReviewContextState {
-  session: ReviewSessionDto | null;
-  revision: ReviewSessionDto['revisions'][number] | null;
-  file: ReviewFileDto | null;
-  threads: ReviewThreadDto[];
-  canEdit: boolean;
 }
 
 interface InlineCommentDraft {
@@ -76,27 +64,28 @@ const SCROLLBAR_CSS = `
 export const DiffViewer = ({
   repoPath,
   filePath,
-  onRunReviewInTerminal,
 }: DiffViewerProps) => {
   const { workspaceId } = useContextParams();
+  const [, setSidebarParams] = useQueryStates(rightSidebarParams);
+  const reviewCtx = useReviewContext({ workspaceId, filePath });
+  const reviewSnapshotView = useReviewSnapshotStore((s) => s.current);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [oldFile, setOldFile] = useState<FileContents | null>(null);
   const [newFile, setNewFile] = useState<FileContents | null>(null);
   const [workingDiff, setWorkingDiff] = useState<FileDiffMetadata | null>(null);
   const [diffCompareRef, setDiffCompareRef] = useState<string | null>(null);
-  const [reviewSnapshotView, setReviewSnapshotView] = useState<ReviewSnapshotView | null>(null);
-  const [isReviewDrawerOpen, setIsReviewDrawerOpen] = useState(false);
-  const [reviewContext, setReviewContext] = useState<ReviewContextState>({
-    session: null,
-    revision: null,
-    file: null,
-    threads: [],
-    canEdit: false,
-  });
   const [inlineCommentDraft, setInlineCommentDraft] = useState<InlineCommentDraft | null>(null);
   const [inlineCommentBody, setInlineCommentBody] = useState('');
   const [isSubmittingInlineComment, setIsSubmittingInlineComment] = useState(false);
+  const reviewContext = useMemo(() => ({
+    session: reviewCtx.currentSession,
+    revision: reviewCtx.currentRevision,
+    file: reviewCtx.currentFile,
+    threads: reviewCtx.threads,
+    canEdit: reviewCtx.canEdit,
+  }), [reviewCtx.currentSession, reviewCtx.currentRevision, reviewCtx.currentFile, reviewCtx.threads, reviewCtx.canEdit]);
+
   const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
   const [wordWrap, setWordWrap] = useState(false);
   const [disableBackground, setDisableBackground] = useState(false);
@@ -462,7 +451,6 @@ export const DiffViewer = ({
       });
       setInlineCommentBody('');
       setInlineCommentDraft(null);
-      setIsReviewDrawerOpen(false);
     } catch (error) {
       toastManager.add({
         title: 'Failed to create review comment',
@@ -792,12 +780,11 @@ export const DiffViewer = ({
             );
           })()}
           <button
-            onClick={() => setIsReviewDrawerOpen((open) => !open)}
-            aria-expanded={isReviewDrawerOpen}
-            aria-label={isReviewDrawerOpen ? 'Hide review session drawer' : 'Show review session drawer'}
+            onClick={() => setSidebarParams({ rsTab: 'changes', rsView: 'review' })}
+            aria-label="Open review panel"
             className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 cursor-pointer"
           >
-            {isReviewDrawerOpen ? <PanelRightClose className="size-3.5" /> : <PanelRightOpen className="size-3.5" />}
+            <FileCheck className="size-3.5" />
             <span>Review</span>
           </button>
         </div>
@@ -837,30 +824,7 @@ export const DiffViewer = ({
           </div>
         </div>
 
-        <div
-          className={`absolute inset-y-0 right-0 z-20 flex w-full justify-end overflow-hidden ${isReviewDrawerOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
-          aria-hidden={!isReviewDrawerOpen}
-        >
-          <div
-            className="pointer-events-auto h-full w-full max-w-[min(92vw,460px)] border-l border-border bg-background/95 shadow-[-20px_0_40px_rgba(0,0,0,0.22)] backdrop-blur transition-transform duration-300 ease-out"
-            style={{
-              transform: isReviewDrawerOpen ? 'translateX(0)' : 'translateX(100%)',
-            }}
-          >
-            <ReviewSessionPanel
-              workspaceId={workspaceId}
-              filePath={filePath}
-              selectedSnapshotGuid={reviewSnapshotView?.snapshotGuid ?? null}
-              onSelectSnapshotView={(snapshotGuid, label) =>
-                setReviewSnapshotView({ snapshotGuid, label })
-              }
-              onSelectLiveView={() => setReviewSnapshotView(null)}
-              onRunInTerminal={onRunReviewInTerminal}
-              onReviewContextChange={setReviewContext}
-            />
-          </div>
         </div>
-      </div>
     </div>
   );
 };

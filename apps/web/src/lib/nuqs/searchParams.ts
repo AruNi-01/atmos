@@ -131,11 +131,11 @@ export const leftSidebarParams = {
 // RightSidebar – tab & sub-view
 // ---------------------------------------------------------------------------
 export type RightSidebarTab = "changes" | "run-preview";
-export type ChangesView = "changes" | "pr" | "actions";
+export type ChangesView = "changes" | "pr" | "actions" | "review";
 
 export const rightSidebarParams = {
   rsTab: parseAsStringEnum<RightSidebarTab>(["changes", "run-preview"]).withDefault("changes"),
-  rsView: parseAsStringEnum<ChangesView>(["changes", "pr", "actions"]).withDefault("changes"),
+  rsView: parseAsStringEnum<ChangesView>(["changes", "pr", "actions", "review"]).withDefault("changes"),
 };
 
 // ---------------------------------------------------------------------------

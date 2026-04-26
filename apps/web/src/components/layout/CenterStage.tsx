@@ -77,6 +77,7 @@ import type { TerminalPaneAgent } from "@/components/terminal/types";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { useQueryStates } from "nuqs";
 import { centerStageParams } from "@/lib/nuqs/searchParams";
+import { useReviewTerminalRunnerStore } from "@/hooks/use-review-terminal-runner";
 import type { FixedTab } from "@/lib/nuqs/searchParams";
 import { useContextParams } from "@/hooks/use-context-params";
 import { useDialogStore } from "@/hooks/use-dialog-store";
@@ -932,6 +933,13 @@ const CenterStage: React.FC = () => {
     },
     [activeFilePath, effectiveContextId, setActiveFile, setActiveTerminalTab, setUrlParams],
   );
+
+  React.useEffect(() => {
+    useReviewTerminalRunnerStore.getState().setRunner(handleRunReviewInTerminal);
+    return () => {
+      useReviewTerminalRunnerStore.getState().setRunner(null);
+    };
+  }, [handleRunReviewInTerminal]);
 
   const handleAddAgent = (agentId: string, targetTerminalTabId: string = FIXED_TERMINAL_TAB_VALUE) => {
     if (!effectiveContextId) return;
@@ -2008,7 +2016,6 @@ const CenterStage: React.FC = () => {
               <DiffViewer
                 repoPath={currentRepoPath}
                 filePath={getEditorSourcePath(file.path)}
-                onRunReviewInTerminal={handleRunReviewInTerminal}
               />
             ) : isConflictResolveEditorPath(file.path) ? (
               <GitConflictResolver />
