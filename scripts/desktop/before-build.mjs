@@ -74,6 +74,13 @@ run("cargo", ["build", "--release", "--bin", "api", "--target", targetTriple], {
   },
 });
 
+run("cargo", ["build", "--release", "--bin", "atmos", "--target", targetTriple], {
+  env: {
+    ...process.env,
+    ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
+  },
+});
+
 const binExt = targetTriple.includes("windows") ? ".exe" : "";
 const binariesDir = join(rootDir, "apps/desktop/src-tauri/binaries");
 mkdirSync(binariesDir, { recursive: true });
@@ -82,6 +89,14 @@ const fromSidecar = join(rootDir, `target/${targetTriple}/release/api${binExt}`)
 const toSidecar = join(binariesDir, `api-${targetTriple}${binExt}`);
 cpSync(fromSidecar, toSidecar);
 console.log(`Prepared sidecar: ${toSidecar}`);
+
+const cliResourceDir = join(binariesDir, "atmos-cli");
+const fromCli = join(rootDir, `target/${targetTriple}/release/atmos${binExt}`);
+const toCli = join(cliResourceDir, `atmos${binExt}`);
+rmSync(cliResourceDir, { recursive: true, force: true });
+mkdirSync(cliResourceDir, { recursive: true });
+cpSync(fromCli, toCli);
+console.log(`Prepared Atmos CLI resource: ${toCli}`);
 
 const webOut = join(rootDir, "apps/web/out");
 const sidecarWebOut = join(binariesDir, "web-out");

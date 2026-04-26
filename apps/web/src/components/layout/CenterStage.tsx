@@ -978,6 +978,21 @@ const CenterStage: React.FC = () => {
     terminalQuickOpenAgents,
   ]);
 
+  const handleRunReviewInTerminal = React.useCallback(
+    (command: string, label: string) => {
+      if (!effectiveContextId) return;
+      if (activeFilePath) {
+        setActiveFile(null, effectiveContextId);
+      }
+      setActiveTerminalTab(effectiveContextId, FIXED_TERMINAL_TAB_VALUE);
+      setUrlParams({ tab: FIXED_TERMINAL_TAB_VALUE, wikiPage: null });
+      runWhenTerminalGridReady(FIXED_TERMINAL_TAB_VALUE, (grid) => {
+        void grid.createAndRunTerminal({ label, command });
+      });
+    },
+    [activeFilePath, effectiveContextId, setActiveFile, setActiveTerminalTab, setUrlParams],
+  );
+
   const handleAddAgent = (agentId: string, targetTerminalTabId: string = FIXED_TERMINAL_TAB_VALUE) => {
     if (!effectiveContextId) return;
 
@@ -2057,6 +2072,7 @@ const CenterStage: React.FC = () => {
               <DiffViewer
                 repoPath={currentRepoPath}
                 filePath={getEditorSourcePath(file.path)}
+                onRunReviewInTerminal={handleRunReviewInTerminal}
               />
             ) : isConflictResolveEditorPath(file.path) ? (
               <GitConflictResolver />

@@ -278,6 +278,10 @@ build-api:
 build-cli:
     cargo build --release --bin atmos
 
+# 构建本地 Web runtime 产物 (api + atmos + web)
+build-local-runtime *args:
+    node ./scripts/local-runtime/build-runtime.mjs {{args}}
+
 # 构建所有 Rust 项目
 build-rust:
     cargo build --release --workspace
