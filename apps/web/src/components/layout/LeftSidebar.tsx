@@ -731,60 +731,106 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         isWorkspacesExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                     )}>
                         <div className="overflow-hidden border-t border-sidebar-border/30">
-                            <div className="grid grid-cols-1 @[200px]:grid-cols-2">
-                                {[
-                                    { id: 'workspaces', label: 'Workspaces', icon: SquareKanban, path: '/workspaces' },
+                            {(() => {
+                                const managementItems: Array<{
+                                    id: string;
+                                    label: string;
+                                    icon: typeof FolderKanban;
+                                    path?: string;
+                                    kind?: 'kanban';
+                                }> = [
+                                    { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
                                     { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
                                     { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
                                     { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
-                                ].map((item, index) => {
-                                    const Icon = item.icon;
-                                    const isActive = currentView === item.id;
-                                    const isLeftColumnOnTwoCol = index % 2 === 0;
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => router.push(item.path)}
-                                            className={cn(
+                                    { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' },
+                                ];
+                                const totalItems = managementItems.length;
+                                const isOddCount = totalItems % 2 === 1;
+                                return (
+                                    <div className="grid grid-cols-1 @[200px]:grid-cols-2">
+                                        {managementItems.map((item, index) => {
+                                            const Icon = item.icon;
+                                            const isActive = currentView === item.id;
+                                            const isLeftColumnOnTwoCol = index % 2 === 0;
+                                            const isLastItemAlone = isOddCount && index === totalItems - 1;
+                                            const cardClassName = cn(
                                                 "group relative h-12 cursor-pointer overflow-hidden transition-all duration-300 outline-none",
                                                 "border-b border-b-sidebar-border/30 transition-colors",
-                                                isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
+                                                isLastItemAlone
+                                                    ? "@[200px]:col-span-2"
+                                                    : isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
                                                 isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                                            )}
-                                        >
-                                            <AnimatePresence>
-                                                {isActive && (
-                                                    <motion.div
-                                                        initial={{ scaleX: 0, opacity: 0 }}
-                                                        animate={{ scaleX: 1, opacity: 1 }}
-                                                        exit={{ scaleX: 0, opacity: 0 }}
-                                                        transition={{
-                                                            default: { ease: [0.16, 1, 0.3, 1] },
-                                                            opacity: { duration: 0.5 },
-                                                            scaleX: {
-                                                                duration: isActive ? 0.6 : 1.0,
-                                                                type: "tween"
-                                                            }
-                                                        }}
-                                                        className="absolute bottom-0 left-0 right-0 h-px bg-sidebar-foreground z-10 origin-center"
-                                                    />
-                                                )}
-                                            </AnimatePresence>
+                                            );
+                                            const cardInner = (
+                                                <>
+                                                    <AnimatePresence>
+                                                        {isActive && (
+                                                            <motion.div
+                                                                initial={{ scaleX: 0, opacity: 0 }}
+                                                                animate={{ scaleX: 1, opacity: 1 }}
+                                                                exit={{ scaleX: 0, opacity: 0 }}
+                                                                transition={{
+                                                                    default: { ease: [0.16, 1, 0.3, 1] },
+                                                                    opacity: { duration: 0.5 },
+                                                                    scaleX: {
+                                                                        duration: isActive ? 0.6 : 1.0,
+                                                                        type: "tween"
+                                                                    }
+                                                                }}
+                                                                className="absolute bottom-0 left-0 right-0 h-px bg-sidebar-foreground z-10 origin-center"
+                                                            />
+                                                        )}
+                                                    </AnimatePresence>
 
-                                            <div className="flex flex-col h-[200%] w-full transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) group-hover:-translate-y-1/2">
-                                                <div className="flex items-center justify-center h-1/2 w-full transition-all duration-300 group-hover:opacity-0 group-hover:scale-90">
-                                                    <Icon className="size-4.5" />
+                                                    <div className="flex flex-col h-[200%] w-full transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) group-hover:-translate-y-1/2">
+                                                        <div className="flex items-center justify-center h-1/2 w-full transition-all duration-300 group-hover:opacity-0 group-hover:scale-90">
+                                                            <Icon className="size-4.5" />
+                                                        </div>
+                                                        <div className="flex items-center justify-center h-1/2 w-full px-1">
+                                                            <span className="text-[10px] font-bold uppercase tracking-tight text-center leading-none">
+                                                                {item.label}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            );
+
+                                            if (item.kind === 'kanban') {
+                                                return (
+                                                    <WorkspaceKanbanView
+                                                        key={item.id}
+                                                        projects={projects}
+                                                        availableLabels={workspaceLabels}
+                                                        onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                                        onUpdatePriority={updateWorkspacePriority}
+                                                        onCreateLabel={createWorkspaceLabel}
+                                                        onUpdateLabel={updateWorkspaceLabel}
+                                                        onUpdateLabels={updateWorkspaceLabels}
+                                                        filters={kanbanFilters}
+                                                        onFiltersChange={setKanbanFilters}
+                                                        trigger={(
+                                                            <div className={cardClassName}>
+                                                                {cardInner}
+                                                            </div>
+                                                        )}
+                                                    />
+                                                );
+                                            }
+
+                                            return (
+                                                <div
+                                                    key={item.id}
+                                                    onClick={() => item.path && router.push(item.path)}
+                                                    className={cardClassName}
+                                                >
+                                                    {cardInner}
                                                 </div>
-                                                <div className="flex items-center justify-center h-1/2 w-full px-1">
-                                                    <span className="text-[10px] font-bold uppercase tracking-tight text-center leading-none">
-                                                        {item.label}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
 
