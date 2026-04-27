@@ -33,6 +33,7 @@ import {
 import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
+import { useContextParams } from "@/hooks/use-context-params";
 import { useQueryState } from "nuqs";
 import { centerStageParams, leftSidebarParams } from "@/lib/nuqs/searchParams";
 import { useDialogStore } from "@/hooks/use-dialog-store";
@@ -474,6 +475,7 @@ export function WorkspaceKanbanView({
   trigger,
 }: WorkspaceKanbanViewProps) {
   const router = useAppRouter();
+  const { workspaceId: currentWorkspaceId, projectId: currentProjectId } = useContextParams();
   const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const [searchQuery, setSearchQuery] = useQueryState("lsKanbanQ", leftSidebarParams.lsKanbanQ);
   const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
@@ -889,7 +891,18 @@ export function WorkspaceKanbanView({
                 variant="outline"
                 className="h-7 gap-1.5 rounded-md px-2.5 text-xs"
                 onClick={() => {
-                  setSelectedProjectId("");
+                  let preselectedProjectId = "";
+                  if (currentProjectId) {
+                    preselectedProjectId = currentProjectId;
+                  } else if (currentWorkspaceId) {
+                    const owningProject = projects.find((project) =>
+                      project.workspaces.some((workspace) => workspace.id === currentWorkspaceId),
+                    );
+                    if (owningProject) {
+                      preselectedProjectId = owningProject.id;
+                    }
+                  }
+                  setSelectedProjectId(preselectedProjectId);
                   void setNewWorkspace(true);
                 }}
               >
