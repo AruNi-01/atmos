@@ -228,8 +228,8 @@ function InstalledSkillListCard({
       className={cn(
         "group flex h-full cursor-pointer flex-col rounded-xl border p-5 transition-all duration-200",
         isDisabled
-          ? "border-border/70 bg-muted/25 hover:bg-muted/35"
-          : "border-border bg-card hover:shadow-md",
+          ? "border-border/70 hover:bg-muted/35"
+          : "border-border hover:shadow-md",
       )}
     >
       <div className="flex flex-1 flex-col">
