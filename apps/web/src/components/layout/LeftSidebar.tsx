@@ -799,17 +799,19 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                             if (item.kind === 'kanban') {
                                                 return (
                                                     <WorkspaceKanbanView
-                                                        key={item.id}
-                                                        projects={projects}
-                                                        availableLabels={workspaceLabels}
-                                                        onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-                                                        onUpdatePriority={updateWorkspacePriority}
-                                                        onCreateLabel={createWorkspaceLabel}
-                                                        onUpdateLabel={updateWorkspaceLabel}
-                                                        onUpdateLabels={updateWorkspaceLabels}
-                                                        filters={kanbanFilters}
-                                                        onFiltersChange={setKanbanFilters}
-                                                        trigger={(
+                                                       key={item.id}
+                                                       projects={projects}
+                                                       availableLabels={workspaceLabels}
+                                                       onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                                       onUpdatePriority={updateWorkspacePriority}
+                                                       onCreateLabel={createWorkspaceLabel}
+                                                       onUpdateLabel={updateWorkspaceLabel}
+                                                       onUpdateLabels={updateWorkspaceLabels}
+                                                       onPinWorkspace={pinWorkspace}
+                                                       onUnpinWorkspace={unpinWorkspace}
+                                                       filters={kanbanFilters}
+                                                       onFiltersChange={setKanbanFilters}
+                                                       trigger={(
                                                             <div className={cardClassName}>
                                                                 {cardInner}
                                                             </div>
@@ -1197,6 +1199,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                 onCreateLabel={createWorkspaceLabel}
                                 onUpdateLabel={updateWorkspaceLabel}
                                 onUpdateLabels={updateWorkspaceLabels}
+                                onPinWorkspace={pinWorkspace}
+                                onUnpinWorkspace={unpinWorkspace}
                                 filters={kanbanFilters}
                                 onFiltersChange={setKanbanFilters}
                                 trigger={(
