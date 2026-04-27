@@ -323,7 +323,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             setPaneAgent(workspaceId, existingId, agent);
           }
           const termRef = terminalRefsMap.current.get(existingId);
-          if (termRef) {
+          // Only send immediately when the underlying tmux session has reported
+          // input-ready. Otherwise the websocket is still attaching and the
+          // input would be silently dropped — queue it for onSessionReady.
+          if (termRef && readyPanesRef.current.has(existingId)) {
             termRef.sendText(command + "\r");
           } else {
             pendingCommandsRef.current.set(existingId, command + "\r");
