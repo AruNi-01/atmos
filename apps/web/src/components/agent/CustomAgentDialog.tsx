@@ -253,7 +253,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
         }
       }}
     >
-      <DialogContent showCloseButton={true} className="sm:max-w-lg">
+      <DialogContent showCloseButton={true} className="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
             <Terminal className="size-5 text-primary" />
@@ -366,9 +366,9 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
             </DialogFooter>
           </>
         ) : (
-          <>
-            <div className="space-y-3 py-2">
-              <div className="space-y-2">
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-2">
+            <div className="min-h-0 space-y-3 overflow-hidden py-2">
+              <div className="flex h-full min-h-0 flex-col space-y-2">
                 <label className="text-sm font-medium text-foreground">
                   custom_agents <span className="text-muted-foreground font-normal">(acp_servers.json)</span>
                 </label>
@@ -379,7 +379,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                     setCustomJsonError(null);
                   }}
                   placeholder='{ "pi": { "type": "custom", "command": "npx", "args": ["-y", "pi-acp"], "env": {} } }'
-                  className="min-h-[260px] font-mono text-sm leading-relaxed resize-y"
+                  className="field-sizing-fixed min-h-[260px] flex-1 overflow-y-auto font-mono text-sm leading-relaxed resize-none"
                   spellCheck={false}
                 />
                 {customJsonError && (
@@ -423,7 +423,7 @@ export const CustomAgentDialog: React.FC<CustomAgentDialogProps> = ({
                 )}
               </Button>
             </DialogFooter>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

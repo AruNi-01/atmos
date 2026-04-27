@@ -72,10 +72,10 @@ export const AgentCard = React.memo<AgentCardProps>(function AgentCard({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2, delay: index * 0.03, ease: "easeOut" }}
       className={cn(
-        "group relative flex flex-col rounded-xl border p-5 transition-all duration-200 hover:shadow-md",
+        "group relative flex min-h-[188px] flex-col rounded-xl border p-5 transition-all duration-200 hover:shadow-md",
         item.installed
-          ? "bg-card border-border/60"
-          : "bg-background border-border",
+          ? "bg-transparent border-border/60"
+          : "bg-background border-border/60",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -252,7 +252,7 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.2, delay: index * 0.03, ease: "easeOut" }}
-        className="group relative flex flex-col rounded-xl border bg-card border-border/60 p-5 transition-all duration-200 hover:shadow-md"
+        className="group relative flex min-h-[188px] flex-col rounded-xl border border-border/60 bg-transparent p-5 transition-all duration-200 hover:shadow-md"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex items-center gap-3">
@@ -273,8 +273,12 @@ export const CustomAgentCard = React.memo<CustomAgentCardProps>(
           </span>
         </div>
 
+        <p className="mt-4 line-clamp-2 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+          {agent.command} {agent.args.join(" ")}
+        </p>
+
         {Object.keys(agent.env).length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex max-h-12 flex-wrap gap-1.5 overflow-hidden">
             {Object.entries(agent.env).map(([key, value]) => (
               <span
                 key={key}
@@ -365,7 +369,7 @@ export const AgentSkeletonGrid: React.FC = () => (
     {[...Array(6)].map((_, i) => (
       <div
         key={i}
-        className="rounded-xl border border-border bg-card p-5 space-y-4"
+        className="rounded-xl border border-border bg-transparent p-5 space-y-4"
       >
         <div className="flex items-center gap-3">
           <Skeleton className="size-10 rounded-lg" />
