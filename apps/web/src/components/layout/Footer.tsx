@@ -471,13 +471,13 @@ const Footer: React.FC = () => {
                 statusColors[connectionState],
                 connectionState !== 'connected' && "animate-pulse"
               )}></div>
-              <span className="font-medium text-muted-foreground">WebSocket: {statusText[connectionState]}</span>
+              <span className="font-medium text-muted-foreground">{statusText[connectionState]}</span>
             </div>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs p-0">
             <div className="px-3 py-2 text-[11px] font-mono">
               <div className="font-semibold mb-1.5 flex items-center justify-between gap-4">
-                <span>Active Connections</span>
+                <span>Active WebSocket</span>
                 {connections.length > 0 && (
                   <span className="font-normal text-background/90">{connections.length}</span>
                 )}
