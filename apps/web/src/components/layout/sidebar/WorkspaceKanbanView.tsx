@@ -34,7 +34,8 @@ import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useQueryState } from "nuqs";
-import { leftSidebarParams } from "@/lib/nuqs/searchParams";
+import { centerStageParams, leftSidebarParams } from "@/lib/nuqs/searchParams";
+import { useDialogStore } from "@/hooks/use-dialog-store";
 import type {
   Project,
   Workspace,
@@ -475,6 +476,8 @@ export function WorkspaceKanbanView({
   const router = useAppRouter();
   const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const [searchQuery, setSearchQuery] = useQueryState("lsKanbanQ", leftSidebarParams.lsKanbanQ);
+  const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
+  const setSelectedProjectId = useDialogStore((s) => s.setSelectedProjectId);
   const availableStatusSet = React.useMemo(
     () => new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value)),
     [],
@@ -881,6 +884,18 @@ export function WorkspaceKanbanView({
               ) : null}
             </div>
             <div className="flex items-center justify-end gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 rounded-md px-2.5 text-xs"
+                onClick={() => {
+                  setSelectedProjectId("");
+                  void setNewWorkspace(true);
+                }}
+              >
+                <Plus className="size-3.5" />
+                New Workspace
+              </Button>
               <div ref={searchContainerRef} className="relative h-7 w-56">
                 <div
                   className={cn(
