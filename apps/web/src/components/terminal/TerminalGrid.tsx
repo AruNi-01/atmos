@@ -152,6 +152,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
   const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
+  // Track panes whose session has already become ready, so we know whether
+  // to call sendText directly or queue a pending command for onSessionReady.
+  const readyPanesRef = React.useRef<Set<string>>(new Set());
   const [splitMenuKey, setSplitMenuKey] = React.useState<string | null>(null);
   const [isPaneDragging, setIsPaneDragging] = React.useState(false);
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -639,6 +642,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
               }
             }}
             onSessionReady={() => {
+              readyPanesRef.current.add(id);
               const cmd = pendingCommandsRef.current.get(id);
               if (cmd) {
                 pendingCommandsRef.current.delete(id);

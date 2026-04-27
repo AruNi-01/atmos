@@ -432,6 +432,13 @@ const CenterStage: React.FC = () => {
       evictWorkspaceRuntime: state.evictWorkspaceRuntime,
     }))
   );
+  const isTerminalWorkspaceReady = useTerminalStore((state) => {
+    if (!effectiveContextId) return false;
+    return (
+      state.loadedWorkspaces.has(effectiveContextId) &&
+      state.hydratedTerminalScopes.has(effectiveContextId)
+    );
+  });
   const setupProgressMap = useProjectStore((s) => s.setupProgress);
   const currentSetupProgress = workspaceId ? setupProgressMap[workspaceId] : null;
   const isSetupBlocking = isWorkspaceSetupBlocking(currentSetupProgress);
@@ -935,6 +942,7 @@ const CenterStage: React.FC = () => {
       !effectiveContextId ||
       currentView !== "workspace" ||
       isSetupBlocking ||
+      !isTerminalWorkspaceReady ||
       pendingWorkspaceAgentRun?.workspaceId !== effectiveContextId
     ) {
       return;
@@ -970,6 +978,7 @@ const CenterStage: React.FC = () => {
     defaultAgentId,
     effectiveContextId,
     isSetupBlocking,
+    isTerminalWorkspaceReady,
     pendingWorkspaceAgentRun,
     setActiveFile,
     setActiveTerminalTab,
