@@ -310,6 +310,24 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   React.useImperativeHandle(ref, () => ({
     addTerminal: (label?: string, agent?: TerminalPaneAgent) => addTerminal(label, agent),
     createAndRunTerminal: async ({ label, command, agent }) => {
+      // If there's exactly one fresh default pane (no agent, no pending command),
+      // reuse it directly instead of creating a second terminal window.
+      const currentPanes = Object.entries(panes);
+      if (currentPanes.length === 1) {
+        const [existingId, existingPane] = currentPanes[0];
+        if (!existingPane.agent && !pendingCommandsRef.current.has(existingId)) {
+          if (agent) {
+            setPaneAgent(workspaceId, existingId, agent);
+          }
+          const termRef = terminalRefsMap.current.get(existingId);
+          if (termRef) {
+            termRef.sendText(command + "\r");
+          } else {
+            pendingCommandsRef.current.set(existingId, command + "\r");
+          }
+          return;
+        }
+      }
       const paneId = addTerminal(label, agent);
       pendingCommandsRef.current.set(paneId, command + "\r");
     },
@@ -349,7 +367,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       }
       terminalRefsMap.current.clear();
     },
-  }), [workspaceId, addTerminal, getPaneId, getPaneIdByLabelOrWindowName, removeTerminalFromScope]);
+  }), [workspaceId, addTerminal, getPaneId, getPaneIdByLabelOrWindowName, removeTerminalFromScope, panes, setPaneAgent]);
 
   const setLayoutForScope = isCodeReview
     ? setCodeReviewLayout

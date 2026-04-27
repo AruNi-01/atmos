@@ -925,7 +925,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     return (
       <div
         className={cn(
-          "min-h-full overflow-y-auto bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
+          "min-h-full overflow-hidden bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
           className,
         )}
       >
@@ -959,7 +959,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   return (
     <div
       className={cn(
-        "relative min-h-full overflow-y-auto bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
+        "relative min-h-full overflow-hidden bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6",
         className,
       )}
     >
