@@ -22,13 +22,18 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   cn,
 } from "@workspace/ui";
 import {
+  ArrowBigUp,
   Bot,
   Check,
   ChevronDown,
   Clapperboard,
+  Command,
   Ellipsis,
   Eye,
   ExternalLink,
@@ -41,6 +46,7 @@ import {
   RotateCw,
   Sparkles,
 } from "lucide-react";
+import { useHotkeys } from "react-hotkeys-hook";
 import dynamic from "next/dynamic";
 import { AtmosWordmark } from "@/components/ui/AtmosWordmark";
 
@@ -921,6 +927,16 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     isBaseBranchesLoading ||
     (selectedProjectId ? remoteBranches.length === 0 : false);
 
+  useHotkeys('mod+shift+enter', () => {
+    if (!disabledSubmit) {
+      handleSubmit();
+    }
+  }, {
+    enableOnFormTags: true,
+    preventDefault: true,
+    description: 'Create workspace',
+  });
+
   if (!isMounted) {
     return (
       <div
@@ -1061,7 +1077,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                 >
                   <div className="relative">
                     {!initialRequirement ? (
-                      <div className="pointer-events-none absolute inset-y-auto right-2 top-2 left-0 overflow-hidden text-base leading-7 text-muted-foreground/65">
+                      <div className="pointer-events-none absolute inset-y-auto right-2 top-2 left-0 overflow-hidden text-base leading-6 text-muted-foreground/65">
                         {exitingPlaceholder ? (
                           <span className="welcome-placeholder-exit block truncate">
                             {exitingPlaceholder}
@@ -1087,7 +1103,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                         setSubmitError(null);
                       }}
                       placeholder=""
-                      className="min-h-[88px] w-full resize-none rounded-xl border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-7 text-foreground outline-none transition-colors"
+                      className="min-h-[88px] w-full resize-none rounded-xl border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none transition-colors"
                     />
                   </div>
 
@@ -1177,19 +1193,31 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                       </div>
                     </div>
 
-                    <Button
-                      type="submit"
-                      size="icon"
-                      className="size-9 shrink-0 rounded-md self-end md:self-auto"
-                      disabled={disabledSubmit}
-                      aria-label={isSubmitting ? "Creating workspace" : "Create workspace and run agent"}
-                    >
-                      {isSubmitting ? (
-                        <LoaderCircle className="size-4 animate-spin" />
-                      ) : (
-                        <Clapperboard className="size-4" />
-                      )}
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="submit"
+                          size="icon"
+                          className="size-9 shrink-0 rounded-md self-end md:self-auto"
+                          disabled={disabledSubmit}
+                          aria-label={isSubmitting ? "Creating workspace" : "Create workspace and run agent"}
+                        >
+                          {isSubmitting ? (
+                            <LoaderCircle className="size-4 animate-spin" />
+                          ) : (
+                            <Clapperboard className="size-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <div className="flex items-center gap-2">
+                          <span>Create Workspace</span>
+                          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                            <Command className="size-3" /><ArrowBigUp className="size-3" /><span className="text-xs">↵</span>
+                          </kbd>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -1206,13 +1234,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
                     <div
                       className={cn(
-                        "absolute left-[calc(100%+0.5rem)] top-1/2 z-30 w-[min(92vw,760px)] max-w-[760px] origin-left -translate-y-1/2 rounded-[1.5rem] border border-border/60 bg-background p-0 shadow-2xl backdrop-blur-md transition-all duration-200 ease-out",
+                        "absolute bottom-[calc(100%+0.5rem)] left-[calc(100%+0.5rem)] z-30 w-[min(92vw,760px)] max-w-[760px] origin-bottom-left rounded-[1.5rem] border border-border/60 bg-background p-0 shadow-2xl backdrop-blur-md transition-all duration-200 ease-out",
                         isAdvancedOpen
                           ? "pointer-events-auto translate-x-0 scale-100 opacity-100"
                           : "pointer-events-none -translate-x-2 scale-[0.18] opacity-0"
                       )}
                     >
-                      <div className="max-h-[70vh] overflow-y-auto p-4 sm:p-5">
+                      <div className="max-h-[60vh] overflow-y-auto p-4 sm:p-5">
                         <div className="grid gap-5">
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="grid gap-2">
