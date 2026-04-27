@@ -1955,7 +1955,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                               >
                                 <span className="flex min-w-0 items-center gap-2">
                                   <span className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-border/60 bg-background/75 text-foreground/85 [&_svg]:size-3.5 [&_span]:size-3.5">
-                                    <ProviderGlyph providerId={provider.id} />
+                                    <ProviderGlyph providerId={provider.id} size={14} />
                                   </span>
                                   <span className="min-w-0 truncate">{provider.label}</span>
                                 </span>
