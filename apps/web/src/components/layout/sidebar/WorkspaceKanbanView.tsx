@@ -33,10 +33,8 @@ import {
 import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { useContextParams } from "@/hooks/use-context-params";
 import { useQueryState } from "nuqs";
-import { centerStageParams, leftSidebarParams } from "@/lib/nuqs/searchParams";
-import { useDialogStore } from "@/hooks/use-dialog-store";
+import { leftSidebarParams } from "@/lib/nuqs/searchParams";
 import type {
   Project,
   Workspace,
@@ -475,11 +473,8 @@ export function WorkspaceKanbanView({
   trigger,
 }: WorkspaceKanbanViewProps) {
   const router = useAppRouter();
-  const { workspaceId: currentWorkspaceId, projectId: currentProjectId } = useContextParams();
   const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const [searchQuery, setSearchQuery] = useQueryState("lsKanbanQ", leftSidebarParams.lsKanbanQ);
-  const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
-  const setSelectedProjectId = useDialogStore((s) => s.setSelectedProjectId);
   const availableStatusSet = React.useMemo(
     () => new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value)),
     [],
@@ -886,29 +881,6 @@ export function WorkspaceKanbanView({
               ) : null}
             </div>
             <div className="flex items-center justify-end gap-1.5">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 gap-1.5 rounded-md px-2.5 text-xs"
-                onClick={() => {
-                  let preselectedProjectId = "";
-                  if (currentProjectId) {
-                    preselectedProjectId = currentProjectId;
-                  } else if (currentWorkspaceId) {
-                    const owningProject = projects.find((project) =>
-                      project.workspaces.some((workspace) => workspace.id === currentWorkspaceId),
-                    );
-                    if (owningProject) {
-                      preselectedProjectId = owningProject.id;
-                    }
-                  }
-                  setSelectedProjectId(preselectedProjectId);
-                  void setNewWorkspace(true);
-                }}
-              >
-                <Plus className="size-3.5" />
-                New Workspace
-              </Button>
               <div ref={searchContainerRef} className="relative h-7 w-56">
                 <div
                   className={cn(

@@ -16,6 +16,9 @@ import {
   DropdownMenuTrigger,
   Input,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   ScrollArea,
   Select,
   SelectContent,
@@ -421,7 +424,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const branchInputRef = React.useRef<HTMLInputElement | null>(null);
   const prevProjectIdsRef = React.useRef<string[]>([]);
   const waitingForNewProjectRef = React.useRef(false);
-  const advancedPopoverRef = React.useRef<HTMLDivElement | null>(null);
+
 
   React.useEffect(() => {
     setIsMounted(true);
@@ -431,19 +434,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setHeadline(WELCOME_HEADLINES[Math.floor(Math.random() * WELCOME_HEADLINES.length)]);
   }, []);
 
-  React.useEffect(() => {
-    if (!isAdvancedOpen) return;
 
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (advancedPopoverRef.current?.contains(target)) return;
-      setIsAdvancedOpen(false);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
-  }, [isAdvancedOpen]);
 
   React.useEffect(() => {
     if (selectedProjectIdFromLauncher && projects.some((project) => project.id === selectedProjectIdFromLauncher)) {
@@ -1114,10 +1105,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                           <button
                             type="button"
                             className={cn(
-                              "inline-flex h-9 min-w-[160px] items-center gap-2 rounded-md border px-3 text-sm backdrop-blur-sm transition-colors",
+                              "inline-flex h-9 min-w-[160px] items-center gap-2 rounded-md border px-3 text-sm backdrop-blur-sm transition-colors hover:bg-muted",
                               projects.length === 0
-                                ? "border-dashed border-border bg-muted/25 text-muted-foreground hover:bg-muted/35"
-                                : "border-border/60 bg-background/40 text-foreground/90 hover:bg-background/55",
+                                ? "border-dashed border-border bg-muted/25 text-muted-foreground"
+                                : "border-border/60 bg-background/40 text-foreground/90",
                             )}
                           >
                             {projects.length === 0 ? (
@@ -1209,7 +1200,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                           )}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="top">
+                      <TooltipContent side="bottom">
                         <div className="flex items-center gap-2">
                           <span>Create Workspace</span>
                           <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
@@ -1222,25 +1213,25 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                 </div>
               <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <div ref={advancedPopoverRef} className="relative">
-                    <button
-                      type="button"
-                      className="inline-flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/35 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      aria-label="Open advanced workspace options"
-                      onClick={() => setIsAdvancedOpen((open) => !open)}
+                  <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/35 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        aria-label="Open advanced workspace options"
+                      >
+                        <Ellipsis className="size-4" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      side="right"
+                      align="end"
+                      sideOffset={8}
+                      collisionPadding={16}
+                      className="flex w-[min(92vw,760px)] max-w-[760px] flex-col overflow-hidden rounded-[1.5rem] border border-border/60 bg-background p-0 shadow-2xl backdrop-blur-md"
+                      style={{ maxHeight: "var(--radix-popover-content-available-height)" }}
                     >
-                      <Ellipsis className="size-4" />
-                    </button>
-
-                    <div
-                      className={cn(
-                        "absolute bottom-[calc(100%+0.5rem)] left-[calc(100%+0.5rem)] z-30 w-[min(92vw,760px)] max-w-[760px] origin-bottom-left rounded-[1.5rem] border border-border/60 bg-background p-0 shadow-2xl backdrop-blur-md transition-all duration-200 ease-out",
-                        isAdvancedOpen
-                          ? "pointer-events-auto translate-x-0 scale-100 opacity-100"
-                          : "pointer-events-none -translate-x-2 scale-[0.18] opacity-0"
-                      )}
-                    >
-                      <div className="max-h-[60vh] overflow-y-auto p-4 sm:p-5">
+                      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
                         <div className="grid gap-5">
                         <div className="grid gap-4 md:grid-cols-2">
                           <div className="grid gap-2">
@@ -1573,19 +1564,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
                       </div>
                     </div>
-                  </div>
-                  </div>
+                    </PopoverContent>
+                  </Popover>
                   {filledSummaryItems.length > 0 ? (
                     <div className="scrollbar-on-hover flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap pr-1">
                       {filledSummaryItems.map((item) => (
-                        <span
-                          key={item.key}
-                          title={item.title}
-                          className="inline-flex h-6 max-w-[9rem] items-center gap-1.5 rounded-md border border-border/70 bg-muted/35 px-2 text-[11px] text-muted-foreground"
-                        >
-                          {renderSummaryIcon(item.key)}
-                          <span className="truncate">{item.value}</span>
-                        </span>
+                        <Tooltip key={item.key}>
+                          <TooltipTrigger asChild>
+                            <span
+                              className="inline-flex h-6 max-w-[9rem] cursor-default items-center gap-1.5 rounded-md border border-border/70 bg-muted/35 px-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted"
+                            >
+                              {renderSummaryIcon(item.key)}
+                              <span className="truncate">{item.value}</span>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">{item.title}</TooltipContent>
+                        </Tooltip>
                       ))}
                     </div>
                   ) : null}

@@ -737,13 +737,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     label: string;
                                     icon: typeof FolderKanban;
                                     path?: string;
-                                    kind?: 'kanban';
+                                    kind?: 'kanban' | 'new-workspace';
                                 }> = [
                                     { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
                                     { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
                                     { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
                                     { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
                                     { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' },
+                                    { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' },
                                 ];
                                 const totalItems = managementItems.length;
                                 const isOddCount = totalItems % 2 === 1;
@@ -817,6 +818,21 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                             </div>
                                                         )}
                                                     />
+                                                );
+                                            }
+
+                                            if (item.kind === 'new-workspace') {
+                                                return (
+                                                    <div
+                                                        key={item.id}
+                                                        onClick={() => {
+                                                            setSelectedProjectId(currentProjectId ?? "");
+                                                            void setNewWorkspace(true);
+                                                        }}
+                                                        className={cardClassName}
+                                                    >
+                                                        {cardInner}
+                                                    </div>
                                                 );
                                             }
 
