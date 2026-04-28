@@ -30,12 +30,12 @@ import { cn } from '@/lib/utils';
 import {
   Check,
   ChevronDown,
+  CloudDownload,
   ExternalLink,
   GitBranch,
   GitPullRequestArrow,
   Github,
   Loader2,
-  LoaderCircle,
   RotateCw,
   Sparkles,
 } from 'lucide-react';
@@ -1016,7 +1016,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   disabled={isIssuesLoading}
                   title="Refresh issues"
                 >
-                  {isIssuesLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
+                  <RotateCw className={cn("size-3.5", isIssuesLoading && "animate-spin")} />
                 </Button>
               ) : repoContext && linkType === 'pr' ? (
                 <Button
@@ -1028,11 +1028,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   disabled={isPrsLoading}
                   title="Refresh PRs"
                 >
-                  {isPrsLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
+                  <RotateCw className={cn("size-3.5", isPrsLoading && "animate-spin")} />
                 </Button>
               ) : null}
               </div>
 
+            <Collapsible open={linkType !== 'none'}>
+              <CollapsibleContent>
             {linkType === 'issue' ? (
               <div className="border-t border-border">
                 <div className="space-y-4 px-6 py-5">
@@ -1090,13 +1092,15 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                             <Button
                               type="button"
                               variant="outline"
+                              size="icon"
                               onClick={handleLoadIssueFromUrl}
                               disabled={isIssuePreviewLoading || !issueUrl.trim()}
+                              title="Load issue"
                             >
                               {isIssuePreviewLoading ? (
                                 <Loader2 className="size-4 animate-spin" />
                               ) : (
-                                'Load'
+                                <CloudDownload className="size-4" />
                               )}
                             </Button>
                           </div>
@@ -1245,10 +1249,16 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                             <Button
                               type="button"
                               variant="outline"
+                              size="icon"
                               onClick={handleLoadPrFromUrl}
                               disabled={isPrPreviewLoading || !prUrl.trim()}
+                              title="Load PR"
                             >
-                              {isPrPreviewLoading ? <Loader2 className="size-4 animate-spin" /> : 'Load'}
+                              {isPrPreviewLoading ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <CloudDownload className="size-4" />
+                              )}
                             </Button>
                           </div>
                         </div>
@@ -1354,6 +1364,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                 </div>
               </div>
             ) : null}
+              </CollapsibleContent>
+            </Collapsible>
             </div>
 
             {submitError && (

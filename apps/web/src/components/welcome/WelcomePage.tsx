@@ -36,6 +36,7 @@ import {
   Check,
   ChevronDown,
   Clapperboard,
+  CloudDownload,
   Command,
   Ellipsis,
   Eye,
@@ -1592,11 +1593,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                               disabled={isIssuesLoading}
                               title="Refresh issues"
                             >
-                              {isIssuesLoading ? (
-                                <LoaderCircle className="size-4 animate-spin" />
-                              ) : (
-                                <RotateCw className="size-4" />
-                              )}
+                              <RotateCw className={cn("size-4", isIssuesLoading && "animate-spin")} />
                             </Button>
                           ) : repoContext && linkType === "pr" ? (
                             <Button
@@ -1608,15 +1605,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                               disabled={isPrsLoading}
                               title="Refresh PRs"
                             >
-                              {isPrsLoading ? (
-                                <LoaderCircle className="size-4 animate-spin" />
-                              ) : (
-                                <RotateCw className="size-4" />
-                              )}
+                              <RotateCw className={cn("size-4", isPrsLoading && "animate-spin")} />
                             </Button>
                           ) : null}
                           </div>
 
+                        <Collapsible open={linkType !== "none"}>
+                          <CollapsibleContent>
                         {linkType === "issue" ? (
                           <div className="border-t border-border/60 p-4">
                             <div className="space-y-4">
@@ -1680,13 +1675,15 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                       <Button
                                         type="button"
                                         variant="outline"
+                                        size="icon"
                                         onClick={handleLoadIssueFromUrl}
                                         disabled={isIssuePreviewLoading || !issueUrl.trim()}
+                                        title="Load issue"
                                       >
                                         {isIssuePreviewLoading ? (
                                           <Loader2 className="size-4 animate-spin" />
                                         ) : (
-                                          "Load"
+                                          <CloudDownload className="size-4" />
                                         )}
                                       </Button>
                                     </div>
@@ -1844,13 +1841,15 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                       <Button
                                         type="button"
                                         variant="outline"
+                                        size="icon"
                                         onClick={handleLoadPrFromUrl}
                                         disabled={isPrPreviewLoading || !prUrl.trim()}
+                                        title="Load PR"
                                       >
                                         {isPrPreviewLoading ? (
                                           <Loader2 className="size-4 animate-spin" />
                                         ) : (
-                                          "Load"
+                                          <CloudDownload className="size-4" />
                                         )}
                                       </Button>
                                     </div>
@@ -1959,6 +1958,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                             </div>
                           </div>
                         ) : null}
+                          </CollapsibleContent>
+                        </Collapsible>
                         </div>
 
                         {submitError ? (
