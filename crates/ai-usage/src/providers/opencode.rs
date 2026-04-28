@@ -43,6 +43,13 @@ struct CostRow {
 }
 
 pub(crate) async fn fetch_opencode_live(_client: &Client) -> Result<LiveFetchResult, ProviderError> {
+    if !opencode_go_auth_available() {
+        return Err(ProviderError::Fetch(
+            "OpenCode Go is not signed in; run `opencode auth login` and select opencode-go"
+                .to_string(),
+        ));
+    }
+
     let db_path = resolve_path(OPENCODE_LOCAL_DB_PATH)
         .ok_or_else(|| ProviderError::Fetch("OpenCode Go database path not found".to_string()))?;
 
