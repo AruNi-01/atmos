@@ -36,6 +36,7 @@ import {
   Check,
   ChevronDown,
   Clapperboard,
+  CircleDot,
   CloudDownload,
   Command,
   Ellipsis,
@@ -1571,7 +1572,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                             )}
                           >
-                            <Github className="size-4" />
+                            <CircleDot className="size-4" />
                             <span className="font-medium">GitHub Issue</span>
                           </button>
                           <button

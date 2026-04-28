@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import {
   Check,
   ChevronDown,
+  CircleDot,
   CloudDownload,
   ExternalLink,
   GitBranch,
@@ -994,7 +995,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
                 )}
               >
-                <Github className="size-4" />
+                <CircleDot className="size-4" />
                 <span className="font-medium">GitHub Issue</span>
               </button>
               <button
