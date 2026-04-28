@@ -997,7 +997,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                             onValueChange={handleSelectIssue}
                             disabled={!isIssuesLoading && issues.length === 0}
                           >
-                            <SelectTrigger id="issue-select">
+                            <SelectTrigger
+                              id="issue-select"
+                              className="w-full min-w-0 [&>span]:flex [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate"
+                            >
                               <SelectValue
                                 placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
                               />
@@ -1184,7 +1187,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                             onValueChange={handleSelectPr}
                             disabled={!isPrsLoading && prs.length === 0}
                           >
-                            <SelectTrigger id="pr-select">
+                            <SelectTrigger
+                              id="pr-select"
+                              className="w-full min-w-0 [&>span]:flex [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate"
+                            >
                               <SelectValue
                                 placeholder={isPrsLoading ? 'Loading PRs...' : prs.length === 0 ? 'No PRs available' : 'Select PR'}
                               />

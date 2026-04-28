@@ -1564,15 +1564,18 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                           <CollapsibleContent>
                             <div className="space-y-4 px-4 pb-4">
                               {repoContext ? (
-                                <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-                                  <div className="grid gap-2">
+                                <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+                                  <div className="grid min-w-0 gap-2">
                                     <Label htmlFor="issue-select-inline">Select from repository</Label>
                                     <Select
                                       value={selectedIssueNumber}
                                       onValueChange={handleSelectIssue}
                                       disabled={!isIssuesLoading && issues.length === 0}
                                     >
-                                      <SelectTrigger id="issue-select-inline">
+                                      <SelectTrigger
+                                        id="issue-select-inline"
+                                        className="w-full min-w-0 [&>span]:flex [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate"
+                                      >
                                         <SelectValue
                                           placeholder={
                                             isIssuesLoading
@@ -1762,15 +1765,18 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                           <CollapsibleContent>
                             <div className="space-y-4 px-4 pb-4">
                               {repoContext ? (
-                                <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-                                  <div className="grid gap-2">
+                                <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+                                  <div className="grid min-w-0 gap-2">
                                     <Label htmlFor="pr-select-inline">Select from repository</Label>
                                     <Select
                                       value={selectedPrNumber}
                                       onValueChange={handleSelectPr}
                                       disabled={!isPrsLoading && prs.length === 0}
                                     >
-                                      <SelectTrigger id="pr-select-inline">
+                                      <SelectTrigger
+                                        id="pr-select-inline"
+                                        className="w-full min-w-0 [&>span]:flex [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate"
+                                      >
                                         <SelectValue
                                           placeholder={
                                             isPrsLoading
