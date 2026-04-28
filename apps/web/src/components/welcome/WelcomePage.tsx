@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import {
   Badge,
   Button,
@@ -2128,18 +2129,21 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                     </>
                   ) : null}
 
-                  {previewAttachment ? (
-                    <div
-                      className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
-                      onClick={() => setPreviewAttachment(null)}
-                    >
-                      <img
-                        src={previewAttachment.objectUrl}
-                        alt={previewAttachment.filename}
-                        className="max-h-[92vh] max-w-[92vw] rounded-md object-contain shadow-2xl"
-                      />
-                    </div>
-                  ) : null}
+                  {previewAttachment && typeof document !== "undefined"
+                    ? createPortal(
+                        <div
+                          className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
+                          onClick={() => setPreviewAttachment(null)}
+                        >
+                          <img
+                            src={previewAttachment.objectUrl}
+                            alt={previewAttachment.filename}
+                            className="max-h-[92vh] max-w-[92vw] rounded-md object-contain shadow-2xl"
+                          />
+                        </div>,
+                        document.body,
+                      )
+                    : null}
                   {filledSummaryItems.length > 0 ? (
                     <div className="scrollbar-on-hover flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap pr-1">
                       {filledSummaryItems.map((item) => (
