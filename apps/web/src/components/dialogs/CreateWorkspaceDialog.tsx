@@ -1005,10 +1005,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                                 placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
                               />
                             </SelectTrigger>
-                            <SelectContent
-                              position="popper"
-                              className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
-                            >
+                            <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
                               {issues.length === 0 ? (
                                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                   No GitHub issues found
@@ -1198,10 +1195,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                                 placeholder={isPrsLoading ? 'Loading PRs...' : prs.length === 0 ? 'No PRs available' : 'Select PR'}
                               />
                             </SelectTrigger>
-                            <SelectContent
-                              position="popper"
-                              className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
-                            >
+                            <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
                               {prs.length === 0 ? (
                                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                   No GitHub PRs found
