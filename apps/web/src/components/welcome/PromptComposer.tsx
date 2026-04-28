@@ -158,13 +158,29 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         return;
       }
       if (event.key === "@") {
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-          requestAnimationFrame(() => {
-            const r = sel.getRangeAt(0).getBoundingClientRect();
-            onAtTrigger?.(r);
-          });
-        }
+        // After the browser inserts "@", measure the caret position by inserting
+        // a temporary marker span (collapsed ranges return 0/0 in some browsers).
+        requestAnimationFrame(() => {
+          const sel = window.getSelection();
+          if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
+          const range = sel.getRangeAt(0);
+          if (!editorRef.current.contains(range.startContainer)) return;
+          const marker = document.createElement("span");
+          marker.textContent = "\u200B";
+          range.insertNode(marker);
+          const rect = marker.getBoundingClientRect();
+          // Restore caret to after the @ (where it was), then remove marker.
+          const parent = marker.parentNode;
+          if (parent) {
+            const newRange = document.createRange();
+            newRange.setStartAfter(marker);
+            newRange.collapse(true);
+            parent.removeChild(marker);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+          }
+          onAtTrigger?.(rect);
+        });
         return;
       }
       if (event.key === "Escape") {
@@ -214,7 +230,7 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          className="min-h-[88px] w-full whitespace-pre-wrap break-words rounded-xl border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none transition-colors"
+          className="min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none transition-colors"
           spellCheck={false}
         />
       </div>

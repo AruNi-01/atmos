@@ -1373,7 +1373,6 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                       composerRef.current?.insertImagePlaceholder(n);
                     }}
                     onAtTrigger={(rect) => {
-                      if (!issuePreview && !prPreview) return;
                       setMentionPopover({ top: rect.bottom + 4, left: rect.left });
                     }}
                     onAtCancel={() => setMentionPopover(null)}
@@ -2131,13 +2130,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
                   {previewAttachment ? (
                     <div
-                      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70"
+                      className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
                       onClick={() => setPreviewAttachment(null)}
                     >
                       <img
                         src={previewAttachment.objectUrl}
                         alt={previewAttachment.filename}
-                        className="max-h-[90vh] max-w-[90vw] rounded-md object-contain"
+                        className="max-h-[92vh] max-w-[92vw] rounded-md object-contain shadow-2xl"
                       />
                     </div>
                   ) : null}
