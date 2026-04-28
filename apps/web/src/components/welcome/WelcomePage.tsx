@@ -1586,7 +1586,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                           }
                                         />
                                       </SelectTrigger>
-                                      <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
+                                      <SelectContent
+                                        position="popper"
+                                        className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+                                      >
                                         {issues.length === 0 ? (
                                           <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                             No GitHub issues found
@@ -1787,7 +1790,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                           }
                                         />
                                       </SelectTrigger>
-                                      <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
+                                      <SelectContent
+                                        position="popper"
+                                        className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]"
+                                      >
                                         {prs.length === 0 ? (
                                           <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                             No GitHub PRs found
