@@ -276,85 +276,6 @@ function measureCaretRect(root: HTMLElement): DOMRect {
   return rect;
 }
 
-/**
- * Returns the caret position measured in the same units as `serialize()`:
- * text nodes count their characters, chip elements count their data-token
- * length, BR counts as 1. This keeps `atOffset` consistent with the text
- * that `applyMentionAtRange` slices.
- */
-function getSerializedCaretOffset(root: HTMLElement): number {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return 0;
-  const range = sel.getRangeAt(0);
-  if (!root.contains(range.startContainer)) return 0;
-
-  // Build a range from the start of root to the caret, then serialize it.
-  // We do this by cloning the root, trimming it to the caret range, and
-  // running serialize on the clone — but that's complex. Instead we walk
-  // the DOM in serialize order and stop when we reach the caret position.
-  let offset = 0;
-  let found = false;
-
-  const walk = (node: Node): void => {
-    if (found) return;
-
-    if (node.nodeType === Node.TEXT_NODE) {
-      if (node === range.startContainer) {
-        offset += range.startOffset;
-        found = true;
-      } else {
-        offset += (node.textContent ?? "").length;
-      }
-      return;
-    }
-
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = node as HTMLElement;
-
-    const tok = el.getAttribute("data-token");
-    if (tok) {
-      // chip is an atomic unit; caret can only land after it
-      offset += tok.length;
-      if (node === range.startContainer || el.contains(range.startContainer)) {
-        found = true;
-      }
-      return;
-    }
-
-    if (el.tagName === "BR") {
-      if (node === range.startContainer) { found = true; return; }
-      offset += 1;
-      return;
-    }
-
-    // For block elements (DIV/P) that are not the root, serialize adds a newline
-    if ((el.tagName === "DIV" || el.tagName === "P") && node !== root && offset > 0) {
-      offset += 1;
-    }
-
-    // If the caret is directly inside this element (startContainer is the element,
-    // startOffset is a child index), count children up to that index.
-    if (node === range.startContainer) {
-      const children = Array.from(el.childNodes);
-      for (let i = 0; i < range.startOffset && i < children.length; i++) {
-        walk(children[i]);
-      }
-      found = true;
-      return;
-    }
-
-    for (const child of Array.from(el.childNodes)) {
-      walk(child);
-      if (found) return;
-    }
-  };
-
-  for (const child of Array.from(root.childNodes)) {
-    walk(child);
-    if (found) break;
-  }
-  return offset;
-}
 
 function readAtContextFromSelection(root: HTMLElement): AtTriggerContext | null {
   const sel = window.getSelection();
@@ -362,17 +283,26 @@ function readAtContextFromSelection(root: HTMLElement): AtTriggerContext | null 
   const range = sel.getRangeAt(0);
   if (!root.contains(range.startContainer)) return null;
 
-  const caretOffset = getSerializedCaretOffset(root);
-  const fullText = serialize(root);
-  const beforeText = fullText.slice(0, caretOffset);
-  const atIndex = beforeText.lastIndexOf("@");
-  if (atIndex < 0) return null;
+  // Use DOM toString() to reliably detect the @ trigger and extract the query.
+  const beforeRange = range.cloneRange();
+  beforeRange.selectNodeContents(root);
+  beforeRange.setEnd(range.endContainer, range.endOffset);
+  const beforeDomText = beforeRange.toString();
+  const domAtIndex = beforeDomText.lastIndexOf("@");
+  if (domAtIndex < 0) return null;
 
-  const query = beforeText.slice(atIndex + 1);
+  const query = beforeDomText.slice(domAtIndex + 1);
   if (/\s/.test(query)) return null;
 
+  // Find the atOffset in serialize() space so applyMentionAtRange slices correctly.
+  // We look for the last "@" in the serialized text that is followed by the same query.
+  const fullText = serialize(root);
+  const searchStr = "@" + query;
+  const serializeAtIndex = fullText.lastIndexOf(searchStr);
+  if (serializeAtIndex < 0) return null;
+
   const rect = measureCaretRect(root);
-  return { caretRect: rect, query, atOffset: atIndex + 1 };
+  return { caretRect: rect, query, atOffset: serializeAtIndex + 1 };
 }
 
 export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerProps>(
