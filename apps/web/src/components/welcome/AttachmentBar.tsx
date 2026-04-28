@@ -27,10 +27,17 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
       {attachments.map((att) => (
         <Tooltip key={att.id}>
           <TooltipTrigger asChild>
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => onPreview?.(att)}
-              className="group relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/40 transition-colors hover:border-border"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onPreview?.(att);
+                }
+              }}
+              className="group relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-md border border-border/70 bg-muted/40 transition-colors hover:border-border focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               aria-label={att.filename}
             >
               {att.blob.type.startsWith("image/") ? (
@@ -60,7 +67,7 @@ export function AttachmentBar({ attachments, onRemove, onPreview, className }: A
               >
                 <X className="size-3" />
               </Button>
-            </button>
+            </div>
           </TooltipTrigger>
           <TooltipContent side="top">{att.filename}</TooltipContent>
         </Tooltip>
