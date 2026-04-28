@@ -31,21 +31,14 @@
 - **Global Search & Command Palette** — Keyboard-driven workflow for searching and executing Atmos features.
 - **Usage Analytics Dashboard** — Track AI coding subscription quotas, agent token consumption, and cost estimation.
 - **Agent Status Notifications** — Hook-based status monitoring with native notifications and self-hosted push server support.
-- **Cross-Platform & Remote Access** — Web and desktop apps, mobile app (planned), integrated tunneling (ngrok/Tailscale/Cloudflare Tunnel).
+- **Cross-Platform & Remote Access** — Web and desktop apps, mobile app (planned), integrated tunneling (Ngrok/Tailscale/Cloudflare Tunnel).
+- **Kanban View** - Quickly manage Workspace status, priority, labels and other information in Kanban view.
 
 ## Get Started
 
-Latest desktop release: [View the latest release](https://github.com/AruNi-01/atmos/releases/latest).
-
 ### Download
 
-| Platform | Package | Download |
-| --- | --- | --- |
-| macOS (Apple Silicon) | `.dmg` | [Latest release](https://github.com/AruNi-01/atmos/releases/latest) |
-| macOS (Intel) | `.dmg` | [Latest release](https://github.com/AruNi-01/atmos/releases/latest) |
-| Windows (x64) | `.exe` / `.msi` | [Latest release](https://github.com/AruNi-01/atmos/releases/latest) |
-| Linux | `.AppImage` / `.deb` / `.rpm` | [Latest release](https://github.com/AruNi-01/atmos/releases/latest) |
-| All releases | GitHub Releases | [View all releases](https://github.com/AruNi-01/atmos/releases) |
+Latest desktop release: [View the latest release](https://github.com/AruNi-01/atmos/releases/latest).
 
 ### Homebrew
 
@@ -62,16 +55,19 @@ brew install --cask AruNi-01/tap/atmos
 ### Run From Source
 
 ```bash
+## Install
 bun install
 cargo fetch
+
+## Run in web
 just dev-api
 just dev-web
-# optional
-just dev-desktop
+
+# Run in desktop
+just dev-web
+just dev-desktop-tauri
 ```
 
 ## License
 
 MIT. See [LICENSE](./LICENSE).
-
-## Conflict Test no.2
