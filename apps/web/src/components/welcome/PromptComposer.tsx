@@ -1,12 +1,17 @@
 "use client";
 
 import React from "react";
-import { CircleDot, GitPullRequestArrow } from "lucide-react";
-import { cn } from "@workspace/ui";
+import { createPortal } from "react-dom";
+import { cn, getFileIconProps } from "@workspace/ui";
 
-export interface MentionRef {
-  kind: "issue" | "pr";
-  number: number;
+export type MentionRef =
+  | { kind: "issue" | "pr"; number: number }
+  | { kind: "file"; relativePath: string };
+
+export interface AtTriggerContext {
+  caretRect: DOMRect;
+  query: string;
+  atOffset: number;
 }
 
 export interface ComposerHandle {
@@ -14,6 +19,13 @@ export interface ComposerHandle {
   setText: (text: string) => void;
   clear: () => void;
   insertMention: (mention: MentionRef) => void;
+  insertFileMention: (relativePath: string) => void;
+  /**
+   * Replace the `@<query>` slice (computed via popover at-context) with the
+   * mention chip + a trailing space, then place the caret right after the space
+   * so the user can keep typing.
+   */
+  applyMentionAtRange: (atOffset: number, queryLength: number, mention: MentionRef) => void;
   insertImagePlaceholder: (n: number) => void;
   removeImagePlaceholder: (n: number) => void;
   focus: () => void;
@@ -22,7 +34,7 @@ export interface ComposerHandle {
 export interface ComposerCallbacks {
   onTextChange?: (text: string) => void;
   onImagePaste?: (blob: Blob, ext: string) => void;
-  onAtTrigger?: (caretRect: DOMRect) => void;
+  onAtTrigger?: (ctx: AtTriggerContext) => void;
   onAtCancel?: () => void;
 }
 
@@ -32,23 +44,73 @@ interface PromptComposerProps extends ComposerCallbacks {
   onSubmit?: () => void;
 }
 
-const TOKEN_REGEX = /(@(?:issue|pr)#\d+|\[#img-\d+\])/g;
+const TOKEN_REGEX = /(@(?:issue|pr)#\d+|@file:[^\s]+|\[#img-\d+\])/g;
+
+/**
+ * SVG icons used inside chips live as static assets under
+ * `apps/web/public/icons/`. They are rendered via CSS mask so they inherit
+ * `currentColor` for theme support (`<img src>` would lose the stroke color).
+ */
+function buildMaskIcon(url: string): HTMLSpanElement {
+  const icon = document.createElement("span");
+  icon.setAttribute("aria-hidden", "true");
+  icon.style.cssText = [
+    "display:inline-block",
+    "width:12px",
+    "height:12px",
+    "background-color:currentColor",
+    `mask-image:url('${url}')`,
+    `-webkit-mask-image:url('${url}')`,
+    "mask-size:contain",
+    "-webkit-mask-size:contain",
+    "mask-repeat:no-repeat",
+    "-webkit-mask-repeat:no-repeat",
+    "mask-position:center",
+    "-webkit-mask-position:center",
+  ].join(";");
+  return icon;
+}
 
 function buildChipNode(token: string): HTMLSpanElement {
   const span = document.createElement("span");
   span.setAttribute("data-token", token);
   span.setAttribute("contenteditable", "false");
+  // Vertically tight: no padding, line-height matches the editor's caret so the
+  // chip sits flush with the surrounding text without the bordered box towering
+  // above/below the caret line.
   span.className =
-    "inline-flex select-none items-center gap-1 rounded-md border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[12px] font-medium text-foreground align-middle mx-[1px]";
+    "inline-flex select-none items-center gap-1 rounded-md border border-border/70 bg-muted/60 px-1.5 py-px text-[12px] leading-[18px] font-medium text-foreground align-middle mx-[1px]";
 
   if (token.startsWith("@issue#")) {
     span.dataset.kind = "issue";
     const n = token.split("#")[1];
-    span.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg><span>#${n}</span>`;
+    span.dataset.tooltip = `Issue #${n}`;
+    span.appendChild(buildMaskIcon("/icons/circle-dot.svg"));
+    const label = document.createElement("span");
+    label.textContent = `#${n}`;
+    span.appendChild(label);
   } else if (token.startsWith("@pr#")) {
     span.dataset.kind = "pr";
     const n = token.split("#")[1];
-    span.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5h2a3 3 0 0 1 3 3v9"/><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M14 9l3-3 3 3"/></svg><span>#${n}</span>`;
+    span.dataset.tooltip = `PR #${n}`;
+    span.appendChild(buildMaskIcon("/icons/git-pull-request-arrow.svg"));
+    const label = document.createElement("span");
+    label.textContent = `#${n}`;
+    span.appendChild(label);
+  } else if (token.startsWith("@file:")) {
+    const relativePath = token.slice("@file:".length);
+    const filename = relativePath.split("/").pop() || relativePath;
+    const isDir = relativePath.endsWith("/");
+    span.dataset.tooltip = relativePath;
+    const iconProps = getFileIconProps({ name: filename, isDir, className: "size-3.5" });
+    const icon = document.createElement("img");
+    icon.src = iconProps.src;
+    icon.alt = iconProps.alt ?? "";
+    if (iconProps.className) icon.className = iconProps.className;
+    span.appendChild(icon);
+    const label = document.createElement("span");
+    label.textContent = filename;
+    span.appendChild(label);
   } else if (token.startsWith("[#img-")) {
     span.dataset.kind = "img";
     span.textContent = token.replace(/[\[\]]/g, "");
@@ -108,16 +170,232 @@ function inflateInto(root: HTMLElement, text: string) {
   });
 }
 
+/**
+ * Place the selection caret at the given text offset measured by the same
+ * counting rules as `serialize`: text nodes count their characters, chip
+ * elements count their data-token length, BR counts as 1 newline.
+ */
+function setCaretAtTextOffset(root: HTMLElement, target: number) {
+  let remaining = target;
+  let placed = false;
+
+  const placeAtTextNode = (node: Text, offset: number) => {
+    const range = document.createRange();
+    range.setStart(node, Math.min(offset, node.length));
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    placed = true;
+  };
+
+  const placeAfter = (node: Node) => {
+    const range = document.createRange();
+    range.setStartAfter(node);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    placed = true;
+  };
+
+  const walk = (node: Node) => {
+    if (placed) return;
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node as Text;
+      const len = text.length;
+      if (remaining <= len) {
+        placeAtTextNode(text, remaining);
+        return;
+      }
+      remaining -= len;
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as HTMLElement;
+    const tok = el.getAttribute("data-token");
+    if (tok) {
+      if (remaining <= tok.length) {
+        placeAfter(el);
+        return;
+      }
+      remaining -= tok.length;
+      return;
+    }
+    if (el.tagName === "BR") {
+      if (remaining === 0) {
+        const range = document.createRange();
+        range.setStartBefore(el);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        placed = true;
+        return;
+      }
+      remaining -= 1;
+      return;
+    }
+    el.childNodes.forEach(walk);
+  };
+
+  root.childNodes.forEach(walk);
+
+  if (!placed) {
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }
+}
+
+function measureCaretRect(root: HTMLElement): DOMRect {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return root.getBoundingClientRect();
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer)) return root.getBoundingClientRect();
+
+  const marker = document.createElement("span");
+  marker.style.cssText = "display:inline-block;width:0;height:1em;vertical-align:baseline;";
+  const cloned = range.cloneRange();
+  cloned.insertNode(marker);
+  const rect = marker.getBoundingClientRect();
+  const parent = marker.parentNode;
+  const resetRange = document.createRange();
+  resetRange.setStartAfter(marker);
+  resetRange.collapse(true);
+  if (parent) parent.removeChild(marker);
+  sel.removeAllRanges();
+  sel.addRange(resetRange);
+
+  if (rect.width === 0 && rect.height === 0) {
+    return root.getBoundingClientRect();
+  }
+  return rect;
+}
+
+/**
+ * Returns the caret position measured in the same units as `serialize()`:
+ * text nodes count their characters, chip elements count their data-token
+ * length, BR counts as 1. This keeps `atOffset` consistent with the text
+ * that `applyMentionAtRange` slices.
+ */
+function getSerializedCaretOffset(root: HTMLElement): number {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return 0;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer)) return 0;
+
+  // Build a range from the start of root to the caret, then serialize it.
+  // We do this by cloning the root, trimming it to the caret range, and
+  // running serialize on the clone — but that's complex. Instead we walk
+  // the DOM in serialize order and stop when we reach the caret position.
+  let offset = 0;
+  let found = false;
+
+  const walk = (node: Node): void => {
+    if (found) return;
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node === range.startContainer) {
+        offset += range.startOffset;
+        found = true;
+      } else {
+        offset += (node.textContent ?? "").length;
+      }
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as HTMLElement;
+
+    const tok = el.getAttribute("data-token");
+    if (tok) {
+      // chip is an atomic unit; caret can only land after it
+      offset += tok.length;
+      if (node === range.startContainer || el.contains(range.startContainer)) {
+        found = true;
+      }
+      return;
+    }
+
+    if (el.tagName === "BR") {
+      if (node === range.startContainer) { found = true; return; }
+      offset += 1;
+      return;
+    }
+
+    // For block elements (DIV/P) that are not the root, serialize adds a newline
+    if ((el.tagName === "DIV" || el.tagName === "P") && node !== root && offset > 0) {
+      offset += 1;
+    }
+
+    // If the caret is directly inside this element (startContainer is the element,
+    // startOffset is a child index), count children up to that index.
+    if (node === range.startContainer) {
+      const children = Array.from(el.childNodes);
+      for (let i = 0; i < range.startOffset && i < children.length; i++) {
+        walk(children[i]);
+      }
+      found = true;
+      return;
+    }
+
+    for (const child of Array.from(el.childNodes)) {
+      walk(child);
+      if (found) return;
+    }
+  };
+
+  for (const child of Array.from(root.childNodes)) {
+    walk(child);
+    if (found) break;
+  }
+  return offset;
+}
+
+function readAtContextFromSelection(root: HTMLElement): AtTriggerContext | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer)) return null;
+
+  const caretOffset = getSerializedCaretOffset(root);
+  const fullText = serialize(root);
+  const beforeText = fullText.slice(0, caretOffset);
+  const atIndex = beforeText.lastIndexOf("@");
+  if (atIndex < 0) return null;
+
+  const query = beforeText.slice(atIndex + 1);
+  if (/\s/.test(query)) return null;
+
+  const rect = measureCaretRect(root);
+  return { caretRect: rect, query, atOffset: atIndex + 1 };
+}
+
 export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerProps>(
   function PromptComposer(props, ref) {
     const { onTextChange, onImagePaste, onAtTrigger, onAtCancel, className, placeholder, onSubmit } = props;
     const editorRef = React.useRef<HTMLDivElement | null>(null);
     const [isEmpty, setIsEmpty] = React.useState(true);
+    const [chipTooltip, setChipTooltip] = React.useState<{
+      text: string;
+      top: number;
+      left: number;
+    } | null>(null);
 
     const fireChange = React.useCallback(() => {
       if (!editorRef.current) return;
       const text = serialize(editorRef.current);
-      setIsEmpty(text.length === 0);
+      // After Backspace-clearing, browsers commonly leave residual `<br>` /
+      // `<div><br></div>` nodes. `serialize` counts these as "\n", so a
+      // visually empty editor would otherwise report length > 0 and hide the
+      // placeholder. Treat as empty when no chip tokens exist and the text is
+      // pure whitespace.
+      const hasChip = !!editorRef.current.querySelector("[data-token]");
+      setIsEmpty(!hasChip && text.replace(/[\s\u00A0]/g, "").length === 0);
       onTextChange?.(text);
     }, [onTextChange]);
 
@@ -136,10 +414,44 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       insertMention: (mention) => {
         if (!editorRef.current) return;
         editorRef.current.focus();
+        if (mention.kind === "file") {
+          const token = `@file:${mention.relativePath}`;
+          insertNodeAtCaret(editorRef.current, buildChipNode(token));
+          insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+          fireChange();
+          return;
+        }
         const token = `@${mention.kind}#${mention.number}`;
         insertNodeAtCaret(editorRef.current, buildChipNode(token));
         insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
         fireChange();
+      },
+      insertFileMention: (relativePath: string) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const token = `@file:${relativePath}`;
+        insertNodeAtCaret(editorRef.current, buildChipNode(token));
+        insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+        fireChange();
+      },
+      applyMentionAtRange: (atOffset, queryLength, mention) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const token =
+          mention.kind === "file"
+            ? `@file:${mention.relativePath}`
+            : `@${mention.kind}#${mention.number}`;
+        const currentText = serialize(editorRef.current);
+        const replaceFrom = Math.max(atOffset - 1, 0);
+        const replaceTo = Math.min(atOffset + queryLength, currentText.length);
+        const insertText = `${token} `;
+        const nextText =
+          currentText.slice(0, replaceFrom) +
+          insertText +
+          currentText.slice(replaceTo);
+        inflateInto(editorRef.current, nextText);
+        fireChange();
+        setCaretAtTextOffset(editorRef.current, replaceFrom + insertText.length);
       },
       insertImagePlaceholder: (n) => {
         if (!editorRef.current) return;
@@ -173,26 +485,12 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
           const range = sel.getRangeAt(0);
           if (!editorRef.current.contains(range.startContainer)) return;
-          const marker = document.createElement("span");
-          marker.style.cssText =
-            "display:inline-block;width:0;height:1em;vertical-align:baseline;";
-          range.insertNode(marker);
-          const rect = marker.getBoundingClientRect();
-          const parent = marker.parentNode;
-          const newRange = document.createRange();
-          newRange.setStartAfter(marker);
-          newRange.collapse(true);
-          if (parent) parent.removeChild(marker);
-          sel.removeAllRanges();
-          sel.addRange(newRange);
-          if (rect.width === 0 && rect.height === 0) {
-            // Fallback: use editor rect's left + caret approximation
-            const editorRect = editorRef.current.getBoundingClientRect();
-            onAtTrigger?.(
-              new DOMRect(editorRect.left, editorRect.top, 0, 20),
-            );
+          const measuredRect = measureCaretRect(editorRef.current);
+          const atCtx = readAtContextFromSelection(editorRef.current);
+          if (atCtx) {
+            onAtTrigger?.({ ...atCtx, caretRect: measuredRect });
           } else {
-            onAtTrigger?.(rect);
+            onAtCancel?.();
           }
         });
         return;
@@ -204,6 +502,18 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
 
     const handleInput = () => {
       fireChange();
+      if (!editorRef.current) return;
+      // The hovered chip may have been deleted by this input (e.g. Backspace);
+      // a removed DOM node never fires mouseout, so the tooltip would stay
+      // stuck. Drop it here — if the cursor is still on a surviving chip the
+      // next mouseover will re-show it.
+      setChipTooltip(null);
+      const atCtx = readAtContextFromSelection(editorRef.current);
+      if (atCtx) {
+        onAtTrigger?.(atCtx);
+      } else {
+        onAtCancel?.();
+      }
     };
 
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
@@ -230,6 +540,30 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       }
     };
 
+    const handleEditorMouseOver = (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement | null;
+      const chip = target?.closest?.("[data-tooltip]") as HTMLElement | null;
+      if (!chip || !editorRef.current?.contains(chip)) return;
+      const text = chip.dataset.tooltip;
+      if (!text) return;
+      const rect = chip.getBoundingClientRect();
+      setChipTooltip({
+        text,
+        top: rect.bottom + 6,
+        left: rect.left + rect.width / 2,
+      });
+    };
+
+    const handleEditorMouseOut = (event: React.MouseEvent<HTMLDivElement>) => {
+      const related = event.relatedTarget as Node | null;
+      const target = event.target as HTMLElement | null;
+      const chip = target?.closest?.("[data-tooltip]") as HTMLElement | null;
+      if (!chip) return;
+      // Still inside the same chip — keep the tooltip.
+      if (related && chip.contains(related)) return;
+      setChipTooltip(null);
+    };
+
     return (
       <div className={cn("relative", className)}>
         {isEmpty && placeholder ? (
@@ -244,9 +578,23 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
+          onMouseOver={handleEditorMouseOver}
+          onMouseOut={handleEditorMouseOut}
           className="min-h-[88px] max-h-[148px] w-full overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none transition-colors"
           spellCheck={false}
         />
+        {chipTooltip && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                role="tooltip"
+                className="pointer-events-none fixed z-[2147483646] -translate-x-1/2 rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-md animate-in fade-in-0 zoom-in-95"
+                style={{ top: chipTooltip.top, left: chipTooltip.left }}
+              >
+                {chipTooltip.text}
+              </div>,
+              document.body,
+            )
+          : null}
       </div>
     );
   },

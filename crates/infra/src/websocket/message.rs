@@ -450,6 +450,7 @@ pub enum WsEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceSetupContextNotification {
     pub has_github_issue: bool,
+    pub has_github_pr: bool,
     pub has_requirement_step: bool,
     pub auto_extract_todos: bool,
     pub has_setup_script: bool,

@@ -1576,12 +1576,15 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                     onTextChange={(text) => {
                       setInitialRequirement(text);
                       setSubmitError(null);
-                      // Auto-close mention popover when the triggering @ is gone.
+                      // Auto-close mention popover when the triggering @ is gone; keep query in sync.
                       setMentionPopover((prev) => {
                         if (!prev) return prev;
                         if (text.length < prev.atOffset) return null;
                         if (text.charAt(prev.atOffset - 1) !== "@") return null;
-                        return prev;
+                        const newQuery = text.slice(prev.atOffset);
+                        const spaceIdx = newQuery.search(/\s/);
+                        if (spaceIdx >= 0) return null;
+                        return newQuery === prev.query ? prev : { ...prev, query: newQuery };
                       });
                       // Sync: prune attachments whose [#img-N] chip is no longer present.
                       const present = new Set<number>();

@@ -57,10 +57,19 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
   const contextStep = useMemo(() => {
     const hasGithubIssue = !!setupContext?.hasGithubIssue;
+    const hasGithubPr = !!setupContext?.hasGithubPr;
     const hasRequirementStep = !!setupContext?.hasRequirementStep;
 
-    if (!hasGithubIssue && !hasRequirementStep) {
+    if (!hasRequirementStep) {
       return null;
+    }
+
+    if (hasGithubPr) {
+      return {
+        id: "write_requirement" as const,
+        title: "Fill PR Spec",
+        description: "Write the linked GitHub PR into requirement.md.",
+      };
     }
 
     if (hasGithubIssue) {

@@ -1575,6 +1575,7 @@ impl WsMessageService {
             &req.project_guid,
             req.initial_requirement.as_deref(),
             workspace.github_issue.as_ref(),
+            workspace.github_pr.is_some(),
             req.auto_extract_todos,
         )
         .await
@@ -1594,6 +1595,7 @@ impl WsMessageService {
             let workspace_name = workspace.model.name.clone();
             let initial_requirement = req.initial_requirement.clone();
             let github_issue = workspace.github_issue.clone();
+            let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = req.auto_extract_todos;
 
             let workspace_service = self.workspace_service.clone();
@@ -1608,6 +1610,7 @@ impl WsMessageService {
                     workspace_name,
                     initial_requirement,
                     github_issue,
+                    has_github_pr,
                     auto_extract_todos,
                     next_setup_step,
                 )
@@ -1878,6 +1881,7 @@ impl WsMessageService {
                     workspace_name,
                     req.initial_requirement,
                     req.github_issue,
+                    false,
                     req.auto_extract_todos,
                     Some(failed_step),
                 )
@@ -1907,6 +1911,7 @@ impl WsMessageService {
             let project_guid = workspace.model.project_guid.clone();
             let workspace_name = workspace.model.name.clone();
             let github_issue = workspace.github_issue.clone();
+            let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = workspace.model.auto_extract_todos;
 
             tokio::spawn(async move {
@@ -1920,6 +1925,7 @@ impl WsMessageService {
                     workspace_name,
                     None,
                     github_issue,
+                    has_github_pr,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::Ready),
                 )
@@ -1964,6 +1970,7 @@ impl WsMessageService {
             let workspace_name = workspace.model.name.clone();
             let initial_requirement = req.initial_requirement.clone();
             let github_issue = req.github_issue.or(workspace.github_issue.clone());
+            let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = req.auto_extract_todos || workspace.model.auto_extract_todos;
 
             tokio::spawn(async move {
@@ -1972,6 +1979,7 @@ impl WsMessageService {
                     &project_guid,
                     initial_requirement.as_deref(),
                     github_issue.as_ref(),
+                    has_github_pr,
                     auto_extract_todos,
                 )
                 .await
@@ -1993,6 +2001,7 @@ impl WsMessageService {
                     workspace_name,
                     initial_requirement,
                     github_issue,
+                    has_github_pr,
                     auto_extract_todos,
                     Some(start_step),
                 )
@@ -2026,6 +2035,7 @@ impl WsMessageService {
             let workspace_id = workspace.model.guid.clone();
             let workspace_name = workspace.model.name.clone();
             let github_issue = workspace.github_issue.clone();
+            let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = workspace.model.auto_extract_todos;
 
             tokio::spawn(async move {
@@ -2039,6 +2049,7 @@ impl WsMessageService {
                     workspace_name,
                     None,
                     github_issue,
+                    has_github_pr,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::RunSetupScript),
                 )
@@ -2054,8 +2065,9 @@ impl WsMessageService {
     async fn build_workspace_setup_plan(
         project_service: &Arc<ProjectService>,
         project_guid: &str,
-        initial_requirement: Option<&str>,
+        _initial_requirement: Option<&str>,
         github_issue: Option<&GithubIssuePayload>,
+        has_github_pr: bool,
         auto_extract_todos: bool,
     ) -> Option<WorkspaceSetupPlan> {
         let project = project_service
@@ -2064,11 +2076,7 @@ impl WsMessageService {
             .ok()
             .flatten()?;
 
-        let has_requirement_step = initial_requirement
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .is_some()
-            || github_issue.is_some();
+        let has_requirement_step = github_issue.is_some();
 
         let project_root = std::path::Path::new(&project.main_file_path);
         let scripts_path = project_root.join(".atmos/scripts/atmos.json");
@@ -2102,12 +2110,15 @@ impl WsMessageService {
         Some(WorkspaceSetupPlan {
             steps,
             context: WorkspaceSetupContextNotification {
-                has_github_issue: github_issue.is_some(),
+                has_github_issue: github_issue.is_some() && !has_github_pr,
+                has_github_pr,
                 has_requirement_step,
                 auto_extract_todos,
                 has_setup_script: setup_script.is_some(),
             },
-            requirement_step_title: if github_issue.is_some() {
+            requirement_step_title: if has_github_pr {
+                "Filling PR Specification".to_string()
+            } else if github_issue.is_some() {
                 "Filling Requirement Specification".to_string()
             } else {
                 "Writing Requirement Specification".to_string()
@@ -2158,6 +2169,7 @@ impl WsMessageService {
         workspace_name: String,
         initial_requirement: Option<String>,
         github_issue: Option<GithubIssuePayload>,
+        has_github_pr: bool,
         auto_extract_todos: bool,
         start_step: Option<WorkspaceSetupStep>,
     ) {
@@ -2166,6 +2178,7 @@ impl WsMessageService {
             &project_guid,
             initial_requirement.as_deref(),
             github_issue.as_ref(),
+            has_github_pr,
             auto_extract_todos,
         )
         .await
@@ -2264,10 +2277,6 @@ impl WsMessageService {
                         },
                     )
                     .await;
-
-                    if github_issue.is_some() {
-                        tokio::time::sleep(Duration::from_secs(3)).await;
-                    }
 
                     if let Err(error) = workspace_service
                         .write_workspace_requirement(

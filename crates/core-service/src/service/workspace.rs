@@ -886,37 +886,27 @@ impl WorkspaceService {
 
     fn render_requirement_markdown(
         &self,
-        initial_requirement: Option<&str>,
+        _initial_requirement: Option<&str>,
         github_issue: Option<&GithubIssuePayload>,
     ) -> Option<String> {
-        let trimmed_requirement = initial_requirement
-            .map(str::trim)
-            .filter(|value| !value.is_empty());
-
-        if github_issue.is_none() && trimmed_requirement.is_none() {
+        let Some(issue) = github_issue else {
             return None;
-        }
+        };
 
         let mut sections = vec!["# Requirement Specification".to_string()];
 
-        if let Some(issue) = github_issue {
-            sections.push(format!(
-                "## GitHub Issue\n\n- Source: {}\n- Title: {}\n",
-                issue.url, issue.title
-            ));
+        sections.push(format!(
+            "## GitHub Issue\n\n- Source: {}\n- Title: {}\n",
+            issue.url, issue.title
+        ));
 
-            let issue_body = issue
-                .body
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .unwrap_or("No issue description provided.");
-            sections.push(format!("## Issue Description\n\n{}\n", issue_body));
-        }
-
-        if let Some(requirement) = trimmed_requirement {
-            sections.push(format!("## Additional Notes\n\n{}\n", requirement));
-        }
+        let issue_body = issue
+            .body
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("No issue description provided.");
+        sections.push(format!("## Issue Description\n\n{}\n", issue_body));
 
         Some(sections.join("\n"))
     }

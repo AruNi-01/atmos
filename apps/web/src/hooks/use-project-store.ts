@@ -66,6 +66,7 @@ export interface WorkspaceSetupProgress {
   countdown?: number;
   setupContext?: {
     hasGithubIssue: boolean;
+    hasGithubPr: boolean;
     hasRequirementStep: boolean;
     autoExtractTodos: boolean;
     hasSetupScript: boolean;
