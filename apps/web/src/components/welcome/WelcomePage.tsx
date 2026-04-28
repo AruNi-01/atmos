@@ -1554,7 +1554,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                           </DropdownMenu>
                         </div>
 
-                        <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-background/35 p-1.5">
+                        <div className="rounded-2xl border border-border/60 bg-background/35">
+                          <div className="flex items-center gap-2 p-1.5">
                           <button
                             type="button"
                             onClick={() => handleSelectLinkType("issue")}
@@ -1614,10 +1615,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                               )}
                             </Button>
                           ) : null}
-                        </div>
+                          </div>
 
                         {linkType === "issue" ? (
-                          <div className="rounded-2xl border border-border/60 bg-background/35 p-4">
+                          <div className="border-t border-border/60 p-4">
                             <div className="space-y-4">
                               {repoContext ? (
                                 <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
@@ -1781,7 +1782,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                         ) : null}
 
                         {linkType === "pr" ? (
-                          <div className="rounded-2xl border border-border/60 bg-background/35 p-4">
+                          <div className="border-t border-border/60 p-4">
                             <div className="space-y-4">
                               {repoContext ? (
                                 <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
@@ -1958,6 +1959,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                             </div>
                           </div>
                         ) : null}
+                        </div>
 
                         {submitError ? (
                           <div className="rounded-xl border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs text-destructive">

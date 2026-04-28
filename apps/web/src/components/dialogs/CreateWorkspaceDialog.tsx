@@ -978,7 +978,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               </div>
             </div>
 
-            <div className="mt-1 flex items-center gap-2 rounded-md border border-border bg-background p-1.5">
+            <div className="mt-1 rounded-md border border-border bg-background">
+              <div className="flex items-center gap-2 p-1.5">
               <button
                 type="button"
                 onClick={() => handleSelectLinkType('issue')}
@@ -1030,11 +1031,11 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   {isPrsLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
                 </Button>
               ) : null}
-            </div>
+              </div>
 
             {linkType === 'issue' ? (
-              <Card className="mt-1 border-border bg-background">
-                <CardContent className="space-y-4 pt-5 pb-5">
+              <div className="border-t border-border">
+                <div className="space-y-4 px-6 py-5">
                     {repoContext ? (
                       <>
                         <div className="grid gap-2">
@@ -1183,13 +1184,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                         <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescriptionIssue}</p>
                       </div>
                     </label>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ) : null}
 
             {linkType === 'pr' ? (
-              <Card className="mt-1 border-border bg-background">
-                <CardContent className="space-y-4 pt-5 pb-5">
+              <div className="border-t border-border">
+                <div className="space-y-4 px-6 py-5">
                     {repoContext ? (
                       <>
                         <div className="grid gap-2">
@@ -1350,9 +1351,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                         <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescriptionPr}</p>
                       </div>
                     </label>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ) : null}
+            </div>
 
             {submitError && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
