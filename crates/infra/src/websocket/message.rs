@@ -303,6 +303,8 @@ pub enum WsAction {
     ReviewSessionClose,
     /// 归档 review session
     ReviewSessionArchive,
+    /// 重命名 review session
+    ReviewSessionRename,
     /// 列出 revision 下的 review files
     ReviewFileList,
     /// 读取 review file snapshot 内容
@@ -558,6 +560,12 @@ pub struct ReviewSessionCloseRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewSessionArchiveRequest {
     pub session_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewSessionRenameRequest {
+    pub session_guid: String,
+    pub title: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

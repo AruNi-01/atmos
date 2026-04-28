@@ -39,7 +39,8 @@ use infra::{
     ReviewFixRunFinalizeRequest, ReviewFixRunListRequest, ReviewMessageAddRequest,
     ReviewSessionArchiveRequest,
     ReviewSessionCloseRequest, ReviewSessionCreateRequest, ReviewSessionGetRequest,
-    ReviewSessionListRequest, ReviewThreadCreateRequest, ReviewThreadListRequest,
+    ReviewSessionListRequest, ReviewSessionRenameRequest,
+    ReviewThreadCreateRequest, ReviewThreadListRequest,
     ReviewThreadUpdateStatusRequest, ScriptGetRequest, ScriptSaveRequest,
     SkillsDeleteRequest, SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
     UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
@@ -559,6 +560,10 @@ impl WsMessageService {
             }
             WsAction::ReviewSessionArchive => {
                 self.handle_review_session_archive(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewSessionRename => {
+                self.handle_review_session_rename(parse_request(request.data)?)
                     .await
             }
             WsAction::ReviewFileList => {
@@ -4047,6 +4052,16 @@ set -x
             }),
         )
         .await;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_session_rename(
+        &self,
+        req: ReviewSessionRenameRequest,
+    ) -> Result<Value> {
+        self.review_service
+            .rename_session(req.session_guid.clone(), req.title)
+            .await?;
         Ok(json!({ "ok": true }))
     }
 

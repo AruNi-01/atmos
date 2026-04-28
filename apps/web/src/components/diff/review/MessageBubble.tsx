@@ -20,8 +20,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           : "border-sky-500/20 bg-sky-500/5",
       )}
     >
-      <div className="mb-1 flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-        <span>{message.author_type}</span>
+      <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-medium tracking-wide text-muted-foreground">
+        <span className="capitalize">{isUser ? "you" : message.author_type}</span>
         <span>{formatDate(message.created_at)}</span>
       </div>
       <p className="whitespace-pre-wrap break-words text-foreground">

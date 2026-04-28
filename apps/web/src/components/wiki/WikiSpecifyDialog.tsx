@@ -169,7 +169,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
     }
 
     const prompt = buildSpecifyPrompt(trimmed, language, customLanguage);
-    const command = buildCommand(agentId, prompt, true);
+    const command = buildCommand(agentId, prompt);
 
     setIsRunning(true);
     try {

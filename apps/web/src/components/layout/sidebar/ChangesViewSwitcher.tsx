@@ -12,7 +12,6 @@ import {
   FileCheckCorner,
   Check,
   ChevronDown,
-  MessageSquareDiff,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,7 +26,6 @@ import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
 
 type ChangesSubTab = "changes" | "commits";
 type PRSubTab = "open" | "closed";
-type ReviewSubTab = "files" | "threads";
 
 export interface ChangesViewSwitcherProps {
   changesView: ChangesView;
@@ -46,8 +44,7 @@ export interface ChangesViewSwitcherProps {
   onRefreshClosedPRs: () => void | Promise<void>;
   isOpenPRsLoading: boolean;
   isClosedPRsLoading: boolean;
-  reviewSubTab: ReviewSubTab;
-  onReviewSubTabChange: (tab: ReviewSubTab) => void;
+  reviewActions?: React.ReactNode;
 }
 
 const VIEW_OPTIONS: Array<{
@@ -78,8 +75,7 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
   onRefreshClosedPRs,
   isOpenPRsLoading,
   isClosedPRsLoading,
-  reviewSubTab,
-  onReviewSubTabChange,
+  reviewActions,
 }) => {
   if (!hasWorkingContext) {
     return (
@@ -167,30 +163,11 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
     }
 
     if (changesView === "review") {
-      return (
-        <Tabs
-          value={reviewSubTab}
-          onValueChange={(v) => onReviewSubTabChange(v as ReviewSubTab)}
-          className="flex-1 h-full min-w-0"
-        >
-          <TabsList variant="underline" className="h-full w-full gap-0 py-0!">
-            <TabsTab
-              value="files"
-              className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
-            >
-              <File className="size-3.5" />
-              <span>Files</span>
-            </TabsTab>
-            <TabsTab
-              value="threads"
-              className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
-            >
-              <MessageSquareDiff className="size-3.5" />
-              <span>Threads</span>
-            </TabsTab>
-          </TabsList>
-        </Tabs>
-      );
+      return reviewActions ? (
+        <div className="flex-1 flex items-center min-w-0 pl-2">
+          {reviewActions}
+        </div>
+      ) : null;
     }
 
     return null;

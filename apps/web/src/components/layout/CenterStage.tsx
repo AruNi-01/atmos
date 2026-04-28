@@ -57,6 +57,7 @@ import {
   getEditorSourcePath,
   isConflictResolveEditorPath,
   isDiffEditorPath,
+  EDITOR_REVIEW_DIFF_PREFIX,
 } from "@/hooks/use-editor-store";
 import { useShallow } from "zustand/react/shallow";
 import { useGitStore } from "@/hooks/use-git-store";
@@ -66,6 +67,7 @@ import {
   LoaderCircle,
   Star,
   Bot,
+  FileCheckCorner,
 } from "lucide-react";
 import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
@@ -165,7 +167,7 @@ type TabGroupItem = {
   id: string;
   label: string;
   value: string;
-  kind: "overview" | "wiki" | "terminal" | "project-wiki" | "code-review" | "file" | "diff" | "conflict";
+  kind: "overview" | "wiki" | "terminal" | "project-wiki" | "code-review" | "file" | "diff" | "review-diff" | "conflict";
   file?: OpenFile;
 };
 type TabGroupOrderByContext = Record<string, Record<string, string[]>>;
@@ -867,7 +869,9 @@ const CenterStage: React.FC = () => {
       ...visibleBuiltInAgents.map((agent) => {
         const custom = agentCustomSettings[agent.id];
         const cmd = custom?.cmd?.trim() || agent.cmd;
-        const flags = custom?.flags?.trim() || agent.yoloFlag || "";
+        const flags = custom?.flags?.trim() || agent.params || "";
+        const parts = [cmd];
+        if (flags) parts.push(flags);
         return {
           agent: {
             id: agent.id,
@@ -875,7 +879,7 @@ const CenterStage: React.FC = () => {
             command: cmd,
             iconType: "built-in",
           } satisfies TerminalPaneAgent,
-          command: flags ? `${cmd} ${flags}` : cmd,
+          command: parts.join(" "),
         };
       }),
       ...visibleCustomAgents.map((agent) => {
@@ -957,7 +961,7 @@ const CenterStage: React.FC = () => {
     if (builtIn) {
       const custom = agentCustomSettings[agentId];
       const cmd = custom?.cmd?.trim() || builtIn.cmd;
-      const flags = custom?.flags?.trim() || builtIn.yoloFlag || "";
+      const flags = custom?.flags?.trim() || builtIn.params || "";
       const command = flags ? `${cmd} ${flags}` : cmd;
       runWhenTerminalGridReady(targetTerminalTabId, (grid) => {
         void grid.createAndRunTerminal({
@@ -1068,7 +1072,7 @@ const CenterStage: React.FC = () => {
     }
 
     const diffTabsGroup = openFiles
-      .filter((file) => isDiffEditorPath(file.path))
+      .filter((file) => isDiffEditorPath(file.path) && !file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX))
       .map((file) => ({
         id: file.path,
         label: file.name,
@@ -1078,6 +1082,19 @@ const CenterStage: React.FC = () => {
       }));
     if (diffTabsGroup.length > 0) {
       groups.push({ key: "diff", label: "Diff", tabs: diffTabsGroup });
+    }
+
+    const reviewTabsGroup = openFiles
+      .filter((file) => file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX))
+      .map((file) => ({
+        id: file.path,
+        label: file.name,
+        value: file.path,
+        kind: "review-diff" as const,
+        file,
+      }));
+    if (reviewTabsGroup.length > 0) {
+      groups.push({ key: "review-diff", label: "Review", tabs: reviewTabsGroup });
     }
 
     const conflictTabsGroup = openFiles
@@ -1107,6 +1124,7 @@ const CenterStage: React.FC = () => {
     const textClassName = cn(
       "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
       tab.kind === "diff" && "text-emerald-500",
+      tab.kind === "review-diff" && "text-blue-400",
       tab.kind === "conflict" && "text-amber-500",
       tab.file?.isPreview && "italic",
     );
@@ -1165,7 +1183,9 @@ const CenterStage: React.FC = () => {
 
     return (
       <>
-        {tab.kind === "diff" ? (
+        {tab.kind === "review-diff" ? (
+          <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
+        ) : tab.kind === "diff" ? (
           <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
         ) : tab.kind === "conflict" ? (
           <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
@@ -1187,6 +1207,7 @@ const CenterStage: React.FC = () => {
       tab.kind === "code-review" ||
       tab.kind === "file" ||
       tab.kind === "diff" ||
+      tab.kind === "review-diff" ||
       tab.kind === "conflict"
     );
   }, []);
@@ -1703,6 +1724,7 @@ const CenterStage: React.FC = () => {
           {/* Open File Tabs */}
           {openFiles.map((file) => {
             const isDiff = isDiffEditorPath(file.path);
+            const isReviewDiff = file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX);
             const isConflictResolver = isConflictResolveEditorPath(file.path);
             const displayPath = getEditorSourcePath(file.path);
 
@@ -1723,7 +1745,9 @@ const CenterStage: React.FC = () => {
                       }
                     }}
                   >
-                    {isDiff ? (
+                    {isReviewDiff ? (
+                      <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
+                    ) : isDiff ? (
                       <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
                     ) : isConflictResolver ? (
                       <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
@@ -1733,7 +1757,8 @@ const CenterStage: React.FC = () => {
                     <span
                       className={cn(
                         "text-[13px] font-medium whitespace-nowrap",
-                        isDiff && "text-emerald-500",
+                        isReviewDiff && "text-blue-400",
+                        isDiff && !isReviewDiff && "text-emerald-500",
                         isConflictResolver && "text-amber-500",
                         file.isPreview && "italic"
                       )}
@@ -2016,6 +2041,7 @@ const CenterStage: React.FC = () => {
               <DiffViewer
                 repoPath={currentRepoPath}
                 filePath={getEditorSourcePath(file.path)}
+                originalPath={file.path}
               />
             ) : isConflictResolveEditorPath(file.path) ? (
               <GitConflictResolver />

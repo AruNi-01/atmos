@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useRef } from "react";
 import { Checkbox, getFileIconProps } from "@workspace/ui";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ interface FrozenFileListProps {
   currentFilePath: string;
   canEdit: boolean;
   onSelectFile: (snapshotGuid: string, filePath: string, label: string) => void;
+  onDoubleClickFile?: (snapshotGuid: string, filePath: string) => void;
   onToggleReviewed: (file: ReviewFileDto, checked: boolean) => void | Promise<void>;
   revisionLabel: string;
 }
@@ -25,9 +26,12 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
   currentFilePath,
   canEdit,
   onSelectFile,
+  onDoubleClickFile,
   onToggleReviewed,
   revisionLabel,
 }) => {
+  const clickTimers = useRef<Record<string, number>>({});
+
   if (!revision || revision.files.length === 0) {
     return (
       <p className="text-xs text-muted-foreground px-1">
@@ -51,11 +55,20 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
               isCurrent && "bg-sidebar-accent",
             )}
           >
-            <button
-              type="button"
-              onClick={() =>
-                onSelectFile(file.snapshot.guid, path, revisionLabel)
-              }
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectFile(file.snapshot.guid, path, revisionLabel);
+                  if (onDoubleClickFile) {
+                    const now = Date.now();
+                    const last = clickTimers.current[path] ?? 0;
+                    clickTimers.current[path] = now;
+                    if (now - last < 350) {
+                      delete clickTimers.current[path];
+                      onDoubleClickFile(file.snapshot.guid, path);
+                    }
+                  }
+                }}
               className="flex flex-1 items-center gap-2 min-w-0 text-left cursor-pointer"
               title={path}
             >

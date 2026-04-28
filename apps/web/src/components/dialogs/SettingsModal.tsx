@@ -204,7 +204,7 @@ function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
     if (!entry) continue;
 
     const cmd = entry.cmd !== agent.cmd ? entry.cmd : undefined;
-    const flags = entry.flags !== (agent.yoloFlag || '') ? entry.flags : undefined;
+    const flags = entry.flags !== (agent.params || '') ? entry.flags : undefined;
     const enabled = entry.enabled === false ? false : undefined;
     if (!cmd && !flags && enabled === undefined) continue;
 
@@ -223,9 +223,9 @@ function buildBuiltInEntries(
   return AGENT_OPTIONS.flatMap((agent) => {
     const draft = overrides[agent.id];
     const cmd = draft?.cmd ?? agent.cmd;
-    const flags = draft?.flags ?? (agent.yoloFlag || '');
+    const flags = draft?.flags ?? (agent.params || '');
     const enabled = draft?.enabled ?? true;
-    const changed = cmd !== agent.cmd || flags !== (agent.yoloFlag || '') || enabled !== true;
+    const changed = cmd !== agent.cmd || flags !== (agent.params || '') || enabled !== true;
 
     if (!changed) return [];
 
@@ -1015,8 +1015,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (
       (nextBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
         AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
-      (nextBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')) ===
-        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')
+      (nextBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')
     ) {
       delete nextBuiltInSettings[agentId];
     }
@@ -1060,8 +1060,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (
       (nextSavedBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
         AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
-      (nextSavedBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')) ===
-        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '') &&
+      (nextSavedBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '') &&
       (nextSavedBuiltInSettings[agentId]?.enabled ?? true) === true
     ) {
       delete nextSavedBuiltInSettings[agentId];
@@ -1810,11 +1810,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               const savedAgent = savedAgentCustomSettings[agent.id];
                               const isDirty =
                                 (savedAgent?.cmd ?? agent.cmd) !== (custom?.cmd ?? agent.cmd) ||
-                                (savedAgent?.flags ?? (agent.yoloFlag || '')) !== (custom?.flags ?? (agent.yoloFlag || ''));
+                                (savedAgent?.flags ?? (agent.params || '')) !== (custom?.flags ?? (agent.params || ''));
                               const isSaving = !!savingBuiltInAgentIds[agent.id];
                               const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
                               const enabled = custom?.enabled ?? true;
-                              const summary = [custom?.cmd ?? agent.cmd, custom?.flags ?? (agent.yoloFlag || '')]
+                              const summary = [custom?.cmd ?? agent.cmd, custom?.flags ?? (agent.params || '')]
                                 .filter(Boolean)
                                 .join(' ');
 
@@ -1876,8 +1876,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       <div>
                                         <label className="mb-1 block text-xs text-muted-foreground">Parameters</label>
                                         <Input
-                                          value={custom?.flags ?? (agent.yoloFlag || '')}
-                                          placeholder={agent.yoloFlag || 'No default parameters'}
+                                          value={custom?.flags ?? (agent.params || '')}
+                                          placeholder={agent.params || 'No default parameters'}
                                           onChange={(e) => handleAgentSettingChange(agent.id, 'flags', e.target.value)}
                                           className="h-9 text-sm font-mono"
                                         />

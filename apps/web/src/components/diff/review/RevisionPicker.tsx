@@ -51,7 +51,7 @@ export const RevisionPicker: React.FC<RevisionPickerProps> = ({
               onClick={() => onSelect(rev.guid)}
               className="flex items-center gap-2 text-xs"
             >
-              <span className="flex-1">v{idx + 1}</span>
+              <span className="flex-1">{rev.title || `v${idx + 1}`}</span>
               {isActive && <Check className="size-3.5 text-foreground" />}
             </DropdownMenuItem>
           );

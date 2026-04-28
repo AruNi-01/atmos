@@ -1411,6 +1411,13 @@ export const reviewWsApi = {
     });
   },
 
+  renameSession: async (sessionGuid: string, title: string): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("review_session_rename", {
+      session_guid: sessionGuid,
+      title,
+    });
+  },
+
   listFilesByRevision: async (revisionGuid: string): Promise<ReviewFileDto[]> => {
     return wsRequest<ReviewFileDto[]>("review_file_list", {
       revision_guid: revisionGuid,

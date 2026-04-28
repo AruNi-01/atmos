@@ -96,6 +96,7 @@ export type WsAction =
   | "review_session_create"
   | "review_session_close"
   | "review_session_archive"
+  | "review_session_rename"
   | "review_file_list"
   | "review_file_content_get"
   | "review_file_set_reviewed"

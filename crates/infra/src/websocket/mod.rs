@@ -44,6 +44,7 @@ pub use message::{
     ReviewFixRunListRequest,
     ReviewMessageAddRequest, ReviewSessionArchiveRequest, ReviewSessionCloseRequest,
     ReviewSessionCreateRequest, ReviewSessionGetRequest, ReviewSessionListRequest,
+    ReviewSessionRenameRequest,
     ReviewThreadCreateRequest, ReviewThreadListRequest, ReviewThreadUpdateStatusRequest,
     ScriptGetRequest, ScriptSaveRequest, SkillFile, SkillInfo, SkillPlacement, SkillsDeleteRequest,
     SkillsGetRequest, SkillsListResponse, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,

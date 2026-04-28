@@ -145,7 +145,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
 
   const handleRunUpdate = useCallback(async () => {
     const prompt = buildUpdatePrompt(catalogCommit, currentCommit);
-    const command = buildCommand(agentId, prompt, true);
+    const command = buildCommand(agentId, prompt);
 
     setIsRunning(true);
     try {

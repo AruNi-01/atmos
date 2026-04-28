@@ -17,18 +17,27 @@ export function formatDate(value: string | null | undefined) {
 
 export function statusTone(status: string) {
   switch (status) {
-    case "fixed":
-    case "closed":
-      return "text-emerald-600 bg-emerald-500/10 border-emerald-500/20";
-    case "needs_user_check":
+    case "open":
+      return "text-blue-600 bg-blue-500/10 border-blue-500/20";
+    case "agent_fixed":
       return "text-amber-600 bg-amber-500/10 border-amber-500/20";
+    case "fixed":
+      return "text-emerald-600 bg-emerald-500/10 border-emerald-500/20";
     case "dismissed":
-    case "archived":
       return "text-muted-foreground bg-muted border-border";
-    case "in_progress":
-    case "running":
-    case "finalizing":
-      return "text-sky-600 bg-sky-500/10 border-sky-500/20";
+    default:
+      return "text-foreground bg-muted/50 border-border";
+  }
+}
+
+export function sessionStatusTone(status: string) {
+  switch (status) {
+    case "active":
+      return "text-emerald-600 bg-emerald-500/10 border-emerald-500/20";
+    case "closed":
+      return "text-muted-foreground bg-muted border-border";
+    case "archived":
+      return "text-amber-600 bg-amber-500/10 border-amber-500/20";
     default:
       return "text-foreground bg-muted/50 border-border";
   }
@@ -58,16 +67,14 @@ export function sortThreads(
     switch (status) {
       case "open":
         return 0;
-      case "needs_user_check":
+      case "agent_fixed":
         return 1;
-      case "in_progress":
-        return 2;
       case "fixed":
-        return 3;
+        return 2;
       case "dismissed":
-        return 4;
+        return 3;
       default:
-        return 5;
+        return 4;
     }
   };
 

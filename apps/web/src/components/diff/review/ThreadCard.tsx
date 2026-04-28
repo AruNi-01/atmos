@@ -7,6 +7,13 @@ import { MessageBubble } from "./MessageBubble";
 import { formatDate, statusTone, threadTitle } from "./utils";
 import type { ReviewThreadDto } from "@/api/ws-api";
 
+const STATUS_LABELS: Record<string, string> = {
+  open: "Open",
+  agent_fixed: "Agent Fixed",
+  fixed: "Fixed",
+  dismissed: "Dismissed",
+};
+
 interface ThreadCardProps {
   thread: ReviewThreadDto;
   filePath: string;
@@ -33,11 +40,11 @@ export const ThreadCard: React.FC<ThreadCardProps> = ({
         </div>
         <span
           className={cn(
-            "rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize",
+            "rounded-full border px-2 py-0.5 text-[11px] font-medium",
             statusTone(thread.status),
           )}
         >
-          {thread.status.replaceAll("_", " ")}
+          {STATUS_LABELS[thread.status] ?? thread.status.replaceAll("_", " ")}
         </span>
       </div>
 
@@ -48,30 +55,81 @@ export const ThreadCard: React.FC<ThreadCardProps> = ({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!canEdit}
-          onClick={() => onUpdateStatus(thread.guid, "needs_user_check")}
-        >
-          Needs Check
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!canEdit}
-          onClick={() => onUpdateStatus(thread.guid, "fixed")}
-        >
-          Mark Fixed
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!canEdit}
-          onClick={() => onUpdateStatus(thread.guid, "dismissed")}
-        >
-          Dismiss
-        </Button>
+        {thread.status === "open" && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-emerald-500/40! bg-emerald-500/10! text-emerald-600 hover:bg-emerald-500/20 hover:text-emerald-700"
+              disabled={!canEdit}
+              onClick={() => onUpdateStatus(thread.guid, "fixed")}
+            >
+              Mark Fixed
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-muted-foreground/30! bg-muted! text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              disabled={!canEdit}
+              onClick={() => onUpdateStatus(thread.guid, "dismissed")}
+            >
+              Dismiss
+            </Button>
+          </>
+        )}
+        {thread.status === "agent_fixed" && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-emerald-500/40! bg-emerald-500/10! text-emerald-600 hover:bg-emerald-500/20 hover:text-emerald-700"
+              disabled={!canEdit}
+              onClick={() => onUpdateStatus(thread.guid, "fixed")}
+            >
+              Mark Fixed
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-blue-500/40! bg-blue-500/10! text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
+              disabled={!canEdit}
+              onClick={() => onUpdateStatus(thread.guid, "open")}
+            >
+              Reopen
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-muted-foreground/30! bg-muted! text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              disabled={!canEdit}
+              onClick={() => onUpdateStatus(thread.guid, "dismissed")}
+            >
+              Dismiss
+            </Button>
+          </>
+        )}
+        {thread.status === "fixed" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-blue-500/40! bg-blue-500/10! text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
+            disabled={!canEdit}
+            onClick={() => onUpdateStatus(thread.guid, "open")}
+          >
+            Reopen
+          </Button>
+        )}
+        {thread.status === "dismissed" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-blue-500/40! bg-blue-500/10! text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
+            disabled={!canEdit}
+            onClick={() => onUpdateStatus(thread.guid, "open")}
+          >
+            Reopen
+          </Button>
+        )}
       </div>
     </div>
   );
